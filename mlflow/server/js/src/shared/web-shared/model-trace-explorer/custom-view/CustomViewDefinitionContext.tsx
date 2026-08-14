@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { validateTemplate } from './agent/validateA2uiMessages';
-import type { CustomView } from './customViewDefinition';
+import { type CustomView, MAX_CUSTOM_VIEWS_PER_EXPERIMENT } from './customViewDefinition';
 
 export type CustomViewDefinitionContextValue = {
   // Every view available for this experiment (persisted views + in-memory
@@ -20,6 +20,9 @@ export type CustomViewDefinitionContextValue = {
   draftName: string;
   // Whether the persisted views have finished loading.
   isLoaded: boolean;
+  // Whether the experiment already holds the maximum number of saved views. This disables new
+  // view creation while keeping edit, rename, and delete available for existing views.
+  hasReachedViewLimit: boolean;
   // Whether the user can write custom views to experiment tags (persist callbacks
   // wired AND the host reports experiment edit permission). False for read-only
   // users and the session-local fallback outside the experiment provider.
@@ -196,6 +199,8 @@ export const useCustomViewDefinitionState = (
     return persisted ? !isViewRenderable(persisted) : false;
   }, [activeViewId, persistedViews]);
 
+  const hasReachedViewLimit = persistedViews.length >= MAX_CUSTOM_VIEWS_PER_EXPERIMENT;
+
   const draftViewIds = useMemo(() => {
     const ids = new Set<string>();
     for (const view of views) {
@@ -219,7 +224,7 @@ export const useCustomViewDefinitionState = (
 
   const startNewView = useCallback(
     (name: string) => {
-      if (!canPersist) {
+      if (!canPersist || hasReachedViewLimit) {
         return;
       }
       setSaveError(undefined);
@@ -227,7 +232,7 @@ export const useCustomViewDefinitionState = (
       setIsDraft(true);
       setActiveViewId(undefined);
     },
-    [canPersist],
+    [canPersist, hasReachedViewLimit],
   );
 
   const upsertViewContent = useCallback(
@@ -382,6 +387,7 @@ export const useCustomViewDefinitionState = (
     isDraft,
     draftName,
     isLoaded,
+    hasReachedViewLimit,
     canPersist,
     canDelete,
     isSaving,

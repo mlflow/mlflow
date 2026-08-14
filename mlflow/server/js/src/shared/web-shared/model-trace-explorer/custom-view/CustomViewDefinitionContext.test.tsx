@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 
 import * as validateModule from './agent/validateA2uiMessages';
 import { useCustomViewDefinitionState } from './CustomViewDefinitionContext';
-import type { CustomView } from './customViewDefinition';
+import { type CustomView, MAX_CUSTOM_VIEWS_PER_EXPERIMENT } from './customViewDefinition';
 
 const makeView = (id: string, overrides: Partial<CustomView> = {}): CustomView => ({
   id,
@@ -660,6 +660,68 @@ describe('useCustomViewDefinitionState', () => {
     act(() => result.current.selectView('a'));
     expect(result.current.isDirty).toBe(false);
     expect(result.current.isActivePersisted).toBe(true);
+  });
+
+  describe('per-experiment view limit', () => {
+    const MAX_VIEWS: CustomView[] = Array.from({ length: MAX_CUSTOM_VIEWS_PER_EXPERIMENT }, (_unused, index) =>
+      makeView(`view-${index}`),
+    );
+
+    it('reports the limit only after persisted views reach the cap', () => {
+      const belowLimit = MAX_VIEWS.slice(0, MAX_CUSTOM_VIEWS_PER_EXPERIMENT - 1);
+      const below = renderHook(() => useCustomViewDefinitionState(belowLimit, true, noopPersistView, true));
+      expect(below.result.current.hasReachedViewLimit).toBe(false);
+
+      const atLimit = renderHook(() => useCustomViewDefinitionState(MAX_VIEWS, true, noopPersistView, true));
+      expect(atLimit.result.current.hasReachedViewLimit).toBe(true);
+    });
+
+    it('does not count an unsaved draft as a persisted view', () => {
+      const belowLimit = MAX_VIEWS.slice(0, MAX_CUSTOM_VIEWS_PER_EXPERIMENT - 1);
+      const { result } = renderHook(() => useCustomViewDefinitionState(belowLimit, true, noopPersistView, true));
+
+      act(() => result.current.upsertViewContent(makeView('unsaved')));
+
+      expect(result.current.views).toHaveLength(MAX_CUSTOM_VIEWS_PER_EXPERIMENT);
+      expect(result.current.hasReachedViewLimit).toBe(false);
+    });
+
+    it('blocks starting a new draft at the limit', () => {
+      const { result } = renderHook(() => useCustomViewDefinitionState(MAX_VIEWS, true, noopPersistView, true));
+
+      act(() => result.current.startNewView('Blocked draft'));
+
+      expect(result.current.isDraft).toBe(false);
+      expect(result.current.draftName).toBe('');
+    });
+
+    it('still allows saving an existing view at the limit', async () => {
+      const onPersistView = jest.fn<(view: CustomView) => Promise<void>>().mockResolvedValue(undefined);
+      const { result } = renderHook(() => useCustomViewDefinitionState(MAX_VIEWS, true, onPersistView, true));
+
+      act(() => result.current.selectView('view-0'));
+      act(() => result.current.upsertViewContent(makeView('view-0', { label: 'edited' })));
+      await act(async () => {
+        await result.current.saveActiveView();
+      });
+
+      expect(onPersistView).toHaveBeenCalledWith(expect.objectContaining({ id: 'view-0', label: 'edited' }));
+    });
+
+    it('frees a slot after deleting a persisted view', async () => {
+      const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+      const { result } = renderHook(() =>
+        useCustomViewDefinitionState(MAX_VIEWS, true, noopPersistView, true, onDeleteView),
+      );
+
+      await act(async () => {
+        await result.current.deleteView('view-0');
+      });
+
+      expect(result.current.hasReachedViewLimit).toBe(false);
+      act(() => result.current.startNewView('Now allowed'));
+      expect(result.current.isDraft).toBe(true);
+    });
   });
 
   it('does not clobber local edits when a later refetch arrives', () => {

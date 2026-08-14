@@ -3,7 +3,8 @@ import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@databricks/web-shared/query-client';
 import {
   type CustomView,
-  CUSTOM_VIEW_PREFIX,
+  CUSTOM_VIEW_PREFIX_V1,
+  CUSTOM_VIEW_TAG_PREFIX,
   CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES,
   getUtf8ByteLength,
   parseCustomView,
@@ -102,9 +103,12 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
     queryFn: async (): Promise<CustomView[]> => {
       const response = await MlflowService.getExperiment({ experiment_id: experimentId });
       const tags: ExperimentTag[] = response?.experiment?.tags ?? [];
-      const viewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_PREFIX) && tag.value !== '');
+      const customViewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_TAG_PREFIX));
+      // v1 is the only format today. When another version is introduced, dispatch each tag to its
+      // version-specific parser while preserving one view (or unreadable placeholder) per tag so
+      // views.length remains the version-agnostic quota count.
       const parsed = await Promise.all(
-        viewTags.map((tag) => deserializeView(tag.key.slice(CUSTOM_VIEW_PREFIX.length), tag.value)),
+        customViewTags.map((tag) => deserializeView(tag.key.slice(CUSTOM_VIEW_PREFIX_V1.length), tag.value)),
       );
       return parsed.sort((a, b) => a.createdAtMs - b.createdAtMs);
     },

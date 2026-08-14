@@ -132,7 +132,12 @@ describe('ExperimentCustomViewProvider', () => {
   it('passes loaded views, mutation callbacks, and permission through to the definition provider', () => {
     const persistView = jest.fn<(view: CustomView) => Promise<void>>().mockResolvedValue(undefined);
     const deleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
-    mockUseExperimentCustomViewDefinition.mockReturnValue({ views: [], isLoaded: true, persistView, deleteView });
+    mockUseExperimentCustomViewDefinition.mockReturnValue({
+      views: [],
+      isLoaded: true,
+      persistView,
+      deleteView,
+    });
     makeAssistant();
     mockCanEdit = { canEdit: false, isLoading: false };
     renderProvider();

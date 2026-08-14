@@ -290,12 +290,22 @@ statsmodels:
   models:
     minimum: "0.14.3"
     maximum: "0.14.6"
+    requirements:
+      # scipy 1.16.0 removed the private `scipy._lib._util._lazywhere` that
+      # statsmodels imports at module scope until 0.14.5.
+      "< 0.14.5": ["scipy<1.16"]
+      # pandas 3 changed `pandas.util._decorators.deprecate_kwarg`, which
+      # statsmodels calls at import time until 0.14.6.
+      "< 0.14.6": ["pandas<3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
     minimum: "0.14.3"
     maximum: "0.14.6"
+    requirements:
+      "< 0.14.5": ["scipy<1.16"]
+      "< 0.14.6": ["pandas<3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
 

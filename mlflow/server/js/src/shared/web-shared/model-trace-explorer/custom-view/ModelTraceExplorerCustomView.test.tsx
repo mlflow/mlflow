@@ -13,7 +13,7 @@ import type { RenderCustomViewSpec } from './assistant/customViewSpecApplier';
 import { useCustomViewAssistantBridge, type CustomViewAssistantBridge } from './assistant/useCustomViewAssistantBridge';
 import { CustomViewDefinitionProvider, useOptionalCustomViewDefinition } from './CustomViewDefinitionContext';
 import { latchDispatchedCustomViewApplyTarget } from './assistant/customViewAuthoringContext';
-import { toCustomViewApplyTarget, type CustomView } from './customViewDefinition';
+import { MAX_CUSTOM_VIEWS_PER_EXPERIMENT, toCustomViewApplyTarget, type CustomView } from './customViewDefinition';
 import type { CreateAssessmentPayload } from '../api';
 import { shouldUseTracesV4API } from '../FeatureUtils';
 import { ModelSpanType, type ModelTrace, type ModelTraceSpanNode } from '../ModelTrace.types';
@@ -1037,6 +1037,36 @@ describe('ModelTraceExplorerCustomView', () => {
     expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeInTheDocument();
     // The switcher shows the unsaved-view fallback label.
     expect(screen.getByRole('button', { name: /Untitled custom view/ })).toBeInTheDocument();
+  });
+
+  it('disables Create view at the per-experiment view limit', async () => {
+    setBridge();
+    const maxViews = Array.from({ length: MAX_CUSTOM_VIEWS_PER_EXPERIMENT }, (_unused, index) =>
+      makeView(`limit-${index}`),
+    );
+    renderWithPersistProvider(true, maxViews);
+
+    await userEvent.click(screen.getByRole('button', { name: /Select a custom view/ }));
+    const createItem = screen.getByRole('menuitem', { name: /Create view/ });
+    expect(createItem).toHaveAttribute('aria-disabled', 'true');
+    expect(createItem.querySelector('[data-disabled-tooltip]')).toBeInTheDocument();
+
+    // Dispatch directly because userEvent intentionally refuses pointer events on disabled items.
+    // The handler guard must also keep the authoring UI closed.
+    fireEvent.click(createItem);
+    expect(screen.queryByRole('button', { name: /Build with Assistant/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps Create view enabled one view below the limit', async () => {
+    setBridge();
+    const belowLimit = Array.from({ length: MAX_CUSTOM_VIEWS_PER_EXPERIMENT - 1 }, (_unused, index) =>
+      makeView(`limit-${index}`),
+    );
+    renderWithPersistProvider(true, belowLimit);
+
+    await userEvent.click(screen.getByRole('button', { name: /Select a custom view/ }));
+
+    expect(screen.getByRole('menuitem', { name: /Create view/ })).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('prompts for a name on the first save of a newly built view and persists with it', async () => {
