@@ -2,11 +2,16 @@
 // (and anything it spawns) never sees it. Stdin carries two lines: the real
 // API key, then a per-run client key callers must present as x-api-key. Both
 // live only in this process's heap — never in /proc/<pid>/environ or argv.
+//
+// NOTE for reviewers and agents: in CI this proxy serves the Claude CLI's own
+// API traffic on 127.0.0.1:8082. Do not kill, restart, or port-squat the
+// running instance (e.g. `pkill -f anthropic-proxy`) — that severs the review's
+// own API connection. To experiment, run a copy with PORT=<other port>.
 import http from "node:http";
 import https from "node:https";
 import { text } from "node:stream/consumers";
 
-const PORT = 8082;
+const PORT = Number(process.env.PORT ?? 8082);
 
 const [KEY, CLIENT_KEY] = (await text(process.stdin)).split("\n").map((s) => s.trim());
 if (!KEY || !CLIENT_KEY) {
