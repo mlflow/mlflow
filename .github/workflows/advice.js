@@ -203,8 +203,10 @@ ${activitySection}
           "#### &#x1F5BC;&#xFE0F; Missing screenshot\n\n" +
             "This PR changes front-end code, but the description doesn't show what the change " +
             "looks like. Please attach a screenshot or screen recording of the UI change so " +
-            "reviewers can see it without checking out the branch. If the change isn't visible " +
-            "in the UI, feel free to ignore this."
+            "reviewers can see it without checking out the branch.\n\n" +
+            "This check only runs when the PR is opened and doesn't re-run afterwards, so please " +
+            "ignore this if it's a false alert (e.g. you've since attached media, or the change " +
+            "isn't visible in the UI)."
         );
       }
     } catch (e) {
