@@ -51,6 +51,7 @@ from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
+    MLFLOW_BASIC_AUTH_FAIL_CLOSED,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
@@ -3066,6 +3067,103 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
     return None
 
 
+# Fail-closed net (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED).
+_PUBLIC_ROUTE_SUFFIXES = (
+    "/mlflow/server-info",  # capability discovery; no tenant data
+)
+
+# Routes that self-authorize (e.g. filter results by the caller) rather than via a
+# before-request validator.
+_HANDLER_INTERNAL_AUTHZ_SUFFIXES = (
+    "/mlflow/runs/search",
+    "/graphql",
+)
+
+# Ungated route families, temporarily exempt from fail-closed until each is gated
+# (removed one at a time; when empty the flag can be flipped on).
+_KNOWN_UNGATED_ROUTE_MARKERS = (
+    "/mlflow/datasets/",
+    "/mlflow/issues",
+    "/mlflow/jobs/",
+    "/gateway/budgets/",
+    "/gateway/guardrails/",
+    "/gateway/provider-config",
+    "/gateway/secrets/",
+    "/gateway/supported-providers",
+    "/gateway/supported-models",
+    "/gateway/endpoints/list",
+    "/gateway/model-definitions/list",
+    "/mlflow/artifacts/presigned-upload-url",
+    "/mlflow/demo/",
+    "/mlflow/genai/evaluate/invoke",
+    "/api/2.0/mlflow/metrics/get-history-bulk-interval",
+)
+
+# Native FastAPI routes (served by the FastAPI permission middleware, not _before_request)
+# that lack an authorization validator. Empty today — a coverage test asserts every native
+# route resolves a validator. Runtime fail-closed enforcement for FastAPI is a follow-up.
+_KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS = ()
+
+
+def _is_known_ungated_route(path: str) -> bool:
+    # Anchor markers to a segment boundary: "/mlflow/issues" matches "/mlflow/issues"
+    # and "/mlflow/issues/..." but not "/mlflow/issues-other".
+    for marker in _KNOWN_UNGATED_ROUTE_MARKERS:
+        if marker.endswith("/"):
+            if marker in path:
+                return True
+            continue
+        start = 0
+        while (idx := path.find(marker, start)) != -1:
+            end = idx + len(marker)
+            if end == len(path) or path[end] == "/":
+                return True
+            start = idx + 1
+    return False
+
+
+_API_VERSION_PREFIX_RE = re.compile(r"/(?:ajax-)?api/\d+\.\d+")
+
+
+def _matches_route_suffix(path: str, suffixes: tuple[str, ...]) -> bool:
+    # Match a suffix only as a whole path (e.g. /graphql) or directly under an API
+    # version prefix — never as an incidental tail of an unrelated route.
+    for suffix in suffixes:
+        if path == suffix:
+            return True
+        if path.endswith(suffix) and _API_VERSION_PREFIX_RE.fullmatch(path[: -len(suffix)]):
+            return True
+    return False
+
+
+def _strip_static_prefix(path: str) -> str:
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if static_prefix and path.startswith(static_prefix):
+        return path[len(static_prefix) :]
+    return path
+
+
+def _authorized_outside_before_request(req) -> bool:
+    # Authorized outside a before-request validator: public allowlist, a
+    # self-authorizing handler, or an after-request filter.
+    path = req.path
+    method = req.method
+    # Suffix matching anchors on the API version prefix, so strip any configured
+    # static prefix first (mirroring _find_fastapi_validator); otherwise public/internal
+    # routes would wrongly fail closed under --static-prefix.
+    unprefixed = _strip_static_prefix(path)
+    if _matches_route_suffix(unprefixed, _PUBLIC_ROUTE_SUFFIXES):
+        return True
+    if _matches_route_suffix(unprefixed, _HANDLER_INTERNAL_AUTHZ_SUFFIXES):
+        return True
+    if (path, method) in AFTER_REQUEST_HANDLERS:
+        return True
+    return any(
+        pat.fullmatch(path) and m == method
+        for (pat, m) in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS
+    )
+
+
 @catch_mlflow_exception
 def _before_request():
     if is_unprotected_route(request.path):
@@ -3097,9 +3195,20 @@ def _before_request():
         if not validator():
             return make_forbidden_response()
     elif _is_proxy_artifact_path(request.path):
-        if validator := _get_proxy_artifact_validator(request.method, request.view_args):
-            if not validator():
+        proxy_validator = _get_proxy_artifact_validator(request.method, request.view_args)
+        if proxy_validator is None:
+            # Unrecognized method on a proxy-artifact URL: fail closed when the flag is on.
+            if MLFLOW_BASIC_AUTH_FAIL_CLOSED.get():
                 return make_forbidden_response()
+        elif not proxy_validator():
+            return make_forbidden_response()
+    elif (
+        MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
+        and not _authorized_outside_before_request(request)
+        and not _is_known_ungated_route(request.path)
+    ):
+        # No authorization decision resolved for this route: deny (fail-closed).
+        return make_forbidden_response()
 
 
 def set_can_manage_experiment_permission(resp: Response):
