@@ -268,9 +268,12 @@ def evaluate(
             scorers, but you can also define custom ones.
 
             A scorer can be scoped to a subset of rows with ``scorer.where(filter_string)``,
-            where ``filter_string`` is a ``search_traces``-style filter over the row's tags
+            where ``filter_string`` filters on the row's **tags** only, using MLflow's
+            ``search_traces`` filter grammar restricted to tag clauses
             (e.g. ``"tags.`category` = 'billing'"``). A scoped scorer runs only on rows whose
-            tags match; an unscoped scorer runs on every row.
+            tags match; an unscoped scorer runs on every row. The filter matches tags known
+            before scoring (the dataset ``tags`` column or tags already on input traces), not
+            tags added at runtime inside a ``predict_fn``.
 
             .. code-block:: python
 

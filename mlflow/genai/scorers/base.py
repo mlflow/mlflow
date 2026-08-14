@@ -33,6 +33,7 @@ from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_databricks_uri
+from mlflow.utils.search_utils import SearchTraceUtils
 
 _logger = logging.getLogger(__name__)
 
@@ -287,6 +288,32 @@ def _record_scorer_call_with_context(func):
     return wrapper
 
 
+def _parse_tag_filter(filter_string: str) -> list[dict[str, Any]]:
+    """Parse a :meth:`Scorer.where` filter and require every clause to reference a tag.
+
+    Uses the raw search parser, not the ``search_traces`` variant: the latter rewrites reserved
+    keys (e.g. ``tags.`name``` becomes the trace-name tag, ``tags.`timestamp``` becomes
+    ``timestamp_ms``), which would silently change which tag a filter matches. Only tag clauses
+    are supported, since an evaluation row carries only tags; a clause on anything else
+    (``trace.status``, a bare ``name``, ``metadata.*``) raises. Returns the parsed clauses so
+    callers can match them without re-parsing.
+    """
+    try:
+        parsed = SearchTraceUtils.parse_search_filter(filter_string)
+    except MlflowException as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid filter string {filter_string!r} passed to `where()`: {e.message}"
+        ) from e
+    for clause in parsed:
+        if clause.get("type") != SearchTraceUtils._TAG_IDENTIFIER:
+            raise MlflowException.invalid_parameter_value(
+                "Scorer filters set with `where()` may only reference tags, e.g. "
+                "\"tags.`category` = 'billing'\". "
+                f"Got a filter on '{clause.get('key')}'."
+            )
+    return parsed
+
+
 class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
@@ -301,10 +328,11 @@ class Scorer(BaseModel):
     # testing concern and is intentionally not serialized. ``None`` falls back to
     # the default rule (yes/no or bool).
     _pass_if: Callable[[Any], bool] | None = PrivateAttr(default=None)
-    # Row filter set via ``.where()``. When set, this scorer only runs on
-    # ``mlflow.genai.evaluate`` rows whose tags match this ``search_traces``-style filter
-    # string. In-process only: it is an offline evaluation concern, is intentionally not
-    # serialized, and is unrelated to the monitoring ``_sampling_config.filter_string``.
+    # Tag filter set via ``.where()``. When set, this scorer only runs on
+    # ``mlflow.genai.evaluate`` rows whose tags match this filter (tag clauses only, e.g.
+    # ``tags.`category` = 'billing'``). In-process only: it is an offline evaluation concern,
+    # is intentionally not serialized, and is unrelated to the monitoring
+    # ``_sampling_config.filter_string``.
     _row_filter: str | None = PrivateAttr(default=None)
 
     def __init_subclass__(cls, **kwargs):
@@ -355,11 +383,13 @@ class Scorer(BaseModel):
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
 
+    @experimental(version="3.16.0")
     @property
     def row_filter(self) -> str | None:
         """Tag filter set via :meth:`where`; ``None`` means the scorer runs on every row."""
         return self._row_filter
 
+    @experimental(version="3.16.0")
     def where(self, filter_string: str) -> "Scorer":
         """Scope this scorer to evaluation rows whose tags match ``filter_string``.
 
@@ -368,9 +398,16 @@ class Scorer(BaseModel):
         filter runs on every row as usual.
 
         Args:
-            filter_string: An MLflow ``search_traces``-style filter over the row's tags, e.g.
-                ``"tags.`category` = 'billing'"``. Only tag clauses are supported; ``AND``,
-                ``!=`` and ``IS [NOT] NULL`` work as in ``search_traces``.
+            filter_string: A filter over the row's **tags** only, using MLflow's ``search_traces``
+                filter grammar restricted to tag clauses, e.g. ``"tags.`category` = 'billing'"``.
+                ``AND``, ``=``, ``!=`` and ``IS [NOT] NULL`` are supported. A clause on anything
+                other than a tag (e.g. ``trace.status``, a bare ``name``, or ``metadata.*``)
+                raises, since an evaluation row carries only tags.
+
+        .. note::
+            The filter matches on tags known before scoring: the dataset ``tags`` column, or
+            tags already present on input traces. Tags added at runtime inside a ``predict_fn``
+            (e.g. via ``mlflow.update_current_trace(tags=...)``) are not visible to the filter.
 
         Example:
             .. code-block:: python
@@ -395,6 +432,9 @@ class Scorer(BaseModel):
                 f"Scorer '{self.name}' is a session-level scorer and cannot be scoped with "
                 f"`where()`. Row-tag filters apply to per-row (single-turn) scorers only."
             )
+        # Fail fast: reject an invalid or non-tag filter here, at construction, rather than
+        # per row deep inside the evaluation harness.
+        _parse_tag_filter(filter_string)
         new_scorer = self.model_copy()
         new_scorer._row_filter = filter_string
         return new_scorer
@@ -1720,6 +1760,16 @@ def make_scorer_ensemble(
     if not scorers:
         raise MlflowException.invalid_parameter_value(
             "make_scorer_ensemble requires at least one sub-scorer."
+        )
+
+    # An ensemble runs all its sub-scorers and reduces them to one Feedback, and row filtering
+    # only reads ``row_filter`` on the top-level scorer -- a sub-scorer's ``where()`` would be
+    # silently ignored. Reject it here and point the user at scoping the ensemble instead.
+    if scoped := [s.name for s in scorers if s.row_filter is not None]:
+        raise MlflowException.invalid_parameter_value(
+            f"Sub-scorers passed to make_scorer_ensemble must not be scoped with `where()` "
+            f"(got scoped sub-scorer(s): {scoped}). Scope the ensemble itself instead, e.g. "
+            f"`make_scorer_ensemble(...).where(\"tags.`k` = 'v'\")`."
         )
 
     levels = {s.is_session_level_scorer for s in scorers}
