@@ -1,6 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { rest } from 'msw';
 import React from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -13,7 +14,9 @@ import { useCustomViewAssistantBridge, type CustomViewAssistantBridge } from './
 import { CustomViewDefinitionProvider, useOptionalCustomViewDefinition } from './CustomViewDefinitionContext';
 import { latchDispatchedCustomViewApplyTarget } from './assistant/customViewAuthoringContext';
 import { toCustomViewApplyTarget, type CustomView } from './customViewDefinition';
+import type { CreateAssessmentPayload } from '../api';
 import type { ModelTrace } from '../ModelTrace.types';
+import { setupServer } from '../../test-utils/setup-msw';
 
 // Mock the assistant bridge so the tests drive the component purely off its
 // return value (availability / openAssistant / applyError), without the
@@ -21,6 +24,20 @@ import type { ModelTrace } from '../ModelTrace.types';
 jest.mock('./assistant/useCustomViewAssistantBridge', () => ({
   useCustomViewAssistantBridge: jest.fn(),
 }));
+
+jest.mock('../FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../FeatureUtils')>('../FeatureUtils'),
+  shouldUseTracesV4API: jest.fn(() => false),
+  doesTraceSupportV4API: jest.fn(() => false),
+  shouldEnableAssessmentsInSessions: jest.fn(() => false),
+}));
+
+jest.mock('../../global-settings/getUser', () => ({
+  ...jest.requireActual<typeof import('../../global-settings/getUser')>('../../global-settings/getUser'),
+  getUser: jest.fn(() => 'test-user@example.com'),
+}));
+
+const { server } = setupServer();
 
 const mockUseCustomViewAssistantBridge = jest.mocked(useCustomViewAssistantBridge);
 
@@ -226,6 +243,93 @@ const legacyDataTableView = makeView('legacy-table', {
             columns: [{ label: 'Tool' }],
             rows: { $source: 'toolRows' },
           },
+        ],
+      },
+    },
+  ],
+});
+
+const feedbackPrimitivesView = makeView('feedback-primitives', {
+  template: [
+    {
+      version: 'v0.9',
+      updateComponents: {
+        surfaceId: 'main',
+        components: [
+          {
+            id: 'root',
+            component: 'Column',
+            children: ['thumbs', 'rating', 'rationale', 'note', 'submit'],
+          },
+          {
+            id: 'thumbs',
+            component: 'FeedbackThumbsUpDownButtons',
+            label: 'Was this helpful?',
+            name: 'Helpfulness',
+            spanId: 'span-1',
+          },
+          {
+            id: 'rating',
+            component: 'RadioGroup',
+            label: 'Accuracy',
+            name: 'Accuracy',
+            formId: 'review',
+            options: [
+              { label: 'Accurate', value: 'accurate' },
+              { label: 'Inaccurate', value: 'inaccurate' },
+            ],
+          },
+          {
+            id: 'rationale',
+            component: 'FeedbackInputText',
+            label: 'Accuracy rationale',
+            name: 'Accuracy',
+            formId: 'review',
+          },
+          {
+            id: 'note',
+            component: 'FeedbackInputText',
+            label: 'Additional note',
+            name: 'Notes',
+            field: 'value',
+            formId: 'review',
+          },
+          { id: 'submit', component: 'FeedbackSubmit', label: 'Submit review', formId: 'review' },
+        ],
+      },
+    },
+  ],
+});
+
+const twoFormFeedbackView = makeView('two-forms', {
+  template: [
+    {
+      version: 'v0.9',
+      updateComponents: {
+        surfaceId: 'main',
+        components: [
+          {
+            id: 'root',
+            component: 'Column',
+            children: ['trace-rating', 'trace-submit', 'span-rating', 'span-submit'],
+          },
+          {
+            id: 'trace-rating',
+            component: 'RadioGroup',
+            name: 'TraceQuality',
+            formId: 'trace',
+            options: [{ label: 'Trace good', value: 'good' }],
+          },
+          { id: 'trace-submit', component: 'FeedbackSubmit', label: 'Submit trace feedback', formId: 'trace' },
+          {
+            id: 'span-rating',
+            component: 'RadioGroup',
+            name: 'SpanQuality',
+            spanId: 'span-1',
+            formId: 'span',
+            options: [{ label: 'Span bad', value: 'bad' }],
+          },
+          { id: 'span-submit', component: 'FeedbackSubmit', label: 'Submit span feedback', formId: 'span' },
         ],
       },
     },
@@ -931,5 +1035,103 @@ describe('ModelTraceExplorerCustomView', () => {
 
     expect(await screen.findByText(/couldn't be read and can't be displayed/)).toBeInTheDocument();
     expect(screen.queryByText('Tool Performance')).not.toBeInTheDocument();
+  });
+
+  const captureAssessmentPosts = (): CreateAssessmentPayload['assessment'][] => {
+    const posted: CreateAssessmentPayload['assessment'][] = [];
+    server.use(
+      rest.post('*/ajax-api/*/mlflow/traces/*/assessments', async (req, res, ctx) => {
+        const body = (await req.json()) as CreateAssessmentPayload;
+        posted.push(body.assessment);
+        return res(
+          ctx.json({
+            assessment: {
+              ...body.assessment,
+              assessment_id: `assessment-${posted.length}`,
+              create_time: '2026-01-01T00:00:00.000Z',
+              last_update_time: '2026-01-01T00:00:00.000Z',
+            },
+          }),
+        );
+      }),
+    );
+    return posted;
+  };
+
+  const selectView = async (name: RegExp) => {
+    await userEvent.click(screen.getByRole('button', { name: /Select a custom view/ }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name }));
+  };
+
+  describe('feedback assessment integration', () => {
+    it('creates a span-scoped boolean assessment immediately from thumbs feedback', async () => {
+      const posted = captureAssessmentPosts();
+      setBridge();
+      renderWithViews([feedbackPrimitivesView]);
+      await selectView(/name-feedback-primitives/);
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Thumbs up' }));
+
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(posted[0]).toMatchObject({
+        assessment_name: 'Helpfulness',
+        trace_id: 'tr-test',
+        span_id: 'span-1',
+        source: { source_type: 'HUMAN', source_id: 'test-user@example.com' },
+        feedback: { value: true },
+      });
+    });
+
+    it('submits radio, rationale, and free-text feedback through the assessment endpoint', async () => {
+      const posted = captureAssessmentPosts();
+      setBridge();
+      renderWithViews([feedbackPrimitivesView]);
+      await selectView(/name-feedback-primitives/);
+
+      const submit = await screen.findByRole('button', { name: 'Submit review' });
+      expect(submit).toBeDisabled();
+
+      await userEvent.click(screen.getByRole('radio', { name: 'Accurate' }));
+      const [rationale, note] = screen.getAllByRole('textbox');
+      await userEvent.type(rationale, 'The response matches the reference.');
+      await userEvent.type(note, 'Clear and concise.');
+      expect(submit).toBeEnabled();
+      await userEvent.click(submit);
+
+      await waitFor(() => expect(posted).toHaveLength(2));
+      expect(posted).toEqual([
+        expect.objectContaining({
+          assessment_name: 'Accuracy',
+          trace_id: 'tr-test',
+          feedback: { value: 'accurate' },
+          rationale: 'The response matches the reference.',
+        }),
+        expect.objectContaining({
+          assessment_name: 'Notes',
+          trace_id: 'tr-test',
+          feedback: { value: 'Clear and concise.' },
+        }),
+      ]);
+      expect(await screen.findByRole('button', { name: 'Feedback submitted' })).toBeDisabled();
+    });
+
+    it('flushes only the staged controls owned by the clicked form', async () => {
+      const posted = captureAssessmentPosts();
+      setBridge();
+      renderWithViews([twoFormFeedbackView]);
+      await selectView(/name-two-forms/);
+
+      await userEvent.click(await screen.findByRole('radio', { name: 'Trace good' }));
+      await userEvent.click(screen.getByRole('radio', { name: 'Span bad' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Submit trace feedback' }));
+
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(posted[0]).toMatchObject({
+        assessment_name: 'TraceQuality',
+        feedback: { value: 'good' },
+      });
+      expect(posted[0]).not.toHaveProperty('span_id');
+      expect(screen.getByRole('button', { name: 'Submit span feedback' })).toBeEnabled();
+    });
   });
 });

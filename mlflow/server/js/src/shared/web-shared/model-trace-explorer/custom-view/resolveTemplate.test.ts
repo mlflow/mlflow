@@ -119,16 +119,13 @@ describe('resolveTemplate', () => {
     expect(componentsOf(resolved)[0].text).toBe(JSON.stringify(nodeMap.tool0.outputs));
   });
 
-  // Component type is irrelevant to resolveTemplate (it resolves markers generically,
-  // regardless of catalog membership) — a synthetic name keeps these two cases from
-  // implying any specific real catalog component carries a "spanId" prop.
   it('resolves a $spanRef prop to a concrete span id', () => {
     const resolved = resolveTemplate(
       [
         updateComponents([
           {
             id: 'root',
-            component: 'SpanBoundTestComponent',
+            component: 'FeedbackThumbsUpDownButtons',
             name: 'Helpful',
             spanId: { $spanRef: { type: 'TOOL' } },
           },
@@ -145,7 +142,7 @@ describe('resolveTemplate', () => {
         updateComponents([
           {
             id: 'root',
-            component: 'SpanBoundTestComponent',
+            component: 'FeedbackThumbsUpDownButtons',
             name: 'Helpful',
             spanId: { $spanRef: { type: 'TOOL', nth: 9 } },
           },

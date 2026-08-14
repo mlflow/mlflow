@@ -117,6 +117,90 @@ describe('validateTemplate children source binding', () => {
   });
 });
 
+const feedbackFormTemplate = (components: Record<string, unknown>[]) => [
+  {
+    version: 'v0.9',
+    updateComponents: {
+      surfaceId: 'main',
+      components: [
+        { id: 'root', component: 'Column', children: components.map((component) => component.id) },
+        ...components,
+      ],
+    },
+  },
+];
+
+const radio = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  component: 'RadioGroup',
+  name: 'Accuracy',
+  formId: 'feedback',
+  options: [{ label: 'Good', value: 'good' }],
+  ...extra,
+});
+
+describe('validateTemplate feedback form pairing', () => {
+  it('accepts one form with matching controls and submit', () => {
+    const result = validateTemplate(
+      feedbackFormTemplate([
+        radio('rating'),
+        { id: 'rationale', component: 'FeedbackInputText', name: 'Accuracy', formId: 'feedback' },
+        { id: 'submit', component: 'FeedbackSubmit', formId: 'feedback' },
+      ]),
+    );
+    expect(result).toEqual({ ok: true, messages: expect.any(Array) });
+  });
+
+  it('accepts independent forms and a form spanning multiple spans', () => {
+    const result = validateTemplate(
+      feedbackFormTemplate([
+        radio('trace-rating', { formId: 'trace' }),
+        radio('span-one', { formId: 'spans', spanId: { $spanRef: { type: 'TOOL', nth: 0 } } }),
+        radio('span-two', { formId: 'spans', spanId: { $spanRef: { type: 'TOOL', nth: 1 } } }),
+        { id: 'trace-submit', component: 'FeedbackSubmit', formId: 'trace' },
+        { id: 'span-submit', component: 'FeedbackSubmit', formId: 'spans' },
+      ]),
+    );
+    expect(result).toEqual({ ok: true, messages: expect.any(Array) });
+  });
+
+  it.each([
+    ['RadioGroup', radio('rating', { formId: undefined })],
+    ['FeedbackInputText', { id: 'note', component: 'FeedbackInputText', name: 'Notes' }],
+    ['FeedbackSubmit', { id: 'submit', component: 'FeedbackSubmit' }],
+  ])('rejects %s without a static formId', (_name, component) => {
+    const result = validateTemplate(feedbackFormTemplate([component]));
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('is missing a "formId"') });
+  });
+
+  it('rejects a submit whose form has no control', () => {
+    const result = validateTemplate(
+      feedbackFormTemplate([
+        radio('rating', { formId: 'ratings' }),
+        { id: 'submit', component: 'FeedbackSubmit', formId: 'typo' },
+      ]),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('submits form "typo", but no RadioGroup / FeedbackInputText shares that form'),
+    });
+  });
+
+  it('rejects a staged control whose form has no submit', () => {
+    const result = validateTemplate(
+      feedbackFormTemplate([
+        radio('rating', { formId: 'ratings' }),
+        radio('orphan', { formId: 'orphan' }),
+        { id: 'submit', component: 'FeedbackSubmit', formId: 'ratings' },
+      ]),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('is in form "orphan", but no FeedbackSubmit shares that "formId"'),
+    });
+  });
+});
+
 // The validator is a CLOSED catalog allowlist. It must reject any component type
 // or prop the catalog does not define so that no injected component
 // (iframe/script/etc.) or unlisted field reaches the Console DOM via the
@@ -128,6 +212,23 @@ describe('validateAndPrepareMessages catalog allowlist', () => {
       { id: 'row', component: 'Row', children: ['stat'], align: 'stretch' },
       { id: 'stat', component: 'StatCard', value: '14', label: 'Tool calls', icon: 'wrench', weight: 1 },
       { id: 'txt', component: 'Text', text: 'Summary', variant: 'h4', weight: 1 },
+    ]);
+    expect(result).toEqual({ ok: true, messages: expect.any(Array) });
+  });
+
+  it('accepts the resolved feedback catalog primitives', () => {
+    const result = prepare([
+      { id: 'root', component: 'Column', children: ['thumbs', 'radio', 'note', 'submit'] },
+      { id: 'thumbs', component: 'FeedbackThumbsUpDownButtons', label: 'Helpful?', spanId: 'span-1' },
+      {
+        id: 'radio',
+        component: 'RadioGroup',
+        name: 'Accuracy',
+        options: [{ label: 'Good', value: 'good' }],
+        formId: 'feedback',
+      },
+      { id: 'note', component: 'FeedbackInputText', name: 'Accuracy', formId: 'feedback' },
+      { id: 'submit', component: 'FeedbackSubmit', formId: 'feedback' },
     ]);
     expect(result).toEqual({ ok: true, messages: expect.any(Array) });
   });

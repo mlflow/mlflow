@@ -27,20 +27,29 @@ import { Catalog, MessageProcessor, type A2uiClientAction, type A2uiMessage } fr
 import { BASIC_FUNCTIONS } from '@a2ui/web_core/v0_9/basic_catalog';
 import { A2uiSurface, Column, Row } from '@a2ui/react/v0_9';
 
-import type { ModelTrace } from '../ModelTrace.types';
+import type { Feedback, ModelTrace } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import { isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import type { CreateAssessmentPayload } from '../api';
+import { getUser } from '../../global-settings/getUser';
 import { shouldUseTracesV4API } from '../FeatureUtils';
+import { useCreateAssessment } from '../hooks/useCreateAssessment';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
 import { AssessmentBoard } from './catalog-primitives/AssessmentBoard';
 import { AssessmentCard } from './catalog-primitives/AssessmentCard';
 import { Card } from './catalog-primitives/Card';
+import { FeedbackThumbsUpDownButtons } from './catalog-primitives/FeedbackThumbsUpDownButtons';
+import { FEEDBACK_STAGED } from './catalog-primitives/feedbackActions';
+import { FeedbackInputText } from './catalog-primitives/FeedbackInputText';
+import { FeedbackSubmit } from './catalog-primitives/FeedbackSubmit';
 import { Icon } from './catalog-primitives/Icon';
 import { KeyValueViewer } from './catalog-primitives/KeyValueViewer';
 import { Markdown } from './catalog-primitives/Markdown';
+import { RadioGroup } from './catalog-primitives/RadioGroup';
 import { StatCard } from './catalog-primitives/StatCard';
 import { Text } from './catalog-primitives/Text';
+import { FeedbackStatusProvider } from './FeedbackStatusContext';
 import type { AgentNode } from './agent/buildAgentPrompt';
 import { validateAndPrepareMessages, validateTemplate } from './agent/validateA2uiMessages';
 import { resolveTemplate } from './resolveTemplate';
@@ -64,6 +73,9 @@ const surfaceIdForView = (view: CustomView): string => `cv-${view.id}`;
 
 let viewIdCounter = 0;
 const nextViewId = (): string => `${Date.now().toString(36)}-${(viewIdCounter++).toString(36)}`;
+
+const doesFeedbackEntryMatchForm = (entry: { formId?: string }, formId: string | undefined): boolean =>
+  entry.formId === formId;
 
 const AssistantSparkleButton = ({
   componentId,
@@ -154,12 +166,28 @@ export const ModelTraceExplorerCustomView = ({
   const activeView = cv.activeView;
 
   // The catalog maps component type names to their React implementations: the
-  // layout/content primitives a bound template can reference.
+  // layout/content primitives plus the feedback controls a bound template can
+  // reference.
   const catalog = useMemo(
     () =>
       new Catalog(
         CUSTOM_VIEW_CATALOG_ID,
-        [Text, Row, Column, Card, Icon, StatCard, Markdown, AssessmentBoard, AssessmentCard, KeyValueViewer],
+        [
+          Text,
+          Row,
+          Column,
+          Card,
+          Icon,
+          StatCard,
+          Markdown,
+          AssessmentBoard,
+          AssessmentCard,
+          KeyValueViewer,
+          FeedbackThumbsUpDownButtons,
+          RadioGroup,
+          FeedbackInputText,
+          FeedbackSubmit,
+        ],
         BASIC_FUNCTIONS,
       ),
     [],
@@ -169,11 +197,124 @@ export const ModelTraceExplorerCustomView = ({
     () => (isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.trace_id : (modelTraceInfo.request_id ?? '')),
     [modelTraceInfo],
   );
+  const { createAssessmentMutation } = useCreateAssessment({ traceId });
+
+  // The processor's action handler is created once, so route actions through a
+  // ref that always points at the latest trace and mutation state.
+  const actionHandlerRef = useRef<(action: A2uiClientAction) => void>(() => {});
+
+  // Staged-but-unsubmitted feedback per surface, keyed by form + name + span so
+  // controls in separate forms or on separate spans never collide.
+  const pendingFeedbackRef = useRef<
+    Map<string, Map<string, { name: string; value?: string; rationale?: string; spanId?: string; formId?: string }>>
+  >(new Map());
+  const [pendingFeedbackVersion, bumpPendingFeedbackVersion] = useReducer((tick: number) => tick + 1, 0);
 
   // A single long-lived processor holds the state for the active view's surface.
-  // No primitive in the catalog dispatches a client action today (the feedback
-  // controls that did are out of scope), so the action handler is a no-op.
-  const [processor] = useState(() => new MessageProcessor([catalog], (_action: A2uiClientAction) => {}));
+  const [processor] = useState(
+    () => new MessageProcessor([catalog], (action: A2uiClientAction) => actionHandlerRef.current(action)),
+  );
+
+  // Adapt the callback-based assessment mutation into a promise so a staged
+  // form can submit dimensions one at a time and retain only failed entries.
+  const createAssessmentAsync = (payload: CreateAssessmentPayload): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+      createAssessmentMutation(payload, {
+        onSuccess: () => resolve(),
+        onError: (error) => reject(error instanceof Error ? error : new Error(String(error))),
+      });
+    });
+
+  const handleStageFeedback = (action: A2uiClientAction) => {
+    const context = action.context ?? {};
+    const name = typeof context['name'] === 'string' && context['name'] ? context['name'] : undefined;
+    if (!name) {
+      return;
+    }
+
+    let surfaceBuffer = pendingFeedbackRef.current.get(action.surfaceId);
+    if (!surfaceBuffer) {
+      surfaceBuffer = new Map();
+      pendingFeedbackRef.current.set(action.surfaceId, surfaceBuffer);
+    }
+    const spanId = typeof context['spanId'] === 'string' && context['spanId'] ? context['spanId'] : undefined;
+    const formId = typeof context['formId'] === 'string' && context['formId'] ? context['formId'] : undefined;
+    const bufferKey = `${formId ?? ''}\u0000${name}\u0000${spanId ?? ''}`;
+    const previous = surfaceBuffer.get(bufferKey) ?? { name };
+    surfaceBuffer.set(bufferKey, {
+      ...previous,
+      name,
+      ...(typeof context['value'] === 'string' ? { value: context['value'] } : {}),
+      ...(typeof context['rationale'] === 'string' ? { rationale: context['rationale'] } : {}),
+      ...(spanId ? { spanId } : {}),
+      ...(formId ? { formId } : {}),
+    });
+    bumpPendingFeedbackVersion();
+  };
+
+  const submitStagedFeedback = async (formId?: string): Promise<{ submitted: number }> => {
+    const activeSurfaceId = activeView ? surfaceIdForView(activeView) : undefined;
+    const surfaceBuffer = activeSurfaceId ? pendingFeedbackRef.current.get(activeSurfaceId) : undefined;
+    if (!activeSurfaceId || !surfaceBuffer || surfaceBuffer.size === 0) {
+      throw new Error('There is no staged feedback to submit.');
+    }
+
+    const submittable: { key: string; payload: CreateAssessmentPayload }[] = [];
+    for (const [key, entry] of surfaceBuffer.entries()) {
+      if (!doesFeedbackEntryMatchForm(entry, formId)) {
+        continue;
+      }
+      const hasValue = typeof entry.value === 'string' && entry.value.length > 0;
+      if (!hasValue) {
+        continue;
+      }
+      const hasRationale = typeof entry.rationale === 'string' && entry.rationale.length > 0;
+      const feedbackValue: { feedback: Feedback } = { feedback: { value: entry.value } };
+      submittable.push({
+        key,
+        payload: {
+          assessment: {
+            assessment_name: entry.name,
+            trace_id: traceId,
+            source: { source_type: 'HUMAN', source_id: getUser() ?? '' },
+            ...(entry.spanId ? { span_id: entry.spanId } : {}),
+            ...feedbackValue,
+            ...(hasRationale ? { rationale: entry.rationale } : {}),
+          },
+        },
+      });
+    }
+    if (submittable.length === 0) {
+      throw new Error('There is no staged feedback with a value to submit.');
+    }
+
+    // React Query stores mutate callbacks on one observer, so sequential writes
+    // keep each request's callbacks paired with its promise.
+    let submitted = 0;
+    for (const { key, payload } of submittable) {
+      try {
+        await createAssessmentAsync(payload);
+        surfaceBuffer.delete(key);
+        submitted += 1;
+      } catch {
+        // Failed entries remain staged so the user can retry them.
+      }
+    }
+    if (surfaceBuffer.size === 0) {
+      pendingFeedbackRef.current.delete(activeSurfaceId);
+    }
+    bumpPendingFeedbackVersion();
+    if (submitted === 0) {
+      throw new Error('Every staged feedback request failed.');
+    }
+    return { submitted };
+  };
+
+  actionHandlerRef.current = (action: A2uiClientAction) => {
+    if (action.name === FEEDBACK_STAGED) {
+      handleStageFeedback(action);
+    }
+  };
 
   // Assessments shown by AssessmentBoard/AssessmentCard come from the base trace
   // MERGED with the trace-cached-actions store, so this view stays live with
@@ -263,6 +404,26 @@ export const ModelTraceExplorerCustomView = ({
 
   const surfaceId = activeView ? surfaceIdForView(activeView) : '';
   const surface = activeView ? processor.model.getSurface(surfaceId) : undefined;
+
+  const hasStagedFeedback = useCallback(
+    (formId?: string) => {
+      if (!surfaceId) {
+        return false;
+      }
+      const surfaceBuffer = pendingFeedbackRef.current.get(surfaceId);
+      if (!surfaceBuffer) {
+        return false;
+      }
+      for (const entry of surfaceBuffer.values()) {
+        if (doesFeedbackEntryMatchForm(entry, formId) && typeof entry.value === 'string' && entry.value.length > 0) {
+          return true;
+        }
+      }
+      return false;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this state tick makes the mutable ref reactive.
+    [surfaceId, pendingFeedbackVersion],
+  );
 
   const managedSurfacesRef = useRef<Set<string>>(new Set());
 
@@ -408,6 +569,9 @@ export const ModelTraceExplorerCustomView = ({
 
   useEffect(() => {
     setInstruction('');
+    // Unsubmitted feedback belongs to the trace it was entered on.
+    pendingFeedbackRef.current.clear();
+    bumpPendingFeedbackVersion();
   }, [traceId]);
 
   // Rebuild the active view's surface whenever the active view, its template, or
@@ -424,6 +588,8 @@ export const ModelTraceExplorerCustomView = ({
       if (!desired.has(surfaceId)) {
         processor.processMessages([{ version: 'v0.9', deleteSurface: { surfaceId } }]);
         managedSurfacesRef.current.delete(surfaceId);
+        pendingFeedbackRef.current.delete(surfaceId);
+        bumpPendingFeedbackVersion();
       }
     }
 
@@ -1000,7 +1166,11 @@ export const ModelTraceExplorerCustomView = ({
             <Typography.Title level={2} withoutMargins css={{ fontSize: 22, lineHeight: '28px', fontWeight: 600 }}>
               {activeView.label || untitledLabel}
             </Typography.Title>
-            {surface && <A2uiSurface key={`${surfaceId}-${traceId}`} surface={surface} />}
+            {surface && (
+              <FeedbackStatusProvider value={{ enabled: true, traceId, hasStagedFeedback, submitStagedFeedback }}>
+                <A2uiSurface key={`${surfaceId}-${traceId}`} surface={surface} />
+              </FeedbackStatusProvider>
+            )}
           </div>
         )}
       </div>

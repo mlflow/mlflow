@@ -11,9 +11,13 @@ import {
 import { AssessmentBoard } from '../catalog-primitives/AssessmentBoard';
 import { AssessmentCard } from '../catalog-primitives/AssessmentCard';
 import { Card } from '../catalog-primitives/Card';
+import { FeedbackInputText } from '../catalog-primitives/FeedbackInputText';
+import { FeedbackSubmit } from '../catalog-primitives/FeedbackSubmit';
+import { FeedbackThumbsUpDownButtons } from '../catalog-primitives/FeedbackThumbsUpDownButtons';
 import { Icon } from '../catalog-primitives/Icon';
 import { KeyValueViewer } from '../catalog-primitives/KeyValueViewer';
 import { Markdown } from '../catalog-primitives/Markdown';
+import { RadioGroup } from '../catalog-primitives/RadioGroup';
 import { StatCard } from '../catalog-primitives/StatCard';
 import {
   SPAN_FIELD_SOURCE_NAME,
@@ -32,9 +36,19 @@ import {
 // map straight from them — the component impls are the single source of truth, so
 // the primitives don't need to export their schema definitions separately.
 const COMPONENT_SCHEMAS: Record<string, ZodTypeAny> = Object.fromEntries(
-  [StatCard, Icon, Card, Markdown, AssessmentBoard, AssessmentCard, KeyValueViewer].map(
-    (component): [string, ZodTypeAny] => [component.name, component.schema],
-  ),
+  [
+    StatCard,
+    Icon,
+    Card,
+    Markdown,
+    AssessmentBoard,
+    AssessmentCard,
+    KeyValueViewer,
+    FeedbackThumbsUpDownButtons,
+    RadioGroup,
+    FeedbackInputText,
+    FeedbackSubmit,
+  ].map((component): [string, ZodTypeAny] => [component.name, component.schema]),
 );
 
 // Prop shapes for the A2UI "basic catalog" layout primitives (Text / Row /
@@ -153,6 +167,7 @@ const validateComponentProps = (component: Record<string, unknown>): string | un
   if (component['id'] === undefined || component['id'] === null || component['id'] === '') {
     return `Component "${componentName}" is missing a non-empty "id".`;
   }
+
   const { id: _id, component: _component, ...props } = component;
 
   const schema = CATALOG_COMPONENT_SCHEMAS[componentName];
@@ -312,6 +327,18 @@ const validateTemplateComponent = (component: Record<string, unknown>): string |
     return `Component "${componentName}" is missing a non-empty "id".`;
   }
 
+  // Form membership must be explicit and static so the runtime never has to
+  // infer which staged controls a submit owns.
+  if (componentName === 'RadioGroup' || componentName === 'FeedbackInputText' || componentName === 'FeedbackSubmit') {
+    if (typeof component['formId'] !== 'string' || component['formId'].length === 0) {
+      return (
+        `Component "${id}" (${componentName}) is missing a "formId". Every RadioGroup / FeedbackInputText / ` +
+        `FeedbackSubmit must set a static "formId" naming its form — a single-form view gives its one form an id ` +
+        `too, and multi-form views give each form a distinct id.`
+      );
+    }
+  }
+
   if ('renderIfSpan' in component && !isValidSpanRefSelector(unwrapSpanRefSelector(component['renderIfSpan']))) {
     return (
       `Component "${id}" (${componentName}) has an invalid "renderIfSpan" guard. Use a spanRef selector: ` +
@@ -454,6 +481,7 @@ export type TemplateValidateResult = { ok: true; messages: A2uiMessage[] } | { o
  *    spanRef selector) and rejects forbidden trace-specific narrative,
  *  - walks any `updateDataModel` value for the same narrative rules, since
  *    components can read it back through a `{ "path": ... }` binding,
+ *  - verifies staged feedback controls and submits are paired by `formId`,
  *  - requires a `root` component,
  *
  * returning the marker-preserving template to persist. Per-trace rendering then
@@ -468,6 +496,10 @@ export const validateTemplate = (raw: unknown): TemplateValidateResult => {
 
   const kept: A2uiMessage[] = [];
   let sawRoot = false;
+  const submitForms: { id: string; formId: string }[] = [];
+  const controlForms: { id: string; formId: string }[] = [];
+  const submitFormIds = new Set<string>();
+  const controlFormIds = new Set<string>();
 
   for (const message of rawMessages) {
     if (!isRecord(message)) {
@@ -510,6 +542,16 @@ export const validateTemplate = (raw: unknown): TemplateValidateResult => {
         if (componentError) {
           return { ok: false, error: componentError };
         }
+        if (component['component'] === 'RadioGroup' || component['component'] === 'FeedbackInputText') {
+          const formId = String(component['formId']);
+          controlForms.push({ id: String(component['id']), formId });
+          controlFormIds.add(formId);
+        }
+        if (component['component'] === 'FeedbackSubmit') {
+          const formId = String(component['formId']);
+          submitForms.push({ id: String(component['id']), formId });
+          submitFormIds.add(formId);
+        }
       }
       kept.push(parsed.data);
       continue;
@@ -538,6 +580,29 @@ export const validateTemplate = (raw: unknown): TemplateValidateResult => {
 
   if (!sawRoot) {
     return { ok: false, error: 'The generated UI has no "root" component to render.' };
+  }
+
+  for (const submit of submitForms) {
+    if (!controlFormIds.has(submit.formId)) {
+      return {
+        ok: false,
+        error:
+          `Component "${submit.id}" (FeedbackSubmit) submits form "${submit.formId}", but no RadioGroup / ` +
+          `FeedbackInputText shares that form. Give a feedback control the same "formId", or remove the unused ` +
+          `submit button.`,
+      };
+    }
+  }
+  for (const control of controlForms) {
+    if (!submitFormIds.has(control.formId)) {
+      return {
+        ok: false,
+        error:
+          `Component "${control.id}" is in form "${control.formId}", but no FeedbackSubmit shares that "formId", ` +
+          `so its staged feedback could never be submitted. Add a FeedbackSubmit with the same "formId", or move ` +
+          `this control into an existing form.`,
+      };
+    }
   }
 
   return { ok: true, messages: kept };
