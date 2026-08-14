@@ -18,8 +18,9 @@ RUN apt install -y software-properties-common \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update \
     && apt install -y python3.11 python3.11-distutils \
-    # Remove python3-blinker to avoid pip uninstall conflicts
-    && apt remove -y python3-blinker \
+    # Remove apt-installed distributions that pip cannot uninstall (no RECORD file),
+    # since deadsnakes Python keeps Debian's dist-packages on sys.path
+    && apt remove -y python3-blinker python3-cryptography \
     && ln -s -f $(which python3.11) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
