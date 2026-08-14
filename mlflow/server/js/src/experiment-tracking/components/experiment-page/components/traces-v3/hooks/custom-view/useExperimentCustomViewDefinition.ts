@@ -80,8 +80,6 @@ const serializeViewForTag = async (view: CustomView): Promise<string> => {
 
 export type ExperimentCustomViewDefinition = {
   views: CustomView[];
-  // Counts every persisted custom-view tag regardless of version.
-  persistedViewCount: number;
   isLoaded: boolean;
   // Undefined (no experiment scope) → the host falls back to a session-local,
   // non-persisting engine.
@@ -99,22 +97,20 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ['experiment-custom-views', experimentId], [experimentId]);
 
-  const { data, isLoading } = useQuery({
+  const { data: views, isLoading } = useQuery({
     queryKey,
     enabled: Boolean(experimentId),
-    queryFn: async (): Promise<{ views: CustomView[]; persistedViewCount: number }> => {
+    queryFn: async (): Promise<CustomView[]> => {
       const response = await MlflowService.getExperiment({ experiment_id: experimentId });
       const tags: ExperimentTag[] = response?.experiment?.tags ?? [];
       const customViewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_TAG_PREFIX));
-      // v1 is the only format today. When another version is introduced, keep customViewTags as
-      // the version-agnostic quota set and dispatch each tag to its version-specific parser here.
+      // v1 is the only format today. When another version is introduced, dispatch each tag to its
+      // version-specific parser while preserving one view (or unreadable placeholder) per tag so
+      // views.length remains the version-agnostic quota count.
       const parsed = await Promise.all(
         customViewTags.map((tag) => deserializeView(tag.key.slice(CUSTOM_VIEW_PREFIX_V1.length), tag.value)),
       );
-      return {
-        views: parsed.sort((a, b) => a.createdAtMs - b.createdAtMs),
-        persistedViewCount: customViewTags.length,
-      };
+      return parsed.sort((a, b) => a.createdAtMs - b.createdAtMs);
     },
   });
 
@@ -148,8 +144,7 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
   );
 
   return {
-    views: data?.views ?? [],
-    persistedViewCount: data?.persistedViewCount ?? 0,
+    views: views ?? [],
     isLoaded: experimentId ? !isLoading : true,
     persistView: experimentId ? persistView : undefined,
     deleteView: experimentId ? deleteView : undefined,

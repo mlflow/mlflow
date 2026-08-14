@@ -153,8 +153,6 @@ describe('useExperimentCustomViewDefinition', () => {
         'older',
         'newer',
       ]);
-      expect(result.current.persistedViewCount).toBe(6);
-
       const byId = (id: string) => result.current.views.find((view) => view.id === id);
       // Unparseable bytes and shape mismatches are kept and flagged unreadable.
       expect(byId('empty')?.unreadable).toBe(true);
@@ -419,7 +417,6 @@ describe('useExperimentCustomViewDefinition', () => {
 
       expect(result.current.isLoaded).toBe(true);
       expect(result.current.views).toEqual([]);
-      expect(result.current.persistedViewCount).toBe(0);
       expect(result.current.persistView).toBeUndefined();
       expect(result.current.deleteView).toBeUndefined();
       expect(mockGetExperiment).not.toHaveBeenCalled();

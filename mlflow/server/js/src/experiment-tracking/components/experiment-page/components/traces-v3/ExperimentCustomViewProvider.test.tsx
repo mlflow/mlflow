@@ -63,7 +63,6 @@ let capturedConnectorProviderProps:
 let capturedDefinitionProviderProps:
   | {
       views: unknown[];
-      persistedViewCount?: number;
       isLoaded: boolean;
       onPersistView?: unknown;
       onDeleteView?: unknown;
@@ -118,7 +117,7 @@ describe('ExperimentCustomViewProvider', () => {
     capturedContextProvider = undefined;
     capturedConnectorProviderProps = undefined;
     capturedDefinitionProviderProps = undefined;
-    mockUseExperimentCustomViewDefinition.mockReturnValue({ views: [], persistedViewCount: 0, isLoaded: true });
+    mockUseExperimentCustomViewDefinition.mockReturnValue({ views: [], isLoaded: true });
     mockCanEdit = { canEdit: true, isLoading: false };
     mockGetCurrentApplierSessionId.mockReturnValue('session-1');
     mockGetCustomViewAuthoringContext.mockReturnValue(null);
@@ -135,7 +134,6 @@ describe('ExperimentCustomViewProvider', () => {
     const deleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
     mockUseExperimentCustomViewDefinition.mockReturnValue({
       views: [],
-      persistedViewCount: 50,
       isLoaded: true,
       persistView,
       deleteView,
@@ -145,7 +143,6 @@ describe('ExperimentCustomViewProvider', () => {
     renderProvider();
 
     expect(capturedDefinitionProviderProps?.isLoaded).toBe(true);
-    expect(capturedDefinitionProviderProps?.persistedViewCount).toBe(50);
     expect(capturedDefinitionProviderProps?.onPersistView).toBe(persistView);
     expect(capturedDefinitionProviderProps?.onDeleteView).toBe(deleteView);
     expect(capturedDefinitionProviderProps?.canModifyPersistedViews).toBe(false);

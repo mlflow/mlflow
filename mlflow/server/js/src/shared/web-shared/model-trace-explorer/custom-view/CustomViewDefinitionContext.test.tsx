@@ -676,23 +676,6 @@ describe('useCustomViewDefinitionState', () => {
       expect(atLimit.result.current.hasReachedViewLimit).toBe(true);
     });
 
-    it('counts persisted custom views from unsupported tag versions', () => {
-      const supportedViews = MAX_VIEWS.slice(0, MAX_CUSTOM_VIEWS_PER_EXPERIMENT - 1);
-      const { result } = renderHook(() =>
-        useCustomViewDefinitionState(
-          supportedViews,
-          true,
-          noopPersistView,
-          true,
-          undefined,
-          MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
-        ),
-      );
-
-      expect(result.current.views).toHaveLength(MAX_CUSTOM_VIEWS_PER_EXPERIMENT - 1);
-      expect(result.current.hasReachedViewLimit).toBe(true);
-    });
-
     it('does not count an unsaved draft as a persisted view', () => {
       const belowLimit = MAX_VIEWS.slice(0, MAX_CUSTOM_VIEWS_PER_EXPERIMENT - 1);
       const { result } = renderHook(() => useCustomViewDefinitionState(belowLimit, true, noopPersistView, true));
