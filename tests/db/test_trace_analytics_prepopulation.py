@@ -14,6 +14,7 @@ import mlflow.db
 import mlflow.store.db.trace_analytics_prepopulation as prepopulation
 import mlflow.store.db.utils
 from mlflow.store.db import trace_analytics
+from mlflow.store.db import trace_analytics_schema_75868b020152 as schema
 from mlflow.store.db.utils import _get_alembic_config
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -563,13 +564,11 @@ def test_prepopulation_schema_contract_matches_orm_models(tmp_path):
             "assessments": SqlAssessments,
             "spans": SqlSpan,
         }
-        for table_name, expected_columns in trace_analytics.analytics_columns_by_table().items():
+        for table_name, expected_columns in schema.analytics_columns_by_table().items():
             model_table = models[table_name].__table__
             for expected in expected_columns:
                 actual = model_table.c[expected.name]
-                assert trace_analytics.types_are_compatible(
-                    expected.type, actual.type, engine.dialect
-                )
+                assert schema.types_are_compatible(expected.type, actual.type, engine.dialect)
                 if expected.name == "is_numeric_value":
                     # The prepopulation helper adds is_numeric_value nullable for a fast online
                     # schema change; the offline migration tightens it to NOT NULL to match the ORM.
@@ -579,30 +578,9 @@ def test_prepopulation_schema_contract_matches_orm_models(tmp_path):
                     assert expected.nullable == actual.nullable
                 assert (expected.server_default is None) == (actual.server_default is None)
                 if expected.server_default is not None:
-                    assert trace_analytics._normalized_false_default(actual.server_default.arg)
+                    assert schema._normalized_false_default(actual.server_default.arg)
     finally:
         engine.dispose()
-
-
-def test_frozen_migration_columns_match_the_live_helper():
-    live_columns_by_table = trace_analytics.analytics_columns_by_table()
-    frozen_columns_by_table = MIGRATION_MODULE._analytics_columns_by_table()
-    assert live_columns_by_table.keys() == frozen_columns_by_table.keys()
-
-    dialect = sqlite.dialect()
-    for table_name, live_columns in live_columns_by_table.items():
-        frozen_columns = {column.name: column for column in frozen_columns_by_table[table_name]}
-        assert {column.name for column in live_columns} == set(frozen_columns)
-        for live_column in live_columns:
-            frozen_column = frozen_columns[live_column.name]
-            assert trace_analytics.types_are_compatible(
-                live_column.type, frozen_column.type, dialect
-            )
-            assert trace_analytics.types_are_compatible(
-                frozen_column.type, live_column.type, dialect
-            )
-            assert live_column.nullable == frozen_column.nullable
-            assert (live_column.server_default is None) == (frozen_column.server_default is None)
 
 
 @pytest.mark.parametrize(
@@ -626,7 +604,7 @@ def test_frozen_migration_columns_match_the_live_helper():
     ],
 )
 def test_types_are_compatible_across_dialect_reflected_types(expected, actual, dialect):
-    assert trace_analytics.types_are_compatible(expected, actual, dialect)
+    assert schema.types_are_compatible(expected, actual, dialect)
 
 
 @pytest.mark.parametrize(
@@ -638,49 +616,7 @@ def test_types_are_compatible_across_dialect_reflected_types(expected, actual, d
     ],
 )
 def test_types_are_incompatible_for_non_boolean_tinyint(expected, actual, dialect):
-    assert not trace_analytics.types_are_compatible(expected, actual, dialect)
-
-
-@pytest.mark.parametrize(
-    ("expected", "actual", "dialect"),
-    [
-        # Compatible pairs, including the dialect-reflected types the live helper special-cases.
-        (sa.Float(precision=53), postgresql.DOUBLE_PRECISION(precision=53), postgresql.dialect()),
-        (
-            sa.String(length=8000).with_variant(sa.Text(), "mysql"),
-            mysql.TEXT(),
-            mysql.dialect(),
-        ),
-        (sa.Boolean(), mysql.TINYINT(display_width=1), mysql.dialect()),
-        # Incompatible pairs must be rejected identically by the frozen copy.
-        (sa.Boolean(), mysql.TINYINT(display_width=4), mysql.dialect()),
-        (sa.Boolean(), mysql.INTEGER(), mysql.dialect()),
-        (sa.Integer(), sa.BigInteger(), sqlite.dialect()),
-        (sa.String(length=250), sa.String(length=500), sqlite.dialect()),
-    ],
-)
-def test_frozen_types_are_compatible_matches_the_live_helper(expected, actual, dialect):
-    assert MIGRATION_MODULE._types_are_compatible(
-        expected, actual, dialect
-    ) == trace_analytics.types_are_compatible(expected, actual, dialect)
-
-
-@pytest.mark.parametrize(
-    ("default", "expected"),
-    [
-        (None, False),
-        ("0", True),
-        ("false", True),
-        # Postgres reflects a boolean false default as "false::boolean"; MySQL as "0".
-        ("'false'::boolean", True),
-        ("(0)", True),
-        ("1", False),
-        ("true", False),
-    ],
-)
-def test_frozen_normalized_false_default_matches_the_live_helper(default, expected):
-    assert MIGRATION_MODULE._normalized_false_default(default) == expected
-    assert trace_analytics._normalized_false_default(default) == expected
+    assert not schema.types_are_compatible(expected, actual, dialect)
 
 
 def test_prepopulation_conversion_semantics_match_the_frozen_migration():
