@@ -1,6 +1,7 @@
 """Lock coordination for multi-replica job execution."""
 
 import logging
+from dataclasses import dataclass
 
 from sqlalchemy.exc import IntegrityError
 
@@ -10,6 +11,13 @@ from mlflow.store.tracking.dbmodels.models import SqlSchedulerLease
 from mlflow.utils.time import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class SchedulerLease:
+    lease_key: str
+    acquired_at: int
+    ttl_seconds: int
 
 
 class JobLockManager:
@@ -25,7 +33,8 @@ class JobLockManager:
         lock_mgr = JobLockManager(job_store)
 
         # Acquire scheduler lease
-        if lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=90):
+        scheduler_lease = lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=90)
+        if scheduler_lease is not None:
             # This replica holds the scheduler lease.
             ...
     """
@@ -33,16 +42,16 @@ class JobLockManager:
     def __init__(self, job_store: SqlAlchemyJobStore):
         self._session_maker = job_store.ManagedSessionMaker
 
-    def acquire_scheduler_lease(self, lease_key: str, ttl_seconds: int) -> bool:
+    def acquire_scheduler_lease(self, lease_key: str, ttl_seconds: int) -> SchedulerLease | None:
         """
         Acquire the scheduler lease for this replica.
 
         The method uses ``lease_key`` to identify the lease in the database.
 
         If no lease exists, or the existing lease has expired, this method acquires
-        a new lease and returns True.
+        a new lease and returns a ``SchedulerLease``.
 
-        If a valid lease already exists, this method returns False without acquiring
+        If a valid lease already exists, this method returns ``None`` without acquiring
         a lease.
 
         Args:
@@ -50,7 +59,7 @@ class JobLockManager:
             ttl_seconds: The duration of the lease in seconds. Must be greater than zero.
 
         Returns:
-            True if this replica now holds the lease. False otherwise.
+            SchedulerLease if this replica now holds the lease. None otherwise.
 
         Raises:
             MlflowException: Invalid ttl_seconds value.
@@ -75,7 +84,7 @@ class JobLockManager:
                 if existing is not None:
                     if now < existing.acquired_at + (existing.ttl_seconds * 1000):
                         _logger.debug("Scheduler lease denied, a valid lease exists.")
-                        return False
+                        return None
 
                     existing.acquired_at = now
                     existing.ttl_seconds = ttl_seconds
@@ -86,14 +95,14 @@ class JobLockManager:
                         )
                     )
 
+            return SchedulerLease(lease_key=lease_key, acquired_at=now, ttl_seconds=ttl_seconds)
+
         except MlflowException as e:
             # ManagedSessionMaker wraps all SQLAlchemy exceptions in MlflowException.
             # An IntegrityError can occur at startup when two replicas both find no
             # existing row and race to insert the same lease key.
             if isinstance(e.__cause__, IntegrityError):
                 _logger.debug("Lease acquisition denied. A concurrent insert conflict occurred.")
-                return False
+                return None
 
             raise
-
-        return True
