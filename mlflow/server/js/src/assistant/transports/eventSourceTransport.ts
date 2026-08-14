@@ -4,7 +4,7 @@
  * (Ollama, Claude Code, Codex) whose conversation state is persisted server-side.
  */
 
-import type { MessageRequest } from '../types';
+import type { MessageRequest, PendingClientToolCall } from '../types';
 import {
   API_BASE,
   NOOP_STREAM_RESULT,
@@ -30,8 +30,19 @@ const attachStreamListeners = (
   sessionId: string,
   callbacks: SendMessageStreamCallbacks,
 ): void => {
-  const { onMessage, onError, onDone, onStatus, onToolUse, onToolResult, onInterrupted, onPermissionRequest, onUsage } =
-    callbacks;
+  const {
+    onMessage,
+    onError,
+    onDone,
+    onStatus,
+    onToolUse,
+    onToolResult,
+    onInterrupted,
+    onPermissionRequest,
+    onClientToolCall,
+    onUsage,
+  } = callbacks;
+  let terminalClientToolCall: PendingClientToolCall | null = null;
 
   // Listen for 'message' events (contains assistant's response)
   eventSource.addEventListener('message', (event) => {
@@ -93,13 +104,52 @@ const attachStreamListeners = (
     eventSource.close();
   });
 
+  // Native client tool calls pause the provider and resume on a fresh stream.
+  // Structured-output providers emit a terminal call instead. Defer terminal
+  // execution until `done` so the backend has persisted the provider's latest
+  // session before a browser validation error starts an automatic repair turn.
+  eventSource.addEventListener('client_tool_call', (event) => {
+    let continuation: PendingClientToolCall['continuation'] = 'resume';
+    try {
+      const data = JSON.parse((event as MessageEvent).data);
+      continuation = data.continuation === 'terminal' ? 'terminal' : 'resume';
+      const request: PendingClientToolCall = {
+        sessionId,
+        requestId: data.request_id,
+        toolName: data.tool_name,
+        toolInput: data.tool_input ?? {},
+        ...(continuation === 'terminal' ? { continuation } : {}),
+      };
+      if (continuation === 'terminal') {
+        terminalClientToolCall = request;
+      } else {
+        onClientToolCall?.(request);
+      }
+    } catch (err) {
+      onError('Failed to read a client tool call from the assistant.');
+    }
+    if (continuation === 'resume') {
+      eventSource.close();
+    }
+  });
+
   // Listen for 'done' event (completion). The DONE session_id for these providers is an
   // opaque server-side session token (persisted by the server), not a client-carried
   // history blob, so it is not surfaced here.
   eventSource.addEventListener('done', () => {
-    onToolUse?.([]);
-    onDone();
     eventSource.close();
+    const finish = async () => {
+      if (terminalClientToolCall) {
+        await onClientToolCall?.(terminalClientToolCall);
+      }
+      // Starting an automatic repair rotates the active request token, so these
+      // guarded callbacks become no-ops instead of finalizing the repair stream.
+      onToolUse?.([]);
+      onDone();
+    };
+    void finish().catch((error) => {
+      onError(error instanceof Error ? error.message : 'Failed to execute the client tool.');
+    });
   });
 
   // Listen for 'interrupted' event (cancelled by user)
@@ -206,6 +256,41 @@ export const resumeStream = async (
     }
   } catch (error) {
     callbacks.onError('Failed to send your permission decision. Please try again.');
+    return NOOP_STREAM_RESULT;
+  }
+
+  const eventSource = createEventSource(sessionId);
+  attachStreamListeners(eventSource, sessionId, callbacks);
+  return { cancel: () => eventSource.close() };
+};
+
+/**
+ * Resume a turn paused at a client_tool_call: POST the client-executed result,
+ * then open a fresh stream that continues from where the turn left off.
+ */
+export const submitClientToolResult = async (
+  sessionId: string,
+  requestId: string,
+  content: string,
+  isError: boolean,
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  try {
+    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+    const response = await fetch(`${API_BASE}/sessions/${sessionId}/tool-result`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getDefaultHeaders(document.cookie),
+      },
+      body: JSON.stringify({ request_id: requestId, content, is_error: isError }),
+    });
+    if (!response.ok) {
+      callbacks.onError('Failed to send the client tool result. Please try again.');
+      return NOOP_STREAM_RESULT;
+    }
+  } catch (error) {
+    callbacks.onError('Failed to send the client tool result. Please try again.');
     return NOOP_STREAM_RESULT;
   }
 

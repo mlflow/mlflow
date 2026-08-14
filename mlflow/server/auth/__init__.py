@@ -16,6 +16,7 @@ import hmac
 import importlib
 import json
 import logging
+import os
 import re
 import secrets
 import threading
@@ -330,6 +331,7 @@ from mlflow.server.auth.routes import (
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
+    STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
     _assert_array,
     _assert_item_type_string,
@@ -3792,6 +3794,7 @@ AFTER_REQUEST_HANDLERS = {
     and "/scorers/online-config" not in http_path
     and "/mlflow/server-info" not in http_path
     and http_path not in _AJAX_GATEWAY_PATHS
+    and handler in AFTER_REQUEST_PATH_HANDLERS.values()
 }
 
 # Precompile workspace parameterized paths for after-request handlers.
@@ -4455,6 +4458,9 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         User object if authentication succeeds, None otherwise.
     """
     request_path = get_routed_asgi_path(request)
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    if static_prefix and request_path.startswith(static_prefix):
+        request_path = request_path[len(static_prefix) :]
 
     # On /gateway/ routes, a coding agent's own provider key occupies the standard
     # Authorization header (forwarded upstream), so MLflow credentials ride in a dedicated
@@ -4983,18 +4989,25 @@ def _find_fastapi_validator(
         An async validator function that takes (username, request) and returns
         True if authorized, or None if the route is handled by Flask (WSGI).
     """
-    if path.startswith("/gateway/"):
-        return _get_gateway_validator(path)
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "").rstrip("/")
+    unprefixed = (
+        path[len(static_prefix) :] if static_prefix and path.startswith(static_prefix) else path
+    )
 
-    if path.startswith("/v1/traces"):
-        return _get_otel_validator(path)
+    if unprefixed.startswith("/gateway/"):
+        return _get_gateway_validator(unprefixed)
 
-    if path.startswith("/ajax-api/3.0/jobs"):
+    if unprefixed.startswith("/v1/traces"):
+        return _get_otel_validator(unprefixed)
+
+    if unprefixed.startswith("/ajax-api/3.0/jobs"):
         return _get_require_authentication_validator()
 
-    if path.startswith("/ajax-api/3.0/mlflow/assistant"):
+    if unprefixed.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
+    # `artifact_router` is not registered under `--static-prefix`, so this matches the
+    # raw path; prefixed artifact requests fall through to Flask, which owns their auth.
     if _is_native_fastapi_proxy_artifact_path(path, method):
         return _get_fastapi_proxy_artifact_validator(path, method)
 

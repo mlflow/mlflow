@@ -89,6 +89,7 @@ export const AssessmentDisplayValue = ({
   skipIcons = false,
   overrideColor,
   assessmentName,
+  disableTooltip = false,
 }: {
   jsonValue: string;
   className?: string;
@@ -96,6 +97,8 @@ export const AssessmentDisplayValue = ({
   skipIcons?: boolean;
   overrideColor?: TagColors;
   assessmentName?: string;
+  // Skip the value tooltip (e.g. when a caller already reveals the full value in a hover card).
+  disableTooltip?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -171,25 +174,33 @@ export const AssessmentDisplayValue = ({
     </>
   );
 
+  const tag = (
+    <Tag
+      css={{ display: 'inline-flex', maxWidth: '100%', minWidth: theme.spacing.md, marginRight: 0 }}
+      componentId="shared.model-trace-explorer.assesment-value-tag"
+      color={overrideColor ?? color}
+      className={className}
+    >
+      <span
+        css={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          textWrap: 'nowrap',
+        }}
+      >
+        {prefix}
+        {children}
+      </span>
+    </Tag>
+  );
+
+  if (disableTooltip) {
+    return tag;
+  }
+
   return (
     <Tooltip componentId="shared.model-trace-explorer.assesment-value-tooltip" content={tooltipContent}>
-      <Tag
-        css={{ display: 'inline-flex', maxWidth: '100%', minWidth: theme.spacing.md, marginRight: 0 }}
-        componentId="shared.model-trace-explorer.assesment-value-tag"
-        color={overrideColor ?? color}
-        className={className}
-      >
-        <span
-          css={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            textWrap: 'nowrap',
-          }}
-        >
-          {prefix}
-          {children}
-        </span>
-      </Tag>
+      {tag}
     </Tooltip>
   );
 };

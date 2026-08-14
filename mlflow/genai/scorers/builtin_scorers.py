@@ -793,7 +793,6 @@ class RetrievalGroundedness(BuiltInScorer):
         return feedbacks
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCallEfficiency(BuiltInScorer):
     """
@@ -875,7 +874,6 @@ class ToolCallEfficiency(BuiltInScorer):
         )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCallCorrectness(BuiltInScorer):
     """
@@ -2275,7 +2273,6 @@ class BuiltInSessionLevelScorer(BuiltInScorer, SessionLevelScorer):
     # BuiltInScorer provides special serialization for public API
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class UserFrustration(BuiltInSessionLevelScorer):
     """
@@ -2355,7 +2352,6 @@ class UserFrustration(BuiltInSessionLevelScorer):
         return USER_FRUSTRATION_PROMPT
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationCompleteness(BuiltInSessionLevelScorer):
     """
@@ -2435,7 +2431,6 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         return CONVERSATION_COMPLETENESS_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalSafety(BuiltInSessionLevelScorer):
     """
@@ -2517,7 +2512,6 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_SAFETY_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
     """
@@ -2596,7 +2590,6 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
     """
@@ -2674,7 +2667,6 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalGuidelines(BuiltInSessionLevelScorer):
     """
@@ -2812,7 +2804,6 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
         return KNOWLEDGE_RETENTION_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class KnowledgeRetention(BuiltInSessionLevelScorer):
     """
@@ -3004,7 +2995,6 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         )
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class Completeness(BuiltInScorer):
     """
@@ -3114,7 +3104,6 @@ class Completeness(BuiltInScorer):
         )
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class Summarization(BuiltInScorer):
     """

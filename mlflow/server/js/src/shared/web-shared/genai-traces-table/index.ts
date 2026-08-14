@@ -46,6 +46,7 @@ export { GenAITracesTableContext, GenAITracesTableProvider } from './GenAITraces
 export { MarkdownConverterProvider as GenAiTracesMarkdownConverterProvider } from './utils/MarkdownUtils';
 
 export { RunColorCircle } from './components/RunColorCircle';
+export { DetectIssuesButton } from './components/DetectIssuesButton';
 
 export { useSelectedColumns } from './hooks/useGenAITracesUIState';
 export { useTableSortURL } from './hooks/useTableSortURL';

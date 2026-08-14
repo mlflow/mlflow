@@ -16,7 +16,12 @@ import { API_BASE } from './transports/shared';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Streaming transports (re-exported so callers can keep importing from './AssistantService').
-export { sendMessageStream, createEventSource, resumeStream } from './transports/eventSourceTransport';
+export {
+  sendMessageStream,
+  createEventSource,
+  resumeStream,
+  submitClientToolResult,
+} from './transports/eventSourceTransport';
 export { streamChatViaFetch } from './transports/fetchStreamTransport';
 export * from './transports/shared';
 
