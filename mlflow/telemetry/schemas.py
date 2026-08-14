@@ -32,7 +32,7 @@ class Record:
             "timestamp_ns": self.timestamp_ns,
             "event_name": self.event_name,
             # dump params to string so we can parse them easily in ETL pipeline
-            "params": json.dumps(self.params) if self.params else None,
+            "params": json.dumps(self.params, default=str) if self.params else None,
             "status": self.status.value,
             "duration_ms": self.duration_ms,
         }
