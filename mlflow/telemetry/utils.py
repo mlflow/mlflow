@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -18,10 +19,12 @@ from mlflow.telemetry.constant import (
     UI_CONFIG_STAGING_URL,
     UI_CONFIG_URL,
 )
-from mlflow.telemetry.schemas import ENV_VAR_TO_ENVIRONMENT_MAP, Environment
+from mlflow.telemetry.schemas import ENV_VAR_TO_ENVIRONMENT_MAP, CodingAgent, Environment
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
+
+_AGENT_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 def _is_ci_env_or_testing() -> bool:
@@ -85,6 +88,50 @@ def _detect_environment() -> str | None:
     # unofficial heuristic to detect docker environment
     if Path("/.dockerenv").exists():
         return Environment.DOCKER.value
+    return None
+
+
+def _detect_agent() -> str | None:
+    """Return the coding agent driving this process, if one can be identified."""
+    # Keep these heuristics aligned with https://github.com/cli/cli/tree/trunk/internal/agents.
+    if agent := os.environ.get("AI_AGENT", "").strip():
+        if _AGENT_NAME_PATTERN.fullmatch(agent):
+            return agent.lower()
+
+    def is_set(*names: str) -> bool:
+        return any(os.environ.get(name) for name in names)
+
+    # Amp and Cowork also set Claude Code markers, so check their specific signals first.
+    if os.environ.get("AGENT") == "amp" or is_set("AMP_CURRENT_THREAD_ID"):
+        return CodingAgent.AMP.value
+    if is_set("CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID"):
+        return CodingAgent.CODEX.value
+    if is_set("GEMINI_CLI"):
+        return CodingAgent.GEMINI_CLI.value
+    if is_set("COPILOT_CLI", "COPILOT_MODEL", "COPILOT_ALLOW_ALL", "COPILOT_GITHUB_TOKEN"):
+        return CodingAgent.COPILOT_CLI.value
+    if is_set("OPENCODE"):
+        return CodingAgent.OPENCODE.value
+    if is_set("ANTIGRAVITY_AGENT"):
+        return CodingAgent.ANTIGRAVITY.value
+    if is_set("AUGMENT_AGENT"):
+        return CodingAgent.AUGMENT_CLI.value
+    if is_set("CLINE_ACTIVE", "CLINE_AGENT"):
+        return CodingAgent.CLINE.value
+    if is_set("CLAUDECODE", "CLAUDE_CODE"):
+        if is_set("CLAUDE_CODE_IS_COWORK"):
+            return CodingAgent.COWORK.value
+        return CodingAgent.CLAUDE_CODE.value
+    if is_set("CURSOR_TRACE_ID"):
+        return CodingAgent.CURSOR.value
+    if is_set("CURSOR_AGENT") or os.environ.get("CURSOR_EXTENSION_HOST_ROLE") == "agent-exec":
+        return CodingAgent.CURSOR_CLI.value
+    if is_set("KIRO_AGENT_PATH") or os.environ.get("TERM_PROGRAM") == "kiro":
+        return CodingAgent.KIRO.value
+    if is_set("PI_CODING_AGENT"):
+        return CodingAgent.PI.value
+    if is_set("ANDROID_STUDIO_AGENT"):
+        return CodingAgent.ANDROID_STUDIO.value
     return None
 
 

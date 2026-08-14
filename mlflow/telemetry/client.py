@@ -27,6 +27,7 @@ from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get
 from mlflow.telemetry.utils import (
     _IS_IN_DATABRICKS,
     _IS_MLFLOW_DEV_VERSION,
+    _detect_agent,
     _detect_environment,
     _get_config_url,
     _log_error,
@@ -113,6 +114,7 @@ class TelemetryClient:
             TelemetryInfo(
                 session_id=_MLFLOW_TELEMETRY_SESSION_ID.get() or uuid.uuid4().hex,
                 environment=_detect_environment(),
+                coding_agent=_detect_agent(),
                 installation_id=get_or_create_installation_id(),
             )
         )
