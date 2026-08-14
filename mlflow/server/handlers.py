@@ -108,7 +108,6 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
-    RESOURCE_EXHAUSTED,
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
@@ -450,7 +449,7 @@ def _raise_custom_view_limit_exceeded(experiment_id: str | None = None) -> None:
         f"Unable to create another custom view{experiment_ref}; the maximum number of custom "
         f"views per experiment is {MAX_CUSTOM_VIEWS_PER_EXPERIMENT}. Delete an existing custom "
         "view before creating a new one.",
-        error_code=RESOURCE_EXHAUSTED,
+        error_code=INVALID_PARAMETER_VALUE,
     )
 
 

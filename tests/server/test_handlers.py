@@ -73,7 +73,6 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
-    RESOURCE_EXHAUSTED,
     ErrorCode,
 )
 from mlflow.protos.issues_pb2 import (
@@ -679,8 +678,8 @@ def _custom_view_tags(count, value="{}"):
     ("count", "value", "expected_status"),
     [
         (MAX_CUSTOM_VIEWS_PER_EXPERIMENT, "{}", 200),
-        (MAX_CUSTOM_VIEWS_PER_EXPERIMENT + 1, "{}", 429),
-        (MAX_CUSTOM_VIEWS_PER_EXPERIMENT + 1, "", 429),
+        (MAX_CUSTOM_VIEWS_PER_EXPERIMENT + 1, "{}", 400),
+        (MAX_CUSTOM_VIEWS_PER_EXPERIMENT + 1, "", 400),
     ],
 )
 def test_create_experiment_enforces_custom_view_limit(
@@ -695,9 +694,9 @@ def test_create_experiment_enforces_custom_view_limit(
     response = _create_experiment()
 
     assert response.status_code == expected_status
-    if expected_status == 429:
+    if expected_status == 400:
         body = json.loads(response.get_data())
-        assert body["error_code"] == ErrorCode.Name(RESOURCE_EXHAUSTED)
+        assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         assert (
             f"maximum number of custom views per experiment is {MAX_CUSTOM_VIEWS_PER_EXPERIMENT}"
             in body["message"]
@@ -722,9 +721,9 @@ def test_set_experiment_tag_rejects_new_custom_view_at_limit(
 
     response = _set_experiment_tag()
 
-    assert response.status_code == 429
+    assert response.status_code == 400
     body = json.loads(response.get_data())
-    assert body["error_code"] == ErrorCode.Name(RESOURCE_EXHAUSTED)
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert "for experiment exp-1" in body["message"]
     mock_tracking_store.set_experiment_tag.assert_not_called()
 
@@ -764,7 +763,7 @@ def test_set_experiment_tag_counts_empty_custom_view_tags(
 
     response = _set_experiment_tag()
 
-    assert response.status_code == 429
+    assert response.status_code == 400
     mock_tracking_store.set_experiment_tag.assert_not_called()
 
 
