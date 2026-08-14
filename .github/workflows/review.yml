@@ -263,6 +263,7 @@ jobs:
         env:
           GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
           GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
+          PROXY_CLIENT_KEY: ${{ steps.proxy.outputs.client-key }}
         run: |
           python <<'PY'
           import os
@@ -273,7 +274,7 @@ jobs:
           if not path.exists():
               sys.exit(0)
           data = path.read_text()
-          for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE"):
+          for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE", "PROXY_CLIENT_KEY"):
               if val := os.environ.get(name):
                   data = data.replace(val, "***")
           path.write_text(data)

@@ -15,7 +15,9 @@ if (!KEY || !CLIENT_KEY) {
 }
 
 const server = http.createServer((req, res) => {
-  console.log(`anthropic-proxy: ${req.method} ${req.url}`);
+  // Log the path only: the log is dumped into the public workflow log, so
+  // keep query strings out of it.
+  console.log(`anthropic-proxy: ${req.method} ${req.url.split("?")[0]}`);
   if (req.url === "/healthz" || req.url === "/api/hello") {
     res.writeHead(200).end("ok");
     return;
@@ -33,7 +35,10 @@ const server = http.createServer((req, res) => {
   const upstream = https.request(
     { host: "api.anthropic.com", path: req.url, method: req.method, headers },
     (up) => {
-      res.writeHead(up.statusCode, up.headers);
+      // Node decodes chunked framing on the upstream response and re-frames
+      // what we write, so drop hop-by-hop headers instead of echoing them.
+      const { "transfer-encoding": _te, connection: _conn, ...respHeaders } = up.headers;
+      res.writeHead(up.statusCode, respHeaders);
       up.pipe(res); // pipe to preserve SSE streaming
     }
   );
