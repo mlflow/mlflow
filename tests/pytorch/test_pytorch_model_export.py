@@ -1320,7 +1320,11 @@ def test_log_model_with_datetime_input():
     assert model_info.signature.inputs.inputs[0].type == DataType.datetime
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with torch.no_grad():
-        input_tensor = torch.from_numpy(df.to_numpy(dtype=np.float32))
+        # Schema enforcement normalizes datetime columns to nanosecond precision, so build the
+        # expected input the same way. pandas 3 defaults to microseconds, which would otherwise
+        # make the two paths differ by a factor of 1000 once cast to float.
+        enforced = df.astype({"datetime": "datetime64[ns]"})
+        input_tensor = torch.from_numpy(enforced.to_numpy(dtype=np.float32))
         expected_result = model(input_tensor)
     with torch.no_grad():
         np.testing.assert_array_almost_equal(pyfunc_model.predict(df), expected_result, decimal=4)
