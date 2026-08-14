@@ -142,6 +142,20 @@ def test_get_headers_uses_server_key_by_default():
     assert merged["X-Custom"] == "value"
 
 
+def test_get_headers_drops_client_auth_headers():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={
+            "authorization": "Bearer client-key",
+            "api-key": "client-azure-key",
+            "X-Custom": "value",
+        }
+    )
+    assert merged["authorization"] == "Bearer key"
+    assert "api-key" not in merged
+    assert merged["X-Custom"] == "value"
+
+
 @pytest.mark.parametrize(
     "user_agent",
     [
