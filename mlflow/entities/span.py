@@ -1043,7 +1043,7 @@ class LiveSpan(Span):
         # Span links are not supported for Unity Catalog (V4) traces. Warn and skip rather than
         # silently normalizing the V4 trace ID to raw OTel hex (see #25080); this matches how
         # V4-trace links are dropped at span construction.
-        if link.trace_id and link.trace_id.startswith(TRACE_ID_V4_PREFIX):
+        if link.trace_id is not None and link.trace_id.startswith(TRACE_ID_V4_PREFIX):
             _logger.warning(
                 "Span links are not currently supported for Unity Catalog traces. "
                 "The link to trace '%s' will be skipped.",
