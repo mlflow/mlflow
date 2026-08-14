@@ -522,13 +522,26 @@ def test_dataframe_from_json():
     )
     expected = pd.DataFrame(
         {
-            "datetime": pd.to_datetime([
-                "2022-01-01T00:00:00",
-                "2022-01-02T03:04:05",
-            ])
+            "datetime": np.array(
+                ["2022-01-01T00:00:00", "2022-01-02T03:04:05"],
+                dtype=DataType.datetime.to_pandas(),
+            )
         },
     )
     pd.testing.assert_frame_equal(parsed, expected)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["2022-01-01T00:00:00", "2022-01-01", "2022-01-01T00:00:00+02:00"],
+)
+def test_dataframe_from_json_parses_datetime_as_nanoseconds(value):
+    parsed = dataframe_from_raw_json(
+        json.dumps([{"datetime": value}]),
+        pandas_orient="records",
+        schema=Schema([ColSpec("datetime", "datetime")]),
+    )
+    assert getattr(parsed["datetime"].dt, "unit", "ns") == "ns"
 
 
 @pytest.mark.parametrize(
