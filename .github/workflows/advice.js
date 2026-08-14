@@ -200,7 +200,7 @@ ${activitySection}
       });
       if (hasUiChanges(files)) {
         messages.push(
-          "#### &#x1F5BC;&#xFE0F; Missing screenshot\n\n" +
+          "#### &#x1F5BC;&#xFE0F; Missing visual media\n\n" +
             "This PR changes front-end code, but the description has no screenshot or " +
             "screen recording. Please attach one to the PR description, including a " +
             "before/after pair if you're changing existing UI. Ignore this if it's a false alert."
