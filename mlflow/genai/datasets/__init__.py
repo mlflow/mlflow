@@ -27,7 +27,12 @@ _logger = logging.getLogger(__name__)
 
 _ERROR_MSG = (
     "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
-    "Please install it with `pip install databricks-agents`."
+    "Please install it with `pip install databricks-agents`. "
+    "Warning: `databricks-agents` depends on `databricks-connect`, which pins "
+    "`numpy<2`. Installing it into an environment that already has `numpy>=2` will "
+    "downgrade numpy and can break other packages that require `numpy>=2` (e.g. "
+    "`AttributeError: module 'numpy' has no attribute 'long'`). Consider installing "
+    "`databricks-agents` in a dedicated virtual environment."
 )
 
 _DATABRICKS_CONFIG_PROFILE_ENV_VAR = "DATABRICKS_CONFIG_PROFILE"
@@ -187,6 +192,12 @@ def create_dataset(
     Returns:
         An EvaluationDataset object representing the created dataset.
 
+    Note:
+        On Databricks, this function requires the ``databricks-agents`` package, which
+        depends on ``databricks-connect`` and pins ``numpy<2``. Installing it can
+        downgrade numpy in environments that already have ``numpy>=2``. Consider
+        installing ``databricks-agents`` in a dedicated virtual environment.
+
     Examples:
         .. code-block:: python
 
@@ -273,6 +284,10 @@ def delete_dataset(
     Note:
         - In Databricks environments: Use 'name' to specify the dataset.
         - Outside of Databricks: Use 'dataset_id' to specify the dataset
+        - On Databricks, this function requires the ``databricks-agents`` package, which
+          depends on ``databricks-connect`` and pins ``numpy<2``. Installing it can
+          downgrade numpy in environments that already have ``numpy>=2``. Consider
+          installing ``databricks-agents`` in a dedicated virtual environment.
 
     Examples:
         .. code-block:: python
@@ -346,6 +361,10 @@ def get_dataset(
         - In Databricks environments: Use 'name' to specify the dataset.
         - Outside of Databricks: Use either 'name' or 'dataset_id' to specify the dataset.
           If using 'name', the dataset name must be unique; otherwise use 'dataset_id'.
+        - On Databricks, this function requires the ``databricks-agents`` package, which
+          depends on ``databricks-connect`` and pins ``numpy<2``. Installing it can
+          downgrade numpy in environments that already have ``numpy>=2``. Consider
+          installing ``databricks-agents`` in a dedicated virtual environment.
 
     Examples:
         .. code-block:: python

@@ -1,3 +1,48 @@
+import importlib.util
+import warnings
+
+import numpy as np
+
+
+def _warn_if_databricks_connect_downgraded_numpy() -> None:
+    """
+    Warn when `databricks-connect` (pulled in by `databricks-agents`, a dependency of
+    `mlflow.genai.datasets` on Databricks) appears to have downgraded numpy to <2 in
+    this environment, which can cause cryptic errors such as
+    `AttributeError: module 'numpy' has no attribute 'long'` in packages that require
+    `numpy>=2` (see #24690).
+    """
+    try:
+        numpy_major_version = int(np.__version__.split(".")[0])
+    except (ValueError, IndexError):
+        return
+
+    if numpy_major_version >= 2:
+        return
+
+    # find_spec raises ModuleNotFoundError, rather than returning None, when the
+    # "databricks" parent package isn't installed at all.
+    try:
+        databricks_connect_installed = importlib.util.find_spec("databricks.connect") is not None
+    except (ImportError, ValueError):
+        return
+
+    if not databricks_connect_installed:
+        return
+
+    warnings.warn(
+        f"Detected numpy {np.__version__} alongside `databricks-connect`, which pins "
+        "`numpy<2`. If this environment previously had `numpy>=2`, installing "
+        "`databricks-agents` (a dependency of `mlflow.genai.datasets` on Databricks) "
+        "likely downgraded numpy, which can break other packages that require "
+        "`numpy>=2`. Consider reinstalling `numpy>=2` or using a dedicated "
+        "environment for `databricks-agents`.",
+        stacklevel=2,
+    )
+
+
+_warn_if_databricks_connect_downgraded_numpy()
+
 from mlflow.genai import (
     datasets,
     judges,

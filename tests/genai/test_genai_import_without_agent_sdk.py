@@ -63,6 +63,18 @@ def test_delete_dataset_raises_when_agents_not_installed():
             delete_dataset("test_dataset")
 
 
+@pytest.mark.parametrize("func", [create_dataset, get_dataset, delete_dataset])
+def test_dataset_import_error_warns_about_numpy_downgrade_risk(func):
+    # databricks-agents depends on databricks-connect, which pins numpy<2 and can
+    # silently downgrade numpy in the caller's environment (see #24690). The
+    # ImportError raised when databricks-agents isn't installed should warn about
+    # this before the user blindly installs it.
+    with patch("mlflow.genai.datasets.is_databricks_uri", return_value=True):
+        with pytest.raises(ImportError, match="numpy") as exc_info:
+            func("test_dataset")
+    assert "databricks-connect" in str(exc_info.value)
+
+
 class MockScorer(Scorer):
     """Mock scorer for testing purposes."""
 
