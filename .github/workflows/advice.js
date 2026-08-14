@@ -202,8 +202,8 @@ ${activitySection}
         messages.push(
           "#### &#x1F5BC;&#xFE0F; Missing screenshot\n\n" +
             "This PR changes front-end code, but the description has no screenshot or " +
-            "screen recording. Please attach one, including a before/after pair if " +
-            "you're changing existing UI. Ignore this if it's a false alert."
+            "screen recording. Please attach one to the PR description, including a " +
+            "before/after pair if you're changing existing UI. Ignore this if it's a false alert."
         );
       }
     } catch (e) {
