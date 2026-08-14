@@ -50,10 +50,9 @@ export const FeedbackInputText: ReactComponentImplementation = createComponentIm
   FeedbackInputTextApi,
   ({ props, context }) => {
     const { theme } = useDesignSystemTheme();
-    const { getFeedbackResetVersion } = useFeedbackStatus();
-    const initial = typeof props.value === 'string' ? props.value : '';
+    const { getFeedbackResetVersion, getStagedFeedbackValue } = useFeedbackStatus();
+    const boundValue = typeof props.value === 'string' ? props.value : '';
     const setValue = props.setValue;
-    const [text, setText] = useState<string>(initial);
 
     const contextRef = useRef(context);
     contextRef.current = context;
@@ -65,6 +64,8 @@ export const FeedbackInputText: ReactComponentImplementation = createComponentIm
     const spanId = typeof props.spanId === 'string' && props.spanId ? props.spanId : undefined;
     const formId = typeof props.formId === 'string' && props.formId ? props.formId : undefined;
     const weight = typeof props.weight === 'number' ? props.weight : undefined;
+    const initial = getStagedFeedbackValue({ name, spanId, formId }, field) ?? boundValue;
+    const [text, setText] = useState<string>(initial);
     const resetVersion = getFeedbackResetVersion({ name, spanId, formId });
     const observedResetVersionRef = useRef(resetVersion);
     const lastSyncedValueRef = useRef<string>();

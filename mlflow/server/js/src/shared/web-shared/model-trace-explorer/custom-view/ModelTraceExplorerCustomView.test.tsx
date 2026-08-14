@@ -1185,7 +1185,7 @@ describe('ModelTraceExplorerCustomView', () => {
       });
     });
 
-    it('keeps the staged radio selection when thumbs feedback refreshes the view', async () => {
+    it('keeps staged form values when thumbs feedback refreshes the view', async () => {
       jest.mocked(shouldUseTracesV4API).mockReturnValue(true);
       const posted = captureAssessmentPosts();
       setBridge();
@@ -1194,12 +1194,30 @@ describe('ModelTraceExplorerCustomView', () => {
 
       const accurate = await screen.findByRole('radio', { name: 'Accurate' });
       await userEvent.click(accurate);
+      const [rationale, note] = screen.getAllByRole('textbox');
+      await userEvent.type(rationale, 'Keep this rationale');
+      await userEvent.type(note, 'Keep this note');
       await userEvent.click(screen.getByRole('button', { name: 'Thumbs up' }));
 
       await waitFor(() => expect(posted).toHaveLength(1));
       await screen.findByText('Feedback submitted');
       expect(screen.getByRole('radio', { name: 'Accurate' })).toBeChecked();
-      await waitFor(() => expect(screen.getByRole('button', { name: 'Submit review' })).toBeEnabled());
+      const [refreshedRationale, refreshedNote] = screen.getAllByRole('textbox');
+      expect(refreshedRationale).toHaveValue('Keep this rationale');
+      expect(refreshedNote).toHaveValue('Keep this note');
+
+      const submit = screen.getByRole('button', { name: 'Submit review' });
+      await waitFor(() => expect(submit).toBeEnabled());
+      await userEvent.click(submit);
+      await waitFor(() => expect(posted).toHaveLength(3));
+      expect(posted.slice(1)).toEqual([
+        expect.objectContaining({
+          assessment_name: 'Accuracy',
+          feedback: { value: 'accurate' },
+          rationale: 'Keep this rationale',
+        }),
+        expect.objectContaining({ assessment_name: 'Notes', feedback: { value: 'Keep this note' } }),
+      ]);
     });
 
     it('reflects a bound thumbs value as the selected button', async () => {

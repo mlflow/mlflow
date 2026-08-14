@@ -481,11 +481,11 @@ export const ModelTraceExplorerCustomView = ({
   );
 
   const getStagedFeedbackValue = useCallback(
-    (entry: Pick<PendingFeedbackEntry, 'name' | 'spanId' | 'formId'>) => {
+    (entry: Pick<PendingFeedbackEntry, 'name' | 'spanId' | 'formId'>, field: 'value' | 'rationale' = 'value') => {
       if (!surfaceId) {
         return undefined;
       }
-      return pendingFeedbackRef.current.get(surfaceId)?.get(feedbackEntryKey(entry))?.value;
+      return pendingFeedbackRef.current.get(surfaceId)?.get(feedbackEntryKey(entry))?.[field];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- this state tick makes the mutable ref reactive.
     [surfaceId, pendingFeedbackVersion],
