@@ -8,7 +8,9 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.utils.trace_analytics import (
     analytics_columns_from_metadata,
+    assessment_aggregate,
     compatibility_metadata_from_columns,
+    finite_float_or_none,
     token_count_or_none,
     validate_session_id,
     validate_trace_name,
@@ -38,10 +40,55 @@ from mlflow.tracing.constant import (
         (-(2**63) - 1, None),
         (2**63, None),
         ("not-a-number", None),
+        # A huge integer stays within Decimal's arbitrary precision and is rejected by the bigint
+        # range check, so it never reaches float() and never raises OverflowError.
+        (10**400, None),
+        (-(10**400), None),
     ],
 )
 def test_token_count_or_none(value, expected):
     assert token_count_or_none(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, None),
+        (True, None),
+        (1.5, 1.5),
+        (100, 100.0),
+        ("2.5", 2.5),
+        (Decimal("2.5"), 2.5),
+        (float("nan"), None),
+        (float("inf"), None),
+        # A magnitude too large for a float must return None instead of raising OverflowError.
+        (10**400, None),
+        (-(10**400), None),
+    ],
+)
+def test_finite_float_or_none(value, expected):
+    assert finite_float_or_none(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (True, (1.0, False)),
+        (False, (0.0, False)),
+        (1.5, (1.5, True)),
+        (3, (3.0, True)),
+        ("yes", (1.0, False)),
+        ("no", (0.0, False)),
+        ("other", (None, False)),
+        (float("nan"), (None, False)),
+        (float("inf"), (None, False)),
+        # A magnitude too large for a float must return (None, False) instead of raising.
+        (10**400, (None, False)),
+        (-(10**400), (None, False)),
+    ],
+)
+def test_assessment_aggregate(value, expected):
+    assert assessment_aggregate(value) == expected
 
 
 def test_analytics_columns_from_metadata_converts_integral_token_counts():
