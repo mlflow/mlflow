@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { z } from 'zod';
 import { createComponentImplementation, type ReactComponentImplementation } from '@a2ui/react/v0_9';
@@ -10,6 +10,7 @@ import {
   ThumbsUpIcon,
   Typography,
   useDesignSystemTheme,
+  visuallyHidden,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 
@@ -56,6 +57,10 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
     const intl = useIntl();
     const { enabled, traceId } = useFeedbackStatus();
     const [status, setStatus] = useState<SubmitStatus>('idle');
+    const boundValue = typeof props.value === 'boolean' ? props.value : undefined;
+    const [selected, setSelected] = useState<boolean | undefined>(boundValue);
+
+    useEffect(() => setSelected(boundValue), [boundValue]);
 
     const { createAssessmentMutation, isLoading } = useCreateAssessment({
       traceId,
@@ -70,6 +75,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
       if (isLoading) {
         return;
       }
+      setSelected(value);
       props.setValue(value);
 
       if (!enabled || !traceId) {
@@ -104,17 +110,27 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
         {status === 'success' ? (
           <span
             css={{ display: 'inline-flex', alignItems: 'center', color: theme.colors.textValidationSuccess }}
+            role="status"
             aria-live="polite"
+            aria-atomic="true"
           >
-            <CheckCircleIcon />
+            <CheckCircleIcon aria-hidden="true" />
+            <span css={visuallyHidden}>
+              {intl.formatMessage({
+                defaultMessage: 'Feedback submitted',
+                description: 'Accessible confirmation after thumbs feedback is logged in a custom trace view',
+              })}
+            </span>
           </span>
         ) : (
           <>
             <Button
               componentId="shared.model-trace-explorer.custom-view.feedback-up"
               icon={<ThumbsUpIcon />}
+              type={selected === true ? 'primary' : undefined}
               disabled={isLoading}
               onClick={() => submit(true)}
+              aria-pressed={selected === true}
               aria-label={intl.formatMessage({
                 defaultMessage: 'Thumbs up',
                 description: 'Accessible label for the thumbs-up feedback button in a custom trace view',
@@ -123,8 +139,10 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
             <Button
               componentId="shared.model-trace-explorer.custom-view.feedback-down"
               icon={<ThumbsDownIcon />}
+              type={selected === false ? 'primary' : undefined}
               disabled={isLoading}
               onClick={() => submit(false)}
+              aria-pressed={selected === false}
               aria-label={intl.formatMessage({
                 defaultMessage: 'Thumbs down',
                 description: 'Accessible label for the thumbs-down feedback button in a custom trace view',

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { z } from 'zod';
 import { createComponentImplementation, type ReactComponentImplementation } from '@a2ui/react/v0_9';
@@ -7,6 +7,7 @@ import { Input, Typography, useDesignSystemTheme } from '@databricks/design-syst
 
 import { FEEDBACK_STAGED } from './feedbackActions';
 import { asString } from '../catalogPrimitiveUtils';
+import { useFeedbackStatus } from '../FeedbackStatusContext';
 
 const FIELDS = ['value', 'rationale'] as const;
 type FieldTarget = (typeof FIELDS)[number];
@@ -49,7 +50,9 @@ export const FeedbackInputText: ReactComponentImplementation = createComponentIm
   FeedbackInputTextApi,
   ({ props, context }) => {
     const { theme } = useDesignSystemTheme();
+    const { getFeedbackResetVersion } = useFeedbackStatus();
     const initial = typeof props.value === 'string' ? props.value : '';
+    const setValue = props.setValue;
     const [text, setText] = useState<string>(initial);
 
     const contextRef = useRef(context);
@@ -59,21 +62,59 @@ export const FeedbackInputText: ReactComponentImplementation = createComponentIm
     const name = props.name ? asString(props.name) : '';
     const placeholder = props.placeholder ? asString(props.placeholder) : undefined;
     const field: FieldTarget = props.field === 'value' ? 'value' : 'rationale';
+    const spanId = typeof props.spanId === 'string' && props.spanId ? props.spanId : undefined;
+    const formId = typeof props.formId === 'string' && props.formId ? props.formId : undefined;
     const weight = typeof props.weight === 'number' ? props.weight : undefined;
+    const resetVersion = getFeedbackResetVersion({ name, spanId, formId });
+    const observedResetVersionRef = useRef(resetVersion);
+    const lastSyncedValueRef = useRef<string>();
+    const hasSyncedValueRef = useRef(false);
+
+    const dispatchStage = useCallback(
+      (next: string) => {
+        void contextRef.current.dispatchAction({
+          event: {
+            name: FEEDBACK_STAGED,
+            context: {
+              name,
+              ...(field === 'value' ? { value: next } : { rationale: next }),
+              ...(spanId ? { spanId } : {}),
+              ...(formId ? { formId } : {}),
+            },
+          },
+        });
+      },
+      [field, formId, name, spanId],
+    );
+
+    useEffect(() => {
+      if (observedResetVersionRef.current !== resetVersion) {
+        observedResetVersionRef.current = resetVersion;
+        hasSyncedValueRef.current = true;
+        lastSyncedValueRef.current = '';
+        setText('');
+        setValue('');
+        return;
+      }
+      if (hasSyncedValueRef.current && lastSyncedValueRef.current === initial) {
+        return;
+      }
+      const hadSyncedValue = hasSyncedValueRef.current;
+      hasSyncedValueRef.current = true;
+      lastSyncedValueRef.current = initial;
+      setText(initial);
+      // A prefilled bound value is active feedback, so stage it immediately.
+      // Also propagate a later external clear to remove an already-staged value.
+      if (initial.length > 0 || hadSyncedValue) {
+        dispatchStage(initial);
+      }
+    }, [dispatchStage, initial, resetVersion, setValue]);
 
     const stage = (next: string) => {
-      props.setValue(next);
-      void contextRef.current.dispatchAction({
-        event: {
-          name: FEEDBACK_STAGED,
-          context: {
-            name,
-            ...(field === 'value' ? { value: next } : { rationale: next }),
-            ...(typeof props.spanId === 'string' && props.spanId ? { spanId: props.spanId } : {}),
-            ...(typeof props.formId === 'string' && props.formId ? { formId: props.formId } : {}),
-          },
-        },
-      });
+      hasSyncedValueRef.current = true;
+      lastSyncedValueRef.current = next;
+      setValue(next);
+      dispatchStage(next);
     };
 
     return (
@@ -88,6 +129,7 @@ export const FeedbackInputText: ReactComponentImplementation = createComponentIm
         {label && <Typography.Text color="secondary">{label}</Typography.Text>}
         <Input.TextArea
           componentId="shared.model-trace-explorer.custom-view.feedback-input-text"
+          aria-label={label || name}
           placeholder={placeholder}
           value={text}
           autoSize={{ minRows: 2, maxRows: 6 }}

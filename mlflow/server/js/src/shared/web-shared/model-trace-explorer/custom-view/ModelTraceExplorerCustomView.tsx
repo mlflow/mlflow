@@ -77,6 +77,17 @@ const nextViewId = (): string => `${Date.now().toString(36)}-${(viewIdCounter++)
 const doesFeedbackEntryMatchForm = (entry: { formId?: string }, formId: string | undefined): boolean =>
   entry.formId === formId;
 
+type PendingFeedbackEntry = {
+  name: string;
+  value?: string;
+  rationale?: string;
+  spanId?: string;
+  formId?: string;
+};
+
+const feedbackEntryKey = ({ name, spanId, formId }: Pick<PendingFeedbackEntry, 'name' | 'spanId' | 'formId'>) =>
+  `${formId ?? ''}\u0000${name}\u0000${spanId ?? ''}`;
+
 const AssistantSparkleButton = ({
   componentId,
   onClick,
@@ -205,9 +216,11 @@ export const ModelTraceExplorerCustomView = ({
 
   // Staged-but-unsubmitted feedback per surface, keyed by form + name + span so
   // controls in separate forms or on separate spans never collide.
-  const pendingFeedbackRef = useRef<
-    Map<string, Map<string, { name: string; value?: string; rationale?: string; spanId?: string; formId?: string }>>
-  >(new Map());
+  const pendingFeedbackRef = useRef<Map<string, Map<string, PendingFeedbackEntry>>>(new Map());
+  // Successful entries increment their own reset version so the matching radio
+  // and text controls clear after persistence while failed or newly edited
+  // entries remain visible for retry.
+  const feedbackResetVersionsRef = useRef<Map<string, Map<string, number>>>(new Map());
   const [pendingFeedbackVersion, bumpPendingFeedbackVersion] = useReducer((tick: number) => tick + 1, 0);
 
   // A single long-lived processor holds the state for the active view's surface.
@@ -239,16 +252,30 @@ export const ModelTraceExplorerCustomView = ({
     }
     const spanId = typeof context['spanId'] === 'string' && context['spanId'] ? context['spanId'] : undefined;
     const formId = typeof context['formId'] === 'string' && context['formId'] ? context['formId'] : undefined;
-    const bufferKey = `${formId ?? ''}\u0000${name}\u0000${spanId ?? ''}`;
-    const previous = surfaceBuffer.get(bufferKey) ?? { name };
-    surfaceBuffer.set(bufferKey, {
+    const bufferKey = feedbackEntryKey({ formId, name, spanId });
+    const previous = surfaceBuffer.get(bufferKey);
+    const next: PendingFeedbackEntry = {
       ...previous,
       name,
       ...(typeof context['value'] === 'string' ? { value: context['value'] } : {}),
       ...(typeof context['rationale'] === 'string' ? { rationale: context['rationale'] } : {}),
       ...(spanId ? { spanId } : {}),
       ...(formId ? { formId } : {}),
-    });
+    };
+    // A data-only surface rebind can remount a control and stage the same bound
+    // value again while its request is in flight. Preserve the entry identity
+    // for a no-op restage so it is not mistaken for a newer user edit.
+    if (
+      previous &&
+      previous.name === next.name &&
+      previous.value === next.value &&
+      previous.rationale === next.rationale &&
+      previous.spanId === next.spanId &&
+      previous.formId === next.formId
+    ) {
+      return;
+    }
+    surfaceBuffer.set(bufferKey, next);
     bumpPendingFeedbackVersion();
   };
 
@@ -259,7 +286,7 @@ export const ModelTraceExplorerCustomView = ({
       throw new Error('There is no staged feedback to submit.');
     }
 
-    const submittable: { key: string; payload: CreateAssessmentPayload }[] = [];
+    const submittable: { key: string; entry: PendingFeedbackEntry; payload: CreateAssessmentPayload }[] = [];
     for (const [key, entry] of surfaceBuffer.entries()) {
       if (!doesFeedbackEntryMatchForm(entry, formId)) {
         continue;
@@ -272,6 +299,7 @@ export const ModelTraceExplorerCustomView = ({
       const feedbackValue: { feedback: Feedback } = { feedback: { value: entry.value } };
       submittable.push({
         key,
+        entry,
         payload: {
           assessment: {
             assessment_name: entry.name,
@@ -291,21 +319,37 @@ export const ModelTraceExplorerCustomView = ({
     // React Query stores mutate callbacks on one observer, so sequential writes
     // keep each request's callbacks paired with its promise.
     let submitted = 0;
-    for (const { key, payload } of submittable) {
+    let failed = 0;
+    for (const { key, entry, payload } of submittable) {
       try {
         await createAssessmentAsync(payload);
-        surfaceBuffer.delete(key);
         submitted += 1;
+        // A trace/view transition can replace the surface's buffer while this
+        // request is in flight, and the user can edit the same control before
+        // it finishes. Clear/reset only when both the buffer and entry are still
+        // the exact versions captured for this request.
+        if (pendingFeedbackRef.current.get(activeSurfaceId) === surfaceBuffer && surfaceBuffer.get(key) === entry) {
+          surfaceBuffer.delete(key);
+          let resetVersions = feedbackResetVersionsRef.current.get(activeSurfaceId);
+          if (!resetVersions) {
+            resetVersions = new Map();
+            feedbackResetVersionsRef.current.set(activeSurfaceId, resetVersions);
+          }
+          resetVersions.set(key, (resetVersions.get(key) ?? 0) + 1);
+        }
       } catch {
         // Failed entries remain staged so the user can retry them.
+        failed += 1;
       }
     }
-    if (surfaceBuffer.size === 0) {
+    if (pendingFeedbackRef.current.get(activeSurfaceId) === surfaceBuffer && surfaceBuffer.size === 0) {
       pendingFeedbackRef.current.delete(activeSurfaceId);
     }
     bumpPendingFeedbackVersion();
-    if (submitted === 0) {
-      throw new Error('Every staged feedback request failed.');
+    if (failed > 0) {
+      throw new Error(
+        submitted > 0 ? 'Some staged feedback requests failed.' : 'Every staged feedback request failed.',
+      );
     }
     return { submitted };
   };
@@ -425,7 +469,19 @@ export const ModelTraceExplorerCustomView = ({
     [surfaceId, pendingFeedbackVersion],
   );
 
+  const getFeedbackResetVersion = useCallback(
+    (entry: Pick<PendingFeedbackEntry, 'name' | 'spanId' | 'formId'>) => {
+      if (!surfaceId) {
+        return 0;
+      }
+      return feedbackResetVersionsRef.current.get(surfaceId)?.get(feedbackEntryKey(entry)) ?? 0;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this state tick makes the mutable ref reactive.
+    [surfaceId, pendingFeedbackVersion],
+  );
+
   const managedSurfacesRef = useRef<Set<string>>(new Set());
+  const managedSurfaceTemplateFingerprintsRef = useRef<Map<string, string>>(new Map());
 
   // The id of the view targeted by the next agent spec. Held in a ref so that
   // specs applied in the same tick all resolve to the same id. Kept in sync with
@@ -571,6 +627,7 @@ export const ModelTraceExplorerCustomView = ({
     setInstruction('');
     // Unsubmitted feedback belongs to the trace it was entered on.
     pendingFeedbackRef.current.clear();
+    feedbackResetVersionsRef.current.clear();
     bumpPendingFeedbackVersion();
   }, [traceId]);
 
@@ -589,14 +646,25 @@ export const ModelTraceExplorerCustomView = ({
         processor.processMessages([{ version: 'v0.9', deleteSurface: { surfaceId } }]);
         managedSurfacesRef.current.delete(surfaceId);
         pendingFeedbackRef.current.delete(surfaceId);
+        feedbackResetVersionsRef.current.delete(surfaceId);
+        managedSurfaceTemplateFingerprintsRef.current.delete(surfaceId);
         bumpPendingFeedbackVersion();
       }
     }
 
     for (const view of panelsToRender) {
       const surfaceId = surfaceIdForView(view);
+      const templateFingerprint = JSON.stringify(view.template ?? []);
       // Delete any prior contents so the surface rebinds cleanly to this trace.
       if (managedSurfacesRef.current.has(surfaceId)) {
+        // A changed template can replace or regroup controls while keeping the
+        // same surface id. Drop values staged against the prior definition, but
+        // preserve them across ordinary data-only rebinds of the same template.
+        if (managedSurfaceTemplateFingerprintsRef.current.get(surfaceId) !== templateFingerprint) {
+          pendingFeedbackRef.current.delete(surfaceId);
+          feedbackResetVersionsRef.current.delete(surfaceId);
+          bumpPendingFeedbackVersion();
+        }
         processor.processMessages([{ version: 'v0.9', deleteSurface: { surfaceId } }]);
       }
 
@@ -622,6 +690,7 @@ export const ModelTraceExplorerCustomView = ({
 
       processor.processMessages(messages);
       managedSurfacesRef.current.add(surfaceId);
+      managedSurfaceTemplateFingerprintsRef.current.set(surfaceId, templateFingerprint);
     }
 
     refreshSurfaces();
@@ -1167,7 +1236,15 @@ export const ModelTraceExplorerCustomView = ({
               {activeView.label || untitledLabel}
             </Typography.Title>
             {surface && (
-              <FeedbackStatusProvider value={{ enabled: true, traceId, hasStagedFeedback, submitStagedFeedback }}>
+              <FeedbackStatusProvider
+                value={{
+                  enabled: true,
+                  traceId,
+                  hasStagedFeedback,
+                  submitStagedFeedback,
+                  getFeedbackResetVersion,
+                }}
+              >
                 <A2uiSurface key={`${surfaceId}-${traceId}`} surface={surface} />
               </FeedbackStatusProvider>
             )}

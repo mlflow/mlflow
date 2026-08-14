@@ -9,7 +9,8 @@
 
 /**
  * Dispatched whenever a staged-feedback input changes. The host merges the
- * action context into its pending buffer keyed by `{ surfaceId -> name }`.
+ * action context into its pending buffer keyed by surface id plus `formId`,
+ * `name`, and `spanId`.
  * Context: `{ name, value?, rationale?, spanId?, formId? }` — `value` and
  * `rationale` are both optional so an input can stage either field (or both over
  * time). The host reads each field defensively off the untrusted action context,

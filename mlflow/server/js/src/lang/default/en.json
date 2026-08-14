@@ -1447,6 +1447,10 @@
     "defaultMessage": "API key name",
     "description": "Label for API key name input"
   },
+  "4Dpb3c": {
+    "defaultMessage": "Feedback submitted",
+    "description": "Accessible confirmation after thumbs feedback is logged in a custom trace view"
+  },
   "4GPLHq": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
     "description": "Description for the edit aliases modal on the registered prompt details page"

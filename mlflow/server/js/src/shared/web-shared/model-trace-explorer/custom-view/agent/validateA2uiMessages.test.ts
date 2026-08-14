@@ -165,6 +165,61 @@ describe('validateTemplate feedback form pairing', () => {
   });
 
   it.each([
+    { id: 'thumbs', component: 'FeedbackThumbsUpDownButtons', spanId: 'span-1' },
+    radio('rating', { spanId: 'span-1' }),
+    {
+      id: 'note',
+      component: 'FeedbackInputText',
+      name: 'Notes',
+      field: 'value',
+      formId: 'feedback',
+      spanId: 'span-1',
+    },
+  ])('rejects a literal spanId on $component', (component) => {
+    const result = validateTemplate(feedbackFormTemplate([component]));
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('must use a valid "$spanRef" marker') });
+  });
+
+  it('rejects a rationale without a radio matching its form, name, and span target', () => {
+    const toolSpan = { $spanRef: { type: 'TOOL' } };
+    const result = validateTemplate(
+      feedbackFormTemplate([
+        radio('rating', { spanId: toolSpan }),
+        {
+          id: 'rationale',
+          component: 'FeedbackInputText',
+          name: 'Accuracy',
+          formId: 'feedback',
+          spanId: { $spanRef: 'root' },
+        },
+        { id: 'submit', component: 'FeedbackSubmit', formId: 'feedback' },
+      ]),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('no RadioGroup shares its "formId", "name", and span target'),
+    });
+  });
+
+  it.each([
+    ['formId', { name: 'Accuracy', formId: 'other' }],
+    ['name', { name: 'Helpfulness', formId: 'feedback' }],
+  ])('rejects a rationale whose %s differs from its radio', (field, rationaleProps) => {
+    const result = validateTemplate(
+      feedbackFormTemplate([
+        radio('rating'),
+        { id: 'rationale', component: 'FeedbackInputText', ...rationaleProps },
+        { id: 'submit', component: 'FeedbackSubmit', formId: 'feedback' },
+        ...(field === 'formId' ? [{ id: 'other-submit', component: 'FeedbackSubmit', formId: 'other' }] : []),
+      ]),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('no RadioGroup shares its "formId", "name", and span target'),
+    });
+  });
+
+  it.each([
     ['RadioGroup', radio('rating', { formId: undefined })],
     ['FeedbackInputText', { id: 'note', component: 'FeedbackInputText', name: 'Notes' }],
     ['FeedbackSubmit', { id: 'submit', component: 'FeedbackSubmit' }],

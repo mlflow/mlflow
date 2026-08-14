@@ -301,6 +301,24 @@ export const validateAndPrepareMessages = (
 // surface id is injected later by `validateAndPrepareMessages` when the resolved
 // per-trace messages are prepared.
 const TEMPLATE_SURFACE_ID = 'main';
+const SPAN_TARGETED_FEEDBACK_COMPONENTS = new Set(['FeedbackThumbsUpDownButtons', 'RadioGroup', 'FeedbackInputText']);
+
+const feedbackSpanTargetKey = (spanId: unknown): string => {
+  if (spanId === undefined) {
+    return 'trace';
+  }
+  if (!isSpanRefMarker(spanId)) {
+    return 'invalid';
+  }
+  const selector = spanId.$spanRef;
+  if (selector === 'root') {
+    return 'root';
+  }
+  if (isRecord(selector)) {
+    return `type:${String(selector['type'] ?? '')}|name:${String(selector['name'] ?? '')}|nth:${String(selector['nth'] ?? 0)}`;
+  }
+  return 'invalid';
+};
 
 // Validates the binding markers + narrative rules for a single template
 // component. Unlike `validateComponentProps`, this does NOT strict-check props
@@ -335,6 +353,23 @@ const validateTemplateComponent = (component: Record<string, unknown>): string |
         `Component "${id}" (${componentName}) is missing a "formId". Every RadioGroup / FeedbackInputText / ` +
         `FeedbackSubmit must set a static "formId" naming its form — a single-form view gives its one form an id ` +
         `too, and multi-form views give each form a distinct id.`
+      );
+    }
+  }
+
+  if (
+    (componentName === 'RadioGroup' || componentName === 'FeedbackInputText') &&
+    (typeof component['name'] !== 'string' || component['name'].length === 0)
+  ) {
+    return `Component "${id}" (${componentName}) must set a non-empty static "name" for its assessment dimension.`;
+  }
+
+  if (SPAN_TARGETED_FEEDBACK_COMPONENTS.has(componentName) && 'spanId' in component) {
+    if (!isSpanRefMarker(component['spanId']) || !isValidSpanRefSelector(component['spanId'].$spanRef)) {
+      return (
+        `Component "${id}" (${componentName}) must use a valid "$spanRef" marker for "spanId". ` +
+        `Use { "$spanRef": "root" }, { "$spanRef": { "type": "<SPAN_TYPE>", "nth"?: n } }, or ` +
+        `{ "$spanRef": { "name": "<span name>" } }; concrete span ids are not reusable across traces.`
       );
     }
   }
@@ -481,7 +516,8 @@ export type TemplateValidateResult = { ok: true; messages: A2uiMessage[] } | { o
  *    spanRef selector) and rejects forbidden trace-specific narrative,
  *  - walks any `updateDataModel` value for the same narrative rules, since
  *    components can read it back through a `{ "path": ... }` binding,
- *  - verifies staged feedback controls and submits are paired by `formId`,
+ *  - verifies staged feedback controls and submits are paired by `formId`, and
+ *    rationale inputs match a radio by form, assessment name, and span target,
  *  - requires a `root` component,
  *
  * returning the marker-preserving template to persist. Per-trace rendering then
@@ -498,6 +534,8 @@ export const validateTemplate = (raw: unknown): TemplateValidateResult => {
   let sawRoot = false;
   const submitForms: { id: string; formId: string }[] = [];
   const controlForms: { id: string; formId: string }[] = [];
+  const radioTargets = new Set<string>();
+  const rationaleInputs: { id: string; target: string }[] = [];
   const submitFormIds = new Set<string>();
   const controlFormIds = new Set<string>();
 
@@ -546,6 +584,12 @@ export const validateTemplate = (raw: unknown): TemplateValidateResult => {
           const formId = String(component['formId']);
           controlForms.push({ id: String(component['id']), formId });
           controlFormIds.add(formId);
+          const target = `${formId}\u0000${String(component['name'])}\u0000${feedbackSpanTargetKey(component['spanId'])}`;
+          if (component['component'] === 'RadioGroup') {
+            radioTargets.add(target);
+          } else if (component['field'] !== 'value') {
+            rationaleInputs.push({ id: String(component['id']), target });
+          }
         }
         if (component['component'] === 'FeedbackSubmit') {
           const formId = String(component['formId']);
@@ -601,6 +645,17 @@ export const validateTemplate = (raw: unknown): TemplateValidateResult => {
           `Component "${control.id}" is in form "${control.formId}", but no FeedbackSubmit shares that "formId", ` +
           `so its staged feedback could never be submitted. Add a FeedbackSubmit with the same "formId", or move ` +
           `this control into an existing form.`,
+      };
+    }
+  }
+  for (const rationale of rationaleInputs) {
+    if (!radioTargets.has(rationale.target)) {
+      return {
+        ok: false,
+        error:
+          `Component "${rationale.id}" (FeedbackInputText) stages a rationale, but no RadioGroup shares its ` +
+          `"formId", "name", and span target. Match all three fields to the RadioGroup this rationale annotates, ` +
+          `or set "field" to "value" for standalone text feedback.`,
       };
     }
   }

@@ -53,6 +53,7 @@ export const FeedbackSubmit: ReactComponentImplementation = createComponentImple
       if (status === 'pending' || !hasStagedFeedback(formId)) {
         return;
       }
+      window.clearTimeout(resetTimerRef.current);
       setStatus('pending');
       submitStagedFeedback(formId)
         .then(() => {

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { z } from 'zod';
 import { createComponentImplementation, type ReactComponentImplementation } from '@a2ui/react/v0_9';
@@ -7,6 +7,10 @@ import { Radio, Typography, useDesignSystemTheme } from '@databricks/design-syst
 
 import { FEEDBACK_STAGED } from './feedbackActions';
 import { asString } from '../catalogPrimitiveUtils';
+import { useFeedbackStatus } from '../FeedbackStatusContext';
+
+let radioGroupId = 0;
+const nextRadioGroupName = () => `shared-model-trace-explorer-custom-view-radio-group-${radioGroupId++}`;
 
 /**
  * Schema (API) for the interactive RadioGroup feedback primitive: a single
@@ -50,8 +54,10 @@ export const RadioGroup: ReactComponentImplementation = createComponentImplement
   RadioGroupApi,
   ({ props, context }) => {
     const { theme } = useDesignSystemTheme();
-    const initial = typeof props.value === 'string' ? props.value : undefined;
-    const [selected, setSelected] = useState<string | undefined>(initial);
+    const { getFeedbackResetVersion } = useFeedbackStatus();
+    const initial = typeof props.value === 'string' ? props.value : '';
+    const setValue = props.setValue;
+    const [selected, setSelected] = useState(initial);
 
     const contextRef = useRef(context);
     contextRef.current = context;
@@ -59,22 +65,61 @@ export const RadioGroup: ReactComponentImplementation = createComponentImplement
     const label = props.label ? asString(props.label) : '';
     const name = props.name ? asString(props.name) : '';
     const options = Array.isArray(props.options) ? props.options : [];
+    const spanId = typeof props.spanId === 'string' && props.spanId ? props.spanId : undefined;
+    const formId = typeof props.formId === 'string' && props.formId ? props.formId : undefined;
     const weight = typeof props.weight === 'number' ? props.weight : undefined;
+    const [groupName] = useState(nextRadioGroupName);
+    const resetVersion = getFeedbackResetVersion({ name, spanId, formId });
+    const observedResetVersionRef = useRef(resetVersion);
+    const lastSyncedValueRef = useRef<string>();
+    const hasSyncedValueRef = useRef(false);
+
+    const dispatchStage = useCallback(
+      (value: string) => {
+        void contextRef.current.dispatchAction({
+          event: {
+            name: FEEDBACK_STAGED,
+            context: {
+              name,
+              value,
+              ...(spanId ? { spanId } : {}),
+              ...(formId ? { formId } : {}),
+            },
+          },
+        });
+      },
+      [formId, name, spanId],
+    );
+
+    useEffect(() => {
+      if (observedResetVersionRef.current !== resetVersion) {
+        observedResetVersionRef.current = resetVersion;
+        hasSyncedValueRef.current = true;
+        lastSyncedValueRef.current = '';
+        setSelected('');
+        setValue('');
+        return;
+      }
+      if (hasSyncedValueRef.current && lastSyncedValueRef.current === initial) {
+        return;
+      }
+      const hadSyncedValue = hasSyncedValueRef.current;
+      hasSyncedValueRef.current = true;
+      lastSyncedValueRef.current = initial;
+      setSelected(initial);
+      // A prefilled bound value is active feedback, so stage it immediately.
+      // Also propagate a later external clear to remove an already-staged value.
+      if (initial || hadSyncedValue) {
+        dispatchStage(initial);
+      }
+    }, [dispatchStage, initial, resetVersion, setValue]);
 
     const select = (value: string) => {
+      hasSyncedValueRef.current = true;
+      lastSyncedValueRef.current = value;
       setSelected(value);
-      props.setValue(value);
-      void contextRef.current.dispatchAction({
-        event: {
-          name: FEEDBACK_STAGED,
-          context: {
-            name,
-            value,
-            ...(typeof props.spanId === 'string' && props.spanId ? { spanId: props.spanId } : {}),
-            ...(typeof props.formId === 'string' && props.formId ? { formId: props.formId } : {}),
-          },
-        },
-      });
+      setValue(value);
+      dispatchStage(value);
     };
 
     return (
@@ -88,7 +133,7 @@ export const RadioGroup: ReactComponentImplementation = createComponentImplement
       >
         {label && <Typography.Text color="secondary">{label}</Typography.Text>}
         <Radio.Group
-          name={name || 'shared.model-trace-explorer.custom-view.radio-group'}
+          name={groupName}
           componentId="shared.model-trace-explorer.custom-view.radio-group"
           value={selected}
           onChange={(event) => select(asString(event.target.value))}

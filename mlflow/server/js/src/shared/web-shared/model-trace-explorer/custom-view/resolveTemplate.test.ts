@@ -136,7 +136,7 @@ describe('resolveTemplate', () => {
     expect(componentsOf(resolved)[0].spanId).toBe('tool0');
   });
 
-  it('drops an unresolved $spanRef prop instead of pointing at a missing span', () => {
+  it('prunes feedback whose $spanRef target is missing instead of logging it at trace level', () => {
     const resolved = resolveTemplate(
       [
         updateComponents([
@@ -150,7 +150,7 @@ describe('resolveTemplate', () => {
       ],
       ctx,
     );
-    expect('spanId' in componentsOf(resolved)[0]).toBe(false);
+    expect(componentsOf(resolved)).toEqual([{ id: 'root', component: 'Column', children: [] }]);
   });
 
   it('prunes a renderIfSpan subtree when the guard resolves to no span', () => {

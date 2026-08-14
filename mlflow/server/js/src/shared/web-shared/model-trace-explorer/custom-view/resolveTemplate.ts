@@ -28,6 +28,7 @@ import {
 } from './customViewSources';
 
 const SPAN_GUARD_KEY = 'renderIfSpan';
+const SPAN_TARGETED_FEEDBACK_COMPONENTS = new Set(['FeedbackThumbsUpDownButtons', 'RadioGroup', 'FeedbackInputText']);
 
 // The component id the renderer walks the tree from, and which
 // `validateAndPrepareMessages` requires the resolved stream to contain.
@@ -110,8 +111,9 @@ const resolveComponent = (
     }
     if (isSpanRefMarker(value)) {
       const spanId = resolveSpanRef(value.$spanRef, ctx.nodeMap);
-      // Unresolved -> drop the prop so the control resolves at trace level
-      // instead of pointing at a span that doesn't exist in this trace.
+      // Missing feedback targets are pruned before resolution. For any other
+      // top-level marker, omit an unresolved prop instead of emitting an invalid
+      // span id.
       if (spanId) {
         resolved[key] = spanId;
       }
@@ -124,10 +126,11 @@ const resolveComponent = (
 };
 
 // Computes the set of component ids to prune: every component carrying a
-// `renderIfSpan` guard that resolves to NO span in the current trace, plus all
-// of its descendants (walked via `child`/`children`). An invalid/unrecognized
-// guard is ignored (the component renders) so a malformed guard never hides
-// content.
+// `renderIfSpan` guard that resolves to NO span in the current trace, plus every
+// span-targeted feedback control whose `spanId` marker cannot resolve, and all
+// of their descendants (walked via `child`/`children`). An invalid/unrecognized
+// marker is ignored here because template validation rejects it before this
+// resolver runs.
 //
 // We then cascade upward across the singular `child` link: a component whose
 // sole `child` was pruned is left empty, and for the strict-validated Card
@@ -167,11 +170,21 @@ const computePrunedIds = (components: unknown[], nodeMap: Record<string, ModelTr
     }
   };
   for (const component of components) {
-    if (!isRecord(component) || typeof component['id'] !== 'string' || !(SPAN_GUARD_KEY in component)) {
+    if (!isRecord(component) || typeof component['id'] !== 'string') {
       continue;
     }
-    const selector = unwrapSpanRefSelector(component[SPAN_GUARD_KEY]);
-    if (isValidSpanRefSelector(selector) && !resolveSpanRef(selector, nodeMap)) {
+    const guardedSelector = unwrapSpanRefSelector(component[SPAN_GUARD_KEY]);
+    const feedbackSpanMarker = component['spanId'];
+    const feedbackSelector = isSpanRefMarker(feedbackSpanMarker) ? feedbackSpanMarker.$spanRef : undefined;
+    const hasMissingGuard =
+      SPAN_GUARD_KEY in component &&
+      isValidSpanRefSelector(guardedSelector) &&
+      !resolveSpanRef(guardedSelector, nodeMap);
+    const hasMissingFeedbackTarget =
+      SPAN_TARGETED_FEEDBACK_COMPONENTS.has(String(component['component'])) &&
+      isValidSpanRefSelector(feedbackSelector) &&
+      !resolveSpanRef(feedbackSelector, nodeMap);
+    if (hasMissingGuard || hasMissingFeedbackTarget) {
       markSubtree(component['id']);
     }
   }

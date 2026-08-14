@@ -30,8 +30,13 @@ export interface FeedbackStatusContextValue {
   // Flushes staged RadioGroup / FeedbackInputText feedback for the given form.
   // Only entries sharing this `formId` are submitted, so one form's submit never
   // flushes another form's staged feedback. Failed dimensions stay staged for
-  // retry; rejects only when nothing succeeded.
+  // retry; rejects when any dimension fails so partial success is not presented
+  // as a fully successful form submission.
   submitStagedFeedback: (formId?: string) => Promise<{ submitted: number }>;
+  // Increments after this logical feedback entry is persisted. Staged controls
+  // use it to clear their visible/data-model values together with the host
+  // buffer, without resetting another form or span's input.
+  getFeedbackResetVersion: (entry: { name: string; spanId?: string; formId?: string }) => number;
 }
 
 const FeedbackStatusContext = createContext<FeedbackStatusContextValue>({
@@ -39,6 +44,7 @@ const FeedbackStatusContext = createContext<FeedbackStatusContextValue>({
   traceId: '',
   hasStagedFeedback: () => false,
   submitStagedFeedback: () => Promise.resolve({ submitted: 0 }),
+  getFeedbackResetVersion: () => 0,
 });
 
 export const FeedbackStatusProvider: Provider<FeedbackStatusContextValue> = FeedbackStatusContext.Provider;
