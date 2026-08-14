@@ -166,8 +166,9 @@ def test_autolog_cot():
         "temperature": 0.7,
     }
     if _DSPY_3_3_0_OR_NEWER:
-        # 3.3.0 added `*items` and `request` to `BaseLM.__call__`, and autologging records
-        # every bound argument
+        # 3.3.0 added `*items` and `request` to `BaseLM.__call__`, and the span records every
+        # bound argument. `items` is empty because `DummyLMWithUsage.__call__` above forwards
+        # to `super()` entirely by keyword, so nothing binds to the variadic parameter.
         expected_lm_inputs |= {"items": [], "request": None}
     assert spans[3].inputs == expected_lm_inputs
     assert len(spans[3].outputs) == 3
