@@ -9,6 +9,8 @@ from unittest.mock import Mock
 import pytest
 import sqlalchemy as sa
 from alembic import command
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import event
 from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
 
@@ -24,14 +26,17 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 
-REVISION = "75868b020152"
-PREVIOUS_REVISION = "a8b9c0d1e2f3"
 DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
 USE_EXTERNAL_DB = DB_URI is not None and not DB_URI.startswith("sqlite")
 
 MIGRATION_MODULE = import_module(
     "mlflow.store.db_migrations.versions.75868b020152_add_sql_trace_analytics_schema"
 )
+
+# Derive from the migration so the harness provisions the database at the true immediate predecessor
+# and self-corrects if a rebase reparents the migration.
+REVISION = MIGRATION_MODULE.revision
+PREVIOUS_REVISION = MIGRATION_MODULE.down_revision
 
 _LONG_TRACE_NAME = "trace-" + "n" * (8000 - len("trace-"))
 _LONG_SESSION_ID = "session-" + "s" * (8000 - len("session-"))
@@ -370,6 +375,7 @@ def test_trace_analytics_migration_operation_order(monkeypatch):
         "_backfill_span_analytics",
         "_backfill_assessment_analytics",
         "_validate_backfill",
+        "_finalize_assessment_not_null",
         "_create_rollup_tables",
         "_create_analytics_indexes",
         "_cleanup_legacy_analytics",
@@ -851,7 +857,7 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
         assert len(trace_dimension_updates) == expected_page_count
         for statement, executemany in trace_dimension_updates:
             assert " WHERE " in statement
-            assert "REQUEST_ID" in statement
+            assert "REQUEST_ID =" in statement
             assert executemany is True
 
         expected_assessment_page_count = (
@@ -988,6 +994,59 @@ def test_trace_analytics_migration_rejects_orphaned_assessments(tmp_path):
             column["name"] for column in inspector.get_columns("assessments")
         }
         assert "sql_trace_metric_daily_rollups" not in inspector.get_table_names()
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.parametrize(
+    ("table_name", "column", "match"),
+    [
+        # Wrong type: the online prepopulation utility, or a hand-altered column, left trace_name
+        # as an integer, so the string backfill would be silently corrupted.
+        (
+            "trace_info",
+            sa.Column("trace_name", sa.Integer(), nullable=True),
+            r"trace_info\.trace_name has incompatible schema",
+        ),
+        # Right type, wrong nullability. A false server default lets SQLite add the NOT NULL column.
+        (
+            "trace_info",
+            sa.Column(
+                "session_id",
+                sa.String(length=MAX_CHARS_IN_TRACE_INFO_METADATA),
+                nullable=False,
+                server_default="",
+            ),
+            r"session_id.*nullable=False; expected nullable=True",
+        ),
+        # is_numeric_value present with a non-false server default: a concurrent insert could store
+        # true, so the finalize-to-NOT-NULL step must not trust it.
+        (
+            "assessments",
+            sa.Column("is_numeric_value", sa.Boolean(), nullable=True, server_default=sa.true()),
+            r"is_numeric_value.*server default",
+        ),
+        # is_numeric_value present without any server default: a concurrent insert could leave NULL.
+        (
+            "assessments",
+            sa.Column("is_numeric_value", sa.Boolean(), nullable=True),
+            r"is_numeric_value.*server default",
+        ),
+    ],
+)
+def test_trace_analytics_migration_rejects_an_incompatible_existing_column(
+    tmp_path, table_name, column, match
+):
+    engine, config = _prepare_database(tmp_path)
+    try:
+        with engine.begin() as conn:
+            Operations(MigrationContext.configure(conn)).add_column(table_name, column)
+
+        with pytest.raises(RuntimeError, match=match):
+            command.upgrade(config, REVISION)
+
+        # _add_analytics_columns raises before _create_rollup_tables, so the rollups never appear.
+        assert "sql_trace_metric_daily_rollups" not in sa.inspect(engine).get_table_names()
     finally:
         engine.dispose()
 
@@ -1156,6 +1215,11 @@ def test_execute_backfill_updates_validates_supported_rowcounts(
         ("1.25", 1.25),
         (Decimal("1.25"), 1.25),
         ("not-a-number", None),
+        (float("nan"), None),
+        (float("inf"), None),
+        # A magnitude too large for a float must return None instead of raising OverflowError.
+        (10**400, None),
+        (-(10**400), None),
     ],
 )
 def test_trace_analytics_migration_finite_float_conversion(value, expected):
@@ -1179,7 +1243,80 @@ def test_trace_analytics_migration_finite_float_conversion(value, expected):
         (-(2**63) - 1, None),
         (2**63, None),
         ("not-a-number", None),
+        # Stays within Decimal precision and is rejected by the bigint range check without raising.
+        (10**400, None),
+        (-(10**400), None),
     ],
 )
 def test_trace_analytics_migration_token_count_conversion(value, expected):
     assert MIGRATION_MODULE._token_count_or_none(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value_json", "expected"),
+    [
+        ("true", (1.0, False)),
+        ("false", (0.0, False)),
+        ("1.5", (1.5, True)),
+        ("3", (3.0, True)),
+        ("yes", (1.0, False)),
+        ("no", (0.0, False)),
+        ("other", (None, False)),
+        ("NaN", (None, False)),
+        # A huge integer in the stored JSON must return (None, False) instead of raising.
+        (str(10**400), (None, False)),
+        (str(-(10**400)), (None, False)),
+    ],
+)
+def test_trace_analytics_migration_assessment_aggregate(value_json, expected):
+    assert MIGRATION_MODULE._assessment_aggregate(value_json) == expected
+
+
+def test_trace_analytics_migration_tolerates_out_of_range_numeric_values(tmp_path):
+    # A cost or assessment value too large to represent as a float reaches the backfill as a plain
+    # Python int (cost metadata and assessment values are stored as JSON text). Converting it must
+    # store NULL rather than raise OverflowError, which would crash the whole migration.
+    engine, config = _prepare_database(tmp_path)
+    try:
+        with engine.begin() as conn:
+            _seed_legacy_analytics_data(conn)
+            trace_metadata = _table(conn, "trace_request_metadata")
+            assessments = _table(conn, "assessments")
+            conn.execute(
+                trace_metadata
+                .update()
+                .where(
+                    trace_metadata.c.request_id == "trace-explicit",
+                    trace_metadata.c.key == TraceMetadataKey.COST,
+                )
+                .values(value=json.dumps({CostKey.TOTAL_COST: 10**400}))
+            )
+            conn.execute(
+                assessments
+                .update()
+                .where(assessments.c.assessment_id == "assessment-numeric")
+                .values(value=str(10**400))
+            )
+
+        command.upgrade(config, REVISION)
+
+        with engine.connect() as conn:
+            trace_info = _table(conn, "trace_info")
+            assert (
+                conn.execute(
+                    sa.select(trace_info.c.total_cost).where(
+                        trace_info.c.request_id == "trace-explicit"
+                    )
+                ).scalar_one()
+                is None
+            )
+            assessments = _table(conn, "assessments")
+            aggregate_value, is_numeric_value = conn.execute(
+                sa.select(assessments.c.aggregate_value, assessments.c.is_numeric_value).where(
+                    assessments.c.assessment_id == "assessment-numeric"
+                )
+            ).one()
+            assert aggregate_value is None
+            assert not is_numeric_value
+    finally:
+        engine.dispose()
