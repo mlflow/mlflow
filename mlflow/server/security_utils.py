@@ -141,6 +141,17 @@ def is_api_endpoint(path: str) -> bool:
     )
 
 
+def is_health_endpoint(path: str) -> bool:
+    """Check if a path is a health endpoint that is exempt from host validation."""
+    # Imported lazily to keep this shared module's own import graph light.
+    from mlflow.server.handlers import _add_static_prefix
+
+    # Health routes are registered with ``_add_static_prefix``, so under
+    # ``--static-prefix`` they are served from e.g. ``/mlflow/health``. Accept both
+    # forms so health checks stay exempt on prefixed deployments.
+    return any(path in (endpoint, _add_static_prefix(endpoint)) for endpoint in HEALTH_ENDPOINTS)
+
+
 def is_allowed_host_header(allowed_hosts: list[str], host: str) -> bool:
     """Validate if the host header matches allowed patterns."""
     if not host:
