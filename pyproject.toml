@@ -248,6 +248,12 @@ exclude-newer = "P7D"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.11.14"
 constraint-dependencies = [
+  # Defer pandas 3 to keep the Python 3.11 upgrade self-contained. pandas 3 needs pyspark
+  # 4.2 (the first release that stops importing the private
+  # pandas.core.common._builtin_table), and no Delta Lake release is built against Spark 4.2
+  # yet, so adopting it here would block this upgrade on upstream Delta. Drop this once
+  # Delta ships for Spark 4.2.
+  "pandas<3",
   # pyspark 4.1.0 causes issues with documentation build
   "pyspark<4.1.0",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
