@@ -249,8 +249,6 @@ jobs:
         run: |
           gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input /tmp/review-payload.json
 
-      # The API key stays in the proxy and never reaches the Claude step's
-      # env, so only the app tokens need redacting.
       - name: Redact secrets from transcript
         if: always()
         env:
