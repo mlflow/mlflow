@@ -37,6 +37,7 @@ import { ExperimentEvaluationRunsTableGroupBySelector } from './ExperimentEvalua
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
 import { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
 import { ExperimentEvaluationRunsTableActions } from './ExperimentEvaluationRunsTableActions';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
 
 // function to mimic the data structure of the legacy runs response
 // so we can reuse the RunsSearchAutoComplete component
@@ -128,7 +129,15 @@ export const ExperimentEvaluationRunsTableControls = ({
     [selectedColumns],
   );
 
-  const isCompareEnabled = selectedRunUuids.length === 2;
+  // Comparison isn't supported for regression-test runs (the per-test Result
+  // column and test-case drawer are single-run concepts), so don't let a compare
+  // be initiated when one is selected.
+  const hasRegressionTestRunSelected = runs.some(
+    (run) =>
+      selectedRunUuids.includes(run.info.runUuid) &&
+      (run.data?.tags ?? []).some((tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_TEST),
+  );
+  const isCompareEnabled = selectedRunUuids.length === 2 && !hasRegressionTestRunSelected;
 
   const handleCompareClick = useCallback(() => {
     if (selectedRunUuids.length === 2) {
@@ -276,6 +285,11 @@ export const ExperimentEvaluationRunsTableControls = ({
                 <FormattedMessage
                   defaultMessage="Compare selected runs"
                   description="Tooltip for the compare button when enabled"
+                />
+              ) : hasRegressionTestRunSelected ? (
+                <FormattedMessage
+                  defaultMessage="Comparison isn't available for regression-test runs"
+                  description="Tooltip for the compare button when a regression-test run is selected"
                 />
               ) : (
                 <FormattedMessage

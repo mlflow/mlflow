@@ -60,6 +60,23 @@ async def test_aiohttp_post_includes_supported_accept_encoding():
 
 
 @pytest.mark.asyncio
+async def test_aiohttp_post_strips_client_content_encoding():
+    # The client's Content-Encoding describes the body it sent, which is decompressed before
+    # reaching here, so forwarding it would label the re-serialized JSON as still encoded.
+    mock_client = mock_http_client(MockAsyncResponse({}))
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session_cls:
+        async with _aiohttp_post(
+            headers={"Authorization": "Bearer key", "content-encoding": "zstd"},
+            base_url="https://api.example.com",
+            path="/v1/chat",
+            payload={"model": "x"},
+        ):
+            pass
+        call_headers = mock_session_cls.call_args.kwargs["headers"]
+        assert not any(k.lower() == "content-encoding" for k in call_headers)
+
+
+@pytest.mark.asyncio
 async def test_aiohttp_post_uses_timeout_from_env_var(monkeypatch):
     monkeypatch.setenv("MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS", "2")
 
@@ -75,6 +92,21 @@ async def test_aiohttp_post_uses_timeout_from_env_var(monkeypatch):
 
     mock_client.post.assert_called_once()
     assert mock_client.post.call_args.kwargs["timeout"].total == 2
+
+
+@pytest.mark.asyncio
+async def test_aiohttp_post_sets_read_bufsize_for_large_sse_lines():
+    mock_client = mock_http_client(MockAsyncResponse({}))
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session_cls:
+        async with _aiohttp_post(
+            headers={"Authorization": "Bearer key"},
+            base_url="https://api.example.com",
+            path="/v1/chat",
+            payload={"model": "x"},
+        ):
+            pass
+
+    assert mock_session_cls.call_args.kwargs["read_bufsize"] == 2**20
 
 
 @pytest.mark.parametrize(

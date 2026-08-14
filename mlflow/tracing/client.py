@@ -17,6 +17,13 @@ if TYPE_CHECKING:
         LabelSchema,
         LabelSchemaType,
     )
+    from mlflow.genai.review_queues import (
+        ReviewItemType,
+        ReviewQueue,
+        ReviewQueueItem,
+        ReviewQueueType,
+        ReviewStatus,
+    )
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.model_registry import PromptVersion
@@ -63,6 +70,7 @@ from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
@@ -119,6 +127,30 @@ class TracingClient:
             spans=spans,
             tracking_uri=self.tracking_uri if is_databricks_uri(self.tracking_uri) else None,
         )
+
+    def _resolve_uc_trace_location(self, experiment_id: str | None) -> str | None:
+        """
+        Resolve the Unity Catalog trace location string (``catalog.schema.table_prefix``) for an
+        experiment.
+
+        Traces stored in Unity Catalog are addressed by a location rather than a plain trace ID.
+        The location is not derivable from the trace ID alone, so it is resolved from the
+        experiment's trace destination tag (see ``Experiment.trace_location``). Returns ``None``
+        for non-UC / non-Databricks experiments or on resolution failure.
+        """
+        if experiment_id is None or not is_databricks_uri(self.tracking_uri):
+            return None
+        try:
+            # `full_table_prefix` raises if the location carries no table prefix, so it is
+            # resolved inside the try to keep this a best-effort lookup.
+            location = self.store.get_experiment(experiment_id).trace_location
+            return location.full_table_prefix if location is not None else None
+        except Exception as e:
+            _logger.debug(
+                f"Failed to resolve Unity Catalog trace location for experiment "
+                f"{experiment_id}: {e}"
+            )
+            return None
 
     def delete_traces(
         self,
@@ -428,7 +460,7 @@ class TracingClient:
 
         batch_size = _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE.get()
         batches = [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
-        for minibatch_traces in executor.map(_fetch_minibatch, batches):
+        for minibatch_traces in map_with_context(executor, _fetch_minibatch, batches):
             traces.extend(minibatch_traces)
         return traces
 
@@ -442,7 +474,8 @@ class TracingClient:
             if location == SpansLocation.ARTIFACT_REPO:
                 traces.extend(
                     tr
-                    for tr in executor.map(
+                    for tr in map_with_context(
+                        executor,
                         self._download_spans_from_artifact_repo,
                         location_trace_infos,
                     )
@@ -973,3 +1006,98 @@ class TracingClient:
     def _delete_label_schema(self, schema_id: str) -> None:
         """Delete a label schema. No-op when the schema doesn't exist."""
         return self.store.delete_label_schema(schema_id)
+
+    # ----- Review queues (tracking-store CRUD) -----
+
+    def _create_review_queue(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        queue_type: "ReviewQueueType | str",
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        # `created_by` (the owner) is stamped server-side, never by the client.
+        return self.store.create_review_queue(
+            experiment_id,
+            name=name,
+            queue_type=queue_type,
+            users=users,
+            schema_ids=schema_ids,
+        )
+
+    def _get_or_create_user_queue(self, experiment_id: str, *, user: str) -> "ReviewQueue":
+        return self.store.get_or_create_user_queue(experiment_id, user=user)
+
+    def _get_review_queue(self, queue_id: str) -> "ReviewQueue":
+        return self.store.get_review_queue(queue_id)
+
+    def _get_review_queue_by_name(self, experiment_id: str, name: str) -> "ReviewQueue":
+        return self.store.get_review_queue_by_name(experiment_id, name=name)
+
+    def _list_review_queues(
+        self,
+        experiment_id: str,
+        *,
+        user: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> "PagedList[ReviewQueue]":
+        return self.store.list_review_queues(
+            experiment_id, user=user, max_results=max_results, page_token=page_token
+        )
+
+    def _update_review_queue(
+        self,
+        queue_id: str,
+        *,
+        name: str | None = None,
+        new_owner: str | None = None,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        return self.store.update_review_queue(
+            queue_id, name=name, new_owner=new_owner, users=users, schema_ids=schema_ids
+        )
+
+    def _delete_review_queue(self, queue_id: str) -> None:
+        return self.store.delete_review_queue(queue_id)
+
+    def _add_items_to_review_queue(
+        self,
+        queue_id: str,
+        *,
+        item_ids: list[str],
+        item_type: "ReviewItemType | str" = "trace",
+    ) -> "list[ReviewQueueItem]":
+        return self.store.add_items_to_review_queue(
+            queue_id, item_ids=item_ids, item_type=item_type
+        )
+
+    def _remove_items_from_review_queue(self, queue_id: str, *, item_ids: list[str]) -> None:
+        return self.store.remove_items_from_review_queue(queue_id, item_ids=item_ids)
+
+    def _list_review_queue_items(
+        self,
+        queue_id: str,
+        *,
+        status: "ReviewStatus | str | None" = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> "PagedList[ReviewQueueItem]":
+        return self.store.list_review_queue_items(
+            queue_id, status=status, max_results=max_results, page_token=page_token
+        )
+
+    def _set_review_queue_item_status(
+        self,
+        queue_id: str,
+        *,
+        item_id: str,
+        status: "ReviewStatus | str",
+        completed_by: str | None = None,
+    ) -> "ReviewQueueItem":
+        return self.store.set_review_queue_item_status(
+            queue_id, item_id=item_id, status=status, completed_by=completed_by
+        )

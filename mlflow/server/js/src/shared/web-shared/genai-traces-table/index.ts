@@ -46,6 +46,7 @@ export { GenAITracesTableContext, GenAITracesTableProvider } from './GenAITraces
 export { MarkdownConverterProvider as GenAiTracesMarkdownConverterProvider } from './utils/MarkdownUtils';
 
 export { RunColorCircle } from './components/RunColorCircle';
+export { DetectIssuesButton } from './components/DetectIssuesButton';
 
 export { useSelectedColumns } from './hooks/useGenAITracesUIState';
 export { useTableSortURL } from './hooks/useTableSortURL';
@@ -84,6 +85,7 @@ export {
   formatTraceId,
   getSpansLocation,
   TRACKING_STORE_SPANS_LOCATION,
+  RESULT_ASSESSMENT_NAME,
 } from './utils/TraceUtils';
 
 export {
@@ -106,6 +108,7 @@ export {
   ISSUES_COLUMN_ID,
   GIT_BRANCH_COLUMN_ID,
   GIT_COMMIT_COLUMN_ID,
+  createAssessmentColumnId,
 } from './hooks/useTableColumns';
 
 export { ExperimentViewTracesStatusLabels } from './cellRenderers/StatusRenderer';

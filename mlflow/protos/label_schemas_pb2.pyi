@@ -60,7 +60,7 @@ class LabelSchemaInput(_message.Message):
     def __init__(self, pass_fail: _Optional[_Union[InputPassFail, _Mapping]] = ..., categorical: _Optional[_Union[InputCategorical, _Mapping]] = ..., numeric: _Optional[_Union[InputNumeric, _Mapping]] = ..., text: _Optional[_Union[InputText, _Mapping]] = ...) -> None: ...
 
 class LabelSchema(_message.Message):
-    __slots__ = ("schema_id", "experiment_id", "name", "type", "instruction", "enable_comment", "input", "created_by", "created_at", "last_updated_at")
+    __slots__ = ("schema_id", "experiment_id", "name", "type", "instruction", "enable_comment", "input", "created_by", "created_at", "last_updated_at", "is_default")
     SCHEMA_ID_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -71,6 +71,7 @@ class LabelSchema(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
     schema_id: str
     experiment_id: str
     name: str
@@ -81,7 +82,8 @@ class LabelSchema(_message.Message):
     created_by: str
     created_at: int
     last_updated_at: int
-    def __init__(self, schema_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[_Union[LabelSchemaType, str]] = ..., instruction: _Optional[str] = ..., enable_comment: bool = ..., input: _Optional[_Union[LabelSchemaInput, _Mapping]] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ...) -> None: ...
+    is_default: bool
+    def __init__(self, schema_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[_Union[LabelSchemaType, str]] = ..., instruction: _Optional[str] = ..., enable_comment: bool = ..., input: _Optional[_Union[LabelSchemaInput, _Mapping]] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., is_default: bool = ...) -> None: ...
 
 class CreateLabelSchema(_message.Message):
     __slots__ = ("experiment_id", "name", "type", "input", "instruction", "enable_comment")

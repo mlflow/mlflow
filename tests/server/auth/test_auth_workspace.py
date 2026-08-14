@@ -215,6 +215,7 @@ class _TrackingStore:
         gateway_secret_workspaces: dict[str, str] | None = None,
         gateway_endpoint_workspaces: dict[str, str] | None = None,
         gateway_model_def_workspaces: dict[str, str] | None = None,
+        mcp_server_workspaces: dict[str, str] | None = None,
         engine=None,
         ManagedSessionMaker=None,
     ):
@@ -226,6 +227,7 @@ class _TrackingStore:
         self._gateway_secret_workspaces = gateway_secret_workspaces or {}
         self._gateway_endpoint_workspaces = gateway_endpoint_workspaces or {}
         self._gateway_model_def_workspaces = gateway_model_def_workspaces or {}
+        self._mcp_server_workspaces = mcp_server_workspaces or {}
         self.engine = engine
         self.ManagedSessionMaker = ManagedSessionMaker
 
@@ -299,6 +301,14 @@ class _TrackingStore:
                 workspace=self._gateway_model_def_workspaces[model_definition_id],
             )
         raise ValueError("Must provide model_definition_id or name")
+
+    def get_mcp_server(self, name: str):
+        if name not in self._mcp_server_workspaces:
+            raise MlflowException(
+                f"MCP server not found ({name})",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return SimpleNamespace(workspace=self._mcp_server_workspaces[name])
 
     def _create_mock_session(self):
         """Create a mock session that can query gateway SQL models."""
@@ -410,6 +420,7 @@ def workspace_permission_setup(tmp_path, monkeypatch):
         gateway_secret_workspaces={"secret-1": "team-a", "secret-2": "team-a"},
         gateway_endpoint_workspaces={"endpoint-1": "team-a", "endpoint-2": "team-a"},
         gateway_model_def_workspaces={"model-def-1": "team-a", "model-def-2": "team-a"},
+        mcp_server_workspaces={"server-1": "team-a", "server-2": "team-a"},
         engine=MagicMock(),  # Mock engine for SQL model queries
     )
     # Set ManagedSessionMaker after creating the store
@@ -764,6 +775,7 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
     with workspace_context.WorkspaceContext("team-a"):
         assert auth_module.validate_can_create_experiment()
         assert auth_module.validate_can_create_registered_model()
+        assert auth_module.validate_can_create_mcp_server(username)
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
@@ -803,6 +815,7 @@ def test_no_permissions_blocks_create(workspace_permission_setup):
     with workspace_context.WorkspaceContext("team-a"):
         assert not auth_module.validate_can_create_experiment()
         assert not auth_module.validate_can_create_registered_model()
+        assert not auth_module.validate_can_create_mcp_server(username)
 
 
 def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monkeypatch):
@@ -899,6 +912,35 @@ def test_experiment_artifact_proxy_without_experiment_id_denied_without_workspac
     ):
         request.view_args = {"artifact_path": "uploads/path"}
         assert not auth_module.validate_can_read_experiment_artifact_proxy()
+
+
+def test_experiment_artifact_proxy_resolves_experiment_id_under_workspace_prefix(
+    workspace_permission_setup,
+):
+    # In a non-default workspace the proxied artifact path is prefixed with
+    # ``workspaces/<ws>/``. The experiment id must still be resolved from the path so
+    # per-experiment grants apply, instead of falling back to the workspace-tier grant
+    # (which, for a USE member, has no can_update and would wrongly reject writes).
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # "DataScientist" shape: workspace USE (member, no can_update at the workspace tier)
+    # plus an explicit experiment-level EDIT grant.
+    _set_workspace_permission(store, username, USE.name)
+    store.create_experiment_permission("1", username, EDIT.name)
+
+    prefixed_path = "workspaces/team-a/1/run-1/artifacts/plots/x.png"
+    with auth_module.app.test_request_context(
+        f"/ajax-api/2.0/mlflow-artifacts/artifacts/{prefixed_path}",
+        method="GET",
+    ):
+        request.view_args = {"artifact_path": prefixed_path}
+        # EDIT on the experiment resolves through the workspace prefix -> reads and
+        # writes are allowed even though the workspace-tier grant is only USE.
+        assert auth_module.validate_can_read_experiment_artifact_proxy()
+        assert auth_module.validate_can_update_experiment_artifact_proxy()
+        # EDIT does not confer delete.
+        assert not auth_module.validate_can_delete_experiment_artifact_proxy()
 
 
 def test_filter_experiment_ids_respects_workspace_permissions(
@@ -1000,6 +1042,56 @@ def test_run_validators_workspace_use_blocks_reads_and_writes(workspace_permissi
         assert not auth_module.validate_can_update_run()
         assert not auth_module.validate_can_delete_run()
         assert not auth_module.validate_can_manage_run()
+
+
+def test_create_model_version_source_read_blocks_cross_workspace(
+    workspace_permission_setup, monkeypatch
+):
+    # Target model lives in team-a (user has MANAGE); source run/model live in team-b
+    # (user has no access). The source-read check must block anchoring the model version
+    # at a run/model the caller cannot read, even though they can update the target model.
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-a": "team-a", "exp-b": "team-b"},
+        run_experiments={"run-a": "exp-a", "run-b": "exp-b"},
+        trace_experiments={},
+        logged_model_experiments={"model-a": "exp-a", "model-b": "exp-b"},
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "run_id": "run-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "model_id": "model-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    # Same-workspace source (team-a) is allowed.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "run_id": "run-a"},
+    ):
+        assert auth_module.validate_can_create_model_version()
+
+    # A truthy non-dict JSON body must be coerced to {} rather than raising
+    # AttributeError on `.get(...)`. Bypass the target-model check (which reads
+    # `name` from the body) to isolate the source-read coercion.
+    monkeypatch.setattr(
+        auth_module, "_validate_can_update_registered_model_or_prompt", lambda: True
+    )
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json=[1],
+    ):
+        assert auth_module.validate_can_create_model_version()
 
 
 def test_logged_model_validators_respect_permissions(workspace_permission_setup):
@@ -2443,6 +2535,50 @@ def test_role_union_best_permission_wins_for_gateway_endpoint(workspace_permissi
 
 
 # =============================================================================
+# Authorization for MCP server resources
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_read", "expected_update", "expected_delete", "expected_manage"),
+    [
+        ("READ", True, False, False, False),
+        ("USE", True, False, False, False),
+        ("EDIT", True, True, False, False),
+        ("MANAGE", True, True, True, True),
+    ],
+)
+def test_role_grant_on_mcp_server_gates_capabilities(
+    workspace_permission_setup,
+    granted,
+    expected_read,
+    expected_update,
+    expected_delete,
+    expected_manage,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _assign_role_with_permission(store, username, "team-a", "mcp_server", granted)
+
+    perm = auth_module._get_mcp_server_permission("server-1", username)
+    assert perm.can_read is expected_read
+    assert perm.can_update is expected_update
+    assert perm.can_delete is expected_delete
+    assert perm.can_manage is expected_manage
+
+
+def test_role_in_other_workspace_does_not_grant_mcp_server_access(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _assign_role_with_permission(store, username, "team-b", "mcp_server", "MANAGE")
+
+    perm = auth_module._get_mcp_server_permission("server-1", username)
+    assert perm.can_read is False
+
+
+# =============================================================================
 # Authorization for role management endpoints (Batch 5)
 # =============================================================================
 #
@@ -2689,22 +2825,42 @@ def test_validate_can_list_roles_multi_workspace(role_auth_setup, actor, workspa
         assert auth_module.validate_can_list_roles() is expected
 
 
-# Super admin is omitted from these parametrizations: ``_before_request``
-# short-circuits via ``sender_is_admin`` before the validator is reached, so
-# the validator is unreachable for them in production.
+# Listing users is scoped to workspace membership (the review-queue assignment UI
+# needs the roster; assigning still requires experiment MANAGE), so the roster
+# isn't leaked across workspaces. Super admin is omitted: ``_before_request``
+# short-circuits via ``sender_is_admin`` before the validator is reached.
 @pytest.mark.parametrize(
-    ("actor", "expected"),
+    ("actor", "workspace", "expected"),
     [
-        ("ws_admin_foo", True),
-        ("ws_admin_bar", True),
-        ("ws_member_foo", False),
-        ("outsider", False),
+        # Workspace-wide grant carrying can_use (USE/MANAGE) → may list the roster.
+        ("ws_admin_foo", "foo", True),
+        # Isolation: an admin of another workspace can't list users in this one.
+        ("ws_admin_foo", "bar", False),
+        ("ws_admin_bar", "foo", False),
+        # A plain experiment-level grant is not a workspace-wide grant → denied.
+        ("ws_member_foo", "foo", False),
+        # No grant anywhere.
+        ("outsider", "foo", False),
     ],
 )
-def test_validate_can_list_users(role_auth_setup, actor, expected):
+def test_validate_can_list_users_workspace_scoped(role_auth_setup, actor, workspace, expected):
     role_auth_setup["login_as"](actor)
+    token = workspace_context.set_server_request_workspace(workspace)
+    try:
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+            assert auth_module.validate_can_list_users() is expected
+    finally:
+        workspace_context._WORKSPACE.reset(token)
+
+
+def test_validate_can_list_users_allows_any_user_without_workspaces(role_auth_setup, monkeypatch):
+    # With workspaces disabled there is no isolation boundary, so any authenticated
+    # user may list the roster (single-tenant). ``role_auth_setup`` enables
+    # workspaces; override it back off for this case.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    role_auth_setup["login_as"]("outsider")
     with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
-        assert auth_module.validate_can_list_users() is expected
+        assert auth_module.validate_can_list_users() is True
 
 
 def test_list_users_handler_eager_loads_scoped_roles(role_auth_setup):
@@ -3828,3 +3984,73 @@ def test_validate_can_get_user_permission_unknown_resource_denied(
         },
     ):
         assert not auth_module.validate_can_get_user_permission()
+
+
+def test_mcp_server_delete_grants_workspace_isolated(tmp_path, monkeypatch):
+    """Deleting grants for an MCP server in one workspace must not affect
+    same-named servers in another workspace.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-iso.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+
+    username = "alice"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    server_name = "com.test/shared-name"
+
+    # Grant MANAGE in both workspaces on the same server name.
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_store.grant_user_permission(username, "mcp_server", server_name, MANAGE.name)
+
+    with workspace_context.WorkspaceContext("team-b"):
+        auth_store.grant_user_permission(username, "mcp_server", server_name, MANAGE.name)
+
+    # Delete grants in team-a only.
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_store.delete_grants_for_resource("mcp_server", server_name, workspace_scoped=True)
+
+    # team-a grant is gone.
+    with workspace_context.WorkspaceContext("team-a"):
+        user = auth_store.get_user(username)
+        perm = auth_store.get_role_permission_for_resource(
+            user.id, "mcp_server", server_name, "team-a"
+        )
+        assert perm is None
+
+    # team-b grant survives.
+    with workspace_context.WorkspaceContext("team-b"):
+        perm = auth_store.get_role_permission_for_resource(
+            user.id, "mcp_server", server_name, "team-b"
+        )
+        assert perm is not None
+        assert perm.name == MANAGE.name
+
+    auth_store.engine.dispose()
+
+
+def test_list_mcp_server_permissions_scoped_to_active_workspace(tmp_path, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-list-ws.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+
+    username = "alice"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_store.grant_user_permission(username, "mcp_server", "com.test/a", MANAGE.name)
+    with workspace_context.WorkspaceContext("team-b"):
+        auth_store.grant_user_permission(username, "mcp_server", "com.test/b", READ.name)
+
+    with workspace_context.WorkspaceContext("team-a"):
+        perms = auth_store.list_mcp_server_permissions(username)
+        assert sorted(p.name for p in perms) == ["com.test/a"]
+
+    with workspace_context.WorkspaceContext("team-b"):
+        perms = auth_store.list_mcp_server_permissions(username)
+        assert sorted(p.name for p in perms) == ["com.test/b"]
+
+    auth_store.engine.dispose()

@@ -1,4 +1,6 @@
 import {
+  BeakerIcon,
+  ChartLineIcon,
   ModelsIcon,
   TableIcon,
   Tag,
@@ -13,13 +15,15 @@ import {
   VisibleIcon,
   VisibleOffIcon,
   SparkleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from '@databricks/design-system';
 import type { ColumnDef, HeaderContext } from '@tanstack/react-table';
 import { DatasetSourceTypes, RunEntity } from '../../types';
 import { Link, useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
-import { getTimeRangeQueryString } from '../experiment-page-tabs/side-nav/utils';
+import { getPreservedQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
@@ -34,9 +38,14 @@ import {
   shouldEnableImprovedEvalRunsComparison,
   shouldShowEvalRunsIssuesPanel,
 } from '../../../common/utils/FeatureUtils';
-import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION } from '../../constants';
+import {
+  MLFLOW_RUN_TYPE_TAG,
+  MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+  MLFLOW_RUN_TYPE_VALUE_TEST,
+} from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
+import { useIntl } from '@databricks/i18n';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -72,6 +81,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const getRunColor = useGetExperimentRunColor();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const intl = useIntl();
 
   if ('subRuns' in row.original) {
     return <div>-</div>;
@@ -90,7 +100,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
     if (isIssueDetectionRun && showIssuesPanelFlag) {
       const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
-      const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
+      const timeRangeSearch = getPreservedQueryString(searchParams.toString());
       navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
       return;
     }
@@ -98,12 +108,48 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     (meta as any).setSelectedRunUuid?.(runUuid);
   };
 
+  const level = row.depth;
+  const hasExpander = row.getCanExpand();
+  const isExpanded = row.getIsExpanded();
+
+  const handleExpanderClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    row.toggleExpanded();
+  };
+
   return (
     <div
-      css={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
+      css={{
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        paddingLeft: level > 0 ? (level + 1) * theme.spacing.lg : undefined,
+      }}
       onClick={handleClick}
       onMouseDown={(e) => e.stopPropagation()}
     >
+      {hasExpander && (
+        <Button
+          componentId="mlflow.eval-runs.parent-child-expand-button"
+          size="small"
+          icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          aria-expanded={isExpanded}
+          aria-label={
+            isExpanded
+              ? intl.formatMessage({
+                  defaultMessage: 'Collapse child runs',
+                  description: 'Aria label to collapse child runs',
+                })
+              : intl.formatMessage({
+                  defaultMessage: 'Expand child runs',
+                  description: 'Aria label to expand child runs',
+                })
+          }
+          onClick={handleExpanderClick}
+          type="link"
+        />
+      )}
       {isIssueDetectionRun && showIssuesPanelFlag ? (
         <Tooltip
           content={
@@ -348,7 +394,12 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
     return <div>-</div>;
   }
   const runUuid = row.original.info.runUuid;
-  const rowIndex = row.index;
+
+  // Use pre-calculated flat run index from table meta
+  // This index excludes group rows and provides a global position across all parents
+  const flatRunIndexMap = (table.options.meta as any)?.flatRunIndexMap;
+  const rowIndex = flatRunIndexMap?.[runUuid] ?? row.index;
+
   const runStatus = row.original.info.status;
   const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
@@ -376,4 +427,53 @@ export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => 
   }
 
   return <RunStatusIcon status={status} />;
+};
+
+/**
+ * Renders the run's Type pill, keyed off the `mlflow.runType` tag:
+ * - a purple "Test" pill with a beaker icon for `@mlflow.test` pytest runs,
+ * - an indigo "Issue detection" pill with a sparkle icon for issue-detection runs,
+ * - a turquoise "Eval" pill with a chart-line icon for everything else.
+ * Lets users tell the run kinds apart at a glance.
+ */
+export const TypeCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+  const tags = row.original.data?.tags ?? [];
+  const runType = tags.find((tag) => tag.key === MLFLOW_RUN_TYPE_TAG)?.value;
+  const pillCss = { display: 'inline-flex', alignItems: 'center', gap: 4, margin: 0 } as const;
+
+  switch (runType) {
+    case MLFLOW_RUN_TYPE_VALUE_TEST:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.test" color="purple" css={pillCss}>
+          <BeakerIcon />
+          <FormattedMessage
+            defaultMessage="Test"
+            description="Type pill text for a regression-test run in the evaluation runs table"
+          />
+        </Tag>
+      );
+    case MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.issue-detection" color="indigo" css={pillCss}>
+          <SparkleIcon />
+          <FormattedMessage
+            defaultMessage="Issue detection"
+            description="Type pill text for an issue-detection run in the evaluation runs table"
+          />
+        </Tag>
+      );
+    default:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.eval" color="turquoise" css={pillCss}>
+          <ChartLineIcon />
+          <FormattedMessage
+            defaultMessage="Eval"
+            description="Type pill text for a regular evaluation run in the evaluation runs table"
+          />
+        </Tag>
+      );
+  }
 };

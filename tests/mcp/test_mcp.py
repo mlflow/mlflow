@@ -33,7 +33,7 @@ def test_get_input_schema_uses_array_schema_for_variadic_arguments():
     assert schema["items"] == {"type": "string"}
 
 
-@pytest_asyncio.fixture()
+@pytest_asyncio.fixture
 async def client() -> AsyncIterator[Client]:
     transport = StdioTransport(
         command=sys.executable,

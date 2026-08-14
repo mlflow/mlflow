@@ -54,4 +54,10 @@ export interface LabelSchema {
   created_by?: string;
   created_at?: number;
   last_updated_at?: number;
+  /**
+   * The experiment's protected default question ("Feedback"), seeded for every
+   * experiment when its label schemas are listed. It is undeletable and not
+   * editable through the questions UI.
+   */
+  is_default?: boolean;
 }

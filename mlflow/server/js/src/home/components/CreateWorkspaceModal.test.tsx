@@ -151,9 +151,7 @@ describe('CreateWorkspaceModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          'Workspace name must be lowercase alphanumeric with optional single hyphens (no consecutive hyphens).',
-        ),
+        screen.getByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
       ).toBeInTheDocument();
     });
   });
@@ -170,9 +168,7 @@ describe('CreateWorkspaceModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          'Workspace name must be lowercase alphanumeric with optional single hyphens (no consecutive hyphens).',
-        ),
+        screen.getByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
       ).toBeInTheDocument();
     });
   });
@@ -189,9 +185,7 @@ describe('CreateWorkspaceModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          'Workspace name must be lowercase alphanumeric with optional single hyphens (no consecutive hyphens).',
-        ),
+        screen.getByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
       ).toBeInTheDocument();
     });
   });
@@ -208,14 +202,12 @@ describe('CreateWorkspaceModal', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText(
-          'Workspace name must be lowercase alphanumeric with optional single hyphens (no consecutive hyphens).',
-        ),
+        screen.getByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
       ).toBeInTheDocument();
     });
   });
 
-  test('shows validation error for workspace name with consecutive hyphens', async () => {
+  test('accepts workspace name with consecutive hyphens', async () => {
     renderComponent();
     await openModal();
 
@@ -225,13 +217,9 @@ describe('CreateWorkspaceModal', () => {
     const createButton = screen.getByText('Create');
     await userEvent.click(createButton);
 
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          'Workspace name must be lowercase alphanumeric with optional single hyphens (no consecutive hyphens).',
-        ),
-      ).toBeInTheDocument();
-    });
+    expect(
+      screen.queryByText('Workspace name must be lowercase alphanumeric with optional hyphens.'),
+    ).not.toBeInTheDocument();
   });
 
   test('shows validation error for workspace name that is too short', async () => {

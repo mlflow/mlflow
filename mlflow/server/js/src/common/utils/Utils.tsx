@@ -14,6 +14,7 @@ import { ErrorCodes, SupportPageUrl } from '../constants';
 import type { IntlShape } from 'react-intl';
 import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
+import { NetworkRequestError } from '@databricks/web-shared/errors';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
 import type { KeyValueEntity } from '../types';
 import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
@@ -67,13 +68,15 @@ class Utils {
   }
 
   /**
-   * Displays the info notification in the UI.
+   * Displays the info notification in the UI. `style` is forwarded to the
+   * underlying notification (e.g. to widen it past the default fixed width so
+   * single-line content doesn't wrap).
    */
-  static displayGlobalInfoNotification(content: any, duration?: any) {
+  static displayGlobalInfoNotification(content: any, duration?: any, style?: any) {
     if (!Utils.#notificationsApi) {
       return;
     }
-    (Utils.#notificationsApi as any).info({ message: content, duration: duration });
+    (Utils.#notificationsApi as any).info({ message: content, duration: duration, style: style });
   }
 
   static runNameTag = 'mlflow.runName';
@@ -1010,6 +1013,8 @@ class Utils {
     } else if (e instanceof ErrorWrapper) {
       // not all error is wrapped by ErrorWrapper
       Utils.displayGlobalErrorNotification(e.renderHttpError(), duration);
+    } else if (e instanceof NetworkRequestError) {
+      Utils.displayGlobalErrorNotification(e.displayMessage, duration);
       // eslint-disable-next-line no-empty
     } else {
     }

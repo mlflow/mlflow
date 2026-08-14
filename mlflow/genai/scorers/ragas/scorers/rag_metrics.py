@@ -15,7 +15,6 @@ _EMBEDDINGS_API_DOC = {
 }
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextPrecision(RagasScorer):
     """
@@ -38,7 +37,28 @@ class ContextPrecision(RagasScorer):
     metric_name: ClassVar[str] = "ContextPrecision"
 
 
-@experimental(version="3.8.0")
+@experimental(version="3.14.0")
+@format_docstring(_MODEL_API_DOC)
+class ContextUtilization(RagasScorer):
+    """
+    Evaluates how effectively the retrieved context is utilized in the generated response.
+
+    Args:
+        model: {{ model }}
+        **metric_kwargs: Additional metric-specific parameters
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.ragas import ContextUtilization
+
+            scorer = ContextUtilization(model="openai:/gpt-4")
+            feedback = scorer(trace=trace)
+    """
+
+    metric_name: ClassVar[str] = "ContextUtilization"
+
+
 class NonLLMContextPrecisionWithReference(RagasScorer):
     """
     Deterministic metric that evaluates context precision using non-LLM methods using expectations.
@@ -58,7 +78,6 @@ class NonLLMContextPrecisionWithReference(RagasScorer):
     metric_name: ClassVar[str] = "NonLLMContextPrecisionWithReference"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextRecall(RagasScorer):
     """
@@ -80,7 +99,6 @@ class ContextRecall(RagasScorer):
     metric_name: ClassVar[str] = "ContextRecall"
 
 
-@experimental(version="3.8.0")
 class NonLLMContextRecall(RagasScorer):
     """
     Deterministic metric that evaluates context recall without using an LLM.
@@ -100,7 +118,6 @@ class NonLLMContextRecall(RagasScorer):
     metric_name: ClassVar[str] = "NonLLMContextRecall"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextEntityRecall(RagasScorer):
     """
@@ -122,7 +139,6 @@ class ContextEntityRecall(RagasScorer):
     metric_name: ClassVar[str] = "ContextEntityRecall"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class NoiseSensitivity(RagasScorer):
     """
@@ -144,7 +160,6 @@ class NoiseSensitivity(RagasScorer):
     metric_name: ClassVar[str] = "NoiseSensitivity"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class Faithfulness(RagasScorer):
     """
@@ -166,7 +181,6 @@ class Faithfulness(RagasScorer):
     metric_name: ClassVar[str] = "Faithfulness"
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC | _EMBEDDINGS_API_DOC)
 class AnswerRelevancy(RagasScorer):
     """
@@ -208,7 +222,6 @@ class AnswerRelevancy(RagasScorer):
         )
 
 
-@experimental(version="3.9.0")
 @format_docstring(_EMBEDDINGS_API_DOC)
 class SemanticSimilarity(RagasScorer):
     """

@@ -175,6 +175,14 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabReviewQueue,
+          pageId: PageId.experimentPageTabReviewQueue,
+          element: createLazyRouteElement(() => import('./pages/experiment-review-queue/ExperimentReviewQueuePage')),
+          handle: {
+            getPageTitle: (params) => `Review - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabDatasets,
           pageId: PageId.experimentPageTabDatasets,
           element: createLazyRouteElement(() => {
@@ -202,6 +210,14 @@ const getExperimentPageRouteDefs = () => {
               'How do I use this dataset for evaluation?',
               'What format should my dataset be in?',
             ],
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabPlayground,
+          pageId: PageId.experimentPageTabPlayground,
+          element: createLazyRouteElement(() => import('./pages/playground/PlaygroundPage')),
+          handle: {
+            getPageTitle: (params) => `Playground - Experiment ${params['experimentId']}`,
           } satisfies RouteHandle,
         },
         {

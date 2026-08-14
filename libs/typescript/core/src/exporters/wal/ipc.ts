@@ -40,10 +40,23 @@ const CONNECT_RETRY_DELAYS_MS = Array.from(
 
 const DAEMON_NO_RESPONSE_CODE = 'EDAEMONNORESPONSE';
 
-const MAX_REQUEST_BYTES = 16 * 1024 * 1024;
+export const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Exact byte length of the wire payload {@link submitRecord} would send for
+ * `record`, including the `append` envelope and trailing newline. Use this to
+ * compare against {@link MAX_REQUEST_BYTES} before submitting.
+ */
+function buildRequestPayload(record: WalRecord): string {
+  return JSONBig.stringify({ op: 'append', record } satisfies IpcRequest) + '\n';
+}
+
+export function ipcRequestByteLength(record: WalRecord): number {
+  return Buffer.byteLength(buildRequestPayload(record), 'utf8');
 }
 
 function isConnectError(err: unknown): boolean {
@@ -82,7 +95,7 @@ function isConnectError(err: unknown): boolean {
  *
  */
 export async function submitRecord(record: WalRecord): Promise<void> {
-  const payload = JSONBig.stringify({ op: 'append', record } satisfies IpcRequest) + '\n';
+  const payload = buildRequestPayload(record);
   let lastErr: unknown;
   for (let i = 0; i <= CONNECT_RETRY_DELAYS_MS.length; i++) {
     if (i > 0) {

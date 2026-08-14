@@ -61,7 +61,6 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking._uc_upsell import show_existing_experiment_upsell, show_new_experiment_upsell
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
@@ -292,12 +291,24 @@ def set_experiment(
 def _sync_trace_destination_and_provider(
     resolved_location: UnityCatalog | None,
 ) -> None:
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, provider
+    from mlflow.exceptions import MlflowTracingException
+    from mlflow.tracing.provider import (
+        _MLFLOW_TRACE_USER_DESTINATION,
+        is_tracing_enabled,
+        provider,
+    )
 
-    # If the tracer provider has already been initialized, reset it so the
-    # next trace re-derives the correct processor chain from the new experiment.
+    # If the tracer provider has already been initialized, reset it so the next
+    # trace re-derives the correct processor chain from the new experiment. Skip
+    # when disabled: reset() would flip `once` off and silently re-enable tracing
+    # the user turned off (#24209). Default to resetting if the state check errors.
     if provider.once._done:
-        provider.reset()
+        try:
+            tracing_enabled = is_tracing_enabled()
+        except MlflowTracingException:
+            tracing_enabled = True
+        if tracing_enabled:
+            provider.reset()
 
     _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
 
@@ -364,7 +375,7 @@ class ActiveRun(Run):
     """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
 
     def __init__(self, run):
-        Run.__init__(self, run.info, run.data)
+        Run.__init__(self, run.info, run.data, run.inputs, run.outputs)
 
     def __enter__(self):
         return self
@@ -474,7 +485,7 @@ def start_run(
             unspecified. If a new run is created and ``run_name`` is not specified,
             a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
-        parent_run_id: If specified, the current run will be nested under the the run with
+        parent_run_id: If specified, the current run will be nested under the run with
             the specified UUID. The parent run must be in the ACTIVE state.
         tags: An optional dictionary of string keys and values to set as tags on the run.
             If a run is being resumed, these tags are set on the resumed run. If a new run is
@@ -1770,7 +1781,6 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
-@experimental(version="3.9.0")
 def log_stream(
     stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str, run_id: str | None = None
 ) -> None:

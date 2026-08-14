@@ -625,89 +625,179 @@
       },
       "last_updated_at": "2026-04-24"
     },
-    "grok-4.20-0309-reasoning": {
+    "grok-4.20-0309-non-reasoning": {
       "mode": "chat",
       "context_window": {
-        "max_input": 2000000,
-        "max_output": 2000000,
-        "max_tokens": 2000000
+        "max_input": 1000000,
+        "max_output": 1000000,
+        "max_tokens": 1000000
       },
       "pricing": {
-        "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 6.0,
-        "cache_read_per_million_tokens": 0.2
-      },
-      "capabilities": {
-        "function_calling": true,
-        "vision": true,
-        "reasoning": true,
-        "prompt_caching": false,
-        "response_schema": false
-      },
-      "last_updated_at": "2026-04-24"
-    },
-    "grok-4.20-beta-0309-non-reasoning": {
-      "mode": "chat",
-      "context_window": {
-        "max_input": 2000000,
-        "max_output": 2000000,
-        "max_tokens": 2000000
-      },
-      "pricing": {
-        "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 6.0,
-        "cache_read_per_million_tokens": 0.2
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
         "reasoning": false,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-12"
+    },
+    "grok-4.20-0309-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 1000000,
+        "max_tokens": 1000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-12"
+    },
+    "grok-4.20-beta-0309-non-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 1000000,
+        "max_tokens": 1000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-12"
     },
     "grok-4.20-beta-0309-reasoning": {
       "mode": "chat",
       "context_window": {
-        "max_input": 2000000,
-        "max_output": 2000000,
-        "max_tokens": 2000000
+        "max_input": 1000000,
+        "max_output": 1000000,
+        "max_tokens": 1000000
       },
       "pricing": {
-        "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 6.0,
-        "cache_read_per_million_tokens": 0.2
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-12"
+    },
+    "grok-4.20-multi-agent-0309": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 1000000,
+        "max_tokens": 1000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-12"
     },
     "grok-4.20-multi-agent-beta-0309": {
       "mode": "chat",
       "context_window": {
-        "max_input": 2000000,
-        "max_output": 2000000,
-        "max_tokens": 2000000
+        "max_input": 1000000,
+        "max_output": 1000000,
+        "max_tokens": 1000000
       },
       "pricing": {
-        "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 6.0,
-        "cache_read_per_million_tokens": 0.2
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-12"
     },
     "grok-4.3": {
       "mode": "chat",
@@ -767,6 +857,64 @@
       },
       "last_updated_at": "2026-05-08"
     },
+    "grok-4.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000,
+        "max_tokens": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.3,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.6,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 12.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-12"
+    },
+    "grok-4.5-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000,
+        "max_tokens": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.3,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.6,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 12.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-12"
+    },
     "grok-beta": {
       "mode": "chat",
       "context_window": {
@@ -787,6 +935,35 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "grok-build-0.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 256000,
+        "max_tokens": 256000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.0,
+            "output_per_million_tokens": 4.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-12"
+    },
     "grok-code-fast": {
       "mode": "chat",
       "context_window": {
@@ -795,18 +972,26 @@
         "max_tokens": 256000
       },
       "pricing": {
-        "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 1.5,
-        "cache_read_per_million_tokens": 0.02
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.0,
+            "output_per_million_tokens": 4.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-12"
     },
     "grok-code-fast-1": {
       "mode": "chat",
@@ -816,18 +1001,26 @@
         "max_tokens": 256000
       },
       "pricing": {
-        "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 1.5,
-        "cache_read_per_million_tokens": 0.02
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.0,
+            "output_per_million_tokens": 4.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-12"
     },
     "grok-code-fast-1-0825": {
       "mode": "chat",
@@ -837,18 +1030,26 @@
         "max_tokens": 256000
       },
       "pricing": {
-        "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 1.5,
-        "cache_read_per_million_tokens": 0.02
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 2.0,
+            "output_per_million_tokens": 4.0,
+            "cache_read_per_million_tokens": 0.4
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-12"
     },
     "grok-vision-beta": {
       "mode": "chat",

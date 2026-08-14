@@ -10,6 +10,10 @@ from mlflow.genai.label_schemas.label_schemas import (
     InputText,
     LabelSchemaType,
 )
+from mlflow.genai.label_schemas.validation import (
+    DEFAULT_LABEL_SCHEMA_INSTRUCTION,
+    DEFAULT_LABEL_SCHEMA_NAME,
+)
 from mlflow.store.tracking.dbmodels.models import SqlLabelSchema
 
 from tests.store.tracking.sqlalchemy_store.conftest import _create_experiments
@@ -160,7 +164,9 @@ def test_list_orders_by_created_time_desc(store):
     time.sleep(0.005)
     s3 = _create_pass_fail_schema(store, exp_id, name="third")
 
-    schemas = store.list_label_schemas(exp_id)
+    # Filter out the auto-seeded default question; this asserts the ordering of
+    # the user-created schemas.
+    schemas = [s for s in store.list_label_schemas(exp_id) if not s.is_default]
     assert [s.name for s in schemas] == ["third", "second", "first"]
     assert [s.created_at for s in schemas] == sorted(
         [s1.created_at, s2.created_at, s3.created_at], reverse=True
@@ -179,6 +185,7 @@ def test_list_pagination(store):
     for i in range(5):
         _create_pass_fail_schema(store, exp_id, name=f"schema_{i}")
 
+    # 6 schemas total: the 5 created here plus the auto-seeded default question.
     page1 = store.list_label_schemas(exp_id, max_results=2)
     assert len(page1) == 2
     assert page1.token is not None
@@ -188,7 +195,7 @@ def test_list_pagination(store):
     assert page2.token is not None
 
     page3 = store.list_label_schemas(exp_id, max_results=2, page_token=page2.token)
-    assert len(page3) == 1
+    assert len(page3) == 2
     assert page3.token is None
 
 
@@ -403,3 +410,50 @@ def test_label_schemas_blocked_when_experiment_soft_deleted(store):
     # But new writes against the soft-deleted experiment are rejected.
     with pytest.raises(MlflowException, match="No Experiment with id"):
         _create_pass_fail_schema(store, exp_id, name="another")
+
+
+def test_list_seeds_protected_default_question(store):
+    exp_id = _create_experiments(store, "default_q_seed")
+    defaults = [s for s in store.list_label_schemas(exp_id) if s.is_default]
+    assert len(defaults) == 1
+    d = defaults[0]
+    assert d.name == DEFAULT_LABEL_SCHEMA_NAME
+    assert d.type == LabelSchemaType.FEEDBACK
+    assert isinstance(d.input, InputText)
+    assert d.is_default is True
+    assert d.instruction == DEFAULT_LABEL_SCHEMA_INSTRUCTION
+    assert d.enable_comment is False
+
+
+def test_default_question_seed_is_idempotent(store):
+    exp_id = _create_experiments(store, "default_q_idempotent")
+    first = store.list_label_schemas(exp_id)
+    second = store.list_label_schemas(exp_id)
+    assert sum(s.is_default for s in first) == 1
+    assert sum(s.is_default for s in second) == 1
+    assert {s.schema_id for s in first if s.is_default} == {
+        s.schema_id for s in second if s.is_default
+    }
+
+
+def test_create_rejects_reserved_default_name(store):
+    exp_id = _create_experiments(store, "default_q_reserved")
+    for name in (DEFAULT_LABEL_SCHEMA_NAME, DEFAULT_LABEL_SCHEMA_NAME.upper(), "  feedback  "):
+        with pytest.raises(MlflowException, match="reserved"):
+            store.create_label_schema(
+                experiment_id=exp_id, name=name, type="feedback", input=InputText()
+            )
+
+
+def test_default_question_cannot_be_edited(store):
+    exp_id = _create_experiments(store, "default_q_no_edit")
+    default = next(s for s in store.list_label_schemas(exp_id) if s.is_default)
+    with pytest.raises(MlflowException, match="default question cannot be edited"):
+        store.update_label_schema(default.schema_id, instruction="changed")
+
+
+def test_default_question_cannot_be_deleted(store):
+    exp_id = _create_experiments(store, "default_q_no_delete")
+    default = next(s for s in store.list_label_schemas(exp_id) if s.is_default)
+    with pytest.raises(MlflowException, match="default question cannot be deleted"):
+        store.delete_label_schema(default.schema_id)

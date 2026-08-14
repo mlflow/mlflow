@@ -134,7 +134,10 @@ describe('useUserRolesQuery (gated on truthy username)', () => {
     expect(mockedApi.listUserRoles).toHaveBeenCalledWith('pat');
   });
 
-  it('drops synthetic __user_<id>__ roles from the response', async () => {
+  it('retains synthetic __user_<id>__ roles in the response', async () => {
+    // The hook intentionally returns roles unfiltered. Synthetic roles back
+    // direct grants; consumers (PermissionsSection, EditAccessModal pre-fill)
+    // need them, while the human-facing Roles tables filter them out locally.
     const namedRole = {
       id: 7,
       name: 'editors',
@@ -153,7 +156,7 @@ describe('useUserRolesQuery (gated on truthy username)', () => {
 
     const { result } = renderHook(() => useUserRolesQuery('pat'), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.roles).toEqual([namedRole]);
+    expect(result.current.data?.roles).toEqual([namedRole, syntheticRole]);
   });
 });
 

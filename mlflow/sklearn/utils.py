@@ -203,8 +203,6 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
 
     Args:
         fitted_estimator: The already fitted classifier
-        fit_args: Positional arguments given to fit_func.
-        fit_kwargs: Keyword arguments given to fit_func.
 
     Returns:
         dictionary of (function name, computed value)
@@ -327,8 +325,6 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
 
     Args:
         fitted_estimator: The already fitted regressor
-        fit_args: Positional arguments given to fit_func.
-        fit_kwargs: Keyword arguments given to fit_func.
 
     Returns:
         List of artifacts to be logged
@@ -434,8 +430,6 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
 
     Args:
         fitted_estimator: The already fitted regressor
-        fit_args: Positional arguments given to fit_func.
-        fit_kwargs: Keyword arguments given to fit_func.
 
     Returns:
         dictionary of (function name, computed value)

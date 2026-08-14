@@ -10,7 +10,7 @@ from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.vertex_ai import VertexAIProvider
+from mlflow.gateway.providers.vertex_ai import VertexAIProvider, _get_vertex_ai_host
 from mlflow.gateway.schemas import chat, completions
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
@@ -96,6 +96,181 @@ async def test_chat():
     assert result["choices"][0]["message"]["role"] == "assistant"
     assert result["usage"]["prompt_tokens"] == 10
     assert result["usage"]["completion_tokens"] == 20
+
+
+def _tool_calling_second_turn_payload():
+    return {
+        "messages": [
+            {"role": "user", "content": "What's the weather like in Singapore today?"},
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_001",
+                        "function": {
+                            "arguments": '{"location": "Singapore"}',
+                            "name": "get_weather",
+                        },
+                        "type": "function",
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_001",
+                "content": '{"temperature": 31.2, "condition": "sunny"}',
+            },
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get current temperature for a given location.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string", "description": "The name of a city"}
+                        },
+                        "required": ["location"],
+                    },
+                },
+            }
+        ],
+    }
+
+
+def _find_part(contents, key):
+    return next(
+        part[key] for content in contents for part in content.get("parts", []) if key in part
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_calling_omits_function_call_id():
+    # Regression test for #24127: Vertex AI rejects `id` on functionCall/functionResponse
+    # parts with 400 INVALID_ARGUMENT, unlike the Developer Gemini API which requires it.
+    provider = _make_provider()
+    resp = {
+        "candidates": [
+            {"content": {"parts": [{"text": "Sunny, 31.2 degrees."}]}, "finishReason": "stop"}
+        ]
+    }
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**_tool_calling_second_turn_payload()))
+
+    contents = mock_post.call_args[1]["json"]["contents"]
+    function_call = _find_part(contents, "functionCall")
+    function_response = _find_part(contents, "functionResponse")
+
+    assert "id" not in function_call
+    assert "id" not in function_response
+    # The function name must survive — Gemini requires it on both parts.
+    assert function_call["name"] == "get_weather"
+    assert function_response["name"] == "get_weather"
+    assert function_call["args"] == {"location": "Singapore"}
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_calling_preserves_thought_signature():
+    provider = _make_provider()
+    payload = _tool_calling_second_turn_payload()
+    payload["messages"][1]["tool_calls"][0]["thought_signature"] = "opaque_thought_sig_token"
+    resp = {
+        "candidates": [
+            {"content": {"parts": [{"text": "Sunny, 31.2 degrees."}]}, "finishReason": "stop"}
+        ]
+    }
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
+
+    function_call = _find_part(mock_post.call_args[1]["json"]["contents"], "functionCall")
+    assert "id" not in function_call
+    assert function_call["thoughtSignature"] == "opaque_thought_sig_token"
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_tool_calling_omits_function_call_id():
+    provider = _make_provider()
+    stream_resp = [
+        b'data: {"candidates": [{"content": {"parts": [{"text": "Sunny."}]}, '
+        b'"finishReason": "stop"}]}\n\n',
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(stream_resp))
+    payload = _tool_calling_second_turn_payload()
+    payload["stream"] = True
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        _ = [chunk async for chunk in stream]
+
+    contents = mock_client.post.call_args[1]["json"]["contents"]
+    assert "id" not in _find_part(contents, "functionCall")
+    assert "id" not in _find_part(contents, "functionResponse")
+
+
+def test_adapter_class_matches_the_active_delegate():
+    # adapter_class must follow the delegate: Claude/MaaS models are formatted by their
+    # own adapters (get_endpoint_url points at the delegate's endpoint), not the Gemini one.
+    from mlflow.gateway.providers.anthropic import AnthropicAdapter
+    from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
+    from mlflow.gateway.providers.vertex_ai import _VertexGeminiAdapter
+
+    assert _make_provider().adapter_class is _VertexGeminiAdapter
+    assert _make_claude_provider().adapter_class is AnthropicAdapter
+    assert (
+        _make_maas_provider("meta/llama-3.1-405b-instruct-maas").adapter_class
+        is OpenAICompatibleAdapter
+    )
+
+
+@pytest.mark.asyncio
+async def test_chat_parallel_tool_calls_omit_all_function_call_ids():
+    # Two parallel tool calls in one turn — the case `id` exists for on the Dev API.
+    # Proves the strip loop covers every functionCall part, not just the first.
+    provider = _make_provider()
+    payload = _tool_calling_second_turn_payload()
+    payload["messages"][1]["tool_calls"].append({
+        "id": "call_002",
+        "function": {"arguments": '{"location": "Tokyo"}', "name": "get_weather"},
+        "type": "function",
+    })
+    payload["messages"].append({
+        "role": "tool",
+        "tool_call_id": "call_002",
+        "content": '{"temperature": 18.0, "condition": "cloudy"}',
+    })
+    resp = {
+        "candidates": [
+            {"content": {"parts": [{"text": "Sunny and cloudy."}]}, "finishReason": "stop"}
+        ]
+    }
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
+
+    contents = mock_post.call_args[1]["json"]["contents"]
+    function_calls = [
+        part["functionCall"]
+        for c in contents
+        for part in c.get("parts", [])
+        if "functionCall" in part
+    ]
+    function_responses = [
+        part["functionResponse"]
+        for c in contents
+        for part in c.get("parts", [])
+        if "functionResponse" in part
+    ]
+    assert len(function_calls) == 2
+    assert len(function_responses) == 2
+    assert all("id" not in fc for fc in function_calls)
+    assert all("id" not in fr for fr in function_responses)
 
 
 def test_basic_config():
@@ -188,6 +363,70 @@ def test_anthropic_model_global_location():
     assert provider.base_url == (
         "https://aiplatform.googleapis.com"
         "/v1/projects/my-project/locations/global/publishers/anthropic/models"
+    )
+
+
+@pytest.mark.parametrize(
+    ("location", "expected"),
+    [
+        ("global", "https://aiplatform.googleapis.com"),
+        ("eu", "https://aiplatform.eu.rep.googleapis.com"),
+        ("us", "https://aiplatform.us.rep.googleapis.com"),
+        ("europe-west1", "https://europe-west1-aiplatform.googleapis.com"),
+        ("us-central1", "https://us-central1-aiplatform.googleapis.com"),
+        ("us-east5", "https://us-east5-aiplatform.googleapis.com"),
+    ],
+)
+def test_get_vertex_ai_host(location, expected):
+    assert _get_vertex_ai_host(location) == expected
+
+
+@pytest.mark.parametrize("location", ["eu", "us"])
+def test_gemini_model_multi_region_location(location):
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": "gemini-3-pro-preview",
+            "config": {
+                "vertex_project": "my-gcp-project",
+                "vertex_location": location,
+            },
+        },
+    )
+    provider = VertexAIProvider(endpoint_config)
+    provider._cached_credentials = _mock_credentials()
+    assert provider.base_url == (
+        f"https://aiplatform.{location}.rep.googleapis.com"
+        f"/v1/projects/my-gcp-project/locations/{location}/publishers/google/models"
+    )
+
+
+@pytest.mark.parametrize("location", ["eu", "us"])
+def test_anthropic_model_multi_region_location(location):
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": "claude-sonnet-4-5@20251101",
+            "config": {
+                "vertex_project": "my-gcp-project",
+                "vertex_location": location,
+            },
+        },
+    )
+    provider = VertexAIProvider(endpoint_config)
+    provider._cached_credentials = _mock_credentials()
+    assert provider.base_url == (
+        f"https://aiplatform.{location}.rep.googleapis.com"
+        f"/v1/projects/my-gcp-project/locations/{location}/publishers/anthropic/models"
+    )
+    assert provider.get_endpoint_url("llm/v1/chat") == (
+        f"https://aiplatform.{location}.rep.googleapis.com"
+        f"/v1/projects/my-gcp-project/locations/{location}/publishers/anthropic/models"
+        "/claude-sonnet-4-5@20251101:rawPredict"
     )
 
 
@@ -324,6 +563,15 @@ def test_maas_model_uses_openapi_endpoint(model_name):
     assert provider._delegate._api_base == (
         "https://us-central1-aiplatform.googleapis.com"
         "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi"
+    )
+
+
+@pytest.mark.parametrize("location", ["eu", "us"])
+def test_maas_model_multi_region_location(location):
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas", location=location)
+    assert provider._delegate._api_base == (
+        f"https://aiplatform.{location}.rep.googleapis.com"
+        f"/v1/projects/my-gcp-project/locations/{location}/endpoints/openapi"
     )
 
 

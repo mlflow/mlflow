@@ -10,7 +10,7 @@ import {
   MLFLOW_SYSTEM_METRIC_NAME,
   DEFAULT_IMAGE_GRID_CHART_NAME,
 } from '../../constants';
-import { isEmpty, isNil, uniq } from 'lodash';
+import { isEmpty, isEqual, isNil, uniq } from 'lodash';
 import { customMetricBehaviorDefs } from '../experiment-page/utils/customMetricBehaviorUtils';
 import type { useCategorizedNodeLevelMetricKeys } from '../run-page/node-level-metric-charts/hooks/useCategorizedNodeLevelMetricKeys';
 import { createNodeLevelMetricKey } from '../run-page/node-level-metric-charts/node-level-metric-charts.utils';
@@ -132,6 +132,7 @@ export abstract class RunsChartsCardConfig {
       resultChartSet.push({
         ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID()),
         metricKey: metricsKey,
+        displayName: RunsChartsCardConfig.extractChartDisplayName(metricsKey),
       } as RunsChartsBarCardConfig);
     });
 
@@ -155,6 +156,22 @@ export abstract class RunsChartsCardConfig {
       return MLFLOW_SYSTEM_METRIC_NAME;
     }
     return section;
+  };
+
+  static extractChartDisplayName = (metricKey: string, delimiter = '/') => {
+    const displayMetricName = customMetricBehaviorDefs[metricKey]?.displayName ?? metricKey;
+    const parts = displayMetricName.split(delimiter);
+    return parts[parts.length - 1] || displayMetricName;
+  };
+
+  static getDisplayNameForUpdatedMetricSelection = (
+    config: RunsChartsBarCardConfig | RunsChartsLineCardConfig,
+    updatedMetricKeys: string[],
+  ) => {
+    const currentMetricKeys = config.selectedMetricKeys ?? [
+      config.type === RunsChartType.BAR ? (config.dataAccessKey ?? config.metricKey) : config.metricKey,
+    ];
+    return isEqual(currentMetricKeys, updatedMetricKeys) ? config.displayName : undefined;
   };
 
   static getBaseChartAndSectionConfigs({
@@ -274,6 +291,7 @@ export abstract class RunsChartsCardConfig {
         resultChartSet.push({
           ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
           metricKey: metricsKey,
+          displayName: RunsChartsCardConfig.extractChartDisplayName(metricsKey),
           ...(metricsKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsBarCardConfig);
       });
@@ -517,6 +535,7 @@ export abstract class RunsChartsCardConfig {
         const newChartConfig = {
           ...RunsChartsCardConfig.getEmptyChartCardByType(chartType, true, getUUID(), sectionId),
           metricKey: metricKey,
+          displayName: RunsChartsCardConfig.extractChartDisplayName(metricKey),
           ...(metricKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsBarCardConfig;
 
@@ -547,6 +566,7 @@ export abstract class RunsChartsCardConfig {
             prevChart.metricSectionId,
           ),
           metricKey: metricKey,
+          displayName: RunsChartsCardConfig.extractChartDisplayName(metricKey),
           deleted: prevChart.deleted,
           ...(metricKey.startsWith(MLFLOW_SYSTEM_METRIC_PREFIX) ? { xAxisKey: 'time', useGlobalXaxisKey: false } : {}),
         } as RunsChartsLineCardConfig;

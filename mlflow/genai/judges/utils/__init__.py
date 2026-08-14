@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from mlflow.genai.judges.base import AlignmentOptimizer
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_GENAI_JUDGE_DEFAULT_MODEL
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -32,6 +33,8 @@ from mlflow.utils.uri import is_databricks_uri
 
 
 def get_default_model() -> str:
+    if override := MLFLOW_GENAI_JUDGE_DEFAULT_MODEL.get():
+        return override
     if is_databricks_uri(mlflow.get_tracking_uri()):
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
     else:
