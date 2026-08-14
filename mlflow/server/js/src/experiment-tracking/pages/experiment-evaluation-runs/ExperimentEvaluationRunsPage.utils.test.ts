@@ -440,10 +440,7 @@ describe('ExperimentEvaluationRunsPage.utils', () => {
     });
 
     it('should not mutate original input', () => {
-      const runs = [
-        createMockRun({ runUuid: 'parent' }),
-        createMockRun({ runUuid: 'child', parentRunId: 'parent' }),
-      ];
+      const runs = [createMockRun({ runUuid: 'parent' }), createMockRun({ runUuid: 'child', parentRunId: 'parent' })];
       const nested = getNestedRuns(runs);
       const originalNestedClone = JSON.parse(JSON.stringify(nested));
 
