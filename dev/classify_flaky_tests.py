@@ -31,12 +31,15 @@ from typing import Any
 DEFAULT_MODEL = os.environ.get("FLAKY_CLASSIFIER_MODEL", "claude-sonnet-4-6")
 BASE_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
 
+# The prompt is identical across frameworks except for how a retry is expressed
+# (pytest's `@pytest.mark.flaky` vs. jest's `jest.retryTimes`); `{retry_mechanism}` is
+# filled per framework so the classifier's `annotate` verdict matches the annotator.
 PROMPT_TEMPLATE = """\
 You are triaging a flaky test in the MLflow CI suite. A "flake" here is a test that \
 FAILED on one CI run attempt and PASSED on a re-run of the exact same commit — so the \
 code did not change between the two outcomes.
 
-Your job: decide whether this test should be annotated with `@pytest.mark.flaky` \
+Your job: decide whether this test should be annotated with `{retry_mechanism}` \
 (which makes CI automatically retry it), or whether the flake likely reflects a real \
 bug that a human should FIX instead.
 
@@ -60,7 +63,7 @@ failure that only "passed on retry" by luck.
 Return a JSON object:
 - `category`: one of "timeout", "resource-contention", "network", "test-harness-race", \
 "product-race", "logic-bug", "unknown".
-- `action`: one of "annotate" (safe to retry via @pytest.mark.flaky), "fix" (likely a \
+- `action`: one of "annotate" (safe to retry via {retry_mechanism}), "fix" (likely a \
 real bug — do not retry, a human should fix it), "investigate" (not enough signal to \
 decide).
 - `attempts`: suggested retry count (2 or 3) if action is "annotate", else null.
@@ -70,6 +73,11 @@ decide).
 Weigh the failure count: a test that flaked repeatedly across many commits is more \
 likely a genuine flake safe to retry; a single occurrence with a logic-bug-shaped error \
 should lean toward "investigate" or "fix"."""
+
+# How each framework expresses an automatic retry, injected into the prompt above.
+RETRY_MECHANISMS: dict[str, str] = {
+    "pytest": "@pytest.mark.flaky",
+}
 
 _SCHEMA = {
     "type": "object",
@@ -110,8 +118,10 @@ def _auth_headers() -> dict[str, str]:
     return headers
 
 
-def classify(nodeid: str, count: int, error: str) -> dict[str, Any]:
-    prompt = PROMPT_TEMPLATE.format(nodeid=nodeid, count=count, error=error or "(none)")
+def classify(nodeid: str, count: int, error: str, retry_mechanism: str) -> dict[str, Any]:
+    prompt = PROMPT_TEMPLATE.format(
+        nodeid=nodeid, count=count, error=error or "(none)", retry_mechanism=retry_mechanism
+    )
     request_body = {
         "model": DEFAULT_MODEL,
         "max_tokens": 1024,
@@ -164,7 +174,16 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--in", dest="infile", required=True, help="flakes.json from the detector")
     p.add_argument("--out", help="Write classified JSON here")
+    p.add_argument(
+        "--framework",
+        default="pytest",
+        choices=sorted(RETRY_MECHANISMS),
+        help="Test framework the flakes came from (selects the retry mechanism named in "
+        "the prompt). Default: pytest.",
+    )
     args = p.parse_args()
+
+    retry_mechanism = RETRY_MECHANISMS[args.framework]
 
     with open(args.infile) as f:
         flakes = json.load(f)
@@ -181,7 +200,7 @@ def main() -> None:
                 "rationale": "No test-level nodeid recovered (shard/infra flake).",
             }
         else:
-            verdict = classify(t["test"], t["count"], t["error"] or "")
+            verdict = classify(t["test"], t["count"], t["error"] or "", retry_mechanism)
         results.append({**t, "verdict": verdict})
         label = t["test"] or t["shard"]
         v = verdict

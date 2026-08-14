@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
-from detect_flaky_tests import gh_api_objects, parse_failing_tests
+from detect_flaky_tests import gh_api_objects, parse_pytest_failures
 
 # A captured pytest failure line as it appears in a raw GitHub Actions log: an ISO
 # timestamp prefix, ANSI SGR color codes around FAILED/the nodeid, and the MLflow
@@ -15,7 +15,7 @@ _ANSI_FAILED_LINE = (
 
 
 def test_parses_nodeid_and_error_from_ansi_timestamped_line():
-    result = parse_failing_tests(_ANSI_FAILED_LINE)
+    result = parse_pytest_failures(_ANSI_FAILED_LINE)
     assert result == {
         "tests/tracing/test_x.py::test_span_flush": "AssertionError: expected 1 span, got 0"
     }
@@ -26,7 +26,7 @@ def test_parses_error_outcome_and_parametrized_nodeid():
         "2026-07-20T10:00:00Z \x1b[31mERROR\x1b[0m "
         "tests/store/test_y.py::test_z[case-1] - RuntimeError: boom"
     )
-    assert parse_failing_tests(log) == {
+    assert parse_pytest_failures(log) == {
         "tests/store/test_y.py::test_z[case-1]": "RuntimeError: boom"
     }
 
@@ -39,7 +39,7 @@ def test_ignores_lines_without_a_failure_outcome():
         "2026-07-20T10:00:01Z   File 'tests/test_a.py', line 3, in test_ok\n"
         "2026-07-20T10:00:02Z collected 5 items"
     )
-    assert parse_failing_tests(log) == {}
+    assert parse_pytest_failures(log) == {}
 
 
 def test_first_occurrence_wins_for_duplicate_nodeid():
@@ -49,17 +49,17 @@ def test_first_occurrence_wins_for_duplicate_nodeid():
         "2026-07-20T10:00:00Z FAILED tests/test_a.py::test_b - first message\n"
         "2026-07-20T10:00:05Z FAILED tests/test_a.py::test_b - second message"
     )
-    assert parse_failing_tests(log) == {"tests/test_a.py::test_b": "first message"}
+    assert parse_pytest_failures(log) == {"tests/test_a.py::test_b": "first message"}
 
 
 def test_error_message_is_truncated():
     log = "2026-07-20T10:00:00Z FAILED tests/test_a.py::test_b - " + "x" * 500
-    (msg,) = parse_failing_tests(log).values()
+    (msg,) = parse_pytest_failures(log).values()
     assert len(msg) == 300
 
 
 def test_empty_log_yields_no_failures():
-    assert parse_failing_tests("") == {}
+    assert parse_pytest_failures("") == {}
 
 
 def test_gh_api_objects_parses_concatenated_pages(monkeypatch):
