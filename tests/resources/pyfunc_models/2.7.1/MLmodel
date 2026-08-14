@@ -6,7 +6,7 @@ flavors:
       virtualenv: python_env.yaml
     loader_module: mlflow.pyfunc.model
     python_model: python_model.pkl
-    python_version: 3.9.13
+    python_version: 3.11.12
 mlflow_version: 2.7.1
-model_uuid: 1f82a364e20f4061984040cf41c3052e
-utc_time_created: '2023-12-07 02:45:13.335946'
+model_uuid: 24716930107c45b389303d883eeefef1
+utc_time_created: '2026-08-14 06:04:44.945466'
