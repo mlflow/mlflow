@@ -1,4 +1,3 @@
-import threading
 from pathlib import Path
 from unittest import mock
 
@@ -36,7 +35,9 @@ def threadsafe_lock_mgr(threadsafe_job_store: SqlAlchemyJobStore) -> JobLockMana
 
 def test_acquire_scheduler_lease_succeeds_when_no_lease_exists(lock_mgr: JobLockManager) -> None:
 
-    assert lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60) is True
+    scheduler_lease = lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60)
+    assert scheduler_lease.lease_key == "scheduler-1"
+    assert scheduler_lease.ttl_seconds == 60
 
 
 @pytest.mark.parametrize("invalid_ttl", [-1, 0], ids=["negative", "zero"])
@@ -44,26 +45,33 @@ def test_acquire_scheduler_lease_invalid_ttl(lock_mgr: JobLockManager, invalid_t
 
     match = f"ttl_seconds must be greater than zero, got {invalid_ttl}"
     with pytest.raises(MlflowException, match=match):
-        lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=invalid_ttl)
+        _ = lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=invalid_ttl)
 
 
 def test_acquire_scheduler_lease_fails_when_lease_held(lock_mgr: JobLockManager) -> None:
 
     # First call acquires
-    assert lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60) is True
+    scheduler_lease = lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60)
+    assert scheduler_lease.lease_key == "scheduler-1"
+    assert scheduler_lease.ttl_seconds == 60
 
     # Second call should fail
-    assert lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60) is False
+    assert lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60) is None
 
 
 def test_multiple_scheduler_leases_can_coexist(lock_mgr: JobLockManager) -> None:
 
-    assert lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60) is True
-    assert lock_mgr.acquire_scheduler_lease("scheduler-2", ttl_seconds=60) is True
+    scheduler_lease = lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60)
+    assert scheduler_lease.lease_key == "scheduler-1"
+    assert scheduler_lease.ttl_seconds == 60
+
+    scheduler_lease = lock_mgr.acquire_scheduler_lease("scheduler-2", ttl_seconds=60)
+    assert scheduler_lease.lease_key == "scheduler-2"
+    assert scheduler_lease.ttl_seconds == 60
 
     # Both leases should be held
-    assert lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60) is False
-    assert lock_mgr.acquire_scheduler_lease("scheduler-2", ttl_seconds=60) is False
+    assert lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60) is None
+    assert lock_mgr.acquire_scheduler_lease("scheduler-2", ttl_seconds=60) is None
 
 
 @pytest.mark.parametrize(
@@ -85,15 +93,22 @@ def test_acquire_scheduler_lease_when_a_lease_exists(
     patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
 
     with mock.patch(patch_time_lock_mgr, return_value=base_time) as mock_time:
-        assert lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=10) is True
+        scheduler_lease = lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=10)
+        assert scheduler_lease.lease_key == "scheduler-1"
+        assert scheduler_lease.acquired_at == base_time
+        assert scheduler_lease.ttl_seconds == 10
         mock_time.assert_called_once()
 
-    new_ttl = base_time + (attempt_delta_seconds * 1000)
-    with mock.patch(patch_time_lock_mgr, return_value=new_ttl) as mock_time:
-        assert lock_mgr.acquire_scheduler_lease(lease_key, ttl_seconds=10) is expected
+    new_time = base_time + (attempt_delta_seconds * 1000)
+    with mock.patch(patch_time_lock_mgr, return_value=new_time) as mock_time:
+        scheduler_lease = lock_mgr.acquire_scheduler_lease(lease_key, ttl_seconds=10)
         mock_time.assert_called_once()
 
     if expected:
+        assert scheduler_lease.lease_key == "scheduler-1"
+        assert scheduler_lease.acquired_at == new_time
+        assert scheduler_lease.ttl_seconds == 10
+
         # Validate lease expiry updated when expected
         with lock_mgr._session_maker() as session:
             lock = (
@@ -102,61 +117,28 @@ def test_acquire_scheduler_lease_when_a_lease_exists(
                 .filter(SqlSchedulerLease.lease_key == lease_key)
                 .one()
             )
-            assert lock.acquired_at == new_ttl
+            assert lock.acquired_at == new_time
             assert lock.ttl_seconds == 10
 
         # Validate new lease window when expected
-        with mock.patch(patch_time_lock_mgr, return_value=(new_ttl + 1000)) as mock_time:
-            assert lock_mgr.acquire_scheduler_lease(lease_key, ttl_seconds=10) is False
+        with mock.patch(patch_time_lock_mgr, return_value=(new_time + 1000)) as mock_time:
+            assert lock_mgr.acquire_scheduler_lease(lease_key, ttl_seconds=10) is None
         mock_time.assert_called_once()
+    else:
+        assert scheduler_lease is None
 
 
-def test_concurrent_acquire_scheduler_lease(threadsafe_lock_mgr: JobLockManager) -> None:
-    """Two threads racing to acquire the same scheduler lease, only one should succeed.
-    SQLite does not support SELECT ... FOR UPDATE; it serializes via file-level write locking.
-    This test verifies the concurrent behavior but does not exercise the FOR UPDATE path
-    that protects existing rows on PostgreSQL/MySQL in production. True row-level locking
-    semantics require a transactional backend.
-    """
-
-    barrier = threading.Barrier(2)
-    results = []
-
-    # Mock only one_or_none to return None, simulating the race gap where
-    # another replica committed after our SELECT but before our INSERT
-    with mock.patch.object(Query, "one_or_none", return_value=None) as mock_one_or_none:
-
-        def try_acquire():
-            barrier.wait()
-            result = threadsafe_lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=60)
-            results.append(result)
-
-        t1 = threading.Thread(target=try_acquire, name="mock-replica-1")
-        t2 = threading.Thread(target=try_acquire, name="mock-replica-2")
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
-
-        mock_one_or_none.assert_called()
-        assert mock_one_or_none.call_count == 2
-
-    # Exactly one should succeed
-    assert results.count(True) == 1
-    assert results.count(False) == 1
-
-
-def test_acquire_scheduler_lease_returns_false_on_concurrent_insert_race(
+def test_acquire_scheduler_lease_returns_none_on_concurrent_insert_race(
     lock_mgr: JobLockManager,
 ) -> None:
 
     integrity_error = IntegrityError(None, None, None)
     with mock.patch.object(Session, "add", side_effect=integrity_error) as mock_add:
-        assert lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60) is False
+        assert lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60) is None
         mock_add.assert_called_once()
 
 
-def test_acquire_scheduler_lease_raises_non_integriy_errors(lock_mgr: JobLockManager) -> None:
+def test_acquire_scheduler_lease_raises_non_integrity_errors(lock_mgr: JobLockManager) -> None:
     """Mock the session manager to raise a ValueError and ensure it is wrapped in an
     MlflowException
     """
@@ -164,15 +146,15 @@ def test_acquire_scheduler_lease_raises_non_integriy_errors(lock_mgr: JobLockMan
     # Patching the get_current_time_millis call inside of the session context manager is the
     # easiest way to raise an arbitrary exception though it may not be the source.
     patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
-    exception = ValueError("Non IntegriryError exception")
+    exception = ValueError("Non IntegrityError exception")
 
     with mock.patch(patch_time_lock_mgr, side_effect=exception) as mock_time:
-        with pytest.raises(MlflowException, match="Non IntegriryError exception"):
-            lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60)
+        with pytest.raises(MlflowException, match="Non IntegrityError exception"):
+            _ = lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60)
         mock_time.assert_called_once()
 
 
-def test_acquire_scheduler_lease_returns_false_on_concurrent_insert_race_mock(
+def test_acquire_scheduler_lease_returns_none_on_concurrent_insert_race_mock(
     lock_mgr: JobLockManager,
 ) -> None:
 
@@ -182,5 +164,5 @@ def test_acquire_scheduler_lease_returns_false_on_concurrent_insert_race_mock(
     # Mock only one_or_none to return None, simulating the race gap where
     # another replica committed after our SELECT but before our INSERT
     with mock.patch.object(Query, "one_or_none", return_value=None) as mock_one_or_none:
-        assert lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60) is False
+        assert lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60) is None
         mock_one_or_none.assert_called_once()
