@@ -189,6 +189,10 @@ class EvalItem:
         """Get the expectations as a list of Expectation objects."""
         expectations = []
         for name, value in self.expectations.items():
+            # A Spark DataFrame column of dicts is read back as a struct whose fields are the
+            # union of every row's keys, so rows that omitted an expectation carry it as null
+            if value is None:
+                continue
             source_id = get_context().get_user_name()
             expectations.append(
                 Expectation(

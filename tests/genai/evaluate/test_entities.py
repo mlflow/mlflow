@@ -1,3 +1,5 @@
+from unittest import mock
+
 import numpy as np
 import pandas as pd
 
@@ -25,6 +27,23 @@ def test_eval_item_from_dataset_row_extracts_source():
     assert eval_item.source.source_data["session_id"] == "session_1"
     assert eval_item.inputs == {"question": "test"}
     assert eval_item.outputs == "answer"
+
+
+def test_get_expectation_assessments_skips_null_values():
+    # Spark reads a column of dicts back as a struct whose fields are the union of every row's
+    # keys, so a row that omitted an expectation carries it as null rather than leaving it out
+    eval_item = EvalItem(
+        request_id="req-1",
+        inputs={"question": "test"},
+        outputs="answer",
+        expectations={"expected_response": None, "expected_facts": ["a"]},
+    )
+
+    with mock.patch("mlflow.genai.evaluation.entities.get_context") as mock_context:
+        mock_context.return_value.get_user_name.return_value = "tester"
+        assessments = eval_item.get_expectation_assessments()
+
+    assert [a.name for a in assessments] == ["expected_facts"]
 
 
 def test_eval_item_from_dataset_row_handles_missing_source():
