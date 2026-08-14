@@ -7,7 +7,6 @@ interface ExperimentEvaluationRunsRowVisibilityContextValue {
   setVisibilityMode: (mode: RUNS_VISIBILITY_MODE) => void;
   visibilityMode: RUNS_VISIBILITY_MODE;
   usingCustomVisibility: boolean;
-  allRunsHidden: boolean;
 }
 
 const ExperimentEvaluationRunsRowVisibilityContext = createContext<ExperimentEvaluationRunsRowVisibilityContextValue>({
@@ -16,7 +15,6 @@ const ExperimentEvaluationRunsRowVisibilityContext = createContext<ExperimentEva
   setVisibilityMode: () => {},
   visibilityMode: RUNS_VISIBILITY_MODE.SHOWALL,
   usingCustomVisibility: false,
-  allRunsHidden: false,
 });
 
 export const ExperimentEvaluationRunsRowVisibilityProvider = ({ children }: { children: React.ReactNode }) => {
@@ -65,7 +63,6 @@ export const ExperimentEvaluationRunsRowVisibilityProvider = ({ children }: { ch
   }, []);
 
   const usingCustomVisibility = toggledRuns.size > 0;
-  const allRunsHidden = visibilityMode === RUNS_VISIBILITY_MODE.HIDEALL;
 
   const value = useMemo(
     () => ({
@@ -74,9 +71,8 @@ export const ExperimentEvaluationRunsRowVisibilityProvider = ({ children }: { ch
       setVisibilityMode,
       visibilityMode,
       usingCustomVisibility,
-      allRunsHidden,
     }),
-    [isRowHidden, toggleRowVisibility, setVisibilityMode, visibilityMode, usingCustomVisibility, allRunsHidden],
+    [isRowHidden, toggleRowVisibility, setVisibilityMode, visibilityMode, usingCustomVisibility],
   );
 
   return (
