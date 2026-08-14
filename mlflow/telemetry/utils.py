@@ -101,9 +101,9 @@ def _detect_agent() -> str | None:
     def is_set(*names: str) -> bool:
         return any(os.environ.get(name) for name in names)
 
-    # Amp and Cowork also set Claude Code markers, so check their specific signals first.
+    # Amp also sets Claude Code markers, but it is not included in telemetry detection.
     if os.environ.get("AGENT") == "amp" or is_set("AMP_CURRENT_THREAD_ID"):
-        return CodingAgent.AMP.value
+        return None
     if is_set("CODEX_SANDBOX", "CODEX_CI", "CODEX_THREAD_ID"):
         return CodingAgent.CODEX.value
     if is_set("GEMINI_CLI"):
@@ -112,15 +112,11 @@ def _detect_agent() -> str | None:
         return CodingAgent.COPILOT_CLI.value
     if is_set("OPENCODE"):
         return CodingAgent.OPENCODE.value
-    if is_set("ANTIGRAVITY_AGENT"):
-        return CodingAgent.ANTIGRAVITY.value
-    if is_set("AUGMENT_AGENT"):
-        return CodingAgent.AUGMENT_CLI.value
     if is_set("CLINE_ACTIVE", "CLINE_AGENT"):
         return CodingAgent.CLINE.value
     if is_set("CLAUDECODE", "CLAUDE_CODE"):
         if is_set("CLAUDE_CODE_IS_COWORK"):
-            return CodingAgent.COWORK.value
+            return None
         return CodingAgent.CLAUDE_CODE.value
     if is_set("CURSOR_TRACE_ID"):
         return CodingAgent.CURSOR.value
@@ -130,8 +126,6 @@ def _detect_agent() -> str | None:
         return CodingAgent.KIRO.value
     if is_set("PI_CODING_AGENT"):
         return CodingAgent.PI.value
-    if is_set("ANDROID_STUDIO_AGENT"):
-        return CodingAgent.ANDROID_STUDIO.value
     return None
 
 

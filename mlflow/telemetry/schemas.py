@@ -56,15 +56,10 @@ class Environment(str, Enum):
 
 
 class CodingAgent(str, Enum):
-    AMP = "amp"
-    ANDROID_STUDIO = "android-studio"
-    ANTIGRAVITY = "antigravity"
-    AUGMENT_CLI = "augment-cli"
     CLAUDE_CODE = "claude-code"
     CLINE = "cline"
     CODEX = "codex"
     COPILOT_CLI = "copilot-cli"
-    COWORK = "cowork"
     CURSOR = "cursor"
     CURSOR_CLI = "cursor-cli"
     GEMINI_CLI = "gemini-cli"
