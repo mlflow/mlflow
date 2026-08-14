@@ -284,9 +284,10 @@ def test_is_health_endpoint_handles_static_prefix(endpoint, monkeypatch: pytest.
     assert not is_health_endpoint(f"/myprefix{endpoint}")
 
     monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
-    # Health routes are registered prefixed, but unprefixed probes stay exempt too.
+    # Only the registered (prefixed) route is exempt: the bare path has no route
+    # behind it under a prefix, so it must not waive host validation.
     assert is_health_endpoint(f"/myprefix{endpoint}")
-    assert is_health_endpoint(endpoint)
+    assert not is_health_endpoint(endpoint)
     assert not is_health_endpoint(f"/otherprefix{endpoint}")
     assert not is_health_endpoint(f"/myprefix{endpoint}z")
 
@@ -297,6 +298,8 @@ def test_is_health_endpoint_handles_static_prefix(endpoint, monkeypatch: pytest.
         ("/myprefix/health", 200),
         ("/myprefix/version", 200),
         ("/myprefix/test", 403),
+        # No route exists here under a prefix, so it must not skip host validation.
+        ("/health", 403),
     ],
 )
 def test_flask_health_exempt_from_host_validation_with_static_prefix(
@@ -320,6 +323,7 @@ def test_flask_health_exempt_from_host_validation_with_static_prefix(
         ("/myprefix/health", 200),
         ("/myprefix/version", 200),
         ("/myprefix/api/2.0/mlflow/experiments/list", 403),
+        ("/health", 403),
     ],
 )
 def test_fastapi_health_exempt_from_host_validation_with_static_prefix(
