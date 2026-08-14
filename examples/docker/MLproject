@@ -1,0 +1,11 @@
+name: docker-example
+
+docker_env:
+  image:  mlflow-docker-example
+
+entry_points:
+  main:
+    parameters:
+      alpha: float
+      l1_ratio: {type: float, default: 0.1}
+    command: "python train.py --alpha {alpha} --l1-ratio {l1_ratio}"

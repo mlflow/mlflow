@@ -1,0 +1,655 @@
+import json
+from typing import Any
+
+import pandas as pd
+import pytest
+
+import mlflow
+from mlflow.entities.model_registry import PromptModelConfig
+from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import create_dataset
+from mlflow.genai.optimize.optimize import _deserialize_chat_template, optimize_prompts
+from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
+from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
+from mlflow.genai.prompts import register_prompt
+from mlflow.genai.scorers import scorer
+from mlflow.models.model import PromptVersion
+from mlflow.utils.import_hooks import _post_import_hooks
+
+
+class MockPromptOptimizer(BasePromptOptimizer):
+    def __init__(self, reflection_model="openai:/gpt-4o-mini"):
+        self.model_name = reflection_model
+
+    def optimize(
+        self,
+        eval_fn: Any,
+        train_data: list[dict[str, Any]],
+        target_prompts: dict[str, str],
+        enable_tracking: bool = True,
+    ) -> PromptOptimizerOutput:
+        optimized_prompts = {}
+        for prompt_name, template in target_prompts.items():
+            # Simple optimization: add "Be precise and accurate. " prefix
+            optimized_prompts[prompt_name] = f"Be precise and accurate. {template}"
+
+        # Verify the optimization by calling eval_fn (only if provided)
+        if eval_fn is not None:
+            eval_fn(optimized_prompts, train_data)
+
+        return PromptOptimizerOutput(
+            optimized_prompts=optimized_prompts,
+            initial_eval_score=0.5,
+            final_eval_score=0.9,
+        )
+
+
+@pytest.fixture
+def sample_translation_prompt() -> PromptVersion:
+    return register_prompt(
+        name="test_translation_prompt",
+        template="Translate the following text to {{language}}: {{input_text}}",
+    )
+
+
+@pytest.fixture
+def sample_summarization_prompt() -> PromptVersion:
+    return register_prompt(
+        name="test_summarization_prompt",
+        template="Summarize this text: {{text}}",
+    )
+
+
+@pytest.fixture
+def sample_dataset() -> pd.DataFrame:
+    return pd.DataFrame({
+        "inputs": [
+            {"input_text": "Hello", "language": "Spanish"},
+            {"input_text": "World", "language": "French"},
+            {"input_text": "Goodbye", "language": "Spanish"},
+        ],
+        "outputs": [
+            "Hola",
+            "Monde",
+            "Adiós",
+        ],
+    })
+
+
+@pytest.fixture
+def sample_summarization_dataset() -> list[dict[str, Any]]:
+    return [
+        {
+            "inputs": {
+                "text": "This is a long document that needs to be summarized into key points."
+            },
+            "outputs": "Key points summary",
+        },
+        {
+            "inputs": {"text": "Another document with important information for summarization."},
+            "outputs": "Important info summary",
+        },
+    ]
+
+
+def sample_predict_fn(input_text: str, language: str) -> str:
+    mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
+    translations = {
+        ("Hello", "Spanish"): "Hola",
+        ("World", "French"): "Monde",
+        ("Goodbye", "Spanish"): "Adiós",
+    }
+
+    # Verify that auto logging is enabled during the evaluation.
+    assert len(_post_import_hooks) > 0
+    return translations.get((input_text, language), f"translated_{input_text}")
+
+
+def sample_summarization_fn(text: str) -> str:
+    return f"Summary of: {text[:20]}..."
+
+
+@mlflow.genai.scorers.scorer(name="equivalence")
+def equivalence(outputs, expectations):
+    return 1.0 if outputs == expectations["expected_response"] else 0.0
+
+
+def test_optimize_prompts_single_prompt(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
+    mock_optimizer = MockPromptOptimizer()
+
+    result = optimize_prompts(
+        predict_fn=sample_predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer=mock_optimizer,
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    optimized_prompt = result.optimized_prompts[0]
+    assert optimized_prompt.name == sample_translation_prompt.name
+    assert optimized_prompt.version == sample_translation_prompt.version + 1
+    assert "Be precise and accurate." in optimized_prompt.template
+    expected_template = "Translate the following text to {{language}}: {{input_text}}"
+    assert expected_template in optimized_prompt.template
+    assert result.initial_eval_score == 0.5
+    assert result.final_eval_score == 0.9
+
+
+def test_optimize_prompts_multiple_prompts(
+    sample_translation_prompt: PromptVersion,
+    sample_summarization_prompt: PromptVersion,
+    sample_dataset: pd.DataFrame,
+):
+    mock_optimizer = MockPromptOptimizer()
+
+    result = optimize_prompts(
+        predict_fn=sample_predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}",
+            f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
+        ],
+        optimizer=mock_optimizer,
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 2
+    prompt_names = {prompt.name for prompt in result.optimized_prompts}
+    assert sample_translation_prompt.name in prompt_names
+    assert sample_summarization_prompt.name in prompt_names
+    assert result.initial_eval_score == 0.5
+    assert result.final_eval_score == 0.9
+
+    for prompt in result.optimized_prompts:
+        assert "Be precise and accurate." in prompt.template
+
+
+def test_optimize_prompts_eval_function_behavior(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
+    class TestingOptimizer(BasePromptOptimizer):
+        def __init__(self):
+            self.model_name = "openai:/gpt-4o-mini"
+            self.eval_fn_calls = []
+
+        def optimize(self, eval_fn, dataset, target_prompts, enable_tracking=True):
+            # Test that eval_fn works correctly
+            test_prompts = {
+                "test_translation_prompt": "Prompt Candidate: "
+                "Translate {{input_text}} to {{language}}"
+            }
+            results = eval_fn(test_prompts, dataset)
+            self.eval_fn_calls.append((test_prompts, results))
+
+            # Verify results structure
+            assert isinstance(results, list)
+            assert len(results) == len(dataset)
+            for i, result in enumerate(results):
+                assert isinstance(result, EvaluationResultRecord)
+                assert result.inputs == dataset[i]["inputs"]
+                assert result.outputs == dataset[i]["outputs"]
+                assert result.score == 1
+                assert result.trace is not None
+
+            return PromptOptimizerOutput(optimized_prompts=target_prompts)
+
+    predict_called_count = 0
+
+    def predict_fn(input_text, language):
+        prompt = mlflow.genai.load_prompt("prompts:/test_translation_prompt/1").format(
+            input_text=input_text, language=language
+        )
+        nonlocal predict_called_count
+        # the first call to the predict_fn is the model check
+        if predict_called_count > 0:
+            # validate the prompt is replaced with the candidate prompt
+            assert "Prompt Candidate" in prompt
+        predict_called_count += 1
+
+        return sample_predict_fn(input_text=input_text, language=language)
+
+    testing_optimizer = TestingOptimizer()
+
+    optimize_prompts(
+        predict_fn=predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer=testing_optimizer,
+        scorers=[equivalence],
+    )
+
+    assert len(testing_optimizer.eval_fn_calls) == 1
+    _, eval_results = testing_optimizer.eval_fn_calls[0]
+    assert len(eval_results) == 3  # Number of records in sample_dataset
+    assert predict_called_count == 4  # 3 records in sample_dataset + 1 for the prediction check
+
+
+def test_optimize_prompts_with_list_dataset(
+    sample_translation_prompt: PromptVersion, sample_summarization_dataset: list[dict[str, Any]]
+):
+    mock_optimizer = MockPromptOptimizer()
+
+    def summarization_predict_fn(text):
+        return f"Summary: {text[:10]}..."
+
+    result = optimize_prompts(
+        predict_fn=summarization_predict_fn,
+        train_data=sample_summarization_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer=mock_optimizer,
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    assert result.initial_eval_score == 0.5
+    assert result.final_eval_score == 0.9
+
+
+def test_optimize_prompts_with_model_name(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
+    class TestOptimizer(BasePromptOptimizer):
+        def __init__(self):
+            self.model_name = "test/custom-model"
+
+        def optimize(self, eval_fn, dataset, target_prompts, enable_tracking=True):
+            return PromptOptimizerOutput(optimized_prompts=target_prompts)
+
+    testing_optimizer = TestOptimizer()
+
+    result = optimize_prompts(
+        predict_fn=sample_predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer=testing_optimizer,
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+
+
+def test_optimize_prompts_warns_on_unused_prompt(
+    sample_translation_prompt: PromptVersion,
+    sample_summarization_prompt: PromptVersion,
+    sample_dataset: pd.DataFrame,
+    capsys,
+):
+    mock_optimizer = MockPromptOptimizer()
+
+    # Create predict_fn that only uses translation prompt, not summarization prompt
+    def predict_fn_single_prompt(input_text, language):
+        prompt = mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
+        prompt.format(input_text=input_text, language=language)
+        return sample_predict_fn(input_text=input_text, language=language)
+
+    result = optimize_prompts(
+        predict_fn=predict_fn_single_prompt,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}",
+            f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
+        ],
+        optimizer=mock_optimizer,
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 2
+
+    captured = capsys.readouterr()
+    assert "prompts were not used during evaluation" in captured.err
+    assert "test_summarization_prompt" in captured.err
+
+
+def test_optimize_prompts_with_custom_scorers(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
+    # Create a custom scorer for case-insensitive matching
+    @scorer(name="case_insensitive_match")
+    def case_insensitive_match(outputs, expectations):
+        # Extract expected_response if expectations is a dict
+        if isinstance(expectations, dict) and "expected_response" in expectations:
+            expected_value = expectations["expected_response"]
+        else:
+            expected_value = expectations
+        return 1.0 if str(outputs).lower() == str(expected_value).lower() else 0.5
+
+    class MetricTestOptimizer(BasePromptOptimizer):
+        def __init__(self):
+            self.model_name = "openai:/gpt-4o-mini"
+            self.captured_scores = []
+
+        def optimize(self, eval_fn, dataset, target_prompts, enable_tracking=True):
+            # Run eval_fn and capture the scores
+            results = eval_fn(target_prompts, dataset)
+            self.captured_scores = [r.score for r in results]
+            return PromptOptimizerOutput(optimized_prompts=target_prompts)
+
+    testing_optimizer = MetricTestOptimizer()
+
+    # Create dataset with outputs that will test custom scorer
+    test_dataset = pd.DataFrame({
+        "inputs": [
+            {"input_text": "Hello", "language": "Spanish"},
+            {"input_text": "World", "language": "French"},
+        ],
+        "outputs": ["HOLA", "monde"],  # Different cases to test custom scorer
+    })
+
+    def predict_fn(input_text, language):
+        mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
+        # Return lowercase outputs
+        return {"Hello": "hola", "World": "monde"}.get(input_text, "unknown")
+
+    result = optimize_prompts(
+        predict_fn=predict_fn,
+        train_data=test_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        scorers=[case_insensitive_match],
+        optimizer=testing_optimizer,
+    )
+
+    # Verify custom scorer was used
+    # "hola" vs "HOLA" (case insensitive match) -> 1.0
+    # "monde" vs "monde" (exact match) -> 1.0
+    assert testing_optimizer.captured_scores == [1.0, 1.0]
+    assert len(result.optimized_prompts) == 1
+
+
+@pytest.mark.parametrize(
+    ("train_data", "error_match"),
+    [
+        # Missing inputs validation (handled by _convert_eval_set_to_df)
+        ([{"outputs": "Hola"}], "Either `inputs` or `trace` column is required"),
+        # Empty inputs validation
+        (
+            [{"inputs": {}, "outputs": "Hola"}],
+            "Record 0 is missing required 'inputs' field or it is empty",
+        ),
+    ],
+)
+def test_optimize_prompts_validation_errors(
+    sample_translation_prompt: PromptVersion,
+    train_data: list[dict[str, Any]],
+    error_match: str,
+):
+    with pytest.raises(MlflowException, match=error_match):
+        optimize_prompts(
+            predict_fn=sample_predict_fn,
+            train_data=train_data,
+            prompt_uris=[
+                f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+            ],
+            optimizer=MockPromptOptimizer(),
+            scorers=[equivalence],
+        )
+
+
+@pytest.mark.parametrize(
+    "serialized",
+    [
+        '"plain text"',
+        "{}",
+        "[]",
+        '[{"content": "missing role"}]',
+    ],
+)
+def test_deserialize_chat_template_rejects_invalid_shape(serialized: str):
+    with pytest.raises(MlflowException, match="as a list of chat messages"):
+        _deserialize_chat_template(serialized, "test_chat_prompt")
+
+
+class ChatAwarePromptOptimizer(BasePromptOptimizer):
+    """Mock optimizer that handles both text and JSON-serialized chat templates.
+
+    Text templates are prefixed with "Be precise and accurate. ".
+    Chat templates (passed in as JSON strings per the optimizer contract) are
+    rebuilt with a "Be precise and accurate." instruction prepended to the
+    first message's content.
+    """
+
+    def optimize(
+        self,
+        eval_fn: Any,
+        train_data: list[dict[str, Any]],
+        target_prompts: dict[str, str],
+        enable_tracking: bool = True,
+    ) -> PromptOptimizerOutput:
+        optimized_prompts = {}
+        for prompt_name, template in target_prompts.items():
+            try:
+                parsed = json.loads(template)
+            except (TypeError, ValueError):
+                parsed = None
+            if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+                parsed[0]["content"] = "Be precise and accurate. " + parsed[0].get("content", "")
+                optimized_prompts[prompt_name] = json.dumps(parsed)
+            else:
+                optimized_prompts[prompt_name] = f"Be precise and accurate. {template}"
+
+        if eval_fn is not None:
+            eval_fn(optimized_prompts, train_data)
+
+        return PromptOptimizerOutput(
+            optimized_prompts=optimized_prompts,
+            initial_eval_score=0.5,
+            final_eval_score=0.9,
+        )
+
+
+def test_optimize_prompts_with_chat_prompt(sample_dataset: pd.DataFrame):
+    chat_prompt = register_prompt(
+        name="test_chat_prompt",
+        template=[
+            {"role": "system", "content": "You translate text."},
+            {"role": "user", "content": "Translate to {{language}}: {{input_text}}"},
+        ],
+    )
+
+    # Record the messages produced by `PromptVersion.format()` on every call so we
+    # can assert the JSON -> list[dict] round-trip in `_template_patch` is exercised
+    # during evaluation (not just when re-registering the optimized prompt).
+    formatted_messages: list[Any] = []
+
+    def chat_predict_fn(input_text: str, language: str) -> str:
+        prompt = mlflow.genai.load_prompt("prompts:/test_chat_prompt/1")
+        messages = prompt.format(language=language, input_text=input_text)
+        # The patched template must round-trip back to `list[dict]`, never a raw
+        # JSON string, so `format()` can build proper chat messages.
+        assert isinstance(messages, list)
+        assert all(isinstance(message, dict) for message in messages)
+        formatted_messages.append(messages)
+        translations = {
+            ("Hello", "Spanish"): "Hola",
+            ("World", "French"): "Monde",
+            ("Goodbye", "Spanish"): "Adiós",
+        }
+        return translations.get((input_text, language), f"translated_{input_text}")
+
+    result = optimize_prompts(
+        predict_fn=chat_predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[f"prompts:/{chat_prompt.name}/{chat_prompt.version}"],
+        optimizer=ChatAwarePromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    # `predict_fn` is invoked once for the initial model-check (original template,
+    # before the candidate patch is installed) and once per training row during
+    # evaluation (candidate template with the injected prefix).
+    assert len(formatted_messages) == 1 + len(sample_dataset)
+    initial_messages, *evaluation_messages = formatted_messages
+    assert initial_messages[0]["content"] == "You translate text."
+    assert all(
+        messages[0]["content"].startswith("Be precise and accurate. ")
+        for messages in evaluation_messages
+    )
+
+    assert len(result.optimized_prompts) == 1
+    optimized = result.optimized_prompts[0]
+    assert not optimized.is_text_prompt
+    assert isinstance(optimized.template, list)
+    assert optimized.template[0]["role"] == "system"
+    assert optimized.template[0]["content"].startswith("Be precise and accurate. ")
+    assert optimized.template[1]["role"] == "user"
+    assert "{{language}}" in optimized.template[1]["content"]
+
+
+def test_optimize_prompts_with_mixed_text_and_chat_prompts(sample_dataset: pd.DataFrame):
+    text_prompt = register_prompt(
+        name="test_mixed_text_prompt",
+        template="Translate to {{language}}: {{input_text}}",
+    )
+    chat_prompt = register_prompt(
+        name="test_mixed_chat_prompt",
+        template=[{"role": "user", "content": "Translate to {{language}}: {{input_text}}"}],
+    )
+
+    def mixed_predict_fn(input_text: str, language: str) -> str:
+        mlflow.genai.load_prompt(f"prompts:/{text_prompt.name}/1")
+        mlflow.genai.load_prompt(f"prompts:/{chat_prompt.name}/1")
+        return f"translated_{input_text}_{language}"
+
+    result = optimize_prompts(
+        predict_fn=mixed_predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{text_prompt.name}/{text_prompt.version}",
+            f"prompts:/{chat_prompt.name}/{chat_prompt.version}",
+        ],
+        optimizer=ChatAwarePromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 2
+    optimized_by_name = {p.name: p for p in result.optimized_prompts}
+
+    optimized_text = optimized_by_name[text_prompt.name]
+    assert optimized_text.is_text_prompt
+    assert optimized_text.template.startswith("Be precise and accurate. ")
+
+    optimized_chat = optimized_by_name[chat_prompt.name]
+    assert not optimized_chat.is_text_prompt
+    assert isinstance(optimized_chat.template, list)
+    assert optimized_chat.template[0]["content"].startswith("Be precise and accurate. ")
+
+
+def test_optimize_prompts_formats_chat_prompt_outside_candidates(sample_dataset: pd.DataFrame):
+    # A chat prompt used by `predict_fn` but not among the prompts being optimized
+    # takes the `_template_patch` fallback path. It must still round-trip to
+    # `list[dict]` so `format()` works, rather than leaking the raw JSON string.
+    target_prompt = register_prompt(
+        name="test_fallback_target_prompt",
+        template="Translate to {{language}}: {{input_text}}",
+    )
+    untouched_chat_prompt = register_prompt(
+        name="test_fallback_chat_prompt",
+        template=[{"role": "system", "content": "You are a translator."}],
+    )
+
+    formatted_chat_messages: list[Any] = []
+
+    def predict_fn(input_text: str, language: str) -> str:
+        target = mlflow.genai.load_prompt(f"prompts:/{target_prompt.name}/1")
+        target.format(language=language, input_text=input_text)
+        chat = mlflow.genai.load_prompt(f"prompts:/{untouched_chat_prompt.name}/1")
+        messages = chat.format()
+        assert isinstance(messages, list)
+        assert all(isinstance(message, dict) for message in messages)
+        formatted_chat_messages.append(messages)
+        return f"translated_{input_text}_{language}"
+
+    result = optimize_prompts(
+        predict_fn=predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[f"prompts:/{target_prompt.name}/{target_prompt.version}"],
+        optimizer=ChatAwarePromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    assert result.optimized_prompts[0].name == target_prompt.name
+
+    # The chat prompt is formatted once for the initial model-check and once per
+    # training row during evaluation. Every call must succeed and yield `list[dict]`.
+    assert len(formatted_chat_messages) == 1 + len(sample_dataset)
+    assert all(
+        messages[0]["content"] == "You are a translator." for messages in formatted_chat_messages
+    )
+
+
+def test_optimize_prompts_with_managed_evaluation_dataset(
+    sample_translation_prompt: PromptVersion,
+    sample_dataset: pd.DataFrame,
+):
+    # Create a `ManagedEvaluationDataset` and populate it with records from sample_dataset
+    managed_dataset = create_dataset(name="test_optimize_managed_dataset")
+    managed_dataset.merge_records(sample_dataset)
+
+    result = optimize_prompts(
+        predict_fn=sample_predict_fn,
+        train_data=managed_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer=MockPromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    assert result.initial_eval_score == 0.5
+    assert result.final_eval_score == 0.9
+
+
+def test_optimize_prompts_preserves_model_config(sample_dataset: pd.DataFrame):
+    source_model_config = PromptModelConfig(
+        provider="openai",
+        model_name="gpt-4o",
+        temperature=0.7,
+        max_tokens=1000,
+    )
+
+    prompt_with_config = register_prompt(
+        name="test_prompt_with_model_config",
+        template="Translate the following text to {{language}}: {{input_text}}",
+        model_config=source_model_config,
+    )
+
+    assert prompt_with_config.model_config is not None
+
+    def predict_fn(input_text: str, language: str) -> str:
+        mlflow.genai.load_prompt(f"prompts:/{prompt_with_config.name}/1")
+        translations = {
+            ("Hello", "Spanish"): "Hola",
+            ("World", "French"): "Monde",
+            ("Goodbye", "Spanish"): "Adiós",
+        }
+        return translations.get((input_text, language), f"translated_{input_text}")
+
+    result = optimize_prompts(
+        predict_fn=predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[f"prompts:/{prompt_with_config.name}/{prompt_with_config.version}"],
+        optimizer=MockPromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    optimized_prompt = result.optimized_prompts[0]
+
+    assert optimized_prompt.model_config["provider"] == "openai"
+    assert optimized_prompt.model_config["model_name"] == "gpt-4o"
+    assert optimized_prompt.model_config["temperature"] == 0.7
+    assert optimized_prompt.model_config["max_tokens"] == 1000

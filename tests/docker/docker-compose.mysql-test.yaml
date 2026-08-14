@@ -1,0 +1,28 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mlflow-mysql-test-db
+    command: --log-bin-trust-function-creators=1
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: mlflow
+      MYSQL_USER: mlflow
+      MYSQL_PASSWORD: password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mlflow:
+    container_name: mlflow-mysql-test
+    image: mlflow-integration-test
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.full.dev
+    command: mlflow server --backend-store-uri=mysql+pymysql://mlflow:password@mysql:3306/mlflow --host=0.0.0.0 --port=5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy

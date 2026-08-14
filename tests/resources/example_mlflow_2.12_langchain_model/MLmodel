@@ -1,0 +1,49 @@
+artifact_path: chain
+databricks_runtime: '14.3'
+flavors:
+  langchain:
+    code: null
+    config: /Workspace/Users/sunish.sheth@databricks.com/Managed RAG/config.yml
+    databricks_dependency:
+      databricks_chat_endpoint_name:
+      - databricks-dbrx-instruct
+      databricks_embeddings_endpoint_name:
+      - databricks-bge-large-en
+      databricks_vector_search_endpoint_name:
+      - dbdemos_vs_endpoint
+      databricks_vector_search_index_name:
+      - monitoring.rag.databricks_docs_index__86cecd7f519449e494e8083f8c68741a
+    langchain_version: 0.1.20
+    model_code_path: /tmp/lc_model.py
+    streamable: true
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.langchain
+    model_code_path: /tmp/lc_model.py
+    predict_stream_fn: predict_stream
+    python_version: 3.10.12
+    streamable: true
+mlflow_version: 2.12.2
+model_size_bytes: 6875
+model_uuid: bbdda59aafe84e11b2fc25a95e46aee1
+resources:
+  api_version: '1'
+  databricks:
+    serving_endpoint:
+    - name: databricks-dbrx-instruct
+    - name: databricks-bge-large-en
+    vector_search_index:
+    - name: monitoring.rag.databricks_docs_index__86cecd7f519449e494e8083f8c68741a
+run_id: 84552a129bfb45faa87f5fb3f05eb9cf
+saved_input_example_info:
+  artifact_path: input_example.json
+  type: json_object
+signature:
+  inputs: '[{"type": "array", "items": {"type": "object", "properties": {"content":
+    {"type": "string", "required": true}, "role": {"type": "string", "required": true}}},
+    "name": "messages", "required": true}]'
+  outputs: '[{"type": "string", "required": true}]'
+  params: null
+utc_time_created: '2024-05-17 23:15:28.764394'

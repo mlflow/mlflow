@@ -1,0 +1,79 @@
+name: "setup-python"
+description: "Ensures to install a python version that's available on Anaconda"
+inputs:
+  python-version:
+    description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
+    required: false
+  pin-micro-version:
+    description: "Whether to pin to a specific micro version for Anaconda compatibility. Set to false for workflows that don't need conda/pyenv to hit the runner's pre-installed Python cache and avoid a ~9s download."
+    required: false
+    default: "true"
+outputs:
+  python-version:
+    description: "The installed python version"
+    value: ${{ steps.get-python-version.outputs.version }}
+runs:
+  using: "composite"
+  steps:
+    - name: get-python-version
+      id: get-python-version
+      shell: bash
+      # We used to use `conda search python=3.x` to dynamically fetch the latest available version
+      # in 3.x on Anaconda, but it turned out `conda search` is very slow (takes 40 ~ 50 seconds).
+      # This overhead sums up to a significant amount of delay in the cross version tests
+      # where we trigger more than 100 GitHub Actions runs.
+      env:
+        PYTHON_VERSION_INPUT: ${{ inputs.python-version }}
+        PIN_MICRO_VERSION: ${{ inputs.pin-micro-version }}
+      run: |
+        python_version="$PYTHON_VERSION_INPUT"
+        if [ -z "$python_version" ]; then
+          python_version=$(cat .python-version)
+        fi
+        if [[ "$PIN_MICRO_VERSION" == "true" ]]; then
+          if [[ "$python_version" == "3.10" ]]; then
+            if [ "$RUNNER_OS" == "Linux" ]; then
+              python_version="3.10.20"
+            else
+              python_version="3.10.11"
+            fi
+          elif [[ "$python_version" == "3.11" ]]; then
+            if [ "$RUNNER_OS" == "Windows" ]; then
+              python_version="3.11.9"
+            else
+              python_version="3.11.15"
+            fi
+          elif [[ "$python_version" == "3.12" ]]; then
+            if [ "$RUNNER_OS" == "Windows" ]; then
+              python_version="3.12.10"
+            else
+              python_version="3.12.13"
+            fi
+          else
+            echo "Invalid python version: '$python_version'. Must be '3.10', '3.11', or '3.12'."
+            exit 1
+          fi
+        fi
+        echo "version=$python_version" >> $GITHUB_OUTPUT
+    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: ${{ steps.get-python-version.outputs.version }}
+    - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      with:
+        version: "0.11.14"
+        # Caching disabled to avoid cache-poisoning exposure across CI workflows.
+        enable-cache: false
+    - run: |
+        # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
+        # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
+        echo "UV_INDEX_STRATEGY=unsafe-first-match" >> $GITHUB_ENV
+        # Disable progress bars and spinners to reduce CI log clutter
+        # https://docs.astral.sh/uv/reference/environment/#uv_no_progress
+        echo "UV_NO_PROGRESS=1" >> $GITHUB_ENV
+        # Exclude packages newer than 7 days to guard against supply chain attacks
+        # https://docs.astral.sh/uv/reference/environment/#uv_exclude_newer
+        echo "UV_EXCLUDE_NEWER=P7D" >> $GITHUB_ENV
+        # Disable Hugging Face download progress bars to reduce CI log clutter
+        # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
+        echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV
+      shell: bash

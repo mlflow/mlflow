@@ -1,0 +1,17 @@
+/* Styles for antd `copyable` code snippets */
+
+.mlflow-ui-container .code-keyword {
+  color: rgb(204, 120, 50);
+}
+.mlflow-ui-container .code {
+  color: rgb(100, 110, 120);
+}
+.mlflow-ui-container .code-comment {
+  color: rgb(140, 140, 140);
+}
+.mlflow-ui-container .code-string {
+  color: rgb(106, 165, 89);
+}
+.mlflow-ui-container .code-number {
+  color: rgb(104, 151, 187);
+}

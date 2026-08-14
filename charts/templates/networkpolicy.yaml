@@ -1,0 +1,56 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "mlflow.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.server.value_options.port }}
+      from:
+        - podSelector: {}
+        - namespaceSelector: {}
+  egress:
+    - ports:
+        # DNS resolution (port 53 is the Service port; 5353 is the CoreDNS
+        # target port used by OpenShift — OVN-Kubernetes evaluates egress rules
+        # after DNAT, so both ports must be allowed)
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 5353
+        - protocol: TCP
+          port: 5353
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    - ports:
+        - protocol: TCP
+          port: 5432
+    - ports:
+        - protocol: TCP
+          port: 3306
+    - ports:
+        - protocol: TCP
+          port: 9000
+        - protocol: TCP
+          port: 8333
+        - protocol: TCP
+          port: 8334
+    {{- with .Values.networkPolicy.additionalEgressRules }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

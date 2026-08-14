@@ -1,0 +1,807 @@
+import json
+import os
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from mlflow.assistant.providers.base import clear_config_cache
+from mlflow.assistant.providers.codex import CodexProvider
+from mlflow.assistant.types import EventType
+
+
+def _make_stdout_lines(*dicts) -> list[bytes]:
+    return [json.dumps(d).encode() + b"\n" for d in dicts]
+
+
+def _mock_process(stdout_lines=None, returncode=0, stderr=b""):
+    """Create a mock process with async stdout iteration and stdin support."""
+    process = MagicMock()
+    process.pid = None
+    process.returncode = returncode
+
+    # Mock stdin (write, drain, close, wait_closed)
+    process.stdin = MagicMock()
+    process.stdin.write = MagicMock()
+    process.stdin.drain = AsyncMock()
+    process.stdin.close = MagicMock()
+    process.stdin.wait_closed = AsyncMock()
+
+    # Mock stdout as an async iterator
+    async def _aiter():
+        for line in stdout_lines or []:
+            yield line
+
+    process.stdout = _aiter()
+
+    # Mock stderr.read()
+    process.stderr = MagicMock()
+    process.stderr.read = AsyncMock(return_value=stderr)
+
+    # Mock wait
+    process.wait = AsyncMock()
+    process.kill = MagicMock()
+
+    return process
+
+
+@pytest.fixture(autouse=True)
+def config(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text('{"providers": {"codex": {"model": "default"}}}')
+    clear_config_cache()
+    with patch("mlflow.assistant.config.CONFIG_PATH", config_file):
+        yield config_file
+    clear_config_cache()
+
+
+@pytest.mark.parametrize(
+    ("which_return", "expected"),
+    [
+        ("/usr/local/bin/codex", True),
+        (None, False),
+    ],
+)
+def test_is_available(which_return, expected):
+    with patch("mlflow.assistant.providers.codex.shutil.which", return_value=which_return):
+        provider = CodexProvider()
+        assert provider.is_available() is expected
+
+
+def test_uses_structured_client_tool_delivery():
+    provider = CodexProvider()
+    assert provider.client_tool_delivery == "structured"
+
+
+def test_provider_name():
+    assert CodexProvider().name == "codex"
+
+
+def test_provider_display_name():
+    assert CodexProvider().display_name == "Codex"
+
+
+@pytest.mark.asyncio
+async def test_astream_yields_error_when_codex_not_found():
+    with patch("mlflow.assistant.providers.codex.shutil.which", return_value=None):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
+    assert "codex" in events[0].data["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_astream_yields_agent_message_text():
+    stdout_lines = _make_stdout_lines(
+        {"type": "thread.started", "thread_id": "t1"},
+        {"type": "turn.started"},
+        {
+            "type": "item.completed",
+            "item": {"id": "i1", "type": "agent_message", "text": "Hello there!"},
+        },
+        {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 5}},
+    )
+
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    message_events = [e for e in events if e.type == EventType.MESSAGE]
+    assert len(message_events) == 1
+    assert message_events[0].data["message"]["content"][0]["text"] == "Hello there!"
+
+    done_events = [e for e in events if e.type == EventType.DONE]
+    assert len(done_events) == 1
+
+
+@pytest.mark.asyncio
+async def test_astream_emits_usage_event_from_turn_completed():
+    stdout_lines = _make_stdout_lines(
+        {"type": "thread.started", "thread_id": "t1"},
+        {"type": "item.completed", "item": {"type": "agent_message", "text": "done"}},
+        {
+            "type": "turn.completed",
+            "usage": {"input_tokens": 10, "cached_input_tokens": 4, "output_tokens": 5},
+        },
+    )
+
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+        patch(
+            "mlflow.assistant.providers.codex.calculate_cost_by_model_and_token_usage",
+            return_value=None,
+        ) as mock_cost,
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    usage_events = [
+        e
+        for e in events
+        if e.type == EventType.STREAM_EVENT and e.data["event"].get("type") == "usage"
+    ]
+    assert len(usage_events) == 1
+    usage = usage_events[0].data["event"]["usage"]
+    assert usage["prompt_tokens"] == 10
+    assert usage["completion_tokens"] == 5
+    assert usage["total_tokens"] == 15
+    assert usage["cache_read_tokens"] == 4
+    assert usage["total_cost_usd"] is None
+    mock_cost.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_astream_ignores_non_agent_message_items():
+    mcp_item = {"id": "i1", "type": "mcp_tool_call", "text": "ignored"}
+    agent_item = {"id": "i2", "type": "agent_message", "text": "kept"}
+    stdout_lines = _make_stdout_lines(
+        {"type": "item.completed", "item": mcp_item},
+        {"type": "item.completed", "item": agent_item},
+    )
+
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    message_events = [e for e in events if e.type == EventType.MESSAGE]
+    assert len(message_events) == 1
+    assert message_events[0].data["message"]["content"][0]["text"] == "kept"
+
+
+@pytest.mark.asyncio
+async def test_astream_yields_error_on_nonzero_exit():
+    mock_proc = _mock_process(returncode=1, stderr=b"OPENAI_API_KEY not set")
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    error_events = [e for e in events if e.type == EventType.ERROR]
+    assert len(error_events) == 1
+    assert "OPENAI_API_KEY" in error_events[0].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_prefers_structured_codex_error_over_stderr():
+    stdout_lines = _make_stdout_lines(
+        {
+            "type": "error",
+            "message": json.dumps({
+                "error_code": "BAD_REQUEST",
+                "message": json.dumps({
+                    "error": {"message": "Invalid schema for response_format 'codex_output_schema'"}
+                }),
+            }),
+        },
+        {
+            "type": "turn.failed",
+            "error": {
+                "message": json.dumps({
+                    "error_code": "BAD_REQUEST",
+                    "message": json.dumps({
+                        "error": {
+                            "message": "Invalid schema for response_format 'codex_output_schema'"
+                        }
+                    }),
+                })
+            },
+        },
+    )
+    mock_proc = _mock_process(
+        stdout_lines=stdout_lines,
+        returncode=1,
+        stderr=b"failed to refresh available models",
+    )
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        events = [e async for e in CodexProvider().astream("hi", "http://localhost:5000")]
+
+    error_events = [e for e in events if e.type == EventType.ERROR]
+    assert len(error_events) == 1
+    assert error_events[0].data["error"] == (
+        "Invalid schema for response_format 'codex_output_schema'"
+    )
+
+
+@pytest.mark.asyncio
+async def test_astream_surfaces_non_empty_error_for_empty_exception():
+    # A bare exception whose str() is "" (e.g. NotImplementedError()) must
+    # still surface a diagnosable error rather than an empty `{"error": ""}`.
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            side_effect=NotImplementedError(),
+        ) as mock_exec,
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    mock_exec.assert_called_once()
+    error_events = [e for e in events if e.type == EventType.ERROR]
+    assert len(error_events) == 1
+    assert error_events[0].data["error"] == "NotImplementedError()"
+
+
+@pytest.mark.asyncio
+async def test_astream_yields_interrupted_on_sigkill():
+    mock_proc = _mock_process(returncode=-9)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert len(events) == 1
+    assert events[0].type == EventType.INTERRUPTED
+
+
+@pytest.mark.asyncio
+async def test_astream_builds_correct_command():
+    mock_proc = _mock_process()
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ) as mock_exec,
+    ):
+        provider = CodexProvider()
+        _ = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
+
+    args = mock_exec.call_args[0]
+    assert "/usr/bin/codex" in args
+    assert "exec" in args
+    assert "--json" in args
+    assert "--sandbox" in args
+    assert "danger-full-access" in args
+    assert "--dangerously-bypass-approvals-and-sandbox" not in args
+    assert "--ephemeral" not in args
+    assert "--skip-git-repo-check" in args
+    assert args[-1] == "-"
+
+
+@pytest.mark.asyncio
+async def test_astream_uses_custom_view_output_schema():
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": json.dumps([{"version": "v0.9", "updateComponents": {}}]),
+    }
+    mock_proc = _mock_process(
+        stdout_lines=_make_stdout_lines(
+            {"type": "thread.started", "thread_id": "codex-thread"},
+            {
+                "type": "item.completed",
+                "item": {"type": "agent_message", "text": json.dumps(response)},
+            },
+            {"type": "turn.completed"},
+        )
+    )
+
+    captured_schema = None
+
+    async def capture_schema(*args, **kwargs):
+        nonlocal captured_schema
+        schema_path = args[args.index("--output-schema") + 1]
+        captured_schema = json.loads(Path(schema_path).read_text())
+        return mock_proc
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            side_effect=capture_schema,
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                session_id="previous-codex-thread",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    args = mock_exec.call_args.args
+    schema_path = args[args.index("--output-schema") + 1]
+    assert not Path(schema_path).exists()
+    assert captured_schema["properties"]["messages"]["type"] == "string"
+    assert args[args.index("resume") + 1] == "previous-codex-thread"
+    assert not any("mcp_servers" in str(arg) for arg in args)
+    assert [event.type for event in events] == [
+        EventType.MESSAGE,
+        EventType.MESSAGE,
+        EventType.CLIENT_TOOL_CALL,
+        EventType.DONE,
+    ]
+    assert events[0].data["message"]["content"][0]["text"] == response["text"]
+    assert events[2].data["tool_input"]["messages"] == [{"version": "v0.9", "updateComponents": {}}]
+    assert events[2].data["continuation"] == "terminal"
+
+
+@pytest.mark.asyncio
+async def test_astream_cleans_up_custom_view_schema_when_fdopen_fails(tmp_path):
+    schema_path = tmp_path / "custom-view.schema.json"
+    schema_fd = None
+
+    def make_schema_file(*args, **kwargs):
+        nonlocal schema_fd
+        schema_fd = os.open(schema_path, os.O_CREAT | os.O_RDWR)
+        return schema_fd, str(schema_path)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch("mlflow.assistant.providers.codex.tempfile.mkstemp", side_effect=make_schema_file),
+        patch("mlflow.assistant.providers.codex.os.fdopen", side_effect=OSError("fdopen failed")),
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    assert schema_fd is not None
+    with pytest.raises(OSError, match="Bad file descriptor"):
+        os.fstat(schema_fd)
+    assert not schema_path.exists()
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
+    assert "fdopen failed" in events[0].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_cleans_up_custom_view_schema_when_serialization_fails(tmp_path):
+    schema_path = tmp_path / "custom-view.schema.json"
+    schema_fd = None
+
+    def make_schema_file(*args, **kwargs):
+        nonlocal schema_fd
+        schema_fd = os.open(schema_path, os.O_CREAT | os.O_RDWR)
+        return schema_fd, str(schema_path)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch("mlflow.assistant.providers.codex.tempfile.mkstemp", side_effect=make_schema_file),
+        patch(
+            "mlflow.assistant.providers.codex.json.dump",
+            side_effect=TypeError("schema serialization failed"),
+        ),
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    assert schema_fd is not None
+    with pytest.raises(OSError, match="Bad file descriptor"):
+        os.fstat(schema_fd)
+    assert not schema_path.exists()
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
+    assert "schema serialization failed" in events[0].data["error"]
+
+
+@pytest.mark.asyncio
+async def test_astream_does_not_retry_invalid_custom_view_transport():
+    invalid_response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": "not-json",
+    }
+    process = _mock_process(
+        stdout_lines=_make_stdout_lines(
+            {"type": "thread.started", "thread_id": "thread-id"},
+            {
+                "type": "item.completed",
+                "item": {"type": "agent_message", "text": json.dumps(invalid_response)},
+            },
+            {"type": "turn.completed"},
+        )
+    )
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=process,
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    mock_exec.assert_called_once()
+    errors = [event for event in events if event.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "messages must be a JSON-encoded array" in errors[0].data["error"]
+    assert errors[0].data["session_id"] == "thread-id"
+
+
+@pytest.mark.asyncio
+async def test_astream_strips_trailing_delimiter_from_complete_custom_view_messages():
+    messages = [{"version": "v0.9", "updateComponents": {}}]
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": f"{json.dumps(messages)}}}",
+    }
+    process = _mock_process(
+        stdout_lines=_make_stdout_lines(
+            {"type": "thread.started", "thread_id": "thread-id"},
+            {
+                "type": "item.completed",
+                "item": {"type": "agent_message", "text": json.dumps(response)},
+            },
+            {"type": "turn.completed"},
+        )
+    )
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=process,
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    mock_exec.assert_called_once()
+    assert not any(event.type == EventType.ERROR for event in events)
+    client_tool_calls = [event for event in events if event.type == EventType.CLIENT_TOOL_CALL]
+    assert len(client_tool_calls) == 1
+    assert client_tool_calls[0].data["tool_input"]["messages"] == messages
+
+
+@pytest.mark.asyncio
+async def test_astream_forwards_empty_custom_view_messages_for_client_validation():
+    response = {
+        "type": "render_custom_view",
+        "text": "Created the trace summary.",
+        "title": "Trace Summary",
+        "messages": "[]",
+    }
+
+    process = _mock_process(
+        stdout_lines=_make_stdout_lines(
+            {"type": "thread.started", "thread_id": "thread-id"},
+            {
+                "type": "item.completed",
+                "item": {"type": "agent_message", "text": json.dumps(response)},
+            },
+            {"type": "turn.completed"},
+        )
+    )
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=process,
+        ) as mock_exec,
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    mock_exec.assert_called_once()
+    assert not any(event.type == EventType.ERROR for event in events)
+    client_tool_calls = [event for event in events if event.type == EventType.CLIENT_TOOL_CALL]
+    assert len(client_tool_calls) == 1
+    assert client_tool_calls[0].data["tool_input"]["messages"] == []
+
+
+@pytest.mark.asyncio
+async def test_astream_reports_missing_structured_custom_view_response():
+    process = _mock_process(
+        stdout_lines=_make_stdout_lines(
+            {"type": "thread.started", "thread_id": "thread-id"},
+            {"type": "turn.completed"},
+        )
+    )
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=process,
+        ),
+    ):
+        events = [
+            event
+            async for event in CodexProvider().astream(
+                "build a view",
+                "http://localhost:5000",
+                context={"customTraceView": {"guide": "guide"}},
+            )
+        ]
+
+    errors = [event for event in events if event.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert errors[0].data["error"] == "Codex did not return a structured Custom View response"
+    assert errors[0].data["session_id"] == "thread-id"
+
+
+@pytest.mark.asyncio
+async def test_astream_includes_model_flag_when_configured(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text('{"providers": {"codex": {"model": "o4-mini"}}}')
+
+    mock_proc = _mock_process()
+
+    clear_config_cache()
+    with (
+        patch("mlflow.assistant.config.CONFIG_PATH", config_file),
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ) as mock_exec,
+    ):
+        provider = CodexProvider()
+        _ = [e async for e in provider.astream("prompt", "http://localhost:5000")]
+
+    args = mock_exec.call_args[0]
+    assert "-m" in args
+    assert "o4-mini" in args
+
+
+@pytest.mark.asyncio
+async def test_astream_skips_model_flag_when_default(tmp_path):
+    config_file = tmp_path / "config.json"
+    config_file.write_text('{"providers": {"codex": {"model": "default"}}}')
+
+    mock_proc = _mock_process()
+
+    clear_config_cache()
+    with (
+        patch("mlflow.assistant.config.CONFIG_PATH", config_file),
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ) as mock_exec,
+    ):
+        provider = CodexProvider()
+        _ = [e async for e in provider.astream("prompt", "http://localhost:5000")]
+
+    args = mock_exec.call_args[0]
+    assert "-m" not in args
+
+
+@pytest.mark.asyncio
+async def test_astream_sends_prompt_via_stdin():
+    mock_proc = _mock_process()
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        _ = [e async for e in provider.astream("my question", "http://localhost:5000")]
+
+    stdin_bytes = mock_proc.stdin.write.call_args[0][0]
+    assert b"<system_instructions>" in stdin_bytes
+    assert b"my question" in stdin_bytes
+    mock_proc.stdin.drain.assert_awaited_once()
+    mock_proc.stdin.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_astream_omits_system_instructions_on_resume():
+    mock_proc = _mock_process()
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        _ = [
+            e
+            async for e in provider.astream(
+                "follow up", "http://localhost:5000", session_id="abc-123"
+            )
+        ]
+
+    stdin_bytes = mock_proc.stdin.write.call_args[0][0]
+    assert b"<system_instructions>" not in stdin_bytes
+    assert b"follow up" in stdin_bytes
+
+
+@pytest.mark.asyncio
+async def test_astream_captures_session_id_from_thread_started():
+    stdout_lines = _make_stdout_lines(
+        {"type": "thread.started", "thread_id": "abc-123"},
+        {"type": "item.completed", "item": {"type": "agent_message", "text": "hi"}},
+    )
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    done_events = [e for e in events if e.type == EventType.DONE]
+    assert len(done_events) == 1
+    assert done_events[0].data["session_id"] == "abc-123"
+
+
+@pytest.mark.asyncio
+async def test_astream_resumes_session_when_session_id_provided():
+    mock_proc = _mock_process()
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ) as mock_exec,
+    ):
+        provider = CodexProvider()
+        _ = [
+            e
+            async for e in provider.astream(
+                "follow up", "http://localhost:5000", session_id="abc-123"
+            )
+        ]
+
+    args = mock_exec.call_args[0]
+    assert "resume" in args
+    assert "abc-123" in args
+    resume_idx = list(args).index("resume")
+    assert args[resume_idx + 1] == "abc-123"
+
+
+@pytest.mark.asyncio
+async def test_astream_saves_and_clears_process_pid():
+    mock_proc = _mock_process()
+    mock_proc.pid = 12345
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+        patch("mlflow.assistant.providers.codex.save_process_pid") as mock_save,
+        patch("mlflow.assistant.providers.codex.clear_process_pid") as mock_clear,
+    ):
+        provider = CodexProvider()
+        _ = [
+            e
+            async for e in provider.astream(
+                "hi", "http://localhost:5000", mlflow_session_id="session-xyz"
+            )
+        ]
+
+    mock_save.assert_called_once_with("session-xyz", 12345)
+    mock_clear.assert_called_once_with("session-xyz")
+
+
+@pytest.mark.asyncio
+async def test_astream_ignores_invalid_json_lines():
+    valid_item = {
+        "type": "item.completed",
+        "item": {"type": "agent_message", "text": "valid"},
+    }
+    stdout_lines = [
+        b"not json\n",
+        json.dumps(valid_item).encode() + b"\n",
+    ]
+
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    message_events = [e for e in events if e.type == EventType.MESSAGE]
+    assert len(message_events) == 1
+    assert message_events[0].data["message"]["content"][0]["text"] == "valid"

@@ -1,0 +1,69 @@
+# A workflow to validate at least one release-note category is selected
+
+name: release-note
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
+  # post-merge job requires write access to add a label and post a comment.
+  pull_request_target:
+    types:
+      - closed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  validate-labeled:
+    if: (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot') && github.event.action != 'closed'
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: read # validateLabeled looks at PR's labels
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+      - name: validate-labeled
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          retries: 3
+          script: |
+            // https://github.com/actions/github-script#run-a-separate-file
+            const script = require("./.github/workflows/release-note.js");
+            await script.validateLabeled({ core, context, github });
+
+  post-merge:
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # postMerge labels PRs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+      - name: post-merge
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          retries: 3
+          script: |
+            // https://github.com/actions/github-script#run-a-separate-file
+            const script = require("./.github/workflows/release-note.js");
+            await script.postMerge({ context, github });

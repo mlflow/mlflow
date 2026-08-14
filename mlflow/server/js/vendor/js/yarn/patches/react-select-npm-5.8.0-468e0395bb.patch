@@ -1,0 +1,21 @@
+diff --git a/package.json b/package.json
+index 05869f8e4173f585f611f5afc61564d11aef0173..ed2a440cd3b532e9fab61521294ff1943c9cebe0 100644
+--- a/package.json
++++ b/package.json
+@@ -91,6 +91,15 @@
+       "import": "./async-creatable/dist/react-select-async-creatable.cjs.mjs",
+       "default": "./async-creatable/dist/react-select-async-creatable.cjs.js"
+     },
+-    "./package.json": "./package.json"
++    "./package.json": "./package.json",
++    "./dist/declarations/src/filters": {
++      "types": "./dist/declarations/src/filters.d.ts"
++    },
++    "./dist/declarations/src/styles": {
++      "types": "./dist/declarations/src/styles.d.ts"
++    },
++    "./dist/declarations/src/components/Group": {
++      "types": "./dist/declarations/src/components/Group.d.ts"
++    }
+   }
+ }

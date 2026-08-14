@@ -1,0 +1,20 @@
+{%- if (build_id and build_url) or commit or last_updated or last_edited %}
+  <p class="build_info">
+    {%- if build_id and build_url %}
+      {% trans build_url=build_url, build_id=build_id %}
+        <span class="build">
+          Build
+          <a href="{{ build_url }}">{{ build_id }}</a>.
+        </span>
+      {% endtrans %}
+    {%- elif commit %}
+      {% trans commit=commit %}
+        <span class="commit">
+          Revision <code>{{ commit }}</code>.
+        </span>
+      {% endtrans %}
+    {%- elif last_updated %}
+      {% trans last_updated=last_updated|e %}Updated {{ last_updated }}{% endtrans %}
+    {%- endif %}
+  </p>
+{%- endif %}

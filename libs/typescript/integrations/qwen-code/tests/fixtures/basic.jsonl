@@ -1,0 +1,3 @@
+{"uuid":"user-001","parentUuid":null,"sessionId":"test-session-001","timestamp":"2026-04-05T10:00:00Z","type":"user","message":{"role":"user","parts":[{"text":"what is 2+2"}]}}
+{"uuid":"sys-001","parentUuid":"user-001","sessionId":"test-session-001","timestamp":"2026-04-05T10:00:00.500Z","type":"system","subtype":"context"}
+{"uuid":"asst-001","parentUuid":"sys-001","sessionId":"test-session-001","timestamp":"2026-04-05T10:00:02Z","type":"assistant","message":{"role":"model","parts":[{"text":"Let me compute this.","thought":true},{"text":"4"}]},"model":"qwen3-coder","usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":10,"totalTokenCount":110}}

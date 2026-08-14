@@ -1,0 +1,134 @@
+import cookie from 'cookie';
+// TODO: resolve the @mlflow/mlflow import upstream
+import { getWorkspacesEnabledSync } from '@mlflow/mlflow/src/experiment-tracking/hooks/useServerInfo';
+
+import { matchPredefinedError } from '../../errors/PredefinedErrors';
+// eslint-disable-next-line no-restricted-globals
+export const fetchFn = fetch; // use global fetch for oss
+
+const WORKSPACE_STORAGE_KEY = 'mlflow.activeWorkspace';
+
+/**
+ * Get the active workspace from localStorage, but only when the server has workspaces enabled.
+ * This prevents stale localStorage values from causing errors on servers without workspaces.
+ */
+const getActiveWorkspace = (): string | null => {
+  if (!getWorkspacesEnabledSync()) {
+    return null;
+  }
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
+    return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Parse cookies to extract request headers.
+ * Minimal implementation for shared library.
+ */
+export const getDefaultHeadersFromCookies = (cookieStr: string) => {
+  const headerCookiePrefix = 'mlflow-request-header-';
+  const parsedCookie = cookie.parse(cookieStr);
+  if (!parsedCookie || Object.keys(parsedCookie).length === 0) {
+    return {};
+  }
+  return Object.keys(parsedCookie)
+    .filter((cookieName) => cookieName.startsWith(headerCookiePrefix))
+    .reduce(
+      (acc, cookieName) => ({
+        ...acc,
+        [cookieName.substring(headerCookiePrefix.length)]: parsedCookie[cookieName],
+      }),
+      {},
+    );
+};
+
+/**
+ * Get default headers including workspace header if active.
+ * Minimal implementation for shared library.
+ */
+export const getDefaultHeaders = (cookieStr: string) => {
+  const cookieHeaders = getDefaultHeadersFromCookies(cookieStr);
+  const workspace = getActiveWorkspace();
+
+  return {
+    ...cookieHeaders,
+    ...(workspace ? { 'X-MLFLOW-WORKSPACE': workspace } : {}),
+  };
+};
+
+/**
+ * Convert relative URL to absolute if needed.
+ * Minimal implementation for shared library.
+ */
+export const getAjaxUrl = (relativeUrl: string) => {
+  if (
+    process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] === 'true' &&
+    typeof relativeUrl === 'string' &&
+    !relativeUrl.startsWith('/')
+  ) {
+    return '/' + relativeUrl;
+  }
+  return relativeUrl;
+};
+
+/**
+ * Helper method to make a request to the backend with workspace support.
+ * Minimal implementation for shared library.
+ */
+export const fetchAPI = async (url: string, options: Omit<RequestInit, 'body'> & { body?: any } = {}) => {
+  const { method, headers, body, ...restOptions } = options;
+
+  let cookieString = '';
+  if (typeof document !== 'undefined' && typeof document.cookie === 'string') {
+    cookieString = document.cookie || '';
+  }
+
+  const serializeBody = (payload: any) => {
+    if (payload === undefined) {
+      return undefined;
+    }
+    return typeof payload === 'string' || payload instanceof FormData || payload instanceof Blob
+      ? payload
+      : JSON.stringify(payload);
+  };
+
+  const fetchOptions: RequestInit = {
+    ...restOptions,
+    method: method || 'GET',
+    headers: {
+      ...getDefaultHeaders(cookieString),
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...headers,
+    },
+  };
+
+  if (body) {
+    fetchOptions.body = serializeBody(body);
+  }
+
+  const response = await fetchFn(url, fetchOptions);
+  if (!response.ok) {
+    const predefinedError = matchPredefinedError(response);
+    if (predefinedError) {
+      try {
+        // Attempt to use message from the response
+        const message = (await response.json()).message;
+        predefinedError.message = message ?? predefinedError.message;
+      } catch {
+        // If the message can't be parsed, use default one
+      }
+      throw predefinedError;
+    }
+  }
+  return response.json();
+};
+
+export const makeRequest = async <T>(path: string, method: 'POST' | 'GET', body?: T, signal?: AbortSignal) => {
+  return fetchAPI(path, { method, body, signal });
+};

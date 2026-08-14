@@ -1,0 +1,1466 @@
+import builtins
+import json
+import os
+import platform
+import sys
+import time
+from unittest import mock
+
+import pytest
+
+import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.legacy_databricks_cli.configure.provider import (
+    DatabricksConfig,
+    DatabricksModelServingConfigProvider,
+)
+from mlflow.utils import databricks_utils
+from mlflow.utils.databricks_utils import (
+    DatabricksConfigProvider,
+    DatabricksRuntimeVersion,
+    _NoDbutilsError,
+    check_databricks_secret_scope_access,
+    get_databricks_host_creds,
+    get_databricks_runtime_major_minor_version,
+    get_databricks_runtime_version,
+    get_databricks_workspace_client_config,
+    get_dbconnect_udf_sandbox_info,
+    get_mlflow_credential_context_by_run_id,
+    get_sgc_job_run_id,
+    get_workspace_info_from_databricks_secrets,
+    get_workspace_info_from_dbutils,
+    get_workspace_url,
+    is_databricks_default_tracking_uri,
+    is_running_in_ipython_environment,
+)
+from mlflow.utils.os import is_windows
+
+from tests.helper_functions import mock_method_chain
+from tests.pyfunc.test_spark import spark  # noqa: F401
+
+
+def test_no_throw():
+    """
+    Outside of Databricks the databricks_utils methods should never throw and should only return
+    None.
+    """
+    assert not databricks_utils.is_in_databricks_notebook()
+    assert not databricks_utils.is_in_databricks_repo_notebook()
+    assert not databricks_utils.is_in_databricks_job()
+    assert not databricks_utils.is_dbfs_fuse_available()
+    assert not databricks_utils.is_in_databricks_runtime()
+
+
+def test_databricks_registry_profile():
+    mock_provider = mock.MagicMock()
+    mock_provider.get_config.return_value = None
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.secrets.get.return_value = "random"
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.ProfileConfigProvider", return_value=mock_provider
+        ),
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+    ):
+        params = databricks_utils.get_databricks_host_creds("databricks://profile:prefix")
+        mock_dbutils.secrets.get.assert_any_call(key="prefix-host", scope="profile")
+        mock_dbutils.secrets.get.assert_any_call(key="prefix-token", scope="profile")
+        assert params.host == "random"
+        assert params.token == "random"
+
+
+def test_databricks_no_creds_found():
+    with pytest.raises(MlflowException, match="Reading Databricks credential configuration failed"):
+        databricks_utils.get_databricks_host_creds()
+
+
+def test_databricks_host_creds_uses_sdk_when_enabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+    monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
+
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
+        creds = databricks_utils.get_databricks_host_creds("databricks")
+        # When profile is None, WorkspaceClient() should be called without arguments
+        # to allow env-based auth (like OIDC) to work properly
+        mock_ws.assert_called_once_with()
+        assert creds.host == "https://test.databricks.com"
+        assert creds.use_databricks_sdk
+        assert creds.databricks_auth_profile is None
+
+
+def test_databricks_host_creds_with_oidc_env_vars(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
+    monkeypatch.setenv("DATABRICKS_AUTH_TYPE", "file-oidc")
+    monkeypatch.setenv("DATABRICKS_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+    monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
+
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
+        creds = databricks_utils.get_databricks_host_creds("databricks")
+        # WorkspaceClient() should be called without profile arg to allow OIDC auth
+        mock_ws.assert_called_once_with()
+        assert creds.host == "https://test.databricks.com"
+        assert creds.use_databricks_sdk
+
+
+def test_databricks_host_creds_with_profile_uses_sdk(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "my-profile")
+
+    mock_config = mock.MagicMock()
+    mock_config.host = "https://test.databricks.com"
+    mock_config.token = "test-token"
+    mock_config.username = None
+    mock_config.password = None
+    mock_config.insecure = None
+    mock_config.client_id = None
+    mock_config.client_secret = None
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_ws,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_databricks_creds_config", return_value=mock_config
+        ),
+    ):
+        creds = databricks_utils.get_databricks_host_creds("databricks")
+        # When profile is set, it should be passed to WorkspaceClient
+        mock_ws.assert_called_once_with(profile="my-profile")
+        assert creds.host == "https://test.databricks.com"
+        assert creds.use_databricks_sdk
+        assert creds.databricks_auth_profile == "my-profile"
+
+
+def test_databricks_host_creds_oidc_only_no_legacy_token(monkeypatch):
+    # Pure OIDC / Azure CLI / Azure Managed Identity flows: SDK auth succeeds, but legacy
+    # credential providers fail because no token/password is set. The SDK's resolved host
+    # must still be returned so MLflow can route requests through the SDK.
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://oidc.databricks.com")
+    monkeypatch.setenv("DATABRICKS_AUTH_TYPE", "file-oidc")
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
+    monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
+
+    mock_config = mock.MagicMock()
+    mock_config.host = "https://oidc.databricks.com"
+    mock_config.workspace_id = "12345"
+
+    mock_ws = mock.MagicMock()
+    mock_ws.config = mock_config
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_ws),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_databricks_creds_config",
+            side_effect=MlflowException("malformed databricks auth"),
+        ),
+    ):
+        creds = databricks_utils.get_databricks_host_creds("databricks")
+        assert creds.host == "https://oidc.databricks.com"
+        assert creds.use_databricks_sdk
+        assert creds.token is None
+        assert creds.workspace_id == "12345"
+
+
+def test_databricks_host_creds_legacy_failure_without_sdk_reraises(monkeypatch):
+    # When SDK auth failed AND legacy auth is malformed, the legacy MlflowException must
+    # propagate (no silent SDK-only fallback to mask configuration mistakes).
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.delenv("DATABRICKS_HOST", raising=False)
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
+    monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", side_effect=Exception("SDK auth failed")),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_databricks_creds_config",
+            side_effect=MlflowException("malformed databricks auth"),
+        ),
+        pytest.raises(MlflowException, match="malformed databricks auth"),
+    ):
+        databricks_utils.get_databricks_host_creds("databricks")
+
+
+def test_databricks_host_creds_falls_back_when_sdk_fails(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+    monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", side_effect=Exception("SDK auth failed")),
+        mock.patch.object(databricks_utils._logger, "warning") as mock_warning,
+    ):
+        creds = databricks_utils.get_databricks_host_creds("databricks")
+        # Should fall back to legacy and use env vars
+        assert creds.host == "https://test.databricks.com"
+        assert creds.token == "test-token"
+        assert not creds.use_databricks_sdk
+        # SDK init failure must surface as a WARNING so callers can correlate it with
+        # any downstream OAuth error.
+        mock_warning.assert_called_once()
+        msg = mock_warning.call_args.args[0]
+        assert "Failed to create databricks SDK workspace client" in msg
+        assert "SDK auth failed" in msg
+
+
+def test_databricks_host_creds_keeps_sdk_when_workspace_id_attr_missing(monkeypatch):
+    # Older databricks-sdk releases don't have Config.workspace_id. The legacy behavior
+    # let the resulting AttributeError nuke use_databricks_sdk, breaking OAuth M2M auth
+    # for users who had MLFLOW_ENABLE_DB_SDK=true correctly set. workspace_id must
+    # degrade to None without dropping the SDK auth path. See ES-1918390.
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
+    monkeypatch.setenv("DATABRICKS_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("DATABRICKS_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.delenv("DATABRICKS_TOKEN", raising=False)
+    monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
+
+    # Use a real object (not MagicMock) so getattr fallback is exercised.
+    class OldSdkConfig:
+        host = "https://test.databricks.com"
+
+    mock_ws = mock.MagicMock()
+    mock_ws.config = OldSdkConfig()
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_ws):
+        creds = databricks_utils.get_databricks_host_creds("databricks")
+        assert creds.use_databricks_sdk
+        assert creds.workspace_id is None
+
+
+def test_sdk_respects_env_var_priority(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://env-var-host.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "env-token")
+    monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
+
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
+        creds = databricks_utils.get_databricks_host_creds("databricks")
+        # SDK should be called without profile (uses env vars)
+        mock_ws.assert_called_once_with()
+        assert creds.host == "https://env-var-host.databricks.com"
+        assert creds.use_databricks_sdk
+
+
+def test_sdk_respects_config_profile_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "my-profile")
+
+    mock_config = mock.MagicMock()
+    mock_config.host = "https://profile-host.databricks.com"
+    mock_config.token = "test-token"
+    mock_config.username = None
+    mock_config.password = None
+    mock_config.insecure = None
+    mock_config.client_id = None
+    mock_config.client_secret = None
+
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_ws,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_databricks_creds_config", return_value=mock_config
+        ),
+    ):
+        creds = databricks_utils.get_databricks_host_creds("databricks")
+        # SDK should be called with the profile from env var
+        mock_ws.assert_called_once_with(profile="my-profile")
+        assert creds.host == "https://profile-host.databricks.com"
+        assert creds.use_databricks_sdk
+        assert creds.databricks_auth_profile == "my-profile"
+
+
+def test_databricks_no_creds_found_in_model_serving(monkeypatch):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    with pytest.raises(
+        MlflowException, match="Reading Databricks credential configuration in model serving failed"
+    ):
+        databricks_utils.get_databricks_host_creds()
+
+
+def test_databricks_single_slash_in_uri_scheme_throws():
+    with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
+        databricks_utils.get_databricks_host_creds("databricks:/profile:path")
+
+
+@pytest.fixture
+def oauth_file(tmp_path):
+    token_contents = {"OAUTH_TOKEN": [{"oauthTokenValue": "token2"}]}
+    oauth_file = tmp_path.joinpath("model-dependencies-oauth-token")
+    with open(oauth_file, "w") as f:
+        json.dump(token_contents, f)
+    return oauth_file
+
+
+def test_get_model_dependency_token(oauth_file):
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        token = databricks_utils.get_model_dependency_oauth_token()
+        assert token == "token2"
+
+
+def test_get_model_dependency_oauth_token_model_serving_throws():
+    with pytest.raises(MlflowException, match="Unable to read Oauth credentials"):
+        databricks_utils.get_model_dependency_oauth_token()
+
+
+@pytest.mark.parametrize(
+    ("model_serving_env_var"),
+    [
+        ("DATABRICKS_MODEL_SERVING_HOST_URL"),
+        ("DB_MODEL_SERVING_HOST_URL"),
+    ],
+)
+def test_databricks_params_model_serving_oauth_cache_databricks(
+    monkeypatch, oauth_file, model_serving_env_var
+):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv(model_serving_env_var, "host")
+    monkeypatch.setenv("DB_DEPENDENCY_OAUTH_CACHE", "token")
+    monkeypatch.setenv("DB_DEPENDENCY_OAUTH_CACHE_EXPIRY_TS", str(time.time() + 5))
+    # oauth file still needs to be present for should_fetch_model_serving_environment_oauth()
+    #  to evaluate true
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        assert params.host == "host"
+        # should use token from cache, rather than token from oauthfile
+        assert params.token == "token"
+
+
+def test_databricks_params_model_serving_oauth_cache_expired(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
+    monkeypatch.setenv("DB_DEPENDENCY_OAUTH_CACHE", "token")
+    monkeypatch.setenv("DB_DEPENDENCY_OAUTH_CACHE_EXPIRY_TS", str(time.time() - 5))
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        # cache should get updated with new token
+        assert os.environ["DB_DEPENDENCY_OAUTH_CACHE"] == "token2"
+        assert float(os.environ["DB_DEPENDENCY_OAUTH_CACHE_EXPIRY_TS"]) > time.time()
+        assert params.host == "host"
+        # should use token2 from oauthfile, rather than token from cache
+        assert params.token == "token2"
+
+
+def test_databricks_params_model_serving_read_oauth(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        assert os.environ["DB_DEPENDENCY_OAUTH_CACHE"] == "token2"
+        assert float(os.environ["DB_DEPENDENCY_OAUTH_CACHE_EXPIRY_TS"]) > time.time()
+        assert params.host == "host"
+        assert params.token == "token2"
+
+
+def test_databricks_params_env_var_overrides_model_serving_oauth(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    monkeypatch.setenv("DATABRICKS_MODEL_SERVING_HOST_URL", "host")
+    monkeypatch.setenv("DATABRICKS_HOST", "host_envvar")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "pat_token")
+    # oauth file still needs to be present for should_fetch_model_serving_environment_oauth()
+    #  to evaluate true
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        params = databricks_utils.get_databricks_host_creds()
+        # should use token and host from envvar, rather than token from oauthfile
+        assert params.use_databricks_sdk
+
+
+def test_model_serving_config_provider_errors_caught():
+    provider = DatabricksModelServingConfigProvider()
+    with mock.patch.object(
+        provider,
+        "_get_databricks_model_serving_config",
+        side_effect=Exception("Failed to Read OAuth Creds"),
+    ):
+        assert provider.get_config() is None
+
+
+def test_get_workspace_info_from_databricks_secrets():
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.secrets.get.return_value = "workspace-placeholder-info"
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(
+            "databricks://profile:prefix"
+        )
+        mock_dbutils.secrets.get.assert_any_call(key="prefix-host", scope="profile")
+        mock_dbutils.secrets.get.assert_any_call(key="prefix-workspace-id", scope="profile")
+        assert workspace_host == "workspace-placeholder-info"
+        assert workspace_id == "workspace-placeholder-info"
+
+
+def test_get_workspace_info_from_dbutils():
+    mock_dbutils = mock.MagicMock()
+    methods = ["notebook.entry_point.getDbutils", "notebook", "getContext"]
+    mock_method_chain(
+        mock_dbutils, methods + ["browserHostName", "get"], return_value="mlflow.databricks.com"
+    )
+    mock_method_chain(mock_dbutils, methods + ["workspaceId", "get"], return_value="1111")
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        workspace_host, workspace_id = get_workspace_info_from_dbutils()
+        assert workspace_host == "https://mlflow.databricks.com"
+        assert workspace_id == "1111"
+
+
+def test_get_workspace_info_from_dbutils_no_browser_host_name():
+    mock_dbutils = mock.MagicMock()
+    methods = ["notebook.entry_point.getDbutils", "notebook", "getContext"]
+    mock_method_chain(mock_dbutils, methods + ["browserHostName", "get"], return_value=None)
+    mock_method_chain(
+        mock_dbutils, methods + ["apiUrl", "get"], return_value="https://mlflow.databricks.com"
+    )
+    mock_method_chain(mock_dbutils, methods + ["workspaceId", "get"], return_value="1111")
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        workspace_host, workspace_id = get_workspace_info_from_dbutils()
+        assert workspace_host == "https://mlflow.databricks.com"
+        assert workspace_id == "1111"
+
+
+def test_get_workspace_info_from_dbutils_old_runtimes():
+    mock_dbutils = mock.MagicMock()
+    methods = ["notebook.entry_point.getDbutils", "notebook", "getContext"]
+    mock_method_chain(
+        mock_dbutils,
+        methods + ["toJson", "get"],
+        return_value='{"tags": {"orgId" : "1111", "browserHostName": "mlflow.databricks.com"}}',
+    )
+    mock_method_chain(
+        mock_dbutils, methods + ["browserHostName", "get"], return_value="mlflow.databricks.com"
+    )
+
+    # Mock out workspace ID tag
+    mock_workspace_id_tag_opt = mock.MagicMock()
+    mock_workspace_id_tag_opt.isDefined.return_value = True
+    mock_workspace_id_tag_opt.get.return_value = "1111"
+    mock_method_chain(
+        mock_dbutils, methods + ["tags", "get"], return_value=mock_workspace_id_tag_opt
+    )
+
+    # Mimic old runtimes by raising an exception when the nonexistent "workspaceId" method is called
+    mock_method_chain(
+        mock_dbutils,
+        methods + ["workspaceId"],
+        side_effect=Exception("workspaceId method not defined!"),
+    )
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        workspace_host, workspace_id = get_workspace_info_from_dbutils()
+        assert workspace_host == "https://mlflow.databricks.com"
+        assert workspace_id == "1111"
+
+
+def test_get_workspace_info_from_dbutils_when_no_dbutils_available():
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=None):
+        workspace_host, workspace_id = get_workspace_info_from_dbutils()
+        assert workspace_host is None
+        assert workspace_id is None
+
+
+@pytest.mark.parametrize(
+    ("tracking_uri", "result"),
+    [
+        ("databricks", True),
+        ("databricks://profile:prefix", False),
+        ("databricks://profile/prefix", False),
+        ("nondatabricks", False),
+        ("databricks\t\r", True),
+        ("databricks\n", True),
+        ("databricks://", False),
+        ("databricks://aAbB", False),
+    ],
+)
+def test_is_databricks_default_tracking_uri(tracking_uri, result):
+    assert is_databricks_default_tracking_uri(tracking_uri) == result
+
+
+def test_databricks_params_throws_errors():
+    # No hostname
+    mock_provider = mock.MagicMock()
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        None, "user", "pass", insecure=True
+    )
+    with mock.patch(
+        "mlflow.utils.databricks_utils.ProfileConfigProvider", return_value=mock_provider
+    ):
+        with pytest.raises(
+            Exception, match="Reading Databricks credential configuration failed with"
+        ):
+            databricks_utils.get_databricks_host_creds()
+
+    # No authentication
+    mock_provider = mock.MagicMock()
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        "host", None, None, insecure=True
+    )
+    with mock.patch(
+        "mlflow.utils.databricks_utils.ProfileConfigProvider", return_value=mock_provider
+    ):
+        with pytest.raises(
+            Exception, match="Reading Databricks credential configuration failed with"
+        ):
+            databricks_utils.get_databricks_host_creds()
+
+
+def test_is_in_databricks_runtime(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "11.x")
+    assert databricks_utils.is_in_databricks_runtime()
+
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
+    assert not databricks_utils.is_in_databricks_runtime()
+
+
+@pytest.mark.parametrize("val", ["true", "1"])
+def test_is_in_databricks_model_serving_environment(monkeypatch, val):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", val)
+    assert databricks_utils.is_in_databricks_model_serving_environment()
+
+    monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
+    assert not databricks_utils.is_in_databricks_model_serving_environment()
+
+
+# test both is_in_databricks_model_serving_environment and
+# should_fetch_model_serving_environment_oauth return apprropriate values
+def test_should_fetch_model_serving_environment_oauth(monkeypatch, oauth_file):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+    # will return false if file mount is not configured even if env var set
+    assert not databricks_utils.should_fetch_model_serving_environment_oauth()
+
+    with mock.patch(
+        "mlflow.utils.databricks_utils._MODEL_DEPENDENCY_OAUTH_TOKEN_FILE_PATH", str(oauth_file)
+    ):
+        # both file mount and env var exist, both values should return true
+        assert databricks_utils.should_fetch_model_serving_environment_oauth()
+
+        # file mount without env var should return false
+        monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
+        assert not databricks_utils.should_fetch_model_serving_environment_oauth()
+
+
+def test_get_repl_id():
+    # Outside of Databricks environments, the Databricks REPL ID should be absent
+    assert databricks_utils.get_repl_id() is None
+
+    mock_client = mock.MagicMock()
+    mock_client.getReplId.return_value = "testReplId1"
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_runtime_integration_client",
+        return_value=mock_client,
+    ):
+        assert databricks_utils.get_repl_id() == "testReplId1"
+        mock_client.getReplId.assert_called_once()
+
+    # When runtime_integration_client is unavailable, fall back to entry_point.
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.entry_point.getReplId.return_value = "testReplId1"
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+    ):
+        assert databricks_utils.get_repl_id() == "testReplId1"
+        mock_dbutils.entry_point.getReplId.assert_called_once()
+
+    mock_sparkcontext_inst = mock.MagicMock()
+    mock_sparkcontext_inst.getLocalProperty.return_value = "testReplId2"
+    mock_sparkcontext_class = mock.MagicMock()
+    mock_sparkcontext_class.getOrCreate.return_value = mock_sparkcontext_inst
+    mock_spark = mock.MagicMock()
+    mock_spark.SparkContext = mock_sparkcontext_class
+
+    original_import = builtins.__import__
+
+    def mock_import(name, *args, **kwargs):
+        if name == "pyspark":
+            return mock_spark
+        else:
+            return original_import(name, *args, **kwargs)
+
+    with mock.patch("builtins.__import__", side_effect=mock_import):
+        assert databricks_utils.get_repl_id() == "testReplId2"
+
+
+def test_use_repl_context_if_available(tmp_path, monkeypatch):
+    # Simulate a case where `dbruntime.databricks_repl_context.get_context` is unavailable.
+    with pytest.raises(ModuleNotFoundError, match="No module named 'dbruntime'"):
+        from dbruntime.databricks_repl_context import get_context  # noqa: F401
+
+    command_context_mock = mock.MagicMock()
+    command_context_mock.jobId().get.return_value = "job_id"
+    command_context_mock.tags().get("jobType").get.return_value = "NORMAL"
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
+    ) as mock_get_command_context:
+        assert databricks_utils.get_job_id() == "job_id"
+        mock_get_command_context.assert_called_once()
+
+    # Create a fake databricks_repl_context module
+    dbruntime = tmp_path.joinpath("dbruntime")
+    dbruntime.mkdir()
+    dbruntime.joinpath("databricks_repl_context.py").write_text(
+        """
+def get_context():
+    pass
+"""
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    # Simulate a case where the REPL context object is not initialized.
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=None,
+        ) as mock_get_context,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_command_context", return_value=command_context_mock
+        ) as mock_get_command_context,
+    ):
+        assert databricks_utils.get_job_id() == "job_id"
+        assert mock_get_command_context.call_count == 1
+
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=mock.MagicMock(jobId="job_id"),
+        ) as mock_get_context,
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils") as mock_dbutils,
+    ):
+        assert databricks_utils.get_job_id() == "job_id"
+        mock_get_context.assert_called_once()
+        mock_dbutils.assert_not_called()
+
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=mock.MagicMock(
+                notebookId="notebook_id", notebookPath="/Repos/notebook_path"
+            ),
+        ) as mock_get_context,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_property_from_spark_context"
+        ) as mock_spark_context,
+    ):
+        assert databricks_utils.get_notebook_id() == "notebook_id"
+        assert databricks_utils.is_in_databricks_repo_notebook()
+        assert mock_get_context.call_count == 2
+        mock_spark_context.assert_not_called()
+
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=mock.MagicMock(
+                notebookId="notebook_id", notebookPath="/Users/notebook_path"
+            ),
+        ) as mock_get_context,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_property_from_spark_context"
+        ) as mock_spark_context,
+    ):
+        assert not databricks_utils.is_in_databricks_repo_notebook()
+
+    with (
+        mock.patch(
+            "dbruntime.databricks_repl_context.get_context",
+            return_value=mock.MagicMock(isInCluster=True),
+        ) as mock_get_context,
+        mock.patch("mlflow.utils._spark_utils._get_active_spark_session") as mock_spark_session,
+    ):
+        assert databricks_utils.is_in_cluster()
+        mock_get_context.assert_called_once()
+        mock_spark_session.assert_not_called()
+
+
+@pytest.mark.parametrize("get_ipython", [True, None])
+def test_is_running_in_ipython_environment_works(get_ipython):
+    mod_name = "IPython"
+    if mod_name in sys.modules:
+        ipython_mod = sys.modules.pop(mod_name)
+        assert not is_running_in_ipython_environment()
+        sys.modules["IPython"] = ipython_mod
+
+        with mock.patch("IPython.get_ipython", return_value=get_ipython):
+            assert is_running_in_ipython_environment() == (get_ipython is not None)
+
+
+def test_get_mlflow_credential_context_by_run_id():
+    with (
+        mock.patch(
+            "mlflow.tracking.artifact_utils.get_artifact_uri", return_value="dbfs:/path/to/artifact"
+        ) as mock_get_artifact_uri,
+        mock.patch(
+            "mlflow.utils.uri.get_databricks_profile_uri_from_artifact_uri",
+            return_value="databricks://path/to/profile",
+        ) as mock_get_databricks_profile,
+        mock.patch(
+            "mlflow.utils.databricks_utils.MlflowCredentialContext"
+        ) as mock_credential_context,
+    ):
+        get_mlflow_credential_context_by_run_id(run_id="abc")
+        mock_get_artifact_uri.assert_called_once_with(run_id="abc")
+        mock_get_databricks_profile.assert_called_once_with("dbfs:/path/to/artifact")
+        mock_credential_context.assert_called_once_with("databricks://path/to/profile")
+
+
+def test_check_databricks_secret_scope_access():
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.secrets.list.return_value = "random"
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        check_databricks_secret_scope_access("scope")
+        mock_dbutils.secrets.list.assert_called_once_with("scope")
+
+
+def test_check_databricks_secret_scope_access_error():
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.secrets.list.side_effect = Exception("no scope access")
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch("mlflow.utils.databricks_utils._logger.warning") as mock_warning,
+    ):
+        check_databricks_secret_scope_access("scope")
+        mock_warning.assert_called_once_with(
+            "Unable to access Databricks secret scope 'scope' for OpenAI credentials that will be "
+            "used to deploy the model to Databricks Model Serving. Please verify that the current "
+            "Databricks user has 'READ' permission for this scope. For more information, see "
+            "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # noqa: E501
+            "Error: no scope access"
+        )
+        mock_dbutils.secrets.list.assert_called_once_with("scope")
+
+
+@pytest.mark.parametrize(
+    ("version_str", "is_client_image", "major", "minor"),
+    [
+        ("client.0", True, 0, 0),
+        ("client.1", True, 1, 0),
+        ("client.1.6", True, 1, 6),
+        ("15.1", False, 15, 1),
+        ("12.1.1", False, 12, 1),
+    ],
+)
+def test_get_databricks_runtime_major_minor_version(
+    monkeypatch, version_str, is_client_image, major, minor
+):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", version_str)
+    dbr_version = get_databricks_runtime_major_minor_version()
+
+    assert dbr_version.is_client_image == is_client_image
+    assert dbr_version.major == major
+    assert dbr_version.minor == minor
+
+
+def test_get_dbr_major_minor_version_uncut_minor(monkeypatch):
+    # '{major}.x' is the latest uncut minor of that major, not an error.
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.x")
+    dbr_version = get_databricks_runtime_major_minor_version()
+    assert dbr_version.major == 12
+    assert dbr_version.minor == databricks_utils._UNCUT_MINOR
+
+
+def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
+    # A malformed minor (not numeric, not the uncut 'x' marker) is still an error.
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.yyy")
+    with pytest.raises(MlflowException, match="Failed to parse databricks runtime version"):
+        get_databricks_runtime_major_minor_version()
+
+
+def test_prioritize_env_var_config_provider(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "false")
+    monkeypatch.setenv("DATABRICKS_HOST", "my_host1")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "token1")
+
+    class MyProvider(DatabricksConfigProvider):
+        def get_config(self):
+            return DatabricksConfig(host="my_host2", token="token2")
+
+    monkeypatch.setattr(databricks_utils, "_dynamic_token_config_provider", MyProvider)
+
+    hc = get_databricks_host_creds("databricks")
+    assert hc.host == "my_host1"
+    assert hc.token == "token1"
+
+
+@pytest.mark.parametrize(
+    ("input_url", "expected_result"),
+    [
+        # Test with a valid URL without https:// prefix
+        ("example.com", "https://example.com"),
+        # Test with a valid URL with https:// prefix
+        ("https://example.com", "https://example.com"),
+        # Test with None URL
+        (None, None),
+    ],
+)
+def test_get_workspace_url(input_url, expected_result):
+    with mock.patch("mlflow.utils.databricks_utils._get_workspace_url", return_value=input_url):
+        result = get_workspace_url()
+        assert result == expected_result
+
+
+@pytest.mark.parametrize(
+    ("dbr_version", "expected_runtime_version"),
+    [
+        ("15.4.x-scala2.12", "15.4"),
+        ("18.x-aarch64-photon-scala2", "18.x"),
+        ("16.2.x-scala2.13", "16.2"),
+    ],
+)
+@pytest.mark.skipif(is_windows(), reason="This test doesn't work on Windows")
+def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch, dbr_version, expected_runtime_version):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.1.2")
+    databricks_utils._dbconnect_udf_sandbox_info_cache = None
+
+    spark.udf.register(
+        "current_version",
+        lambda: {"dbr_version": dbr_version},
+        returnType="dbr_version string",
+    )
+
+    info = get_dbconnect_udf_sandbox_info(spark)
+    assert info.mlflow_version == mlflow.__version__
+    # `image_version` comes from DATABRICKS_RUNTIME_VERSION and must stay raw for archive naming.
+    assert info.image_version == "client.1.2"
+    assert info.runtime_version == expected_runtime_version
+    assert info.platform_machine == platform.machine()
+
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
+    databricks_utils._dbconnect_udf_sandbox_info_cache = None
+
+    info = get_dbconnect_udf_sandbox_info(spark)
+    assert info.mlflow_version == mlflow.__version__
+    assert info.image_version == expected_runtime_version
+    assert info.runtime_version == expected_runtime_version
+    assert info.platform_machine == platform.machine()
+
+
+@pytest.mark.parametrize(
+    ("dbr_version", "expected"),
+    [
+        ("15.4.x-scala2.12", (15, 4)),
+        ("18.x-aarch64-photon-scala2", (18, databricks_utils._UNCUT_MINOR)),
+        ("16.2.x-scala2.13", (16, 2)),
+        ("15.3", (15, 3)),
+        ("18", (18, databricks_utils._UNCUT_MINOR)),
+    ],
+)
+def test_parse_dbr_runtime_major_minor(dbr_version, expected):
+    assert databricks_utils.parse_dbr_runtime_major_minor(dbr_version) == expected
+
+
+@pytest.mark.parametrize(
+    "dbr_version",
+    [
+        "17.yyy",
+        "18.foo-bar",
+        # Non-ASCII digits (superscript '²', Thai '๓') satisfy str.isdigit() but are not valid
+        # DBR minors and must raise rather than be treated as numeric.
+        "15.²",
+        "15.๓",
+    ],
+)
+def test_parse_dbr_runtime_major_minor_malformed(dbr_version):
+    # A malformed minor (not ASCII-numeric and not the uncut 'x' marker) must raise, not silently
+    # degrade to the uncut sentinel.
+    with pytest.raises(ValueError, match="Unrecognized Databricks runtime minor version token"):
+        databricks_utils.parse_dbr_runtime_major_minor(dbr_version)
+
+
+def test_parse_dbr_runtime_uncut_minor_sorts_above_concrete_minor():
+    # '{major}.x' is the latest uncut minor and must compare greater than any released minor,
+    # including a hypothetical future gate threshold within the same major.
+    uncut = databricks_utils.parse_dbr_runtime_major_minor("18.x-aarch64-photon-scala2")
+    assert uncut > (18, 0)
+    assert uncut > (18, 9)
+    assert uncut > (18, 99)
+    assert uncut < (19, 0)
+
+
+def test_construct_databricks_uc_registered_model_url():
+    # Test case with workspace ID
+    workspace_url = "https://databricks.com"
+    registered_model_name = "name.mlflow.echo_model"
+    version = "6"
+    workspace_id = "123"
+
+    expected_url = (
+        "https://databricks.com/explore/data/models/name/mlflow/echo_model/version/6?o=123"
+    )
+
+    result = databricks_utils._construct_databricks_uc_registered_model_url(
+        workspace_url=workspace_url,
+        registered_model_name=registered_model_name,
+        version=version,
+        workspace_id=workspace_id,
+    )
+
+    assert result == expected_url
+
+    # Test case without workspace ID
+    expected_url_no_workspace = (
+        "https://databricks.com/explore/data/models/name/mlflow/echo_model/version/6"
+    )
+
+    result_no_workspace = databricks_utils._construct_databricks_uc_registered_model_url(
+        workspace_url=workspace_url,
+        registered_model_name=registered_model_name,
+        version=version,
+    )
+
+    assert result_no_workspace == expected_url_no_workspace
+
+
+def test_construct_databricks_logged_model_url():
+    # Test case with workspace ID
+    workspace_url = "https://databricks.com"
+    experiment_id = "123456"
+    model_id = "model_789"
+    workspace_id = "123"
+
+    expected_url = "https://databricks.com/ml/experiments/123456/models/model_789?o=123"
+
+    result = databricks_utils._construct_databricks_logged_model_url(
+        workspace_url=workspace_url,
+        experiment_id=experiment_id,
+        model_id=model_id,
+        workspace_id=workspace_id,
+    )
+
+    assert result == expected_url
+
+    # Test case without workspace ID
+    expected_url_no_workspace = "https://databricks.com/ml/experiments/123456/models/model_789"
+
+    result_no_workspace = databricks_utils._construct_databricks_logged_model_url(
+        workspace_url=workspace_url,
+        experiment_id=experiment_id,
+        model_id=model_id,
+    )
+
+    assert result_no_workspace == expected_url_no_workspace
+
+
+def test_print_databricks_deployment_job_url():
+    workspace_url = "https://databricks.com"
+    job_id = "123"
+    workspace_id = "456"
+
+    expected_url_no_workspace = "https://databricks.com/jobs/123"
+    expected_url = f"{expected_url_no_workspace}?o=456"
+    model_name = "main.models.name"
+
+    with (
+        mock.patch("mlflow.utils.databricks_utils.eprint") as mock_eprint,
+        mock.patch("mlflow.utils.databricks_utils.get_workspace_url", return_value=workspace_url),
+    ):
+        # Test case with a workspace ID
+        with mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_id", return_value=workspace_id
+        ):
+            result = databricks_utils._print_databricks_deployment_job_url(
+                model_name=model_name,
+                job_id=job_id,
+            )
+
+            assert result == expected_url
+            mock_eprint.assert_called_once_with(
+                f"🔗 Linked deployment job to '{model_name}': {expected_url}"
+            )
+            mock_eprint.reset_mock()
+
+        # Test case without a workspace ID
+        with mock.patch("mlflow.utils.databricks_utils.get_workspace_id", return_value=None):
+            result_no_workspace = databricks_utils._print_databricks_deployment_job_url(
+                model_name=model_name,
+                job_id=job_id,
+            )
+
+            assert result_no_workspace == expected_url_no_workspace
+            mock_eprint.assert_called_once_with(
+                f"🔗 Linked deployment job to '{model_name}': {expected_url_no_workspace}"
+            )
+
+
+@pytest.mark.parametrize(
+    ("version_str", "expected_is_client", "expected_major", "expected_minor", "expected_is_gpu"),
+    [
+        ("client.2.0", True, 2, 0, False),
+        ("client.3.1", True, 3, 1, False),
+        ("13.2", False, 13, 2, False),
+        ("15.4", False, 15, 4, False),
+        ("client.8.1-gpu", True, 8, 1, True),
+        ("client.10.0-gpu", True, 10, 0, True),
+        ("14.3-gpu", False, 14, 3, True),
+        ("15.1-gpu", False, 15, 1, True),
+        # Newer uncut images have a non-numeric minor -> latest uncut minor of that major.
+        ("18.x-photon-scala2", False, 18, databricks_utils._UNCUT_MINOR, False),
+        ("18.x-aarch64-photon-scala2", False, 18, databricks_utils._UNCUT_MINOR, False),
+        ("client.5.x", True, 5, databricks_utils._UNCUT_MINOR, False),
+        ("18.x-gpu", False, 18, databricks_utils._UNCUT_MINOR, True),
+    ],
+)
+def test_databricks_runtime_version_parse(
+    version_str,
+    expected_is_client,
+    expected_major,
+    expected_minor,
+    expected_is_gpu,
+):
+    version = DatabricksRuntimeVersion.parse(version_str)
+    assert version.is_client_image == expected_is_client
+    assert version.major == expected_major
+    assert version.minor == expected_minor
+    assert version.is_gpu_image == expected_is_gpu
+
+
+@pytest.mark.parametrize(
+    ("env_version", "expected_is_client", "expected_major", "expected_minor", "expected_is_gpu"),
+    [
+        ("client.2.0", True, 2, 0, False),
+        ("13.2", False, 13, 2, False),
+        ("client.8.1-gpu", True, 8, 1, True),
+        ("14.3-gpu", False, 14, 3, True),
+    ],
+)
+def test_databricks_runtime_version_parse_default(
+    monkeypatch,
+    env_version,
+    expected_is_client,
+    expected_major,
+    expected_minor,
+    expected_is_gpu,
+):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", env_version)
+    version = DatabricksRuntimeVersion.parse()
+    assert version.is_client_image == expected_is_client
+    assert version.major == expected_major
+    assert version.minor == expected_minor
+    assert version.is_gpu_image == expected_is_gpu
+
+
+def test_databricks_runtime_version_parse_default_no_env(monkeypatch):
+    """Test that DatabricksRuntimeVersion.parse() raises error when no environment variable is
+    set.
+    """
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.delenv("DATABRICKS_ENV_VERSION", raising=False)
+    with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
+        DatabricksRuntimeVersion.parse()
+
+
+@pytest.mark.parametrize(
+    ("env_version", "accelerator", "expected"),
+    [
+        ("4", "A10G", "client.4-gpu"),
+        ("4", "NVIDIA H100", "client.4-gpu"),
+        ("4", None, "client.4"),
+    ],
+)
+def test_get_databricks_runtime_version_from_env_version(
+    monkeypatch, env_version, accelerator, expected
+):
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.setenv("DATABRICKS_ENV_VERSION", env_version)
+    if accelerator:
+        monkeypatch.setenv("DATABRICKS_ACCELERATOR", accelerator)
+    else:
+        monkeypatch.delenv("DATABRICKS_ACCELERATOR", raising=False)
+    assert get_databricks_runtime_version() == expected
+
+
+@pytest.mark.parametrize(
+    ("accelerator", "expected"),
+    [
+        ("A10G", "client.4-gpu"),
+        (None, "client.4"),
+    ],
+)
+def test_databricks_env_version_takes_priority_over_runtime_version(
+    monkeypatch, accelerator, expected
+):
+    monkeypatch.setenv("DATABRICKS_ENV_VERSION", "4")
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.4.1")
+    if accelerator:
+        monkeypatch.setenv("DATABRICKS_ACCELERATOR", accelerator)
+    else:
+        monkeypatch.delenv("DATABRICKS_ACCELERATOR", raising=False)
+    assert get_databricks_runtime_version() == expected
+
+
+def test_databricks_runtime_version_parse_from_env_version(monkeypatch):
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.setenv("DATABRICKS_ENV_VERSION", "4")
+    monkeypatch.setenv("DATABRICKS_ACCELERATOR", "A10")
+    version = DatabricksRuntimeVersion.parse()
+    assert version.is_client_image is True
+    assert version.major == 4
+    assert version.minor == 0
+    assert version.is_gpu_image is True
+
+
+@pytest.mark.parametrize(
+    "invalid_version",
+    [
+        "invalid",
+        "client",
+        "client.invalid",
+        "13",
+        # A malformed minor (not numeric, not the uncut 'x' marker) must still raise.
+        "17.yyy",
+        "18.foo-bar",
+        "client.5.yyy",
+    ],
+)
+def test_databricks_runtime_version_parse_invalid(invalid_version):
+    with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
+        DatabricksRuntimeVersion.parse(invalid_version)
+
+
+def test_get_databricks_workspace_client_config_with_tracking_uri_provider():
+    # Mock the workspace client and its config
+    mock_config = mock.MagicMock()
+    mock_client_instance = mock.MagicMock()
+    mock_client_instance.config = mock_config
+
+    # Mock TrackingURIConfigProvider
+    mock_uri_config = mock.MagicMock()
+    mock_uri_config.host = "https://test.databricks.com"
+    mock_uri_config.token = "test_token"
+
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_db_info_from_uri",
+            return_value=("profile_name", "key_prefix"),
+        ),
+        mock.patch(
+            "databricks.sdk.WorkspaceClient", return_value=mock_client_instance
+        ) as mock_workspace_client,
+        mock.patch("mlflow.utils.databricks_utils.TrackingURIConfigProvider") as mock_provider,
+    ):
+        mock_provider.return_value.get_config.return_value = mock_uri_config
+
+        result = get_databricks_workspace_client_config("databricks://profile:prefix")
+
+        # Verify the WorkspaceClient was created with correct parameters
+        mock_workspace_client.assert_called_once_with(
+            host="https://test.databricks.com", token="test_token"
+        )
+        assert result == mock_config
+
+
+def test_get_databricks_workspace_client_config_with_profile():
+    # Mock the workspace client and its config
+    mock_config = mock.MagicMock()
+    mock_client_instance = mock.MagicMock()
+    mock_client_instance.config = mock_config
+
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_db_info_from_uri",
+            return_value=("profile_name", None),
+        ),
+        mock.patch(
+            "databricks.sdk.WorkspaceClient", return_value=mock_client_instance
+        ) as mock_workspace_client,
+    ):
+        result = get_databricks_workspace_client_config("databricks://profile_name")
+
+        # Verify the WorkspaceClient was created with profile
+        mock_workspace_client.assert_called_once_with(profile="profile_name")
+        assert result == mock_config
+
+
+def test_get_databricks_workspace_client_config_env_profile(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "env_profile")
+    # Mock the workspace client and its config
+    mock_config = mock.MagicMock()
+    mock_client_instance = mock.MagicMock()
+    mock_client_instance.config = mock_config
+
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_db_info_from_uri", return_value=(None, None)),
+        mock.patch(
+            "databricks.sdk.WorkspaceClient", return_value=mock_client_instance
+        ) as mock_workspace_client,
+    ):
+        result = get_databricks_workspace_client_config("databricks")
+
+        # Verify the WorkspaceClient was created with environment profile
+        mock_workspace_client.assert_called_once_with(profile="env_profile")
+        assert result == mock_config
+
+
+def test_get_databricks_workspace_client_config_client_creation_error():
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_db_info_from_uri", return_value=("profile", None)
+        ),
+        mock.patch(
+            "databricks.sdk.WorkspaceClient", side_effect=Exception("Client creation failed")
+        ),
+    ):
+        with pytest.raises(Exception, match="Client creation failed"):
+            get_databricks_workspace_client_config("databricks://profile")
+
+
+def test_get_sgc_job_run_id_success(monkeypatch):
+    monkeypatch.delenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", raising=False)
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = "test_job_run_id_12345"
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "test_job_run_id_12345"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_no_dbutils(monkeypatch):
+    monkeypatch.delenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", raising=False)
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", side_effect=_NoDbutilsError()):
+        result = get_sgc_job_run_id()
+        assert result is None
+
+
+def test_get_sgc_job_run_id_no_dbutils_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_456")
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", side_effect=_NoDbutilsError()):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_456"
+
+
+def test_get_sgc_job_run_id_value_error(monkeypatch):
+    monkeypatch.delenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", raising=False)
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.side_effect = ValueError("Widget not found")
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result is None
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_value_error_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_789")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.side_effect = ValueError("Widget not found")
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_789"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_empty_widget_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_999")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = ""
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_999"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_none_widget_with_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_111")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = None
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "env_job_run_id_111"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_get_sgc_job_run_id_widget_takes_precedence_over_env_var(monkeypatch):
+    monkeypatch.setenv("SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID", "env_job_run_id_222")
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.widgets.get.return_value = "widget_job_run_id_333"
+
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        result = get_sgc_job_run_id()
+        assert result == "widget_job_run_id_333"
+        mock_dbutils.widgets.get.assert_called_once_with(
+            "SERVERLESS_GPU_COMPUTE_ASSOCIATED_JOB_RUN_ID"
+        )
+
+
+def test_databricks_config_profile_env_var_is_respected(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "false")
+    file_path = tmp_path / ".databrickscfg"
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
+    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(file_path))
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "test")
+
+    file_path.write_text("""[DEFAULT]
+host = http://default-workspace.databricks.com
+token = default-token
+
+[test]
+host = https://test-workspace.databricks.com
+token = test-token
+""")
+
+    # the resulting config should be the one from the [test] section
+    result = get_databricks_host_creds("databricks")
+    assert result.host == "https://test-workspace.databricks.com"
+    assert result.token == "test-token"
+
+
+def test_get_databricks_nfs_temp_dir():
+    mock_dbutils = mock.MagicMock()
+    mock_client = mock.MagicMock()
+    mock_client.getUserNFSTempDir.return_value = "/nfs/user/grpc"
+
+    # When runtime_integration_client is available, use getUserNFSTempDir from client
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            return_value=mock_client,
+        ),
+    ):
+        assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user/grpc"
+        mock_client.getUserNFSTempDir.assert_called_once()
+
+    # When runtime_integration_client raises, fall back to entry_point.getUserNFSTempDir
+    mock_dbutils2 = mock.MagicMock()
+    mock_dbutils2.entry_point.getUserNFSTempDir.return_value = "/nfs/user"
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+    ):
+        assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user"
+        mock_dbutils2.entry_point.getUserNFSTempDir.assert_called_once()
+
+
+def test_get_databricks_local_temp_dir():
+    mock_dbutils = mock.MagicMock()
+    mock_client = mock.MagicMock()
+    mock_client.getUserLocalTempDir.return_value = "/local/user/grpc"
+
+    # When runtime_integration_client is available, use getUserLocalTempDir from client
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            return_value=mock_client,
+        ),
+    ):
+        assert databricks_utils.get_databricks_local_temp_dir() == "/local/user/grpc"
+        mock_client.getUserLocalTempDir.assert_called_once()
+
+    # When runtime_integration_client raises, fall back to entry_point.getUserLocalTempDir
+    mock_dbutils2 = mock.MagicMock()
+    mock_dbutils2.entry_point.getUserLocalTempDir.return_value = "/local/user"
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+    ):
+        assert databricks_utils.get_databricks_local_temp_dir() == "/local/user"
+        mock_dbutils2.entry_point.getUserLocalTempDir.assert_called_once()
+
+
+def test_get_databricks_host_creds_propagates_workspace_id(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://spog.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    mock_config = mock.MagicMock()
+    mock_config.workspace_id = "6051921418418893"
+
+    mock_ws = mock.MagicMock()
+    mock_ws.config = mock_config
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_ws) as mock_ws_cls:
+        result = get_databricks_host_creds("databricks")
+        # WorkspaceClient must be called without args when profile is None so the SDK
+        # uses env-var-based auth (e.g. OIDC). Passing profile=None disables that.
+        mock_ws_cls.assert_called_once_with()
+        assert result.workspace_id == "6051921418418893"
+        assert result.use_databricks_sdk
+
+
+def test_get_databricks_host_creds_workspace_id_none_when_not_set(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    mock_config = mock.MagicMock()
+    mock_config.workspace_id = None
+
+    mock_ws = mock.MagicMock()
+    mock_ws.config = mock_config
+
+    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_ws):
+        result = get_databricks_host_creds("databricks")
+        assert result.workspace_id is None
+
+
+def test_get_databricks_host_creds_workspace_id_from_config_on_sdk_failure(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://spog.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    mock_config = mock.MagicMock()
+    mock_config.workspace_id = "6051921418418893"
+
+    with (
+        mock.patch(
+            "databricks.sdk.WorkspaceClient",
+            side_effect=Exception("SDK auth failed"),
+        ),
+        mock.patch(
+            "databricks.sdk.config.Config",
+            return_value=mock_config,
+        ),
+    ):
+        result = get_databricks_host_creds("databricks")
+        assert result.workspace_id == "6051921418418893"
+        assert not result.use_databricks_sdk
+
+
+def test_get_databricks_host_creds_workspace_id_none_on_full_failure(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+
+    with (
+        mock.patch(
+            "databricks.sdk.WorkspaceClient",
+            side_effect=Exception("SDK auth failed"),
+        ),
+        mock.patch(
+            "databricks.sdk.config.Config",
+            side_effect=Exception("Config failed"),
+        ),
+    ):
+        result = get_databricks_host_creds("databricks")
+        assert result.workspace_id is None
+        assert not result.use_databricks_sdk

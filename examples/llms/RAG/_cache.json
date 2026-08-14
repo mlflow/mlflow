@@ -1,0 +1,351 @@
+{
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Tasks: 1. Please generate a question asking for the key information in the given paragraph. 2. Answer the questions using the information in the given paragraph. 3. Please call the submit_function function to submit the generated question and answer. \\n    Quality requirements: Please ask specific questions instead of general questions. Avoid 'What is the key information in the given paragraph?'. Please generate the answer using as much information as possible. If you are unable to answer it, answer 'I don't know.' The answer should be informative and should be more than 3 sentences.\\n    \\nParagraph: Documentation MLflow Model Registry MLflow Model Registry The MLflow Model Registry component is a centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of an MLflow Model. It provides model lineage (which MLflow experiment and run produced the model), model versioning, model aliasing, model tagging, and annotations. Table of Contents Concepts Model Registry Workflows UI Workflow Register a Model Find Registered Models Deploy and Organize Models API Workflow Adding an MLflow Model to the Model Registry Deploy and Organize Models with Aliases and Tags Fetching an MLflow Model from the Model Registry Serving an MLflow Model from Model Registry Promoting an MLflow Model across environments Adding or Updating an MLflow Model Descriptions Renaming an MLflow Model Listing and Searching MLflow Models Deleting MLflow Models Registering a Model Saved Outside MLflow Registering an Unsupported Machine Learning Model Transitioning an MLflow Model\\u2019s Stage Archiving an MLflow Model Concepts The Model Registry introduces a few concepts that describe and facilitate the full lifecycle of an MLflow Model. ModelAn MLflow Model is created from an experiment or run that is logged with one of the model flavor\\u2019s mlflow.<model_flavor>.log_model() methods. Once logged, this model can then be registered with the Model Registry. Registered ModelAn MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions,\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPiCc8l9ymRKDODChgl8xjSAB5IZ",
+    "object": "chat.completion",
+    "created": 1700591072,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Question: What are the key features of the MLflow Model Registry component?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": { "prompt_tokens": 488, "completion_tokens": 16, "total_tokens": 504 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Tasks: 1. Please generate a question asking for the key information in the given paragraph. 2. Answer the questions using the information in the given paragraph. 3. Please call the submit_function function to submit the generated question and answer. \\n    Quality requirements: Please ask specific questions instead of general questions. Avoid 'What is the key information in the given paragraph?'. Please generate the answer using as much information as possible. If you are unable to answer it, answer 'I don't know.' The answer should be informative and should be more than 3 sentences.\\n    \\nParagraph: logged, this model can then be registered with the Model Registry. Registered ModelAn MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions, associated transitional stages, model lineage, and other metadata. Model VersionEach registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name increments the version number. Model AliasModel aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version, you can use the alias to refer that model version via a model URI or the model registry API. For example, you can create an alias named champion that points to version 1 of a model named MyModel. You can then refer to version 1 of MyModel by using the URI models:/MyModel@champion. Aliases are especially useful for deploying models. For example, you could assign a champion alias to the model version intended for production traffic and target this alias in production workloads. You can then update the model serving production traffic by reassigning the champion alias to a different model version. TagsTags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you could apply a tag with key \\\"task\\\" and value \\\"question-answering\\\"\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPiGO3LWjYnhzlH4mi43o5EpHYHX",
+    "object": "chat.completion",
+    "created": 1700591076,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Question: What is the purpose of registering a model with the Model Registry?"
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": { "prompt_tokens": 502, "completion_tokens": 16, "total_tokens": 518 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: Documentation MLflow Model Registry MLflow Model Registry The MLflow Model Registry component is a centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of an MLflow Model. It provides model lineage (which MLflow experiment and run produced the model), model versioning, model aliasing, model tagging, and annotations. Table of Contents Concepts Model Registry Workflows UI Workflow Register a Model Find Registered Models Deploy and Organize Models API Workflow Adding an MLflow Model to the Model Registry Deploy and Organize Models with Aliases and Tags Fetching an MLflow Model from the Model Registry Serving an MLflow Model from Model Registry Promoting an MLflow Model across environments Adding or Updating an MLflow Model Descriptions Renaming an MLflow Model Listing and Searching MLflow Models Deleting MLflow Models Registering a Model Saved Outside MLflow Registering an Unsupported Machine Learning Model Transitioning an MLflow Model\\u2019s Stage Archiving an MLflow Model Concepts The Model Registry introduces a few concepts that describe and facilitate the full lifecycle of an MLflow Model. ModelAn MLflow Model is created from an experiment or run that is logged with one of the model flavor\\u2019s mlflow.<model_flavor>.log_model() methods. Once logged, this model can then be registered with the Model Registry. Registered ModelAn MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions,\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPsIJQZYDP4aqiWEUlUyLakv3lyR",
+    "object": "chat.completion",
+    "created": 1700591698,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What is the purpose of the MLflow Model Registry?\",\n  \"answer\": \"The purpose of the MLflow Model Registry is to provide a centralized model store, set of APIs, and UI to collaboratively manage the full lifecycle of an MLflow Model. It allows for model lineage, versioning, aliasing, tagging, and annotations.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 490, "completion_tokens": 81, "total_tokens": 571 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: logged, this model can then be registered with the Model Registry. Registered ModelAn MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions, associated transitional stages, model lineage, and other metadata. Model VersionEach registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name increments the version number. Model AliasModel aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version, you can use the alias to refer that model version via a model URI or the model registry API. For example, you can create an alias named champion that points to version 1 of a model named MyModel. You can then refer to version 1 of MyModel by using the URI models:/MyModel@champion. Aliases are especially useful for deploying models. For example, you could assign a champion alias to the model version intended for production traffic and target this alias in production workloads. You can then update the model serving production traffic by reassigning the champion alias to a different model version. TagsTags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you could apply a tag with key \\\"task\\\" and value \\\"question-answering\\\"\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPt4v4A691LTyyQ8nT0Wirtmhrst",
+    "object": "chat.completion",
+    "created": 1700591746,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What are the key features of a registered model in the Model Registry?\",\n  \"answer\": \"A registered model in the Model Registry has a unique name, contains versions, associated transitional stages, model lineage, and other metadata. Each registered model can have one or many versions. Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. Tags can be used to label and categorize registered models and model versions.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 504, "completion_tokens": 103, "total_tokens": 607 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you could apply a tag with key \\\"task\\\" and value \\\"question-answering\\\" (displayed in the UI as task:question-answering) to registered models intended for question answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with validation_status:pending and those cleared for deployment with validation_status:approved. Annotations and DescriptionsYou can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology. Model StageEach distinct model version can be assigned one stage at any given time. MLflow provides predefined stages for common use-cases such as Staging, Production or Archived. You can transition a model version from one stage to another stage. Model Registry Workflows If running your own MLflow server, you must use a database-backed backend store in order to access the model registry via the UI or API. See here for more information. Before you can add a model to the Model Registry, you must log it using the log_model methods of the corresponding model flavors. Once a model has been logged, you can add, modify, update, or delete the model in the Model Registry through the UI or the API. UI Workflow This section demonstrates how to use the MLflow\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPuEi29MupchnJS5jUKOtRJR7kfb",
+    "object": "chat.completion",
+    "created": 1700591818,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What can you do with tags in MLflow?\",\n  \"answer\": \"In MLflow, you can associate tags with registered models and model versions. Tags allow you to label and categorize models by function or status. For example, you can apply a tag with key 'task' and value 'question-answering' to registered models intended for question answering tasks. At the model version level, you can tag versions undergoing pre-deployment validation with 'validation_status:pending' and those cleared for deployment with 'validation_status:approved'. Tags provide a way to organize and manage models in MLflow.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 494, "completion_tokens": 135, "total_tokens": 629 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: Documentation MLflow Models MLflow Models An MLflow Model is a standard format for packaging machine learning models that can be used in a variety of downstream tools\\u2014for example, real-time serving through a REST API or batch inference on Apache Spark. The format defines a convention that lets you save a model in different \\u201cflavors\\u201d that can be understood by different downstream tools. Table of Contents Storage Format Model Signature And Input Example Model API Built-In Model Flavors Model Evaluation Model Customization Built-In Deployment Tools Deployment to Custom Targets Community Model Flavors Storage Format Each MLflow Model is a directory containing arbitrary files, together with an MLmodel file in the root of the directory that can define multiple flavors that the model can be viewed in. Flavors are the key concept that makes MLflow Models powerful: they are a convention that deployment tools can use to understand the model, which makes it possible to write tools that work with models from any ML library without having to integrate each tool with each library. MLflow defines several \\u201cstandard\\u201d flavors that all of its built-in deployment tools support, such as a \\u201cPython function\\u201d flavor that describes how to run the model as a Python function. However, libraries can also define and use other flavors. For example, MLflow\\u2019s mlflow.sklearn library allows loading models back as a scikit-learn Pipeline object for use in code that is aware of scikit-learn, or as a generic\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPugLcpasx57CXfswBJVoyTLm140",
+    "object": "chat.completion",
+    "created": 1700591846,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What is the purpose of an MLflow Model?\",\n  \"answer\": \"An MLflow Model is a standard format for packaging machine learning models that can be used in a variety of downstream tools. It allows models to be served in real-time through a REST API or used for batch inference on Apache Spark. The format defines a convention that enables models to be saved in different 'flavors' that can be understood by different downstream tools.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 490, "completion_tokens": 100, "total_tokens": 590 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: define and use other flavors. For example, MLflow\\u2019s mlflow.sklearn library allows loading models back as a scikit-learn Pipeline object for use in code that is aware of scikit-learn, or as a generic Python function for use in tools that just need to apply the model (for example, the mlflow deployments tool with the option -t sagemaker for deploying models to Amazon SageMaker). All of the flavors that a particular model supports are defined in its MLmodel file in YAML format. For example, mlflow.sklearn outputs models as follows: # Directory written by mlflow.sklearn.save_model(model, \\\"my_model\\\") my_model/ \\u251c\\u2500\\u2500 MLmodel \\u251c\\u2500\\u2500 model.pkl \\u251c\\u2500\\u2500 conda.yaml \\u251c\\u2500\\u2500 python_env.yaml \\u2514\\u2500\\u2500 requirements.txt And its MLmodel file describes two flavors: time_created: 2018-05-25T17:28:53.35 flavors: sklearn: sklearn_version: 0.19.1 pickled_model: model.pkl python_function: loader_module: mlflow.sklearn This model can then be used with any tool that supports either the sklearn or python_function model flavor. For example, the mlflow models serve command can serve a model with the python_function or the crate (R Function) flavor: mlflow models serve -m my_model Note If you wish to serve a model from inside a docker container (or to query it from another machine), you need to change the network address to 0.0.0.0 using the -h argument. mlflow models serve -h 0.0.0.0 -m my_model In addition, the mlflow deployments command-line tool can package and deploy models to AWS SageMaker as long as they support the\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPv3AK8NVRka7uVL4HSbO5UVxaCq",
+    "object": "chat.completion",
+    "created": 1700591869,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What are the flavors defined in the MLmodel file for the mlflow.sklearn library?\",\n  \"answer\": \"The flavors defined in the MLmodel file for the mlflow.sklearn library are sklearn and python_function.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 555, "completion_tokens": 57, "total_tokens": 612 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: using the -h argument. mlflow models serve -h 0.0.0.0 -m my_model In addition, the mlflow deployments command-line tool can package and deploy models to AWS SageMaker as long as they support the python_function flavor: mlflow deployments create -t sagemaker -m my_model [other options] Note When a model registered in the MLflow Model Registry is downloaded, a YAML file named registered_model_meta is added to the model directory on the downloader\\u2019s side. This file contains the name and version of the model referenced in the MLflow Model Registry, and will be used for deployment and other purposes. Fields in the MLmodel Format Apart from a flavors field listing the model flavors, the MLmodel YAML format can contain the following fields: time_createdDate and time when the model was created, in UTC ISO 8601 format. run_idID of the run that created the model, if the model was saved using MLflow Tracking. signaturemodel signature in JSON format. input_examplereference to an artifact with input example. databricks_runtimeDatabricks runtime version and type, if the model was trained in a Databricks notebook or job. mlflow_versionThe version of MLflow that was used to log the model. Additional Logged Files For environment recreation, we automatically log conda.yaml, python_env.yaml, and requirements.txt files whenever a model is logged. These files can then be used to reinstall dependencies using conda or virtualenv with pip. Note Anaconda Inc. updated their terms of service for\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPvELIPSgpg610gGtWVqM3W1mVL8",
+    "object": "chat.completion",
+    "created": 1700591880,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What are the fields that can be contained in the MLmodel YAML format?\",\n  \"answer\": \"The MLmodel YAML format can contain the following fields: time_created (date and time when the model was created), run_id (ID of the run that created the model), signature (model signature in JSON format), input_example (reference to an artifact with input example), databricks_runtime (Databricks runtime version and type, if the model was trained in a Databricks notebook or job), and mlflow_version (the version of MLflow that was used to log the model). Additionally, for environment recreation, conda.yaml, python_env.yaml, and requirements.txt files are automatically logged whenever a model is logged, which can be used to reinstall dependencies using conda or virtualenv with pip.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 519, "completion_tokens": 174, "total_tokens": 693 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: Documentation MLflow Projects MLflow Projects An MLflow Project is a format for packaging data science code in a reusable and reproducible way, based primarily on conventions. In addition, the Projects component includes an API and command-line tools for running projects, making it possible to chain together projects into workflows. Table of Contents Overview Specifying Projects Running Projects Iterating Quickly Building Multistep Workflows Overview At the core, MLflow Projects are just a convention for organizing and describing your code to let other data scientists (or automated tools) run it. Each project is simply a directory of files, or a Git repository, containing your code. MLflow can run some projects based on a convention for placing files in this directory (for example, a conda.yaml file is treated as a Conda environment), but you can describe your project in more detail by adding a MLproject file, which is a YAML formatted text file. Each project can specify several properties: NameA human-readable name for the project. Entry PointsCommands that can be run within the project, and information about their parameters. Most projects contain at least one entry point that you want other users to call. Some projects can also contain more than one entry point: for example, you might have a single Git repository containing multiple featurization algorithms. You can also call any .py or .sh file in the project as an entry point. If you list your entry points in a MLproject\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPvrPxusa4ir2YAPhJrDx3ARmjI0",
+    "object": "chat.completion",
+    "created": 1700591919,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What is an MLflow Project?\",\n  \"answer\": \"An MLflow Project is a format for packaging data science code in a reusable and reproducible way, based primarily on conventions. It includes an API and command-line tools for running projects, making it possible to chain together projects into workflows. Each project is simply a directory of files, or a Git repository, containing code. MLflow can run projects based on a convention for placing files in the directory, but you can describe your project in more detail by adding a MLproject file, which is a YAML formatted text file.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 493, "completion_tokens": 129, "total_tokens": 622 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: might have a single Git repository containing multiple featurization algorithms. You can also call any .py or .sh file in the project as an entry point. If you list your entry points in a MLproject file, however, you can also specify parameters for them, including data types and default values. EnvironmentThe software environment that should be used to execute project entry points. This includes all library dependencies required by the project code. See Project Environments for more information about the software environments supported by MLflow Projects, including Conda environments, Virtualenv environments, and Docker containers. You can run any project from a Git URI or from a local directory using the mlflow run command-line tool, or the mlflow.projects.run() Python API. These APIs also allow submitting the project for remote execution on Databricks and Kubernetes. Important By default, MLflow uses a new, temporary working directory for Git projects. This means that you should generally pass any file arguments to MLflow project using absolute, not relative, paths. If your project declares its parameters, MLflow automatically makes paths absolute for parameters of type path. Specifying Projects By default, any Git repository or local directory can be treated as an MLflow project; you can invoke any bash or Python script contained in the directory as a project entry point. The Project Directories section describes how MLflow interprets directories as projects. To provide\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPwTJHxFt4k8ZWsWOoMSCqRBag3k",
+    "object": "chat.completion",
+    "created": 1700591957,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What can you specify for the entry points in a MLproject file?\",\n  \"answer\": \"In a MLproject file, you can specify parameters for the entry points, including data types and default values.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 484, "completion_tokens": 54, "total_tokens": 538 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: you can invoke any bash or Python script contained in the directory as a project entry point. The Project Directories section describes how MLflow interprets directories as projects. To provide additional control over a project\\u2019s attributes, you can also include an MLproject file in your project\\u2019s repository or directory. Finally, MLflow projects allow you to specify the software environment that is used to execute project entry points. Project Environments MLflow currently supports the following project environments: Virtualenv environment, conda environment, Docker container environment, and system environment. Virtualenv environment (preferred)Virtualenv environments support Python packages available on PyPI. When an MLflow Project specifies a Virtualenv environment, MLflow will download the specified version of Python by using pyenv and create an isolated environment that contains the project dependencies using virtualenv, activating it as the execution environment prior to running the project code. You can specify a Virtualenv environment for your MLflow Project by including a python_env entry in your MLproject file. For details, see the Project Directories and Specifying an Environment sections. Docker container environmentDocker containers allow you to capture non-Python dependencies such as Java libraries. When you run an MLflow project that specifies a Docker image, MLflow runs your image as is with the parameters specified in your MLproject file. In this case you\\u2019ll\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPwe5mYrzDkJokEFRc8wJSoX3Vf4",
+    "object": "chat.completion",
+    "created": 1700591968,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What are the project environments supported by MLflow?\",\n  \"answer\": \"MLflow currently supports the following project environments: Virtualenv environment, conda environment, Docker container environment, and system environment. Virtualenv environments support Python packages available on PyPI. Docker containers allow you to capture non-Python dependencies such as Java libraries.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 473, "completion_tokens": 79, "total_tokens": 552 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: Documentation Search Runs Search Runs The MLflow UI and API support searching runs within a single experiment or a group of experiments using a search filter API. This API is a simplified version of the SQL WHERE clause. Table of Contents Syntax Example Expressions Identifier Entity Names Containing Special Characters Entity Names Starting with a Number Run Attributes Datasets MLflow Tags Comparator Constant Programmatically Searching Runs Python R Java Syntax A search filter is one or more expressions joined by the AND keyword. The syntax does not support OR. Each expression has three parts: an identifier on the left-hand side (LHS), a comparator, and constant on the right-hand side (RHS). Example Expressions Search for the subset of runs with logged accuracy metric greater than 0.92. metrics.accuracy > 0.92 Search for all completed runs. attributes.status = \\\"FINISHED\\\" Search for all failed runs. attributes.status = \\\"FAILED\\\" Search for runs created after UNIX timestamp 1670628787527. attributes.created > 1670628787527 attributes.Created > 1670628787527 attributes.start_time > 1670628787527 Search for the subset of runs with F1 score greater than 0.5. metrics.`f1 score` > 0.5 Search for runs created by user \\u2018john@mlflow.com\\u2019. tags.`mlflow.user` = 'john@mlflow.com' Search for runs with models trained using scikit-learn (assumes runs have a tag called model whose value starts with sklearn). tags.`model` LIKE 'sklearn%' Search for runs with logistic regression models, ignoring\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPwtx8HDRiZ8E8scEYhgyIS5sRqj",
+    "object": "chat.completion",
+    "created": 1700591983,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What does the MLflow UI and API support in terms of searching runs?\",\n  \"answer\": \"The MLflow UI and API support searching runs within a single experiment or a group of experiments using a search filter API. This API is a simplified version of the SQL WHERE clause.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 527, "completion_tokens": 69, "total_tokens": 596 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: with models trained using scikit-learn (assumes runs have a tag called model whose value starts with sklearn). tags.`model` LIKE 'sklearn%' Search for runs with logistic regression models, ignoring case (assumes runs have a tag called type whose value contains logistic). tags.`type` ILIKE '%Logistic%' Search for runs whose names contain alpha. attributes.`run_name` ILIKE \\\"%alpha%\\\" attributes.`run name` ILIKE \\\"%alpha%\\\" attributes.`Run name` ILIKE \\\"%alpha%\\\" attributes.`Run Name` ILIKE \\\"%alpha%\\\" Search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and recorded error metric under 0.05. params.alpha = \\\"0.3\\\" and params.lambda = \\\"0.001\\\" and metrics.error <= 0.05 Identifier Required in the LHS of a search expression. Signifies an entity to compare against. An identifier has two parts separated by a period: the type of the entity and the name of the entity. The type of the entity is metrics, params, attributes, datasets, or tags. The entity name can contain alphanumeric characters and special characters. This section describes supported entity names and how to specify such names in search expressions. In this section: Entity Names Containing Special Characters Entity Names Starting with a Number Run Attributes Datasets MLflow Tags Entity Names Containing Special Characters When a metric, parameter, or tag name contains a special character like hyphen, space, period, and so on, enclose the entity name in double quotes or backticks. Examples\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPx9B8Pu721RIJb8q8HUxPNga514",
+    "object": "chat.completion",
+    "created": 1700591999,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What are the key information in the given paragraph?\",\n  \"answer\": \"The key information in the given paragraph includes the search criteria for finding runs with specific models and tags, such as models trained using scikit-learn and runs with logistic regression models. It also includes the search criteria for finding runs with specific attributes, such as runs whose names contain 'alpha'. Additionally, the paragraph provides information on how to search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and recorded error metric under 0.05. It also explains the concept of an identifier and how to specify entity names in search expressions.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 527, "completion_tokens": 145, "total_tokens": 672 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: Containing Special Characters When a metric, parameter, or tag name contains a special character like hyphen, space, period, and so on, enclose the entity name in double quotes or backticks. Examples params.\\\"model-type\\\" metrics.`error rate` Entity Names Starting with a Number Unlike SQL syntax for column names, MLflow allows logging metrics, parameters, and tags names that have a leading number. If an entity name contains a leading number, enclose the entity name in double quotes. For example: metrics.\\\"2019-04-02 error rate\\\" Run Attributes You can search using the following run attributes contained in mlflow.entities.RunInfo: run_id, run_name, status, artifact_uri, user_id, start_time and end_time. The run_id, run_name, status, user_id and artifact_uri attributes have string values, while start_time and end_time are numeric. Other fields in mlflow.entities.RunInfo are not searchable. Run name, Run Name and run name are aliases for run_name. created and Created are aliases for start_time. Note The experiment ID is implicitly selected by the search API. A run\\u2019s lifecycle_stage attribute is not allowed because it is already encoded as a part of the API\\u2019s run_view_type field. To search for runs using run_id, it is more efficient to use get_run APIs. Example attributes.artifact_uri = 'models:/mymodel/1' attributes.status = 'ACTIVE' # RHS value for start_time and end_time are unix timestamp attributes.start_time >= 1664067852747 attributes.end_time < 1664067852747\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPz25prr5U6RKIUCem7dT0diAeu5",
+    "object": "chat.completion",
+    "created": 1700592116,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What are some examples of entity names that contain special characters?\",\n  \"answer\": \"Some examples of entity names that contain special characters are params.\\\"model-type\\\" and metrics.`error rate`.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 528, "completion_tokens": 52, "total_tokens": 580 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: Documentation MLflow Tracking MLflow Tracking The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files when running your machine learning code and for later visualizing the results. MLflow Tracking lets you log and query experiments using Python, REST, R API, and Java API APIs. Table of Contents Concepts Where Runs Are Recorded How runs and artifacts are recorded Scenario 1: MLflow on localhost Scenario 2: MLflow on localhost with SQLite Scenario 3: MLflow on localhost with Tracking Server Scenario 4: MLflow with remote Tracking Server, backend and artifact stores Scenario 5: MLflow Tracking Server enabled with proxied artifact storage access Scenario 6: MLflow Tracking Server used exclusively as proxied access host for artifact storage access Logging Data to Runs Logging functions Launching Multiple Runs in One Program Performance Tracking with Metrics Visualizing Metrics Automatic Logging Scikit-learn Keras Gluon XGBoost LightGBM Statsmodels Spark Fastai Pytorch Organizing Runs in Experiments Managing Experiments and Runs with the Tracking Service API Tracking UI Querying Runs Programmatically MLflow Tracking Servers Storage Networking Using the Tracking Server for proxied artifact access Logging to a Tracking Server System Tags Concepts MLflow Tracking is organized around the concept of runs, which are executions of some piece of data science code. Each run records the following information: Code VersionGit commit hash\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPzCtxAH1sGVA3lPlMeHNHRVqbyh",
+    "object": "chat.completion",
+    "created": 1700592126,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What is the purpose of MLflow Tracking?\",\n  \"answer\": \"The purpose of MLflow Tracking is to log parameters, code versions, metrics, and output files when running machine learning code and to visualize the results later. It provides an API and UI for logging and querying experiments using Python, REST, R API, and Java API. MLflow Tracking is used to organize runs, which are executions of data science code, and each run records information such as code version and Git commit hash.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 485, "completion_tokens": 112, "total_tokens": 597 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: Tags Concepts MLflow Tracking is organized around the concept of runs, which are executions of some piece of data science code. Each run records the following information: Code VersionGit commit hash used for the run, if it was run from an MLflow Project. Start & End TimeStart and end time of the run SourceName of the file to launch the run, or the project name and entry point for the run if run from an MLflow Project. ParametersKey-value input parameters of your choice. Both keys and values are strings. MetricsKey-value metrics, where the value is numeric. Each metric can be updated throughout the course of the run (for example, to track how your model\\u2019s loss function is converging), and MLflow records and lets you visualize the metric\\u2019s full history. ArtifactsOutput files in any format. For example, you can record images (for example, PNGs), models (for example, a pickled scikit-learn model), and data files (for example, a Parquet file) as artifacts. You can record runs using MLflow Python, R, Java, and REST APIs from anywhere you run your code. For example, you can record them in a standalone program, on a remote cloud machine, or in an interactive notebook. If you record runs in an MLflow Project, MLflow remembers the project URI and source version. You can optionally organize runs into experiments, which group together runs for a specific task. You can create an experiment using the mlflow experiments CLI, with mlflow.create_experiment(), or using the corresponding REST\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NPzZoaVTqzDBcL814sCc46HuzNme",
+    "object": "chat.completion",
+    "created": 1700592149,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"What information does each run record in MLflow Tracking?\",\n  \"answer\": \"Each run in MLflow Tracking records the following information: Code Version (Git commit hash used for the run, if it was run from an MLflow Project), Start & End Time, Source (Name of the file to launch the run, or the project name and entry point for the run if run from an MLflow Project), Parameters (Key-value input parameters of your choice), Metrics (Key-value metrics, where the value is numeric), and Artifacts (Output files in any format). MLflow also allows you to visualize the full history of metrics recorded during a run.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 520, "completion_tokens": 144, "total_tokens": 664 }
+  },
+  "{\"messages\": [{\"role\": \"user\", \"content\": \"Please generate a question asking for the key information in the given paragraph. \\n    Also answer the questions using the information in the given paragraph.\\n    Please ask the specific question instead of the general question, like\\n    'What is the key information in the given paragraph?'.\\n    Please generate the answer using as much information as possible.\\n    If you are unable to answer it, please generate the answer as 'I don't know.'\\n    The answer should be informative and should be more than 3 sentences.\\n    \\n    Paragraph: runs into experiments, which group together runs for a specific task. You can create an experiment using the mlflow experiments CLI, with mlflow.create_experiment(), or using the corresponding REST parameters. The MLflow API and UI let you create and search for experiments. Once your runs have been recorded, you can query them using the Tracking UI or the MLflow API. Where Runs Are Recorded MLflow runs can be recorded to local files, to a SQLAlchemy-compatible database, or remotely to a tracking server. By default, the MLflow Python API logs runs locally to files in an mlruns directory wherever you ran your program. You can then run mlflow ui to see the logged runs. To log runs remotely, set the MLFLOW_TRACKING_URI environment variable to a tracking server\\u2019s URI or call mlflow.set_tracking_uri(). There are different kinds of remote tracking URIs: Local file path (specified as file:/my/local/dir), where data is just directly stored locally. Database encoded as <dialect>+<driver>://<username>:<password>@<host>:<port>/<database>. MLflow supports the dialects mysql, mssql, sqlite, and postgresql. For more details, see SQLAlchemy database uri. HTTP server (specified as https://my-server:5000), which is a server hosting an MLflow tracking server. Databricks workspace (specified as databricks or as databricks://<profileName>, a Databricks CLI profile. Refer to Access the MLflow tracking server from outside Databricks [AWS] [Azure], or the quickstart to easily get started with hosted\\n    \\n    Please call the submit_function function to submit the generated question and answer.\\n    \"}], \"model\": \"gpt-3.5-turbo\", \"functions\": [{\"name\": \"submit_function\", \"description\": \"Call this function to submit the generated question and answer.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"question\": {\"type\": \"string\", \"description\": \"The question asking for the key information in the given paragraph.\"}, \"answer\": {\"type\": \"string\", \"description\": \"The answer to the question using the information in the given paragraph.\"}}, \"required\": [\"question\", \"answer\"]}}], \"function_call\": \"auto\", \"temperature\": 0.0, \"seed\": 2023}": {
+    "id": "chatcmpl-8NQ05ACacakGcfO01w48OAU3VRsY9",
+    "object": "chat.completion",
+    "created": 1700592181,
+    "model": "gpt-3.5-turbo-0613",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "function_call": {
+            "name": "submit_function",
+            "arguments": "{\n  \"question\": \"How can you create an experiment in MLflow?\",\n  \"answer\": \"You can create an experiment in MLflow using the mlflow experiments CLI, with mlflow.create_experiment(), or using the corresponding REST parameters.\"\n}"
+          }
+        },
+        "finish_reason": "function_call"
+      }
+    ],
+    "usage": { "prompt_tokens": 528, "completion_tokens": 56, "total_tokens": 584 }
+  }
+}

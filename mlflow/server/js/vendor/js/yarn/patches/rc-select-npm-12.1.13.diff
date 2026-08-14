@@ -1,0 +1,60 @@
+diff --git a/es/generate.js b/es/generate.js
+index 3d7188d28310a42d2beb1382c9ac7bfa1db09aa1..c47164a2954931625ed58b93cb6adb30b2d8c243 100644
+--- a/es/generate.js
++++ b/es/generate.js
+@@ -717,7 +717,7 @@ export default function generateSelector(config) {
+ 
+           cancelSetMockFocused();
+ 
+-          if (!mobile && !popupElement.contains(document.activeElement)) {
++          if (!mobile && !popupElement.contains(target.getRootNode().activeElement)) {
+             var _selectorRef$current3;
+ 
+             (_selectorRef$current3 = selectorRef.current) === null || _selectorRef$current3 === void 0 ? void 0 : _selectorRef$current3.focus();
+diff --git a/es/utils/commonUtil.js b/es/utils/commonUtil.js
+index e2d6f8686e40b87ca655ca480cbbe884b862e325..95f8d0214772895b7cb85d4cac01efac0b977e7f 100644
+--- a/es/utils/commonUtil.js
++++ b/es/utils/commonUtil.js
+@@ -98,10 +98,10 @@ export function getUUID() {
+ 
+   if (isBrowserClient) {
+     retId = uuid;
+-    uuid += 1;
+   } else {
+-    retId = 'TEST_OR_SSR';
++    retId = 'TEST_OR_SSR_' + uuid;
+   }
++  uuid += 1;
+ 
+   return retId;
+ }
+diff --git a/lib/generate.js b/lib/generate.js
+index c2a42112863367c708be0376b4075bdc00409b1d..8f789ea2d7516ceaea9b96e67303fe05f61a47a5 100644
+--- a/lib/generate.js
++++ b/lib/generate.js
+@@ -748,7 +748,7 @@ function generateSelector(config) {
+ 
+           cancelSetMockFocused();
+ 
+-          if (!mobile && !popupElement.contains(document.activeElement)) {
++          if (!mobile && !popupElement.contains(target.getRootNode().activeElement)) {
+             var _selectorRef$current3;
+ 
+             (_selectorRef$current3 = selectorRef.current) === null || _selectorRef$current3 === void 0 ? void 0 : _selectorRef$current3.focus();
+diff --git a/lib/utils/commonUtil.js b/lib/utils/commonUtil.js
+index 1603bf0997312743d544833fbb22a08d11553686..eb9e4484b5593c26046f0cfa993f3d6f8183b418 100644
+--- a/lib/utils/commonUtil.js
++++ b/lib/utils/commonUtil.js
+@@ -118,10 +118,10 @@ function getUUID() {
+ 
+   if (isBrowserClient) {
+     retId = uuid;
+-    uuid += 1;
+   } else {
+-    retId = 'TEST_OR_SSR';
++    retId = 'TEST_OR_SSR_' + uuid;
+   }
++  uuid += 1;
+ 
+   return retId;
+ }

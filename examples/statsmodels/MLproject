@@ -1,0 +1,9 @@
+name: statsmodels-example
+python_env: python_env.yaml
+entry_points:
+  main:
+    parameters:
+      inverse_method: {type: str, default: 'pinv'}
+    command: |
+        python train.py \
+          --inverse-method={inverse_method}

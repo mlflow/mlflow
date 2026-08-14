@@ -1,0 +1,35 @@
+name: Advice
+
+on:
+  pull_request_target:
+    types:
+      - opened
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  notify:
+    if: >
+      !(github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      pull-requests: write # advice.js comments on PRs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          retries: 3
+          script: |
+            const script = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/advice.js`
+            );
+            await script({ context, github });

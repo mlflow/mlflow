@@ -1,0 +1,46 @@
+# This job prevents accidental auto-merging of PRs when jobs that are conditionally
+# triggered (for example, those defined in `cross-version-tests.yml`) are either still
+# in the process of running or have resulted in failures.
+name: Protect
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+  merge_group:
+    types:
+      - checks_requested
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  protect:
+    # Skip this job in a merge queue
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      checks: read # to read check statuses
+      actions: read # to read workflow runs and jobs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          retries: 3
+          script: |
+            const script = require('./.github/workflows/protect.js');
+            await script({ github, context });

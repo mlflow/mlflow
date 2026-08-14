@@ -1,0 +1,33 @@
+.mlflow-pdf-outer-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  padding-left: 16px;
+  overflow: hidden;
+}
+.mlflow-pdf-viewer {
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+  height: 100%;
+}
+
+.mlflow-paginator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: sticky;
+  z-index: 1001;
+  top: 0;
+  padding-bottom: 15px;
+  background-color: rgba(250, 250, 250, 0.6);
+  padding-top: 10px;
+}
+
+.mlflow-document {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

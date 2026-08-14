@@ -1,0 +1,827 @@
+import asyncio
+import enum
+import ipaddress
+import uuid
+from collections.abc import Awaitable, Callable
+from pathlib import Path
+from typing import Any, AsyncGenerator, Literal
+
+from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import StreamingResponse
+from fastapi.routing import APIRoute
+from pydantic import BaseModel, Field
+from starlette.responses import Response
+
+from mlflow.assistant import clear_project_path_cache, get_project_path
+from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
+from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
+from mlflow.assistant.gateway_connection import (
+    _GATEWAY_VENDOR_MODELS,
+    GatewayUnsupportedError,
+    ensure_gateway_connection,
+)
+from mlflow.assistant.providers import (
+    MlflowGatewayProvider,
+    list_providers,
+    resolve_default_provider,
+)
+from mlflow.assistant.providers.base import (
+    AssistantProvider,
+    ClientToolDelivery,
+    CLINotInstalledError,
+    NotAuthenticatedError,
+    ProviderNotConfiguredError,
+    clear_config_cache,
+)
+from mlflow.assistant.skill_installer import install_skills, list_installed_skills
+from mlflow.assistant.types import EventType
+from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
+from mlflow.server.asgi_utils import get_server_base_url
+from mlflow.server.assistant.session import SessionManager, terminate_session_process
+from mlflow.server.handlers import _add_static_prefix
+
+
+def _get_provider(name: str):
+    for p in list_providers():
+        if p.name == name:
+            return p
+    return None
+
+
+def _get_selected_provider(config: AssistantConfig | None = None):
+    """Return only the provider explicitly selected in Assistant config."""
+    if config is None:
+        config = AssistantConfig.load()
+    for provider_name, provider_config in config.providers.items():
+        if provider_config.selected:
+            return _get_provider(provider_name)
+    return None
+
+
+def _resolve_provider(
+    config: AssistantConfig | None = None, remote: bool = False
+) -> AssistantProvider | None:
+    """Return the explicit provider, or a runtime default for chat routes."""
+    selected = _get_selected_provider(config)
+    if selected is not None:
+        if remote and not selected.allows_remote_access:
+            return None
+        return selected
+    return resolve_default_provider(remote=remote)
+
+
+_BLOCK_REMOTE_ACCESS_ERROR_MSG = (
+    "Assistant API is only accessible from the same host where the MLflow server is running."
+)
+
+
+def _is_localhost(request: Request) -> bool:
+    # This app is only ever served via uvicorn (see mlflow/server/__init__.py), which by
+    # default trusts X-Forwarded-For from 127.0.0.1 and rewrites request.client.host
+    # accordingly. So a same-host reverse proxy on 127.0.0.1 does not defeat this check.
+    client_host = request.client.host if request.client else None
+    if not client_host:
+        return False
+    try:
+        ip = ipaddress.ip_address(client_host)
+    except ValueError:
+        return False
+    return ip.is_loopback
+
+
+def _provider_allows_remote_access(provider: AssistantProvider | None) -> bool:
+    if provider is None:
+        return False
+    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and provider.allows_remote_access
+
+
+def _enforce_remote_access(request: Request, provider: AssistantProvider | None) -> None:
+    if _is_localhost(request):
+        return
+    if not _provider_allows_remote_access(provider):
+        raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
+
+
+# Per-route remote-access policy:
+#   ONLY_SAFE_PROVIDER — gate on the provider identified by a {provider} path parameter,
+#                        falling back to whichever provider the user has currently selected
+#   DENY               — always block remote access (stays localhost-only regardless of mode)
+#   NONE               — no gating (e.g. GET /config, which redacts secrets instead)
+class _RemoteAccessPolicy(str, enum.Enum):
+    ONLY_SAFE_PROVIDER = "only_safe_provider"
+    DENY = "deny"
+    NONE = "none"
+
+
+_REMOTE_ACCESS_POLICY_ATTR = "_assistant_remote_access_policy"
+
+
+def _remote_access_policy(policy: _RemoteAccessPolicy):
+    def decorator(func):
+        setattr(func, _REMOTE_ACCESS_POLICY_ATTR, policy)
+        return func
+
+    return decorator
+
+
+def _get_route_provider(request: Request) -> AssistantProvider | None:
+    if provider_name := request.path_params.get("provider"):
+        return _get_provider(provider_name)
+    return _resolve_provider(remote=not _is_localhost(request))
+
+
+class _AssistantAPIRoute(APIRoute):
+    def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
+        original_route_handler = super().get_route_handler()
+        policy: _RemoteAccessPolicy | None = getattr(
+            self.endpoint, _REMOTE_ACCESS_POLICY_ATTR, None
+        )
+        if policy is None:
+            raise RuntimeError(
+                f"Assistant route {self.path!r} ({self.endpoint.__name__}) is missing a "
+                f"remote-access policy. Add @_remote_access_policy(...) to the endpoint."
+            )
+
+        async def route_handler(request: Request) -> Response:
+            if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
+                if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
+                    raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
+                provider = _get_route_provider(request)
+                # A {provider} path param that doesn't resolve to a known provider is a
+                # 404, not a remote-access decision; let the endpoint handle it.
+                if not ("provider" in request.path_params and provider is None):
+                    _enforce_remote_access(request, provider)
+            return await original_route_handler(request)
+
+        return route_handler
+
+
+assistant_router = APIRouter(
+    prefix="/ajax-api/3.0/mlflow/assistant",
+    tags=["assistant"],
+    route_class=_AssistantAPIRoute,
+)
+
+_TURN_SCOPED_CONTEXT_KEYS = {"customTraceView"}
+
+
+class MessageRequest(BaseModel):
+    message: str
+    session_id: str | None = None  # empty for the first message
+    experiment_id: str | None = None
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class MessageResponse(BaseModel):
+    session_id: str
+    stream_url: str
+
+
+# Config-related models
+class ConfigResponse(BaseModel):
+    providers: dict[str, Any] = Field(default_factory=dict)
+    projects: dict[str, Any] = Field(default_factory=dict)
+    remote_access_allowed: bool = False
+
+
+class ConfigUpdateRequest(BaseModel):
+    providers: dict[str, Any] | None = None
+    projects: dict[str, Any] | None = None
+
+
+class ProviderInfo(BaseModel):
+    name: str
+    display_name: str
+    description: str
+    available: bool
+    selected: bool
+    requires_api_key: bool
+    has_api_key: bool
+    allows_remote_access: bool
+    # How client-executed actions are delivered: as native tool calls, terminal
+    # structured output, or not supported by this provider.
+    client_tool_delivery: ClientToolDelivery = "unsupported"
+    model_options: list[str] = Field(default_factory=list)
+
+
+class ResolvedProviderInfo(BaseModel):
+    name: str
+    model: str | None = None
+    auto_selected: bool
+    requires_api_key: bool
+    has_api_key: bool
+    client_tool_delivery: ClientToolDelivery = "unsupported"
+    model_provider: str | None = None
+    model_options: list[str] = Field(default_factory=list)
+    provider_model: str | None = None
+
+
+class ProvidersResponse(BaseModel):
+    providers: list[ProviderInfo]
+    resolved: ResolvedProviderInfo | None
+    gateway_vendor_options: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class SessionPatchRequest(BaseModel):
+    status: Literal["cancelled"]
+
+
+class SessionPatchResponse(BaseModel):
+    message: str
+
+
+class PermissionDecision(BaseModel):
+    request_id: str  # the paused tool_call's id
+    decision: Literal["allow", "deny"]
+
+
+class ClientToolResult(BaseModel):
+    request_id: str  # the paused tool_call's id
+    content: str
+    is_error: bool = False
+
+
+def _store_gateway_api_key(name: str, provider_data: dict[str, Any]) -> str | None:
+    api_key = provider_data.get("api_key")
+    gateway_vendor = provider_data.get("gateway_vendor")
+    if not api_key and gateway_vendor is None:
+        return None
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Gateway vendor connections require an API key.",
+        )
+    if name != MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+        raise HTTPException(
+            status_code=400,
+            detail="API keys must be stored in LLM Connections through the "
+            "'mlflow_gateway' provider.",
+        )
+    if gateway_vendor is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Gateway API keys require a gateway_vendor.",
+        )
+    try:
+        return ensure_gateway_connection(gateway_vendor, api_key)
+    except (GatewayUnsupportedError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+def _gateway_vendor_options() -> dict[str, list[str]]:
+    return {vendor: [model] for vendor, model in _GATEWAY_VENDOR_MODELS.items()}
+
+
+def _gateway_vendor_from_managed_endpoint(model: str | None) -> str | None:
+    if not model:
+        return None
+    prefix = "mlflow-assistant-"
+    vendor = model.removeprefix(prefix)
+    if vendor == model:
+        return None
+    return vendor if vendor in _GATEWAY_VENDOR_MODELS else None
+
+
+def _resolved_provider_info(
+    provider: AssistantProvider,
+    provider_config: Any | None,
+    *,
+    auto_selected: bool,
+) -> ResolvedProviderInfo:
+    model = (
+        provider_config.model if provider_config and provider_config.model != "default" else None
+    )
+    resolved = ResolvedProviderInfo(
+        name=provider.name,
+        model=model,
+        auto_selected=auto_selected,
+        requires_api_key=False,
+        has_api_key=False,
+        client_tool_delivery=provider.client_tool_delivery,
+    )
+    if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+        if vendor := _gateway_vendor_from_managed_endpoint(model):
+            provider_model = _GATEWAY_VENDOR_MODELS[vendor]
+            resolved.model_provider = vendor
+            resolved.model_options = [provider_model]
+            resolved.provider_model = provider_model
+            resolved.has_api_key = True
+    return resolved
+
+
+def _resolve_assistant_provider(
+    config: AssistantConfig,
+    providers: list[AssistantProvider],
+) -> ResolvedProviderInfo | None:
+    for provider in providers:
+        provider_config = config.providers.get(provider.name)
+        if provider_config and provider_config.selected:
+            return _resolved_provider_info(provider, provider_config, auto_selected=False)
+
+    for provider in providers:
+        if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+            continue
+        if provider.is_available():
+            return _resolved_provider_info(provider, None, auto_selected=True)
+    return None
+
+
+# Skills-related models
+class SkillsInstallRequest(BaseModel):
+    type: Literal["global", "project", "custom"] = "global"
+    custom_path: str | None = None  # Required if type="custom"
+    experiment_id: str | None = None  # Used to get project_path for type="project"
+
+
+class SkillsInstallResponse(BaseModel):
+    installed_skills: list[str]
+    skills_directory: str
+
+
+@assistant_router.post("/message")
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
+async def send_message(request: MessageRequest) -> MessageResponse:
+    """
+    Send a message to the assistant and get a session for streaming the response.
+
+    Args:
+        request: MessageRequest with message, context, and optional session_id
+
+    Returns:
+        MessageResponse with session_id and stream_url
+    """
+    # Generate or use existing session ID
+    session_id = request.session_id or str(uuid.uuid4())
+
+    project_path = get_project_path(request.experiment_id) if request.experiment_id else None
+
+    # Create or update session
+    session = SessionManager.load(session_id)
+    if session is None:
+        session = SessionManager.create(
+            context=request.context, working_dir=Path(project_path) if project_path else None
+        )
+    else:
+        # Page context is merged for conversation continuity, but feature modes
+        # are turn-scoped. Remove omitted transient keys so leaving a feature
+        # cannot keep later turns in its provider/output mode.
+        for key in _TURN_SCOPED_CONTEXT_KEYS - request.context.keys():
+            session.context.pop(key, None)
+        session.update_context(request.context)
+
+    # Store the pending message with role
+    session.set_pending_message(role="user", content=request.message)
+    session.add_message(role="user", content=request.message)
+    SessionManager.save(session_id, session)
+
+    return MessageResponse(
+        session_id=session_id,
+        stream_url=_add_static_prefix(
+            f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream"
+        ),
+    )
+
+
+@assistant_router.get("/sessions/{session_id}/stream")
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
+async def stream_response(request: Request, session_id: str) -> StreamingResponse:
+    """
+    Stream the assistant's response via Server-Sent Events.
+
+    Args:
+        request: The FastAPI request object
+        session_id: The session ID returned from /message
+
+    Returns:
+        StreamingResponse with SSE events
+    """
+    session = SessionManager.load(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # A turn is driven by a pending user message (a new turn) or pending tool-call
+    # decisions/results (resuming a turn paused at a permission prompt or a
+    # client-executed tool call). All are consumed here so the stream is replay-safe.
+    pending_message = session.clear_pending_message()
+    tool_decisions = session.pending_tool_decisions
+    session.pending_tool_decisions = {}
+    client_tool_results = session.pending_client_tool_results
+    session.pending_client_tool_results = {}
+    if not pending_message and not tool_decisions and not client_tool_results:
+        raise HTTPException(status_code=400, detail="No pending message to process")
+    SessionManager.save(session_id, session)
+
+    prompt = pending_message.content if pending_message else ""
+    # On resume the decision/result rides in the context; the provider detects the
+    # pending tool_calls in history and applies it instead of starting a turn.
+    # A new message supersedes pending decisions/results: if both are present (e.g. a
+    # resume stream never consumed them and the user typed again), forwarding the
+    # stale state would make the provider resume the abandoned turn and silently
+    # drop the new message. Prefer the message.
+    context = dict(session.context)
+    if not pending_message:
+        if tool_decisions:
+            context["tool_decisions"] = tool_decisions
+        if client_tool_results:
+            context["client_tool_results"] = client_tool_results
+
+    # Extract the MLflow server URL from the request for the assistant to use.
+    # This assumes the assistant is accessing the same MLflow server that serves this API.
+    # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
+    tracking_uri = get_server_base_url(request)
+    is_remote = not _is_localhost(request)
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        nonlocal session
+        provider = await asyncio.to_thread(_resolve_provider, remote=is_remote)
+        if provider is None:
+            from mlflow.assistant.types import Event
+
+            yield Event.from_error(
+                "No assistant provider is configured or available."
+            ).to_sse_event()
+            return
+        async for event in provider.astream(
+            prompt=prompt,
+            tracking_uri=tracking_uri,
+            session_id=session.provider_session_id,
+            mlflow_session_id=session_id,
+            cwd=session.working_dir,
+            context=context,
+        ):
+            # Store provider session ID if returned (for conversation continuity).
+            # On a paused or failed turn this lets a later request resume the same
+            # provider conversation instead of losing its history.
+            provider_session_id = event.data.get("session_id")
+            if event.type in {EventType.DONE, EventType.ERROR} and provider_session_id:
+                session.provider_session_id = provider_session_id
+                SessionManager.save(session_id, session)
+
+            yield event.to_sse_event()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@assistant_router.patch("/sessions/{session_id}")
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
+async def patch_session(session_id: str, request: SessionPatchRequest) -> SessionPatchResponse:
+    """
+    Update session status.
+
+    Currently supports cancelling an active session, which terminates
+    the running assistant process.
+
+    Args:
+        session_id: The session ID
+        request: SessionPatchRequest with status to set
+
+    Returns:
+        SessionPatchResponse indicating success
+    """
+    session = SessionManager.load(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if request.status == "cancelled":
+        # Terminate any associated subprocess. The OpenAI-compatible provider
+        # holds no in-process state to release (the turn ends at each prompt).
+        # Drop any tool permissions/results so later stream doesn't see stale state.
+        session.pending_tool_decisions = {}
+        session.pending_client_tool_results = {}
+        SessionManager.save(session_id, session)
+        terminated = terminate_session_process(session_id)
+        msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
+        return SessionPatchResponse(message=msg)
+
+    # This branch is unreachable due to Literal type, but satisfies type checker
+    raise HTTPException(status_code=400, detail=f"Unknown status: {request.status}")
+
+
+@assistant_router.post("/sessions/{session_id}/permission")
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
+async def resolve_permission(session_id: str, request: PermissionDecision) -> MessageResponse:
+    """Deliver a tool-call permission decision and resume the paused turn on a new stream.
+
+    The decision is stored on the session and consumed by the next stream, which
+    re-enters the provider with the choice in context. Stateless across requests:
+    any worker can serve the decision because the pending state lives in the
+    session, not process memory.
+    """
+    try:
+        SessionManager.validate_session_id(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    session = SessionManager.load(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.pending_tool_decisions = {request.request_id: request.decision}
+    SessionManager.save(session_id, session)
+
+    return MessageResponse(
+        session_id=session_id,
+        stream_url=_add_static_prefix(
+            f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream"
+        ),
+    )
+
+
+@assistant_router.post("/sessions/{session_id}/tool-result")
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
+async def resolve_client_tool_result(session_id: str, request: ClientToolResult) -> MessageResponse:
+    """Deliver a client-executed tool's result and resume the paused turn on a new stream.
+
+    Mirrors `resolve_permission`: the result is stored on the session and consumed
+    by the next stream, which splices it in as the tool's result message and
+    continues the loop.
+    """
+    try:
+        SessionManager.validate_session_id(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    session = SessionManager.load(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.pending_client_tool_results = {
+        request.request_id: {"content": request.content, "is_error": request.is_error}
+    }
+    SessionManager.save(session_id, session)
+
+    return MessageResponse(
+        session_id=session_id,
+        stream_url=f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream",
+    )
+
+
+@assistant_router.get("/providers/{provider}/health")
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
+async def provider_health_check(provider: str) -> dict[str, str]:
+    p = _get_provider(provider)
+    if p is None:
+        raise HTTPException(status_code=404, detail=f"Provider '{provider}' not found")
+
+    try:
+        p.check_connection()
+    except NotImplementedError as e:
+        # Presets that delegate verification to the frontend (e.g. the
+        # in-server MLflow AI Gateway). Returning a clear 501 prevents the
+        # wizard from claiming a successful probe that never ran.
+        raise HTTPException(status_code=501, detail=str(e))
+    except CLINotInstalledError as e:
+        raise HTTPException(status_code=412, detail=str(e))
+    except NotAuthenticatedError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+    return {"status": "ok"}
+
+
+@assistant_router.get("/providers")
+@_remote_access_policy(_RemoteAccessPolicy.NONE)
+async def get_providers() -> ProvidersResponse:
+    config = AssistantConfig.load()
+    providers = list_providers()
+    provider_infos = [
+        ProviderInfo(
+            name=provider.name,
+            display_name=provider.display_name,
+            description=provider.description,
+            available=provider.is_available(),
+            selected=bool(config.providers.get(provider.name, None))
+            and config.providers[provider.name].selected,
+            requires_api_key=False,
+            has_api_key=False,
+            allows_remote_access=provider.allows_remote_access,
+            client_tool_delivery=provider.client_tool_delivery,
+            model_options=[],
+        )
+        for provider in providers
+    ]
+    return ProvidersResponse(
+        providers=provider_infos,
+        resolved=_resolve_assistant_provider(config, providers),
+        gateway_vendor_options=_gateway_vendor_options(),
+    )
+
+
+@assistant_router.get("/config")
+@_remote_access_policy(_RemoteAccessPolicy.NONE)
+async def get_config(request: Request) -> ConfigResponse:
+    """
+    Get the current assistant configuration.
+
+    Returns:
+        Current configuration including providers and projects.
+    """
+    config = AssistantConfig.load()
+    providers = {name: p.model_dump() for name, p in config.providers.items()}
+    is_remote = not _is_localhost(request)
+    selected_provider = _get_selected_provider(config)
+    provider = selected_provider or resolve_default_provider(
+        remote=is_remote, include_gateway=False
+    )
+    if selected_provider is None and provider is not None:
+        provider_config = config.providers.get(provider.name) or AssistantProviderConfig()
+        provider_data = provider_config.model_dump()
+        provider_data["selected"] = True
+        providers[provider.name] = provider_data
+    for provider_data in providers.values():
+        provider_data.pop("api_key", None)
+
+    projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
+    if not _is_localhost(request):
+        for project_data in projects.values():
+            project_data.pop("location", None)
+
+    return ConfigResponse(
+        providers=providers,
+        projects=projects,
+        remote_access_allowed=_provider_allows_remote_access(provider),
+    )
+
+
+@assistant_router.put("/config")
+@_remote_access_policy(_RemoteAccessPolicy.DENY)
+async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
+    """
+    Update the assistant configuration.
+
+    Args:
+        request: Partial configuration update.
+
+    Returns:
+        Updated configuration.
+    """
+    config = AssistantConfig.load()
+
+    # Update providers
+    if request.providers:
+        for name, provider_data in request.providers.items():
+            existing = config.providers.get(name)
+            model = provider_data.get("model") or (existing.model if existing else "default")
+            base_url = provider_data.get("base_url")
+            if gateway_model := _store_gateway_api_key(name, provider_data):
+                model = gateway_model
+            permissions = None
+            if "permissions" in provider_data:
+                perm_data = provider_data["permissions"]
+                permissions = PermissionsConfig(
+                    allow_edit_files=perm_data.get("allow_edit_files", True),
+                    allow_read_docs=perm_data.get("allow_read_docs", True),
+                    full_access=perm_data.get("full_access", False),
+                )
+            selected = provider_data.get("selected", False)
+            if selected:
+                config.set_provider(name, model, permissions, base_url=base_url)
+            else:
+                config.update_provider(
+                    name,
+                    model=model,
+                    permissions=permissions,
+                    base_url=base_url,
+                )
+
+    # Update projects
+    if request.projects:
+        for exp_id, project_data in request.projects.items():
+            if project_data is None:
+                # Remove project mapping
+                config.projects.pop(exp_id, None)
+            else:
+                location = project_data.get("location", "")
+                project_path = Path(location).expanduser()
+                if not project_path or not project_path.exists():
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Project path does not exist: {location}",
+                    )
+                config.projects[exp_id] = ProjectConfig(
+                    type=project_data.get("type", "local"),
+                    location=str(project_path),
+                )
+
+    config.save()
+
+    # Clear caches so provider and project path lookups pick up new settings
+    clear_config_cache()
+    clear_project_path_cache()
+
+    providers = {name: p.model_dump() for name, p in config.providers.items()}
+    for provider_data in providers.values():
+        provider_data.pop("api_key", None)
+
+    return ConfigResponse(
+        providers=providers,
+        projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+        remote_access_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
+    )
+
+
+@assistant_router.post("/skills/install")
+@_remote_access_policy(_RemoteAccessPolicy.DENY)
+async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
+    """
+    Install skills bundled with MLflow.
+    This endpoint only handles installation. Config updates should be done via PUT /config.
+
+    Args:
+        request: SkillsInstallRequest with type, custom_path, and experiment_id.
+
+    Returns:
+        SkillsInstallResponse with installed skill names and directory.
+
+    Raises:
+        HTTPException 400: If custom type without custom_path or project type without experiment_id.
+    """
+    config = AssistantConfig.load()
+
+    project_path: Path | None = None
+    if request.type == "project":
+        if not request.experiment_id:
+            raise HTTPException(status_code=400, detail="experiment_id required for 'project' type")
+        project_location = config.get_project_path(request.experiment_id)
+        if not project_location:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No project path configured for experiment {request.experiment_id}",
+            )
+        project_path = Path(project_location)
+
+    # Skills installation has side effects, so it requires an explicit provider
+    # selection instead of using _resolve_provider()'s runtime default.
+    provider = _get_selected_provider()
+    if provider is None:
+        raise HTTPException(
+            status_code=412,
+            detail="No assistant provider is configured or available.",
+        )
+
+    match request.type:
+        case "global":
+            destination = provider.resolve_skills_path(Path.home())
+        case "project":
+            destination = provider.resolve_skills_path(project_path)
+        case "custom":
+            if not request.custom_path:
+                raise HTTPException(
+                    status_code=400,
+                    detail="custom_path is required when type='custom'.",
+                )
+            destination = Path(request.custom_path).expanduser()
+
+    # Check if skills already exist - skip re-installation
+    if destination.exists():
+        if current_skills := list_installed_skills(destination):
+            return SkillsInstallResponse(
+                installed_skills=current_skills, skills_directory=str(destination)
+            )
+
+    installed = install_skills(destination)
+
+    return SkillsInstallResponse(installed_skills=installed, skills_directory=str(destination))
+
+
+@assistant_router.get("/providers/{provider}/models")
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
+async def list_provider_models(
+    provider: str,
+    base_url: str | None = None,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    # api_key is read from the X-API-Key header (not a query param) so the
+    # bearer token doesn't land in access logs, browser history, or referer
+    # headers. Remote-access gating mitigates remote exposure but not
+    # local logging.
+    api_key = x_api_key
+    p = _get_provider(provider)
+    if p is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Provider '{provider}' not found",
+        )
+
+    try:
+        models = p.list_models(base_url, api_key)
+        return {"models": models}
+    except NotImplementedError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Model listing is not supported for provider '{provider}'",
+        )
+    except CLINotInstalledError as e:
+        raise HTTPException(status_code=412, detail=str(e))
+    except ProviderNotConfiguredError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=str(e),
+        )

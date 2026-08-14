@@ -1,0 +1,782 @@
+import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
+import React from 'react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { TracesV3Logs } from './TracesV3Logs';
+
+import { IntlProvider } from '@databricks/i18n';
+import { QueryClient, QueryClientProvider, type UseMutateAsyncFunction } from '@databricks/web-shared/query-client';
+import { DesignSystemProvider } from '@databricks/design-system';
+import {
+  useMlflowTracesTableMetadata,
+  useSearchMlflowTraces,
+  useSelectedColumns,
+  useFilters,
+  useTableSort,
+  GenAITracesTableProvider,
+  REQUEST_TIME_COLUMN_ID,
+  TracesTableColumnType,
+  TracesTableColumnGroup,
+  FilterOperator,
+  shouldUseInfinitePaginatedTraces,
+} from '@databricks/web-shared/genai-traces-table';
+import { useTraceMetricsQuery } from '../../../../pages/experiment-overview/hooks/useTraceMetricsQuery';
+import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
+import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
+import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
+import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
+import { TracesV3EmptyState } from './TracesV3EmptyState';
+import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
+import { GenericNetworkRequestError } from '@mlflow/mlflow/src/shared/web-shared/errors/PredefinedErrors';
+import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+import * as useCountInfoModule from './hooks/useCountInfo';
+
+// Overriding default timeout for OSS tests
+// eslint-disable-next-line no-restricted-syntax
+jest.setTimeout(30000);
+
+// Mock all external dependencies
+jest.mock('@databricks/web-shared/genai-traces-table', () => {
+  const actual = jest.requireActual<typeof import('@databricks/web-shared/genai-traces-table')>(
+    '@databricks/web-shared/genai-traces-table',
+  );
+  return {
+    ...actual,
+    useExperimentVersionsQuery: jest.fn(),
+    useGenAiExperimentRunsForComparison: jest.fn(),
+    useMlflowTracesTableMetadata: jest.fn(),
+    useSearchMlflowTraces: jest.fn(),
+    useSelectedColumns: jest.fn(),
+    useFilters: jest.fn(),
+    useTableSort: jest.fn(),
+    invalidateMlflowSearchTracesCache: jest.fn(),
+    shouldUseInfinitePaginatedTraces: jest.fn(),
+  };
+});
+
+jest.mock('./hooks/useAssessmentCountMetrics', () => ({
+  useAssessmentCountMetrics: jest.fn(() => undefined),
+}));
+
+jest.mock('../../../../pages/experiment-overview/hooks/useTraceMetricsQuery', () => ({
+  useTraceMetricsQuery: jest.fn(() => ({ data: undefined, isLoading: false })),
+}));
+
+jest.mock('@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent', () => ({
+  useLogTelemetryEvent: jest.fn(() => jest.fn()),
+}));
+
+jest.mock('./hooks/useSetInitialTimeFilter', () => ({
+  useSetInitialTimeFilter: jest.fn(),
+}));
+
+jest.mock('../../../evaluations/hooks/useDeleteTraces', () => ({
+  useDeleteTracesMutation: jest.fn(),
+}));
+
+jest.mock('../../../traces/hooks/useEditExperimentTraceTags', () => ({
+  useEditExperimentTraceTags: jest.fn(),
+}));
+jest.mock('@mlflow/mlflow/src/common/utils/MarkdownUtils', () => ({
+  useMarkdownConverter: jest.fn(),
+}));
+
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableTagGrouping: jest.fn().mockReturnValue(true),
+}));
+jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
+  MlflowService: {
+    getExperimentTraceInfoV3: jest.fn(),
+    getExperimentTraceData: jest.fn(),
+  },
+}));
+
+// Mock the empty state component to avoid deep dependency issues
+jest.mock('./TracesV3EmptyState', () => ({
+  TracesV3EmptyState: jest.fn(() => null),
+}));
+
+// Mock useLocalStorage to prevent guidance popovers from showing in tests
+jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
+  useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
+}));
+
+jest.mock('../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal', () => ({
+  ExportTracesToDatasetModal: jest.fn(() => null),
+}));
+
+const renderComponent = (props = {}, initialEntries?: string[]) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+
+  return render(
+    <TestRouter
+      initialEntries={initialEntries}
+      routes={[
+        testRoute(
+          <IntlProvider locale="en">
+            <QueryClientProvider client={queryClient}>
+              <DesignSystemProvider>
+                <GenAITracesTableProvider isGroupedBySession={false}>
+                  <TracesV3Logs experimentIds={['test-experiment']} endpointName="test-endpoint" {...props} />
+                </GenAITracesTableProvider>
+              </DesignSystemProvider>
+            </QueryClientProvider>
+          </IntlProvider>,
+        ),
+      ]}
+    />,
+  );
+};
+
+describe('TracesV3Logs', () => {
+  beforeEach(() => {
+    // Default mock implementations
+    jest.mocked(useMarkdownConverter).mockReturnValue((markdown?: string) => markdown || '');
+
+    jest.mocked(useSelectedColumns).mockReturnValue({
+      selectedColumns: [
+        {
+          id: REQUEST_TIME_COLUMN_ID,
+          type: TracesTableColumnType.TRACE_INFO,
+          group: TracesTableColumnGroup.INFO,
+          label: 'Request Time',
+        },
+      ],
+      toggleColumns: jest.fn(),
+      setSelectedColumns: jest.fn(),
+    });
+
+    jest.mocked(useFilters).mockReturnValue([[], jest.fn()]);
+
+    jest
+      .mocked(useTableSort)
+      .mockReturnValue([
+        { key: REQUEST_TIME_COLUMN_ID, type: TracesTableColumnType.TRACE_INFO, asc: false },
+        jest.fn(),
+      ]);
+
+    jest.mocked(useDeleteTracesMutation).mockReturnValue({
+      mutateAsync: jest.fn(),
+    } as any);
+
+    jest.mocked(useEditExperimentTraceTags).mockReturnValue({
+      showEditTagsModalForTrace: jest.fn(),
+      EditTagsModal: <div>EditTagsModal</div>,
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  /**
+   * Loading State Test Matrix
+   *
+   * This matrix covers all combinations of the 3 main loading states:
+   * - isMetadataLoading (from useMlflowTracesTableMetadata)
+   * - isInitialTimeFilterLoading (from useSetInitialTimeFilter)
+   * - traceInfosLoading (from useSearchMlflowTraces)
+   *
+   * UI Components tracked:
+   * - Toolbar: GenAITracesTableToolbar (always rendered, but column selector can be loading)
+   * - Table: Either GenAITracesTableBodyContainer or ParagraphSkeleton components
+   *
+   * | isMetadataLoading | isInitialTimeFilterLoading | traceInfosLoading | UI in Loading State | UI Showing Data |
+   * |-------------------|----------------------------|-------------------|---------------------|-----------------|
+   * | false             | false                      | false             | None | Toolbar, Table |
+   * | false             | false                      | true              | Table | Toolbar |
+   * | false             | true                       | false             | Table | Toolbar |
+   * | false             | true                       | true              | Table | Toolbar |
+   * | true              | false                      | false             | Table | Toolbar (selecting a selector shows spinner) |
+   * | true              | false                      | true              | Table | Toolbar (selecting a selector shows spinner) |
+   * | true              | true                       | false             | Table | Toolbar (selecting a selector shows spinner) |
+   * | true              | true                       | true              | Table | Toolbar (selecting a selector shows spinner) |
+   *
+   */
+
+  const loadingStateMatrix = [
+    {
+      isMetadataLoading: false,
+      isInitialTimeFilterLoading: false,
+      traceInfosLoading: false,
+      testName: 'all loading states false',
+      uiInLoadingState: [],
+      uiShowingData: ['toolbar', 'table'],
+    },
+    {
+      isMetadataLoading: false,
+      isInitialTimeFilterLoading: false,
+      traceInfosLoading: true,
+      testName: 'only traceInfosLoading true',
+      uiInLoadingState: ['table'],
+      uiShowingData: ['toolbar'],
+    },
+    {
+      isMetadataLoading: false,
+      isInitialTimeFilterLoading: true,
+      traceInfosLoading: false,
+      testName: 'only isInitialTimeFilterLoading true',
+      uiInLoadingState: ['table'],
+      uiShowingData: ['toolbar'],
+    },
+    {
+      isMetadataLoading: false,
+      isInitialTimeFilterLoading: true,
+      traceInfosLoading: true,
+      testName: 'isInitialTimeFilterLoading and traceInfosLoading true',
+      uiInLoadingState: ['table'],
+      uiShowingData: ['toolbar'],
+    },
+    {
+      isMetadataLoading: true,
+      isInitialTimeFilterLoading: false,
+      traceInfosLoading: false,
+      testName: 'only isMetadataLoading true',
+      uiInLoadingState: ['table'],
+      uiShowingData: ['toolbar (selecting a selector shows spinner)'],
+    },
+    {
+      isMetadataLoading: true,
+      isInitialTimeFilterLoading: false,
+      traceInfosLoading: true,
+      testName: 'isMetadataLoading and traceInfosLoading true',
+      uiInLoadingState: ['table'],
+      uiShowingData: ['toolbar (selecting a selector shows spinner)'],
+    },
+    {
+      isMetadataLoading: true,
+      isInitialTimeFilterLoading: true,
+      traceInfosLoading: false,
+      testName: 'isMetadataLoading and isInitialTimeFilterLoading true',
+      uiInLoadingState: ['table'],
+      uiShowingData: ['toolbar (selecting a selector shows spinner)'],
+    },
+    {
+      isMetadataLoading: true,
+      isInitialTimeFilterLoading: true,
+      traceInfosLoading: true,
+      testName: 'all loading states true',
+      uiInLoadingState: ['table'],
+      uiShowingData: ['toolbar (selecting a selector shows spinner)'],
+    },
+  ];
+
+  describe('Error handling', () => {
+    it('should display error in table when useMlflowTracesTableMetadata errors', async () => {
+      const mockError = new GenericNetworkRequestError({ status: 500 }, new Error('Failed to fetch metadata'));
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: mockError,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      // Verify error is displayed in the table body
+      expect(screen.getByText('Fetching traces failed')).toBeInTheDocument();
+      expect(screen.getByText('A network error occurred.')).toBeInTheDocument();
+    });
+  });
+
+  describe('Loading state combinations', () => {
+    loadingStateMatrix.forEach(
+      ({
+        isMetadataLoading,
+        isInitialTimeFilterLoading,
+        traceInfosLoading,
+        testName,
+        uiInLoadingState,
+        uiShowingData,
+      }) => {
+        it(`should render correctly when ${testName}`, async () => {
+          // Set up mocks for this specific test case
+          const mockColumns = [
+            {
+              id: REQUEST_TIME_COLUMN_ID,
+              type: TracesTableColumnType.TRACE_INFO,
+              group: TracesTableColumnGroup.INFO,
+              label: 'Request Time',
+            },
+          ];
+
+          jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+            assessmentInfos: [],
+            allColumns: mockColumns,
+            totalCount: 10,
+            isLoading: isMetadataLoading,
+            error: null,
+            isEmpty: false,
+            tableFilterOptions: { source: [] },
+            evaluatedTraces: [],
+            otherEvaluatedTraces: [],
+          });
+
+          jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+            isInitialTimeFilterLoading: isInitialTimeFilterLoading,
+          });
+
+          jest.mocked(useSearchMlflowTraces).mockReturnValue({
+            data: traceInfosLoading ? undefined : [{ trace_id: 'test-trace-1' }],
+            isLoading: traceInfosLoading,
+            isFetching: traceInfosLoading,
+            error: null,
+          } as any);
+
+          renderComponent();
+          await waitForRoutesToBeRendered();
+
+          // Verify table loading state
+          if (uiInLoadingState.includes('table')) {
+            // When traceInfosLoading is true, we should see ParagraphSkeleton components
+            // The component renders 10 skeleton lines
+            const loadingTexts = screen.getAllByText('Loading...');
+            expect(loadingTexts.length).toBeGreaterThan(0);
+          }
+
+          // Verify table showing data
+          if (uiShowingData.includes('table')) {
+            // When table is showing data, we should not see loading skeletons
+            expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+          }
+
+          // Verify toolbar state - check if toolbar exists
+          // The toolbar is always rendered, containing the search and filters
+          const filterButton = screen.getByRole('button', { name: /filter/i });
+          expect(filterButton).toBeInTheDocument();
+
+          if (uiShowingData.includes('toolbar')) {
+            // When metadata is not loading, column selector should work normally
+            const columnSelectorButton = screen.getByTestId('column-selector-button');
+            expect(columnSelectorButton).toBeInTheDocument();
+
+            // Click the button to verify it opens the dialog with content
+            await userEvent.click(columnSelectorButton);
+
+            // Verify the dialog content is shown without loading state
+            await waitFor(() => {
+              const dialogContent = screen.getByLabelText(/columns options/i);
+              expect(dialogContent).toHaveAttribute('aria-busy', 'false');
+            });
+
+            // Test sort dropdown shows content when not loading
+            const sortButton = screen.getByTestId('sort-select-dropdown');
+            expect(sortButton).toBeInTheDocument();
+
+            await userEvent.click(sortButton);
+
+            await waitFor(() => {
+              // Sort dropdown should show search input when not loading
+              // Just check that a search input exists in the dropdown content
+              const dropdownContent = screen.getByRole('menu');
+              const searchInput = within(dropdownContent).getByPlaceholderText(/search/i);
+              expect(searchInput).toBeInTheDocument();
+            });
+
+            // Test filter dropdown shows content when not loading
+            const filterButton = screen.getByRole('button', { name: /filter/i });
+            expect(filterButton).toBeInTheDocument();
+
+            await userEvent.click(filterButton);
+
+            await waitFor(() => {
+              // Filter dropdown should show filter form when not loading
+              // Look for buttons that are typically in the filter form
+              const applyButton = screen.getByRole('button', { name: /apply/i });
+              expect(applyButton).toBeInTheDocument();
+            });
+          }
+        });
+      },
+    );
+  });
+
+  describe('Additional filters', () => {
+    it('should combine additional filters with user filters', async () => {
+      const userFilters = [{ column: 'status', operator: FilterOperator.EQUALS, value: 'success' }];
+      const setFiltersMock = jest.fn();
+      jest.mocked(useFilters).mockReturnValue([userFilters, setFiltersMock]);
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      const searchTracesMock = jest.fn().mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+      jest.mocked(useSearchMlflowTraces).mockImplementation(searchTracesMock as any);
+
+      const additionalFilters = [{ column: 'prompt', operator: FilterOperator.EQUALS, value: 'test-prompt/1' }];
+
+      renderComponent({ additionalFilters });
+      await waitForRoutesToBeRendered();
+
+      expect(useMlflowTracesTableMetadata).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          networkFilters: additionalFilters,
+        }),
+      );
+
+      // Should have called useSearchMlflowTraces with combined filters (additionalFilters + userFilters)
+      await waitFor(() => {
+        expect(searchTracesMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            filters: [...additionalFilters, ...userFilters],
+          }),
+        );
+      });
+    });
+  });
+
+  describe('Count mode', () => {
+    it('counts sessions only for forced chat session views', async () => {
+      const useCountInfoSpy = jest.spyOn(useCountInfoModule, 'useCountInfo').mockReturnValue({
+        currentCount: 2,
+        logCountLoading: false,
+        totalCount: 5,
+        maxAllowedCount: Infinity,
+      });
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+
+      const defaultView = renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(useCountInfoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          countSessions: false,
+        }),
+      );
+
+      defaultView.unmount();
+      useCountInfoSpy.mockClear();
+
+      const chatSessionsView = renderComponent({ forceGroupBySession: true });
+      await waitForRoutesToBeRendered();
+
+      expect(useCountInfoSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          countSessions: true,
+        }),
+      );
+
+      chatSessionsView.unmount();
+      useCountInfoSpy.mockRestore();
+    });
+  });
+
+  describe('Empty state behavior', () => {
+    beforeEach(() => {
+      jest.mocked(TracesV3EmptyState).mockClear();
+    });
+
+    it('should not show empty state while fetching even if data is empty', async () => {
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: true,
+        error: null,
+      } as any);
+
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(TracesV3EmptyState).not.toHaveBeenCalled();
+    });
+
+    it('should show empty state when not loading and not fetching', async () => {
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(TracesV3EmptyState).toHaveBeenCalled();
+    });
+  });
+
+  describe('Trace count telemetry', () => {
+    let mockLogTelemetryEvent: jest.Mock;
+
+    beforeEach(() => {
+      mockLogTelemetryEvent = jest.fn();
+      jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
+      jest.mocked(shouldUseInfinitePaginatedTraces).mockReturnValue(true);
+      jest.mocked(useTraceMetricsQuery).mockReturnValue({
+        data: { data_points: [{ values: { COUNT: 42 } }] },
+        isLoading: false,
+      } as any);
+
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({ isInitialTimeFilterLoading: false });
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+    });
+
+    it('logs trace count telemetry once for a single experiment', async () => {
+      renderComponent({ experimentIds: ['telemetry-single-exp'] });
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => {
+        expect(mockLogTelemetryEvent).toHaveBeenCalledTimes(1);
+        expect(mockLogTelemetryEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            componentId: 'mlflow.traces-tab.trace-count',
+            componentViewId: 'telemetry-single-exp',
+            value: JSON.stringify({ totalTraces: 42 }),
+          }),
+        );
+      });
+    });
+
+    it('does not log trace count telemetry for multi-experiment views', async () => {
+      renderComponent({ experimentIds: ['telemetry-multi-exp-1', 'telemetry-multi-exp-2'] });
+      await waitForRoutesToBeRendered();
+
+      expect(mockLogTelemetryEvent).not.toHaveBeenCalledWith(
+        expect.objectContaining({ componentId: 'mlflow.traces-tab.trace-count' }),
+      );
+    });
+  });
+
+  describe('saved-view preview', () => {
+    // The column-count Tag renders its digits as separate text nodes and its componentId isn't
+    // surfaced as a testid, so locate the column-selector trigger button (which carries the
+    // "Columns N/M" label) and assert on its combined text content.
+    const getColumnsButton = () =>
+      screen.getAllByRole('button').find((el) => (el.textContent ?? '').startsWith('Columns'));
+
+    const sharedViewBannerText = /You're viewing a shared view/;
+
+    // request_time + execution_duration exist as columns; the user has only request_time selected.
+    const previewColumns = [
+      {
+        id: REQUEST_TIME_COLUMN_ID,
+        type: TracesTableColumnType.TRACE_INFO,
+        group: TracesTableColumnGroup.INFO,
+        label: 'Request Time',
+      },
+      {
+        id: 'execution_duration',
+        type: TracesTableColumnType.TRACE_INFO,
+        group: TracesTableColumnGroup.INFO,
+        label: 'Duration',
+      },
+    ];
+
+    beforeEach(() => {
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: previewColumns,
+        totalCount: 1,
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [{ trace_id: 'test-trace-1' }],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({ isInitialTimeFilterLoading: false });
+    });
+
+    it('renders the toolbar column count from the preview, not the user’s own selection', async () => {
+      // User owns 1 column (the default mock); the shared view in the URL selects 2. The toolbar
+      // counter must reflect the previewed 2/2, matching the body — not the user's 1.
+      renderComponent({ enableSavedViews: true }, [
+        `/?traceViewShareKey=v1&selectedColumns=${REQUEST_TIME_COLUMN_ID},execution_duration`,
+      ]);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns2/2'));
+      // The column control is disabled during preview — editing is deferred to Override/Discard.
+      expect(getColumnsButton()).toBeDisabled();
+      // The shared-view banner is shown on a page that hosts saved views.
+      expect(screen.getByText(sharedViewBannerText)).toBeInTheDocument();
+    });
+
+    it('shows the user’s own column count (not a preview) when no shared view is open', async () => {
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns1/2'));
+      // Outside preview the control is editable.
+      expect(getColumnsButton()).not.toBeDisabled();
+    });
+
+    it('does not enter preview for a bare share key carrying no view state', async () => {
+      // A garbage/deleted share key has no selectedColumns/sort in the URL, so there's nothing to
+      // preview. Presence of the key alone must not enter preview mode: the user keeps their own
+      // column count and the control stays editable (no misleading "shared view" state).
+      renderComponent({ enableSavedViews: true }, ['/?traceViewShareKey=does-not-exist']);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns1/2'));
+      expect(getColumnsButton()).not.toBeDisabled();
+    });
+
+    it('enters preview for a share link carrying only a time range (no columns or sort)', async () => {
+      // buildTraceViewQuery also serializes startTime/endTime/filter, so a view that captures only a
+      // time range still carries real state. previewActive must gate on the full captured param set,
+      // not just columns/sort — otherwise this link would skip preview and enable the controls.
+      renderComponent({ enableSavedViews: true }, ['/?traceViewShareKey=v-time&startTime=2026-01-01T00:00:00.000Z']);
+      await waitForRoutesToBeRendered();
+
+      // In preview the column control is disabled (editing is deferred to Override/Discard), even
+      // though the link carried no columns of its own — the user's own columns show, read-only.
+      await waitFor(() => expect(getColumnsButton()).toBeDisabled());
+    });
+
+    it('enters preview for a share link with an empty selectedColumns value (all columns deselected)', async () => {
+      // captureTraceViewState/buildTraceViewQuery treat an empty-string value as captured (present),
+      // so `selectedColumns=` is a real view — every column deselected. The state check uses `!== null`
+      // (not truthiness) so this still enters preview rather than silently skipping it.
+      renderComponent({ enableSavedViews: true }, ['/?traceViewShareKey=v-empty&selectedColumns=']);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toBeDisabled());
+    });
+
+    it('does not preview on a page that does not host saved views, even with a shared-view URL', async () => {
+      // Regression for the sessions-page bleed: TracesV3Logs is reused (e.g. by the Chat Sessions
+      // page, SelectTracesModal, gateway pages) without the saved-views feature. A traceViewShareKey
+      // in the URL — shared across tabs — must NOT put those pages into preview: no banner, and the
+      // column control stays editable showing the user's own selection. `enableSavedViews` defaults
+      // to false, so this is the default behavior for every non–Traces-tab consumer.
+      renderComponent({}, [`/?traceViewShareKey=v1&selectedColumns=${REQUEST_TIME_COLUMN_ID},execution_duration`]);
+      await waitForRoutesToBeRendered();
+
+      await waitFor(() => expect(getColumnsButton()).toHaveTextContent('Columns1/2'));
+      expect(getColumnsButton()).not.toBeDisabled();
+      expect(screen.queryByText(sharedViewBannerText)).not.toBeInTheDocument();
+    });
+
+    it('does not preview on the chat-sessions view even with a shared-view URL', async () => {
+      // The Chat Sessions page mounts TracesV3Logs with forceGroupBySession and no saved-views UI.
+      // The shared-view banner/disabled-controls must not bleed into it.
+      renderComponent({ forceGroupBySession: true }, [
+        `/?traceViewShareKey=v1&selectedColumns=${REQUEST_TIME_COLUMN_ID},execution_duration`,
+      ]);
+      await waitForRoutesToBeRendered();
+
+      expect(screen.queryByText(sharedViewBannerText)).not.toBeInTheDocument();
+      await waitFor(() => expect(getColumnsButton()).not.toBeDisabled());
+    });
+  });
+});

@@ -1,0 +1,177 @@
+import json
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
+
+from mlflow.entities.webhook import Webhook, WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.store.model_registry.file_store import FileStore
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+from mlflow.webhooks.delivery import _send_webhook_request, deliver_webhook
+from mlflow.webhooks.delivery import test_webhook as send_test_webhook
+
+
+@pytest.fixture
+def file_store(tmp_path: Path) -> FileStore:
+    pytest.skip("FileStore is no longer supported.")
+    return FileStore(str(tmp_path))
+
+
+@pytest.fixture
+def sql_store(tmp_path: Path) -> SqlAlchemyStore:
+    db_file = tmp_path / "test.db"
+    db_uri = f"sqlite:///{db_file}"
+    return SqlAlchemyStore(db_uri)
+
+
+@pytest.fixture
+def webhook_event() -> WebhookEvent:
+    return WebhookEvent(WebhookEntity.REGISTERED_MODEL, WebhookAction.CREATED)
+
+
+@pytest.fixture
+def webhook_payload() -> dict[str, str]:
+    return {"name": "test_model", "description": "Test model"}
+
+
+@pytest.fixture
+def webhook(webhook_event: WebhookEvent) -> Webhook:
+    return Webhook(
+        webhook_id="wh-1",
+        name="test",
+        url="https://example.com/hook",
+        events=[webhook_event],
+        creation_timestamp=0,
+        last_updated_timestamp=0,
+        workspace="team-a",
+    )
+
+
+def test_deliver_webhook_exits_early_for_file_store(
+    file_store: FileStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
+) -> None:
+    pytest.skip("FileStore is no longer supported.")
+    with patch("mlflow.webhooks.delivery._deliver_webhook_impl") as mock_impl:
+        deliver_webhook(
+            event=webhook_event,
+            payload=webhook_payload,
+            store=file_store,
+        )
+
+        # _deliver_webhook_impl should not be called for FileStore
+        mock_impl.assert_not_called()
+
+
+def test_deliver_webhook_calls_impl_for_sql_store(
+    sql_store: SqlAlchemyStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
+) -> None:
+    with patch("mlflow.webhooks.delivery._deliver_webhook_impl") as mock_impl:
+        deliver_webhook(
+            event=webhook_event,
+            payload=webhook_payload,
+            store=sql_store,
+        )
+
+        # _deliver_webhook_impl should be called for SqlAlchemyStore
+        mock_impl.assert_called_once_with(
+            event=webhook_event,
+            payload=webhook_payload,
+            store=sql_store,
+        )
+
+
+def test_deliver_webhook_handles_exception_for_sql_store(
+    sql_store: SqlAlchemyStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
+) -> None:
+    with (
+        patch("mlflow.webhooks.delivery._deliver_webhook_impl", side_effect=Exception("Test")),
+        patch("mlflow.webhooks.delivery._logger") as mock_logger,
+    ):
+        # This should not raise an exception
+        deliver_webhook(
+            event=webhook_event,
+            payload=webhook_payload,
+            store=sql_store,
+        )
+
+        # Verify that the error was logged
+        mock_logger.error.assert_called_once()
+        assert "Failed to deliver webhook for event" in str(mock_logger.error.call_args)
+
+
+def test_deliver_webhook_no_exception_for_file_store(
+    file_store: FileStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
+) -> None:
+    pytest.skip("FileStore is no longer supported.")
+    with (
+        patch(
+            "mlflow.webhooks.delivery._deliver_webhook_impl", side_effect=Exception("Test")
+        ) as mock_impl,
+        patch("mlflow.webhooks.delivery._logger") as mock_logger,
+    ):
+        # This should not raise an exception and should return early
+        deliver_webhook(
+            event=webhook_event,
+            payload=webhook_payload,
+            store=file_store,
+        )
+
+        # _deliver_webhook_impl should not be called, so no error should be logged
+        mock_impl.assert_not_called()
+        mock_logger.error.assert_not_called()
+
+
+def test_test_webhook_rejects_private_ip():
+    event = WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)
+    webhook = Webhook(
+        webhook_id="wh-1",
+        name="test",
+        url="https://localhost/hook",
+        events=[event],
+        creation_timestamp=0,
+        last_updated_timestamp=0,
+    )
+
+    result = send_test_webhook(webhook)
+
+    assert result.success is False
+    assert "must not resolve to a non-public" in result.error_message
+
+
+def test_send_webhook_request_includes_workspace_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+    webhook: Webhook,
+    webhook_event: WebhookEvent,
+    webhook_payload: dict[str, str],
+) -> None:
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    session = Mock()
+    session.post.return_value = Mock(status_code=200, text="ok")
+
+    with patch("mlflow.webhooks.delivery._validate_webhook_url"):
+        _send_webhook_request(webhook, webhook_payload, webhook_event, session)
+
+    actual_payload = json.loads(session.post.call_args.kwargs["data"].decode("utf-8"))
+    assert actual_payload["entity"] == webhook_event.entity.value
+    assert actual_payload["action"] == webhook_event.action.value
+    assert actual_payload["workspace"] == webhook.workspace
+    assert actual_payload["data"] == webhook_payload
+    assert "timestamp" in actual_payload
+
+
+def test_send_webhook_request_omits_workspace_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    webhook: Webhook,
+    webhook_event: WebhookEvent,
+    webhook_payload: dict[str, str],
+) -> None:
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    session = Mock()
+    session.post.return_value = Mock(status_code=200, text="ok")
+
+    with patch("mlflow.webhooks.delivery._validate_webhook_url"):
+        _send_webhook_request(webhook, webhook_payload, webhook_event, session)
+
+    actual_payload = json.loads(session.post.call_args.kwargs["data"].decode("utf-8"))
+    assert "workspace" not in actual_payload

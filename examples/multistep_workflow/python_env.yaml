@@ -1,0 +1,9 @@
+build_dependencies:
+  - pip
+dependencies:
+  - tensorflow==1.15.2
+  - keras==2.2.4
+  - mlflow>=1.0
+  - pyspark
+  - requests
+  - click

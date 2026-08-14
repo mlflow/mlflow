@@ -1,0 +1,15 @@
+/* Overriding the table styles since antd tables take the full screen by default.
+We would like to change it to auto to automatically grow based on the columns */
+
+.mlflow-html-table-view table {
+  width: auto;
+  min-width: 400px;
+}
+
+.mlflow-html-table-view th {
+  width: auto;
+  min-width: 200px;
+  margin-right: 80px;
+  font-size: 13px;
+  color: #888;
+}

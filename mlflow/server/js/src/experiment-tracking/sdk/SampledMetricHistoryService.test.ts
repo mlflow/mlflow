@@ -1,0 +1,59 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import { fetchEndpoint } from '../../common/utils/FetchUtils';
+import { createChartAxisRangeKey } from '../components/runs-charts/components/RunsCharts.common';
+import type { SampledMetricsByRunUuidState } from '../types';
+import { getSampledMetricHistoryBulkAction } from './SampledMetricHistoryService';
+
+jest.mock('../../common/utils/FetchUtils', () => ({
+  fetchEndpoint: jest.fn(),
+}));
+
+const testRange: [number, number] = [300, 500];
+const testRangeKey = createChartAxisRangeKey(testRange);
+
+describe('getSampledMetricHistoryBulkAction service function', () => {
+  const testDispatch = jest.fn();
+  beforeEach(() => {
+    testDispatch.mockClear();
+    jest.mocked(fetchEndpoint).mockClear();
+  });
+  const runAction = (state: SampledMetricsByRunUuidState) => {
+    const actionCreator = getSampledMetricHistoryBulkAction(['run_1', 'run_2'], 'metric_key', undefined, testRange);
+    // @ts-expect-error Argument of type 'Mock<UnknownFunction>' is not assignable to parameter of type 'ThunkDispatch<ReduxState, any>'
+    actionCreator(testDispatch, () => ({ entities: { sampledMetricsByRunUuid: state } }) as any);
+  };
+  it('should be able to retrieve sampled metric history for all runs', () => {
+    runAction({});
+    expect(fetchEndpoint).toHaveBeenCalledWith({
+      relativeUrl: expect.stringMatching(
+        /get-history-bulk-interval\?run_ids=run_1&run_ids=run_2&metric_key=metric_key/,
+      ),
+    });
+  });
+
+  it('should forward the selected step range as start_step/end_step query params', () => {
+    // When the user zooms a chart, the resolved step range is passed through so the backend
+    // returns a finer sample of only the visible window (progressive/lazy loading).
+    runAction({});
+    expect(fetchEndpoint).toHaveBeenCalledWith({
+      relativeUrl: expect.stringMatching(/start_step=300&end_step=500/),
+    });
+  });
+
+  it('should skip retrieval of sampled metric history for runs with the data already loaded', () => {
+    runAction({
+      run_1: { metric_key: { [testRangeKey]: { metricsHistory: [], loading: false } } },
+    });
+    expect(fetchEndpoint).toHaveBeenCalledWith({
+      relativeUrl: expect.stringMatching(/get-history-bulk-interval\?run_ids=run_2&metric_key=metric_key/),
+    });
+  });
+  it('should skip retrieval of sampled metric history for runs with error reported', () => {
+    runAction({
+      run_2: { metric_key: { [testRangeKey]: { error: true, loading: false } } },
+    });
+    expect(fetchEndpoint).toHaveBeenCalledWith({
+      relativeUrl: expect.stringMatching(/get-history-bulk-interval\?run_ids=run_1&metric_key=metric_key/),
+    });
+  });
+});

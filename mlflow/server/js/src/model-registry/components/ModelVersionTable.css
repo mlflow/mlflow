@@ -1,0 +1,6 @@
+.mlflow-table-endpoint-text {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  overflow: hidden;
+}

@@ -1,0 +1,9 @@
+name: tutorial
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pip
+  - pip:
+      - mlflow>=2.0
+      - tensorflow>=2.8

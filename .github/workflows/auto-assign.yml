@@ -1,0 +1,40 @@
+name: Auto-assign maintainer
+
+on:
+  schedule:
+    # Run every 3 hours to check for new maintainer comments
+    - cron: "0 */3 * * *"
+  workflow_dispatch: # Allow manual triggering
+  pull_request:
+    paths:
+      - .github/workflows/auto-assign.yml
+      - .github/workflows/auto-assign.js
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  scan-and-assign:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          retries: 3
+          script: |
+            const script = require('./.github/workflows/auto-assign.js');
+            const skipAssignment = context.eventName === 'pull_request';
+            await script({ github, context, skipAssignment });

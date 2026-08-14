@@ -1,0 +1,26 @@
+diff --git a/dist/floating-ui.dom.umd.js b/dist/floating-ui.dom.umd.js
+index 32ad1612f1f5eacab392faabf37b98cff25da2af..a0ab25d978958cf4b8878916e03b1c3a84e84fd0 100644
+--- a/dist/floating-ui.dom.umd.js
++++ b/dist/floating-ui.dom.umd.js
+@@ -130,6 +130,9 @@
+   }
+ 
+   function getDocumentElement(node) {
++    if (process.env.NODE_ENV === 'test') {
++      return ((isNode(node) ? node.ownerDocument : node.document) || window.document)?.documentElement;
++    }
+     return ((isNode(node) ? node.ownerDocument : node.document) || window.document).documentElement;
+   }
+ 
+diff --git a/dist/floating-ui.dom.esm.js b/dist/floating-ui.dom.esm.js
+--- a/dist/floating-ui.dom.esm.js
++++ b/dist/floating-ui.dom.esm.js
+@@ -127,5 +127,8 @@
+ }
+ 
+ function getDocumentElement(node) {
++  if (process.env.NODE_ENV === 'test') {
++    return ((isNode(node) ? node.ownerDocument : node.document) || window.document)?.documentElement;
++  }
+   return ((isNode(node) ? node.ownerDocument : node.document) || window.document).documentElement;
+ }

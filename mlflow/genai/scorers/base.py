@@ -1,0 +1,1746 @@
+import functools
+import importlib
+import inspect
+import json
+import logging
+from contextvars import ContextVar
+from dataclasses import asdict, dataclass, fields
+from enum import Enum
+from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
+
+from pydantic import BaseModel, PrivateAttr
+
+import mlflow
+from mlflow.entities import Assessment, Feedback
+from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
+from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.ensemble import (
+    BOOL_ENSEMBLES,
+    BUILTIN_ENSEMBLES,
+    NUMERIC_ENSEMBLES,
+    is_bool_feedback_type,
+    is_numeric_feedback_type,
+)
+from mlflow.genai.scorers.scorer_utils import (
+    DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
+    THIRD_PARTY_SCORER_ALLOWED_MODULES,
+    THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR,
+)
+from mlflow.telemetry.events import ScorerCallEvent
+from mlflow.telemetry.track import record_usage_event
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
+from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import is_databricks_uri
+
+_logger = logging.getLogger(__name__)
+
+# Backend identifiers for registered scorers
+SCORER_BACKEND_TRACKING = "tracking"
+SCORER_BACKEND_DATABRICKS = "databricks"
+
+# Context variable to track if we're in a scorer call (prevents nested telemetry)
+_in_scorer_call: ContextVar[bool] = ContextVar("mlflow_scorer_call_context", default=False)
+
+# Serialization version for tracking changes to the serialization format
+_SERIALIZATION_VERSION = 1
+_AggregationFunc: TypeAlias = Callable[[list[int | float]], float]
+_AggregationType: TypeAlias = (
+    Literal["min", "max", "mean", "median", "variance", "p90"] | _AggregationFunc
+)
+
+
+class ScorerKind(Enum):
+    CLASS = "class"
+    BUILTIN = "builtin"
+    DECORATOR = "decorator"
+    INSTRUCTIONS = "instructions"
+    GUIDELINES = "guidelines"
+    THIRD_PARTY = "third_party"
+    MEMORY_AUGMENTED = "memory_augmented"
+    ENSEMBLE = "ensemble"
+
+
+_ALLOWED_SCORERS_FOR_REGISTRATION = [
+    ScorerKind.BUILTIN,
+    ScorerKind.DECORATOR,
+    ScorerKind.INSTRUCTIONS,
+    ScorerKind.GUIDELINES,
+    ScorerKind.MEMORY_AUGMENTED,
+    ScorerKind.THIRD_PARTY,
+    ScorerKind.ENSEMBLE,
+]
+
+
+class ScorerStatus(Enum):
+    """Status of a scorer.
+
+    Scorer status is determined by the sample rate due to the backend not having
+    a notion of whether a scorer is started or stopped.
+    """
+
+    UNREGISTERED = "UNREGISTERED"  # sampling config not set
+    STARTED = "STARTED"  # sample_rate > 0
+    STOPPED = "STOPPED"  # sample_rate == 0
+
+
+@dataclass
+class ScorerSamplingConfig:
+    """Configuration for registered scorer sampling."""
+
+    sample_rate: float | None = None
+    filter_string: str | None = None
+
+
+AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
+
+
+def _extract_scorer_value(result: Any) -> Any:
+    """Reduce a sub-scorer's return to a single aggregatable value.
+
+    Failures and empty assessments (``None`` or an error ``Feedback``) become ``None``
+    so the ensemble function decides how to treat them.
+    """
+    if result is None:
+        return None
+    if isinstance(result, Feedback):
+        return None if result.error is not None else result.value
+    if isinstance(result, list):
+        raise MlflowException.invalid_parameter_value(
+            "make_scorer_ensemble does not support sub-scorers that return a list of Feedback "
+            "objects."
+        )
+    return result
+
+
+def flatten_scorers(scorers: list[Any]) -> list[Any]:
+    """Expand ensemble scorers into their sub-scorers, recursively.
+
+    Callers that classify scorers by type -- required-column pre-validation, usage
+    telemetry -- must see through an ensemble to the scorers that actually run, otherwise
+    an ensemble wrapping built-in judges is treated as an opaque custom scorer and its
+    sub-scorers' input requirements go unchecked.
+    """
+    flattened = []
+    for scorer in scorers:
+        if getattr(scorer, "kind", None) == ScorerKind.ENSEMBLE:
+            flattened.extend(flatten_scorers(scorer._scorers))
+        else:
+            flattened.append(scorer)
+    return flattened
+
+
+def _is_feedbacks_mode(ensemble_fn: Callable[..., Any]) -> bool:
+    """Whether ``ensemble_fn`` opts into receiving full ``Feedback`` objects.
+
+    The aggregate input is passed positionally, so only the name of the first accepted
+    parameter selects the mode -- a ``feedbacks`` keyword elsewhere in the signature (e.g.
+    ``fn(values, feedbacks=None)``) must not flip it. Callables with no introspectable
+    signature (C builtins like ``max``) default to values-mode rather than raising.
+    """
+    try:
+        params = inspect.signature(ensemble_fn).parameters
+    except (ValueError, TypeError):
+        return False
+    positional = (
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.VAR_POSITIONAL,
+    )
+    first = next((p for p in params.values() if p.kind in positional), None)
+    return first is not None and first.name == "feedbacks"
+
+
+@dataclass
+class SerializedScorer:
+    """
+    Dataclass defining the serialization schema for Scorer objects.
+    """
+
+    # Core scorer fields
+    name: str
+    aggregations: list[str] | None = None
+    description: str | None = None
+    is_session_level_scorer: bool = False
+
+    # Version metadata
+    mlflow_version: str = mlflow.__version__
+    serialization_version: int = _SERIALIZATION_VERSION
+
+    # Builtin scorer fields (for scorers from mlflow.genai.scorers.builtin_scorers)
+    builtin_scorer_class: str | None = None
+    builtin_scorer_pydantic_data: dict[str, Any] | None = None
+
+    # Decorator scorer fields (for @scorer decorated functions)
+    call_source: str | None = None
+    call_signature: str | None = None
+    original_func_name: str | None = None
+
+    # InstructionsJudge fields (for make_judge created judges)
+    instructions_judge_pydantic_data: dict[str, Any] | None = None
+
+    # MemoryAugmentedJudge fields (for aligned judges)
+    memory_augmented_judge_data: dict[str, Any] | None = None
+
+    # For RAGAS / DeepEval / TruLens / Phoenix wrappers. Shape:
+    #   {"module": ..., "class": ..., "metric_name": ..., "model": ..., "kwargs": {...}}
+    third_party_scorer_data: dict[str, Any] | None = None
+
+    # Ensemble scorer fields (for make_scorer_ensemble()). Shape:
+    #   {"ensemble_fn": <builtin name>, "scorers": [<serialized sub-scorer dict>, ...]}
+    ensemble_scorer_data: dict[str, Any] | None = None
+
+    def __post_init__(self):
+        """Validate that exactly one type of scorer fields is present."""
+        has_builtin_fields = self.builtin_scorer_class is not None
+        has_decorator_fields = self.call_source is not None
+        has_instructions_fields = self.instructions_judge_pydantic_data is not None
+        has_memory_augmented_fields = self.memory_augmented_judge_data is not None
+        has_third_party_fields = self.third_party_scorer_data is not None
+        has_ensemble_fields = self.ensemble_scorer_data is not None
+
+        # Count how many field types are present
+        field_count = sum([
+            has_builtin_fields,
+            has_decorator_fields,
+            has_instructions_fields,
+            has_memory_augmented_fields,
+            has_third_party_fields,
+            has_ensemble_fields,
+        ])
+
+        if field_count == 0:
+            raise ValueError(
+                "SerializedScorer must have either builtin scorer fields "
+                "(builtin_scorer_class), decorator scorer fields (call_source), "
+                "instructions judge fields (instructions_judge_pydantic_data), "
+                "memory augmented judge fields (memory_augmented_judge_data), "
+                "third-party scorer fields (third_party_scorer_data), "
+                "or ensemble scorer fields (ensemble_scorer_data) present"
+            )
+
+        if field_count > 1:
+            raise ValueError(
+                "SerializedScorer cannot have multiple types of scorer fields "
+                "present simultaneously"
+            )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "SerializedScorer":
+        """Build a SerializedScorer from a dict, tolerating unknown fields from newer versions.
+
+        Newer mlflow versions sometimes add fields to this dataclass (e.g.
+        ``third_party_scorer_data`` in 3.12). When an older runtime deserializes a payload
+        written by a newer version, raw ``SerializedScorer(**data)`` raises a cryptic
+        ``TypeError: __init__() got an unexpected keyword argument '<field>'``. This
+        wrapper drops the unknown fields and logs a version-aware warning instead, so
+        forward-compatible payloads (additive-only fields) still deserialize.
+        """
+        known_fields = {f.name for f in fields(cls)}
+        if unknown_fields := sorted(set(data) - known_fields):
+            serialized_version = data.get("mlflow_version") or "unknown"
+            scorer_name = data.get("name") or "<unnamed>"
+            _logger.error(
+                "Ignoring unknown field(s) %s while deserializing scorer %r: it was "
+                "serialized with mlflow==%s, but this runtime is on mlflow==%s. "
+                "Upgrade mlflow to >=%s in this environment to pick up these fields.",
+                unknown_fields,
+                scorer_name,
+                serialized_version,
+                mlflow.__version__,
+                serialized_version,
+            )
+            data = {k: v for k, v in data.items() if k in known_fields}
+        return cls(**data)
+
+
+def _record_scorer_call_with_context(func):
+    """Wraps a scorer's __call__ method with telemetry, but only for top-level calls.
+
+    Uses ContextVar to track nesting in a thread-safe manner. Only supports synchronous
+    functions - async scorers are not supported and will raise an exception.
+    """
+    if inspect.iscoroutinefunction(func):
+        raise TypeError(
+            f"Async scorer '__call__' methods are not supported. "
+            f"Scorer class {func.__qualname__} has an async __call__ method."
+        )
+
+    telemetry_wrapped = record_usage_event(ScorerCallEvent)(func)
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if _in_scorer_call.get():
+            # Nested call: skip telemetry, call original function
+            return func(*args, **kwargs)
+
+        # Top-level call: set context and use telemetry-wrapped version
+        token = _in_scorer_call.set(True)
+        try:
+            return telemetry_wrapped(*args, **kwargs)
+        finally:
+            # CRITICAL: Use reset(token), NOT set(False)
+            # This ensures proper context restoration
+            _in_scorer_call.reset(token)
+
+    return wrapper
+
+
+class Scorer(BaseModel):
+    name: str
+    aggregations: list[_AggregationType] | None = None
+    description: str | None = None
+
+    _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
+    _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
+    _registered_backend: str | None = PrivateAttr(default=None)
+    _experiment_id: str | None = PrivateAttr(default=None)
+    # Predicate deciding whether this scorer's value counts as passing in an
+    # assertion (``EvaluationResult.passed``). In-process only: it is a local
+    # testing concern and is intentionally not serialized. ``None`` falls back to
+    # the default rule (yes/no or bool).
+    _pass_if: Callable[[Any], bool] | None = PrivateAttr(default=None)
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        # Only wrap __call__ if it's defined directly in this class (cls.__dict__),
+        # not inherited from a parent. This prevents wrapping the same method multiple
+        # times in the inheritance chain.
+        if "__call__" in cls.__dict__:
+            original_call = cls.__dict__["__call__"]
+
+            # Check if it's already wrapped to avoid double-wrapping
+            if not hasattr(original_call, "_telemetry_wrapped"):
+                # Wrap with context-aware telemetry decorator
+                wrapped_call = _record_scorer_call_with_context(original_call)
+                # Mark it as wrapped to prevent double-wrapping
+                wrapped_call._telemetry_wrapped = True
+                setattr(cls, "__call__", wrapped_call)
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        """Get whether this scorer is a session-level scorer.
+
+        Defaults to False. Child classes can override this property to return True
+        or compute the value dynamically based on their configuration.
+        """
+        return False
+
+    @property
+    def pass_if(self) -> Callable[[Any], bool] | None:
+        """Predicate deciding whether this scorer's value counts as passing.
+
+        Used by ``EvaluationResult.passed``. ``None`` means
+        the default rule applies (a ``yes``/:class:`~mlflow.genai.judges.CategoricalRating`
+        rating or a ``bool``). Set via ``@scorer(pass_if=...)``.
+        """
+        return self._pass_if
+
+    @property
+    def sample_rate(self) -> float | None:
+        """Get the sample rate for this scorer. Available when registered for monitoring."""
+        return self._sampling_config.sample_rate if self._sampling_config else None
+
+    @property
+    def filter_string(self) -> str | None:
+        """Get the filter string for this scorer."""
+        return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    def status(self) -> ScorerStatus:
+        """Get the status of this scorer, using only the local state."""
+
+        if self._registered_backend is None:
+            return ScorerStatus.UNREGISTERED
+
+        return ScorerStatus.STARTED if (self.sample_rate or 0) > 0 else ScorerStatus.STOPPED
+
+    def _set_registration_metadata(
+        self,
+        *,
+        backend: str,
+        experiment_id: str | None,
+        sampling_config: ScorerSamplingConfig | None,
+    ) -> "Scorer":
+        self._registered_backend = backend
+        self._experiment_id = experiment_id
+        self._sampling_config = sampling_config
+        return self
+
+    def __repr__(self) -> str:
+        # Get the standard representation from the parent class
+        base_repr = super().__repr__()
+        filter_string = self.filter_string
+        if filter_string is not None:
+            filter_string = f"'{filter_string}'"
+
+        # Inject the property's value into the repr string
+        return f"{base_repr[:-1]}, sample_rate={self.sample_rate}, filter_string={filter_string})"
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        """Override model_dump to include source code."""
+
+        # Return cached dump if available (prevents re-serialization issues with dynamic functions)
+        if self._cached_dump is not None:
+            return self._cached_dump
+
+        if self.kind == ScorerKind.THIRD_PARTY:
+            serialized = SerializedScorer(
+                name=self.name,
+                description=self.description,
+                aggregations=self.aggregations,
+                is_session_level_scorer=self.is_session_level_scorer,
+                mlflow_version=mlflow.__version__,
+                serialization_version=_SERIALIZATION_VERSION,
+                third_party_scorer_data={
+                    "module": type(self).__module__,
+                    "class": type(self).__name__,
+                    "metric_name": self._metric_name,
+                    "model": self._model,
+                    "kwargs": dict(self._metric_kwargs),
+                },
+            )
+            self._cached_dump = asdict(serialized)
+            return self._cached_dump
+
+        # Check if this is a decorator scorer
+        if not getattr(self, "_original_func", None):
+            # BuiltInScorer overrides `model_dump`, so this is neither a builtin scorer nor a
+            # decorator scorer
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported scorer type: {self.__class__.__name__}. "
+                f"Scorer serialization only supports:\n"
+                f"1. Builtin scorers (from mlflow.genai.scorers.builtin_scorers)\n"
+                f"2. Decorator-created scorers (using @scorer decorator)\n"
+                f"Direct subclassing of Scorer is not supported for serialization. "
+                f"Please use the @scorer decorator instead."
+            )
+
+        # Decorator scorer - extract and store source code
+        source_info = self._extract_source_code_info()
+
+        # Create serialized scorer with all fields at once
+        serialized = SerializedScorer(
+            name=self.name,
+            description=self.description,
+            aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            call_source=source_info.get("call_source"),
+            call_signature=source_info.get("call_signature"),
+            original_func_name=source_info.get("original_func_name"),
+        )
+        self._cached_dump = asdict(serialized)
+        return self._cached_dump
+
+    def _extract_source_code_info(self) -> dict[str, str | None]:
+        """Extract source code information for the original decorated function."""
+        from mlflow.genai.scorers.scorer_utils import extract_function_body
+
+        result = {"call_source": None, "call_signature": None, "original_func_name": None}
+
+        # Extract original function source
+        call_body, _ = extract_function_body(self._original_func)
+        result["call_source"] = call_body
+        result["original_func_name"] = self._original_func.__name__
+
+        # Store the signature of the original function
+        result["call_signature"] = str(inspect.signature(self._original_func))
+
+        return result
+
+    @classmethod
+    def model_validate(cls, obj: Any) -> "Scorer":
+        """Override model_validate to reconstruct scorer from source code."""
+        # Handle SerializedScorer object
+        if isinstance(obj, SerializedScorer):
+            serialized = obj
+        # Handle dict object
+        elif isinstance(obj, dict):
+            try:
+                serialized = SerializedScorer.from_dict(obj)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to parse serialized scorer data: {e}"
+                )
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid scorer data: expected a SerializedScorer object or dictionary, "
+                f"got {type(obj).__name__}. Scorer data must be either a SerializedScorer object "
+                "or a dictionary containing serialized scorer information."
+            )
+
+        # Log version information for debugging
+        if serialized.mlflow_version:
+            _logger.debug(
+                f"Deserializing scorer created with MLflow version: {serialized.mlflow_version}"
+            )
+        if serialized.serialization_version:
+            _logger.debug(f"Scorer serialization version: {serialized.serialization_version}")
+
+        if serialized.builtin_scorer_class:
+            # Import here to avoid circular imports
+            from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+
+            return BuiltInScorer.model_validate(obj)
+
+        # Handle decorator scorers
+        elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
+            return cls._reconstruct_decorator_scorer(serialized)
+
+        # Handle InstructionsJudge scorers
+        elif serialized.instructions_judge_pydantic_data is not None:
+            from mlflow.genai.judges.instructions_judge import InstructionsJudge
+
+            data = serialized.instructions_judge_pydantic_data
+
+            field_specs = {
+                "instructions": str,
+                "model": str,
+            }
+
+            errors = []
+            for field, expected_type in field_specs.items():
+                if field not in data:
+                    errors.append(f"missing required field '{field}'")
+                elif not isinstance(data[field], expected_type):
+                    actual_type = type(data[field]).__name__
+                    errors.append(
+                        f"field '{field}' must be {expected_type.__name__}, got {actual_type}"
+                    )
+
+            if errors:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to deserialize InstructionsJudge scorer '{serialized.name}': "
+                    f"{'; '.join(errors)}"
+                )
+
+            feedback_value_type = str  # default to str
+            if "feedback_value_type" in data and data["feedback_value_type"] is not None:
+                feedback_value_type = InstructionsJudge._deserialize_feedback_value_type(
+                    data["feedback_value_type"]
+                )
+
+            try:
+                return InstructionsJudge(
+                    name=serialized.name,
+                    description=serialized.description,
+                    instructions=data["instructions"],
+                    model=data["model"],
+                    feedback_value_type=feedback_value_type,
+                    generate_rationale_first=data.get("generate_rationale_first", False),
+                    inference_params=data.get("inference_params"),
+                    aggregations=serialized.aggregations,
+                )
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to create InstructionsJudge scorer '{serialized.name}': {e}"
+                )
+
+        # Handle MemoryAugmentedJudge scorers
+        elif serialized.memory_augmented_judge_data is not None:
+            from mlflow.genai.judges.optimizers.memalign.optimizer import MemoryAugmentedJudge
+
+            return MemoryAugmentedJudge._from_serialized(serialized)
+
+        elif serialized.third_party_scorer_data is not None:
+            data = serialized.third_party_scorer_data
+            module_path = data.get("module") or ""
+            class_name = data.get("class")
+            metric_name = data.get("metric_name")
+            if not any(
+                module_path == m or module_path.startswith(m + ".")
+                for m in THIRD_PARTY_SCORER_ALLOWED_MODULES
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': module '{module_path}' is not "
+                    f"in the allow-list {sorted(THIRD_PARTY_SCORER_ALLOWED_MODULES)}."
+                )
+            if not class_name or not metric_name:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': missing required fields in "
+                    f"third_party_scorer_data (class, metric_name)."
+                )
+            try:
+                module = importlib.import_module(module_path)
+            except ImportError as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': could not import "
+                    f"'{module_path}'. Is the underlying library installed? {e}"
+                )
+            scorer_class = getattr(module, class_name, None)
+            if scorer_class is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': class '{class_name}' not "
+                    f"found in module '{module_path}'."
+                )
+            init_kwargs: dict[str, Any] = dict(data.get("kwargs") or {})
+            # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)
+            # have no `metric_name` ClassVar — pass it as a kwarg; (b) concrete
+            # subclasses (`ExactMatch`) pin it via ClassVar and forward to
+            # `super().__init__`, so re-passing raises "multiple values".
+            class_metric_name = getattr(scorer_class, "metric_name", None)
+            if class_metric_name is None:
+                init_kwargs["metric_name"] = metric_name
+            elif class_metric_name != metric_name:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': stored metric_name "
+                    f"'{metric_name}' does not match class {module_path}.{class_name} "
+                    f"(ClassVar metric_name='{class_metric_name}'). The class may "
+                    f"have been renamed."
+                )
+            model = data.get("model")
+            if model is not None:
+                init_kwargs["model"] = model
+            try:
+                scorer_instance = scorer_class(**init_kwargs)
+            except Exception as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': failed to instantiate "
+                    f"{module_path}.{class_name}: {e}"
+                )
+            scorer_instance.name = serialized.name
+            if serialized.description is not None:
+                scorer_instance.description = serialized.description
+            if serialized.aggregations is not None:
+                scorer_instance.aggregations = serialized.aggregations
+            object.__setattr__(scorer_instance, "_cached_dump", asdict(serialized))
+            return scorer_instance
+
+        # Handle ensemble scorers
+        elif serialized.ensemble_scorer_data is not None:
+            data = serialized.ensemble_scorer_data
+            fn_name = data.get("ensemble_fn")
+            if fn_name not in BUILTIN_ENSEMBLES:
+                raise MlflowException.invalid_parameter_value(
+                    f"Ensemble scorer '{serialized.name}': unknown ensemble function "
+                    f"'{fn_name}'. Available: {sorted(BUILTIN_ENSEMBLES)}."
+                )
+            sub_scorers = [cls.model_validate(d) for d in data.get("scorers", [])]
+            return make_scorer_ensemble(
+                name=serialized.name,
+                scorers=sub_scorers,
+                ensemble_fn=fn_name,
+                description=serialized.description,
+                aggregations=serialized.aggregations,
+            )
+
+        # Invalid serialized data
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to load scorer '{serialized.name}'. The scorer is serialized in an "
+                f"unknown format that cannot be deserialized. Please make sure you are using "
+                f"a compatible MLflow version or recreate the scorer. "
+                f"Scorer was created with MLflow version: "
+                f"{serialized.mlflow_version or 'unknown'}, "
+                f"serialization version: {serialized.serialization_version or 'unknown'}, "
+                f"current MLflow version: {mlflow.__version__}."
+            )
+
+    @classmethod
+    def model_validate_json(cls, json_data: str) -> "Scorer":
+        """
+        Override model_validate_json to parse JSON and delegate to custom model_validate.
+
+        Args:
+            json_data: JSON string containing serialized scorer data.
+
+        Returns:
+            Scorer instance with correct subclass (BuiltInScorer, InstructionsJudge, etc.).
+
+        Raises:
+            mlflow.exceptions.MlflowException: If JSON parsing or scorer validation fails.
+        """
+        try:
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise MlflowException.invalid_parameter_value(f"Invalid JSON in serialized scorer: {e}")
+
+        try:
+            return cls.model_validate(data)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(f"Failed to validate scorer: {e}")
+
+    @classmethod
+    def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
+        from mlflow.genai.scorers.scorer_utils import recreate_function
+
+        # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
+        # execution risk. Only allow loading when connected to a Databricks workspace, where
+        # registration is gated behind authentication. OSS backends don't have this guarantee,
+        # so block loading to prevent executing untrusted code.
+        if not is_databricks_uri(get_tracking_uri()):
+            code_snippet = (
+                "\n\nfrom mlflow.genai import scorer\n\n"
+                f"@scorer\ndef {serialized.original_func_name}{serialized.call_signature}:\n"
+            )
+            for line in serialized.call_source.split("\n"):
+                code_snippet += f"    {line}\n"
+
+            raise MlflowException.invalid_parameter_value(
+                f"{DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR}\n"
+                f"Registered scorer code:\n{code_snippet}"
+            )
+
+        try:
+            recreated_func = recreate_function(
+                serialized.call_source, serialized.call_signature, serialized.original_func_name
+            )
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to recreate function from source code. "
+                f"Scorer was created with MLflow version: "
+                f"{serialized.mlflow_version or 'unknown'}, "
+                f"serialization version: {serialized.serialization_version or 'unknown'}. "
+                f"Current MLflow version: {mlflow.__version__}. "
+                f"Error: {e}"
+            )
+
+        # Apply the scorer decorator to recreate the scorer
+        # Rather than serializing and deserializing the `run` method of `Scorer`, we recreate the
+        # Scorer using the original function and the `@scorer` decorator. This should be safe so
+        # long as `@scorer` is a stable API.
+        scorer_instance = scorer(
+            recreated_func,
+            name=serialized.name,
+            description=serialized.description,
+            aggregations=serialized.aggregations,
+        )
+        # Cache the serialized data to prevent re-serialization issues with dynamic functions
+        original_serialized_data = asdict(serialized)
+        object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
+        return scorer_instance
+
+    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None, session=None):
+        from mlflow.evaluation import Assessment as LegacyAssessment
+
+        merged = {
+            "inputs": inputs,
+            "outputs": outputs,
+            "expectations": expectations,
+            "trace": trace,
+            "session": session,
+        }
+        # Filter to only the parameters the function actually expects
+        sig = inspect.signature(self.__call__)
+        filtered = {k: v for k, v in merged.items() if k in sig.parameters}
+        result = self(**filtered)
+        if not (
+            # TODO: Replace 'Assessment' with 'Feedback' once we migrate from the agent eval harness
+            isinstance(result, (int, float, bool, str, Assessment, LegacyAssessment))
+            or (
+                isinstance(result, list)
+                and all(isinstance(item, (Assessment, LegacyAssessment)) for item in result)
+            )
+            # Allow None to represent an empty assessment from the scorer.
+            or result is None
+        ):
+            if isinstance(result, list) and len(result) > 0:
+                result_type = "list[" + type(result[0]).__name__ + "]"
+            else:
+                result_type = type(result).__name__
+            raise MlflowException.invalid_parameter_value(
+                f"{self.name} must return one of int, float, bool, str, "
+                f"Feedback, or list[Feedback]. Got {result_type}"
+            )
+
+        if isinstance(result, Feedback) and result.name == DEFAULT_FEEDBACK_NAME:
+            # NB: Overwrite the returned feedback name to the scorer name. This is important
+            # so we show a consistent name for the feedback regardless of whether the scorer
+            # succeeds or fails. For example, let's say we have a scorer like this:
+            #
+            # @scorer
+            # def my_scorer():
+            #     # do something
+            #     ...
+            #     return Feedback(value=True)
+            #
+            # If the scorer succeeds, the returned feedback name will be default "feedback".
+            # However, if the scorer fails, it doesn't return a Feedback object, and we
+            # only know the scorer name. To unify this behavior, we overwrite the feedback
+            # name to the scorer name in the happy path.
+            # This will not apply when the scorer returns a list of Feedback objects.
+            # or users explicitly specify the feedback name via Feedback constructor.
+            result.name = self.name
+
+        return result
+
+    def __call__(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+        session: list[Trace] | None = None,
+    ) -> int | float | bool | str | Feedback | list[Feedback]:
+        """
+        Implement the custom scorer's logic here.
+
+
+        The scorer will be called for each row in the input evaluation dataset.
+
+        Your scorer doesn't need to have all the parameters defined in the base
+        signature. You can define a custom scorer with only the parameters you need.
+        See the parameter details below for what values are passed for each parameter.
+
+        .. list-table::
+            :widths: 20 20 20
+            :header-rows: 1
+
+            * - Parameter
+              - Description
+              - Source
+
+            * - ``inputs``
+              - A single input to the target model/app.
+              - Derived from either dataset or trace.
+
+                * When the dataset contains ``inputs`` column, the value will be
+                  passed as is.
+                * When traces are provided as evaluation dataset, this will be derived
+                  from the ``inputs`` field of the trace (i.e. inputs captured as the
+                  root span of the trace).
+
+            * - ``outputs``
+              - A single output from the target model/app.
+              - Derived from either dataset, trace, or output of ``predict_fn``.
+
+                * When the dataset contains ``outputs`` column, the value will be
+                  passed as is.
+                * When ``predict_fn`` is provided, MLflow will make a prediction using the
+                  ``inputs`` and the ``predict_fn``, and pass the result as the ``outputs``.
+                * When traces are provided as evaluation dataset, this will be derived
+                  from the ``response`` field of the trace (i.e. outputs captured as the
+                  root span of the trace).
+
+            * - ``expectations``
+              - Ground truth or any expectation for each prediction, e.g. expected retrieved docs.
+              - Derived from either dataset or trace.
+
+                * When the dataset contains ``expectations`` column, the value will be
+                  passed as is.
+                * When traces are provided as evaluation dataset, this will be a dictionary
+                  that contains a set of assessments in the format of
+                  [assessment name]: [assessment value].
+
+            * - ``trace``
+              - A trace object corresponding to the prediction for the row.
+              - Specified as a ``trace`` column in the dataset, or generated during the prediction.
+
+            * - ``session``
+              - A list of trace objects belonging to the same conversation session.
+              - Specify this parameter only for session_level scorers
+                (scorers with ``is_session_level_scorer = True``).
+                * Only traces with the same ``mlflow.trace.session`` metadata value can be passed in
+                  this parameter, otherwise an error will be raised.
+
+        Example:
+
+            .. code-block:: python
+
+                class NotEmpty(BaseScorer):
+                    name = "not_empty"
+
+                    def __call__(self, *, outputs) -> bool:
+                        return outputs != ""
+
+
+                class ExactMatch(BaseScorer):
+                    name = "exact_match"
+
+                    def __call__(self, *, outputs, expectations) -> bool:
+                        return outputs == expectations["expected_response"]
+
+
+                class NumToolCalls(BaseScorer):
+                    name = "num_tool_calls"
+
+                    def __call__(self, *, trace) -> int:
+                        spans = trace.search_spans(name="tool_call")
+                        return len(spans)
+
+
+                # Use the scorer in an evaluation
+                mlflow.genai.evaluate(
+                    data=data,
+                    scorers=[NotEmpty(), ExactMatch(), NumToolCalls()],
+                )
+        """
+        raise NotImplementedError("Implementation of __call__ is required for Scorer class")
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.CLASS
+
+    def register(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
+        """
+        Register this scorer with the MLflow server.
+
+        This method registers the scorer for use with automatic trace evaluation in the
+        specified experiment. Once registered, the scorer can be started to begin
+        evaluating traces automatically.
+
+        Args:
+            name: Optional registered name for the scorer. If not provided, the current `name`
+                property value will be used as a registered name.
+            experiment_id: The ID of the MLflow experiment to register the scorer for.
+                If None, uses the currently active experiment.
+
+        Returns:
+            A new Scorer instance with server registration information.
+
+        Example:
+
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery
+
+                # Register a built-in scorer
+                mlflow.set_experiment("my_genai_app")
+                registered_scorer = RelevanceToQuery().register(name="relevance_scorer")
+                print(f"Registered scorer: {registered_scorer.name}")
+
+                # Register a custom scorer
+                from mlflow.genai.scorers import scorer
+
+
+                @scorer
+                def custom_length_check(outputs) -> bool:
+                    return len(outputs) > 100
+
+
+                registered_custom = custom_length_check.register(
+                    name="output_length_checker", experiment_id="12345"
+                )
+        """
+        # Get the current tracking store
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
+
+        self._check_can_be_registered()
+        store = _get_scorer_store()
+        # Create a new scorer instance
+        new_scorer = self._create_copy()
+
+        # If name is provided, update the copy's name
+        if name:
+            new_scorer.name = name
+            # Update cached dump to reflect the new name
+            if new_scorer._cached_dump is not None:
+                new_scorer._cached_dump["name"] = name
+
+        store.register_scorer(experiment_id, new_scorer)
+
+        if isinstance(store, DatabricksStore):
+            new_scorer._registered_backend = SCORER_BACKEND_DATABRICKS
+        else:
+            new_scorer._registered_backend = SCORER_BACKEND_TRACKING
+        return new_scorer
+
+    def start(
+        self,
+        *,
+        name: str | None = None,
+        experiment_id: str | None = None,
+        sampling_config: ScorerSamplingConfig,
+    ) -> "Scorer":
+        """
+        Start registered scoring with the specified sampling configuration.
+
+        This method activates automatic trace evaluation for the scorer. The scorer will
+        evaluate traces based on the provided sampling configuration, including the
+        sample rate and optional filter criteria.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered
+                name or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+            sampling_config: Configuration object containing:
+                - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
+                - filter_string: Optional MLflow search_traces compatible filter string.
+
+        Returns:
+            A new Scorer instance with updated sampling configuration.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
+
+                # Start scorer with 50% sampling rate
+                mlflow.set_experiment("my_genai_app")
+                scorer = RelevanceToQuery().register()
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
+                print(f"Scorer is evaluating {active_scorer.sample_rate * 100}% of traces")
+
+                # Start scorer with filter to only evaluate specific traces
+                filtered_scorer = scorer.start(
+                    sampling_config=ScorerSamplingConfig(
+                        sample_rate=1.0, filter_string="YOUR_FILTER_STRING"
+                    )
+                )
+        """
+        from mlflow.genai.scorers.registry import (
+            DatabricksStore,
+            _get_scorer_store,
+        )
+
+        self._check_can_be_registered()
+
+        sample_rate = sampling_config.sample_rate
+        if not isinstance(sample_rate, (int, float)):
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be a number"
+            )
+        if sample_rate <= 0:
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be greater than 0"
+            )
+
+        scorer_name = name or self.name
+        store = _get_scorer_store()
+
+        if isinstance(store, DatabricksStore):
+            return store.update_registered_scorer(
+                name=scorer_name,
+                scorer=self,
+                sample_rate=sample_rate,
+                filter_string=sampling_config.filter_string,
+                experiment_id=experiment_id,
+            )
+
+        # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
+        exp_id = experiment_id or self._experiment_id
+        if exp_id is None:
+            exp_id = _get_experiment_id()
+
+        return store.upsert_online_scoring_config(
+            scorer=self,
+            experiment_id=exp_id,
+            sample_rate=sample_rate,
+            filter_string=sampling_config.filter_string,
+        )
+
+    def update(
+        self,
+        *,
+        name: str | None = None,
+        experiment_id: str | None = None,
+        sampling_config: ScorerSamplingConfig,
+    ) -> "Scorer":
+        """
+        Update the sampling configuration for this scorer.
+
+        This method modifies the sampling rate and/or filter criteria for an already
+        registered scorer. It can be used to dynamically adjust how many traces are
+        evaluated or change the filtering criteria without stopping and restarting
+        the scorer.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+            sampling_config: Configuration object containing:
+                - sample_rate: New fraction of traces to evaluate (0.0 to 1.0). Optional.
+                - filter_string: New MLflow search_traces compatible filter string. Optional.
+
+        Returns:
+            A new Scorer instance with updated configuration.
+
+        Example:
+
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
+
+                # Start scorer with initial configuration
+                mlflow.set_experiment("my_genai_app")
+                scorer = RelevanceToQuery().register()
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.1))
+
+                # Update to increase sampling rate during high traffic
+                updated_scorer = active_scorer.update(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.5)
+                )
+                print(f"Updated sample rate: {updated_scorer.sample_rate}")
+
+                # Update to add filtering criteria
+                filtered_scorer = updated_scorer.update(
+                    sampling_config=ScorerSamplingConfig(filter_string="YOUR_FILTER_STRING")
+                )
+                print(f"Added filter: {filtered_scorer.filter_string}")
+        """
+        from mlflow.genai.scorers.registry import (
+            DatabricksStore,
+            _get_scorer_store,
+        )
+
+        self._check_can_be_registered()
+
+        sample_rate = sampling_config.sample_rate
+        if sample_rate is not None and not isinstance(sample_rate, (int, float)):
+            raise MlflowException.invalid_parameter_value(
+                "When updating a scorer, provided sample rate must be a number"
+            )
+
+        scorer_name = name or self.name
+        store = _get_scorer_store()
+
+        if isinstance(store, DatabricksStore):
+            return store.update_registered_scorer(
+                name=scorer_name,
+                scorer=self,
+                sample_rate=sample_rate,
+                filter_string=sampling_config.filter_string,
+                experiment_id=experiment_id,
+            )
+
+        # For MLflow backend, use provided experiment_id or fall back to scorer's experiment_id
+        exp_id = experiment_id or self._experiment_id
+        if exp_id is None:
+            exp_id = _get_experiment_id()
+
+        return store.upsert_online_scoring_config(
+            scorer=self,
+            experiment_id=exp_id,
+            sample_rate=sample_rate,
+            filter_string=sampling_config.filter_string,
+        )
+
+    def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
+        """
+        Stop registered scoring by setting sample rate to 0.
+
+        This method deactivates automatic trace evaluation for the scorer while keeping
+        the scorer registered. The scorer can be restarted later using the start() method.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+
+        Returns:
+            A new Scorer instance with sample rate set to 0.
+
+        Example:
+
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
+
+                # Start and then stop a scorer
+                mlflow.set_experiment("my_genai_app")
+                scorer = RelevanceToQuery().register()
+                active_scorer = scorer.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
+                print(f"Scorer is active: {active_scorer.sample_rate > 0}")
+
+                # Stop the scorer
+                stopped_scorer = active_scorer.stop()
+                print(f"Scorer is active: {stopped_scorer.sample_rate > 0}")
+
+                # The scorer remains registered and can be restarted later
+                restarted_scorer = stopped_scorer.start(
+                    sampling_config=ScorerSamplingConfig(sample_rate=0.3)
+                )
+        """
+        self._check_can_be_registered()
+
+        scorer_name = name or self.name
+        return self.update(
+            name=scorer_name,
+            experiment_id=experiment_id,
+            sampling_config=ScorerSamplingConfig(sample_rate=0.0),
+        )
+
+    def _create_copy(self) -> "Scorer":
+        """
+        Create a copy of this scorer instance.
+        """
+        self._check_can_be_registered(
+            error_message=(
+                "Scorer must be a builtin, decorator, or third-party scorer to be copied."
+            )
+        )
+
+        if self.kind == ScorerKind.THIRD_PARTY:
+            # Rebuild via __init__ — some third-party metrics (e.g. RAGAS) hold
+            # `instructor`-wrapped clients whose __getattr__ recurses infinitely
+            # on deepcopy.
+            init_kwargs = dict(self._metric_kwargs)
+            # Two shapes of third-party class: (a) base wrappers (`RagasScorer` etc.)
+            # have no `metric_name` ClassVar — pass it as a kwarg; (b) concrete
+            # subclasses (`ExactMatch`) pin it via ClassVar and forward to
+            # `super().__init__`, so re-passing raises "multiple values".
+            class_metric_name = getattr(type(self), "metric_name", None)
+            if class_metric_name is None:
+                init_kwargs["metric_name"] = self._metric_name
+            elif class_metric_name != self._metric_name:
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer {type(self).__name__}: instance "
+                    f"`_metric_name='{self._metric_name}'` does not match class "
+                    f"ClassVar `metric_name='{class_metric_name}'`."
+                )
+            if self._model is not None:
+                init_kwargs["model"] = self._model
+            copy = type(self)(**init_kwargs)
+            copy.name = self.name
+            if self.description is not None:
+                copy.description = self.description
+            if self.aggregations is not None:
+                copy.aggregations = self.aggregations
+        elif self.kind == ScorerKind.ENSEMBLE:
+            # Copy each sub-scorer through its own _create_copy so kind-specific handling
+            # still applies; a deepcopy of `_scorers` would recurse infinitely on a
+            # third-party sub-scorer holding an `instructor`-wrapped client.
+            copy = make_scorer_ensemble(
+                name=self.name,
+                scorers=[s._create_copy() for s in self._scorers],
+                ensemble_fn=self._ensemble_fn_name or self._ensemble_fn,
+                description=self.description,
+                aggregations=self.aggregations,
+            )
+        else:
+            copy = self.model_copy(deep=True)
+        # Duplicate the cached dump so modifications to the copy don't affect the original
+        if self._cached_dump is not None:
+            object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
+        return copy
+
+    def _check_can_be_registered(self, error_message: str | None = None) -> None:
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
+
+        if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
+            if error_message is None:
+                error_message = (
+                    "Scorer must be a builtin or decorator scorer to be registered. "
+                    f"Got {self.kind}."
+                )
+            raise MlflowException.invalid_parameter_value(error_message)
+
+        # An ensemble is only registerable if every sub-scorer is registerable too (e.g. an
+        # ensemble containing a decorator sub-scorer on a non-Databricks URI is rejected with
+        # the same rule the sub-scorer would raise on its own).
+        if self.kind == ScorerKind.ENSEMBLE:
+            for sub_scorer in self._scorers:
+                sub_scorer._check_can_be_registered(error_message)
+
+        # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
+        # execution risk. Only allow registration when using Databricks tracking URI.
+        # Registration itself is safe (just stores code), but we restrict it to Databricks
+        # to ensure loaded scorers can only be executed in controlled environments.
+        if self.kind == ScorerKind.DECORATOR and not is_databricks_uri(get_tracking_uri()):
+            raise MlflowException.invalid_parameter_value(
+                DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+            )
+
+        if self.kind == ScorerKind.THIRD_PARTY and is_databricks_uri(get_tracking_uri()):
+            raise MlflowException.invalid_parameter_value(
+                THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR
+            )
+
+        store = _get_scorer_store()
+        if (
+            isinstance(store, DatabricksStore)
+            and (model := getattr(self, "model", None))
+            and not model.startswith("databricks")
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "The scorer's judge model must use Databricks as a model provider "
+                "in order to be registered or updated. Please use the default judge model or "
+                "specify a model value starting with `databricks:/`. "
+                f"Got {model}."
+            )
+
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+@overload
+def scorer(
+    func: _F,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+    pass_if: Callable[[Any], bool] | None = None,
+) -> Scorer: ...
+
+
+@overload
+def scorer(
+    func: None = None,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+    pass_if: Callable[[Any], bool] | None = None,
+) -> Callable[[_F], Scorer]: ...
+
+
+def scorer(
+    func: _F | None = None,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+    pass_if: Callable[[Any], bool] | None = None,
+) -> Scorer | Callable[[_F], Scorer]:
+    """
+    A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
+
+    The scorer function should take in a **subset** of the following parameters:
+
+    .. list-table::
+        :widths: 20 20 20
+        :header-rows: 1
+
+        * - Parameter
+          - Description
+          - Source
+
+        * - ``inputs``
+          - A single input to the target model/app.
+          - Derived from either dataset or trace.
+
+            * When the dataset contains ``inputs`` column, the value will be passed as is.
+            * When traces are provided as evaluation dataset, this will be derived
+              from the ``inputs`` field of the trace (i.e. inputs captured as the
+              root span of the trace).
+
+        * - ``outputs``
+          - A single output from the target model/app.
+          - Derived from either dataset, trace, or output of ``predict_fn``.
+
+            * When the dataset contains ``outputs`` column, the value will be passed as is.
+            * When ``predict_fn`` is provided, MLflow will make a prediction using the
+              ``inputs`` and the ``predict_fn`` and pass the result as the ``outputs``.
+            * When traces are provided as evaluation dataset, this will be derived
+              from the ``response`` field of the trace (i.e. outputs captured as the
+              root span of the trace).
+
+        * - ``expectations``
+          - Ground truth or any expectation for each prediction e.g., expected retrieved docs.
+          - Derived from either dataset or trace.
+
+            * When the dataset contains ``expectations`` column, the value will be passed as is.
+            * When traces are provided as evaluation dataset, this will be a dictionary
+              that contains a set of assessments in the format of
+              [assessment name]: [assessment value].
+
+        * - ``trace``
+          - A trace object corresponding to the prediction for the row.
+          - Specified as a ``trace`` column in the dataset, or generated during the prediction.
+
+        * - ``session``
+          - A list of trace objects belonging to the same conversation session.
+          - When this parameter is present, the scorer is automatically treated as a
+            **session-level** (multi-turn) scorer. It will be called once per session
+            rather than once per trace.
+
+            * ``session`` can only be combined with ``expectations``. Using ``session``
+              together with ``inputs``, ``outputs``, or ``trace`` is not allowed.
+
+    The scorer function should return one of the following:
+
+    * A boolean value
+    * An integer value
+    * A float value
+    * A string value
+    * A single :class:`~mlflow.entities.Feedback` object
+    * A list of :class:`~mlflow.entities.Feedback` objects
+
+    .. note::
+
+        The metric name will be determined by the scorer function's name or a custom name
+        specified in the `name` parameter for the scorer.
+
+    Args:
+        func: The scorer function to be decorated.
+        name: The name of the scorer.
+        description: A description of what the scorer evaluates.
+        aggregations: A list of aggregation functions to apply to the scorer's output.
+            The aggregation functions can be either a string or a callable.
+
+            * If a string, it must be one of `["min", "max", "mean", "median", "variance", "p90"]`.
+            * If a callable, it must take a list of values and return a single value.
+
+            By default, "mean" is used as the aggregation function.
+        pass_if: A predicate ``(value) -> bool`` that decides whether the scorer's
+            value counts as passing in ``EvaluationResult.passed``.
+            Use it for scorers whose value is not a ``yes``/``no`` rating or a ``bool``
+            (e.g. a numeric score): ``@scorer(pass_if=lambda v: v >= 0.8)``. When omitted,
+            the default rule applies (a ``yes`` rating or ``True`` passes).
+
+    Example:
+
+        .. code-block:: python
+
+            import json
+            from mlflow.genai.scorers import scorer
+            from mlflow.entities import AssessmentSource, Feedback
+
+
+            # Basic scorers that returns primitive values
+            @scorer
+            def not_empty(outputs) -> bool:
+                return outputs != ""
+
+
+            @scorer
+            def exact_match(outputs, expectations) -> bool:
+                return outputs == expectations["expected_response"]
+
+
+            @scorer
+            def num_tool_calls(trace) -> int:
+                spans = trace.search_spans(name="tool_call")
+                return len(spans)
+
+
+            # Use `Feedback` object to return additional information about the scorer's
+            # result, such as a rationale for the score.
+            @scorer
+            def harmfulness(outputs) -> Feedback:
+                import openai
+
+                prompt = f'''
+                    Judge if the following text is harmful or not.
+
+                    Text:
+                    {outputs}
+
+                    Return the answer in a JSON object with the following format:
+                    {{
+                        "harmful": true
+                        "reason": "The text contains harmful content"
+                    }}
+
+                    Do not output any other characters than the json object.
+                '''
+                response = openai.OpenAI().chat.completions.create(
+                    model="o4-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                payload = json.loads(response.choices[0].message.content)
+                return Feedback(
+                    value=payload["harmful"],
+                    rationale=payload["reason"],
+                    source=AssessmentSource(
+                        source_type="LLM_JUDGE",
+                        source_id="openai:/o4-mini",
+                    ),
+                )
+
+
+            # Session-level scorer that evaluates an entire conversation.
+            # Including `session` in the function signature automatically makes this
+            # a session-level scorer.
+            @scorer
+            def conversation_quality(session) -> Feedback:
+                total_turns = len(session)
+                has_errors = any(t.info.status == "ERROR" for t in session)
+                return Feedback(
+                    value=not has_errors, rationale=f"{total_turns} turns, errors={has_errors}"
+                )
+
+
+            # Use the scorer in an evaluation
+            mlflow.genai.evaluate(
+                data=data,
+                scorers=[not_empty, exact_match, num_tool_calls, harmfulness],
+            )
+    """
+
+    if func is None:
+        return functools.partial(
+            scorer,
+            name=name,
+            description=description,
+            aggregations=aggregations,
+            pass_if=pass_if,
+        )
+
+    func_params = set(inspect.signature(func).parameters.keys())
+    _is_session_level = "session" in func_params
+
+    if _is_session_level:
+        if invalid_params := func_params & {"inputs", "outputs", "trace"}:
+            raise MlflowException.invalid_parameter_value(
+                f"Session-level scorers (functions with a `session` parameter) cannot "
+                f"also accept {', '.join(sorted(f'`{p}`' for p in invalid_params))}. "
+                f"Session-level scorers are called once per session with the full list "
+                f"of traces, so single-turn parameters are not available. "
+                f"Use only `session` and optionally `expectations`."
+            )
+
+    class CustomScorer(Scorer):
+        # Store reference to the original function
+        _original_func: Callable[..., Any] | None = PrivateAttr(default=None)
+        _is_session_level_scorer: ClassVar[bool] = _is_session_level
+
+        def __init__(self, **data):
+            super().__init__(**data)
+            # Set the original function reference
+            # Use object.__setattr__ to bypass Pydantic's attribute handling for private attributes
+            # during model initialization, as direct assignment (self._original_func = func) may be
+            # ignored or fail in this context
+            object.__setattr__(self, "_original_func", func)
+            object.__setattr__(self, "_pass_if", pass_if)
+
+        def __call__(self, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return self._is_session_level_scorer
+
+        @property
+        def kind(self) -> ScorerKind:
+            return ScorerKind.DECORATOR
+
+    # Update the __call__ method's signature to match the original function
+    # but add 'self' as the first parameter. This is required for MLflow to
+    # pass the correct set of parameters to the scorer.
+    signature = inspect.signature(func)
+    params = list(signature.parameters.values())
+    new_params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)] + params
+    new_signature = signature.replace(parameters=new_params)
+    CustomScorer.__call__.__signature__ = new_signature
+
+    return CustomScorer(
+        name=name or func.__name__,
+        description=description,
+        aggregations=aggregations,
+    )
+
+
+class EnsembleScorer(Scorer):
+    _SUB_FEEDBACKS_METADATA_KEY: ClassVar[str] = "mlflow.ensemble.sub_feedbacks"
+
+    _scorers: list[Scorer] = PrivateAttr(default_factory=list)
+    _ensemble_fn: Callable[..., Any] = PrivateAttr()
+    _ensemble_fn_name: str | None = PrivateAttr(default=None)
+    _is_session_level: bool = PrivateAttr(default=False)
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        if self._ensemble_fn_name is None:
+            raise MlflowException.invalid_parameter_value(
+                "This ensemble scorer uses a custom ensemble function and cannot be "
+                "serialized or registered. Pass one of the built-in ensemble functions "
+                f"({sorted(BUILTIN_ENSEMBLES)}) to make it serializable."
+            )
+        serialized = SerializedScorer(
+            name=self.name,
+            description=self.description,
+            aggregations=self.aggregations,
+            is_session_level_scorer=self.is_session_level_scorer,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            ensemble_scorer_data={
+                "ensemble_fn": self._ensemble_fn_name,
+                "scorers": [s.model_dump() for s in self._scorers],
+            },
+        )
+        return asdict(serialized)
+
+    def _run_sub_scorer(self, sub_scorer: "Scorer", kwargs: dict[str, Any]) -> Any:
+        # Isolate sub-scorer failures: a raised exception becomes an error Feedback so one
+        # bad scorer doesn't abort the whole ensemble. Built-in ensemble fns still treat the
+        # resulting None as fatal; custom fns can tolerate it. (Sub-scorers run sequentially;
+        # parallel execution is future work.)
+        try:
+            return sub_scorer.run(**kwargs)
+        except Exception as e:
+            return Feedback(name=sub_scorer.name, error=e)
+
+    def _describe_failed_sub_scorers(self, sub_feedbacks: list[Feedback]) -> str:
+        # Built-in ensemble fns reject a missing value, and their generic "returned no value"
+        # message loses the underlying cause. Name the sub-scorers that failed and quote their
+        # errors so the aggregate failure stays actionable.
+        failures = [
+            f"'{fb.name}': {fb.error.error_message or fb.error.error_code}"
+            for fb in sub_feedbacks
+            if fb.error is not None
+        ]
+        return "; ".join(failures)
+
+    def _normalize_to_feedbacks(self, results: list[Any], values: list[Any]) -> list[Feedback]:
+        # feedbacks-mode ensemble fns and the sub-feedbacks metadata both need a real
+        # Feedback per sub-scorer; bare-value returns are wrapped and named after the scorer.
+        # Scorer.run() already renamed a default-named Feedback to the sub-scorer's name, so a
+        # returned Feedback needs no rename here.
+        return [
+            result if isinstance(result, Feedback) else Feedback(name=sub_scorer.name, value=value)
+            for sub_scorer, result, value in zip(self._scorers, results, values)
+        ]
+
+    def _build_sub_feedbacks_metadata(self, sub_feedbacks: list[Any]) -> dict[str, str]:
+        # Preserve each sub-scorer's full Feedback (value, rationale, source, error) on the
+        # aggregate so the ensemble result stays fully explainable — including which judge/human/
+        # code produced each sub-result. metadata is dict[str, str], so the list of Feedback
+        # dicts is JSON-encoded under a single key.
+        entries = [fb.to_dictionary() for fb in sub_feedbacks]
+        return {self._SUB_FEEDBACKS_METADATA_KEY: json.dumps(entries)}
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.ENSEMBLE
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return self._is_session_level
+
+    def __call__(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+        session: list[Trace] | None = None,
+    ) -> Feedback:
+        if self._is_session_level:
+            kwargs = {"session": session, "expectations": expectations}
+        else:
+            kwargs = {
+                "inputs": inputs,
+                "outputs": outputs,
+                "expectations": expectations,
+                "trace": trace,
+            }
+
+        results = [self._run_sub_scorer(s, kwargs) for s in self._scorers]
+        values = [_extract_scorer_value(r) for r in results]
+
+        feedbacks_mode = _is_feedbacks_mode(self._ensemble_fn)
+        sub_feedbacks = self._normalize_to_feedbacks(results, values)
+        sub_metadata = self._build_sub_feedbacks_metadata(sub_feedbacks)
+
+        if not feedbacks_mode:
+            for sub_scorer, value in zip(self._scorers, values):
+                if value is not None and not isinstance(value, (bool, int, float, str)):
+                    raise MlflowException.invalid_parameter_value(
+                        f"make_scorer_ensemble only supports sub-scorers returning bool, "
+                        f"numeric, or categorical (str) values. Sub-scorer "
+                        f"'{sub_scorer.name}' returned {type(value).__name__}."
+                    )
+
+        agg_input = sub_feedbacks if feedbacks_mode else values
+        try:
+            result = self._ensemble_fn(agg_input)
+        except Exception as e:
+            # Attach the sub-scorer provenance to the failure so a crashed sub-scorer is
+            # debuggable: without this, a built-in fn's generic "returned no value" error
+            # hides both which sub-scorer failed and why.
+            failures = self._describe_failed_sub_scorers(sub_feedbacks)
+            suffix = f" Failed sub-scorers -- {failures}." if failures else ""
+            raise MlflowException.invalid_parameter_value(
+                f"Ensemble scorer '{self.name}' failed to aggregate its sub-scorer "
+                f"results: {e}{suffix}"
+            ) from e
+
+        if isinstance(result, Feedback):
+            if result.name == DEFAULT_FEEDBACK_NAME:
+                result.name = self.name
+            # Merge, letting the ensemble_fn's own metadata win on key collisions.
+            result.metadata = {**sub_metadata, **(result.metadata or {})}
+            return result
+        return Feedback(name=self.name, value=result, metadata=sub_metadata)
+
+
+@experimental(version="3.16.0")
+def make_scorer_ensemble(
+    *,
+    name: str,
+    scorers: list[Scorer],
+    ensemble_fn: str | Callable[..., Any],
+    description: str | None = None,
+    aggregations: list[_AggregationType] | None = None,
+) -> EnsembleScorer:
+    """
+    Create a scorer that runs several sub-scorers and aggregates their results.
+
+    Args:
+        name: Name of the ensemble scorer (and of the emitted Feedback).
+        scorers: Sub-scorers to run. Must be homogeneous in level — all session-level
+            or all single-turn. Each must return a bool, numeric, or categorical
+            (str) value.
+        ensemble_fn: A callable ``(values) -> value|Feedback``, or a callable
+            ``(feedbacks) -> value|Feedback`` to receive full Feedback objects, or the
+            string name of a built-in (one of ``mlflow.genai.scorers.ensemble``). The
+            callable may return a primitive (wrapped into a Feedback named after the
+            ensemble scorer) or a ``Feedback`` directly (passed through, with its name
+            defaulted to the ensemble scorer's name when unset).
+        description: Optional description.
+        aggregations: A list of aggregation functions to apply to the scorer's output
+            across rows. Each entry is either a string
+            (``"min"``, ``"max"``, ``"mean"``, ``"median"``, ``"variance"``, ``"p90"``)
+            or a callable ``(list[values]) -> float``. Defaults to ``"mean"``.
+    """
+    if not scorers:
+        raise MlflowException.invalid_parameter_value(
+            "make_scorer_ensemble requires at least one sub-scorer."
+        )
+
+    levels = {s.is_session_level_scorer for s in scorers}
+    if len(levels) > 1:
+        raise MlflowException.invalid_parameter_value(
+            "All sub-scorers passed to make_scorer_ensemble must be the same level: "
+            "either all session-level or all single-turn."
+        )
+    is_session_level = levels.pop()
+
+    if isinstance(ensemble_fn, str):
+        if ensemble_fn not in BUILTIN_ENSEMBLES:
+            raise MlflowException.invalid_parameter_value(
+                f"'{ensemble_fn}' is not a built-in ensemble function. "
+                f"Available: {sorted(BUILTIN_ENSEMBLES)}."
+            )
+        fn_name = ensemble_fn
+        fn = BUILTIN_ENSEMBLES[ensemble_fn]
+    else:
+        fn = ensemble_fn
+        # Record the built-in name when a built-in callable is passed directly, so the
+        # scorer stays serializable.
+        fn_name = next((n for n, f in BUILTIN_ENSEMBLES.items() if f is fn), None)
+
+    # Up-front validation: numeric built-ins reject sub-scorers that DECLARE a
+    # non-numeric feedback_value_type (e.g. a Literal["yes","no"] judge), giving a clear
+    # error before any evaluation runs. Only judges/builtin scorers declare this; decorator
+    # scorers omit it and are validated at call time by the runtime value-check.
+    if fn_name in NUMERIC_ENSEMBLES:
+        for s in scorers:
+            declared = getattr(s, "feedback_value_type", None)
+            if declared is not None and not is_numeric_feedback_type(declared):
+                raise MlflowException.invalid_parameter_value(
+                    f"Ensemble function '{fn_name}' requires numeric sub-scorer values, "
+                    f"but sub-scorer '{s.name}' declares a non-numeric feedback_value_type "
+                    f"({declared!r}). Use majority_vote for categorical scorers."
+                )
+    elif fn_name in BOOL_ENSEMBLES:
+        for s in scorers:
+            declared = getattr(s, "feedback_value_type", None)
+            if declared is not None and not is_bool_feedback_type(declared):
+                raise MlflowException.invalid_parameter_value(
+                    f"Ensemble function '{fn_name}' requires sub-scorer values with a "
+                    f"yes/no reading, but sub-scorer '{s.name}' declares a "
+                    f"feedback_value_type of {declared!r}. Use majority_vote for other "
+                    f"categorical scorers."
+                )
+
+    agg = EnsembleScorer(name=name, description=description, aggregations=aggregations)
+    object.__setattr__(agg, "_scorers", list(scorers))
+    object.__setattr__(agg, "_ensemble_fn", fn)
+    object.__setattr__(agg, "_ensemble_fn_name", fn_name)
+    object.__setattr__(agg, "_is_session_level", is_session_level)
+    return agg

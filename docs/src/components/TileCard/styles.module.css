@@ -1,0 +1,108 @@
+.tileCard {
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-border-color);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.tileCard:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--ifm-shadow-tile-hover);
+  border-color: #0194e2;
+}
+
+.tileCard:hover .tileIcon {
+  transform: scale(1.1);
+}
+
+.tileIcon {
+  margin-bottom: 1rem;
+  transition: transform 0.3s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #0194e2;
+}
+
+.tileCard h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--ifm-color-emphasis-hover);
+}
+
+.tileCard p {
+  color: var(--ifm-border-color);
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.tileLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #0194e2;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.tileLink:hover {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.tileImage {
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  object-fit: contain;
+  background: transparent;
+}
+
+/* Add subtle background for X logo for better contrast */
+.tileCard[href*='x.com'] .tileImage {
+  background: rgba(128, 128, 128, 0.1);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+/* Dark mode specific styling for X logo */
+[data-theme='dark'] .tileCard[href*='x.com'] .tileImage {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Dark mode adjustments for deep learning framework logos */
+/* PyTorch logo - has black text, needs inversion */
+[data-theme='dark'] .tileCard[href*='pytorch'] .tileImage {
+  filter: invert(1) hue-rotate(180deg);
+  background: transparent;
+}
+
+/* TensorFlow logo - has dark text, needs inversion */
+[data-theme='dark'] .tileCard[href*='tensorflow'] .tileImage {
+  filter: invert(1) hue-rotate(180deg);
+  background: transparent;
+}
+
+/* spaCy logo - bright blue, just needs brightening */
+[data-theme='dark'] .tileCard[href*='spacy'] .tileImage {
+  filter: brightness(1.3);
+  background: transparent;
+}
+
+/* HuggingFace/Transformers logo - now using proper dark mode SVG */
+[data-theme='dark'] .tileCard[href*='transformers'] .tileImage {
+  background: transparent;
+}
+
+/* Sentence Transformers logo */
+[data-theme='dark'] .tileCard[href*='sentence-transformers'] .tileImage {
+  filter: brightness(1.5);
+  background: transparent;
+}

@@ -1,0 +1,98 @@
+name: protobuf cross tests
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - "mlflow/protos/**"
+      - .github/workflows/protobuf-cross-test.yml
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+    paths:
+      - "mlflow/protos/**"
+      - .github/workflows/protobuf-cross-test.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Use `bash` by default for all `run` steps in this workflow:
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
+defaults:
+  run:
+    shell: bash
+
+env:
+  MLFLOW_HOME: ${{ github.workspace }}
+  # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
+  # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
+  PYTHONUTF8: "1"
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+
+permissions: {}
+
+jobs:
+  core_tests:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2]
+        protobuf_major_version: [3, 4, 5]
+        include:
+          - splits: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          submodules: true
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        env:
+          PROTOBUF_MAJOR_VERSION: ${{ matrix.protobuf_major_version }}
+        run: |
+          uv sync --extra extras --extra genai --extra mcp
+          # Test the latest minor version in protobuf_major_version
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            datasets \
+            'tensorflow<2.22.0' \
+            torch transformers \
+            "protobuf==$PROTOBUF_MAJOR_VERSION.*"
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/cache-hf
+      - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
+        run: |
+          # NB: test_mlflow_artifacts.py is excluded because it runs docker-compose with fresh
+          # container builds. The protobuf version in the test environment has no effect on the
+          # containers, making cross-version testing unnecessary and wasteful of disk space.
+          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
+            --ignore-flavors \
+            --ignore=tests/projects \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/optuna \
+            --ignore=tests/pyspark/optuna \
+            --ignore=tests/genai \
+            --ignore=tests/telemetry \
+            --ignore=tests/gateway \
+            --ignore=tests/tracking/test_mlflow_artifacts.py \
+            tests

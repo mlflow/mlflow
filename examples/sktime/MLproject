@@ -1,0 +1,5 @@
+name: sktime-example
+python_env: python_env.yaml
+entry_points:
+  main:
+    command: 'python train.py'

@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
+  "title": "MLflow Custom View Catalog",
+  "description": "Custom A2UI catalog for the model trace explorer custom view.",
+  "catalogId": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
+  "components": {
+    "Text": {
+      "$ref": "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json#/components/Text"
+    },
+    "Row": {
+      "$ref": "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json#/components/Row"
+    },
+    "Column": {
+      "$ref": "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json#/components/Column"
+    },
+    "Card": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "A bordered container around a SINGLE child, themed with Databricks Design System tokens (a slightly-darker-than-white surface, border, and rounded corners) so it sits natively in the MLflow UI. To display multiple elements, wrap them in a Row/Column and pass that container's id as the child.",
+          "properties": {
+            "component": {
+              "const": "Card"
+            },
+            "child": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentId",
+              "description": "The id of the single child component to render inside the card."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component", "child"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Icon": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "A single Databricks Design System icon, referenced by name. Accepts the basic catalog's Material-style names (e.g. \"check\", \"close\", \"download\", \"search\", \"settings\", \"warning\", \"error\", \"info\", \"person\", \"folder\", \"star\") which are mapped to the closest DS icon, plus DS-native aliases (e.g. \"trash\", \"gear\", \"pencil\", \"tag\"). Unknown names degrade gracefully to a neutral default icon. Use sparingly: most components (StatCard/AssessmentBoard/etc.) already carry their own icon.",
+          "properties": {
+            "component": {
+              "const": "Icon"
+            },
+            "name": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The icon to display, e.g. \"check\" or \"warning\"."
+            },
+            "size": {
+              "type": "number",
+              "description": "Icon size in pixels. Defaults to the inherited font size."
+            }
+          },
+          "required": ["component", "name"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "StatCard": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "A metric card displaying a value, a caption, and a tinted icon. Matches the tool-call statistics cards on the experiment overview page.",
+          "properties": {
+            "component": {
+              "const": "StatCard"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The metric value to display, e.g. \"14\" or \"275.71ms\"."
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The caption describing the metric."
+            },
+            "icon": {
+              "type": "string",
+              "description": "The icon to display next to the value.",
+              "enum": ["wrench", "clock", "checkCircle", "xCircle", "hash", "checklist"]
+            },
+            "tone": {
+              "type": "string",
+              "description": "The color tone applied to the icon.",
+              "enum": ["info", "success", "warning", "danger"],
+              "default": "info"
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component", "value", "label"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Markdown": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "Renders a markdown text block (optionally under a title).",
+          "properties": {
+            "component": {
+              "const": "Markdown"
+            },
+            "text": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The markdown body."
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional heading shown above the markdown."
+            }
+          },
+          "required": ["component", "text"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "KeyValueViewer": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "Displays a SINGLE labeled value using the Details & Timeline snippet renderer, with a format toggle (text/json/markdown for strings; an interactive JSON tree for objects/arrays). Use it to show one span attribute/input/output field directly.",
+          "properties": {
+            "component": {
+              "const": "KeyValueViewer"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The key/label shown above the value, e.g. the attribute name."
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "JSON-encoded value to display (object/array -> JSON tree, string -> text/markdown/json)."
+            },
+            "initialFormat": {
+              "type": "string",
+              "description": "Initial display format for string values.",
+              "enum": ["json", "text", "markdown"]
+            },
+            "hideFormatToggle": {
+              "type": "boolean",
+              "description": "When true, hides the per-value format dropdown."
+            }
+          },
+          "required": ["component", "value"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "AssessmentCard": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "A single assessment box: the category is the header, the verdict is a colored badge, and the rationale fills the body. Sentiment drives the color (green positive, red negative/error). Reusable — append one per assessment into an AssessmentBoard (or any Row/Column).",
+          "properties": {
+            "component": {
+              "const": "AssessmentCard"
+            },
+            "name": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The assessment category, shown as the box header."
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The verdict/value, shown as a colored badge."
+            },
+            "rationale": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The explanation shown in the box body."
+            },
+            "source": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional source label, e.g. \"LLM_JUDGE\"."
+            },
+            "sentiment": {
+              "type": "string",
+              "description": "Verdict polarity: positive (green), negative/error (red), neutral (gray).",
+              "enum": ["positive", "negative", "neutral", "error"]
+            }
+          },
+          "required": ["component", "name"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "AssessmentBoard": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "A wrapping container for assessment boxes. Renders an optional title followed by a wrapping row of child component ids (typically one AssessmentCard per assessment). Add more assessments by appending more AssessmentCard children.",
+          "properties": {
+            "component": {
+              "const": "AssessmentBoard"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional heading shown above the boxes."
+            },
+            "icon": {
+              "type": "string",
+              "description": "Optional icon shown next to the title.",
+              "enum": ["checklist", "list", "checkCircle"]
+            },
+            "children": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ChildList",
+              "description": "The card component ids to lay out in a wrapping row."
+            },
+            "emptyMessage": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Text shown when there are no cards."
+            }
+          },
+          "required": ["component", "children"]
+        }
+      ],
+      "unevaluatedProperties": false
+    }
+  },
+  "$defs": {
+    "anyComponent": {
+      "oneOf": [
+        {
+          "$ref": "#/components/Text"
+        },
+        {
+          "$ref": "#/components/Row"
+        },
+        {
+          "$ref": "#/components/Column"
+        },
+        {
+          "$ref": "#/components/Card"
+        },
+        {
+          "$ref": "#/components/Icon"
+        },
+        {
+          "$ref": "#/components/StatCard"
+        },
+        {
+          "$ref": "#/components/Markdown"
+        },
+        {
+          "$ref": "#/components/KeyValueViewer"
+        },
+        {
+          "$ref": "#/components/AssessmentCard"
+        },
+        {
+          "$ref": "#/components/AssessmentBoard"
+        }
+      ],
+      "discriminator": {
+        "propertyName": "component"
+      }
+    }
+  }
+}

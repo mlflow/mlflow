@@ -1,0 +1,34 @@
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    command: "echo 'Main entry point'"
+  greeter:
+    parameters:
+      greeting: {type: string, default: "hi"}
+      name: string
+    command: "python greeter.py {greeting} {name}"
+  line_count:
+    parameters:
+      path: path
+    command: "cat {path} | wc -l"
+  download_uri:
+    parameters:
+      uri: uri
+    command: "curl {uri} | wc -l"
+  sleep:
+    parameters:
+      duration: int
+    command: "sleep {duration}"
+  test_tracking:
+    parameters:
+      use_start_run: bool
+    command: "python tracking_test.py {use_start_run}"
+  check_conda_env:
+    parameters:
+      conda_env_name: string
+    command: "python check_conda_env.py {conda_env_name}"
+  test_artifact_path:
+    parameters:
+      model: {type: path}
+    command: "echo success"

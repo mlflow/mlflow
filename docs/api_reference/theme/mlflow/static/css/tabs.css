@@ -1,0 +1,192 @@
+/*!
+ * tabs.css from Sphinx Tabs: https://github.com/executablebooks/sphinx-tabs/blob/eac2a227ca0d375bad3706cf1cf170d760510a22/sphinx_tabs/static/tabs.css
+ * MIT License (https://github.com/djungelorm/sphinx-tabs/blob/master/LICENSE)
+ *
+ * Sphinx Tabs is an extension for Sphinx which adds tabbed views for content in Sphinx documentation.
+ */
+
+.sphinx-tabs {
+margin-bottom: 1rem;
+}
+
+[role="tablist"] {
+border-bottom: 1px solid #a0b3bf;
+}
+
+.sphinx-tabs-tab {
+position: relative;
+font-family: Lato,'Helvetica Neue',Arial,Helvetica,sans-serif;
+color: #1D5C87;
+line-height: 24px;
+margin: 0;
+font-size: 16px;
+font-weight: 400;
+background-color: rgba(255, 255, 255, 0);
+border-radius: 5px 5px 0 0;
+border: 0;
+padding: 1rem 1.5rem;
+margin-bottom: 0;
+}
+
+.sphinx-tabs-tab[aria-selected="true"] {
+font-weight: 700;
+border: 1px solid #a0b3bf;
+border-bottom: 1px solid white;
+margin: -1px;
+background-color: white;
+}
+
+.sphinx-tabs-tab:focus {
+z-index: 1;
+outline-offset: 1px;
+}
+
+.sphinx-tabs-panel {
+position: relative;
+padding: 1rem;
+border: 1px solid #a0b3bf;
+margin: 0px -1px -1px -1px;
+border-radius: 0 0 5px 5px;
+border-top: 0;
+background: white;
+}
+
+.sphinx-tabs-panel.code-tab {
+padding: 0.4rem;
+}
+
+.sphinx-tab img {
+    margin-bottom: 24 px;
+}
+
+/* Dark theme preference styling */
+
+@media (prefers-color-scheme: dark) {
+body[data-theme="auto"] .sphinx-tabs-panel {
+    color: white;
+    background-color: rgb(50, 50, 50);
+}
+
+body[data-theme="auto"] .sphinx-tabs-tab {
+    color: white;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+body[data-theme="auto"] .sphinx-tabs-tab[aria-selected="true"] {
+    border-bottom: 1px solid rgb(50, 50, 50);
+    background-color: rgb(50, 50, 50);
+}
+}
+
+/* Explicit dark theme styling */
+
+body[data-theme="dark"] .sphinx-tabs-panel {
+color: white;
+background-color: rgb(50, 50, 50);
+}
+
+body[data-theme="dark"] .sphinx-tabs-tab {
+color: white;
+background-color: rgba(255, 255, 255, 0.05);
+}
+
+body[data-theme="dark"] .sphinx-tabs-tab[aria-selected="true"] {
+border-bottom: 2px solid rgb(50, 50, 50);
+background-color: rgb(50, 50, 50);
+}
+
+/*
+ * Main Landing page Tab display panes
+ */
+
+ .main-container {
+    margin: 1rem;
+    text-align: left;
+    min-height: 500px;
+}
+
+.main-container h3 {
+    margin-bottom: 30px;
+}
+
+.sub-container-two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 600px) {
+    .sub-container-two-columns {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.text-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center; 
+}
+
+.text-box h4 {
+    margin-bottom: 30px;
+}
+
+.text-box p {
+    padding-left: 20px;
+}
+
+.image-box img {
+    width: 100%;
+    height: auto;
+    max-height: 400px;
+    object-fit: scale-down;
+}
+
+.icon-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+    gap: 20px;
+    margin-top: 40px;
+}
+
+
+.icon-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 10px;
+    box-sizing: border-box;
+    height: 100%;
+    justify-content: center;
+    margin-right: 30px;
+}
+
+.icon-box img {
+    cursor: pointer;
+    max-width: 100%;
+    max-height: 100px;
+    height: auto;
+    margin-bottom: 20px;
+}
+
+.icon-box p {
+    margin-top: auto;
+    font-size: 16px;
+    font-weight: 300;
+    color: #666;
+}
+
+/*
+ * Additional Custom CSS
+ */
+
+ /* Handling mobile view for the tab widget in the tracking page */
+ .tracking-responsive-tab-container {
+    display: flex;
+ }
+
+.tracking-responsive-tab-container h4 {
+    margin-bottom: 20px;
+}

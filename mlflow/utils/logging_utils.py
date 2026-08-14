@@ -1,0 +1,256 @@
+import contextlib
+import logging
+import re
+import sys
+
+from mlflow.environment_variables import MLFLOW_LOGGING_LEVEL
+from mlflow.utils.thread_utils import ThreadLocalVariable
+
+
+def get_mlflow_log_level() -> str:
+    """Returns the log level from MLFLOW_LOGGING_LEVEL env var, defaulting to INFO."""
+    return (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
+
+
+# Logging format example:
+# 2018/11/20 12:36:37 INFO mlflow.sagemaker: Creating new SageMaker endpoint
+LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+LOGGING_DATETIME_FORMAT = "%Y/%m/%d %H:%M:%S"
+
+
+class MlflowLoggingStream:
+    """
+    A Python stream for use with event logging APIs throughout MLflow (`eprint()`,
+    `logger.info()`, etc.). This stream wraps `sys.stderr`, forwarding `write()` and
+    `flush()` calls to the stream referred to by `sys.stderr` at the time of the call.
+    It also provides capabilities for disabling the stream to silence event logs.
+    """
+
+    def __init__(self):
+        self._enabled = True
+
+    def write(self, text):
+        if self._enabled:
+            sys.stderr.write(text)
+
+    def flush(self):
+        if self._enabled:
+            sys.stderr.flush()
+
+    @property
+    def enabled(self):
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, value):
+        self._enabled = value
+
+
+MLFLOW_LOGGING_STREAM = MlflowLoggingStream()
+
+
+def disable_logging():
+    """
+    Disables the `MlflowLoggingStream` used by event logging APIs throughout MLflow
+    (`eprint()`, `logger.info()`, etc), silencing all subsequent event logs.
+    """
+    MLFLOW_LOGGING_STREAM.enabled = False
+
+
+def enable_logging():
+    """
+    Enables the `MlflowLoggingStream` used by event logging APIs throughout MLflow
+    (`eprint()`, `logger.info()`, etc), emitting all subsequent event logs. This
+    reverses the effects of `disable_logging()`.
+    """
+    MLFLOW_LOGGING_STREAM.enabled = True
+
+
+class MlflowFormatter(logging.Formatter):
+    """
+    Custom Formatter Class to support colored log
+    ANSI characters might not work natively on older Windows, so disabling the feature for win32.
+    See https://github.com/borntyping/python-colorlog/blob/dfa10f59186d3d716aec4165ee79e58f2265c0eb/colorlog/escape_codes.py#L16C8-L16C31
+    """
+
+    # Copied from color log package https://github.com/borntyping/python-colorlog/blob/dfa10f59186d3d716aec4165ee79e58f2265c0eb/colorlog/escape_codes.py#L33-L50
+    COLORS = {
+        "black": 30,
+        "red": 31,
+        "green": 32,
+        "yellow": 33,
+        "blue": 34,
+        "purple": 35,
+        "cyan": 36,
+        "white": 37,
+        "light_black": 90,
+        "light_red": 91,
+        "light_green": 92,
+        "light_yellow": 93,
+        "light_blue": 94,
+        "light_purple": 95,
+        "light_cyan": 96,
+        "light_white": 97,
+    }
+    RESET = "\033[0m"
+
+    def format(self, record):
+        if color := getattr(record, "color", None):
+            if color in self.COLORS and sys.platform != "win32":
+                color_code = self._escape(self.COLORS[color])
+                return f"{color_code}{super().format(record)}{self.RESET}"
+        return super().format(record)
+
+    def _escape(self, code: int) -> str:
+        return f"\033[{code}m"
+
+
+# Thread-local variable to suppress logs in the certain thread, used
+# in telemetry client to suppress logs in the consumer thread
+should_suppress_logs_in_thread = ThreadLocalVariable(default_factory=lambda: False)
+
+
+class SuppressLogFilter(logging.Filter):
+    def filter(self, record):
+        if should_suppress_logs_in_thread.get():
+            return False
+        return super().filter(record)
+
+
+# Cloud storage presigned URLs (AWS S3, GCS, Azure SAS) embed credentials in
+# query parameters. urllib3 logs the full target URL on connection retries
+# (e.g. when DNS resolution fails), which leaks those credentials to stderr.
+_SENSITIVE_QUERY_PARAM_NAMES = (
+    "X-Amz-Signature",
+    "X-Amz-Security-Token",
+    "X-Amz-Credential",
+    "X-Goog-Signature",
+    "X-Goog-Credential",
+    "Signature",
+    "sig",
+)
+
+_SENSITIVE_QUERY_PARAM_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(p) for p in _SENSITIVE_QUERY_PARAM_NAMES) + r")=[^&\s'\"]+",
+    re.IGNORECASE,
+)
+
+
+def _redact_sensitive_query_params(message: str) -> str:
+    return _SENSITIVE_QUERY_PARAM_PATTERN.sub(lambda m: f"{m.group(1)}=[REDACTED]", message)
+
+
+class SensitiveQueryParamFilter(logging.Filter):
+    """
+    Logging filter that masks cloud storage credentials embedded in URL query
+    strings. Attached to urllib3 to avoid leaking presigned URL credentials
+    (X-Amz-Signature, X-Amz-Security-Token, X-Amz-Credential, ...) when
+    urllib3 logs full URLs on connection failures or retries.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = record.getMessage()
+        except Exception:
+            return True
+        redacted = _redact_sensitive_query_params(message)
+        if redacted != message:
+            record.msg = redacted
+            record.args = None
+        return True
+
+
+def _configure_mlflow_loggers(root_module_name):
+    """
+    Configure the loggers MLflow owns, leaving every other logger untouched.
+
+    This deliberately avoids `logging.config.dictConfig`. Even with
+    `disable_existing_loggers=False`, `dictConfig` mutates loggers it was never
+    asked to configure: it force-sets `.disabled = False` on unrelated loggers
+    (re-enabling ones the host application had deliberately silenced) and resets
+    the level, handlers, and propagate flag of any descendant of a configured
+    logger. See CPython bpo-44607.
+    """
+    log_level = get_mlflow_log_level()
+    # For alembic, use WARNING minimum to reduce noise, but respect higher levels
+    alembic_level = log_level if log_level in ("WARNING", "ERROR", "CRITICAL") else "WARNING"
+
+    handler = logging.StreamHandler(stream=MLFLOW_LOGGING_STREAM)
+    handler.setFormatter(MlflowFormatter(fmt=LOGGING_LINE_FORMAT, datefmt=LOGGING_DATETIME_FORMAT))
+    handler.addFilter(SuppressLogFilter())
+
+    for name, level in (
+        (root_module_name, log_level),
+        ("sqlalchemy.engine", "WARNING"),
+        ("alembic", alembic_level),
+        ("huey", alembic_level),
+    ):
+        logger = logging.getLogger(name)
+        # Replace handlers on these four loggers rather than appending, matching
+        # what `dictConfig` did. Direct assignment keeps repeat calls idempotent.
+        logger.handlers = [handler]
+        logger.setLevel(level)
+        logger.propagate = False
+
+
+def _install_sensitive_query_param_filter() -> None:
+    """
+    Attach SensitiveQueryParamFilter to urllib3.connectionpool. urllib3 logs
+    full target URLs (with presigned-URL credentials in query params) on
+    connection retries, which can leak credentials to stderr. Idempotent.
+    """
+    urllib3_logger = logging.getLogger("urllib3.connectionpool")
+    if not any(isinstance(f, SensitiveQueryParamFilter) for f in urllib3_logger.filters):
+        urllib3_logger.addFilter(SensitiveQueryParamFilter())
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=MLFLOW_LOGGING_STREAM, **kwargs)
+
+
+class LoggerMessageFilter(logging.Filter):
+    def __init__(self, module: str, filter_regex: re.Pattern):
+        super().__init__()
+        self._pattern = filter_regex
+        self._module = module
+
+    def filter(self, record):
+        if record.name == self._module and self._pattern.search(record.msg):
+            return False
+        return True
+
+
+@contextlib.contextmanager
+def suppress_logs(module: str, filter_regex: re.Pattern):
+    """
+    Context manager that suppresses log messages from the specified module that match the specified
+    regular expression. This is useful for suppressing expected log messages from third-party
+    libraries that are not relevant to the current test.
+    """
+    logger = logging.getLogger(module)
+    filter = LoggerMessageFilter(module=module, filter_regex=filter_regex)
+    logger.addFilter(filter)
+    try:
+        yield
+    finally:
+        logger.removeFilter(filter)
+
+
+def _debug(s: str) -> None:
+    """
+    Debug function to test logging level.
+    """
+    logging.getLogger(__name__).debug(s)
+
+
+@contextlib.contextmanager
+def suppress_logs_in_thread():
+    """
+    Context manager to suppress logs in the current thread.
+    """
+    original_value = should_suppress_logs_in_thread.get()
+    try:
+        should_suppress_logs_in_thread.set(True)
+        yield
+    finally:
+        should_suppress_logs_in_thread.set(original_value)

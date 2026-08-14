@@ -1,0 +1,12 @@
+name: docker-example
+
+docker_env:
+  image:  mlflow-docker-example
+
+entry_points:
+  main:
+    command: "echo 'Main entry point'"
+  test_tracking:
+    parameters:
+      use_start_run: bool
+    command: "python scripts/docker_tracking_test.py {use_start_run}"

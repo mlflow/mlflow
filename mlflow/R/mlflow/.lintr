@@ -1,0 +1,1 @@
+linters: with_defaults(line_length_linter(120), closed_curly_linter = NULL, open_curly_linter = NULL, absolute_paths_linter = NULL, object_usage_linter = NULL, object_length_linter = NULL, commented_code_linter = NULL)

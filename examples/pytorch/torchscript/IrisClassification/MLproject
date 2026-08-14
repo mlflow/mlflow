@@ -1,0 +1,12 @@
+name: iris-classification
+
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      epochs: {type: int, default: 50}
+
+    command: |
+          python iris_classification.py \
+            --epochs {epochs}

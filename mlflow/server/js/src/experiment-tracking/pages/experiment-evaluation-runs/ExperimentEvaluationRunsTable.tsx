@@ -1,0 +1,227 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
+import { Empty, Table, TableHeader, TableRow, TableSkeletonRows, Typography } from '@databricks/design-system';
+import type { EvalRunsTableColumnDef } from './ExperimentEvaluationRunsTable.constants';
+import {
+  EvalRunsTableKeyedColumnPrefix,
+  getExperimentEvalRunsDefaultColumns,
+} from './ExperimentEvaluationRunsTable.constants';
+import type { OnChangeFn, SortDirection, SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getExpandedRowModel, getSortedRowModel } from '@tanstack/react-table';
+import type { ExpandedState, RowSelectionState } from '@tanstack/react-table';
+import { ExperimentEvaluationRunsTableRow } from './ExperimentEvaluationRunsTableRow';
+import type { DatasetWithRunType } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
+import { useCallback, useMemo, useState, forwardRef } from 'react';
+import { KeyedValueCell, SortableHeaderCell } from './ExperimentEvaluationRunsTableCellRenderers';
+import {
+  getEvalRunCellValueBasedOnColumn,
+  parseEvalRunsTableKeyedColumnKey,
+} from './ExperimentEvaluationRunsTable.utils';
+import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
+import type { ExperimentEvaluationRunsPageMode } from './hooks/useExperimentEvaluationRunsPageMode';
+import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
+
+export interface ExperimentEvaluationRunsTableProps {
+  data: RunEntityOrGroupData[];
+  uniqueColumns: string[];
+  selectedColumns: { [key: string]: boolean };
+  selectedRunUuid?: string;
+  setSelectedRunUuid: (runUuid: string) => void;
+  isLoading: boolean;
+  hasNextPage: boolean;
+  rowSelection: RowSelectionState;
+  setRowSelection: OnChangeFn<RowSelectionState>;
+  setSelectedDatasetWithRun: (datasetWithRun: DatasetWithRunType) => void;
+  setIsDrawerOpen: (isOpen: boolean) => void;
+  viewMode: ExperimentEvaluationRunsPageMode;
+  onScroll?: React.UIEventHandler<HTMLDivElement>;
+  isGrouped?: boolean;
+  enableImprovedComparison?: boolean;
+}
+
+export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, ExperimentEvaluationRunsTableProps>(
+  // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
+  (
+    {
+      data,
+      uniqueColumns,
+      selectedColumns,
+      selectedRunUuid,
+      setSelectedRunUuid,
+      isLoading,
+      hasNextPage,
+      rowSelection,
+      setRowSelection,
+      setSelectedDatasetWithRun,
+      setIsDrawerOpen,
+      viewMode,
+      onScroll,
+      isGrouped,
+      enableImprovedComparison,
+    },
+    ref,
+  ) => {
+    const [sorting, setSorting] = useState<SortingState>([]);
+    const [expandedRows, setExpandedRows] = useState<ExpandedState>(true);
+    const { isRowHidden } = useExperimentEvaluationRunsRowVisibility();
+
+    const columns = useMemo(() => {
+      const allColumns = getExperimentEvalRunsDefaultColumns(viewMode);
+
+      // add a column for each available metric, param, or tag
+      uniqueColumns.forEach((column) => {
+        const parsedColumn = parseEvalRunsTableKeyedColumnKey(column);
+        const isMetricColumn = parsedColumn?.columnType === EvalRunsTableKeyedColumnPrefix.METRIC;
+
+        allColumns.push({
+          id: column,
+          accessorFn: (row) => {
+            if ('subRuns' in row) {
+              return undefined;
+            }
+            return getEvalRunCellValueBasedOnColumn(column, row);
+          },
+          cell: KeyedValueCell,
+          header: SortableHeaderCell,
+          enableSorting: true,
+          // Use 'basic' (numeric) sorting for metrics, 'alphanumeric' for params/tags
+          sortingFn: isMetricColumn ? 'basic' : 'alphanumeric',
+          meta: {
+            styles: {
+              minWidth: 100,
+              maxWidth: 200,
+            },
+          },
+        });
+      });
+      return allColumns.filter((column) => selectedColumns[column.id ?? '']);
+    }, [selectedColumns, uniqueColumns, viewMode]);
+
+    // Build a map of row ID -> flat run index (excluding group rows)
+    // This ensures FIRST_10_RUNS/FIRST_20_RUNS visibility controls work correctly
+    // with parent-child hierarchies and grouped views
+    const flatRunIndexMap = useMemo(() => {
+      const map: Record<string, number> = {};
+      let runIndex = 0;
+
+      // Walk through all rows in the table and assign indices only to actual runs
+      const walkRows = (rows: typeof data) => {
+        rows.forEach((row) => {
+          if ('info' in row) {
+            // This is an actual run entity - assign an index
+            map[row.info.runUuid] = runIndex++;
+          }
+
+          // Recurse into children if they exist
+          if ('subRuns' in row && row.subRuns) {
+            walkRows(row.subRuns);
+          }
+          if ('children' in row && row.children) {
+            walkRows(row.children);
+          }
+        });
+      };
+
+      walkRows(data);
+      return map;
+    }, [data]);
+
+    const table = useReactTable<RunEntityOrGroupData>(
+      'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-runs/ExperimentEvaluationRunsTable.tsx',
+      {
+        columns,
+        data: data,
+        getCoreRowModel: getCoreRowModel(),
+        getRowId: (row, index) => {
+          if ('info' in row) {
+            return row.info.runUuid;
+          }
+          return row.groupKey;
+        },
+        enableSorting: true,
+        onSortingChange: setSorting,
+        getSortedRowModel: getSortedRowModel(),
+        enableColumnResizing: false,
+        enableExpanding: true,
+        getExpandedRowModel: getExpandedRowModel(),
+        getSubRows: (row) => {
+          if ('subRuns' in row) {
+            return row.subRuns;
+          }
+          if ('children' in row) {
+            return row.children;
+          }
+          return undefined;
+        },
+        getRowCanExpand: (row) => Boolean(row.subRows?.length),
+        onExpandedChange: setExpandedRows,
+        enableRowSelection: (row) => {
+          // Groups are not selectable
+          if ('subRuns' in row.original) {
+            return false;
+          }
+          return true;
+        },
+        meta: {
+          setSelectedRunUuid,
+          setSelectedDatasetWithRun,
+          setIsDrawerOpen,
+          flatRunIndexMap,
+        },
+        onRowSelectionChange: setRowSelection,
+        state: {
+          rowSelection,
+          sorting,
+          expanded: expandedRows,
+        },
+      },
+    );
+
+    return (
+      <Table css={{ flex: 1 }} scrollable onScroll={onScroll} ref={ref}>
+        <TableRow isHeader>
+          {table.getLeafHeaders().map((header) => {
+            return (
+              <TableHeader
+                key={header.id}
+                css={(header.column.columnDef as EvalRunsTableColumnDef).meta?.styles}
+                sortable={header.column.getCanSort()}
+                sortDirection={header.column.getIsSorted() as SortDirection}
+                onToggleSort={header.column.getToggleSortingHandler()}
+                componentId="mlflow.eval-runs.header"
+                header={header}
+                column={header.column}
+              >
+                {flexRender(header.column.columnDef.header, header.getContext())}
+              </TableHeader>
+            );
+          })}
+        </TableRow>
+
+        {!isLoading &&
+          table.getRowModel().rows.map((row) => {
+            const isActive = 'info' in row.original ? row.original.info.runUuid === selectedRunUuid : false;
+            const runStatus = 'info' in row.original ? row.original.info.status : undefined;
+
+            // Get flat run index from pre-calculated map (excludes group rows)
+            const runUuid = 'info' in row.original ? row.original.info.runUuid : undefined;
+            const currentFlatIndex = runUuid && flatRunIndexMap[runUuid] !== undefined ? flatRunIndexMap[runUuid] : -1;
+
+            return (
+              <ExperimentEvaluationRunsTableRow
+                key={row.id}
+                row={row}
+                isActive={isActive}
+                isSelected={rowSelection[row.id]}
+                isExpanded={row.getIsExpanded()}
+                isHidden={isRowHidden(row.id, currentFlatIndex, runStatus)}
+                columns={columns}
+                isGrouped={isGrouped}
+                enableImprovedComparison={enableImprovedComparison}
+              />
+            );
+          })}
+        {(isLoading || hasNextPage) && <TableSkeletonRows table={table} />}
+      </Table>
+    );
+  },
+);

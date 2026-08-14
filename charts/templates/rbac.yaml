@@ -1,0 +1,53 @@
+{{- if .Values.namespace_rbac.extraRules }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+rules:
+  {{- toYaml .Values.namespace_rbac.extraRules | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "mlflow.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mlflow.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.cluster_rbac.extraRules }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+rules:
+  {{- toYaml .Values.cluster_rbac.extraRules | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "mlflow.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "mlflow.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

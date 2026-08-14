@@ -1,0 +1,83 @@
+div.mlflow-artifact-view {
+  display: flex;
+  overflow: hidden;
+}
+
+.mlflow-artifact-left {
+  min-width: 200px;
+  max-width: 400px;
+  flex: 1;
+}
+
+.mlflow-artifact-left li {
+  white-space: nowrap;
+}
+
+.mlflow-artifact-right {
+  flex: 3;
+  min-width: 400px;
+  max-width: calc(100% - 200px); /* 200px is the min-width of .mlflow-artifact-left */
+
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.mlflow-artifact-info-left {
+  flex: 1;
+  max-width: 75%;
+}
+.mlflow-artifact-info-right {
+  margin-left: auto;
+}
+
+.mlflow-artifact-info-path {
+  display: flex;
+  align-items: center;
+}
+
+.mlflow-artifact-info-text {
+  min-width: 0;
+}
+
+.mlflow-artifact-info-size {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mlflow-loading-spinner {
+  height: 20px;
+  opacity: 0;
+  -webkit-animation: spin 3s linear infinite;
+  -moz-animation: spin 3s linear infinite;
+  animation: spin 3s linear infinite;
+}
+
+.mlflow-artifact-info-right .model-version-link {
+  display: flex;
+  align-items: baseline;
+  max-width: 140px;
+  padding-top: 1px;
+  padding-left: 4px;
+}
+
+.mlflow-artifact-info-right .model-version-link .model-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mlflow-artifact-info-right .model-version-info {
+  font-size: 12px;
+}
+
+.mlflow-artifact-info-right .model-version-info .model-version-link-section {
+  display: flex;
+  align-items: center;
+}
+
+.mlflow-artifact-info-right .model-version-info .model-version-status-text {
+  overflow: hidden;
+  max-width: 160px;
+  text-overflow: ellipsis;
+}

@@ -1,0 +1,443 @@
+/**
+ * Service layer for Assistant Agent API calls.
+ */
+
+import type {
+  MessageRequest,
+  ToolUseInfo,
+  ToolResultInfo,
+  AssistantConfig,
+  AssistantConfigUpdate,
+  HealthCheckResult,
+  InstallSkillsResponse,
+  PermissionRequest,
+  PendingClientToolCall,
+  ProvidersResponse,
+} from './types';
+import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+
+const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
+
+/** Tool-result `content` is string | list[dict] | null on the wire; collapse to a string. */
+const normalizeToolResultContent = (content: unknown): string => {
+  if (content == null) return '';
+  if (typeof content === 'string') return content;
+  return JSON.stringify(content, null, 2);
+};
+
+/**
+ * Process a content block array from an assistant response, emitting text, tool-use,
+ * and tool-result blocks in order so the transcript preserves their sequence.
+ */
+export const processContentBlocks = (
+  content: any[],
+  onMessage: (text: string) => void,
+  onToolUse?: (tools: ToolUseInfo[]) => void,
+  onToolResult?: (result: ToolResultInfo) => void,
+): void => {
+  for (const block of content) {
+    if ('text' in block && block.text) {
+      onMessage(block.text);
+    } else if (block.tool_use_id) {
+      // ToolResultBlock: carries the output for a previously-streamed tool call.
+      onToolResult?.({
+        toolUseId: block.tool_use_id,
+        content: normalizeToolResultContent(block.content),
+        isError: Boolean(block.is_error),
+      });
+    } else if (block.name && block.input) {
+      // TextBlock-less ToolUseBlock (claude_code & openai_compatible both shape it this way).
+      onToolUse?.([
+        {
+          id: block.id,
+          name: block.name,
+          description: block.input?.description,
+          input: block.input,
+        },
+      ]);
+    }
+  }
+};
+
+/**
+ * Check if a provider is healthy (CLI installed and authenticated).
+ * Returns { ok: true } on success, or { ok: false, error, status } if not set up.
+ * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
+ */
+export const checkProviderHealth = async (provider: string): Promise<HealthCheckResult> => {
+  try {
+    await fetchAPI(getAjaxUrl(`${API_BASE}/providers/${provider}/health`));
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Unknown error', status: error.status };
+  }
+};
+
+/**
+ * Get the assistant configuration.
+ */
+export const getConfig = async (): Promise<AssistantConfig> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/config`));
+};
+
+/**
+ * Discover assistant providers and the one that would serve a chat from this
+ * client (`resolved`), which may be an auto-picked default when nothing is
+ * explicitly selected in config.
+ */
+export const getProviders = async (): Promise<ProvidersResponse> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/providers`));
+};
+
+/**
+ * Update the assistant configuration.
+ * Pass null for a project to remove it.
+ */
+export const updateConfig = async (config: AssistantConfigUpdate): Promise<AssistantConfig> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/config`), {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+};
+
+/**
+ * Create an EventSource for streaming responses.
+ */
+export const createEventSource = (sessionId: string): EventSource => {
+  return new EventSource(`${API_BASE}/sessions/${sessionId}/stream`);
+};
+
+/**
+ * Cancel an active session by terminating the backend process.
+ */
+export const cancelSession = async (sessionId: string): Promise<{ message: string }> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}`), {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'cancelled' }),
+  });
+};
+
+export interface SendMessageStreamCallbacks {
+  onMessage: (text: string) => void;
+  /** `code` is the backend's machine-readable error class when it provided one. */
+  onError: (error: string, code?: string) => void;
+  onDone: () => void;
+  onStatus?: (status: string) => void;
+  onSessionId?: (sessionId: string) => void;
+  onToolUse?: (tools: ToolUseInfo[]) => void;
+  onToolResult?: (result: ToolResultInfo) => void;
+  onInterrupted?: () => void;
+  onPermissionRequest?: (request: PermissionRequest) => void;
+  onClientToolCall?: (request: PendingClientToolCall) => void | Promise<void>;
+  onUsage?: (usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cache_read_tokens?: number;
+    total_cost_usd?: number | null;
+  }) => void;
+}
+
+export interface SendMessageStreamResult {
+  eventSource: EventSource | null;
+}
+
+/**
+ * Attach the SSE listeners for one streaming turn. Shared by the initial send
+ * and by resumeStream so a resumed turn behaves identically.
+ */
+const attachStreamListeners = (
+  eventSource: EventSource,
+  sessionId: string,
+  callbacks: SendMessageStreamCallbacks,
+): void => {
+  const {
+    onMessage,
+    onError,
+    onDone,
+    onStatus,
+    onToolUse,
+    onToolResult,
+    onInterrupted,
+    onPermissionRequest,
+    onClientToolCall,
+    onUsage,
+  } = callbacks;
+  let terminalClientToolCall: PendingClientToolCall | null = null;
+
+  // Listen for 'message' events (contains assistant's response)
+  // Backend sends: {"message": {"role": "assistant", "content": "..."}}
+  eventSource.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.message && data.message.content) {
+        const content = data.message.content;
+        if (typeof content === 'string') {
+          onMessage(content);
+        } else if (Array.isArray(content)) {
+          processContentBlocks(content, onMessage, onToolUse, onToolResult);
+        }
+      }
+    } catch (err) {
+      // fail silently
+    }
+  });
+
+  // Listen for 'stream_event' events (streaming updates)
+  // Backend sends: {"event": {...}}
+  eventSource.addEventListener('stream_event', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.event) {
+        if (data.event.type === 'content_delta' && data.event.delta?.text) {
+          onMessage(data.event.delta.text);
+        } else if (data.event.type === 'status') {
+          onStatus?.(data.event.status);
+        } else if (data.event.type === 'usage' && data.event.usage) {
+          onUsage?.(data.event.usage);
+        }
+      }
+    } catch (err) {
+      // fail silently
+    }
+  });
+
+  // A 'permission_request' ENDS the turn: the backend pauses by closing its
+  // side after emitting the prompt. We surface it and close the stream; the
+  // user's decision is delivered via resumeStream, which opens a fresh stream
+  // to continue. This keeps the server stateless across the pause.
+  eventSource.addEventListener('permission_request', (event) => {
+    try {
+      const data = JSON.parse((event as MessageEvent).data);
+      onPermissionRequest?.({
+        // Bind the request to the session that produced it so the decision
+        // always targets the originating session.
+        sessionId,
+        requestId: data.request_id,
+        toolName: data.tool_name,
+        toolInput: data.tool_input ?? {},
+      });
+    } catch (err) {
+      onError('Failed to read a tool permission request from the assistant.');
+    }
+    eventSource.close();
+  });
+
+  // Native client tool calls pause the provider and resume on a fresh stream.
+  // Structured-output providers emit a terminal call instead. Defer terminal
+  // execution until `done` so the backend has persisted the provider's latest
+  // session before a browser validation error starts an automatic repair turn.
+  eventSource.addEventListener('client_tool_call', (event) => {
+    let continuation: PendingClientToolCall['continuation'] = 'resume';
+    try {
+      const data = JSON.parse((event as MessageEvent).data);
+      continuation = data.continuation === 'terminal' ? 'terminal' : 'resume';
+      const request: PendingClientToolCall = {
+        sessionId,
+        requestId: data.request_id,
+        toolName: data.tool_name,
+        toolInput: data.tool_input ?? {},
+        ...(continuation === 'terminal' ? { continuation } : {}),
+      };
+      if (continuation === 'terminal') {
+        terminalClientToolCall = request;
+      } else {
+        onClientToolCall?.(request);
+      }
+    } catch (err) {
+      onError('Failed to read a client tool call from the assistant.');
+    }
+    if (continuation === 'resume') {
+      eventSource.close();
+    }
+  });
+
+  // Listen for 'done' event (completion)
+  // Backend sends: {"result": null, "session_id": "..."}
+  eventSource.addEventListener('done', () => {
+    eventSource.close();
+    const finish = async () => {
+      if (terminalClientToolCall) {
+        await onClientToolCall?.(terminalClientToolCall);
+      }
+      // Starting an automatic repair rotates the active request token, so these
+      // guarded callbacks become no-ops instead of finalizing the repair stream.
+      onToolUse?.([]);
+      onDone();
+    };
+    void finish().catch((error) => {
+      onError(error instanceof Error ? error.message : 'Failed to execute the client tool.');
+    });
+  });
+
+  // Listen for 'interrupted' event (cancelled by user)
+  eventSource.addEventListener('interrupted', () => {
+    onInterrupted?.();
+    eventSource.close();
+  });
+
+  // Listen for 'error' event
+  eventSource.addEventListener('error', (event) => {
+    if (event.type === 'error' && (event as MessageEvent).data) {
+      try {
+        const data = JSON.parse((event as MessageEvent).data);
+        onError(data.error || 'Unknown error', data.error_code);
+      } catch {
+        onError('Connection error');
+      }
+    } else if (eventSource.readyState === EventSource.CLOSED) {
+      // Connection closed - this can happen after cancel, don't report as error
+      return;
+    } else {
+      onError('Connection error');
+    }
+    eventSource.close();
+  });
+};
+
+/**
+ * Send a message and get the response stream via SSE.
+ * First POSTs to /message to initiate, then connects to SSE endpoint.
+ * Returns the EventSource so caller can close it if needed (e.g., on cancel).
+ */
+export const sendMessageStream = async (
+  request: MessageRequest,
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  const { onError, onSessionId } = callbacks;
+
+  try {
+    // Step 1: POST the message to initiate processing
+    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+    const response = await fetch(`${API_BASE}/message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getDefaultHeaders(document.cookie),
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      onError(`Failed to send message: ${error}`);
+      return { eventSource: null };
+    }
+
+    // Step 2: Get the session_id from the response
+    const result = await response.json();
+    const sessionId = result.session_id;
+
+    if (!sessionId) {
+      onError('No session_id returned from server');
+      return { eventSource: null };
+    }
+
+    // Notify caller of the session ID
+    onSessionId?.(sessionId);
+
+    // Step 3: Connect to the SSE endpoint to receive the stream
+    const eventSource = createEventSource(sessionId);
+    attachStreamListeners(eventSource, sessionId, callbacks);
+    return { eventSource };
+  } catch (error) {
+    onError(error instanceof Error ? error.message : 'Unknown error');
+    return { eventSource: null };
+  }
+};
+
+/**
+ * Resume a turn paused at a permission prompt: POST the decision, then open a
+ * fresh stream that continues from where the turn left off. Stateless across
+ * the pause — any server can serve the resume.
+ */
+export const resumeStream = async (
+  sessionId: string,
+  requestId: string,
+  decision: 'allow' | 'deny',
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  try {
+    await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/permission`), {
+      method: 'POST',
+      body: JSON.stringify({ request_id: requestId, decision }),
+    });
+  } catch (error) {
+    callbacks.onError('Failed to send your permission decision. Please try again.');
+    return { eventSource: null };
+  }
+
+  const eventSource = createEventSource(sessionId);
+  attachStreamListeners(eventSource, sessionId, callbacks);
+  return { eventSource };
+};
+
+/**
+ * Resume a turn paused at a client_tool_call: POST the client-executed
+ * result, then open a fresh stream that continues from where the turn left
+ * off. Mirrors resumeStream's permission-prompt flow.
+ */
+export const submitClientToolResult = async (
+  sessionId: string,
+  requestId: string,
+  content: string,
+  isError: boolean,
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  try {
+    await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/tool-result`), {
+      method: 'POST',
+      body: JSON.stringify({ request_id: requestId, content, is_error: isError }),
+    });
+  } catch (error) {
+    callbacks.onError('Failed to send the client tool result. Please try again.');
+    return { eventSource: null };
+  }
+
+  const eventSource = createEventSource(sessionId);
+  attachStreamListeners(eventSource, sessionId, callbacks);
+  return { eventSource };
+};
+
+export const listProviderModels = async (provider: string, baseUrl?: string, apiKey?: string): Promise<string[]> => {
+  // api_key is sent as an X-API-Key header (not a query param) so the
+  // bearer token doesn't end up in access logs, browser history, or
+  // referer headers. base_url is omitted when unset so the provider's
+  // default (e.g. the OpenAI API) applies.
+  const params = new URLSearchParams(baseUrl ? { base_url: baseUrl } : {});
+  const query = params.toString();
+  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models${query ? `?${query}` : ''}`;
+  const headers = {
+    ...getDefaultHeaders(document.cookie),
+    ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+  };
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.detail || `Failed to list models for provider '${provider}': ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.models as string[];
+};
+
+/**
+ * Install skills from the MLflow skills repository.
+ * Returns { installed_skills, skills_directory } on success.
+ * Throws with error.status for:
+ *   412 = git not installed
+ *   500 = clone failed
+ */
+export const installSkills = async (
+  type: 'global' | 'project' | 'custom',
+  customPath?: string,
+  experimentId?: string,
+): Promise<InstallSkillsResponse> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/skills/install`), {
+    method: 'POST',
+    body: JSON.stringify({
+      type,
+      custom_path: customPath,
+      experiment_id: experimentId,
+    }),
+  });
+};

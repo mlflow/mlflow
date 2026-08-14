@@ -1,0 +1,273 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import { useEffect } from 'react';
+import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './ExperimentViewHeader';
+import { renderWithIntl, act, screen, waitFor, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import userEvent from '@testing-library/user-event';
+import { DesignSystemProvider } from '@databricks/design-system';
+import { BrowserRouter, createMLflowRoutePath, MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Provider } from 'react-redux';
+import thunk from 'redux-thunk';
+import configureStore from 'redux-mock-store';
+import promiseMiddleware from 'redux-promise-middleware';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { TestRouter, setupTestRouter, testRoute } from '../../../../../common/utils/RoutingTestUtils';
+import { ExperimentKind } from '../../../../constants';
+import { EXPERIMENT_KIND_TAG_KEY } from '../../../../utils/ExperimentKindUtils';
+import {
+  HeaderVisibilityProvider,
+  useHeaderVisibility,
+} from '../../../../pages/experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
+
+const mockNavigate = jest.fn();
+
+// eslint-disable-next-line @databricks/no-restricted-jest-mock-modules
+jest.mock('@databricks/design-system', () => {
+  const actual = jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system');
+  const MockBreadcrumb = ({ children }: { children: React.ReactNode }) => <nav>{children}</nav>;
+  const MockBreadcrumbItem = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
+  return {
+    ...actual,
+    Breadcrumb: Object.assign(MockBreadcrumb, { Item: MockBreadcrumbItem }),
+  };
+});
+
+jest.mock('../../../../../common/utils/FeatureUtils', () => {
+  return {
+    ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+      '../../../../../common/utils/FeatureUtils',
+    ),
+    shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(false),
+  };
+});
+
+jest.mock('../../../../../common/utils/RoutingUtils', () => {
+  const actual = jest.requireActual<typeof import('../../../../../common/utils/RoutingUtils')>(
+    '../../../../../common/utils/RoutingUtils',
+  );
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+describe('ExperimentViewHeader', () => {
+  const defaultExperiment: ExperimentEntity = {
+    experimentId: '123',
+    name: 'test/experiment/name',
+    artifactLocation: 'file:/tmp/mlruns',
+    lifecycleStage: 'active',
+    allowedActions: ['RENAME', 'DELETE'],
+    creationTime: 0,
+    lastUpdateTime: 0,
+    tags: [],
+  };
+
+  const setEditing = jest.fn();
+
+  const { history } = setupTestRouter();
+
+  beforeEach(() => {
+    mockNavigate.mockClear();
+  });
+
+  const renderComponent = (experiment = defaultExperiment, initialPath = '/', savedViewsSlot?: React.ReactNode) => {
+    const mockStore = configureStore([thunk, promiseMiddleware()]);
+    const queryClient = new QueryClient();
+    const Router = initialPath ? MemoryRouter : BrowserRouter;
+    const routerProps = initialPath ? { initialEntries: [initialPath] } : {};
+
+    return renderWithIntl(
+      <QueryClientProvider client={queryClient}>
+        <DesignSystemProvider>
+          <Provider
+            store={mockStore({
+              entities: {
+                experimentsById: {},
+              },
+            })}
+          >
+            <TestRouter
+              routes={[
+                testRoute(
+                  <ExperimentViewHeader
+                    experiment={experiment}
+                    setEditing={setEditing}
+                    savedViewsSlot={savedViewsSlot}
+                  />,
+                  '*',
+                ),
+              ]}
+              initialEntries={[initialPath]}
+              history={history}
+            />
+          </Provider>
+        </DesignSystemProvider>
+      </QueryClientProvider>,
+    );
+  };
+
+  describe('rendering', () => {
+    beforeEach(async () => {
+      await act(async () => {
+        renderComponent();
+      });
+    });
+
+    it('displays the last part of the experiment name', () => {
+      expect(screen.getByText('name')).toBeInTheDocument();
+    });
+
+    it('hides trace archival retention when the experiment does not return an effective value', async () => {
+      const infoButtons = screen.getAllByRole('button', { name: 'Info' });
+      await userEvent.click(infoButtons[infoButtons.length - 1]);
+
+      const tooltip = await screen.findByTestId('experiment-view-header-info-tooltip-content');
+      expect(tooltip).toHaveTextContent('Path: test/experiment/name');
+      expect(tooltip).toHaveTextContent('Experiment ID: 123');
+      expect(tooltip).toHaveTextContent('Artifact Location: file:/tmp/mlruns');
+      expect(tooltip).not.toHaveTextContent('Trace Archival Retention');
+    });
+
+    it('shows effective trace archival retention in the info popover and badge for GenAI experiments', async () => {
+      let renderedHeader: ReturnType<typeof renderComponent> | undefined;
+      await act(async () => {
+        renderedHeader = renderComponent(
+          {
+            ...defaultExperiment,
+            effectiveTraceArchivalRetention: '30d',
+            tags: [{ key: EXPERIMENT_KIND_TAG_KEY, value: ExperimentKind.GENAI_DEVELOPMENT }],
+          },
+          '/experiments/1/traces',
+        );
+      });
+
+      expect(screen.getByText('Archive after: 30 days')).toBeInTheDocument();
+      await userEvent.click(within(renderedHeader!.container).getByRole('button', { name: 'Info' }));
+
+      const tooltip = await screen.findByTestId('experiment-view-header-info-tooltip-content');
+      expect(tooltip).toHaveTextContent('Trace Archival Retention: 30 days');
+    });
+
+    it('displays the management button', () => {
+      expect(screen.getByTestId('overflow-menu-trigger')).toBeInTheDocument();
+    });
+
+    it('renders no saved-views controls when the slot is empty', () => {
+      // The header is presentational: it shows saved-views controls only when the tab-aware caller
+      // fills the slot (Runs tab), never on its own.
+      expect(screen.queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('saved-views slot', () => {
+    it('renders whatever the tab-aware caller passes into the slot', async () => {
+      await act(async () => {
+        renderComponent(defaultExperiment, '/', <button data-testid="header-saved-views">Views</button>);
+      });
+      expect(screen.getByTestId('header-saved-views')).toBeInTheDocument();
+    });
+  });
+
+  describe('overflow menu visibility', () => {
+    it('hides the overflow menu trigger on the prompt details route', async () => {
+      await act(async () => {
+        renderComponent(defaultExperiment, '/experiments/1/prompts/test-prompt');
+      });
+
+      expect(screen.queryByTestId('overflow-menu-trigger')).not.toBeInTheDocument();
+    });
+
+    it('keeps the overflow menu trigger on the prompts list route', async () => {
+      await act(async () => {
+        renderComponent(defaultExperiment, '/experiments/1/prompts');
+      });
+
+      expect(screen.getByTestId('overflow-menu-trigger')).toBeInTheDocument();
+    });
+  });
+
+  describe('back button navigation', () => {
+    it('navigates to /experiments from experiment tab pages', async () => {
+      renderComponent(defaultExperiment, '/experiments/1/traces');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('experiment-view-header-back-button')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
+
+      expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments'));
+    });
+
+    it('navigates to parent path from deeper pages like session details', async () => {
+      renderComponent(defaultExperiment, '/experiments/1/chat-sessions/session_1');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('experiment-view-header-back-button')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
+
+      expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments/1/chat-sessions'));
+    });
+
+    it('navigates to /experiments from overview sub-tab pages', async () => {
+      renderComponent(defaultExperiment, '/experiments/1/overview/usage');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('experiment-view-header-back-button')).toBeInTheDocument();
+      });
+
+      await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
+
+      expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments'));
+    });
+  });
+
+  describe('headerActionsHidden', () => {
+    const HideHeaderActions = () => {
+      const { setHeaderActionsHidden } = useHeaderVisibility();
+      useEffect(() => {
+        setHeaderActionsHidden(true);
+      }, [setHeaderActionsHidden]);
+      return null;
+    };
+
+    const renderWithHiddenActions = (experiment = defaultExperiment, initialPath = '/') => {
+      const mockStore = configureStore([thunk, promiseMiddleware()]);
+      const queryClient = new QueryClient();
+
+      return renderWithIntl(
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <Provider
+              store={mockStore({
+                entities: {
+                  experimentsById: {},
+                },
+              })}
+            >
+              <HeaderVisibilityProvider>
+                <HideHeaderActions />
+                <TestRouter
+                  routes={[testRoute(<ExperimentViewHeader experiment={experiment} setEditing={setEditing} />, '*')]}
+                  initialEntries={[initialPath]}
+                  history={history}
+                />
+              </HeaderVisibilityProvider>
+            </Provider>
+          </DesignSystemProvider>
+        </QueryClientProvider>,
+      );
+    };
+
+    it('hides the management menu when headerActionsHidden is true', async () => {
+      await act(async () => {
+        renderWithHiddenActions();
+      });
+
+      expect(screen.queryByTestId('overflow-menu-trigger')).not.toBeInTheDocument();
+    });
+  });
+});

@@ -1,0 +1,38 @@
+name: Labeling
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+  pull_request_target:
+    types:
+      - opened
+      - edited
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  labeling:
+    if: (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: write
+      issues: write
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          retries: 3
+          script: |
+            const script = require('./.github/workflows/labeling.js');
+            await script({ github, context });

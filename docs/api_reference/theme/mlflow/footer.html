@@ -1,0 +1,30 @@
+<footer>
+  {% if next or prev %}
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      {% if prev %}
+        <a href="{{ prev.link|e }}" class="btn btn-neutral" title="{{ prev.title|striptags|e }}" accesskey="p"><span class="db-icon db-icon-chevron-left"></span> Previous</a>
+      {% endif %}
+      {% if next %}
+        <a href="{{ next.link|e }}" class="btn btn-neutral" title="{{ next.title|striptags|e }}" accesskey="n">Next <span class="db-icon db-icon-chevron-right"></span></a>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <hr/>
+
+  <div role="contentinfo">
+    {%- if show_copyright %}
+      <p class="copyright">
+        {%- if hasdoc('copyright') %}
+          {% trans path=pathto('copyright'), copyright=copyright|e %}&copy; <a href="{{ path }}">Copyright</a> {{ copyright }}{% endtrans %}
+        {%- else %}
+          {% trans copyright=copyright|e %}&copy; {{ copyright }}.{% endtrans %}
+        {%- endif %}
+      </p>
+    {%- endif %}
+
+  </div>
+
+  {%- block extrafooter %} {% endblock %}
+
+</footer>

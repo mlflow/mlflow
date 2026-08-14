@@ -1,0 +1,22 @@
+diff --git a/lib/rules/order.js b/lib/rules/order.js
+index 4b735ae4b4ee40c675f320d315bb3869b2457f11..52c603bc657ecd15dea25f1ae61688f6978ea0a1 100644
+--- a/lib/rules/order.js
++++ b/lib/rules/order.js
+@@ -113,8 +113,15 @@ function findEndOfLineWithComments(sourceCode, node) {
+ 
+ function commentOnSameLineAs(node) {
+   return function (token) {return (token.type === 'Block' || token.type === 'Line') &&
+-    token.loc.start.line === token.loc.end.line &&
+-    token.loc.end.line === node.loc.end.line;};
++    // This patch attaches comments that end on the same line as or
++    // on the line before an import so that the comment and import are
++    // moved when auto-fixing import/order. Because this logic is very
++    // project dependent, the package is likely not to fix this upstream.
++    // See https://github.com/import-js/eslint-plugin-import/issues/1450
++    // for more info.
++    token.loc.start.line <= node.loc.start.line &&
++    token.loc.end.line >= node.loc.start.line - 1 &&
++    token.loc.end.line <= node.loc.end.line;};
+ }
+ 
+ function findStartOfLineWithComments(sourceCode, node) {

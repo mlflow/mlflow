@@ -1,0 +1,44 @@
+diff --git a/dist/index.js b/dist/index.js
+index 9b96695db4beb378b20a242e3eefbfacbfd155ec..3eaeb5ea5a8c8b25da44aa700bbfa1ea299ab7ff 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -208,7 +208,7 @@ const $c34afbc43c90cc6f$export$8c610744efcf8a1d = /*#__PURE__*/ $iVrL9$react.for
+         // We purposefully avoid adding `type=button` here because tooltip triggers are also
+         // commonly anchors and the anchor `type` attribute signifies MIME type.
+         "aria-describedby": context.open ? context.contentId : undefined,
+-        "data-state": context.stateAttribute
++        "tooltip-data-state": context.stateAttribute
+     }, triggerProps, {
+         ref: composedRefs,
+         onPointerMove: $iVrL9$radixuiprimitive.composeEventHandlers(props.onPointerMove, (event)=>{
+@@ -410,7 +410,7 @@ const $c34afbc43c90cc6f$var$TooltipContentImpl = /*#__PURE__*/ $iVrL9$react.forw
+         ,
+         onDismiss: onClose
+     }, /*#__PURE__*/ $iVrL9$react.createElement($iVrL9$radixuireactpopper.Content, ($parcel$interopDefault($iVrL9$babelruntimehelpersextends))({
+-        "data-state": context.stateAttribute
++        "tooltip-data-state": context.stateAttribute
+     }, popperScope, contentProps, {
+         ref: forwardedRef,
+         style: {
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 8c03c38a0fb123c84e0df7569988364af6863578..0f5468645f1aa5ed28dc47c015361a33ea7bb5c6 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -188,7 +188,7 @@ const $a093c7e1ec25a057$export$8c610744efcf8a1d = /*#__PURE__*/ $8wepK$forwardRe
+         // We purposefully avoid adding `type=button` here because tooltip triggers are also
+         // commonly anchors and the anchor `type` attribute signifies MIME type.
+         "aria-describedby": context.open ? context.contentId : undefined,
+-        "data-state": context.stateAttribute
++        "tooltip-data-state": context.stateAttribute
+     }, triggerProps, {
+         ref: composedRefs,
+         onPointerMove: $8wepK$composeEventHandlers(props.onPointerMove, (event)=>{
+@@ -390,7 +390,7 @@ const $a093c7e1ec25a057$var$TooltipContentImpl = /*#__PURE__*/ $8wepK$forwardRef
+         ,
+         onDismiss: onClose
+     }, /*#__PURE__*/ $8wepK$createElement($8wepK$Content, $8wepK$babelruntimehelpersesmextends({
+-        "data-state": context.stateAttribute
++        "tooltip-data-state": context.stateAttribute
+     }, popperScope, contentProps, {
+         ref: forwardedRef,
+         style: {

@@ -1,0 +1,13 @@
+build_dependencies:
+  - pip
+dependencies:
+  - numpy
+  - click
+  - pandas
+  - scipy
+  - scikit-learn
+  - tensorflow==2.10.0
+  - matplotlib
+  - mlflow>=1.6
+  - hyperopt
+  - protobuf<4.0.0

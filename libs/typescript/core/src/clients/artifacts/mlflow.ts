@@ -1,0 +1,149 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { TraceTagKey } from '../../core/constants';
+import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
+import { TraceInfo } from '../../core/entities/trace_info';
+import { JSONBig } from '../../core/utils/json';
+import { makeRequest } from '../utils';
+import { isLocalArtifactUri, toAbsoluteLocalPath } from '../../core/utils/artifact_uri';
+import { ArtifactsClient } from './base';
+import { AuthProvider, HeadersProvider } from '../../auth';
+
+/**
+ * Trace data file name constant - matches Python SDK
+ */
+const TRACE_DATA_FILE_NAME = 'traces.json';
+
+/**
+ * MLflow OSS Artifacts Client
+ *
+ * Implements artifact upload/download for OSS MLflow Tracking Server using the standard
+ * HTTP artifact repository endpoints. Based on Python HttpArtifactRepository.
+ */
+export class MlflowArtifactsClient implements ArtifactsClient {
+  private readonly host: string;
+  private headersProvider: HeadersProvider;
+
+  constructor(options: { host: string; authProvider: AuthProvider }) {
+    this.host = options.host;
+    this.headersProvider = options.authProvider.getHeadersProvider();
+  }
+
+  /**
+   * Upload trace data to MLflow artifact storage.
+   *
+   * Equivalent to Python's upload_trace_data() method which uses log_artifact()
+   * under the hood to upload the trace data as a JSON file.
+   *
+   * @param traceInfo The trace information containing artifact URI
+   * @param traceData The trace data to upload
+   */
+  async uploadTraceData(traceInfo: TraceInfo, traceData: TraceData): Promise<void> {
+    const artifactUri = this.getArtifactLocation(traceInfo);
+
+    if (isLocalArtifactUri(artifactUri)) {
+      await this.uploadTraceDataLocal(artifactUri, traceData);
+      return;
+    }
+
+    const traceDataJson = traceData.toJson();
+
+    const artifactUrl = this.resolveArtifactUri(artifactUri, TRACE_DATA_FILE_NAME);
+    await makeRequest<void>('PUT', artifactUrl, this.headersProvider, traceDataJson);
+  }
+
+  /**
+   * Write trace data to a local filesystem artifact location.
+   */
+  private async uploadTraceDataLocal(artifactUri: string, traceData: TraceData): Promise<void> {
+    const dir = toAbsoluteLocalPath(artifactUri);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, TRACE_DATA_FILE_NAME), JSONBig.stringify(traceData.toJson()), 'utf8');
+  }
+
+  /**
+   * Download trace data from MLflow artifact storage.
+   *
+   * Equivalent to Python's download_trace_data() method which downloads
+   * the traces.json file and parses it back to TraceData.
+   *
+   * @param traceInfo The trace information containing artifact URI
+   * @returns The downloaded and parsed trace data
+   */
+  async downloadTraceData(traceInfo: TraceInfo): Promise<TraceData> {
+    const artifactUri = this.getArtifactLocation(traceInfo);
+
+    if (isLocalArtifactUri(artifactUri)) {
+      return this.downloadTraceDataLocal(artifactUri);
+    }
+
+    // Download the trace data file
+    const artifactUrl = this.resolveArtifactUri(artifactUri, TRACE_DATA_FILE_NAME);
+    const traceDataJson = await makeRequest<SerializedTraceData>(
+      'GET',
+      artifactUrl,
+      this.headersProvider,
+    );
+
+    // Parse JSON back to TraceData (equivalent to Python's try_read_trace_data)
+    try {
+      return TraceData.fromJson(traceDataJson);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse trace data JSON: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Read trace data from a local filesystem artifact location.
+   */
+  private async downloadTraceDataLocal(artifactUri: string): Promise<TraceData> {
+    const filePath = join(toAbsoluteLocalPath(artifactUri), TRACE_DATA_FILE_NAME);
+    const contents = await readFile(filePath, 'utf8');
+    try {
+      return TraceData.fromJson(JSONBig.parse(contents) as SerializedTraceData);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse trace data JSON: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Read the artifact location tag set on the trace by the backend.
+   */
+  private getArtifactLocation(traceInfo: TraceInfo): string {
+    const artifactUri = traceInfo.tags[TraceTagKey.MLFLOW_ARTIFACT_LOCATION];
+
+    if (!artifactUri) {
+      throw new Error('Artifact location not found in trace tags');
+    }
+
+    return artifactUri;
+  }
+
+  /**
+   * Resolve mlflow-artifacts:// URI to HTTP endpoint.
+   *
+   * Equivalent to Python's MlflowArtifactsRepository.resolve_uri() method.
+   * Transforms URIs like "mlflow-artifacts:/0/traces/tr-abc123/artifacts"
+   * to "http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/0/traces/tr-abc123/artifacts/traces.json"
+   *
+   * @param artifactUri The mlflow-artifacts:// URI from trace tags
+   * @param fileName The file name to append (e.g., "traces.json")
+   * @returns The resolved HTTP endpoint URL
+   */
+  private resolveArtifactUri(artifactUri: string, fileName: string): string {
+    const baseApiPath = '/api/2.0/mlflow-artifacts/artifacts';
+    const url = new URL(artifactUri);
+
+    if (url.protocol !== 'mlflow-artifacts:') {
+      throw new Error(`Expected mlflow-artifacts:// URI, got ${url.protocol}`);
+    }
+
+    // Construct the final HTTP URL
+    const cleanHost = this.host.replace(/\/$/, ''); // Remove trailing slash
+    return `${cleanHost}${baseApiPath}${url.pathname}/${fileName}`;
+  }
+}

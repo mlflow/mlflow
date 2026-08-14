@@ -1,0 +1,53 @@
+name: Cross version test runner
+on:
+  issue_comment:
+    types: [created]
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    if: >
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/cvt') &&
+      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
+      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    permissions:
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Dispatch cross-version tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          flavors=$(printf '%s' "$COMMENT_BODY" | sed -nE '1 s|^/cvt[[:space:]]+(.+)$|\1|p')
+          if [ -z "$flavors" ]; then
+            echo "No flavors specified; skipping."
+            exit 0
+          fi
+
+          pr_json=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER")
+          base_ref=$(jq -r .base.ref <<< "$pr_json")
+          merge_sha=$(jq -r .merge_commit_sha <<< "$pr_json")
+
+          payload=$(jq -n \
+            --arg ref "$base_ref" \
+            --arg merge_sha "$merge_sha" \
+            --arg flavors "$flavors" \
+            --arg repo_full "$GH_REPO" \
+            '{ref: $ref, return_run_details: true, inputs: {repository: $repo_full, ref: $merge_sha, flavors: $flavors}}')
+
+          run_url=$(printf '%s' "$payload" | gh api -X POST \
+            "repos/$GH_REPO/actions/workflows/cross-version-tests.yml/dispatches" \
+            --input - --jq .html_url)
+
+          gh pr comment "$PR_NUMBER" --body "Cross-version test run started: $run_url"
