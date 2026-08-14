@@ -173,7 +173,7 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
         (0, 4, "no runs", "4 runs"),
         (0, 1, "no runs", "one run"),
         (1, 1, "the best run", "no runs"),
-        (5, 4, "the 5 best runs", "no runs"),
+        (5, 4, "the 4 best runs", "no runs"),
         (4, 4, "the 4 best runs", "no runs"),
         (2, 5, "the 2 best runs", "3 runs"),
     ],

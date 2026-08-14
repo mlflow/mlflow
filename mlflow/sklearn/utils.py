@@ -751,6 +751,8 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
 
 # Log how many child runs will be created vs omitted based on `max_tuning_runs`.
 def _log_child_runs_info(max_tuning_runs, total_runs):
+    # More runs can be requested than the search produced, and only the available ones are logged
+    max_tuning_runs = min(max_tuning_runs, total_runs)
     rest = total_runs - max_tuning_runs
 
     # Set logging statement for runs to be logged.
