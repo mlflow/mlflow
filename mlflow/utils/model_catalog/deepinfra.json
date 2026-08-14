@@ -1267,6 +1267,24 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "nvidia/NVIDIA-Nemotron-3.5-Lightning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-14"
+    },
     "nvidia/NVIDIA-Nemotron-Nano-9B-v2": {
       "mode": "chat",
       "context_window": {
