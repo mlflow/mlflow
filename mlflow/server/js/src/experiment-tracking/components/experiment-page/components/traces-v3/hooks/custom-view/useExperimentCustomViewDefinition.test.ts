@@ -5,7 +5,6 @@ import { renderHook, waitFor } from '@testing-library/react';
 
 import {
   type CustomView,
-  CUSTOM_VIEW_TAG_PREFIX,
   CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES,
   getUtf8ByteLength,
   parseCustomView,
@@ -134,8 +133,6 @@ describe('useExperimentCustomViewDefinition', () => {
           { key: viewTagKey('wrong-shape'), value: JSON.stringify({ foo: 'bar' }) },
           // Shape mismatch but carries a string `name` → salvage it for display.
           { key: viewTagKey('named-bad'), value: JSON.stringify({ name: 'Salvaged name' }) },
-          // Future versions consume the shared quota but are not parsed by this v1 client.
-          { key: `${CUSTOM_VIEW_TAG_PREFIX}.v2.future`, value: '{}' },
           // Unrelated experiment tag (no custom-view prefix) → filtered out.
           { key: 'mlflow.note.content', value: 'a note' },
         ]),
@@ -156,7 +153,7 @@ describe('useExperimentCustomViewDefinition', () => {
         'older',
         'newer',
       ]);
-      expect(result.current.persistedViewCount).toBe(7);
+      expect(result.current.persistedViewCount).toBe(6);
 
       const byId = (id: string) => result.current.views.find((view) => view.id === id);
       // Unparseable bytes and shape mismatches are kept and flagged unreadable.

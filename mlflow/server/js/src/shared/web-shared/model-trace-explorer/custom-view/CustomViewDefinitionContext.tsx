@@ -200,8 +200,9 @@ export const useCustomViewDefinitionState = (
     return persisted ? !isViewRenderable(persisted) : false;
   }, [activeViewId, persistedViews]);
 
-  // Future tag versions still consume backend quota even though this client cannot parse them.
-  // Keep that count as an offset so local v1 saves/deletes update the limit state immediately.
+  // The quota count is version-agnostic, while initialViews contains the views rendered by the
+  // version handlers known to this client. Preserve any difference as an offset so local saves and
+  // deletes of supported versions update the limit state immediately.
   const unparsedPersistedViewCount = Math.max(
     0,
     (initialPersistedViewCount ?? initialViews.length) - initialViews.length,

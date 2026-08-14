@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@databricks/web-shared/query-client';
 import {
   type CustomView,
-  CUSTOM_VIEW_PREFIX,
+  CUSTOM_VIEW_PREFIX_V1,
   CUSTOM_VIEW_TAG_PREFIX,
   CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES,
   getUtf8ByteLength,
@@ -80,8 +80,7 @@ const serializeViewForTag = async (view: CustomView): Promise<string> => {
 
 export type ExperimentCustomViewDefinition = {
   views: CustomView[];
-  // Counts every persisted custom-view tag version. Only supported v1 tags are parsed into views,
-  // but future versions still consume the backend's version-agnostic quota.
+  // Counts every persisted custom-view tag regardless of version.
   persistedViewCount: number;
   isLoaded: boolean;
   // Undefined (no experiment scope) → the host falls back to a session-local,
@@ -106,14 +105,15 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
     queryFn: async (): Promise<{ views: CustomView[]; persistedViewCount: number }> => {
       const response = await MlflowService.getExperiment({ experiment_id: experimentId });
       const tags: ExperimentTag[] = response?.experiment?.tags ?? [];
-      const allViewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_TAG_PREFIX));
-      const viewTags = allViewTags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_PREFIX));
+      const customViewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_TAG_PREFIX));
+      // v1 is the only format today. When another version is introduced, keep customViewTags as
+      // the version-agnostic quota set and dispatch each tag to its version-specific parser here.
       const parsed = await Promise.all(
-        viewTags.map((tag) => deserializeView(tag.key.slice(CUSTOM_VIEW_PREFIX.length), tag.value)),
+        customViewTags.map((tag) => deserializeView(tag.key.slice(CUSTOM_VIEW_PREFIX_V1.length), tag.value)),
       );
       return {
         views: parsed.sort((a, b) => a.createdAtMs - b.createdAtMs),
-        persistedViewCount: allViewTags.length,
+        persistedViewCount: customViewTags.length,
       };
     },
   });

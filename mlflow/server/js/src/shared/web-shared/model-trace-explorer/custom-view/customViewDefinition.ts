@@ -6,8 +6,8 @@ import type { A2uiMessage } from '@a2ui/web_core/v0_9';
 // larger definitions are compressed before persistence. Saving fails if the
 // compressed value still exceeds that limit.
 export const CUSTOM_VIEW_TAG_PREFIX = 'mlflow.customView.view';
-export const CUSTOM_VIEW_PREFIX = `${CUSTOM_VIEW_TAG_PREFIX}.v1.`;
-export const viewTagKey = (id: string): string => `${CUSTOM_VIEW_PREFIX}${id}`;
+export const CUSTOM_VIEW_PREFIX_V1 = `${CUSTOM_VIEW_TAG_PREFIX}.v1.`;
+export const viewTagKey = (id: string): string => `${CUSTOM_VIEW_PREFIX_V1}${id}`;
 
 // The OSS backend caps an experiment tag value at MAX_EXPERIMENT_TAG_VAL_LENGTH
 // (5,000 CHARACTERS, mlflow/utils/validation.py) and rejects anything longer
