@@ -248,9 +248,6 @@ exclude-newer = "P7D"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.11.14"
 constraint-dependencies = [
-  # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
-  # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
-  "xgboost<3.1.0",
   # pyspark 4.1.0 causes issues with documentation build
   "pyspark<4.1.0",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)

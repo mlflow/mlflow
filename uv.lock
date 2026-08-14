@@ -36,7 +36,6 @@ members = [
 constraints = [
     { name = "pyspark", specifier = "<4.1.0" },
     { name = "setuptools", specifier = "<82" },
-    { name = "xgboost", specifier = "<3.1.0" },
 ]
 excludes = ["uv"]
 
@@ -2294,7 +2293,7 @@ name = "gunicorn"
 version = "26.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "packaging" },
+    { name = "packaging", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6d/b7/a4a3f632f823e432ce6bc65f62961b7980c898c77f075a2f7118cb3846fe/gunicorn-26.0.0.tar.gz", hash = "sha256:ca9346f85e3a4aeeb64d491045c16b9a35647abd37ea15efe53080eb8b090baf", size = 727286, upload-time = "2026-05-05T06:38:25.529Z" }
 wheels = [
