@@ -636,8 +636,9 @@ def test_list_builtin_scorers_includes_data_contract(runner):
     # Retrieval scorers require RETRIEVER trace data.
     assert scorers["retrieval_groundedness"]["required_columns"] == ["inputs", "trace"]
 
-    # Session-level scorers are flagged; single-turn scorers are not.
+    # Session-level scorers are flagged and require trace data; single-turn are not.
     assert scorers["user_frustration"]["session_level"] is True
+    assert scorers["user_frustration"]["required_columns"] == ["trace"]
     assert scorers["correctness"]["session_level"] is False
     assert scorers["correctness"]["required_args"] == []
 
