@@ -989,6 +989,9 @@ def test_add_link_rejects_invalid_ids():
         with pytest.raises(MlflowException, match="Invalid link"):
             span.add_link(Link(trace_id="tr-abc123", span_id="aabbccddeeff0011aabbccddeeff0011"))
 
+        with pytest.raises(MlflowException, match="Invalid link"):
+            span.add_link(Link(trace_id=None, span_id="aabbccddeeff0011"))
+
         assert len(span.links) == 0
 
 
@@ -1008,6 +1011,7 @@ def test_add_link_skips_v4_trace_id():
         assert len(otel_span.links) == 0
         mock_warning.assert_called_once()
         assert "Unity Catalog" in mock_warning.call_args.args[0]
+        assert mock_warning.call_args.args[1] == "trace:/catalog.schema/abc123"
 
 
 def test_span_seeds_links_from_otel_span():
