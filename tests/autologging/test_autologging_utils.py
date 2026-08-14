@@ -201,7 +201,7 @@ def test_if_getting_input_example_fails(logger):
             + error_msg
         ),
     ]
-    assert logger.warning.has_calls(calls)
+    logger.warning.assert_has_calls(calls)
 
 
 def test_if_model_signature_inference_fails(logger):
