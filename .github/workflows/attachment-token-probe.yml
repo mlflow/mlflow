@@ -92,6 +92,27 @@ jobs:
           B64
           MP4=docs/static/images/genai/select-traces.mp4
           echo "png: $(wc -c < "$PNG") bytes, mp4: $(wc -c < "$MP4") bytes"
+          echo "repository_id: $REPO_ID"
+
+          # A wrong repository_id returns a 404 byte-identical to an access
+          # denial, so the upload result alone cannot tell the two apart. Prove
+          # each token resolves this exact id on the regular API first: a token
+          # that gets 200 here and 404 on the upload is being refused by the
+          # upload endpoint specifically, not failing to see the repo.
+          SANITY=/tmp/sanity.md
+          : > "$SANITY"
+          resolve() {
+            local label=$1 token=$2 status
+            status=$(curl -sS -o /dev/null -w '%{http_code}' \
+              "https://api.github.com/repositories/$REPO_ID" \
+              -H "Authorization: Bearer $token" \
+              -H "Accept: application/vnd.github+json") || status="curl-failed"
+            echo "- $label: \`GET /repositories/$REPO_ID\` -> $status" >> "$SANITY"
+          }
+          resolve "Actions \`GITHUB_TOKEN\`" "$TOKEN_ACTIONS"
+          resolve "App installation token (write)" "$TOKEN_APP_WRITE"
+          resolve "App installation token (read)" "$TOKEN_APP_READ"
+          cat "$SANITY"
 
           SUMMARY=/tmp/summary.md
           {
@@ -142,8 +163,13 @@ jobs:
           probe "App installation token (control)" "contents: read" "$TOKEN_APP_READ" \
             image image/png "$PNG" "probe-app-read-$RUN_ID.png"
 
-          cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
-          cat "$SUMMARY"
+          {
+            echo "Token can resolve \`repository_id=$REPO_ID\` on the regular API:"
+            echo
+            cat "$SANITY"
+            echo
+            cat "$SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Referencing an asset in repo content is what flips it world-readable, so
       # this doubles as the render check: any asset below that displays is both
@@ -160,6 +186,8 @@ jobs:
           BODY=/tmp/comment.md
           {
             echo "### user-attachments upload probe"
+            echo
+            cat /tmp/sanity.md
             echo
             cat /tmp/summary.md
             echo
