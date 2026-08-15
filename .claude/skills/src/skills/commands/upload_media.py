@@ -4,14 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import re
 import sys
-import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
@@ -42,15 +42,21 @@ def is_video(name: str) -> bool:
     return Path(name).suffix.lower() in VIDEO_SUFFIXES
 
 
-def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
+def upload_asset(
+    path: Path,
+    repository_id: str,
+    token: str,
+    opener: Callable[..., Any] = urllib.request.urlopen,
+    max_bytes: int = MAX_BYTES,
+) -> str | None:
     mime = MIME_TYPES.get(path.suffix.lower())
     if mime is None:
         print(f"  skip {path.name}: unsupported extension", file=sys.stderr)
         return None
 
     size = path.stat().st_size
-    if size > MAX_BYTES:
-        print(f"  skip {path.name}: {size} bytes exceeds {MAX_BYTES}", file=sys.stderr)
+    if size > max_bytes:
+        print(f"  skip {path.name}: {size} bytes exceeds {max_bytes}", file=sys.stderr)
         return None
 
     query = urllib.parse.urlencode({
@@ -65,9 +71,9 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
         headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=60) as resp:
+        with opener(request, timeout=60) as resp:
             body = json.load(resp)
-    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+    except (OSError, http.client.HTTPException, ValueError) as e:
         print(f"  failed {path.name}: {e}", file=sys.stderr)
         return None
 
@@ -137,7 +143,10 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     parser.set_defaults(func=run)
 
 
-def run(args: argparse.Namespace) -> None:
+def run(
+    args: argparse.Namespace,
+    upload: Callable[..., str | None] = upload_asset,
+) -> None:
     if not args.target.is_file():
         print(f"No target at {args.target}; nothing to rewrite", file=sys.stderr)
         return
@@ -164,7 +173,7 @@ def run(args: argparse.Namespace) -> None:
     if token := os.environ.get(TOKEN_ENV):
         print(f"Uploading {len(files)} file(s) from {args.dir}")
         for path in files:
-            if url := upload_asset(path, args.repository_id, token):
+            if url := upload(path, args.repository_id, token):
                 urls[path.name] = url
     else:
         print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)

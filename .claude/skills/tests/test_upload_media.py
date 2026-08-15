@@ -1,8 +1,8 @@
 import argparse
+import http.client
 import io
 import json
 import urllib.error
-import urllib.request
 from pathlib import Path
 from unittest import mock
 
@@ -110,9 +110,7 @@ def run_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: Path) -> No
     media.mkdir(exist_ok=True)
     (media / "shot.png").write_bytes(b"\x89PNG")
     uploader = mock.Mock(return_value=URL)
-    monkeypatch.setattr(upload_media, "upload_asset", uploader)
-    args = build_args(media, target)
-    args.func(args)
+    upload_media.run(build_args(media, target), upload=uploader)
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
 
 
@@ -141,9 +139,7 @@ def test_cli_degrades_to_prose_when_every_upload_fails(
     target.write_text("evidence: ![the bug](shot.png)")
 
     uploader = mock.Mock(return_value=None)
-    monkeypatch.setattr(upload_media, "upload_asset", uploader)
-    args = build_args(media, target)
-    args.func(args)
+    upload_media.run(build_args(media, target), upload=uploader)
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
     assert target.read_text() == "evidence: the bug"
 
@@ -186,9 +182,7 @@ def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     target.write_text("`shot.png`")
 
     uploader = mock.Mock(return_value=URL)
-    monkeypatch.setattr(upload_media, "upload_asset", uploader)
-    args = build_args(media, target)
-    args.func(args)
+    upload_media.run(build_args(media, target), upload=uploader)
     uploader.assert_not_called()
     assert target.read_text() == "`shot.png`"
 
@@ -199,9 +193,8 @@ def test_upload_asset_builds_the_request_and_returns_the_url(
     path = tmp_path / "shot.png"
     path.write_bytes(b"\x89PNG")
     opener = mock.Mock(return_value=io.BytesIO(json.dumps({"url": URL}).encode()))
-    monkeypatch.setattr(urllib.request, "urlopen", opener)
 
-    assert upload_media.upload_asset(path, "136202695", "tok") == URL
+    assert upload_media.upload_asset(path, "136202695", "tok", opener=opener) == URL
 
     request = opener.call_args.args[0]
     assert "name=shot.png" in request.full_url
@@ -211,15 +204,24 @@ def test_upload_asset_builds_the_request_and_returns_the_url(
     assert request.data == b"\x89PNG"
 
 
-@pytest.mark.parametrize("outcome", [urllib.error.URLError("boom"), TimeoutError("slow")])
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        urllib.error.URLError("boom"),
+        TimeoutError("slow"),
+        # Escapes URLError: urlopen only wraps h.request(), not h.getresponse().
+        http.client.RemoteDisconnected("closed"),
+        http.client.IncompleteRead(b"partial"),
+        json.JSONDecodeError("bad", "", 0),
+    ],
+)
 def test_upload_asset_returns_none_when_the_request_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, outcome: Exception
 ) -> None:
     path = tmp_path / "shot.png"
     path.write_bytes(b"\x89PNG")
     opener = mock.Mock(side_effect=outcome)
-    monkeypatch.setattr(urllib.request, "urlopen", opener)
-    assert upload_media.upload_asset(path, "1", "t") is None
+    assert upload_media.upload_asset(path, "1", "t", opener=opener) is None
     opener.assert_called_once()
 
 
@@ -229,8 +231,7 @@ def test_upload_asset_returns_none_when_the_response_carries_no_url(
     path = tmp_path / "shot.png"
     path.write_bytes(b"\x89PNG")
     opener = mock.Mock(return_value=io.BytesIO(b"{}"))
-    monkeypatch.setattr(urllib.request, "urlopen", opener)
-    assert upload_media.upload_asset(path, "1", "t") is None
+    assert upload_media.upload_asset(path, "1", "t", opener=opener) is None
     opener.assert_called_once()
 
 
@@ -240,10 +241,7 @@ def test_upload_asset_skips_an_unsupported_extension(tmp_path: Path) -> None:
     assert upload_media.upload_asset(path, "1", "t") is None
 
 
-def test_upload_asset_skips_a_file_over_the_size_cap(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(upload_media, "MAX_BYTES", 4)
+def test_upload_asset_skips_a_file_over_the_size_cap(tmp_path: Path) -> None:
     path = tmp_path / "big.png"
     path.write_bytes(b"12345")
-    assert upload_media.upload_asset(path, "1", "t") is None
+    assert upload_media.upload_asset(path, "1", "t", max_bytes=4) is None
