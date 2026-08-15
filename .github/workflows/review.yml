@@ -242,7 +242,10 @@ jobs:
       # Separate from the Claude step by design: this PAT is a user credential, and
       # the Claude step holds only the read-only app token so a poisoned diff can't
       # reach it. Runs before validation so the posted payload is the validated one.
+      # Gated like Post: uploading mints real attachments, so the pull_request
+      # smoke path stays non-mutating.
       - name: Upload review media
+        if: github.event_name == 'issue_comment'
         env:
           MEDIA_TOKEN: ${{ secrets.USER_ATTACHMENTS_TOKEN }}
           REPO_ID: ${{ github.event.repository.id }}

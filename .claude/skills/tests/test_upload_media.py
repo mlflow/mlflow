@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from skills.cli import build_parser
@@ -59,7 +60,8 @@ def run_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: Path) -> No
     media = tmp_path / "media"
     media.mkdir(exist_ok=True)
     (media / "shot.png").write_bytes(b"\x89PNG")
-    monkeypatch.setattr(upload_media, "upload_asset", lambda *a, **k: URL)
+    uploader = mock.Mock(return_value=URL)
+    monkeypatch.setattr(upload_media, "upload_asset", uploader)
     args = build_parser().parse_args([
         "upload-media",
         "--dir",
@@ -70,6 +72,7 @@ def run_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: Path) -> No
         "136202695",
     ])
     args.func(args)
+    uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
 
 
 def test_cli_rewrites_a_json_payload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,7 +100,8 @@ def test_cli_leaves_the_target_alone_when_every_upload_fails(
     target.write_text(original)
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
-    monkeypatch.setattr(upload_media, "upload_asset", lambda *a, **k: None)
+    uploader = mock.Mock(return_value=None)
+    monkeypatch.setattr(upload_media, "upload_asset", uploader)
     args = build_parser().parse_args([
         "upload-media",
         "--dir",
@@ -108,6 +112,7 @@ def test_cli_leaves_the_target_alone_when_every_upload_fails(
         "136202695",
     ])
     args.func(args)
+    uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
     assert target.read_text() == original
 
 
@@ -167,3 +172,42 @@ def test_cli_skips_everything_when_the_token_env_is_unset(
     ])
     args.func(args)
     assert target.read_text() == "`shot.png`"
+
+
+def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    media = tmp_path / "media"
+    media.mkdir()
+    secret = tmp_path / "environ"
+    secret.write_text("MEDIA_TOKEN=supersecret")
+    (media / "shot.png").symlink_to(secret)
+    target = tmp_path / "body.md"
+    target.write_text("`shot.png`")
+
+    uploader = mock.Mock(return_value=URL)
+    monkeypatch.setattr(upload_media, "upload_asset", uploader)
+    args = build_parser().parse_args([
+        "upload-media",
+        "--dir",
+        str(media),
+        "--target",
+        str(target),
+        "--repository-id",
+        "136202695",
+    ])
+    args.func(args)
+    uploader.assert_not_called()
+    assert target.read_text() == "`shot.png`"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("![repro](clip.mp4)", f"\n{URL}\n"),
+        ("`clip.mp4`", f"\n{URL}\n"),
+        ("before\n![repro](clip.mp4)\nafter", f"before\n\n{URL}\n\nafter"),
+        ("see `clip.mp4` inline", f"see [`clip.mp4`]({URL}) inline"),
+    ],
+)
+def test_substitute_promotes_a_standalone_video_to_a_bare_url(text: str, expected: str) -> None:
+    assert substitute(text, {"clip.mp4": URL}) == expected

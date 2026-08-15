@@ -31,8 +31,14 @@ MIME_TYPES = {
     ".webm": "video/webm",
 }
 
+VIDEO_SUFFIXES = {".mp4", ".mov", ".webm"}
+
 # 10MB covers images and video on free plans; the smaller bound is the safe one.
 MAX_BYTES = 10 * 1024 * 1024
+
+
+def is_video(name: str) -> bool:
+    return Path(name).suffix.lower() in VIDEO_SUFFIXES
 
 
 def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
@@ -76,6 +82,12 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
 def substitute(text: str, urls: dict[str, str]) -> str:
     for name, url in urls.items():
         quoted = re.escape(name)
+        if is_video(name):
+            # GitHub only renders a player for a bare URL alone in its own paragraph;
+            # inside ![]() or a link it degrades to text. Promote a reference that
+            # already sits on its own line, and leave anything mid-sentence as a link.
+            standalone = rf"(?m)^[ \t]*(?:!?\[[^\]]*\]\((?:\./)?{quoted}\)|`{quoted}`)[ \t]*$"
+            text = re.sub(standalone, f"\n{url}\n", text)
         text = re.sub(rf"\]\((?:\./)?{quoted}\)", f"]({url})", text)
         # Lookarounds keep a second pass a no-op.
         text = re.sub(rf"(?<!\[)`{quoted}`(?!\])", f"[`{name}`]({url})", text)
@@ -123,7 +135,15 @@ def run(args: argparse.Namespace) -> None:
         print(f"No media directory at {args.dir}")
         return
 
-    files = sorted(p for p in args.dir.iterdir() if p.is_file())
+    # is_file() follows symlinks, so a link planted here (say secret.png ->
+    # /proc/self/environ) would publish this process's own MEDIA_TOKEN as an
+    # attachment. Claude writes this directory, and a poisoned diff steers Claude.
+    files = []
+    for path in sorted(args.dir.iterdir()):
+        if path.is_symlink():
+            print(f"  skip {path.name}: symlink", file=sys.stderr)
+        elif path.is_file():
+            files.append(path)
     if not files:
         print(f"No media in {args.dir}")
         return

@@ -141,6 +141,9 @@ Authoring rules not captured by the schema:
   `` `name.png` `` to cite. A later workflow step uploads it and rewrites the reference to a
   URL. Do not upload anything yourself. Skip this unless a visual genuinely beats prose;
   most reviews need none.
+- Put a video reference (`.mp4`, `.mov`, `.webm`) on a line of its own. GitHub renders a
+  player only for a bare URL in its own paragraph, so a video cited mid-sentence falls back
+  to a plain link.
 
 Validate before finishing, then fix any errors and re-emit until this passes:
 
