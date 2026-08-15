@@ -153,3 +153,39 @@ def test_should_enable_tracing_gate(flavor: str, expected: bool):
 def test_should_enable_tracing_respects_explicit_opt_out():
     assert _should_enable_tracing("langchain", {"langchain": {"log_traces": False}}) is False
     assert _should_enable_tracing("langchain", {"mlflow": {"disable": True}}) is False
+
+
+def test_teardown_removes_hooks_that_had_no_prior_registration(cleanup_import_hooks):
+    def get_autolog_function(flavor):
+        def autolog(log_traces=True, log_models=True, silent=False, disable=False):
+            pass
+
+        return autolog
+
+    with _configured(get_autolog_function):
+        assert all(module in _post_import_hooks for module in _FLAVOR_TO_MODULE.values())
+
+    # `ImportHookFinder` gates on key presence, so leaving a `None` value behind
+    # keeps MLflow intercepting imports of these modules for the process lifetime.
+    for module in _FLAVOR_TO_MODULE.values():
+        assert module not in _post_import_hooks
+
+
+def test_teardown_restores_pre_existing_hooks(cleanup_import_hooks):
+    module = _FLAVOR_TO_MODULE["langchain"]
+
+    def pre_existing_hook(mod):
+        pass
+
+    _post_import_hooks[module] = [pre_existing_hook]
+
+    def get_autolog_function(flavor):
+        def autolog(log_traces=True, log_models=True, silent=False, disable=False):
+            pass
+
+        return autolog
+
+    with _configured(get_autolog_function):
+        pass
+
+    assert _post_import_hooks[module] == [pre_existing_hook]
