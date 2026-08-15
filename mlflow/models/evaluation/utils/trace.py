@@ -56,8 +56,11 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
         # flavor's module is imported, rather than configuring it immediately. This is
         # because the evaluation code usually only uses a subset of the supported flavors,
         # hence we want to avoid unnecessary overhead of configuring all flavors.
+        # NB: `flavor` and `original_config` are bound as default arguments so that each
+        # hook captures the current iteration's values. Without this, the hooks share the
+        # loop variables and every deferred hook would configure the last flavor.
         @autologging_conf_lock
-        def _setup_autolog(module):
+        def _setup_autolog(module, flavor=flavor, original_config=original_config):
             try:
                 autolog = get_autolog_function(flavor)
 
