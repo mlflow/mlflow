@@ -151,7 +151,7 @@ def run(args: argparse.Namespace) -> None:
     # is_file() follows symlinks, so a link planted here (say secret.png ->
     # /proc/self/environ) would publish this process's own UPLOAD_MEDIA_TOKEN as an
     # attachment. Claude writes this directory, and a poisoned diff steers Claude.
-    files = []
+    files: list[Path] = []
     for path in sorted(args.dir.iterdir()):
         if path.is_symlink():
             print(f"  skip {path.name}: symlink", file=sys.stderr)
