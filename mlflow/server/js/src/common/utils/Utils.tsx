@@ -1015,8 +1015,13 @@ class Utils {
       Utils.displayGlobalErrorNotification(e.renderHttpError(), duration);
     } else if (e instanceof NetworkRequestError) {
       Utils.displayGlobalErrorNotification(e.displayMessage, duration);
-      // eslint-disable-next-line no-empty
     } else {
+      // Unknown error type (e.g. a plain Error like ImagePathParseError):
+      // there is no user-facing message to render, but silently dropping it
+      // hid real failures -- log it so the console shows what happened
+      // (issue #24789).
+      // eslint-disable-next-line no-console
+      console.error(e);
     }
   }
 

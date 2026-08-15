@@ -68,17 +68,17 @@ export const imagesByRunUuid = (
       // Populate state with image keys
       const { runUuid } = action.meta;
       const { files } = action.payload;
-      try {
-        if (!files) {
-          // There are no images for this run
-          return {
-            ...state,
-            [runUuid]: {},
-          };
-        }
-        // Filter images to only include directories
-        const result = files.reduce(
-          (acc: Record<string, Record<string, ImageEntity>>, file: ArtifactFileInfo) => {
+      if (!files) {
+        // There are no images for this run
+        return {
+          ...state,
+          [runUuid]: {},
+        };
+      }
+      // Filter images to only include directories
+      const result = files.reduce(
+        (acc: Record<string, Record<string, ImageEntity>>, file: ArtifactFileInfo) => {
+          try {
             if (!file.is_dir) {
               if (!file.path) {
                 return acc;
@@ -111,19 +111,20 @@ export const imagesByRunUuid = (
                 }
               }
             }
-            return acc;
-          },
-          {} as Record<string, Record<string, ImageEntity>>,
-        );
-        return {
-          ...state,
-          [runUuid]: result,
-        };
-      } catch (e) {
-        // On malformed inputs we will report alert and continue without updating the state
-        Utils.logErrorAndNotifyUser(e);
-        return state;
-      }
+          } catch (e) {
+            // A single malformed image filename must not discard every other
+            // image in the run (issue #24789): skip this file, keep the ones
+            // that parsed, and surface the error instead of swallowing it.
+            Utils.logErrorAndNotifyUser(e);
+          }
+          return acc;
+        },
+        {} as Record<string, Record<string, ImageEntity>>,
+      );
+      return {
+        ...state,
+        [runUuid]: result,
+      };
     }
     default:
       return state;
