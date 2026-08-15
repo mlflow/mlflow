@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Iterable
@@ -33,6 +34,11 @@ MIME_TYPES = {
 }
 
 VIDEO_SUFFIXES = {".mp4", ".mov", ".webm"}
+
+
+class TokenRejected(Exception):
+    """Raised on 401: the credential is dead, so every remaining upload would fail too."""
+
 
 # 10MB covers images and video on free plans; the smaller bound is the safe one.
 MAX_BYTES = 10 * 1024 * 1024
@@ -67,6 +73,12 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
     try:
         with urllib.request.urlopen(request, timeout=60) as resp:
             body = json.load(resp)
+    # Must precede OSError: HTTPError is a URLError, which is an OSError.
+    except urllib.error.HTTPError as e:
+        print(f"  failed {path.name}: {e}", file=sys.stderr)
+        if e.code == 401:
+            raise TokenRejected(f"{TOKEN_ENV} was rejected (401); it may have expired") from e
+        return None
     except (OSError, http.client.HTTPException, ValueError) as e:
         print(f"  failed {path.name}: {e}", file=sys.stderr)
         return None
@@ -163,9 +175,14 @@ def run(args: argparse.Namespace) -> None:
     urls = {}
     if token := os.environ.get(TOKEN_ENV):
         print(f"Uploading {len(files)} file(s) from {args.dir}")
-        for path in files:
-            if url := upload_asset(path, args.repository_id, token):
-                urls[path.name] = url
+        try:
+            for path in files:
+                if url := upload_asset(path, args.repository_id, token):
+                    urls[path.name] = url
+        except TokenRejected as e:
+            # The step is continue-on-error, so without an annotation an expired
+            # token would silently stop attaching media on every future review.
+            print(f"::warning::{e}")
     else:
         print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
 

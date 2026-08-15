@@ -266,3 +266,50 @@ def test_upload_asset_skips_a_file_over_the_size_cap(tmp_path: Path) -> None:
     path.write_bytes(b"12345")
     with mock.patch.object(upload_media, "MAX_BYTES", 4):
         assert upload_media.upload_asset(path, "1", "t") is None
+
+
+def http_error(code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(upload_media.UPLOAD_URL, code, "nope", {}, None)  # type: ignore[arg-type]
+
+
+def test_upload_asset_raises_on_a_rejected_token(tmp_path: Path) -> None:
+    path = tmp_path / "shot.png"
+    path.write_bytes(b"\x89PNG")
+
+    with (
+        mock.patch("urllib.request.urlopen", side_effect=http_error(401)),
+        pytest.raises(upload_media.TokenRejected, match="rejected \\(401\\)"),
+    ):
+        upload_media.upload_asset(path, "1", "t")
+
+
+def test_upload_asset_returns_none_on_other_http_errors(tmp_path: Path) -> None:
+    path = tmp_path / "shot.png"
+    path.write_bytes(b"\x89PNG")
+
+    with mock.patch("urllib.request.urlopen", side_effect=http_error(500)):
+        assert upload_media.upload_asset(path, "1", "t") is None
+
+
+def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    media = make_media(tmp_path)
+    (media / "second.png").write_bytes(b"\x89PNG")
+    target = tmp_path / "body.md"
+    target.write_text("evidence: ![the bug](shot.png)")
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(
+        upload_media,
+        "upload_asset",
+        side_effect=upload_media.TokenRejected("UPLOAD_MEDIA_TOKEN was rejected (401)"),
+    ) as uploader:
+        args.func(args)
+
+    # One annotation for the run, and the loop stops rather than retrying a dead token.
+    out = capsys.readouterr().out
+    assert out.count(f"::warning::{upload_media.TOKEN_ENV} was rejected (401)") == 1
+    assert uploader.call_count == 1
+    assert target.read_text() == "evidence: the bug"
