@@ -11,6 +11,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -79,32 +80,44 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
             return None
 
 
-def substitute(text: str, urls: dict[str, str]) -> str:
+def substitute(text: str, urls: dict[str, str], unavailable: Iterable[str] = ()) -> str:
     for name, url in urls.items():
         quoted = re.escape(name)
         if is_video(name):
-            # GitHub only renders a player for a bare URL alone in its own paragraph;
-            # inside ![]() or a link it degrades to text. Promote a reference that
-            # already sits on its own line, and leave anything mid-sentence as a link.
+            # GitHub renders a player only for a bare URL alone in its own paragraph,
+            # so promote a reference that already sits on its own line.
             standalone = rf"(?m)^[ \t]*(?:!?\[[^\]]*\]\((?:\./)?{quoted}\)|`{quoted}`)[ \t]*$"
             text = re.sub(standalone, f"\n{url}\n", text)
+            # Whatever is left is mid-sentence, where ![]() around a video URL renders
+            # as a broken image. Drop the bang so it degrades to a link instead.
+            text = re.sub(rf"!(?=\[[^\]]*\]\((?:\./)?{quoted}\))", "", text)
         text = re.sub(rf"\]\((?:\./)?{quoted}\)", f"]({url})", text)
         # Lookarounds keep a second pass a no-op.
         text = re.sub(rf"(?<!\[)`{quoted}`(?!\])", f"[`{name}`]({url})", text)
+
+    # A name with no URL (upload failed, or the file was skipped) would otherwise
+    # survive as ![desc](shot.png), which GitHub resolves repo-relative and renders
+    # as a broken image. Strip the markup so it degrades to prose.
+    for name in unavailable:
+        quoted = re.escape(name)
+        text = re.sub(rf"!?\[\]\((?:\./)?{quoted}\)", name, text)
+        text = re.sub(rf"!?\[([^\]]+)\]\((?:\./)?{quoted}\)", r"\1", text)
     return text
 
 
-def rewrite_payload(payload: dict[str, Any], urls: dict[str, str]) -> dict[str, Any]:
+def rewrite_payload(
+    payload: dict[str, Any], urls: dict[str, str], unavailable: Iterable[str] = ()
+) -> dict[str, Any]:
     # The schema pins body to end with the Claude footer, so only substitute, never append.
     match payload:
         case {"body": str(body)}:
-            payload["body"] = substitute(body, urls)
+            payload["body"] = substitute(body, urls, unavailable)
     match payload:
         case {"comments": [*comments]}:
             for comment in comments:
                 match comment:
                     case {"body": str(body)}:
-                        comment["body"] = substitute(body, urls)
+                        comment["body"] = substitute(body, urls, unavailable)
     return payload
 
 
@@ -154,14 +167,14 @@ def run(args: argparse.Namespace) -> None:
         if url := upload_asset(path, args.repository_id, token):
             urls[path.name] = url
 
-    if not urls:
-        print("No uploads succeeded; leaving the target unchanged", file=sys.stderr)
-        return
+    # Rewrite even when nothing uploaded: the neutralizing pass is what keeps a
+    # failed upload from shipping a broken embed.
+    unavailable = [p.name for p in files if p.name not in urls]
 
     if args.target.suffix == ".json":
         payload = json.loads(args.target.read_text())
-        rewritten = rewrite_payload(payload, urls)
+        rewritten = rewrite_payload(payload, urls, unavailable)
         args.target.write_text(json.dumps(rewritten, indent=2, ensure_ascii=False))
     else:
-        args.target.write_text(substitute(args.target.read_text(), urls))
+        args.target.write_text(substitute(args.target.read_text(), urls, unavailable))
     print(f"Embedded {len(urls)} of {len(files)} file(s) into {args.target}")
