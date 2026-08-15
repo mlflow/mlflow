@@ -209,6 +209,7 @@ jobs:
           EFFORT: ${{ steps.prompt.outputs.effort }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
+          mkdir -p /tmp/review-media
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
@@ -237,6 +238,24 @@ jobs:
       - name: Show proxy log
         if: always()
         run: cat /tmp/anthropic-proxy.log || true
+
+      # Separate from the Claude step by design: this PAT is a user credential, and
+      # the Claude step holds only the read-only app token so a poisoned diff can't
+      # reach it. Runs before validation so the posted payload is the validated one.
+      - name: Upload review media
+        env:
+          MEDIA_TOKEN: ${{ secrets.USER_ATTACHMENTS_TOKEN }}
+          REPO_ID: ${{ github.event.repository.id }}
+        run: |
+          if [ -z "$MEDIA_TOKEN" ]; then
+            echo "USER_ATTACHMENTS_TOKEN not configured; skipping media upload"
+            exit 0
+          fi
+          uv run --frozen --package skills skills upload-media \
+            --dir /tmp/review-media \
+            --target /tmp/review-payload.json \
+            --repository-id "$REPO_ID" \
+            --token "$MEDIA_TOKEN"
 
       - name: Validate review payload
         run: |

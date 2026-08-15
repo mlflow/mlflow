@@ -136,6 +136,11 @@ Authoring rules not captured by the schema:
 - Use suggestion blocks for simple fixes: fence with ` ```suggestion ` and preserve original
   indentation.
 - If you have no findings, emit an empty `comments` array.
+- To attach an image or video (a diagram, a chart, a captured repro), write the file into
+  `/tmp/review-media/` and reference it by bare filename: `![desc](name.png)` to embed, or
+  `` `name.png` `` to cite. A later workflow step uploads it and rewrites the reference to a
+  URL. Do not upload anything yourself. Skip this unless a visual genuinely beats prose;
+  most reviews need none.
 
 Validate before finishing, then fix any errors and re-emit until this passes:
 
