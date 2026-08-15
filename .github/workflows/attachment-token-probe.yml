@@ -75,6 +75,9 @@ jobs:
           TOKEN_ACTIONS: ${{ secrets.GITHUB_TOKEN }}
           TOKEN_APP_WRITE: ${{ steps.app-token-write.outputs.token }}
           TOKEN_APP_READ: ${{ steps.app-token-read.outputs.token }}
+          # Fine-grained PAT scoped to this repo with metadata-only access. Proven
+          # to work locally; this checks it also works from a runner.
+          TOKEN_PAT: ${{ secrets.USER_ATTACHMENTS_TOKEN }}
           REPO_ID: ${{ github.event.repository.id }}
           RUN_ID: ${{ github.run_id }}
         run: |
@@ -113,6 +116,13 @@ jobs:
           resolve "App installation token (write)" "$TOKEN_APP_WRITE"
           resolve "App installation token (read)" "$TOKEN_APP_READ"
           cat "$SANITY"
+
+          # An absent secret would arrive as an empty string and 401, which reads
+          # like a token-kind result rather than a config mistake. Fail loudly.
+          if [ -z "$TOKEN_PAT" ]; then
+            echo "::error::USER_ATTACHMENTS_TOKEN is empty; the secret is missing or not exposed to this run"
+            exit 1
+          fi
 
           SUMMARY=/tmp/summary.md
           {
@@ -158,10 +168,14 @@ jobs:
             image image/png "$PNG" "probe-app-write-$RUN_ID.png"
           probe "App installation token" "contents: write" "$TOKEN_APP_WRITE" \
             video video/mp4 "$MP4" "probe-app-write-$RUN_ID.mp4"
-          # Control only needs one media type: the write gate is checked before
+          # Control only needs one media type: the token check happens before
           # anything content-specific.
           probe "App installation token (control)" "contents: read" "$TOKEN_APP_READ" \
             image image/png "$PNG" "probe-app-read-$RUN_ID.png"
+          probe "Fine-grained PAT (secret)" "metadata: read" "$TOKEN_PAT" \
+            image image/png "$PNG" "probe-pat-$RUN_ID.png"
+          probe "Fine-grained PAT (secret)" "metadata: read" "$TOKEN_PAT" \
+            video video/mp4 "$MP4" "probe-pat-$RUN_ID.mp4"
 
           {
             echo "Token can resolve \`repository_id=$REPO_ID\` on the regular API:"
