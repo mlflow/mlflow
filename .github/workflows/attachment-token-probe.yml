@@ -1,0 +1,185 @@
+name: attachment-token-probe
+
+# Throwaway probe: does the undocumented user-attachments upload endpoint
+#
+#   POST https://uploads.github.com/user-attachments/assets
+#        ?name=<file>&content_type=<mime>&repository_id=<id>
+#
+# accept CI credentials? It is known to work with a `gho_` OAuth user token, but
+# the two `ghs_` token kinds (the Actions GITHUB_TOKEN and an App installation
+# token) are minted and scoped differently, and neither has been tested. The
+# endpoint is absent from GitHub's OpenAPI spec, so a real run is the only
+# source of truth.
+#
+# Answering this decides whether a workflow can turn a generated image or video
+# into an embeddable https://github.com/user-attachments/assets/<uuid> URL, or
+# whether that stays limited to a human's OAuth token.
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/attachment-token-probe.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      # The endpoint gates on push/write access to the repo named by
+      # repository_id, so GITHUB_TOKEN is given the strongest form of that.
+      # A 404 under this grant means the token kind is rejected outright.
+      contents: write
+      # Used only to post the result comment, not part of the probe.
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token-write
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+      # Negative control: read-only is known from manual testing to 404. If this
+      # case does NOT 404, the harness is measuring the wrong thing and the
+      # other results mean nothing.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token-read
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+
+      # A real 90KB video already in the repo, so the video case exercises bytes
+      # a player can actually decode. The endpoint never inspects bytes, so a
+      # synthetic file would return 201 and still fail to render.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            docs/static/images/genai/select-traces.mp4
+          sparse-checkout-cone-mode: false
+
+      - name: Probe upload endpoint
+        env:
+          # Not named GITHUB_TOKEN: policy.rego reserves that name.
+          TOKEN_ACTIONS: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN_APP_WRITE: ${{ steps.app-token-write.outputs.token }}
+          TOKEN_APP_READ: ${{ steps.app-token-read.outputs.token }}
+          REPO_ID: ${{ github.event.repository.id }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          PNG=/tmp/probe.png
+          base64 -d > "$PNG" <<'B64'
+          iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAABvklEQVR42u3Yy3HEMAwDUDSwh5xS
+          RmrcqnNNOqBX4g8gZ+QbgcMbjywLP+/fg/X6+h6ycAY0x+gcaIjRFdAEo1sgeSMHIG0jHyBhIzcg
+          VSNPIEkjZyA9I38gMaMQICWjKCAZo0AgDaNYIAGjcCB2owwgaqMkIF4j/D9rZACtkQ20RjbQGtlA
+          a2QDrZENtEY20BrZQGtkA62RDbRGeDI02QgP58Ya4fnoTCN8ND3QCJ8GphnhIDPKCGexOUY4Tg4x
+          wk14ghEu8/JGuK/QNoJLi7ARvIpUjeDYJWkE3zo9I7g3ihkholTJCEG9MkaIq9YwQmi7gBGiX1F2
+          IyTsc9RGyPlY8hoh7cRFaoTMYzujEZL//eiMkH+BwGWEklsoIqMaICKjMiAWo0ogCqNioP5G9UDN
+          jVoAdTbqAtTWqBFQT6NeQA2N2gF1M+oI1MqoKVAfo75ATYxaA3Uw6g5UbkQAVGvEAVRoRANUZcQE
+          VGJEBpRvxAeUbEQJlGnECpRmRAyUY8QNlGBEDxRtpAAUaiQCFGekAxRkJAUUYaQG5G4kCORrpAnk
+          aCQL5GWkDORiJA50b6QPdGk0AujGaArQsdEfHZuzZSxpQOkAAAAASUVORK5CYII=
+          B64
+          MP4=docs/static/images/genai/select-traces.mp4
+          echo "png: $(wc -c < "$PNG") bytes, mp4: $(wc -c < "$MP4") bytes"
+
+          SUMMARY=/tmp/summary.md
+          {
+            echo "| Token | Requested scope | Media | Prefix | HTTP | Asset URL |"
+            echo "| --- | --- | --- | --- | --- | --- |"
+          } > "$SUMMARY"
+          : > /tmp/uploaded.txt
+
+          probe() {
+            local label=$1 scope=$2 token=$3 kind=$4 mime=$5 file=$6 name=$7
+            local body status prefix url cell
+            body=$(mktemp)
+            prefix=${token:0:4}
+            status=$(curl -sS -o "$body" -w '%{http_code}' -X POST \
+              "https://uploads.github.com/user-attachments/assets?name=$name&content_type=$mime&repository_id=$REPO_ID" \
+              -H "Authorization: Bearer $token" \
+              -H "Accept: application/json" \
+              --data-binary "@$file") || status="curl-failed"
+
+            # A non-201 can return HTML rather than JSON, so tolerate a parse failure.
+            url=$(jq -r '.url // empty' "$body" 2>/dev/null) || url=""
+
+            echo "::group::$label / $kind -> HTTP $status"
+            echo "token prefix: ${prefix}"
+            jq . "$body" 2>/dev/null || cat "$body"
+            echo
+            echo "::endgroup::"
+
+            if [ -n "$url" ]; then
+              cell="[\`${url##*/}\`]($url)"
+              echo "$kind|$label|$url" >> /tmp/uploaded.txt
+            else
+              cell="-"
+            fi
+            echo "| $label | \`$scope\` | $kind | \`$prefix\` | $status | $cell |" >> "$SUMMARY"
+          }
+
+          probe "Actions \`GITHUB_TOKEN\`" "contents: write" "$TOKEN_ACTIONS" \
+            image image/png "$PNG" "probe-actions-$RUN_ID.png"
+          probe "Actions \`GITHUB_TOKEN\`" "contents: write" "$TOKEN_ACTIONS" \
+            video video/mp4 "$MP4" "probe-actions-$RUN_ID.mp4"
+          probe "App installation token" "contents: write" "$TOKEN_APP_WRITE" \
+            image image/png "$PNG" "probe-app-write-$RUN_ID.png"
+          probe "App installation token" "contents: write" "$TOKEN_APP_WRITE" \
+            video video/mp4 "$MP4" "probe-app-write-$RUN_ID.mp4"
+          # Control only needs one media type: the write gate is checked before
+          # anything content-specific.
+          probe "App installation token (control)" "contents: read" "$TOKEN_APP_READ" \
+            image image/png "$PNG" "probe-app-read-$RUN_ID.png"
+
+          cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
+          cat "$SUMMARY"
+
+      # Referencing an asset in repo content is what flips it world-readable, so
+      # this doubles as the render check: any asset below that displays is both
+      # minted and publicly resolvable. Video needs the bare URL alone in its own
+      # paragraph to get a player; wrapping it in ![]() renders a dead link.
+      - name: Comment results on PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          JOB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY=/tmp/comment.md
+          {
+            echo "### user-attachments upload probe"
+            echo
+            cat /tmp/summary.md
+            echo
+            if [ -s /tmp/uploaded.txt ]; then
+              echo "#### Rendered"
+              echo
+              while IFS='|' read -r kind label url; do
+                echo "$label ($kind):"
+                echo
+                if [ "$kind" = "video" ]; then
+                  echo "$url"
+                else
+                  echo "![$label]($url)"
+                fi
+                echo
+              done < /tmp/uploaded.txt
+            else
+              echo "No asset URL was returned by any token."
+              echo
+            fi
+            echo "[Run log]($JOB_RUN_URL)"
+          } > "$BODY"
+          gh api "repos/$REPO/issues/$PR_NUMBER/comments" -F body=@"$BODY"
