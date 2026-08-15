@@ -257,6 +257,27 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
 
 
+def test_list_artifacts_ignores_directory_marker_objects(s3_artifact_repo, s3_artifact_root):
+    # Some S3-compatible backends (e.g. objects created via the AWS console "folder"
+    # feature, or implicitly by services like Hitachi HCP) expose 0-byte objects whose
+    # key ends with "/" to represent a "directory". These should not be listed as
+    # regular files - the corresponding directory is already reported via
+    # CommonPrefixes - otherwise the same path shows up as both a file and a directory.
+    bucket, dest_path = s3_artifact_repo.parse_s3_compliant_uri(s3_artifact_repo.artifact_uri)
+    s3_client = s3_artifact_repo._get_s3_client()
+    s3_client.put_object(Bucket=bucket, Key=f"{dest_path}/", Body=b"")
+    s3_client.put_object(Bucket=bucket, Key=f"{dest_path}/subdir/", Body=b"")
+    s3_client.put_object(Bucket=bucket, Key=f"{dest_path}/subdir/a.txt", Body=b"A")
+
+    listing = sorted([(f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts()])
+    assert listing == [("subdir", True, None)]
+
+    nested_listing = sorted([
+        (f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts("subdir")
+    ])
+    assert nested_listing == [("subdir/a.txt", False, 1)]
+
+
 def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
     s3_artifact_root, tmp_path
 ):
