@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -14,6 +15,9 @@ from pathlib import Path
 from typing import Any
 
 UPLOAD_URL = "https://uploads.github.com/user-attachments/assets"
+# Read from the environment, never argv: a PAT in a CLI argument is visible in the
+# process list for the life of the call.
+TOKEN_ENV = "MEDIA_TOKEN"
 
 # The name's extension must agree with content_type or the endpoint returns 422.
 MIME_TYPES = {
@@ -105,11 +109,13 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
         help="File to rewrite: a .json pr-review payload, or any Markdown file",
     )
     parser.add_argument("--repository-id", required=True, help="Numeric repository id")
-    parser.add_argument("--token", required=True, help="User token accepted by the endpoint")
     parser.set_defaults(func=run)
 
 
 def run(args: argparse.Namespace) -> None:
+    if not (token := os.environ.get(TOKEN_ENV)):
+        print(f"{TOKEN_ENV} is unset; skipping media upload", file=sys.stderr)
+        return
     if not args.target.is_file():
         print(f"No target at {args.target}; nothing to rewrite", file=sys.stderr)
         return
@@ -125,7 +131,7 @@ def run(args: argparse.Namespace) -> None:
     print(f"Uploading {len(files)} file(s) from {args.dir}")
     urls = {}
     for path in files:
-        if url := upload_asset(path, args.repository_id, args.token):
+        if url := upload_asset(path, args.repository_id, token):
             urls[path.name] = url
 
     if not urls:

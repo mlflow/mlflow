@@ -247,15 +247,14 @@ jobs:
           MEDIA_TOKEN: ${{ secrets.USER_ATTACHMENTS_TOKEN }}
           REPO_ID: ${{ github.event.repository.id }}
         run: |
-          if [ -z "$MEDIA_TOKEN" ]; then
-            echo "USER_ATTACHMENTS_TOKEN not configured; skipping media upload"
-            exit 0
-          fi
+          # MEDIA_TOKEN reaches the script through the environment, not argv, so the
+          # PAT never shows up in the process list. Same reasoning as the proxy step
+          # above, which pipes the Anthropic key over stdin. The script no-ops when
+          # the secret is unset.
           uv run --frozen --package skills skills upload-media \
             --dir /tmp/review-media \
             --target /tmp/review-payload.json \
-            --repository-id "$REPO_ID" \
-            --token "$MEDIA_TOKEN"
+            --repository-id "$REPO_ID"
 
       - name: Validate review payload
         run: |
