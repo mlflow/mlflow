@@ -245,7 +245,7 @@ jobs:
       - name: Upload review media
         if: github.event_name == 'issue_comment'
         env:
-          MEDIA_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          UPLOAD_MEDIA_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
           REPO_ID: ${{ github.event.repository.id }}
         run: |
           uv run --frozen --package skills skills upload-media \

@@ -18,7 +18,7 @@ from typing import Any
 UPLOAD_URL = "https://uploads.github.com/user-attachments/assets"
 # Read from the environment, never argv: a PAT in a CLI argument is visible in the
 # process list for the life of the call.
-TOKEN_ENV = "MEDIA_TOKEN"
+TOKEN_ENV = "UPLOAD_MEDIA_TOKEN"
 
 # The name's extension must agree with content_type or the endpoint returns 422.
 MIME_TYPES = {
@@ -149,7 +149,7 @@ def run(args: argparse.Namespace) -> None:
         return
 
     # is_file() follows symlinks, so a link planted here (say secret.png ->
-    # /proc/self/environ) would publish this process's own MEDIA_TOKEN as an
+    # /proc/self/environ) would publish this process's own UPLOAD_MEDIA_TOKEN as an
     # attachment. Claude writes this directory, and a poisoned diff steers Claude.
     files = []
     for path in sorted(args.dir.iterdir()):

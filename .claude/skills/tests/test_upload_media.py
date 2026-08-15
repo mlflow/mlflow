@@ -180,7 +180,7 @@ def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     media = tmp_path / "media"
     media.mkdir()
     secret = tmp_path / "environ"
-    secret.write_text("MEDIA_TOKEN=supersecret")
+    secret.write_text("UPLOAD_MEDIA_TOKEN=supersecret")
     (media / "shot.png").symlink_to(secret)
     target = tmp_path / "body.md"
     target.write_text("`shot.png`")
