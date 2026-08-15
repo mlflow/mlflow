@@ -8,26 +8,26 @@ import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
 import { useProviderConfigQuery } from './useProviderConfigQuery';
 import { useSecretsQuery } from './useSecretsQuery';
-import type { ProviderModel, Endpoint, CodingAgentType } from '../types';
+import type { ProviderModel, Endpoint, AiAgentType } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
 import { isValidEndpointName } from '../utils/gatewayUtils';
 import { telemetryClient } from '../../telemetry/TelemetryClient';
 
-export const CODING_AGENT_TAG_KEY = 'mlflow.endpoint.agent';
+export const AI_AGENT_TAG_KEY = 'mlflow.endpoint.agent';
 
-export const VALID_CODING_AGENTS: CodingAgentType[] = ['claude-code', 'codex', 'gemini-cli'];
+export const VALID_AI_AGENTS: AiAgentType[] = ['claude-code', 'codex', 'gemini-cli'];
 
-export const CODING_AGENT_LABELS: Record<CodingAgentType, string> = {
+export const AI_AGENT_LABELS: Record<AiAgentType, string> = {
   'claude-code': 'Claude Code',
   codex: 'OpenAI Codex',
   'gemini-cli': 'Gemini CLI',
 };
 
 /**
- * Per-agent hardcoded provider/model config. Coding agents use their own credentials
+ * Per-agent hardcoded provider/model config. AI agents use their own credentials
  * (detected via User-Agent), so no real API key is needed — we store a placeholder secret.
  */
-const CODING_AGENT_CONFIG: Record<CodingAgentType, { provider: string; model: string; endpointName: string }> = {
+const AI_AGENT_CONFIG: Record<AiAgentType, { provider: string; model: string; endpointName: string }> = {
   'claude-code': { provider: 'anthropic', model: 'claude-sonnet-4-6', endpointName: 'claude-code' },
   codex: { provider: 'openai', model: 'codex', endpointName: 'codex' },
   'gemini-cli': { provider: 'gemini', model: 'gemini-2.5-pro', endpointName: 'gemini-cli' },
@@ -60,8 +60,8 @@ export interface UseCreateEndpointFormOptions {
   defaultName?: string;
   /** Pre-fill the new secret name field */
   defaultSecretName?: string;
-  /** When set, creates a coding-agent endpoint: skips secret/model UI, uses hardcoded values */
-  codingAgent?: CodingAgentType;
+  /** When set, creates an AI agent endpoint: skips secret/model UI, uses hardcoded values */
+  aiAgent?: AiAgentType;
 }
 
 export interface UseCreateEndpointFormResult {
@@ -84,9 +84,9 @@ export function useCreateEndpointForm({
   defaultModel,
   defaultName,
   defaultSecretName,
-  codingAgent,
+  aiAgent,
 }: UseCreateEndpointFormOptions = {}): UseCreateEndpointFormResult {
-  const agentConfig = codingAgent ? CODING_AGENT_CONFIG[codingAgent] : undefined;
+  const agentConfig = aiAgent ? AI_AGENT_CONFIG[aiAgent] : undefined;
 
   const form = useForm<CreateEndpointFormData>({
     defaultValues: {
@@ -160,7 +160,7 @@ export function useCreateEndpointForm({
           secretId = secretResponse.secret.secret_id;
         }
       } else {
-        // Coding agent flow: create a placeholder secret with an empty API key.
+        // AI agent flow: create a placeholder secret with an empty API key.
         // The actual credentials come from the client (detected via User-Agent).
         // If a placeholder secret with this name already exists, reuse it.
         const existingByName = allSecrets?.find((s) => s.secret_name === values.newSecret.name);
@@ -197,14 +197,14 @@ export function useCreateEndpointForm({
         usage_tracking: values.usageTracking,
       });
 
-      if (codingAgent) {
+      if (aiAgent) {
         // Best-effort: tag the endpoint. If this fails, the endpoint still exists and we
         // navigate to it — the tag is cosmetic (controls the starter-code card variant).
         try {
           await setEndpointTag({
             endpoint_id: endpointResponse.endpoint.endpoint_id,
-            key: CODING_AGENT_TAG_KEY,
-            value: codingAgent,
+            key: AI_AGENT_TAG_KEY,
+            value: aiAgent,
           });
         } catch {
           // Intentionally swallowed — endpoint creation succeeded.
@@ -219,7 +219,7 @@ export function useCreateEndpointForm({
           provider: values.provider,
           model: values.modelName,
           usageTracking: String(values.usageTracking),
-          ...(codingAgent ? { codingAgent } : {}),
+          ...(aiAgent ? { aiAgent } : {}),
         },
       );
 
@@ -303,7 +303,7 @@ export function useCreateEndpointForm({
     secretMode === 'existing'
       ? Boolean(existingSecretId)
       : Boolean(newSecretName) && Boolean(newSecretAuthMode) && hasSecretFieldValues;
-  // Coding agent endpoints pre-fill all required fields; only the name must be non-empty.
+  // AI agent endpoints pre-fill all required fields; only the name must be non-empty.
   const isFormComplete = agentConfig ? Boolean(name) : Boolean(provider) && Boolean(modelName) && isSecretConfigured;
 
   return {

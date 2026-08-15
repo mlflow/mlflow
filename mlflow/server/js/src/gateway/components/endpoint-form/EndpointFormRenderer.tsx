@@ -13,11 +13,11 @@ import { formatProviderName } from '../../utils/providerUtils';
 import { LongFormSection } from '../../../common/components/long-form/LongFormSection';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
-import type { CodingAgentType, ProviderModel, SecretInfo } from '../../types';
+import type { AiAgentType, ProviderModel, SecretInfo } from '../../types';
 import { formatTokens, formatCost } from '../../utils/formatters';
 import { getModelCapabilities } from '../../utils/getModelCapabilities';
 import type { CreateEndpointFormData } from '../../hooks/useCreateEndpointForm';
-import { CODING_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
+import { AI_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
 
 const LONG_FORM_TITLE_WIDTH = 200;
 
@@ -40,8 +40,8 @@ export interface EndpointFormRendererProps {
   isFormComplete: boolean;
   /** Whether any fields have changed from their initial values (edit mode only) */
   hasChanges?: boolean;
-  /** When set, hides model/connections fields and shows a coding-agent banner */
-  codingAgent?: CodingAgentType;
+  /** When set, hides model/connections fields and shows an AI agent banner */
+  aiAgent?: AiAgentType;
   /** Form submission handler */
   onSubmit: (values: EndpointFormData) => Promise<void>;
   /** Cancel handler */
@@ -73,7 +73,7 @@ export const EndpointFormRenderer = ({
   selectedModel,
   isFormComplete,
   hasChanges = true,
-  codingAgent,
+  aiAgent,
   onSubmit,
   onCancel,
   onNameBlur,
@@ -230,8 +230,8 @@ export const EndpointFormRenderer = ({
             </LongFormSection>
           )}
 
-          {/* Model Section — hidden for coding agents (values are pre-filled) */}
-          {codingAgent ? (
+          {/* Model Section — hidden for AI agents (values are pre-filled) */}
+          {aiAgent ? (
             <LongFormSection
               titleWidth={LONG_FORM_TITLE_WIDTH}
               title={intl.formatMessage({
@@ -241,16 +241,16 @@ export const EndpointFormRenderer = ({
               hideDivider
             >
               <Alert
-                componentId={`${componentId}.coding-agent-info`}
+                componentId={`${componentId}.ai-agent-info`}
                 closable={false}
                 type="info"
                 message={intl.formatMessage(
                   {
                     defaultMessage:
                       '{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.',
-                    description: 'Info message shown on coding agent endpoint creation form',
+                    description: 'Info message shown on AI agent endpoint creation form',
                   },
-                  { agentName: CODING_AGENT_LABELS[codingAgent] ?? codingAgent },
+                  { agentName: AI_AGENT_LABELS[aiAgent] ?? aiAgent },
                 )}
               />
             </LongFormSection>

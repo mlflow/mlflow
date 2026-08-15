@@ -4263,6 +4263,10 @@
     "defaultMessage": "Identifier",
     "description": "Package identifier label"
   },
+  "GF+LJa": {
+    "defaultMessage": "AI Agents",
+    "description": "Gateway > Quick start > AI Agents card header"
+  },
   "GFAm1C": {
     "defaultMessage": "A view named \"{name}\" already exists. Choose a different name.",
     "description": "Error shown when saving an experiment view whose name is already taken"
@@ -4398,10 +4402,6 @@
   "H+NXDb": {
     "defaultMessage": "Trace archival retention not updated",
     "description": "Partial save status message when experiment trace archival retention update was not attempted"
-  },
-  "H+tV5c": {
-    "defaultMessage": "Coding Agents",
-    "description": "Gateway > Quick start > Coding Agents card header"
   },
   "H/o0P2": {
     "defaultMessage": "Zoom out",
@@ -10127,6 +10127,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button label on the rename-custom-view modal"
   },
+  "esiGdU": {
+    "defaultMessage": "{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.",
+    "description": "Info message shown on AI agent endpoint creation form"
+  },
   "et6nRo": {
     "defaultMessage": "No access endpoint available for the latest version",
     "description": "Tooltip for disabled access endpoints icon on MCP server card"
@@ -10686,10 +10690,6 @@
   "grhPkj": {
     "defaultMessage": "New dataset record",
     "description": "Aria label for the dataset record create side panel"
-  },
-  "gsF5IQ": {
-    "defaultMessage": "{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.",
-    "description": "Info message shown on coding agent endpoint creation form"
   },
   "gt4t2m": {
     "defaultMessage": "Issue detection completed",
@@ -11746,10 +11746,6 @@
   "kwXUSF": {
     "defaultMessage": "Search MCP servers by name",
     "description": "Placeholder for MCP server search filter input"
-  },
-  "kwqwaU": {
-    "defaultMessage": "View starter code",
-    "description": "Title for coding agent starter code card on endpoint overview"
   },
   "kzfRC2": {
     "defaultMessage": "Impacted traces: {count}",
@@ -14502,6 +14498,10 @@
   "wxq/qM": {
     "defaultMessage": "Set as baseline",
     "description": "In the run data difference comparison table, the label for an option to set particular experiment run as a baseline one - meaning other runs will be compared to it."
+  },
+  "wxw1E3": {
+    "defaultMessage": "View starter code",
+    "description": "Title for AI agent starter code card on endpoint overview"
   },
   "x+e1xE": {
     "defaultMessage": "Is tool usage efficient throughout the conversation?",

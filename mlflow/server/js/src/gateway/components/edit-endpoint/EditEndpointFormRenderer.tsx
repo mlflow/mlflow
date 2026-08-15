@@ -24,9 +24,9 @@ import { LongFormSummary } from '../../../common/components/long-form/LongFormSu
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitConfigurator } from './TrafficSplitConfigurator';
 import { FallbackModelsConfigurator } from './FallbackModelsConfigurator';
-import { CodingAgentStarterCard, StarterCodeCard } from './StarterCodeCard';
-import { CODING_AGENT_TAG_KEY, VALID_CODING_AGENTS } from '../../hooks/useCreateEndpointForm';
-import type { CodingAgentType } from '../../types';
+import { AiAgentStarterCard, StarterCodeCard } from './StarterCodeCard';
+import { AI_AGENT_TAG_KEY, VALID_AI_AGENTS } from '../../hooks/useCreateEndpointForm';
+import type { AiAgentType } from '../../types';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
@@ -356,14 +356,14 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Content value="overview">
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
                 {(() => {
-                  const rawAgent = endpoint?.tags?.find((t) => t.key === CODING_AGENT_TAG_KEY)?.value;
-                  const codingAgent = VALID_CODING_AGENTS.includes(rawAgent as CodingAgentType)
-                    ? (rawAgent as CodingAgentType)
+                  const rawAgent = endpoint?.tags?.find((t) => t.key === AI_AGENT_TAG_KEY)?.value;
+                  const aiAgent = VALID_AI_AGENTS.includes(rawAgent as AiAgentType)
+                    ? (rawAgent as AiAgentType)
                     : undefined;
                   return (
                     <>
-                      {/* Unified Model card — hidden for coding-agent endpoints */}
-                      {!codingAgent && (
+                      {/* Unified Model card — hidden for AI agent endpoints */}
+                      {!aiAgent && (
                         <div
                           css={{
                             padding: theme.spacing.md,
@@ -426,8 +426,8 @@ export const EditEndpointFormRenderer = ({
                       )}
 
                       {endpoint &&
-                        (codingAgent ? (
-                          <CodingAgentStarterCard endpointName={endpoint.name} codingAgent={codingAgent} />
+                        (aiAgent ? (
+                          <AiAgentStarterCard endpointName={endpoint.name} aiAgent={aiAgent} />
                         ) : (
                           <StarterCodeCard
                             endpointName={endpoint.name}

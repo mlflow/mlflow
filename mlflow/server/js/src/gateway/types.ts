@@ -159,8 +159,8 @@ export interface SetEndpointTagRequest {
 
 export type SetEndpointTagResponse = Record<string, never>;
 
-/** Identifies the coding agent associated with an endpoint (stored as a tag). */
-export type CodingAgentType = 'claude-code' | 'codex' | 'gemini-cli';
+/** Identifies the AI agent associated with an endpoint (stored as a tag). */
+export type AiAgentType = 'claude-code' | 'codex' | 'gemini-cli';
 
 export interface CreateEndpointRequest {
   name?: string;

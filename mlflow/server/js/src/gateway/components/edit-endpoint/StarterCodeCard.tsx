@@ -12,8 +12,8 @@ import { FormattedMessage } from 'react-intl';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { TryItPanel } from '../endpoints/TryItPanel';
-import type { CodingAgentType } from '../../types';
-import { CODING_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
+import type { AiAgentType } from '../../types';
+import { AI_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
 
 const UNIFIED_COMMENT =
   '# Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.';
@@ -199,10 +199,10 @@ const getDefaultBody = (endpointName: string, variant: ApiVariant): string => {
   }
 };
 
-const getCodingAgentSnippets = (
+const getAiAgentSnippets = (
   base: string,
   endpointName: string,
-  agent: CodingAgentType,
+  agent: AiAgentType,
 ): { bash: string; description: string } => {
   switch (agent) {
     case 'claude-code':
@@ -227,17 +227,17 @@ gemini`,
   }
 };
 
-interface CodingAgentStarterCardProps {
+interface AiAgentStarterCardProps {
   endpointName: string;
-  codingAgent: CodingAgentType;
+  aiAgent: AiAgentType;
 }
 
-export const CodingAgentStarterCard = ({ endpointName, codingAgent }: CodingAgentStarterCardProps) => {
+export const AiAgentStarterCard = ({ endpointName, aiAgent }: AiAgentStarterCardProps) => {
   const { theme } = useDesignSystemTheme();
   const base = useMemo(() => getBaseUrl(), []);
   const { bash, description } = useMemo(
-    () => getCodingAgentSnippets(base, endpointName, codingAgent),
-    [base, endpointName, codingAgent],
+    () => getAiAgentSnippets(base, endpointName, aiAgent),
+    [base, endpointName, aiAgent],
   );
 
   return (
@@ -252,7 +252,7 @@ export const CodingAgentStarterCard = ({ endpointName, codingAgent }: CodingAgen
       <Typography.Title level={3} css={{ margin: 0, marginBottom: theme.spacing.sm }}>
         <FormattedMessage
           defaultMessage="View starter code"
-          description="Title for coding agent starter code card on endpoint overview"
+          description="Title for AI agent starter code card on endpoint overview"
         />
       </Typography.Title>
       <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
@@ -276,10 +276,10 @@ export const CodingAgentStarterCard = ({ endpointName, codingAgent }: CodingAgen
           }}
         >
           <Typography.Text bold css={{ fontSize: theme.typography.fontSizeSm }}>
-            {CODING_AGENT_LABELS[codingAgent]}
+            {AI_AGENT_LABELS[aiAgent]}
           </Typography.Text>
           <CopyButton
-            componentId="mlflow.gateway.edit-endpoint.coding-agent-starter-code.copy"
+            componentId="mlflow.gateway.edit-endpoint.ai-agent-starter-code.copy"
             copyText={bash}
             icon={<CopyIcon />}
             showLabel={false}

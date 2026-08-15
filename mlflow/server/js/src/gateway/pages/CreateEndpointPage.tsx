@@ -5,12 +5,12 @@ import { Breadcrumb, Typography, useDesignSystemTheme } from '@databricks/design
 import { FormattedMessage } from 'react-intl';
 import { Link, useLocation, useNavigate } from '../../common/utils/RoutingUtils';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
-import { useCreateEndpointForm, VALID_CODING_AGENTS } from '../hooks/useCreateEndpointForm';
+import { useCreateEndpointForm, VALID_AI_AGENTS } from '../hooks/useCreateEndpointForm';
 import { getReadableErrorMessage } from '../utils/errorUtils';
 import { EndpointFormRenderer } from '../components/endpoint-form';
 import GatewayRoutes from '../routes';
 import { GatewayLabel } from '../../common/components/GatewayNewTag';
-import type { CodingAgentType } from '../types';
+import type { AiAgentType } from '../types';
 
 const CreateEndpointPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -33,7 +33,7 @@ const CreateEndpointPage = () => {
     defaultModel: prefill?.model,
     defaultName: prefill?.endpointName,
     defaultSecretName: prefill?.secretName,
-    codingAgent: prefill?.codingAgent,
+    aiAgent: prefill?.aiAgent,
     onSuccess: (endpoint) => navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)),
     onCancel: () => navigate(GatewayRoutes.gatewayPageRoute),
   });
@@ -78,7 +78,7 @@ const CreateEndpointPage = () => {
           resetErrors={resetErrors}
           selectedModel={selectedModel}
           isFormComplete={isFormComplete}
-          codingAgent={prefill?.codingAgent}
+          aiAgent={prefill?.aiAgent}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           onNameBlur={handleNameBlur}
@@ -93,21 +93,21 @@ interface PrefillState {
   model?: string;
   endpointName?: string;
   secretName?: string;
-  codingAgent?: CodingAgentType;
+  aiAgent?: AiAgentType;
 }
 
 const parsePrefillState = (raw: unknown): PrefillState | null => {
   if (raw === null || raw === undefined || typeof raw !== 'object') return null;
   const obj = raw as Record<string, unknown>;
-  const codingAgentRaw = obj['codingAgent'];
+  const aiAgentRaw = obj['aiAgent'];
   return {
     provider: typeof obj['provider'] === 'string' ? obj['provider'] : undefined,
     model: typeof obj['model'] === 'string' ? obj['model'] : undefined,
     endpointName: typeof obj['endpointName'] === 'string' ? obj['endpointName'] : undefined,
     secretName: typeof obj['secretName'] === 'string' ? obj['secretName'] : undefined,
-    codingAgent:
-      typeof codingAgentRaw === 'string' && VALID_CODING_AGENTS.includes(codingAgentRaw as CodingAgentType)
-        ? (codingAgentRaw as CodingAgentType)
+    aiAgent:
+      typeof aiAgentRaw === 'string' && VALID_AI_AGENTS.includes(aiAgentRaw as AiAgentType)
+        ? (aiAgentRaw as AiAgentType)
         : undefined,
   };
 };

@@ -71,14 +71,14 @@ describe('QuickStartTemplates', () => {
 
     const links = screen.getAllByRole('link');
     const cardLinks = links.filter((link) => link.getAttribute('href') === '/gateway/endpoints/create');
-    // 4 providers × 4 models + 3 coding agents + 1 browse all link = 20
+    // 4 providers × 4 models + 3 AI agents + 1 browse all link = 20
     expect(cardLinks.length).toBe(20);
   });
 
-  it('renders coding agents section with links to documentation', () => {
+  it('renders AI agents section with links to documentation', () => {
     renderComponent();
 
-    expect(screen.getByText('Coding Agents')).toBeInTheDocument();
+    expect(screen.getByText('AI Agents')).toBeInTheDocument();
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
     expect(screen.getByText('OpenAI Codex')).toBeInTheDocument();
     expect(screen.getByText('Gemini CLI')).toBeInTheDocument();
@@ -118,14 +118,14 @@ describe('QuickStartTemplatesCompact', () => {
 
     const links = screen.getAllByRole('link');
     const cardLinks = links.filter((link) => link.getAttribute('href') === '/gateway/endpoints/create');
-    // 4 providers × 4 models + 3 coding agents + 1 browse all link = 20
+    // 4 providers × 4 models + 3 AI agents + 1 browse all link = 20
     expect(cardLinks.length).toBe(20);
   });
 
-  it('renders coding agents section with links to documentation', () => {
+  it('renders AI agents section with links to documentation', () => {
     renderCompactComponent();
 
-    expect(screen.getByText('Coding Agents')).toBeInTheDocument();
+    expect(screen.getByText('AI Agents')).toBeInTheDocument();
     expect(screen.getByText('Claude Code')).toBeInTheDocument();
     expect(screen.getByText('OpenAI Codex')).toBeInTheDocument();
     expect(screen.getByText('Gemini CLI')).toBeInTheDocument();

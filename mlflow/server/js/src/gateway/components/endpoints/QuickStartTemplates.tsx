@@ -10,7 +10,7 @@ import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
 import { formatProviderName } from '../../utils/providerUtils';
-import type { CodingAgentType } from '../../types';
+import type { AiAgentType } from '../../types';
 
 import OpenAiLogo from '../../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../../common/static/logos/openai-dark.svg';
@@ -19,12 +19,12 @@ import AnthropicLogoDark from '../../../common/static/logos/anthropic-dark.png';
 import GeminiLogo from '../../../common/static/logos/gemini.png';
 import DatabricksLogo from '../../../common/static/logos/databricks.svg';
 
-interface CodingAgentDoc {
+interface AiAgentDoc {
   name: string;
   provider: string;
   logo: string;
   logoDark?: string;
-  codingAgent: CodingAgentType;
+  aiAgent: AiAgentType;
   componentId: string;
 }
 
@@ -48,7 +48,7 @@ interface ProviderCardProps {
   compact?: boolean;
 }
 
-const CodingAgentsCard = ({ compact }: { compact?: boolean }) => {
+const AiAgentsCard = ({ compact }: { compact?: boolean }) => {
   const { theme } = useDesignSystemTheme();
 
   const logoSize = compact ? 16 : 20;
@@ -81,19 +81,16 @@ const CodingAgentsCard = ({ compact }: { compact?: boolean }) => {
         }}
       >
         <Typography.Text bold css={headerFontSize ? { fontSize: headerFontSize } : undefined}>
-          <FormattedMessage
-            defaultMessage="Coding Agents"
-            description="Gateway > Quick start > Coding Agents card header"
-          />
+          <FormattedMessage defaultMessage="AI Agents" description="Gateway > Quick start > AI Agents card header" />
         </Typography.Text>
       </div>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
-        {CODING_AGENTS.map(({ componentId, ...agent }) => (
+        {AI_AGENTS.map(({ componentId, ...agent }) => (
           <Link
             key={agent.name}
             componentId={componentId}
             to={GatewayRoutes.createEndpointPageRoute}
-            state={{ codingAgent: agent.codingAgent }}
+            state={{ aiAgent: agent.aiAgent }}
             css={{
               textDecoration: 'none',
               color: 'inherit',
@@ -293,29 +290,29 @@ const COMPACT_PROVIDER_CONFIGS: { template: ProviderTemplate; componentId: strin
   { template: PROVIDER_TEMPLATES[3], componentId: 'mlflow.gateway.quick_start.compact.databricks' },
 ];
 
-const CODING_AGENTS: CodingAgentDoc[] = [
+const AI_AGENTS: AiAgentDoc[] = [
   {
     name: 'Claude Code',
     provider: 'anthropic',
     logo: AnthropicLogo,
     logoDark: AnthropicLogoDark,
-    codingAgent: 'claude-code',
-    componentId: 'mlflow.gateway.quick_start.coding_agent.claude-code',
+    aiAgent: 'claude-code',
+    componentId: 'mlflow.gateway.quick_start.ai_agent.claude-code',
   },
   {
     name: 'OpenAI Codex',
     provider: 'openai',
     logo: OpenAiLogo,
     logoDark: OpenAiLogoDark,
-    codingAgent: 'codex',
-    componentId: 'mlflow.gateway.quick_start.coding_agent.codex',
+    aiAgent: 'codex',
+    componentId: 'mlflow.gateway.quick_start.ai_agent.codex',
   },
   {
     name: 'Gemini CLI',
     provider: 'gemini',
     logo: GeminiLogo,
-    codingAgent: 'gemini-cli',
-    componentId: 'mlflow.gateway.quick_start.coding_agent.gemini-cli',
+    aiAgent: 'gemini-cli',
+    componentId: 'mlflow.gateway.quick_start.ai_agent.gemini-cli',
   },
 ];
 
@@ -361,7 +358,7 @@ export const QuickStartTemplates = () => {
           width: '100%',
         }}
       >
-        <CodingAgentsCard />
+        <AiAgentsCard />
         {PROVIDER_TEMPLATES.map((template) => (
           <ProviderCard key={template.provider} template={template} componentId={template.componentId} />
         ))}
@@ -418,7 +415,7 @@ export const QuickStartTemplatesCompact = () => {
           scrollbarWidth: 'none',
         }}
       >
-        <CodingAgentsCard compact />
+        <AiAgentsCard compact />
         {COMPACT_PROVIDER_CONFIGS.map(({ componentId, template }) => (
           <ProviderCard key={template.provider} template={template} componentId={componentId} compact />
         ))}
