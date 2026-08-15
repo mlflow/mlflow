@@ -209,6 +209,7 @@ jobs:
           EFFORT: ${{ steps.prompt.outputs.effort }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
+          mkdir -p /tmp/review-media
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
@@ -237,6 +238,23 @@ jobs:
       - name: Show proxy log
         if: always()
         run: cat /tmp/anthropic-proxy.log || true
+
+      # Kept out of the Claude step, which holds only the read-only app token, so a
+      # poisoned diff can't reach this PAT. Gated like Post so the pull_request
+      # smoke path stays non-mutating.
+      - name: Upload review media
+        if: github.event_name == 'issue_comment'
+        # Attaching media is a nicety; losing the whole review over it is not. Any
+        # fault here must not take the job down before Post review.
+        continue-on-error: true
+        env:
+          UPLOAD_MEDIA_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          REPO_ID: ${{ github.event.repository.id }}
+        run: |
+          uv run --frozen --package skills skills upload-media \
+            --dir /tmp/review-media \
+            --target /tmp/review-payload.json \
+            --repository-id "$REPO_ID"
 
       - name: Validate review payload
         run: |
