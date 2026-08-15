@@ -40,12 +40,16 @@ class TokenRejected(Exception):
     """Raised on 401: the credential is dead, so every remaining upload would fail too."""
 
 
-# 10MB covers images and video on free plans; the smaller bound is the safe one.
-MAX_BYTES = 10 * 1024 * 1024
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_VIDEO_BYTES = 100 * 1024 * 1024
 
 
 def is_video(name: str) -> bool:
     return Path(name).suffix.lower() in VIDEO_SUFFIXES
+
+
+def max_bytes(name: str) -> int:
+    return MAX_VIDEO_BYTES if is_video(name) else MAX_IMAGE_BYTES
 
 
 def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
@@ -55,8 +59,8 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
         return None
 
     size = path.stat().st_size
-    if size > MAX_BYTES:
-        print(f"  skip {path.name}: {size} bytes exceeds {MAX_BYTES}", file=sys.stderr)
+    if size > (limit := max_bytes(path.name)):
+        print(f"  skip {path.name}: {size} bytes exceeds {limit}", file=sys.stderr)
         return None
 
     query = urllib.parse.urlencode({

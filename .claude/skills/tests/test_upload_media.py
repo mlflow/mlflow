@@ -264,8 +264,32 @@ def test_upload_asset_skips_an_unsupported_extension(tmp_path: Path) -> None:
 def test_upload_asset_skips_a_file_over_the_size_cap(tmp_path: Path) -> None:
     path = tmp_path / "big.png"
     path.write_bytes(b"12345")
-    with mock.patch.object(upload_media, "MAX_BYTES", 4):
+    with mock.patch.object(upload_media, "MAX_IMAGE_BYTES", 4):
         assert upload_media.upload_asset(path, "1", "t") is None
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("shot.png", upload_media.MAX_IMAGE_BYTES),
+        ("shot.gif", upload_media.MAX_IMAGE_BYTES),
+        ("clip.mp4", upload_media.MAX_VIDEO_BYTES),
+        ("clip.MOV", upload_media.MAX_VIDEO_BYTES),
+        ("clip.webm", upload_media.MAX_VIDEO_BYTES),
+    ],
+)
+def test_max_bytes_is_larger_for_video(name: str, expected: int) -> None:
+    assert upload_media.max_bytes(name) == expected
+
+
+def test_a_video_between_the_image_and_video_caps_is_not_skipped(tmp_path: Path) -> None:
+    # The old single 10MB cap silently dropped exactly this: a screen recording.
+    path = tmp_path / "clip.mp4"
+    path.write_bytes(b"0" * (upload_media.MAX_IMAGE_BYTES + 1))
+
+    response = io.BytesIO(json.dumps({"url": URL}).encode())
+    with mock.patch("urllib.request.urlopen", return_value=response):
+        assert upload_media.upload_asset(path, "1", "t") == URL
 
 
 def http_error(code: int) -> urllib.error.HTTPError:
