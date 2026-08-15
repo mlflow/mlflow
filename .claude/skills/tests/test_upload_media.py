@@ -161,7 +161,7 @@ def test_cli_is_a_noop_when_there_is_no_media(
     assert target.read_text() == "unchanged"
 
 
-def test_cli_skips_everything_when_the_token_env_is_unset(
+def test_cli_degrades_to_prose_when_the_token_env_is_unset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv(upload_media.TOKEN_ENV, raising=False)
@@ -169,10 +169,10 @@ def test_cli_skips_everything_when_the_token_env_is_unset(
     media.mkdir()
     (media / "shot.png").write_bytes(b"\x89PNG")
     target = tmp_path / "body.md"
-    target.write_text("`shot.png`")
+    target.write_text("evidence: ![the bug](shot.png) and `shot.png`")
     args = build_args(media, target)
     args.func(args)
-    assert target.read_text() == "`shot.png`"
+    assert target.read_text() == "evidence: the bug and `shot.png`"
 
 
 def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

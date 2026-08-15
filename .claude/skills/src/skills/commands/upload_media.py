@@ -138,9 +138,6 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
 
 
 def run(args: argparse.Namespace) -> None:
-    if not (token := os.environ.get(TOKEN_ENV)):
-        print(f"{TOKEN_ENV} is unset; skipping media upload", file=sys.stderr)
-        return
     if not args.target.is_file():
         print(f"No target at {args.target}; nothing to rewrite", file=sys.stderr)
         return
@@ -161,14 +158,17 @@ def run(args: argparse.Namespace) -> None:
         print(f"No media in {args.dir}")
         return
 
-    print(f"Uploading {len(files)} file(s) from {args.dir}")
+    # A missing secret must still reach the rewrite below, or every reference ships
+    # verbatim and renders as a broken repo-relative image.
     urls = {}
-    for path in files:
-        if url := upload_asset(path, args.repository_id, token):
-            urls[path.name] = url
+    if token := os.environ.get(TOKEN_ENV):
+        print(f"Uploading {len(files)} file(s) from {args.dir}")
+        for path in files:
+            if url := upload_asset(path, args.repository_id, token):
+                urls[path.name] = url
+    else:
+        print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
 
-    # Rewrite even when nothing uploaded: the neutralizing pass is what keeps a
-    # failed upload from shipping a broken embed.
     unavailable = [p.name for p in files if p.name not in urls]
 
     if args.target.suffix == ".json":
