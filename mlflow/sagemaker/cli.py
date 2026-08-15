@@ -51,7 +51,7 @@ def commands():
 @click.option(
     "--accept",
     "-a",
-    default="text/csv",
+    default="application/json",
     help="The multipurpose internet mail extension (MIME) type of the output data",
 )
 @click.option(
