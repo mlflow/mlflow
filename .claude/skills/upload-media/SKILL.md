@@ -1,6 +1,6 @@
 ---
 name: upload-media
-description: Upload one or more local images or videos to GitHub and get back a `user-attachments` URL for each, to embed in a PR body, issue, or comment. Use when asked to attach screenshots or screen recordings without driving the browser UI.
+description: Upload one or more local images or videos to GitHub and get back a `user-attachments` URL for each, to embed in a PR body, issue, or comment. Use when asked to attach screenshots or screen recordings.
 argument-hint: "path(s) to the image or video to upload"
 ---
 
