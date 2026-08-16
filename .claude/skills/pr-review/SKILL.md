@@ -160,9 +160,5 @@ uv run --package skills skills upload-media --check \
   --dir /tmp/review-media --target /tmp/review-payload.json
 ```
 
-The second checks that every citation names a capture the upload step will actually
-find. A misspelt or path-prefixed name uploads nothing and ships a broken image, and
-neither the schema nor the upload step reports it.
-
 Do not post the review: no `gh pr review`, no review/comment APIs, no other skills. Stop
 after writing and validating `/tmp/review-payload.json`.
