@@ -156,6 +156,7 @@ Validate before finishing, then fix any errors and re-emit until both of these p
 
 ```bash
 uv run --package skills skills validate-review /tmp/review-payload.json
+# only when you wrote a file into /tmp/review-media/
 uv run --package skills skills upload-media --check \
   --dir /tmp/review-media --target /tmp/review-payload.json
 ```
