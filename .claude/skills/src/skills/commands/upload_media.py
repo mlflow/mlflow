@@ -97,47 +97,36 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
             return None
 
 
-def link_target(name: str) -> str:
-    return rf"\]\((?:\./)?{re.escape(name)}\)"
+def link_target(cited: str) -> str:
+    return rf"\]\({re.escape(cited)}\)"
 
 
-def code_span(name: str) -> str:
-    return rf"`{re.escape(name)}`"
+def is_referenced(cited: str, text: str) -> bool:
+    return re.search(link_target(cited), text) is not None
 
 
-def reference_pattern(name: str) -> str:
-    return f"{link_target(name)}|{code_span(name)}"
-
-
-def is_referenced(name: str, text: str) -> bool:
-    return re.search(reference_pattern(name), text) is not None
-
-
-def standalone_pattern(name: str) -> str:
+def standalone_pattern(cited: str) -> str:
     # GitHub renders a video player only for a bare URL alone in its own paragraph.
-    return rf"(?m)^[ \t]*(?:!?\[[^\]]*{link_target(name)}|{code_span(name)})[ \t]*$"
+    return rf"(?m)^[ \t]*!?\[[^\]]*{link_target(cited)}[ \t]*$"
 
 
 def substitute(text: str, urls: dict[str, str], unavailable: Iterable[str] = ()) -> str:
-    for name, url in urls.items():
-        link = link_target(name)
-        code = code_span(name)
-        if is_video(name):
+    for cited, url in urls.items():
+        link = link_target(cited)
+        if is_video(cited):
             # Promote a reference that already sits on its own line.
-            text = re.sub(standalone_pattern(name), f"\n{url}\n", text)
+            text = re.sub(standalone_pattern(cited), f"\n{url}\n", text)
             # Whatever is left is mid-sentence, where ![]() around a video URL renders
             # as a broken image. Drop the bang so it degrades to a link instead.
             text = re.sub(rf"!(?=\[[^\]]*{link})", "", text)
         text = re.sub(link, f"]({url})", text)
-        # Lookarounds keep a second pass a no-op.
-        text = re.sub(rf"(?<!\[){code}(?!\])", f"[`{name}`]({url})", text)
 
-    # A name with no URL (upload failed, or the file was skipped) would otherwise
-    # survive as ![desc](shot.png), which GitHub resolves repo-relative and renders
-    # as a broken image. Strip the markup so it degrades to prose.
-    for name in unavailable:
-        link = link_target(name)
-        text = re.sub(rf"!?\[{link}", name, text)
+    # A citation with no URL (upload failed, or the file was skipped) would otherwise
+    # post the local path, which resolves to nothing. Strip the markup so it degrades
+    # to prose.
+    for cited in unavailable:
+        link = link_target(cited)
+        text = re.sub(rf"!?\[{link}", Path(cited).name, text)
         text = re.sub(rf"!?\[([^\]]+){link}", r"\1", text)
     return text
 
@@ -211,30 +200,26 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
     by_name = {p.name: p for p in files}
     report.warnings += [f"{name}: a symlink, so it is never uploaded" for name in symlinks]
 
-    cited = {name for name in by_name if any(is_referenced(name, t) for t in texts)}
-
+    cited: set[str] = set()
     for text in texts:
         for raw in LINK.findall(text):
-            if "://" in raw:
-                continue
-            path = raw.removeprefix("./")
-            name = path.rsplit("/", 1)[-1]
-            if name in by_name:
+            name = raw.rsplit("/", 1)[-1]
+            path = by_name.get(name)
+            if path and raw == str(path):
                 cited.add(name)
-                if path != name:
-                    report.errors.append(
-                        f"({raw}): cite {name} by bare filename, or the path is left alone "
-                        "and GitHub resolves it against the repository"
-                    )
-            # A path still resolves against the repository, so only a bare media filename
-            # that matches no capture is certain to render as a broken image.
-            elif path == name and Path(name).suffix.lower() in MIME_TYPES:
+            # A basename alone can only be meant as a capture; the same basename under
+            # some other directory is an ordinary link that happens to collide.
+            elif path and "/" not in raw.removeprefix("./"):
+                cited.add(name)
+                report.errors.append(f"({raw}): cite the capture as {path}")
+            elif raw.startswith(f"{directory}/"):
                 report.errors.append(
-                    f"({raw}): no such file in {directory}, so the reference ships as-is "
-                    "and GitHub renders it as a broken image"
+                    f"({raw}): no such file, so the citation is stripped and the finding "
+                    "degrades to prose"
                 )
 
     for name in sorted(cited):
+        cite = str(by_name[name])
         if Path(name).suffix.lower() not in MIME_TYPES:
             report.errors.append(f"{name}: unsupported extension, so the reference is dropped")
         elif (size := by_name[name].stat().st_size) > (limit := max_bytes(name)):
@@ -242,7 +227,7 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
                 f"{name}: {size} bytes exceeds the {limit} byte cap, so the reference is dropped"
             )
         elif is_video(name) and any(
-            is_referenced(name, re.sub(standalone_pattern(name), "", t)) for t in texts
+            is_referenced(cite, re.sub(standalone_pattern(cite), "", t)) for t in texts
         ):
             report.warnings.append(
                 f"{name}: cited mid-paragraph, so GitHub renders a link rather than a player"
@@ -311,44 +296,51 @@ def run(args: argparse.Namespace) -> None:
     if not args.target.is_file():
         print(f"No target at {args.target}; nothing to rewrite", file=sys.stderr)
         return
-    if not args.dir.is_dir():
-        print(f"No media directory at {args.dir}")
-        return
-
-    files, symlinks = collect_files(args.dir)
+    files, symlinks = collect_files(args.dir) if args.dir.is_dir() else ([], [])
     for name in symlinks:
         print(f"  skip {name}: symlink", file=sys.stderr)
-    if not files:
-        print(f"No media in {args.dir}")
-        return
 
     # Only what the review actually cites gets published. Captures taken to reason
     # with and then left uncited are scratch work.
     target_text = args.target.read_text()
-    referenced = [p for p in files if is_referenced(p.name, target_text)]
+    referenced = [p for p in files if is_referenced(str(p), target_text)]
     if unreferenced := [p.name for p in files if p not in referenced]:
         print(f"  not referenced, skipping: {', '.join(unreferenced)}", file=sys.stderr)
-    if not referenced:
+
+    # A citation naming no capture resolves to nothing, so it has to be stripped rather
+    # than posted. --check reports it first, but Claude runs that; this step is the last
+    # thing between a typo and the review.
+    resolvable = {str(p) for p in referenced}
+    names = {p.name for p in files}
+    stray = [
+        raw
+        for raw in dict.fromkeys(LINK.findall(target_text))
+        if raw not in resolvable
+        and (raw.startswith(f"{args.dir}/") or raw.removeprefix("./") in names)
+    ]
+    for raw in stray:
+        print(f"  no such capture, stripping: {raw}", file=sys.stderr)
+    if not referenced and not stray:
         print(f"No media referenced by {args.target}")
         return
 
     # A missing secret must still reach the rewrite below, or every reference ships
-    # verbatim and renders as a broken repo-relative image.
+    # verbatim and posts a local path.
     urls = {}
-    if token := os.environ.get(TOKEN_ENV):
+    if not (token := os.environ.get(TOKEN_ENV)):
+        print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
+    elif referenced:
         print(f"Uploading {len(referenced)} referenced file(s) from {args.dir}")
         try:
             for path in referenced:
                 if url := upload_asset(path, args.repository_id, token):
-                    urls[path.name] = url
+                    urls[str(path)] = url
         except TokenRejected as e:
             # The step is continue-on-error, so without an annotation an expired
             # token would silently stop attaching media on every future review.
             print(f"::warning::{e}")
-    else:
-        print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
 
-    unavailable = [p.name for p in referenced if p.name not in urls]
+    unavailable = [str(p) for p in referenced if str(p) not in urls] + stray
 
     if args.target.suffix == ".json":
         payload = json.loads(target_text)
