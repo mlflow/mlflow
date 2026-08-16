@@ -104,6 +104,14 @@ def _cleanup_database(store: SqlAlchemyStore):
         ):
             session.query(model).delete()
 
+        # Drop all tables to ensure a clean slate for the next test run.
+        # This prevents 'table already exists' errors when creating tables
+        # in tests that reuse the same database (e.g., when running the full suite).
+        store._Engine.drop_all(bind=store._Engine)
+
+        # Recreate all tables to match the current schema, ensuring a consistent state.
+        store._Engine.create_all(bind=store._Engine)
+
         # Ensure the default experiment exists in the default workspace (ID 0).
         with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
             store._create_default_experiment(session)
