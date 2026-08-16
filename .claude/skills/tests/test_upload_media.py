@@ -105,10 +105,8 @@ def test_a_rejected_credential_stops_the_remaining_uploads(
         args.func(args)
 
     uploader.assert_called_once_with(shot, REPO_ID, "t")
-    # The credential this command resolves, not the one CI carries.
     err = capsys.readouterr().err
     assert "check GH_TOKEN or run `gh auth login`" in err
-    assert "UPLOAD_MEDIA_TOKEN" not in err
 
 
 def test_a_missing_path_is_reported_without_uploading(

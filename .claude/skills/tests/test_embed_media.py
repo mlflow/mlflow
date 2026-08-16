@@ -207,7 +207,7 @@ def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     media = tmp_path / "media"
     media.mkdir()
     secret = tmp_path / "environ"
-    secret.write_text("UPLOAD_MEDIA_TOKEN=supersecret")
+    secret.write_text("GH_TOKEN=supersecret")
     (media / "shot.png").symlink_to(secret)
     target = tmp_path / "body.md"
     target.write_text(f"![the secret]({media / 'shot.png'})")
@@ -238,7 +238,7 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
     with mock.patch.object(
         embed_media,
         "upload_asset",
-        side_effect=uploads.UploadFailed("UPLOAD_MEDIA_TOKEN was rejected (401)", status=401),
+        side_effect=uploads.UploadFailed("the credential was rejected (401)", status=401),
     ) as uploader:
         args.func(args)
 
@@ -422,7 +422,7 @@ def test_check_accepts_a_video_on_its_own_line(tmp_path: Path) -> None:
 def test_check_warns_about_a_symlink(tmp_path: Path) -> None:
     media = tmp_path / "media"
     media.mkdir()
-    (tmp_path / "environ").write_text("UPLOAD_MEDIA_TOKEN=supersecret")
+    (tmp_path / "environ").write_text("GH_TOKEN=supersecret")
     (media / "shot.png").symlink_to(tmp_path / "environ")
 
     report = embed_media.check_media(media, ["a prose-only finding"])

@@ -23,7 +23,7 @@ from skills.github.uploads import (
 
 # Read from the environment, never argv: a PAT in a CLI argument is visible in the
 # process list for the life of the call.
-TOKEN_ENV = "UPLOAD_MEDIA_TOKEN"
+TOKEN_ENV = "GH_TOKEN"
 
 
 def link_target(cited: str) -> str:
@@ -64,7 +64,7 @@ def collect_files(directory: Path) -> tuple[list[Path], list[str]]:
     """Return the uploadable files, and the names rejected for being symlinks.
 
     ``is_file()`` follows symlinks, so a link planted here (say secret.png ->
-    /proc/self/environ) would publish this process's own UPLOAD_MEDIA_TOKEN as an
+    /proc/self/environ) would publish this process's own GH_TOKEN as an
     attachment. Claude writes this directory, and a poisoned diff steers Claude.
     """
     files: list[Path] = []
