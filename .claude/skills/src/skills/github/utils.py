@@ -5,14 +5,25 @@ import subprocess
 import sys
 
 
-def get_github_token() -> str:
+def resolve_github_token() -> str | None:
+    """Return a token, or None for callers that must keep going without one.
+
+    Read from the environment, never argv: a PAT in a CLI argument is visible in the
+    process list for the life of the call.
+    """
     if token := os.environ.get("GH_TOKEN"):
         return token
     try:
         return subprocess.check_output(["gh", "auth", "token"], text=True).strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print("Error: GH_TOKEN not found (set env var or install gh CLI)", file=sys.stderr)
-        sys.exit(1)
+        return None
+
+
+def get_github_token() -> str:
+    if token := resolve_github_token():
+        return token
+    print("Error: GH_TOKEN not found (set env var or install gh CLI)", file=sys.stderr)
+    sys.exit(1)
 
 
 def parse_pr_url(url: str) -> tuple[str, str, int]:
