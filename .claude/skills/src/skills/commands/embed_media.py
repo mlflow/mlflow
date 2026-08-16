@@ -252,7 +252,8 @@ def run(args: argparse.Namespace) -> None:
     # A missing credential must still reach the rewrite below, or every reference ships
     # verbatim and posts a local path.
     urls = {}
-    if not (token := resolve_github_token()):
+    token = resolve_github_token()
+    if not token:
         print("no GitHub token; not uploading", file=sys.stderr)
     elif referenced:
         print(f"Uploading {len(referenced)} referenced file(s) from {args.dir}")
