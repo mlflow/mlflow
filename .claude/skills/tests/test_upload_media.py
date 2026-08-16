@@ -12,7 +12,10 @@ from skills.commands import upload_media
 from skills.commands.upload_media import rewrite_payload, substitute
 
 URL = "https://github.com/user-attachments/assets/2f1c0a3e-0000-4000-8000-000000000001"
-URLS = {"shot.png": URL}
+MEDIA = "/tmp/review-media"
+SHOT = f"{MEDIA}/shot.png"
+CLIP = f"{MEDIA}/clip.mp4"
+URLS = {SHOT: URL}
 
 
 def build_args(media: Path, target: Path) -> argparse.Namespace:
@@ -46,18 +49,18 @@ def make_media(tmp_path: Path, name: str = "shot.png") -> Path:
 
 
 def check(tmp_path: Path, body: str, name: str = "shot.png") -> upload_media.CheckReport:
-    return upload_media.check_media(make_media(tmp_path, name), [body])
+    media = make_media(tmp_path, name)
+    return upload_media.check_media(media, [body.format(p=media / name, media=media)])
 
 
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("![alt](shot.png)", f"![alt]({URL})"),
-        ("![alt](./shot.png)", f"![alt]({URL})"),
-        ("[link](shot.png)", f"[link]({URL})"),
-        ("see `shot.png` here", f"see [`shot.png`]({URL}) here"),
+        (f"![alt]({SHOT})", f"![alt]({URL})"),
+        (f"[link]({SHOT})", f"[link]({URL})"),
         ("nothing to do", "nothing to do"),
-        ("other.png stays", "other.png stays"),
+        ("shot.png stays", "shot.png stays"),
+        (f"`{SHOT}` stays", f"`{SHOT}` stays"),
     ],
 )
 def test_substitute_rewrites_each_reference_form(text: str, expected: str) -> None:
@@ -65,56 +68,53 @@ def test_substitute_rewrites_each_reference_form(text: str, expected: str) -> No
 
 
 def test_substitute_is_idempotent() -> None:
-    once = substitute("see `shot.png`", URLS)
+    once = substitute(f"see ![alt]({SHOT})", URLS)
     assert substitute(once, URLS) == once
 
 
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("![repro](clip.mp4)", f"\n{URL}\n"),
-        ("`clip.mp4`", f"\n{URL}\n"),
-        ("before\n![repro](clip.mp4)\nafter", f"before\n\n{URL}\n\nafter"),
-        ("see `clip.mp4` inline", f"see [`clip.mp4`]({URL}) inline"),
+        (f"![repro]({CLIP})", f"\n{URL}\n"),
+        (f"before\n![repro]({CLIP})\nafter", f"before\n\n{URL}\n\nafter"),
         # ![]() around a video URL renders as a broken image, so it must become a link.
-        ("see ![repro](clip.mp4) inline", f"see [repro]({URL}) inline"),
+        (f"see ![repro]({CLIP}) inline", f"see [repro]({URL}) inline"),
     ],
 )
 def test_substitute_promotes_a_standalone_video_to_a_bare_url(text: str, expected: str) -> None:
-    assert substitute(text, {"clip.mp4": URL}) == expected
+    assert substitute(text, {CLIP: URL}) == expected
 
 
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("![a screenshot](shot.png)", "a screenshot"),
-        ("[a screenshot](shot.png)", "a screenshot"),
-        ("![](shot.png)", "shot.png"),
-        ("see `shot.png`", "see `shot.png`"),
+        (f"![a screenshot]({SHOT})", "a screenshot"),
+        (f"[a screenshot]({SHOT})", "a screenshot"),
+        (f"![]({SHOT})", "shot.png"),
     ],
 )
 def test_substitute_strips_markup_for_media_that_never_uploaded(text: str, expected: str) -> None:
-    assert substitute(text, {}, ["shot.png"]) == expected
+    assert substitute(text, {}, [SHOT]) == expected
 
 
 def test_rewrite_payload_covers_body_and_inline_comments() -> None:
     payload = {
         "event": "COMMENT",
-        "body": "Race shown in `shot.png`\n\n🤖 Generated with Claude",
-        "comments": [{"path": "a.py", "body": "🔴 **CRITICAL:** ![x](shot.png)", "line": 1}],
+        "body": f"Race shown in [the trace]({SHOT})\n\n🤖 Generated with Claude",
+        "comments": [{"path": "a.py", "body": f"🔴 **CRITICAL:** ![x]({SHOT})", "line": 1}],
     }
     result = rewrite_payload(payload, URLS)
-    assert result["body"] == f"Race shown in [`shot.png`]({URL})\n\n🤖 Generated with Claude"
+    assert result["body"] == f"Race shown in [the trace]({URL})\n\n🤖 Generated with Claude"
     assert result["comments"][0]["body"] == f"🔴 **CRITICAL:** ![x]({URL})"
 
 
 def test_rewrite_payload_neutralizes_unavailable_media_in_comments() -> None:
-    payload = {"body": "b", "comments": [{"body": "![the bug](shot.png)"}]}
-    assert rewrite_payload(payload, {}, ["shot.png"])["comments"][0]["body"] == "the bug"
+    payload = {"body": "b", "comments": [{"body": f"![the bug]({SHOT})"}]}
+    assert rewrite_payload(payload, {}, [SHOT])["comments"][0]["body"] == "the bug"
 
 
 def test_rewrite_payload_preserves_the_trailing_footer() -> None:
-    payload = {"body": "`shot.png`\n\n🤖 Generated with Claude", "comments": []}
+    payload = {"body": f"![x]({SHOT})\n\n🤖 Generated with Claude", "comments": []}
     assert rewrite_payload(payload, URLS)["body"].endswith("🤖 Generated with Claude")
 
 
@@ -129,7 +129,7 @@ def test_rewrite_payload_tolerates_missing_and_malformed_fields() -> None:
 def test_cli_rewrites_a_json_payload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "review-payload.json"
-    target.write_text(json.dumps({"body": "`shot.png`", "comments": []}))
+    target.write_text(json.dumps({"body": f"[the trace]({media / 'shot.png'})", "comments": []}))
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
     args = build_args(media, target)
@@ -137,13 +137,13 @@ def test_cli_rewrites_a_json_payload(tmp_path: Path, monkeypatch: pytest.MonkeyP
         args.func(args)
 
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
-    assert json.loads(target.read_text())["body"] == f"[`shot.png`]({URL})"
+    assert json.loads(target.read_text())["body"] == f"[the trace]({URL})"
 
 
 def test_cli_rewrites_markdown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
-    target.write_text("![alt](shot.png)")
+    target.write_text(f"![alt]({media / 'shot.png'})")
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
     args = build_args(media, target)
@@ -159,7 +159,7 @@ def test_cli_degrades_to_prose_when_every_upload_fails(
 ) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
-    target.write_text("evidence: ![the bug](shot.png)")
+    target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
     args = build_args(media, target)
@@ -170,12 +170,12 @@ def test_cli_degrades_to_prose_when_every_upload_fails(
     assert target.read_text() == "evidence: the bug"
 
 
-def test_cli_degrades_to_prose_when_the_token_env_is_unset(
+def test_cli_never_posts_a_local_path_when_the_token_env_is_unset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
-    target.write_text("evidence: ![the bug](shot.png) and `shot.png`")
+    target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
 
     monkeypatch.delenv(upload_media.TOKEN_ENV, raising=False)
     args = build_args(media, target)
@@ -183,7 +183,7 @@ def test_cli_degrades_to_prose_when_the_token_env_is_unset(
         args.func(args)
 
     uploader.assert_not_called()
-    assert target.read_text() == "evidence: the bug and `shot.png`"
+    assert target.read_text() == "evidence: the bug"
 
 
 def test_cli_is_a_noop_when_there_is_no_media(
@@ -210,7 +210,8 @@ def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     secret.write_text("UPLOAD_MEDIA_TOKEN=supersecret")
     (media / "shot.png").symlink_to(secret)
     target = tmp_path / "body.md"
-    target.write_text("`shot.png`")
+    body = f"![x]({media / 'shot.png'})"
+    target.write_text(body)
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
     args = build_args(media, target)
@@ -218,7 +219,7 @@ def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         args.func(args)
 
     uploader.assert_not_called()
-    assert target.read_text() == "`shot.png`"
+    assert target.read_text() == body
 
 
 def test_upload_asset_builds_the_request_and_returns_the_url(tmp_path: Path) -> None:
@@ -336,7 +337,7 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
     media = make_media(tmp_path)
     (media / "second.png").write_bytes(b"\x89PNG")
     target = tmp_path / "body.md"
-    target.write_text("evidence: ![the bug](shot.png)")
+    target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
     args = build_args(media, target)
@@ -360,7 +361,7 @@ def test_cli_uploads_only_media_the_target_references(
     media = make_media(tmp_path, "cited.png")
     (media / "scratch.png").write_bytes(b"\x89PNG")
     target = tmp_path / "body.md"
-    target.write_text("evidence: ![the bug](cited.png)")
+    target.write_text(f"evidence: ![the bug]({media / 'cited.png'})")
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
     args = build_args(media, target)
@@ -393,7 +394,9 @@ def test_cli_uploads_media_referenced_by_an_inline_comment(
     media = make_media(tmp_path, "cited.png")
     (media / "scratch.png").write_bytes(b"\x89PNG")
     target = tmp_path / "review-payload.json"
-    target.write_text(json.dumps({"body": "b", "comments": [{"body": "see `cited.png`"}]}))
+    target.write_text(
+        json.dumps({"body": "b", "comments": [{"body": f"see [it]({media / 'cited.png'})"}]})
+    )
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
     args = build_args(media, target)
@@ -401,34 +404,43 @@ def test_cli_uploads_media_referenced_by_an_inline_comment(
         args.func(args)
 
     uploader.assert_called_once_with(media / "cited.png", "136202695", "t")
-    assert json.loads(target.read_text())["comments"][0]["body"] == f"see [`cited.png`]({URL})"
+    assert json.loads(target.read_text())["comments"][0]["body"] == f"see [it]({URL})"
 
 
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("![x](shot.png)", True),
-        ("![x](./shot.png)", True),
-        ("see `shot.png`", True),
-        # A name that is only a suffix of a cited one is not a reference.
-        ("![x](longshot.png)", False),
-        ("shot.png bare mention", False),
+        (f"![x]({SHOT})", True),
+        (f"[x]({SHOT})", True),
+        # A path that only ends with the cited one is not a reference.
+        (f"![x]({MEDIA}/longshot.png)", False),
+        ("![x](shot.png)", False),
+        (f"`{SHOT}`", False),
         ("nothing here", False),
     ],
 )
-def test_is_referenced_matches_only_real_reference_forms(text: str, expected: bool) -> None:
-    assert upload_media.is_referenced("shot.png", text) is expected
+def test_is_referenced_matches_only_a_link_to_the_full_path(text: str, expected: bool) -> None:
+    assert upload_media.is_referenced(SHOT, text) is expected
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        "![the bug](shot.png)",
-        "![the bug](./shot.png)",
-        "[the bug](shot.png)",
-        "see `shot.png`",
-    ],
-)
+def test_cli_does_not_upload_a_name_that_is_a_suffix_of_a_cited_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path, "longshot.png")
+    (media / "shot.png").write_bytes(b"\x89PNG")
+    target = tmp_path / "body.md"
+    target.write_text(f"![x]({media / 'longshot.png'})")
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+        args.func(args)
+
+    uploader.assert_called_once_with(media / "longshot.png", "136202695", "t")
+    assert target.read_text() == f"![x]({URL})"
+
+
+@pytest.mark.parametrize("body", ["![the bug]({p})", "[the bug]({p})"])
 def test_check_accepts_every_form_the_rewriter_understands(tmp_path: Path, body: str) -> None:
     report = check(tmp_path, body)
     assert report.errors == []
@@ -436,19 +448,18 @@ def test_check_accepts_every_form_the_rewriter_understands(tmp_path: Path, body:
     assert report.cited == ["shot.png"]
 
 
-@pytest.mark.parametrize("body", ["![the bug](shto.png)", "![the bug](./shto.png)"])
-def test_check_rejects_a_citation_naming_no_captured_file(tmp_path: Path, body: str) -> None:
-    report = check(tmp_path, body)
+def test_check_rejects_a_citation_naming_no_captured_file(tmp_path: Path) -> None:
+    report = check(tmp_path, "![the bug]({media}/shto.png)")
     assert len(report.errors) == 1
     assert "no such file" in report.errors[0]
 
 
-def test_check_rejects_a_citation_carrying_a_path(tmp_path: Path) -> None:
-    report = check(tmp_path, "![the bug](media/shot.png)")
+@pytest.mark.parametrize("body", ["![the bug](shot.png)", "![the bug](media/shot.png)"])
+def test_check_rejects_a_citation_that_is_not_the_path_written(tmp_path: Path, body: str) -> None:
+    report = check(tmp_path, body)
     assert len(report.errors) == 1
-    assert "cite shot.png by bare filename" in report.errors[0]
-    # The capture is plainly meant to be shown, so it is not also reported as uncited.
-    assert report.warnings == []
+    assert report.errors[0].endswith(f"cite the capture as {tmp_path / 'media' / 'shot.png'}")
+    assert report.warnings == ["shot.png: cited by nothing, so it is not uploaded"]
 
 
 @pytest.mark.parametrize(
@@ -458,6 +469,7 @@ def test_check_rejects_a_citation_carrying_a_path(tmp_path: Path) -> None:
         "[upstream](https://example.com/diagram.png)",
         "the `logo.png` in the diff",
         "[the module](mlflow/utils.py)",
+        "[a capture from another run](/tmp/other/shot.png)",
     ],
 )
 def test_check_leaves_references_that_are_not_captures_alone(tmp_path: Path, body: str) -> None:
@@ -473,26 +485,26 @@ def test_check_warns_about_a_capture_nothing_cites(tmp_path: Path) -> None:
 
 
 def test_check_rejects_a_cited_file_with_an_unsupported_extension(tmp_path: Path) -> None:
-    report = check(tmp_path, "see `notes.txt`", "notes.txt")
+    report = check(tmp_path, "[notes]({p})", "notes.txt")
     assert report.errors == ["notes.txt: unsupported extension, so the reference is dropped"]
 
 
 def test_check_rejects_a_cited_file_over_the_size_cap(tmp_path: Path) -> None:
     with mock.patch.object(upload_media, "MAX_IMAGE_BYTES", 2):
-        report = check(tmp_path, "![the bug](shot.png)")
+        report = check(tmp_path, "![the bug]({p})")
     assert len(report.errors) == 1
     assert "exceeds the 2 byte cap" in report.errors[0]
 
 
 def test_check_warns_when_a_video_is_cited_mid_paragraph(tmp_path: Path) -> None:
-    report = check(tmp_path, "the repro is `clip.mp4` here", "clip.mp4")
+    report = check(tmp_path, "the repro is [here]({p}) inline", "clip.mp4")
     assert report.errors == []
     assert len(report.warnings) == 1
     assert "renders a link rather than a player" in report.warnings[0]
 
 
 def test_check_accepts_a_video_on_its_own_line(tmp_path: Path) -> None:
-    report = check(tmp_path, "the repro:\n\n![repro](clip.mp4)\n", "clip.mp4")
+    report = check(tmp_path, "the repro:\n\n![repro]({p})\n", "clip.mp4")
     assert report.errors == []
     assert report.warnings == []
 
@@ -508,30 +520,32 @@ def test_check_warns_about_a_symlink(tmp_path: Path) -> None:
 
 
 def test_check_reads_the_body_and_comments_of_a_json_payload(tmp_path: Path) -> None:
+    media = make_media(tmp_path)
     target = tmp_path / "review-payload.json"
     target.write_text(
         json.dumps({
-            "body": "![overview](shot.png)",
-            "comments": [{"body": "and ![again](missing.png)"}],
+            "body": f"![overview]({media / 'shot.png'})",
+            "comments": [{"body": f"and ![again]({media / 'missing.png'})"}],
         })
     )
-    report = upload_media.check_media(make_media(tmp_path), upload_media.target_bodies(target))
+    report = upload_media.check_media(media, upload_media.target_bodies(target))
     assert report.cited == ["shot.png"]
     assert len(report.errors) == 1
-    assert "(missing.png): no such file" in report.errors[0]
+    assert "missing.png): no such file" in report.errors[0]
 
 
 def test_check_reports_a_repeated_bad_citation_once(tmp_path: Path) -> None:
-    report = upload_media.check_media(
-        make_media(tmp_path), ["![a](missing.png)", "![b](missing.png)"]
-    )
+    media = make_media(tmp_path)
+    cite = f"{media / 'missing.png'}"
+    report = upload_media.check_media(media, [f"![a]({cite})", f"![b]({cite})"])
     assert len(report.errors) == 1
 
 
 def test_check_agrees_with_what_the_upload_would_rewrite(tmp_path: Path) -> None:
-    body = "![the bug](shot.png)"
-    assert check(tmp_path, body).errors == []
-    assert substitute(body, URLS) != body
+    media = make_media(tmp_path)
+    body = f"![the bug]({media / 'shot.png'})"
+    assert upload_media.check_media(media, [body]).errors == []
+    assert substitute(body, {str(media / "shot.png"): URL}) == f"![the bug]({URL})"
 
 
 def test_cli_check_exits_zero_and_uploads_nothing(
@@ -539,7 +553,8 @@ def test_cli_check_exits_zero_and_uploads_nothing(
 ) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
-    target.write_text("![the bug](shot.png)")
+    body = f"![the bug]({media / 'shot.png'})"
+    target.write_text(body)
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
     args = build_check_args(media, target)
@@ -547,13 +562,13 @@ def test_cli_check_exits_zero_and_uploads_nothing(
         args.func(args)
 
     uploader.assert_not_called()
-    assert target.read_text() == "![the bug](shot.png)"
+    assert target.read_text() == body
 
 
 def test_cli_check_exits_nonzero_on_an_unresolvable_citation(tmp_path: Path) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
-    target.write_text("![the bug](shto.png)")
+    target.write_text(f"![the bug]({media / 'shto.png'})")
 
     args = build_check_args(media, target)
     with pytest.raises(SystemExit, match="^1$"):
@@ -586,7 +601,7 @@ def test_cli_check_tolerates_a_missing_media_directory(tmp_path: Path) -> None:
 def test_cli_requires_a_repository_id_without_check(tmp_path: Path) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
-    target.write_text("![the bug](shot.png)")
+    target.write_text(f"![the bug]({media / 'shot.png'})")
 
     args = build_parser().parse_args([
         "upload-media",
@@ -597,20 +612,3 @@ def test_cli_requires_a_repository_id_without_check(tmp_path: Path) -> None:
     ])
     with pytest.raises(SystemExit, match="^2$"):
         args.func(args)
-
-
-def test_cli_does_not_upload_a_name_that_is_a_suffix_of_a_cited_one(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    media = make_media(tmp_path, "longshot.png")
-    (media / "shot.png").write_bytes(b"\x89PNG")
-    target = tmp_path / "body.md"
-    target.write_text("![x](longshot.png)")
-
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
-    args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
-        args.func(args)
-
-    uploader.assert_called_once_with(media / "longshot.png", "136202695", "t")
-    assert target.read_text() == f"![x]({URL})"
