@@ -85,6 +85,13 @@ Verify rather than infer. A `grep` through the installed package, a `uv run pyth
 quick search and fetch of the upstream docs will settle most questions in seconds, and an unverified
 finding should be dropped rather than hedged.
 
+Node and `agent-browser` are on PATH for docs and UI changes. Render when it settles whether the
+change is correct, or when a capture shows a finding more plainly than prose can. Building the
+docs site or the UI is expensive; do it only when the finding justifies it. Capture to an
+absolute path named for what it shows:
+`agent-browser screenshot --full /tmp/review-media/traces-table.png`, and cite that name in a
+finding.
+
 Evaluate the changed code across these dimensions:
 
 - **Correctness**: logic errors, off-by-one, incorrect API usage, broken invariants, regressions in behavior

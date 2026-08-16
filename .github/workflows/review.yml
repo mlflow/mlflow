@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/review.yml"
-      - ".claude/scripts/anthropic-proxy.mjs"
+      - ".claude/scripts/**"
       - ".claude/skills/pr-review/**"
 
 concurrency:
@@ -89,7 +89,7 @@ jobs:
     # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
     # fails closed.
     permissions: {}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -135,12 +135,19 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
+      - uses: ./.github/actions/setup-node
       - name: Install Claude CLI
         run: |
           .claude/scripts/install-claude.sh
       - name: Verify Claude CLI
         run: |
           claude --version
+      - name: Install agent-browser
+        run: |
+          .claude/scripts/install-agent-browser.sh
+      - name: Verify agent-browser
+        run: |
+          agent-browser --version
 
       - name: Parse review arguments
         id: prompt
@@ -207,6 +214,7 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
+          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/review-shots
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
           mkdir -p /tmp/review-media
@@ -214,10 +222,10 @@ jobs:
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
           EXIT_CODE=0
-          timeout 20m claude \
+          timeout 30m claude \
             --model "$MODEL" \
             --effort "$EFFORT" \
-            --max-budget-usd 5 \
+            --max-budget-usd 8 \
             --permission-mode auto \
             --allowed-tools "Bash(uv run --package skills skills:*)" \
             --print \
@@ -226,7 +234,7 @@ jobs:
             "/pr-review $PR_URL" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
-            echo "Warning: Claude command timed out after 20 minutes"
+            echo "Warning: Claude command timed out after 30 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
             echo "Error: Claude command failed with exit code $EXIT_CODE"
             cat "$OUTPUT_FILE"
