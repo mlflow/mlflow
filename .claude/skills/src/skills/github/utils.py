@@ -6,11 +6,6 @@ import sys
 
 
 def resolve_github_token() -> str | None:
-    """Return a token, or None for callers that must keep going without one.
-
-    Read from the environment, never argv: a PAT in a CLI argument is visible in the
-    process list for the life of the call.
-    """
     if token := os.environ.get("GH_TOKEN"):
         return token
     try:
