@@ -38,39 +38,48 @@ def test_upload_asset_builds_the_request_and_returns_the_url(tmp_path: Path) -> 
         json.JSONDecodeError("bad", "", 0),
     ],
 )
-def test_upload_asset_returns_none_when_the_request_fails(
-    tmp_path: Path, outcome: Exception
-) -> None:
+def test_upload_asset_raises_when_the_request_fails(tmp_path: Path, outcome: Exception) -> None:
     path = tmp_path / "shot.png"
     path.write_bytes(b"\x89PNG")
 
-    with mock.patch("urllib.request.urlopen", side_effect=outcome) as opener:
-        assert uploads.upload_asset(path, "1", "t") is None
+    with (
+        mock.patch("urllib.request.urlopen", side_effect=outcome) as opener,
+        pytest.raises(uploads.UploadFailed, match="shot.png") as excinfo,
+    ):
+        uploads.upload_asset(path, "1", "t")
+
+    assert excinfo.value.status is None
+    opener.assert_called_once()
+
+
+def test_upload_asset_raises_when_the_response_carries_no_url(tmp_path: Path) -> None:
+    path = tmp_path / "shot.png"
+    path.write_bytes(b"\x89PNG")
+
+    with (
+        mock.patch("urllib.request.urlopen", return_value=io.BytesIO(b"{}")) as opener,
+        pytest.raises(uploads.UploadFailed, match="response carried no url"),
+    ):
+        uploads.upload_asset(path, "1", "t")
 
     opener.assert_called_once()
 
 
-def test_upload_asset_returns_none_when_the_response_carries_no_url(tmp_path: Path) -> None:
-    path = tmp_path / "shot.png"
-    path.write_bytes(b"\x89PNG")
-
-    with mock.patch("urllib.request.urlopen", return_value=io.BytesIO(b"{}")) as opener:
-        assert uploads.upload_asset(path, "1", "t") is None
-
-    opener.assert_called_once()
-
-
-def test_upload_asset_skips_an_unsupported_extension(tmp_path: Path) -> None:
+def test_upload_asset_rejects_an_unsupported_extension(tmp_path: Path) -> None:
     path = tmp_path / "notes.txt"
     path.write_text("x")
-    assert uploads.upload_asset(path, "1", "t") is None
+    with pytest.raises(uploads.UploadFailed, match="unsupported extension"):
+        uploads.upload_asset(path, "1", "t")
 
 
-def test_upload_asset_skips_a_file_over_the_size_cap(tmp_path: Path) -> None:
+def test_upload_asset_rejects_a_file_over_the_size_cap(tmp_path: Path) -> None:
     path = tmp_path / "big.png"
     path.write_bytes(b"12345")
-    with mock.patch.object(uploads, "MAX_IMAGE_BYTES", 4):
-        assert uploads.upload_asset(path, "1", "t") is None
+    with (
+        mock.patch.object(uploads, "MAX_IMAGE_BYTES", 4),
+        pytest.raises(uploads.UploadFailed, match="5 bytes exceeds 4"),
+    ):
+        uploads.upload_asset(path, "1", "t")
 
 
 @pytest.mark.parametrize(
@@ -101,20 +110,27 @@ def http_error(code: int) -> urllib.error.HTTPError:
     return urllib.error.HTTPError(uploads.UPLOAD_URL, code, "nope", {}, None)  # type: ignore[arg-type]
 
 
-def test_upload_asset_raises_on_a_rejected_token(tmp_path: Path) -> None:
+def test_upload_asset_flags_a_rejected_token_with_its_status(tmp_path: Path) -> None:
     path = tmp_path / "shot.png"
     path.write_bytes(b"\x89PNG")
 
     with (
         mock.patch("urllib.request.urlopen", side_effect=http_error(401)),
-        pytest.raises(uploads.TokenRejected, match="rejected \\(401\\)"),
+        pytest.raises(uploads.UploadFailed, match="rejected \\(401\\)") as excinfo,
     ):
         uploads.upload_asset(path, "1", "t")
 
+    assert excinfo.value.status == 401
 
-def test_upload_asset_returns_none_on_other_http_errors(tmp_path: Path) -> None:
+
+def test_upload_asset_carries_the_status_of_other_http_errors(tmp_path: Path) -> None:
     path = tmp_path / "shot.png"
     path.write_bytes(b"\x89PNG")
 
-    with mock.patch("urllib.request.urlopen", side_effect=http_error(500)):
-        assert uploads.upload_asset(path, "1", "t") is None
+    with (
+        mock.patch("urllib.request.urlopen", side_effect=http_error(500)),
+        pytest.raises(uploads.UploadFailed, match="shot.png") as excinfo,
+    ):
+        uploads.upload_asset(path, "1", "t")
+
+    assert excinfo.value.status == 500

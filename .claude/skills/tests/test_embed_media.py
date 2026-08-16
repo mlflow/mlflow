@@ -161,7 +161,9 @@ def test_cli_degrades_to_prose_when_every_upload_fails(
 
     monkeypatch.setenv(uploads.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset", return_value=None) as uploader:
+    with mock.patch.object(
+        embed_media, "upload_asset", side_effect=uploads.UploadFailed("shot.png: boom")
+    ) as uploader:
         args.func(args)
 
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
@@ -233,7 +235,7 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
     with mock.patch.object(
         embed_media,
         "upload_asset",
-        side_effect=uploads.TokenRejected("UPLOAD_MEDIA_TOKEN was rejected (401)"),
+        side_effect=uploads.UploadFailed("UPLOAD_MEDIA_TOKEN was rejected (401)", status=401),
     ) as uploader:
         args.func(args)
 
