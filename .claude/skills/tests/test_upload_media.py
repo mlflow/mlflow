@@ -337,3 +337,86 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
     assert out.count(f"::warning::{upload_media.TOKEN_ENV} was rejected (401)") == 1
     assert uploader.call_count == 1
     assert target.read_text() == "evidence: the bug"
+
+
+def test_cli_uploads_only_media_the_target_references(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path, "cited.png")
+    (media / "scratch.png").write_bytes(b"\x89PNG")
+    target = tmp_path / "body.md"
+    target.write_text("evidence: ![the bug](cited.png)")
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+        args.func(args)
+
+    uploader.assert_called_once_with(media / "cited.png", "136202695", "t")
+    assert target.read_text() == f"evidence: ![the bug]({URL})"
+
+
+def test_cli_uploads_nothing_when_no_media_is_referenced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path, "scratch.png")
+    target = tmp_path / "body.md"
+    target.write_text("a prose-only finding")
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset") as uploader:
+        args.func(args)
+
+    uploader.assert_not_called()
+    assert target.read_text() == "a prose-only finding"
+
+
+def test_cli_uploads_media_referenced_by_an_inline_comment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path, "cited.png")
+    (media / "scratch.png").write_bytes(b"\x89PNG")
+    target = tmp_path / "review-payload.json"
+    target.write_text(json.dumps({"body": "b", "comments": [{"body": "see `cited.png`"}]}))
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+        args.func(args)
+
+    uploader.assert_called_once_with(media / "cited.png", "136202695", "t")
+    assert json.loads(target.read_text())["comments"][0]["body"] == f"see [`cited.png`]({URL})"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("![x](shot.png)", True),
+        ("![x](./shot.png)", True),
+        ("see `shot.png`", True),
+        # A name that is only a suffix of a cited one is not a reference.
+        ("![x](longshot.png)", False),
+        ("shot.png bare mention", False),
+        ("nothing here", False),
+    ],
+)
+def test_is_referenced_matches_only_real_reference_forms(text: str, expected: bool) -> None:
+    assert upload_media.is_referenced("shot.png", text) is expected
+
+
+def test_cli_does_not_upload_a_name_that_is_a_suffix_of_a_cited_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path, "longshot.png")
+    (media / "shot.png").write_bytes(b"\x89PNG")
+    target = tmp_path / "body.md"
+    target.write_text("![x](longshot.png)")
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+        args.func(args)
+
+    uploader.assert_called_once_with(media / "longshot.png", "136202695", "t")
+    assert target.read_text() == f"![x]({URL})"
