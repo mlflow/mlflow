@@ -152,11 +152,17 @@ Authoring rules not captured by the schema:
   player only for a bare URL in its own paragraph, so a video cited mid-sentence falls back
   to a plain link.
 
-Validate before finishing, then fix any errors and re-emit until this passes:
+Validate before finishing, then fix any errors and re-emit until both of these pass:
 
 ```bash
 uv run --package skills skills validate-review /tmp/review-payload.json
+uv run --package skills skills upload-media --check \
+  --dir /tmp/review-media --target /tmp/review-payload.json
 ```
+
+The second checks that every citation names a capture the upload step will actually
+find. A misspelt or path-prefixed name uploads nothing and ships a broken image, and
+neither the schema nor the upload step reports it.
 
 Do not post the review: no `gh pr review`, no review/comment APIs, no other skills. Stop
 after writing and validating `/tmp/review-payload.json`.

@@ -12,7 +12,8 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -112,15 +113,18 @@ def is_referenced(name: str, text: str) -> bool:
     return re.search(reference_pattern(name), text) is not None
 
 
+def standalone_pattern(name: str) -> str:
+    # GitHub renders a video player only for a bare URL alone in its own paragraph.
+    return rf"(?m)^[ \t]*(?:!?\[[^\]]*{link_target(name)}|{code_span(name)})[ \t]*$"
+
+
 def substitute(text: str, urls: dict[str, str], unavailable: Iterable[str] = ()) -> str:
     for name, url in urls.items():
         link = link_target(name)
         code = code_span(name)
         if is_video(name):
-            # GitHub renders a player only for a bare URL alone in its own paragraph,
-            # so promote a reference that already sits on its own line.
-            standalone = rf"(?m)^[ \t]*(?:!?\[[^\]]*{link}|{code})[ \t]*$"
-            text = re.sub(standalone, f"\n{url}\n", text)
+            # Promote a reference that already sits on its own line.
+            text = re.sub(standalone_pattern(name), f"\n{url}\n", text)
             # Whatever is left is mid-sentence, where ![]() around a video URL renders
             # as a broken image. Drop the bang so it degrades to a link instead.
             text = re.sub(rf"!(?=\[[^\]]*{link})", "", text)
@@ -136,6 +140,23 @@ def substitute(text: str, urls: dict[str, str], unavailable: Iterable[str] = ())
         text = re.sub(rf"!?\[{link}", name, text)
         text = re.sub(rf"!?\[([^\]]+){link}", r"\1", text)
     return text
+
+
+def collect_files(directory: Path) -> tuple[list[Path], list[str]]:
+    """Return the uploadable files, and the names rejected for being symlinks.
+
+    ``is_file()`` follows symlinks, so a link planted here (say secret.png ->
+    /proc/self/environ) would publish this process's own UPLOAD_MEDIA_TOKEN as an
+    attachment. Claude writes this directory, and a poisoned diff steers Claude.
+    """
+    files: list[Path] = []
+    symlinks: list[str] = []
+    for path in sorted(directory.iterdir()):
+        if path.is_symlink():
+            symlinks.append(path.name)
+        elif path.is_file():
+            files.append(path)
+    return files, symlinks
 
 
 def rewrite_payload(
@@ -154,6 +175,111 @@ def rewrite_payload(
     return payload
 
 
+LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)\)")
+
+
+@dataclass
+class CheckReport:
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    cited: list[str] = field(default_factory=list)
+
+
+def iter_bodies(payload: dict[str, Any]) -> Iterator[str]:
+    match payload:
+        case {"body": str(body)}:
+            yield body
+    match payload:
+        case {"comments": [*comments]}:
+            for comment in comments:
+                match comment:
+                    case {"body": str(body)}:
+                        yield body
+
+
+def target_bodies(target: Path) -> list[str]:
+    text = target.read_text()
+    if target.suffix != ".json":
+        return [text]
+    return list(iter_bodies(json.loads(text)))
+
+
+def check_media(directory: Path, texts: list[str]) -> CheckReport:
+    """Report what the upload would silently drop or leave broken in ``texts``."""
+    report = CheckReport()
+    files, symlinks = collect_files(directory) if directory.is_dir() else ([], [])
+    by_name = {p.name: p for p in files}
+    report.warnings += [f"{name}: a symlink, so it is never uploaded" for name in symlinks]
+
+    cited = {name for name in by_name if any(is_referenced(name, t) for t in texts)}
+
+    for text in texts:
+        for raw in LINK.findall(text):
+            if "://" in raw:
+                continue
+            path = raw.removeprefix("./")
+            name = path.rsplit("/", 1)[-1]
+            if name in by_name:
+                cited.add(name)
+                if path != name:
+                    report.errors.append(
+                        f"({raw}): cite {name} by bare filename, or the path is left alone "
+                        "and GitHub resolves it against the repository"
+                    )
+            # A path still resolves against the repository, so only a bare media filename
+            # that matches no capture is certain to render as a broken image.
+            elif path == name and Path(name).suffix.lower() in MIME_TYPES:
+                report.errors.append(
+                    f"({raw}): no such file in {directory}, so the reference ships as-is "
+                    "and GitHub renders it as a broken image"
+                )
+
+    for name in sorted(cited):
+        if Path(name).suffix.lower() not in MIME_TYPES:
+            report.errors.append(f"{name}: unsupported extension, so the reference is dropped")
+        elif (size := by_name[name].stat().st_size) > (limit := max_bytes(name)):
+            report.errors.append(
+                f"{name}: {size} bytes exceeds the {limit} byte cap, so the reference is dropped"
+            )
+        elif is_video(name) and any(
+            is_referenced(name, re.sub(standalone_pattern(name), "", t)) for t in texts
+        ):
+            report.warnings.append(
+                f"{name}: cited mid-paragraph, so GitHub renders a link rather than a player"
+            )
+
+    report.warnings += [
+        f"{name}: cited by nothing, so it is not uploaded"
+        for name in sorted(by_name.keys() - cited)
+    ]
+
+    report.errors = list(dict.fromkeys(report.errors))
+    report.warnings = list(dict.fromkeys(report.warnings))
+    report.cited = sorted(cited)
+    return report
+
+
+def run_check(args: argparse.Namespace) -> None:
+    if not args.target.is_file():
+        print(f"ERROR: no target at {args.target}", file=sys.stderr)
+        sys.exit(1)
+    try:
+        texts = target_bodies(args.target)
+    except json.JSONDecodeError as e:
+        print(f"ERROR: {args.target} is not valid JSON: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    report = check_media(args.dir, texts)
+    for warning in report.warnings:
+        print(f"  warning: {warning}", file=sys.stderr)
+    if report.errors:
+        print(f"ERROR: {args.target} cites media that will not render", file=sys.stderr)
+        for error in report.errors:
+            print(f"  {error}", file=sys.stderr)
+        sys.exit(1)
+    print(f"OK: {len(report.cited)} media reference(s) resolve, {len(report.warnings)} warning(s)")
+
+
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser(
         "upload-media",
@@ -166,11 +292,22 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
         required=True,
         help="File to rewrite: a .json pr-review payload, or any Markdown file",
     )
-    parser.add_argument("--repository-id", required=True, help="Numeric repository id")
+    parser.add_argument("--repository-id", help="Numeric repository id; required without --check")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Report unresolvable references and exit non-zero, without uploading anything",
+    )
     parser.set_defaults(func=run)
 
 
 def run(args: argparse.Namespace) -> None:
+    if args.check:
+        run_check(args)
+        return
+    if not args.repository_id:
+        print("--repository-id is required without --check", file=sys.stderr)
+        sys.exit(2)
     if not args.target.is_file():
         print(f"No target at {args.target}; nothing to rewrite", file=sys.stderr)
         return
@@ -178,15 +315,9 @@ def run(args: argparse.Namespace) -> None:
         print(f"No media directory at {args.dir}")
         return
 
-    # is_file() follows symlinks, so a link planted here (say secret.png ->
-    # /proc/self/environ) would publish this process's own UPLOAD_MEDIA_TOKEN as an
-    # attachment. Claude writes this directory, and a poisoned diff steers Claude.
-    files: list[Path] = []
-    for path in sorted(args.dir.iterdir()):
-        if path.is_symlink():
-            print(f"  skip {path.name}: symlink", file=sys.stderr)
-        elif path.is_file():
-            files.append(path)
+    files, symlinks = collect_files(args.dir)
+    for name in symlinks:
+        print(f"  skip {name}: symlink", file=sys.stderr)
     if not files:
         print(f"No media in {args.dir}")
         return
