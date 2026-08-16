@@ -145,8 +145,8 @@ Authoring rules not captured by the schema:
 - If you have no findings, emit an empty `comments` array.
 - To attach an image or video (a diagram, a chart, a captured repro), write the file into
   `/tmp/review-media/` and reference it by bare filename: `![desc](name.png)` to embed, or
-  `` `name.png` `` to cite. A later workflow step uploads it and rewrites the reference to a
-  URL. Do not upload anything yourself. Skip this unless a visual genuinely beats prose;
+  `[desc](name.png)` to link. A later workflow step uploads it and rewrites the reference to
+  a URL. Do not upload anything yourself. Skip this unless a visual genuinely beats prose;
   most reviews need none.
 - Put a video reference (`.mp4`, `.mov`, `.webm`) on a line of its own. GitHub renders a
   player only for a bare URL in its own paragraph, so a video cited mid-sentence falls back
