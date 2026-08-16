@@ -259,7 +259,7 @@ jobs:
           UPLOAD_MEDIA_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
           REPO_ID: ${{ github.event.repository.id }}
         run: |
-          uv run --frozen --package skills skills upload-media \
+          uv run --frozen --package skills skills embed-media \
             --dir /tmp/review-media \
             --target /tmp/review-payload.json \
             --repository-id "$REPO_ID"
