@@ -85,6 +85,13 @@ Verify rather than infer. A `grep` through the installed package, a `uv run pyth
 quick search and fetch of the upstream docs will settle most questions in seconds, and an unverified
 finding should be dropped rather than hedged.
 
+Node and `agent-browser` are on PATH for docs and UI changes. Render when it settles whether the
+change is correct, or when a capture shows a finding more plainly than prose can. Building the
+docs site or the UI is expensive; do it only when the finding justifies it. Capture to an
+absolute path named for what it shows:
+`agent-browser screenshot --full /tmp/review-media/traces-table.png`, and cite that same path
+in a finding.
+
 Evaluate the changed code across these dimensions:
 
 - **Correctness**: logic errors, off-by-one, incorrect API usage, broken invariants, regressions in behavior
@@ -137,18 +144,22 @@ Authoring rules not captured by the schema:
   indentation.
 - If you have no findings, emit an empty `comments` array.
 - To attach an image or video (a diagram, a chart, a captured repro), write the file into
-  `/tmp/review-media/` and reference it by bare filename: `![desc](name.png)` to embed, or
-  `` `name.png` `` to cite. A later workflow step uploads it and rewrites the reference to a
-  URL. Do not upload anything yourself. Skip this unless a visual genuinely beats prose;
-  most reviews need none.
+  `/tmp/review-media/` and cite it by the absolute path you wrote it to:
+  `![desc](/tmp/review-media/name.png)` to embed, or `[desc](/tmp/review-media/name.png)`
+  to link. A later workflow step uploads it and rewrites the reference to a URL. Do not
+  upload anything yourself. Skip this unless a visual genuinely beats prose; most reviews
+  need none.
 - Put a video reference (`.mp4`, `.mov`, `.webm`) on a line of its own. GitHub renders a
   player only for a bare URL in its own paragraph, so a video cited mid-sentence falls back
   to a plain link.
 
-Validate before finishing, then fix any errors and re-emit until this passes:
+Validate before finishing, then fix any errors and re-emit until both of these pass:
 
 ```bash
 uv run --package skills skills validate-review /tmp/review-payload.json
+# only when you wrote a file into /tmp/review-media/
+uv run --package skills skills upload-media --check \
+  --dir /tmp/review-media --target /tmp/review-payload.json
 ```
 
 Do not post the review: no `gh pr review`, no review/comment APIs, no other skills. Stop
