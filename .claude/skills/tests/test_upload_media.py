@@ -210,8 +210,7 @@ def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     secret.write_text("UPLOAD_MEDIA_TOKEN=supersecret")
     (media / "shot.png").symlink_to(secret)
     target = tmp_path / "body.md"
-    body = f"![x]({media / 'shot.png'})"
-    target.write_text(body)
+    target.write_text(f"![the secret]({media / 'shot.png'})")
 
     monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
     args = build_args(media, target)
@@ -219,7 +218,8 @@ def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         args.func(args)
 
     uploader.assert_not_called()
-    assert target.read_text() == body
+    # Never uploaded, so the citation resolves to nothing and must not post the path.
+    assert target.read_text() == "the secret"
 
 
 def test_upload_asset_builds_the_request_and_returns_the_url(tmp_path: Path) -> None:
@@ -454,12 +454,13 @@ def test_check_rejects_a_citation_naming_no_captured_file(tmp_path: Path) -> Non
     assert "no such file" in report.errors[0]
 
 
-@pytest.mark.parametrize("body", ["![the bug](shot.png)", "![the bug](media/shot.png)"])
+@pytest.mark.parametrize("body", ["![the bug](shot.png)", "![the bug](./shot.png)"])
 def test_check_rejects_a_citation_that_is_not_the_path_written(tmp_path: Path, body: str) -> None:
     report = check(tmp_path, body)
     assert len(report.errors) == 1
     assert report.errors[0].endswith(f"cite the capture as {tmp_path / 'media' / 'shot.png'}")
-    assert report.warnings == ["shot.png: cited by nothing, so it is not uploaded"]
+    # The capture is plainly meant to be shown, so it is not also reported as uncited.
+    assert report.warnings == []
 
 
 @pytest.mark.parametrize(
@@ -469,13 +470,28 @@ def test_check_rejects_a_citation_that_is_not_the_path_written(tmp_path: Path, b
         "[upstream](https://example.com/diagram.png)",
         "the `logo.png` in the diff",
         "[the module](mlflow/utils.py)",
-        "[a capture from another run](/tmp/other/shot.png)",
     ],
 )
 def test_check_leaves_references_that_are_not_captures_alone(tmp_path: Path, body: str) -> None:
     media = tmp_path / "media"
     media.mkdir()
     assert upload_media.check_media(media, [body]).errors == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "[the docs icon](docs/static/img/shot.png)",
+        "[upstream](https://example.com/shot.png)",
+        "[a capture from another run](/tmp/other/shot.png)",
+    ],
+)
+def test_check_leaves_a_link_whose_basename_collides_with_a_capture_alone(
+    tmp_path: Path, body: str
+) -> None:
+    # The capture is named shot.png, so every one of these shares its basename.
+    report = check(tmp_path, body)
+    assert report.errors == []
 
 
 def test_check_warns_about_a_capture_nothing_cites(tmp_path: Path) -> None:
@@ -589,6 +605,55 @@ def test_cli_check_exits_nonzero_when_the_target_is_missing(tmp_path: Path) -> N
     args = build_check_args(make_media(tmp_path), tmp_path / "absent.md")
     with pytest.raises(SystemExit, match="^1$"):
         args.func(args)
+
+
+def test_cli_strips_a_citation_naming_no_capture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path)
+    target = tmp_path / "body.md"
+    target.write_text(f"evidence: ![the bug]({media / 'shto.png'})")
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset") as uploader:
+        args.func(args)
+
+    uploader.assert_not_called()
+    assert target.read_text() == "evidence: the bug"
+
+
+def test_cli_strips_a_typo_while_still_embedding_the_capture_beside_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path)
+    target = tmp_path / "body.md"
+    target.write_text(f"![ok]({media / 'shot.png'}) and ![typo]({media / 'shto.png'})")
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+        args.func(args)
+
+    uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
+    assert target.read_text() == f"![ok]({URL}) and typo"
+
+
+def test_cli_leaves_a_link_outside_the_media_directory_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path)
+    target = tmp_path / "body.md"
+    body = "see [the icon](docs/static/img/shot.png)"
+    target.write_text(body)
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset") as uploader:
+        args.func(args)
+
+    uploader.assert_not_called()
+    assert target.read_text() == body
 
 
 def test_cli_check_tolerates_a_missing_media_directory(tmp_path: Path) -> None:

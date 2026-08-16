@@ -204,9 +204,13 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
     for text in texts:
         for raw in LINK.findall(text):
             name = raw.rsplit("/", 1)[-1]
-            if (path := by_name.get(name)) and raw == str(path):
+            path = by_name.get(name)
+            if path and raw == str(path):
                 cited.add(name)
-            elif path:
+            # A basename alone can only be meant as a capture; the same basename under
+            # some other directory is an ordinary link that happens to collide.
+            elif path and "/" not in raw.removeprefix("./"):
+                cited.add(name)
                 report.errors.append(f"({raw}): cite the capture as {path}")
             elif raw.startswith(f"{directory}/"):
                 report.errors.append(
@@ -292,16 +296,9 @@ def run(args: argparse.Namespace) -> None:
     if not args.target.is_file():
         print(f"No target at {args.target}; nothing to rewrite", file=sys.stderr)
         return
-    if not args.dir.is_dir():
-        print(f"No media directory at {args.dir}")
-        return
-
-    files, symlinks = collect_files(args.dir)
+    files, symlinks = collect_files(args.dir) if args.dir.is_dir() else ([], [])
     for name in symlinks:
         print(f"  skip {name}: symlink", file=sys.stderr)
-    if not files:
-        print(f"No media in {args.dir}")
-        return
 
     # Only what the review actually cites gets published. Captures taken to reason
     # with and then left uncited are scratch work.
@@ -309,14 +306,28 @@ def run(args: argparse.Namespace) -> None:
     referenced = [p for p in files if is_referenced(str(p), target_text)]
     if unreferenced := [p.name for p in files if p not in referenced]:
         print(f"  not referenced, skipping: {', '.join(unreferenced)}", file=sys.stderr)
-    if not referenced:
+
+    # A citation naming no capture resolves to nothing, so it has to be stripped rather
+    # than posted. --check reports it first, but Claude runs that; this step is the last
+    # thing between a typo and the review.
+    resolvable = {str(p) for p in referenced}
+    stray = [
+        raw
+        for raw in dict.fromkeys(LINK.findall(target_text))
+        if raw.startswith(f"{args.dir}/") and raw not in resolvable
+    ]
+    for raw in stray:
+        print(f"  no such capture, stripping: {raw}", file=sys.stderr)
+    if not referenced and not stray:
         print(f"No media referenced by {args.target}")
         return
 
     # A missing secret must still reach the rewrite below, or every reference ships
     # verbatim and posts a local path.
     urls = {}
-    if token := os.environ.get(TOKEN_ENV):
+    if not (token := os.environ.get(TOKEN_ENV)):
+        print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
+    elif referenced:
         print(f"Uploading {len(referenced)} referenced file(s) from {args.dir}")
         try:
             for path in referenced:
@@ -326,10 +337,8 @@ def run(args: argparse.Namespace) -> None:
             # The step is continue-on-error, so without an annotation an expired
             # token would silently stop attaching media on every future review.
             print(f"::warning::{e}")
-    else:
-        print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
 
-    unavailable = [str(p) for p in referenced if str(p) not in urls]
+    unavailable = [str(p) for p in referenced if str(p) not in urls] + stray
 
     if args.target.suffix == ".json":
         payload = json.loads(target_text)
