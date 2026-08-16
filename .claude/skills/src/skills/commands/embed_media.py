@@ -16,7 +16,7 @@ from typing import Any
 from skills.github.uploads import (
     MIME_TYPES,
     TOKEN_ENV,
-    TokenRejected,
+    UploadFailed,
     is_video,
     max_bytes,
     upload_asset,
@@ -257,14 +257,20 @@ def run(args: argparse.Namespace) -> None:
         print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
     elif referenced:
         print(f"Uploading {len(referenced)} referenced file(s) from {args.dir}")
-        try:
-            for path in referenced:
-                if url := upload_asset(path, args.repository_id, token):
-                    urls[str(path)] = url
-        except TokenRejected as e:
-            # The step is continue-on-error, so without an annotation an expired
-            # token would silently stop attaching media on every future review.
-            print(f"::warning::{e}")
+        for path in referenced:
+            try:
+                urls[str(path)] = upload_asset(path, args.repository_id, token)
+            except UploadFailed as e:
+                # A rejected credential fails every remaining upload, so stop rather
+                # than retry. The step is continue-on-error, so without an annotation
+                # an expired token would silently stop attaching media on every
+                # future review.
+                if e.status == 401:
+                    print(f"::warning::{e}")
+                    break
+                print(f"  failed {e}", file=sys.stderr)
+            else:
+                print(f"  uploaded {path.name} -> {urls[str(path)]}")
 
     unavailable = [str(p) for p in referenced if str(p) not in urls] + stray
 

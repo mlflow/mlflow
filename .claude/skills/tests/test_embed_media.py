@@ -161,7 +161,9 @@ def test_cli_degrades_to_prose_when_every_upload_fails(
 
     monkeypatch.setenv(uploads.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(embed_media, "upload_asset", return_value=None) as uploader:
+    with mock.patch.object(
+        embed_media, "upload_asset", side_effect=uploads.UploadFailed("shot.png: boom")
+    ) as uploader:
         args.func(args)
 
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
@@ -226,14 +228,17 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
     media = make_media(tmp_path)
     (media / "second.png").write_bytes(b"\x89PNG")
     target = tmp_path / "body.md"
-    target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
+    # Both are cited, so a second upload would be attempted if the loop kept going.
+    target.write_text(
+        f"evidence: ![the bug]({media / 'shot.png'}) and ![more]({media / 'second.png'})"
+    )
 
     monkeypatch.setenv(uploads.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(
         embed_media,
         "upload_asset",
-        side_effect=uploads.TokenRejected("UPLOAD_MEDIA_TOKEN was rejected (401)"),
+        side_effect=uploads.UploadFailed("UPLOAD_MEDIA_TOKEN was rejected (401)", status=401),
     ) as uploader:
         args.func(args)
 
@@ -241,7 +246,7 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
     out = capsys.readouterr().out
     assert out.count(f"::warning::{uploads.TOKEN_ENV} was rejected (401)") == 1
     assert uploader.call_count == 1
-    assert target.read_text() == "evidence: the bug"
+    assert target.read_text() == "evidence: the bug and more"
 
 
 def test_cli_uploads_only_media_the_target_references(
