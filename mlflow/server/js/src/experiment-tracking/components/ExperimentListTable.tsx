@@ -268,15 +268,19 @@ const ExperimentListTableCell: ExperimentTableColumnDef['cell'] = ({ row: { orig
   const { theme } = useDesignSystemTheme();
   if (isDemoExperiment(original)) {
     return (
-      <div css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div css={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
         <Link
           componentId="mlflow.experiment_tracking.experiment_list.demo_experiment_link"
           to={Routes.getExperimentPageRoute(original.experimentId)}
           title={original.name}
           data-testid="experiment-list-item-link"
-          css={{ textDecoration: 'none' }}
+          css={{ textDecoration: 'none', minWidth: 0, overflow: 'hidden' }}
         >
-          <Tag componentId="mlflow.experiment_list.demo_badge" color="turquoise">
+          <Tag
+            componentId="mlflow.experiment_list.demo_badge"
+            color="turquoise"
+            css={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
             <FormattedMessage
               defaultMessage="MLflow Demo Experiment"
               description="Badge label for the demo experiment in the experiments list"
