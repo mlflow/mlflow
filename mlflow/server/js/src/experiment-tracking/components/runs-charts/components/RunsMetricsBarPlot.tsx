@@ -133,7 +133,14 @@ const getMinMaxErrorBars = (runsData: BarPlotRunData[], metricKey: string, avera
     const minimum = normalizeChartValue(minHistory?.[minHistory.length - 1]?.value);
     const maximum = normalizeChartValue(maxHistory?.[maxHistory.length - 1]?.value);
 
-    if (typeof average !== 'number' || typeof minimum !== 'number' || typeof maximum !== 'number') {
+    if (
+      average === undefined ||
+      minimum === undefined ||
+      maximum === undefined ||
+      !Number.isFinite(average) ||
+      !Number.isFinite(minimum) ||
+      !Number.isFinite(maximum)
+    ) {
       array.push(0);
       arrayminus.push(0);
       return;
