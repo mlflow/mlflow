@@ -214,8 +214,8 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
                 report.errors.append(f"({raw}): cite the capture as {path}")
             elif raw.startswith(f"{directory}/"):
                 report.errors.append(
-                    f"({raw}): no such file, so the reference ships as-is and renders "
-                    "as a dead link"
+                    f"({raw}): no such file, so the citation is stripped and the finding "
+                    "degrades to prose"
                 )
 
     for name in sorted(cited):
@@ -311,10 +311,12 @@ def run(args: argparse.Namespace) -> None:
     # than posted. --check reports it first, but Claude runs that; this step is the last
     # thing between a typo and the review.
     resolvable = {str(p) for p in referenced}
+    names = {p.name for p in files}
     stray = [
         raw
         for raw in dict.fromkeys(LINK.findall(target_text))
-        if raw.startswith(f"{args.dir}/") and raw not in resolvable
+        if raw not in resolvable
+        and (raw.startswith(f"{args.dir}/") or raw.removeprefix("./") in names)
     ]
     for raw in stray:
         print(f"  no such capture, stripping: {raw}", file=sys.stderr)

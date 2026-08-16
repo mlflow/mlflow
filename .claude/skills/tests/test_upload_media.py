@@ -639,6 +639,24 @@ def test_cli_strips_a_typo_while_still_embedding_the_capture_beside_it(
     assert target.read_text() == f"![ok]({URL}) and typo"
 
 
+@pytest.mark.parametrize("cite", ["shot.png", "./shot.png"])
+def test_cli_strips_a_bare_filename_citation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, cite: str
+) -> None:
+    # The form this PR stopped teaching: nothing resolves it, so it must not post.
+    media = make_media(tmp_path)
+    target = tmp_path / "body.md"
+    target.write_text(f"evidence: ![the bug]({cite})")
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset") as uploader:
+        args.func(args)
+
+    uploader.assert_not_called()
+    assert target.read_text() == "evidence: the bug"
+
+
 def test_cli_leaves_a_link_outside_the_media_directory_alone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
