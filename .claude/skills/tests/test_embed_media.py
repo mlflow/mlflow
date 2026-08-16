@@ -8,8 +8,8 @@ from unittest import mock
 
 import pytest
 from skills.cli import build_parser
-from skills.commands import upload_media
-from skills.commands.upload_media import rewrite_payload, substitute
+from skills.commands import embed_media
+from skills.commands.embed_media import rewrite_payload, substitute
 
 URL = "https://github.com/user-attachments/assets/2f1c0a3e-0000-4000-8000-000000000001"
 MEDIA = "/tmp/review-media"
@@ -20,7 +20,7 @@ URLS = {SHOT: URL}
 
 def build_args(media: Path, target: Path) -> argparse.Namespace:
     return build_parser().parse_args([
-        "upload-media",
+        "embed-media",
         "--dir",
         str(media),
         "--target",
@@ -32,7 +32,7 @@ def build_args(media: Path, target: Path) -> argparse.Namespace:
 
 def build_check_args(media: Path, target: Path) -> argparse.Namespace:
     return build_parser().parse_args([
-        "upload-media",
+        "embed-media",
         "--dir",
         str(media),
         "--target",
@@ -48,9 +48,9 @@ def make_media(tmp_path: Path, name: str = "shot.png") -> Path:
     return media
 
 
-def check(tmp_path: Path, body: str, name: str = "shot.png") -> upload_media.CheckReport:
+def check(tmp_path: Path, body: str, name: str = "shot.png") -> embed_media.CheckReport:
     media = make_media(tmp_path, name)
-    return upload_media.check_media(media, [body.format(p=media / name, media=media)])
+    return embed_media.check_media(media, [body.format(p=media / name, media=media)])
 
 
 @pytest.mark.parametrize(
@@ -131,9 +131,9 @@ def test_cli_rewrites_a_json_payload(tmp_path: Path, monkeypatch: pytest.MonkeyP
     target = tmp_path / "review-payload.json"
     target.write_text(json.dumps({"body": f"[the trace]({media / 'shot.png'})", "comments": []}))
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
 
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
@@ -145,9 +145,9 @@ def test_cli_rewrites_markdown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     target = tmp_path / "body.md"
     target.write_text(f"![alt]({media / 'shot.png'})")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
 
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
@@ -161,9 +161,9 @@ def test_cli_degrades_to_prose_when_every_upload_fails(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset", return_value=None) as uploader:
+    with mock.patch.object(embed_media, "upload_asset", return_value=None) as uploader:
         args.func(args)
 
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
@@ -177,9 +177,9 @@ def test_cli_never_posts_a_local_path_when_the_token_env_is_unset(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
 
-    monkeypatch.delenv(upload_media.TOKEN_ENV, raising=False)
+    monkeypatch.delenv(embed_media.TOKEN_ENV, raising=False)
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset") as uploader:
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
 
     uploader.assert_not_called()
@@ -194,9 +194,9 @@ def test_cli_is_a_noop_when_there_is_no_media(
     target = tmp_path / "body.md"
     target.write_text("unchanged")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset") as uploader:
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
 
     uploader.assert_not_called()
@@ -212,9 +212,9 @@ def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     target = tmp_path / "body.md"
     target.write_text(f"![the secret]({media / 'shot.png'})")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
 
     uploader.assert_not_called()
@@ -228,7 +228,7 @@ def test_upload_asset_builds_the_request_and_returns_the_url(tmp_path: Path) -> 
 
     response = io.BytesIO(json.dumps({"url": URL}).encode())
     with mock.patch("urllib.request.urlopen", return_value=response) as opener:
-        assert upload_media.upload_asset(path, "136202695", "tok") == URL
+        assert embed_media.upload_asset(path, "136202695", "tok") == URL
 
     request = opener.call_args.args[0]
     assert "name=shot.png" in request.full_url
@@ -256,7 +256,7 @@ def test_upload_asset_returns_none_when_the_request_fails(
     path.write_bytes(b"\x89PNG")
 
     with mock.patch("urllib.request.urlopen", side_effect=outcome) as opener:
-        assert upload_media.upload_asset(path, "1", "t") is None
+        assert embed_media.upload_asset(path, "1", "t") is None
 
     opener.assert_called_once()
 
@@ -266,7 +266,7 @@ def test_upload_asset_returns_none_when_the_response_carries_no_url(tmp_path: Pa
     path.write_bytes(b"\x89PNG")
 
     with mock.patch("urllib.request.urlopen", return_value=io.BytesIO(b"{}")) as opener:
-        assert upload_media.upload_asset(path, "1", "t") is None
+        assert embed_media.upload_asset(path, "1", "t") is None
 
     opener.assert_called_once()
 
@@ -274,42 +274,42 @@ def test_upload_asset_returns_none_when_the_response_carries_no_url(tmp_path: Pa
 def test_upload_asset_skips_an_unsupported_extension(tmp_path: Path) -> None:
     path = tmp_path / "notes.txt"
     path.write_text("x")
-    assert upload_media.upload_asset(path, "1", "t") is None
+    assert embed_media.upload_asset(path, "1", "t") is None
 
 
 def test_upload_asset_skips_a_file_over_the_size_cap(tmp_path: Path) -> None:
     path = tmp_path / "big.png"
     path.write_bytes(b"12345")
-    with mock.patch.object(upload_media, "MAX_IMAGE_BYTES", 4):
-        assert upload_media.upload_asset(path, "1", "t") is None
+    with mock.patch.object(embed_media, "MAX_IMAGE_BYTES", 4):
+        assert embed_media.upload_asset(path, "1", "t") is None
 
 
 @pytest.mark.parametrize(
     ("name", "expected"),
     [
-        ("shot.png", upload_media.MAX_IMAGE_BYTES),
-        ("shot.gif", upload_media.MAX_IMAGE_BYTES),
-        ("clip.mp4", upload_media.MAX_VIDEO_BYTES),
-        ("clip.MOV", upload_media.MAX_VIDEO_BYTES),
-        ("clip.webm", upload_media.MAX_VIDEO_BYTES),
+        ("shot.png", embed_media.MAX_IMAGE_BYTES),
+        ("shot.gif", embed_media.MAX_IMAGE_BYTES),
+        ("clip.mp4", embed_media.MAX_VIDEO_BYTES),
+        ("clip.MOV", embed_media.MAX_VIDEO_BYTES),
+        ("clip.webm", embed_media.MAX_VIDEO_BYTES),
     ],
 )
 def test_max_bytes_is_larger_for_video(name: str, expected: int) -> None:
-    assert upload_media.max_bytes(name) == expected
+    assert embed_media.max_bytes(name) == expected
 
 
 def test_a_video_between_the_image_and_video_caps_is_not_skipped(tmp_path: Path) -> None:
     # The old single 10MB cap silently dropped exactly this: a screen recording.
     path = tmp_path / "clip.mp4"
-    path.write_bytes(b"0" * (upload_media.MAX_IMAGE_BYTES + 1))
+    path.write_bytes(b"0" * (embed_media.MAX_IMAGE_BYTES + 1))
 
     response = io.BytesIO(json.dumps({"url": URL}).encode())
     with mock.patch("urllib.request.urlopen", return_value=response):
-        assert upload_media.upload_asset(path, "1", "t") == URL
+        assert embed_media.upload_asset(path, "1", "t") == URL
 
 
 def http_error(code: int) -> urllib.error.HTTPError:
-    return urllib.error.HTTPError(upload_media.UPLOAD_URL, code, "nope", {}, None)  # type: ignore[arg-type]
+    return urllib.error.HTTPError(embed_media.UPLOAD_URL, code, "nope", {}, None)  # type: ignore[arg-type]
 
 
 def test_upload_asset_raises_on_a_rejected_token(tmp_path: Path) -> None:
@@ -318,9 +318,9 @@ def test_upload_asset_raises_on_a_rejected_token(tmp_path: Path) -> None:
 
     with (
         mock.patch("urllib.request.urlopen", side_effect=http_error(401)),
-        pytest.raises(upload_media.TokenRejected, match="rejected \\(401\\)"),
+        pytest.raises(embed_media.TokenRejected, match="rejected \\(401\\)"),
     ):
-        upload_media.upload_asset(path, "1", "t")
+        embed_media.upload_asset(path, "1", "t")
 
 
 def test_upload_asset_returns_none_on_other_http_errors(tmp_path: Path) -> None:
@@ -328,7 +328,7 @@ def test_upload_asset_returns_none_on_other_http_errors(tmp_path: Path) -> None:
     path.write_bytes(b"\x89PNG")
 
     with mock.patch("urllib.request.urlopen", side_effect=http_error(500)):
-        assert upload_media.upload_asset(path, "1", "t") is None
+        assert embed_media.upload_asset(path, "1", "t") is None
 
 
 def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
@@ -339,18 +339,18 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(
-        upload_media,
+        embed_media,
         "upload_asset",
-        side_effect=upload_media.TokenRejected("UPLOAD_MEDIA_TOKEN was rejected (401)"),
+        side_effect=embed_media.TokenRejected("UPLOAD_MEDIA_TOKEN was rejected (401)"),
     ) as uploader:
         args.func(args)
 
     # One annotation for the run, and the loop stops rather than retrying a dead token.
     out = capsys.readouterr().out
-    assert out.count(f"::warning::{upload_media.TOKEN_ENV} was rejected (401)") == 1
+    assert out.count(f"::warning::{embed_media.TOKEN_ENV} was rejected (401)") == 1
     assert uploader.call_count == 1
     assert target.read_text() == "evidence: the bug"
 
@@ -363,9 +363,9 @@ def test_cli_uploads_only_media_the_target_references(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({media / 'cited.png'})")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
 
     uploader.assert_called_once_with(media / "cited.png", "136202695", "t")
@@ -379,9 +379,9 @@ def test_cli_uploads_nothing_when_no_media_is_referenced(
     target = tmp_path / "body.md"
     target.write_text("a prose-only finding")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset") as uploader:
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
 
     uploader.assert_not_called()
@@ -398,9 +398,9 @@ def test_cli_uploads_media_referenced_by_an_inline_comment(
         json.dumps({"body": "b", "comments": [{"body": f"see [it]({media / 'cited.png'})"}]})
     )
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
 
     uploader.assert_called_once_with(media / "cited.png", "136202695", "t")
@@ -420,7 +420,7 @@ def test_cli_uploads_media_referenced_by_an_inline_comment(
     ],
 )
 def test_is_referenced_matches_only_a_link_to_the_full_path(text: str, expected: bool) -> None:
-    assert upload_media.is_referenced(SHOT, text) is expected
+    assert embed_media.is_referenced(SHOT, text) is expected
 
 
 def test_cli_does_not_upload_a_name_that_is_a_suffix_of_a_cited_one(
@@ -431,9 +431,9 @@ def test_cli_does_not_upload_a_name_that_is_a_suffix_of_a_cited_one(
     target = tmp_path / "body.md"
     target.write_text(f"![x]({media / 'longshot.png'})")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
 
     uploader.assert_called_once_with(media / "longshot.png", "136202695", "t")
@@ -475,7 +475,7 @@ def test_check_rejects_a_citation_that_is_not_the_path_written(tmp_path: Path, b
 def test_check_leaves_references_that_are_not_captures_alone(tmp_path: Path, body: str) -> None:
     media = tmp_path / "media"
     media.mkdir()
-    assert upload_media.check_media(media, [body]).errors == []
+    assert embed_media.check_media(media, [body]).errors == []
 
 
 @pytest.mark.parametrize(
@@ -506,7 +506,7 @@ def test_check_rejects_a_cited_file_with_an_unsupported_extension(tmp_path: Path
 
 
 def test_check_rejects_a_cited_file_over_the_size_cap(tmp_path: Path) -> None:
-    with mock.patch.object(upload_media, "MAX_IMAGE_BYTES", 2):
+    with mock.patch.object(embed_media, "MAX_IMAGE_BYTES", 2):
         report = check(tmp_path, "![the bug]({p})")
     assert len(report.errors) == 1
     assert "exceeds the 2 byte cap" in report.errors[0]
@@ -531,7 +531,7 @@ def test_check_warns_about_a_symlink(tmp_path: Path) -> None:
     (tmp_path / "environ").write_text("UPLOAD_MEDIA_TOKEN=supersecret")
     (media / "shot.png").symlink_to(tmp_path / "environ")
 
-    report = upload_media.check_media(media, ["a prose-only finding"])
+    report = embed_media.check_media(media, ["a prose-only finding"])
     assert report.warnings == ["shot.png: a symlink, so it is never uploaded"]
 
 
@@ -544,7 +544,7 @@ def test_check_reads_the_body_and_comments_of_a_json_payload(tmp_path: Path) -> 
             "comments": [{"body": f"and ![again]({media / 'missing.png'})"}],
         })
     )
-    report = upload_media.check_media(media, upload_media.target_bodies(target))
+    report = embed_media.check_media(media, embed_media.target_bodies(target))
     assert report.cited == ["shot.png"]
     assert len(report.errors) == 1
     assert "missing.png): no such file" in report.errors[0]
@@ -553,14 +553,14 @@ def test_check_reads_the_body_and_comments_of_a_json_payload(tmp_path: Path) -> 
 def test_check_reports_a_repeated_bad_citation_once(tmp_path: Path) -> None:
     media = make_media(tmp_path)
     cite = f"{media / 'missing.png'}"
-    report = upload_media.check_media(media, [f"![a]({cite})", f"![b]({cite})"])
+    report = embed_media.check_media(media, [f"![a]({cite})", f"![b]({cite})"])
     assert len(report.errors) == 1
 
 
 def test_check_agrees_with_what_the_upload_would_rewrite(tmp_path: Path) -> None:
     media = make_media(tmp_path)
     body = f"![the bug]({media / 'shot.png'})"
-    assert upload_media.check_media(media, [body]).errors == []
+    assert embed_media.check_media(media, [body]).errors == []
     assert substitute(body, {str(media / "shot.png"): URL}) == f"![the bug]({URL})"
 
 
@@ -572,9 +572,9 @@ def test_cli_check_exits_zero_and_uploads_nothing(
     body = f"![the bug]({media / 'shot.png'})"
     target.write_text(body)
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_check_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset") as uploader:
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
 
     uploader.assert_not_called()
@@ -614,9 +614,9 @@ def test_cli_strips_a_citation_naming_no_capture(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({media / 'shto.png'})")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset") as uploader:
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
 
     uploader.assert_not_called()
@@ -630,9 +630,9 @@ def test_cli_strips_a_typo_while_still_embedding_the_capture_beside_it(
     target = tmp_path / "body.md"
     target.write_text(f"![ok]({media / 'shot.png'}) and ![typo]({media / 'shto.png'})")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset", return_value=URL) as uploader:
+    with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
 
     uploader.assert_called_once_with(media / "shot.png", "136202695", "t")
@@ -648,9 +648,9 @@ def test_cli_strips_a_bare_filename_citation(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({cite})")
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset") as uploader:
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
 
     uploader.assert_not_called()
@@ -665,9 +665,9 @@ def test_cli_leaves_a_link_outside_the_media_directory_alone(
     body = "see [the icon](docs/static/img/shot.png)"
     target.write_text(body)
 
-    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
-    with mock.patch.object(upload_media, "upload_asset") as uploader:
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
 
     uploader.assert_not_called()
@@ -687,7 +687,7 @@ def test_cli_requires_a_repository_id_without_check(tmp_path: Path) -> None:
     target.write_text(f"![the bug]({media / 'shot.png'})")
 
     args = build_parser().parse_args([
-        "upload-media",
+        "embed-media",
         "--dir",
         str(media),
         "--target",

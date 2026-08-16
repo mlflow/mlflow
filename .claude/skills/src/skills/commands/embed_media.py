@@ -267,7 +267,7 @@ def run_check(args: argparse.Namespace) -> None:
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser(
-        "upload-media",
+        "embed-media",
         help="Upload media to GitHub user-attachments and point a review at the URLs",
     )
     parser.add_argument("--dir", type=Path, required=True, help="Directory holding the media")
