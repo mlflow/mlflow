@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 from collections.abc import Iterable, Iterator
@@ -20,10 +19,7 @@ from skills.github.uploads import (
     max_bytes,
     upload_asset,
 )
-
-# Read from the environment, never argv: a PAT in a CLI argument is visible in the
-# process list for the life of the call.
-TOKEN_ENV = "UPLOAD_MEDIA_TOKEN"
+from skills.github.utils import resolve_github_token
 
 
 def link_target(cited: str) -> str:
@@ -64,7 +60,7 @@ def collect_files(directory: Path) -> tuple[list[Path], list[str]]:
     """Return the uploadable files, and the names rejected for being symlinks.
 
     ``is_file()`` follows symlinks, so a link planted here (say secret.png ->
-    /proc/self/environ) would publish this process's own UPLOAD_MEDIA_TOKEN as an
+    /proc/self/environ) would publish this process's own GH_TOKEN as an
     attachment. Claude writes this directory, and a poisoned diff steers Claude.
     """
     files: list[Path] = []
@@ -253,11 +249,12 @@ def run(args: argparse.Namespace) -> None:
         print(f"No media referenced by {args.target}")
         return
 
-    # A missing secret must still reach the rewrite below, or every reference ships
+    # A missing credential must still reach the rewrite below, or every reference ships
     # verbatim and posts a local path.
     urls = {}
-    if not (token := os.environ.get(TOKEN_ENV)):
-        print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
+    token = resolve_github_token()
+    if not token:
+        print("no GitHub token; not uploading", file=sys.stderr)
     elif referenced:
         print(f"Uploading {len(referenced)} referenced file(s) from {args.dir}")
         for path in referenced:
@@ -269,7 +266,7 @@ def run(args: argparse.Namespace) -> None:
                 # an expired token would silently stop attaching media on every
                 # future review.
                 if e.status == 401:
-                    print(f"::warning::{TOKEN_ENV} was rejected (401); it may have expired")
+                    print("::warning::the GitHub token was rejected (401); it may have expired")
                     break
                 print(f"  failed {e}", file=sys.stderr)
             else:
