@@ -96,28 +96,45 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
             return None
 
 
+def link_target(name: str) -> str:
+    return rf"\]\((?:\./)?{re.escape(name)}\)"
+
+
+def code_span(name: str) -> str:
+    return rf"`{re.escape(name)}`"
+
+
+def reference_pattern(name: str) -> str:
+    return f"{link_target(name)}|{code_span(name)}"
+
+
+def is_referenced(name: str, text: str) -> bool:
+    return re.search(reference_pattern(name), text) is not None
+
+
 def substitute(text: str, urls: dict[str, str], unavailable: Iterable[str] = ()) -> str:
     for name, url in urls.items():
-        quoted = re.escape(name)
+        link = link_target(name)
+        code = code_span(name)
         if is_video(name):
             # GitHub renders a player only for a bare URL alone in its own paragraph,
             # so promote a reference that already sits on its own line.
-            standalone = rf"(?m)^[ \t]*(?:!?\[[^\]]*\]\((?:\./)?{quoted}\)|`{quoted}`)[ \t]*$"
+            standalone = rf"(?m)^[ \t]*(?:!?\[[^\]]*{link}|{code})[ \t]*$"
             text = re.sub(standalone, f"\n{url}\n", text)
             # Whatever is left is mid-sentence, where ![]() around a video URL renders
             # as a broken image. Drop the bang so it degrades to a link instead.
-            text = re.sub(rf"!(?=\[[^\]]*\]\((?:\./)?{quoted}\))", "", text)
-        text = re.sub(rf"\]\((?:\./)?{quoted}\)", f"]({url})", text)
+            text = re.sub(rf"!(?=\[[^\]]*{link})", "", text)
+        text = re.sub(link, f"]({url})", text)
         # Lookarounds keep a second pass a no-op.
-        text = re.sub(rf"(?<!\[)`{quoted}`(?!\])", f"[`{name}`]({url})", text)
+        text = re.sub(rf"(?<!\[){code}(?!\])", f"[`{name}`]({url})", text)
 
     # A name with no URL (upload failed, or the file was skipped) would otherwise
     # survive as ![desc](shot.png), which GitHub resolves repo-relative and renders
     # as a broken image. Strip the markup so it degrades to prose.
     for name in unavailable:
-        quoted = re.escape(name)
-        text = re.sub(rf"!?\[\]\((?:\./)?{quoted}\)", name, text)
-        text = re.sub(rf"!?\[([^\]]+)\]\((?:\./)?{quoted}\)", r"\1", text)
+        link = link_target(name)
+        text = re.sub(rf"!?\[{link}", name, text)
+        text = re.sub(rf"!?\[([^\]]+){link}", r"\1", text)
     return text
 
 
@@ -174,13 +191,23 @@ def run(args: argparse.Namespace) -> None:
         print(f"No media in {args.dir}")
         return
 
+    # Only what the review actually cites gets published. Captures taken to reason
+    # with and then left uncited are scratch work.
+    target_text = args.target.read_text()
+    referenced = [p for p in files if is_referenced(p.name, target_text)]
+    if unreferenced := [p.name for p in files if p not in referenced]:
+        print(f"  not referenced, skipping: {', '.join(unreferenced)}", file=sys.stderr)
+    if not referenced:
+        print(f"No media referenced by {args.target}")
+        return
+
     # A missing secret must still reach the rewrite below, or every reference ships
     # verbatim and renders as a broken repo-relative image.
     urls = {}
     if token := os.environ.get(TOKEN_ENV):
-        print(f"Uploading {len(files)} file(s) from {args.dir}")
+        print(f"Uploading {len(referenced)} referenced file(s) from {args.dir}")
         try:
-            for path in files:
+            for path in referenced:
                 if url := upload_asset(path, args.repository_id, token):
                     urls[path.name] = url
         except TokenRejected as e:
@@ -190,12 +217,12 @@ def run(args: argparse.Namespace) -> None:
     else:
         print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
 
-    unavailable = [p.name for p in files if p.name not in urls]
+    unavailable = [p.name for p in referenced if p.name not in urls]
 
     if args.target.suffix == ".json":
-        payload = json.loads(args.target.read_text())
+        payload = json.loads(target_text)
         rewritten = rewrite_payload(payload, urls, unavailable)
         args.target.write_text(json.dumps(rewritten, indent=2, ensure_ascii=False))
     else:
-        args.target.write_text(substitute(args.target.read_text(), urls, unavailable))
-    print(f"Embedded {len(urls)} of {len(files)} file(s) into {args.target}")
+        args.target.write_text(substitute(target_text, urls, unavailable))
+    print(f"Embedded {len(urls)} of {len(referenced)} referenced file(s) into {args.target}")
