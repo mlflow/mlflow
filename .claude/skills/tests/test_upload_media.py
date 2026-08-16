@@ -27,11 +27,26 @@ def build_args(media: Path, target: Path) -> argparse.Namespace:
     ])
 
 
+def build_check_args(media: Path, target: Path) -> argparse.Namespace:
+    return build_parser().parse_args([
+        "upload-media",
+        "--dir",
+        str(media),
+        "--target",
+        str(target),
+        "--check",
+    ])
+
+
 def make_media(tmp_path: Path, name: str = "shot.png") -> Path:
     media = tmp_path / "media"
     media.mkdir(exist_ok=True)
     (media / name).write_bytes(b"\x89PNG")
     return media
+
+
+def check(tmp_path: Path, body: str, name: str = "shot.png") -> upload_media.CheckReport:
+    return upload_media.check_media(make_media(tmp_path, name), [body])
 
 
 @pytest.mark.parametrize(
@@ -403,6 +418,185 @@ def test_cli_uploads_media_referenced_by_an_inline_comment(
 )
 def test_is_referenced_matches_only_real_reference_forms(text: str, expected: bool) -> None:
     assert upload_media.is_referenced("shot.png", text) is expected
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "![the bug](shot.png)",
+        "![the bug](./shot.png)",
+        "[the bug](shot.png)",
+        "see `shot.png`",
+    ],
+)
+def test_check_accepts_every_form_the_rewriter_understands(tmp_path: Path, body: str) -> None:
+    report = check(tmp_path, body)
+    assert report.errors == []
+    assert report.warnings == []
+    assert report.cited == ["shot.png"]
+
+
+@pytest.mark.parametrize("body", ["![the bug](shto.png)", "![the bug](./shto.png)"])
+def test_check_rejects_a_citation_naming_no_captured_file(tmp_path: Path, body: str) -> None:
+    report = check(tmp_path, body)
+    assert len(report.errors) == 1
+    assert "no such file" in report.errors[0]
+
+
+def test_check_rejects_a_citation_carrying_a_path(tmp_path: Path) -> None:
+    report = check(tmp_path, "![the bug](media/shot.png)")
+    assert len(report.errors) == 1
+    assert "cite shot.png by bare filename" in report.errors[0]
+    # The capture is plainly meant to be shown, so it is not also reported as uncited.
+    assert report.warnings == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "[the docs icon](docs/static/img/logo.png)",
+        "[upstream](https://example.com/diagram.png)",
+        "the `logo.png` in the diff",
+        "[the module](mlflow/utils.py)",
+    ],
+)
+def test_check_leaves_references_that_are_not_captures_alone(tmp_path: Path, body: str) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    assert upload_media.check_media(media, [body]).errors == []
+
+
+def test_check_warns_about_a_capture_nothing_cites(tmp_path: Path) -> None:
+    report = check(tmp_path, "a prose-only finding")
+    assert report.errors == []
+    assert report.warnings == ["shot.png: cited by nothing, so it is not uploaded"]
+
+
+def test_check_rejects_a_cited_file_with_an_unsupported_extension(tmp_path: Path) -> None:
+    report = check(tmp_path, "see `notes.txt`", "notes.txt")
+    assert report.errors == ["notes.txt: unsupported extension, so the reference is dropped"]
+
+
+def test_check_rejects_a_cited_file_over_the_size_cap(tmp_path: Path) -> None:
+    with mock.patch.object(upload_media, "MAX_IMAGE_BYTES", 2):
+        report = check(tmp_path, "![the bug](shot.png)")
+    assert len(report.errors) == 1
+    assert "exceeds the 2 byte cap" in report.errors[0]
+
+
+def test_check_warns_when_a_video_is_cited_mid_paragraph(tmp_path: Path) -> None:
+    report = check(tmp_path, "the repro is `clip.mp4` here", "clip.mp4")
+    assert report.errors == []
+    assert len(report.warnings) == 1
+    assert "renders a link rather than a player" in report.warnings[0]
+
+
+def test_check_accepts_a_video_on_its_own_line(tmp_path: Path) -> None:
+    report = check(tmp_path, "the repro:\n\n![repro](clip.mp4)\n", "clip.mp4")
+    assert report.errors == []
+    assert report.warnings == []
+
+
+def test_check_warns_about_a_symlink(tmp_path: Path) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    (tmp_path / "environ").write_text("UPLOAD_MEDIA_TOKEN=supersecret")
+    (media / "shot.png").symlink_to(tmp_path / "environ")
+
+    report = upload_media.check_media(media, ["a prose-only finding"])
+    assert report.warnings == ["shot.png: a symlink, so it is never uploaded"]
+
+
+def test_check_reads_the_body_and_comments_of_a_json_payload(tmp_path: Path) -> None:
+    target = tmp_path / "review-payload.json"
+    target.write_text(
+        json.dumps({
+            "body": "![overview](shot.png)",
+            "comments": [{"body": "and ![again](missing.png)"}],
+        })
+    )
+    report = upload_media.check_media(make_media(tmp_path), upload_media.target_bodies(target))
+    assert report.cited == ["shot.png"]
+    assert len(report.errors) == 1
+    assert "(missing.png): no such file" in report.errors[0]
+
+
+def test_check_reports_a_repeated_bad_citation_once(tmp_path: Path) -> None:
+    report = upload_media.check_media(
+        make_media(tmp_path), ["![a](missing.png)", "![b](missing.png)"]
+    )
+    assert len(report.errors) == 1
+
+
+def test_check_agrees_with_what_the_upload_would_rewrite(tmp_path: Path) -> None:
+    body = "![the bug](shot.png)"
+    assert check(tmp_path, body).errors == []
+    assert substitute(body, URLS) != body
+
+
+def test_cli_check_exits_zero_and_uploads_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path)
+    target = tmp_path / "body.md"
+    target.write_text("![the bug](shot.png)")
+
+    monkeypatch.setenv(upload_media.TOKEN_ENV, "t")
+    args = build_check_args(media, target)
+    with mock.patch.object(upload_media, "upload_asset") as uploader:
+        args.func(args)
+
+    uploader.assert_not_called()
+    assert target.read_text() == "![the bug](shot.png)"
+
+
+def test_cli_check_exits_nonzero_on_an_unresolvable_citation(tmp_path: Path) -> None:
+    media = make_media(tmp_path)
+    target = tmp_path / "body.md"
+    target.write_text("![the bug](shto.png)")
+
+    args = build_check_args(media, target)
+    with pytest.raises(SystemExit, match="^1$"):
+        args.func(args)
+
+
+@pytest.mark.parametrize("contents", ["not json", '{"body": '])
+def test_cli_check_exits_nonzero_on_a_malformed_json_payload(tmp_path: Path, contents: str) -> None:
+    target = tmp_path / "review-payload.json"
+    target.write_text(contents)
+
+    args = build_check_args(make_media(tmp_path), target)
+    with pytest.raises(SystemExit, match="^1$"):
+        args.func(args)
+
+
+def test_cli_check_exits_nonzero_when_the_target_is_missing(tmp_path: Path) -> None:
+    args = build_check_args(make_media(tmp_path), tmp_path / "absent.md")
+    with pytest.raises(SystemExit, match="^1$"):
+        args.func(args)
+
+
+def test_cli_check_tolerates_a_missing_media_directory(tmp_path: Path) -> None:
+    target = tmp_path / "body.md"
+    target.write_text("a prose-only finding")
+    args = build_check_args(tmp_path / "absent", target)
+    args.func(args)
+
+
+def test_cli_requires_a_repository_id_without_check(tmp_path: Path) -> None:
+    media = make_media(tmp_path)
+    target = tmp_path / "body.md"
+    target.write_text("![the bug](shot.png)")
+
+    args = build_parser().parse_args([
+        "upload-media",
+        "--dir",
+        str(media),
+        "--target",
+        str(target),
+    ])
+    with pytest.raises(SystemExit, match="^2$"):
+        args.func(args)
 
 
 def test_cli_does_not_upload_a_name_that_is_a_suffix_of_a_cited_one(
