@@ -1,351 +1,72 @@
 # ruff: noqa: T201
-"""Upload review media to GitHub's user-attachments store and swap filenames for URLs."""
+"""Upload media to GitHub's user-attachments store and print the URL for each file."""
 
 from __future__ import annotations
 
 import argparse
-import http.client
-import json
-import os
-import re
+import subprocess
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
-from collections.abc import Iterable, Iterator
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
-UPLOAD_URL = "https://uploads.github.com/user-attachments/assets"
-# Read from the environment, never argv: a PAT in a CLI argument is visible in the
-# process list for the life of the call.
-TOKEN_ENV = "UPLOAD_MEDIA_TOKEN"
+from skills.github.uploads import UploadFailed, upload_asset
+from skills.github.utils import get_github_token
 
-# The name's extension must agree with content_type or the endpoint returns 422.
-MIME_TYPES = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".mp4": "video/mp4",
-    ".mov": "video/quicktime",
-    ".webm": "video/webm",
-}
-
-VIDEO_SUFFIXES = {".mp4", ".mov", ".webm"}
+DEFAULT_REPO = "mlflow/mlflow"
 
 
-class TokenRejected(Exception):
-    """Raised on 401: the credential is dead, so every remaining upload would fail too."""
-
-
-MAX_IMAGE_BYTES = 10 * 1024 * 1024
-MAX_VIDEO_BYTES = 100 * 1024 * 1024
-
-
-def is_video(name: str) -> bool:
-    return Path(name).suffix.lower() in VIDEO_SUFFIXES
-
-
-def max_bytes(name: str) -> int:
-    return MAX_VIDEO_BYTES if is_video(name) else MAX_IMAGE_BYTES
-
-
-def upload_asset(path: Path, repository_id: str, token: str) -> str | None:
-    mime = MIME_TYPES.get(path.suffix.lower())
-    if mime is None:
-        print(f"  skip {path.name}: unsupported extension", file=sys.stderr)
-        return None
-
-    size = path.stat().st_size
-    if size > (limit := max_bytes(path.name)):
-        print(f"  skip {path.name}: {size} bytes exceeds {limit}", file=sys.stderr)
-        return None
-
-    query = urllib.parse.urlencode({
-        "name": path.name,
-        "content_type": mime,
-        "repository_id": repository_id,
-    })
-    request = urllib.request.Request(
-        f"{UPLOAD_URL}?{query}",
-        data=path.read_bytes(),
-        method="POST",
-        headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
-    )
+def resolve_repository_id(repo: str) -> str:
     try:
-        with urllib.request.urlopen(request, timeout=60) as resp:
-            body = json.load(resp)
-    # Must precede OSError: HTTPError is a URLError, which is an OSError.
-    except urllib.error.HTTPError as e:
-        print(f"  failed {path.name}: {e}", file=sys.stderr)
-        if e.code == 401:
-            raise TokenRejected(f"{TOKEN_ENV} was rejected (401); it may have expired") from e
-        return None
-    except (OSError, http.client.HTTPException, ValueError) as e:
-        print(f"  failed {path.name}: {e}", file=sys.stderr)
-        return None
-
-    match body:
-        case {"url": str(url)} if url:
-            print(f"  uploaded {path.name} -> {url}")
-            return url
-        case _:
-            print(f"  failed {path.name}: response carried no url", file=sys.stderr)
-            return None
-
-
-def link_target(cited: str) -> str:
-    return rf"\]\({re.escape(cited)}\)"
-
-
-def is_referenced(cited: str, text: str) -> bool:
-    return re.search(link_target(cited), text) is not None
-
-
-def standalone_pattern(cited: str) -> str:
-    # GitHub renders a video player only for a bare URL alone in its own paragraph.
-    return rf"(?m)^[ \t]*!?\[[^\]]*{link_target(cited)}[ \t]*$"
-
-
-def substitute(text: str, urls: dict[str, str], unavailable: Iterable[str] = ()) -> str:
-    for cited, url in urls.items():
-        link = link_target(cited)
-        if is_video(cited):
-            # Promote a reference that already sits on its own line.
-            text = re.sub(standalone_pattern(cited), f"\n{url}\n", text)
-            # Whatever is left is mid-sentence, where ![]() around a video URL renders
-            # as a broken image. Drop the bang so it degrades to a link instead.
-            text = re.sub(rf"!(?=\[[^\]]*{link})", "", text)
-        text = re.sub(link, f"]({url})", text)
-
-    # A citation with no URL (upload failed, or the file was skipped) would otherwise
-    # post the local path, which resolves to nothing. Strip the markup so it degrades
-    # to prose.
-    for cited in unavailable:
-        link = link_target(cited)
-        text = re.sub(rf"!?\[{link}", Path(cited).name, text)
-        text = re.sub(rf"!?\[([^\]]+){link}", r"\1", text)
-    return text
-
-
-def collect_files(directory: Path) -> tuple[list[Path], list[str]]:
-    """Return the uploadable files, and the names rejected for being symlinks.
-
-    ``is_file()`` follows symlinks, so a link planted here (say secret.png ->
-    /proc/self/environ) would publish this process's own UPLOAD_MEDIA_TOKEN as an
-    attachment. Claude writes this directory, and a poisoned diff steers Claude.
-    """
-    files: list[Path] = []
-    symlinks: list[str] = []
-    for path in sorted(directory.iterdir()):
-        if path.is_symlink():
-            symlinks.append(path.name)
-        elif path.is_file():
-            files.append(path)
-    return files, symlinks
-
-
-def rewrite_payload(
-    payload: dict[str, Any], urls: dict[str, str], unavailable: Iterable[str] = ()
-) -> dict[str, Any]:
-    # The schema pins body to end with the Claude footer, so only substitute, never append.
-    match payload:
-        case {"body": str(body)}:
-            payload["body"] = substitute(body, urls, unavailable)
-    match payload:
-        case {"comments": [*comments]}:
-            for comment in comments:
-                match comment:
-                    case {"body": str(body)}:
-                        comment["body"] = substitute(body, urls, unavailable)
-    return payload
-
-
-LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)\)")
-
-
-@dataclass
-class CheckReport:
-    errors: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-    cited: list[str] = field(default_factory=list)
-
-
-def iter_bodies(payload: dict[str, Any]) -> Iterator[str]:
-    match payload:
-        case {"body": str(body)}:
-            yield body
-    match payload:
-        case {"comments": [*comments]}:
-            for comment in comments:
-                match comment:
-                    case {"body": str(body)}:
-                        yield body
-
-
-def target_bodies(target: Path) -> list[str]:
-    text = target.read_text()
-    if target.suffix != ".json":
-        return [text]
-    return list(iter_bodies(json.loads(text)))
-
-
-def check_media(directory: Path, texts: list[str]) -> CheckReport:
-    """Report what the upload would silently drop or leave broken in ``texts``."""
-    report = CheckReport()
-    files, symlinks = collect_files(directory) if directory.is_dir() else ([], [])
-    by_name = {p.name: p for p in files}
-    report.warnings += [f"{name}: a symlink, so it is never uploaded" for name in symlinks]
-
-    cited: set[str] = set()
-    for text in texts:
-        for raw in LINK.findall(text):
-            name = raw.rsplit("/", 1)[-1]
-            path = by_name.get(name)
-            if path and raw == str(path):
-                cited.add(name)
-            # A basename alone can only be meant as a capture; the same basename under
-            # some other directory is an ordinary link that happens to collide.
-            elif path and "/" not in raw.removeprefix("./"):
-                cited.add(name)
-                report.errors.append(f"({raw}): cite the capture as {path}")
-            elif raw.startswith(f"{directory}/"):
-                report.errors.append(
-                    f"({raw}): no such file, so the citation is stripped and the finding "
-                    "degrades to prose"
-                )
-
-    for name in sorted(cited):
-        cite = str(by_name[name])
-        if Path(name).suffix.lower() not in MIME_TYPES:
-            report.errors.append(f"{name}: unsupported extension, so the reference is dropped")
-        elif (size := by_name[name].stat().st_size) > (limit := max_bytes(name)):
-            report.errors.append(
-                f"{name}: {size} bytes exceeds the {limit} byte cap, so the reference is dropped"
-            )
-        elif is_video(name) and any(
-            is_referenced(cite, re.sub(standalone_pattern(cite), "", t)) for t in texts
-        ):
-            report.warnings.append(
-                f"{name}: cited mid-paragraph, so GitHub renders a link rather than a player"
-            )
-
-    report.warnings += [
-        f"{name}: cited by nothing, so it is not uploaded"
-        for name in sorted(by_name.keys() - cited)
-    ]
-
-    report.errors = list(dict.fromkeys(report.errors))
-    report.warnings = list(dict.fromkeys(report.warnings))
-    report.cited = sorted(cited)
-    return report
-
-
-def run_check(args: argparse.Namespace) -> None:
-    if not args.target.is_file():
-        print(f"ERROR: no target at {args.target}", file=sys.stderr)
+        result = subprocess.run(
+            ["gh", "api", f"repos/{repo}", "--jq", ".id"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    # `gh` writes the actionable part ("Not Found (HTTP 404)", an auth error) to
+    # stderr, which CalledProcessError leaves out of its own message.
+    except subprocess.CalledProcessError as e:
+        print(f"Could not resolve {repo}: {e.stderr.strip() or e}", file=sys.stderr)
         sys.exit(1)
-    try:
-        texts = target_bodies(args.target)
-    except json.JSONDecodeError as e:
-        print(f"ERROR: {args.target} is not valid JSON: {e}", file=sys.stderr)
+    except OSError as e:
+        print(f"Could not resolve {repo}: {e}", file=sys.stderr)
         sys.exit(1)
-
-    report = check_media(args.dir, texts)
-    for warning in report.warnings:
-        print(f"  warning: {warning}", file=sys.stderr)
-    if report.errors:
-        print(f"ERROR: {args.target} cites media that will not render", file=sys.stderr)
-        for error in report.errors:
-            print(f"  {error}", file=sys.stderr)
-        sys.exit(1)
-    print(f"OK: {len(report.cited)} media reference(s) resolve, {len(report.warnings)} warning(s)")
+    return result.stdout.strip()
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     parser = subparsers.add_parser(
         "upload-media",
-        help="Upload media to GitHub user-attachments and point a review at the URLs",
+        help="Upload images or videos and print their user-attachments URLs",
     )
-    parser.add_argument("--dir", type=Path, required=True, help="Directory holding the media")
+    parser.add_argument("paths", type=Path, nargs="+", help="Media files to upload")
     parser.add_argument(
-        "--target",
-        type=Path,
-        required=True,
-        help="File to rewrite: a .json pr-review payload, or any Markdown file",
-    )
-    parser.add_argument("--repository-id", help="Numeric repository id; required without --check")
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="Report unresolvable references and exit non-zero, without uploading anything",
+        "--repo",
+        default=DEFAULT_REPO,
+        help=f"Repository the assets are bound to (default: {DEFAULT_REPO})",
     )
     parser.set_defaults(func=run)
 
 
 def run(args: argparse.Namespace) -> None:
-    if args.check:
-        run_check(args)
-        return
-    if not args.repository_id:
-        print("--repository-id is required without --check", file=sys.stderr)
-        sys.exit(2)
-    if not args.target.is_file():
-        print(f"No target at {args.target}; nothing to rewrite", file=sys.stderr)
-        return
-    files, symlinks = collect_files(args.dir) if args.dir.is_dir() else ([], [])
-    for name in symlinks:
-        print(f"  skip {name}: symlink", file=sys.stderr)
+    token = get_github_token()
+    repository_id = resolve_repository_id(args.repo)
 
-    # Only what the review actually cites gets published. Captures taken to reason
-    # with and then left uncited are scratch work.
-    target_text = args.target.read_text()
-    referenced = [p for p in files if is_referenced(str(p), target_text)]
-    if unreferenced := [p.name for p in files if p not in referenced]:
-        print(f"  not referenced, skipping: {', '.join(unreferenced)}", file=sys.stderr)
-
-    # A citation naming no capture resolves to nothing, so it has to be stripped rather
-    # than posted. --check reports it first, but Claude runs that; this step is the last
-    # thing between a typo and the review.
-    resolvable = {str(p) for p in referenced}
-    names = {p.name for p in files}
-    stray = [
-        raw
-        for raw in dict.fromkeys(LINK.findall(target_text))
-        if raw not in resolvable
-        and (raw.startswith(f"{args.dir}/") or raw.removeprefix("./") in names)
-    ]
-    for raw in stray:
-        print(f"  no such capture, stripping: {raw}", file=sys.stderr)
-    if not referenced and not stray:
-        print(f"No media referenced by {args.target}")
-        return
-
-    # A missing secret must still reach the rewrite below, or every reference ships
-    # verbatim and posts a local path.
-    urls = {}
-    if not (token := os.environ.get(TOKEN_ENV)):
-        print(f"{TOKEN_ENV} is unset; not uploading", file=sys.stderr)
-    elif referenced:
-        print(f"Uploading {len(referenced)} referenced file(s) from {args.dir}")
+    failed = False
+    for path in args.paths:
+        if not path.is_file():
+            print(f"failed {path}: not a file", file=sys.stderr)
+            failed = True
+            continue
         try:
-            for path in referenced:
-                if url := upload_asset(path, args.repository_id, token):
-                    urls[str(path)] = url
-        except TokenRejected as e:
-            # The step is continue-on-error, so without an annotation an expired
-            # token would silently stop attaching media on every future review.
-            print(f"::warning::{e}")
+            print(f"{path}\t{upload_asset(path, repository_id, token)}")
+        except UploadFailed as e:
+            failed = True
+            # A rejected credential fails every remaining upload, so stop asking, and
+            # name the credential this command actually resolved.
+            if e.status == 401:
+                print(f"failed {path}: {e}; check GH_TOKEN or run `gh auth login`", file=sys.stderr)
+                break
+            print(f"failed {e}", file=sys.stderr)
 
-    unavailable = [str(p) for p in referenced if str(p) not in urls] + stray
-
-    if args.target.suffix == ".json":
-        payload = json.loads(target_text)
-        rewritten = rewrite_payload(payload, urls, unavailable)
-        args.target.write_text(json.dumps(rewritten, indent=2, ensure_ascii=False))
-    else:
-        args.target.write_text(substitute(target_text, urls, unavailable))
-    print(f"Embedded {len(urls)} of {len(referenced)} referenced file(s) into {args.target}")
+    if failed:
+        sys.exit(1)

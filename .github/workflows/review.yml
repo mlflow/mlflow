@@ -256,10 +256,10 @@ jobs:
         # fault here must not take the job down before Post review.
         continue-on-error: true
         env:
-          UPLOAD_MEDIA_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
           REPO_ID: ${{ github.event.repository.id }}
         run: |
-          uv run --frozen --package skills skills upload-media \
+          uv run --frozen --package skills skills embed-media \
             --dir /tmp/review-media \
             --target /tmp/review-payload.json \
             --repository-id "$REPO_ID"

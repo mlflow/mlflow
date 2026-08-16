@@ -1,6 +1,7 @@
 import argparse
 
 from skills.commands import (
+    embed_media,
     fetch_diff,
     fetch_logs,
     load_rules,
@@ -13,6 +14,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="skills")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    embed_media.register(subparsers)
     fetch_diff.register(subparsers)
     fetch_logs.register(subparsers)
     load_rules.register(subparsers)

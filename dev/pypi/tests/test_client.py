@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socketserver
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -117,7 +118,17 @@ def _serve(body: str, content_type: str, requests: list[str] | None = None) -> I
         def log_message(self, *args: Any) -> None:
             pass
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    class Server(ThreadingHTTPServer):
+        def server_bind(self) -> None:
+            # http.server reverse-resolves the bind address here just to set
+            # server_name, which nothing reads and which costs ~35s per run on
+            # macOS CI while the resolver times out.
+            socketserver.TCPServer.server_bind(self)
+            host, port = self.server_address[:2]
+            self.server_name = str(host)
+            self.server_port = int(port)
+
+    server = Server(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
