@@ -55,6 +55,7 @@ def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.ollama import OllamaProvider
     from mlflow.gateway.providers.openai import OpenAIProvider
     from mlflow.gateway.providers.openrouter import OpenRouterProvider
+    from mlflow.gateway.providers.trustedrouter import TrustedRouterProvider
     from mlflow.gateway.providers.palm import PaLMProvider
     from mlflow.gateway.providers.portkey import PortkeyProvider
     from mlflow.gateway.providers.sap_ai_core import SapAiCoreProvider
@@ -83,6 +84,7 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.OLLAMA, OllamaProvider)
     registry.register(Provider.OPENAI, OpenAIProvider)
     registry.register(Provider.OPENROUTER, OpenRouterProvider)
+    registry.register(Provider.TRUSTEDROUTER, TrustedRouterProvider)
     registry.register(Provider.PALM, PaLMProvider)
     registry.register(Provider.PORTKEY, PortkeyProvider)
     registry.register(Provider.SAP_AI_CORE, SapAiCoreProvider)

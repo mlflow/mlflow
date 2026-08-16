@@ -12,6 +12,7 @@ export const COMMON_PROVIDERS = [
   'deepseek',
   'portkey',
   'openrouter',
+  'trustedrouter',
   'ollama',
   'together_ai',
 ] as const;
@@ -40,6 +41,7 @@ const PROVIDER_DISPLAY_NAMES = {
   cerebras: 'Cerebras',
   deepseek: 'DeepSeek',
   openrouter: 'OpenRouter',
+  trustedrouter: 'TrustedRouter',
   ollama: 'Ollama',
 } satisfies Record<string, string>;
 
