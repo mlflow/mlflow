@@ -15,12 +15,15 @@ from typing import Any
 
 from skills.github.uploads import (
     MIME_TYPES,
-    TOKEN_ENV,
     UploadFailed,
     is_video,
     max_bytes,
     upload_asset,
 )
+
+# Read from the environment, never argv: a PAT in a CLI argument is visible in the
+# process list for the life of the call.
+TOKEN_ENV = "UPLOAD_MEDIA_TOKEN"
 
 
 def link_target(cited: str) -> str:
@@ -266,7 +269,7 @@ def run(args: argparse.Namespace) -> None:
                 # an expired token would silently stop attaching media on every
                 # future review.
                 if e.status == 401:
-                    print(f"::warning::{e}")
+                    print(f"::warning::{TOKEN_ENV} was rejected (401); it may have expired")
                     break
                 print(f"  failed {e}", file=sys.stderr)
             else:

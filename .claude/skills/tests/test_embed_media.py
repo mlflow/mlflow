@@ -129,7 +129,7 @@ def test_cli_rewrites_a_json_payload(tmp_path: Path, monkeypatch: pytest.MonkeyP
     target = tmp_path / "review-payload.json"
     target.write_text(json.dumps({"body": f"[the trace]({media / 'shot.png'})", "comments": []}))
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
@@ -143,7 +143,7 @@ def test_cli_rewrites_markdown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     target = tmp_path / "body.md"
     target.write_text(f"![alt]({media / 'shot.png'})")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
@@ -159,7 +159,7 @@ def test_cli_degrades_to_prose_when_every_upload_fails(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(
         embed_media, "upload_asset", side_effect=uploads.UploadFailed("shot.png: boom")
@@ -177,7 +177,7 @@ def test_cli_never_posts_a_local_path_when_the_token_env_is_unset(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({media / 'shot.png'})")
 
-    monkeypatch.delenv(uploads.TOKEN_ENV, raising=False)
+    monkeypatch.delenv(embed_media.TOKEN_ENV, raising=False)
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
@@ -194,7 +194,7 @@ def test_cli_is_a_noop_when_there_is_no_media(
     target = tmp_path / "body.md"
     target.write_text("unchanged")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
@@ -212,7 +212,7 @@ def test_cli_never_reads_a_symlink(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     target = tmp_path / "body.md"
     target.write_text(f"![the secret]({media / 'shot.png'})")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
@@ -233,7 +233,7 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
         f"evidence: ![the bug]({media / 'shot.png'}) and ![more]({media / 'second.png'})"
     )
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(
         embed_media,
@@ -244,7 +244,7 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
 
     # One annotation for the run, and the loop stops rather than retrying a dead token.
     out = capsys.readouterr().out
-    assert out.count(f"::warning::{uploads.TOKEN_ENV} was rejected (401)") == 1
+    assert out.count(f"::warning::{embed_media.TOKEN_ENV} was rejected (401)") == 1
     assert uploader.call_count == 1
     assert target.read_text() == "evidence: the bug and more"
 
@@ -257,7 +257,7 @@ def test_cli_uploads_only_media_the_target_references(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({media / 'cited.png'})")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
@@ -273,7 +273,7 @@ def test_cli_uploads_nothing_when_no_media_is_referenced(
     target = tmp_path / "body.md"
     target.write_text("a prose-only finding")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
@@ -292,7 +292,7 @@ def test_cli_uploads_media_referenced_by_an_inline_comment(
         json.dumps({"body": "b", "comments": [{"body": f"see [it]({media / 'cited.png'})"}]})
     )
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
@@ -325,7 +325,7 @@ def test_cli_does_not_upload_a_name_that_is_a_suffix_of_a_cited_one(
     target = tmp_path / "body.md"
     target.write_text(f"![x]({media / 'longshot.png'})")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
@@ -466,7 +466,7 @@ def test_cli_check_exits_zero_and_uploads_nothing(
     body = f"![the bug]({media / 'shot.png'})"
     target.write_text(body)
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_check_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
@@ -508,7 +508,7 @@ def test_cli_strips_a_citation_naming_no_capture(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({media / 'shto.png'})")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
@@ -524,7 +524,7 @@ def test_cli_strips_a_typo_while_still_embedding_the_capture_beside_it(
     target = tmp_path / "body.md"
     target.write_text(f"![ok]({media / 'shot.png'}) and ![typo]({media / 'shto.png'})")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset", return_value=URL) as uploader:
         args.func(args)
@@ -542,7 +542,7 @@ def test_cli_strips_a_bare_filename_citation(
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({cite})")
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)
@@ -559,7 +559,7 @@ def test_cli_leaves_a_link_outside_the_media_directory_alone(
     body = "see [the icon](docs/static/img/shot.png)"
     target.write_text(body)
 
-    monkeypatch.setenv(uploads.TOKEN_ENV, "t")
+    monkeypatch.setenv(embed_media.TOKEN_ENV, "t")
     args = build_args(media, target)
     with mock.patch.object(embed_media, "upload_asset") as uploader:
         args.func(args)

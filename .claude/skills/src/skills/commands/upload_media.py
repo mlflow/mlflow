@@ -22,7 +22,12 @@ def resolve_repository_id(repo: str) -> str:
             text=True,
             check=True,
         )
-    except (OSError, subprocess.CalledProcessError) as e:
+    # `gh` writes the actionable part ("Not Found (HTTP 404)", an auth error) to
+    # stderr, which CalledProcessError leaves out of its own message.
+    except subprocess.CalledProcessError as e:
+        print(f"Could not resolve {repo}: {e.stderr.strip() or e}", file=sys.stderr)
+        sys.exit(1)
+    except OSError as e:
         print(f"Could not resolve {repo}: {e}", file=sys.stderr)
         sys.exit(1)
     return result.stdout.strip()
@@ -55,11 +60,13 @@ def run(args: argparse.Namespace) -> None:
         try:
             print(f"{path}\t{upload_asset(path, repository_id, token)}")
         except UploadFailed as e:
-            print(f"failed {e}", file=sys.stderr)
             failed = True
-            # A rejected credential fails every remaining upload, so stop asking.
+            # A rejected credential fails every remaining upload, so stop asking, and
+            # name the credential this command actually resolved.
             if e.status == 401:
+                print(f"failed {path}: {e}; check GH_TOKEN or run `gh auth login`", file=sys.stderr)
                 break
+            print(f"failed {e}", file=sys.stderr)
 
     if failed:
         sys.exit(1)

@@ -88,7 +88,7 @@ def test_a_failed_file_does_not_stop_the_rest(
 
 
 def test_a_rejected_credential_stops_the_remaining_uploads(
-    tmp_path: Path, shot: Path, credentials: None
+    tmp_path: Path, shot: Path, credentials: None, capsys: pytest.CaptureFixture[str]
 ) -> None:
     second = tmp_path / "second.png"
     second.write_bytes(b"\x89PNG")
@@ -98,13 +98,17 @@ def test_a_rejected_credential_stops_the_remaining_uploads(
         mock.patch.object(
             upload_media,
             "upload_asset",
-            side_effect=UploadFailed("token was rejected (401)", status=401),
+            side_effect=UploadFailed("the credential was rejected (401)", status=401),
         ) as uploader,
         pytest.raises(SystemExit, match="^1$"),
     ):
         args.func(args)
 
     uploader.assert_called_once_with(shot, REPO_ID, "t")
+    # The credential this command resolves, not the one CI carries.
+    err = capsys.readouterr().err
+    assert "check GH_TOKEN or run `gh auth login`" in err
+    assert "UPLOAD_MEDIA_TOKEN" not in err
 
 
 def test_a_missing_path_is_reported_without_uploading(
@@ -135,10 +139,23 @@ def test_resolve_repository_id_returns_the_id() -> None:
     assert run.call_args.args[0] == ["gh", "api", "repos/mlflow/mlflow", "--jq", ".id"]
 
 
+def test_resolve_repository_id_surfaces_the_gh_error(capsys: pytest.CaptureFixture[str]) -> None:
+    failure = subprocess.CalledProcessError(1, "gh", stderr="gh: Not Found (HTTP 404)\n")
+    with (
+        mock.patch("subprocess.run", side_effect=failure) as run,
+        pytest.raises(SystemExit, match="^1$"),
+    ):
+        upload_media.resolve_repository_id("mlflow/nope")
+
+    run.assert_called_once()
+    # Without this the user only sees "returned non-zero exit status 1".
+    assert "gh: Not Found (HTTP 404)" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     "outcome",
     [
-        subprocess.CalledProcessError(1, "gh"),
+        subprocess.CalledProcessError(1, "gh", stderr=""),
         FileNotFoundError("gh"),
     ],
 )

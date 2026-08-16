@@ -10,9 +10,6 @@ import urllib.request
 from pathlib import Path
 
 UPLOAD_URL = "https://uploads.github.com/user-attachments/assets"
-# Read from the environment, never argv: a PAT in a CLI argument is visible in the
-# process list for the life of the call.
-TOKEN_ENV = "UPLOAD_MEDIA_TOKEN"
 
 # The name's extension must agree with content_type or the endpoint returns 422.
 MIME_TYPES = {
@@ -79,9 +76,8 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str:
     # Must precede OSError: HTTPError is a URLError, which is an OSError.
     except urllib.error.HTTPError as e:
         if e.code == 401:
-            raise UploadFailed(
-                f"{TOKEN_ENV} was rejected (401); it may have expired", status=401
-            ) from e
+            # Callers resolve credentials differently, so name none of them here.
+            raise UploadFailed("the credential was rejected (401)", status=401) from e
         raise UploadFailed(f"{path.name}: {e}", status=e.code) from e
     except (OSError, http.client.HTTPException, ValueError) as e:
         raise UploadFailed(f"{path.name}: {e}") from e
