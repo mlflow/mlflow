@@ -233,6 +233,10 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
     def _filter_experiment_ids(self, session, experiment_ids):
         workspace = self._get_active_workspace()
+        # `SqlExperiment.experiment_id` is an Integer column, so callers passing string IDs
+        # break strict backends such as PostgreSQL ("operator does not exist: integer = varchar").
+        # Normalize to int to match the base store, which does the same before comparing.
+        experiment_ids = [int(e) for e in experiment_ids]
         rows = (
             session
             .query(SqlExperiment.experiment_id)
@@ -255,11 +259,13 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return [str(row[0]) for row in rows]
 
         if entity_type == EntityAssociationType.EXPERIMENT:
+            # `experiment_id` is an Integer column; cast so string IDs don't break strict
+            # backends such as PostgreSQL (see `_filter_experiment_ids`).
             rows = (
                 session
                 .query(SqlExperiment.experiment_id)
                 .filter(
-                    SqlExperiment.experiment_id.in_(entity_ids),
+                    SqlExperiment.experiment_id.in_([int(e) for e in entity_ids]),
                     SqlExperiment.workspace == workspace,
                 )
                 .all()

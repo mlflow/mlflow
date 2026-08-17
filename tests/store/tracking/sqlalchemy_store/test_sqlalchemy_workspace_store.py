@@ -280,6 +280,33 @@ def test_search_datasets_is_workspace_scoped(workspace_tracking_store):
         assert workspace_tracking_store._search_datasets([exp_b_id]) == []
 
 
+def test_filter_experiment_ids_accepts_string_ids(workspace_tracking_store):
+    # Regression test for #25188: `experiment_id` is an Integer column, so passing the
+    # string IDs that callers hand these hooks raised "operator does not exist:
+    # integer = character varying" on PostgreSQL. Exercised against real backends by the
+    # `database` CI job.
+    exp_a_id = _create_run(workspace_tracking_store, "team-a", "filter-exp-a", "run-a")[0]
+    exp_b_id = _create_run(workspace_tracking_store, "team-b", "filter-exp-b", "run-b")[0]
+
+    with WorkspaceContext("team-a"):
+        with workspace_tracking_store.ManagedSessionMaker() as session:
+            assert workspace_tracking_store._filter_experiment_ids(
+                session, [exp_a_id, exp_b_id]
+            ) == [int(exp_a_id)]
+            assert workspace_tracking_store._filter_entity_ids(
+                session, EntityAssociationType.EXPERIMENT, [exp_a_id, exp_b_id]
+            ) == [exp_a_id]
+
+    with WorkspaceContext("team-b"):
+        with workspace_tracking_store.ManagedSessionMaker() as session:
+            assert workspace_tracking_store._filter_experiment_ids(
+                session, [exp_a_id, exp_b_id]
+            ) == [int(exp_b_id)]
+            assert workspace_tracking_store._filter_entity_ids(
+                session, EntityAssociationType.EXPERIMENT, [exp_a_id, exp_b_id]
+            ) == [exp_b_id]
+
+
 def test_search_runs_datasets_in_clause_is_workspace_scoped(workspace_tracking_store):
     exp_a_id, run_a = _create_run(workspace_tracking_store, "team-a", "exp-ds-a", "run-ds-a")
     exp_b_id, run_b = _create_run(workspace_tracking_store, "team-b", "exp-ds-b", "run-ds-b")
