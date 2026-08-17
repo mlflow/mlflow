@@ -52,9 +52,9 @@ import {
  * drops it.
  */
 
-// Experiment-tag values are capped server-side (MAX_EXPERIMENT_TAG_VAL_LENGTH, 5000 chars); a write
+// Experiment-tag values are capped server-side (MAX_EXPERIMENT_TAG_VAL_LENGTH, 20000 chars); a write
 // above the ceiling hard-throws rather than truncating, so preflight the encoded length.
-const MAX_TAG_VALUE_LENGTH = 5000;
+const MAX_TAG_VALUE_LENGTH = 20000;
 
 // Client-side cap (mirrors the V3 / runs MAX_SAVED_VIEWS): each view is a tag and `get-experiment`
 // returns every tag value, so the count is bounded to keep that payload small.
