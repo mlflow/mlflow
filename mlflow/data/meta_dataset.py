@@ -20,7 +20,7 @@ class MetaDataset(Dataset):
         name: name of the dataset. If not specified, a name is automatically generated.
         digest: digest (hash, fingerprint) of the dataset. If not specified, a digest is
             automatically computed.
-        schame: schema of the dataset.
+        schema: schema of the dataset.
 
     .. code-block:: python
         :caption: Create a MetaDataset

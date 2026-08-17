@@ -746,8 +746,12 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
         return import_module_fn(module_name)
 
     with (
-        mock.patch("importlib.import_module") as import_mock,
+        # NB: `torch.load` must be patched before `importlib.import_module`. On Python 3.11+,
+        # `mock.patch` resolves its target via `pkgutil.resolve_name`, which calls
+        # `importlib.import_module`. Patching that first makes the `torch.load` target resolve
+        # to a `MagicMock` instead of the real module, so the patch never takes effect.
         mock.patch("torch.load") as torch_load_mock,
+        mock.patch("importlib.import_module") as import_mock,
     ):
         import_mock.side_effect = track_module_imports
         pyfunc.load_model(model_path)
@@ -783,8 +787,12 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
         return import_module_fn(module_name)
 
     with (
-        mock.patch("importlib.import_module") as import_mock,
+        # NB: `torch.load` must be patched before `importlib.import_module`. On Python 3.11+,
+        # `mock.patch` resolves its target via `pkgutil.resolve_name`, which calls
+        # `importlib.import_module`. Patching that first makes the `torch.load` target resolve
+        # to a `MagicMock` instead of the real module, so the patch never takes effect.
         mock.patch("torch.load") as torch_load_mock,
+        mock.patch("importlib.import_module") as import_mock,
     ):
         import_mock.side_effect = track_module_imports
         pyfunc.load_model(model_uri=model_uri)
@@ -1320,7 +1328,11 @@ def test_log_model_with_datetime_input():
     assert model_info.signature.inputs.inputs[0].type == DataType.datetime
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with torch.no_grad():
-        input_tensor = torch.from_numpy(df.to_numpy(dtype=np.float32))
+        # Schema enforcement normalizes datetime columns to nanosecond precision, so build the
+        # expected input the same way. pandas 3 defaults to microseconds, which would otherwise
+        # make the two paths differ by a factor of 1000 once cast to float.
+        enforced = df.astype({"datetime": "datetime64[ns]"})
+        input_tensor = torch.from_numpy(enforced.to_numpy(dtype=np.float32))
         expected_result = model(input_tensor)
     with torch.no_grad():
         np.testing.assert_array_almost_equal(pyfunc_model.predict(df), expected_result, decimal=4)
@@ -1467,3 +1479,48 @@ def test_save_and_load_exported_model_with_multi_inputs(model_path):
         model_loaded(*input_example),
         decimal=4,
     )
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
+)
+@pytest.mark.parametrize("batch_size", [1, 2])
+def test_exported_model_with_small_batch_size_input_example(tmp_path, batch_size):
+    # Regression test for https://github.com/mlflow/mlflow/pull/24494: a batch-size-1
+    # `input_example` used to fail the default "pt2" export with a `torch.export`
+    # ConstraintViolation, because the batch dim (marked dynamic from the inferred signature)
+    # gets specialized to the constant 1. batch_size=2 locks in the dynamic-dim case.
+    model = get_sequential_model()
+    model.eval()
+    input_example = torch.randn(batch_size, 4).numpy()
+
+    model_path = tmp_path / "model"
+    # Default serialization ("pt2") must succeed for any batch size, including 1.
+    mlflow.pytorch.save_model(model, model_path, input_example=input_example)
+    assert (model_path / "data" / "model.pt2").exists()
+
+    loaded_model = mlflow.pytorch.load_model(model_path)
+    input_tensor = torch.from_numpy(input_example)
+    with torch.no_grad():
+        expected = model(input_tensor)
+        actual = loaded_model(input_tensor)
+    np.testing.assert_array_almost_equal(actual, expected, decimal=4)
+
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    predictions = loaded_pyfunc.predict(input_example)
+    assert predictions.shape == (batch_size, 1)
+
+    if batch_size == 1:
+        # A batch-size-1 example is exported STATIC by design (torch.export specializes size-1
+        # dims), so we assert only that the round-trip succeeds, not batch-dim dynamism.
+        return
+
+    # A batch>1 example yields a dynamic batch dim, so the exported model must accept a
+    # different batch size. This proves the dim is genuinely dynamic rather than a fully-static
+    # export that only happens to match the saved batch size.
+    other_batch = 2 * batch_size
+    other_input = torch.randn(other_batch, 4).numpy()
+    with torch.no_grad():
+        other_actual = loaded_model(torch.from_numpy(other_input))
+    assert tuple(other_actual.shape) == (other_batch, 1)
+    assert loaded_pyfunc.predict(other_input).shape == (other_batch, 1)

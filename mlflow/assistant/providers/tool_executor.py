@@ -6,12 +6,18 @@ from pathlib import Path
 from typing import Any
 
 from mlflow.assistant.config import PermissionsConfig
+from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
 
 _logger = logging.getLogger(__name__)
 
 _FILE_TOOLS = {"Read", "Write", "Edit"}
 # Restricted mode only permits MLflow CLI and Python; anything else needs Full Access.
 _ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
+
+# Tools executed on the CLIENT (browser), not the server: the assistant loop pauses the turn and
+# waits for a client-submitted result instead of routing the call through execute_tool/the static
+# permission gate. See openai_compatible.py's tool loop.
+CLIENT_TOOLS = {RENDER_CUSTOM_VIEW_TOOL_NAME}
 
 
 def _is_path_within(path: Path, root: Path) -> bool:
@@ -266,6 +272,35 @@ def build_tools_schema() -> list[dict[str, Any]]:
                         },
                     },
                     "required": ["file_path", "old_string", "new_string"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": RENDER_CUSTOM_VIEW_TOOL_NAME,
+                "description": (
+                    "Render a custom trace view in the UI: a reusable, trace-agnostic layout of "
+                    "cards, stat tiles, key-value viewers, and assessment boards, built from the "
+                    "current trace's data. Call this once you've designed the layout; the client "
+                    "renders it and reports back whether it applied successfully."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "title": {
+                            "type": "string",
+                            "description": "Short display title for the view.",
+                        },
+                        "messages": {
+                            "type": "array",
+                            "description": (
+                                "A2UI message list describing the view's component tree."
+                            ),
+                            "items": {"type": "object"},
+                        },
+                    },
+                    "required": ["title", "messages"],
                 },
             },
         },

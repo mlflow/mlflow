@@ -22,6 +22,8 @@ from sqlalchemy import (
     UnicodeText,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.mssql import NVARCHAR
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import (
@@ -36,6 +38,7 @@ from mlflow.entities import (
     Assessment,
     AssessmentError,
     AssessmentSource,
+    ConnectOptionSettings,
     Dataset,
     DatasetRecord,
     DatasetRecordSource,
@@ -125,6 +128,34 @@ RunStatusTypes = [
 
 # Create MutableJSON type for tracking mutations in JSON columns
 MutableJSON = MutableDict.as_mutable(JSON)
+
+
+def _resolve_mcp_server_icons(
+    server_icons: list[dict[str, Any]] | None,
+    version_icons: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]] | None:
+    # Explicit empty server overrides must not fall back to version icons, matching
+    # description resolution where only ``None`` (not empty) triggers fallback.
+    if server_icons is not None and len(server_icons) == 0:
+        return []
+
+    resolved_icons = []
+    server_icons = server_icons or []
+    version_icons = version_icons or []
+    server_themes = set()
+
+    for icon in server_icons:
+        if not isinstance(icon, dict):
+            continue
+        server_themes.add(icon.get("theme"))
+        resolved_icons.append({**icon, "source": "server"})
+
+    for icon in version_icons:
+        if not isinstance(icon, dict) or icon.get("theme") in server_themes:
+            continue
+        resolved_icons.append({**icon, "source": "version"})
+
+    return resolved_icons or None
 
 
 class SqlExperiment(Base):
@@ -277,7 +308,9 @@ class SqlRun(Base):
 
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name="source_type"),
-        CheckConstraint(status.in_(RunStatusTypes), name="status"),
+        # Historical migrations generate this SQLite CHECK constraint without a stable name.
+        # Keep ORM metadata aligned with that schema so Alembic autogenerate sees no drift.
+        CheckConstraint(status.in_(RunStatusTypes)),
         CheckConstraint(
             lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
             name="runs_lifecycle_stage",
@@ -341,9 +374,12 @@ class SqlExperimentTag(Base):
     """
     Tag key: `String` (limit 250 characters). *Primary Key* for ``tags`` table.
     """
-    value = Column(String(5000), nullable=True)
+    value = Column(
+        Text().with_variant(MEDIUMTEXT, "mysql").with_variant(NVARCHAR(None), "mssql"),
+        nullable=True,
+    )
     """
-    Value associated with tag: `String` (limit 5000 characters). Could be *null*.
+    Value associated with tag: `Text` (limited to 20000 characters by validation). Could be *null*.
     """
     experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
     """
@@ -737,7 +773,9 @@ class SqlTraceInfo(Base):
     Trace ID: `String` (limit 50 characters). *Primary Key* for ``trace_info`` table.
     Named as "trace_id" in V3 format.
     """
-    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
@@ -791,6 +829,7 @@ class SqlTraceInfo(Base):
         # which is the default view in the UI. Also every search query should have experiment_id(s)
         # in the where clause.
         Index(f"index_{__tablename__}_experiment_id_timestamp_ms", "experiment_id", "timestamp_ms"),
+        Index(f"index_{__tablename__}_timestamp_ms_request_id", "timestamp_ms", "request_id"),
     )
 
     def to_mlflow_entity(self):
@@ -2049,7 +2088,13 @@ class SqlSpan(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
-        Index("index_spans_experiment_id", "experiment_id"),
+        # The leftmost experiment_id column also supports experiment-only filters, so this
+        # composite index replaces a separate index on experiment_id.
+        Index(
+            "index_spans_experiment_id_start_time",
+            "experiment_id",
+            "start_time_unix_nano",
+        ),
         # Two indexes needed to support both filter patterns efficiently:
         Index(
             "index_spans_experiment_id_status_type", "experiment_id", "status", "type"
@@ -2983,7 +3028,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     target_scope = Column(String(32), nullable=False)
     """
-    Target scope: `String` (GLOBAL, WORKSPACE).
+    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT).
     """
     budget_action = Column(String(32), nullable=False)
     """
@@ -3014,10 +3059,17 @@ class SqlGatewayBudgetPolicy(Base):
     """
     Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
     """
+    target_value = Column(String(255), nullable=True)
+    """
+    Target the policy applies to: `String` (limit 255 characters). Interpreted per
+    ``target_scope`` — a gateway endpoint ID for ENDPOINT; the policy then applies
+    solely to requests routed to that endpoint. NULL for GLOBAL and WORKSPACE scopes.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
         Index("idx_budget_policies_workspace", "workspace"),
+        Index("idx_budget_policies_target_value", "target_value"),
     )
 
     def __repr__(self):
@@ -3039,6 +3091,7 @@ class SqlGatewayBudgetPolicy(Base):
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
             workspace=self.workspace,
+            target_value=self.target_value,
         )
 
 
@@ -3928,18 +3981,24 @@ class SqlMCPServer(Base):
         )
         resolved_status = self.resolved_status if resolved_status is None else resolved_status
         status = MCPStatus(resolved_status) if resolved_status is not None else None
-        description = self.description
-        if description is None and self.resolved_parent_server_json is not None:
+        parent_server_json = None
+        if self.resolved_parent_server_json is not None:
             parent_server_json = self.resolved_parent_server_json
             if not isinstance(parent_server_json, dict):
                 parent_server_json = json.loads(parent_server_json)
+        description = self.description
+        if description is None and parent_server_json is not None:
             description = parent_server_json.get("description")
+        icons = _resolve_mcp_server_icons(
+            self.icons,
+            parent_server_json.get("icons") if parent_server_json is not None else None,
+        )
 
         return MCPServer(
             name=self.name,
             display_name=self.display_name,
             description=description,
-            icons=self.icons,
+            icons=icons,
             workspace=self.workspace,
             status=status,
             tags=tags,
@@ -3969,7 +4028,6 @@ class SqlMCPServerVersion(Base):
     version_patch = Column(Integer, nullable=False)
     version_prerelease_sort_key = Column(String(512), nullable=False)
     server_json = Column(JSON, nullable=False)
-    display_name = Column(String(256), nullable=True)
     status = Column(
         String(20),
         nullable=False,
@@ -3978,6 +4036,7 @@ class SqlMCPServerVersion(Base):
     )
     tools = Column(JSON, nullable=True)
     source = Column(String(512), nullable=True)
+    connect_options = Column(JSON, nullable=True)
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
     created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
@@ -4032,11 +4091,13 @@ class SqlMCPServerVersion(Base):
             name=self.name,
             version=self.version,
             server_json=server_json,
-            display_name=self.display_name,
             status=MCPStatus(self.status),
             tools=tools,
             aliases=alias_names,
             tags=tags,
+            connect_options={
+                k: ConnectOptionSettings(**v) for k, v in (self.connect_options or {}).items()
+            },
             source=self.source,
             workspace=self.workspace,
             created_by=self.created_by,

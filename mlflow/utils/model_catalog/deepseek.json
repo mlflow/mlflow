@@ -129,8 +129,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 393216,
+        "max_tokens": 393216
       },
       "pricing": {
         "input_per_million_tokens": 0.14,
@@ -141,18 +141,18 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-08-17"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 393216,
+        "max_tokens": 393216
       },
       "pricing": {
         "input_per_million_tokens": 0.435,
@@ -163,11 +163,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-08-17"
     }
   }
 }

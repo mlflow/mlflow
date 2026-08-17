@@ -1415,11 +1415,13 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             user_id = user.id
+            workspace_name = self._get_active_workspace_name()
             rows = (
                 session
                 .query(SqlRolePermission.resource_pattern, SqlRolePermission.permission)
                 .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
                 .filter(
+                    SqlRole.workspace == workspace_name,
                     SqlRole.name == self._synthetic_user_role_name(user_id),
                     SqlRolePermission.resource_type == resource_type,
                 )
