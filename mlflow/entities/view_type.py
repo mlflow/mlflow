@@ -1,3 +1,4 @@
+from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2
 
 
@@ -15,7 +16,7 @@ class ViewType:
     @classmethod
     def from_string(cls, view_str):
         if view_str not in cls._STRING_TO_VIEW:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get valid view type corresponding to string {view_str}. "
                 f"Valid view types are {list(cls._STRING_TO_VIEW.keys())}"
             )
@@ -24,7 +25,7 @@ class ViewType:
     @classmethod
     def to_string(cls, view_type):
         if view_type not in cls._VIEW_TO_STRING:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get valid view type corresponding to string {view_type}. "
                 f"Valid view types are {list(cls._VIEW_TO_STRING.keys())}"
             )

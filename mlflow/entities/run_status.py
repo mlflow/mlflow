@@ -1,3 +1,4 @@
+from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import RunStatus as ProtoRunStatus
 
 
@@ -17,7 +18,7 @@ class RunStatus:
     @staticmethod
     def from_string(status_str):
         if status_str not in RunStatus._STRING_TO_STATUS:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get run status corresponding to string {status_str}. Valid run "
                 f"status strings: {list(RunStatus._STRING_TO_STATUS.keys())}"
             )
@@ -26,7 +27,7 @@ class RunStatus:
     @staticmethod
     def to_string(status):
         if status not in RunStatus._STATUS_TO_STRING:
-            raise Exception(
+            raise MlflowException(
                 f"Could not get string corresponding to run status {status}. Valid run "
                 f"statuses: {list(RunStatus._STATUS_TO_STRING.keys())}"
             )

@@ -44,13 +44,13 @@ class RunInfo(_MlflowObject):
         run_name=None,
     ):
         if experiment_id is None:
-            raise Exception("experiment_id cannot be None")
+            raise MlflowException.invalid_parameter_value("experiment_id cannot be None")
         if user_id is None:
-            raise Exception("user_id cannot be None")
+            raise MlflowException.invalid_parameter_value("user_id cannot be None")
         if status is None:
-            raise Exception("status cannot be None")
+            raise MlflowException.invalid_parameter_value("status cannot be None")
         if start_time is None:
-            raise Exception("start_time cannot be None")
+            raise MlflowException.invalid_parameter_value("start_time cannot be None")
         self._run_id = run_id
         self._experiment_id = experiment_id
         self._user_id = user_id
