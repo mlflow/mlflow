@@ -28,6 +28,7 @@ const isVisibleByMode = (mode: RUNS_VISIBILITY_MODE, rowIndex: number, runStatus
 };
 
 export const ExperimentEvaluationRunsRowVisibilityProvider = ({ children }: { children: React.ReactNode }) => {
+  // stores explicit overrides: if row should be visible, set to true, and if row should be hidden, set to false.
   const [rowVisibilityOverrides, setRowVisibilityOverrides] = useState<Record<string, boolean>>({});
   const [visibilityMode, setVisibilityModeState] = useState<RUNS_VISIBILITY_MODE>(RUNS_VISIBILITY_MODE.SHOWALL);
 
@@ -53,7 +54,7 @@ export const ExperimentEvaluationRunsRowVisibilityProvider = ({ children }: { ch
           delete newVisibilityOverrides[rowUuid];
         } else {
           const visibleByMode = isVisibleByMode(visibilityMode, rowIndex, runStatus);
-          newVisibilityOverrides[rowUuid] = !visibleByMode;
+          newVisibilityOverrides[rowUuid] = !visibleByMode; // flip visibility
         }
 
         return newVisibilityOverrides;
