@@ -344,6 +344,11 @@ def path_not_unique(name):
 
 def _validate_metric_name(name, path="name"):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
+    if not isinstance(name, str):
+        raise MlflowException(
+            invalid_value(path, name, f"Expected a string, got {type(name).__name__}."),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     if name is None:
         raise MlflowException(
             invalid_value(path, name, f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}"),
@@ -502,6 +507,11 @@ def _validate_param_keys_unique(params):
 
 def _validate_param_name(name, path="key"):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
+    if not isinstance(name, str):
+        raise MlflowException(
+            invalid_value(path, name, f"Expected a string, got {type(name).__name__}."),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     if name is None:
         raise MlflowException(
             invalid_value(path, "", _MISSING_KEY_NAME_MESSAGE),
@@ -522,6 +532,11 @@ def _validate_param_name(name, path="key"):
 def _validate_tag_name(name, path="key"):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
     # Reuse param & metric check.
+    if not isinstance(name, str):
+        raise MlflowException(
+            invalid_value(path, name, f"Expected a string, got {type(name).__name__}."),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     if name is None:
         raise MlflowException(
             missing_value(path),
