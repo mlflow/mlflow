@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -20,17 +19,6 @@ def job_store() -> SqlAlchemyJobStore:
 @pytest.fixture
 def lock_mgr(job_store: SqlAlchemyJobStore) -> JobLockManager:
     return JobLockManager(job_store)
-
-
-@pytest.fixture
-def threadsafe_job_store(tmp_path: Path) -> SqlAlchemyJobStore:
-    db_path = tmp_path / "test_locks.db"
-    return SqlAlchemyJobStore(f"sqlite:///{db_path}")
-
-
-@pytest.fixture
-def threadsafe_lock_mgr(threadsafe_job_store: SqlAlchemyJobStore) -> JobLockManager:
-    return JobLockManager(threadsafe_job_store)
 
 
 def test_acquire_scheduler_lease_succeeds_when_no_lease_exists(lock_mgr: JobLockManager) -> None:
