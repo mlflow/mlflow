@@ -1179,6 +1179,10 @@ MLFLOW_SERVER_X_FRAME_OPTIONS = _EnvironmentVariable(
     "MLFLOW_SERVER_X_FRAME_OPTIONS", str, "SAMEORIGIN"
 )
 
+#: Deny (403) authenticated requests to routes with no authorization decision in the
+#: built-in basic-auth app (fail-closed). Off by default. (default: ``False``)
+MLFLOW_BASIC_AUTH_FAIL_CLOSED = _BooleanEnvironmentVariable("MLFLOW_BASIC_AUTH_FAIL_CLOSED", False)
+
 #: Specifies the max length (in chars) of an experiment's artifact location.
 #: The default is 2048.
 MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH = _EnvironmentVariable(

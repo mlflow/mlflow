@@ -989,7 +989,29 @@ def test_add_link_rejects_invalid_ids():
         with pytest.raises(MlflowException, match="Invalid link"):
             span.add_link(Link(trace_id="tr-abc123", span_id="aabbccddeeff0011aabbccddeeff0011"))
 
+        with pytest.raises(MlflowException, match="Invalid link"):
+            span.add_link(Link(trace_id=None, span_id="aabbccddeeff0011"))
+
         assert len(span.links) == 0
+
+
+def test_add_link_skips_v4_trace_id():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+
+        with mock.patch("mlflow.entities.span._logger.warning") as mock_warning:
+            span.add_link(Link(trace_id="trace:/catalog.schema/abc123", span_id="aabbccddeeff0011"))
+
+        # V4/UC trace links are not supported: skipped, not normalized or stored.
+        assert len(span.links) == 0
+        assert len(otel_span.links) == 0
+        mock_warning.assert_called_once()
+        assert "Unity Catalog" in mock_warning.call_args.args[0]
+        assert mock_warning.call_args.args[1] == "trace:/catalog.schema/abc123"
 
 
 def test_span_seeds_links_from_otel_span():

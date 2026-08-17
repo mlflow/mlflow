@@ -64,7 +64,7 @@ def test_workspace_scoped_otlp_endpoint_sets_workspace(monkeypatch):
     client = _make_test_client()
     response = client.post(
         OTLP_TRACES_PATH,
-        data=_build_otlp_payload(),
+        content=_build_otlp_payload(),
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",
@@ -108,7 +108,7 @@ def test_default_otlp_endpoint_uses_default_workspace(monkeypatch):
     client = _make_test_client()
     response = client.post(
         OTLP_TRACES_PATH,
-        data=_build_otlp_payload(),
+        content=_build_otlp_payload(),
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "7",
@@ -144,7 +144,7 @@ def test_otlp_endpoint_links_trace_to_run(monkeypatch):
     client = _make_test_client()
     response = client.post(
         OTLP_TRACES_PATH,
-        data=_build_otlp_payload(),
+        content=_build_otlp_payload(),
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",
@@ -193,7 +193,7 @@ def test_otlp_endpoint_without_default_workspace_raises_error(monkeypatch):
     client = _make_test_client()
     response = client.post(
         OTLP_TRACES_PATH,
-        data=_build_otlp_payload(),
+        content=_build_otlp_payload(),
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",
@@ -227,7 +227,7 @@ def test_otlp_endpoint_run_linking_error_is_logged(monkeypatch):
     client = _make_test_client()
     response = client.post(
         OTLP_TRACES_PATH,
-        data=_build_otlp_payload(),
+        content=_build_otlp_payload(),
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",
@@ -252,7 +252,7 @@ def test_otlp_invalid_content_type(monkeypatch):
     # Test with unsupported content type
     response = client.post(
         OTLP_TRACES_PATH,
-        data=_build_otlp_payload(),
+        content=_build_otlp_payload(),
         headers={
             "Content-Type": "text/plain",
             "X-MLflow-Experiment-Id": "42",
@@ -264,7 +264,7 @@ def test_otlp_invalid_content_type(monkeypatch):
     # Test with missing content type
     response = client.post(
         OTLP_TRACES_PATH,
-        data=_build_otlp_payload(),
+        content=_build_otlp_payload(),
         headers={
             "X-MLflow-Experiment-Id": "42",
         },
@@ -286,7 +286,7 @@ def test_otlp_invalid_protobuf_data(monkeypatch):
     # Test with invalid protobuf data
     response = client.post(
         OTLP_TRACES_PATH,
-        data=b"this is not valid protobuf data",
+        content=b"this is not valid protobuf data",
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",
@@ -311,7 +311,7 @@ def test_otlp_empty_resource_spans(monkeypatch):
 
     response = client.post(
         OTLP_TRACES_PATH,
-        data=request.SerializeToString(),
+        content=request.SerializeToString(),
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",
@@ -342,7 +342,7 @@ def test_otlp_conversion_error(monkeypatch):
 
     response = client.post(
         OTLP_TRACES_PATH,
-        data=_build_otlp_payload(),
+        content=_build_otlp_payload(),
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",
@@ -376,7 +376,7 @@ def test_otlp_resource_attributes_preserved(monkeypatch):
     }
     response = client.post(
         OTLP_TRACES_PATH,
-        data=_build_otlp_payload(resource_attrs=resource_attrs),
+        content=_build_otlp_payload(resource_attrs=resource_attrs),
         headers={
             "Content-Type": "application/x-protobuf",
             "X-MLflow-Experiment-Id": "42",

@@ -47,6 +47,10 @@
     "defaultMessage": "Enter new password",
     "description": "Placeholder for the new-password input"
   },
+  "+BlSFl": {
+    "defaultMessage": "Untitled custom view",
+    "description": "Fallback label for a custom trace view that has not been saved or named yet"
+  },
   "+CGMk6": {
     "defaultMessage": "On",
     "description": "Telemetry enabled label"
@@ -570,6 +574,10 @@
   "0NomdE": {
     "defaultMessage": "This trace is already in this queue, and you don't have permission to remove it.",
     "description": "Add to review queue: queue option locked because the trace is a member the reviewer cannot remove"
+  },
+  "0Ox6UC": {
+    "defaultMessage": "Show run parameters",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Show run params toggle"
   },
   "0P5Ooz": {
     "defaultMessage": "+{count} more",
@@ -1227,6 +1235,10 @@
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"
   },
+  "3D8+SZ": {
+    "defaultMessage": "Describe how you want to view your trace data and the assistant will build it.",
+    "description": "Subheading prompting the user to describe the custom trace view they want to build"
+  },
   "3EoT6S": {
     "defaultMessage": "Open variable values",
     "description": "Aria label for the top-bar button that opens the playground variables drawer"
@@ -1330,6 +1342,10 @@
   "3sDV5K": {
     "defaultMessage": "Description",
     "description": "experiment page > edit experiment modal > description label"
+  },
+  "3tPzT7": {
+    "defaultMessage": "Draft - This view has unsaved changes. Save it to keep them.",
+    "description": "Info banner shown when the current custom trace view has unsaved changes"
   },
   "3v2Y8K": {
     "defaultMessage": "AI Gateway",
@@ -2199,6 +2215,10 @@
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
     "description": "Helper text describing how to link prompts when no prompt records are available"
   },
+  "7b9zBN": {
+    "defaultMessage": "Delete the view \"{name}\"? This removes it from the experiment for everyone.",
+    "description": "Confirmation text when deleting a named custom trace view"
+  },
   "7cd+cQ": {
     "defaultMessage": "Trace Archival Retention",
     "description": "Label for displaying the experiment trace archival retention"
@@ -2423,6 +2443,10 @@
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in Contour chart configurator in compare runs chart config modal"
   },
+  "8bUJT4": {
+    "defaultMessage": "More view options",
+    "description": "Accessible label for the custom view overflow menu button"
+  },
   "8bgHT0": {
     "defaultMessage": "Save changes",
     "description": "Review focused view: re-save edited answers on an already-complete trace"
@@ -2490,6 +2514,10 @@
   "8v0vur": {
     "defaultMessage": "Archive after: {retention}",
     "description": "Badge showing the active trace archival retention for the experiment"
+  },
+  "8vtyL/": {
+    "defaultMessage": "Loading saved custom views…",
+    "description": "Loading state shown while the experiment's saved custom views are being fetched"
   },
   "8wnmuq": {
     "defaultMessage": "2. Trace your code",
@@ -2939,6 +2967,10 @@
     "defaultMessage": "my-endpoint",
     "description": "Placeholder for endpoint name input"
   },
+  "Aar6YZ": {
+    "defaultMessage": "Delete view",
+    "description": "Menu item to delete the current custom trace view"
+  },
   "AawxF/": {
     "defaultMessage": "Edit Endpoint Name",
     "description": "Title for edit endpoint name modal"
@@ -3362,6 +3394,10 @@
   "CBnbqy": {
     "defaultMessage": "Next",
     "description": "Evaluation review > assessments > next button"
+  },
+  "CD9scX": {
+    "defaultMessage": "This view has no content yet. Edit it with the assistant.",
+    "description": "Placeholder shown for a custom view that has no rendered content yet"
   },
   "CDBd4J": {
     "defaultMessage": "Unified API",
@@ -4143,6 +4179,10 @@
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
   },
+  "Fq0bjr": {
+    "defaultMessage": "No custom views",
+    "description": "Empty state title shown to read-only users when an experiment has no custom views"
+  },
   "Fs6pF+": {
     "defaultMessage": "Create Role",
     "description": "Button to create a new role"
@@ -4427,6 +4467,10 @@
     "defaultMessage": "Status",
     "description": "Label for the status section"
   },
+  "HNwz8s": {
+    "defaultMessage": "There are no saved custom views for this experiment.",
+    "description": "Empty state description shown to read-only users when an experiment has no custom views"
+  },
   "HQXWk2": {
     "defaultMessage": "Select the LLM-as-a-judge scorers to run on the selected traces.",
     "description": "Description for the judge selection section in the run evaluation modal"
@@ -4526,6 +4570,10 @@
   "Hg5XD1": {
     "defaultMessage": "No links found",
     "description": "Empty state for the links tab in the model trace explorer. Links connect spans across different traces."
+  },
+  "Hj7ob9": {
+    "defaultMessage": "Rebuild this invalid view with the assistant and save it to enable renaming.",
+    "description": "Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable"
   },
   "Hk0RSH": {
     "defaultMessage": "Y-axis:",
@@ -4743,6 +4791,10 @@
     "defaultMessage": "images",
     "description": "Experiment tracking > runs charts > charts > image grid multiple key > table header text"
   },
+  "IfYb9b": {
+    "defaultMessage": "Rename view",
+    "description": "Menu item to rename the current custom trace view"
+  },
   "IfcpiM": {
     "defaultMessage": "Step",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for the step number that the metrics were logged."
@@ -4934,6 +4986,10 @@
   "JW4EB/": {
     "defaultMessage": "On exceeded",
     "description": "Budget on exceeded label"
+  },
+  "JWoyvm": {
+    "defaultMessage": "Run details",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Run details section"
   },
   "JWxMHS": {
     "defaultMessage": "Created",
@@ -5271,6 +5327,10 @@
     "defaultMessage": "Trace status: OK, ERROR, or IN_PROGRESS",
     "description": "Tooltip description for the State column in the traces table"
   },
+  "KzzvUA": {
+    "defaultMessage": "(Draft)",
+    "description": "Marker shown next to a custom trace view name when it has unsaved changes"
+  },
   "L/4iQO": {
     "defaultMessage": "Delete",
     "description": "Label for the delete experiments action on the experiments list page"
@@ -5543,6 +5603,10 @@
     "defaultMessage": "Schema",
     "description": "Accessible label for the playground response_format JSON schema editor"
   },
+  "MGjmVz": {
+    "defaultMessage": "Select a custom view",
+    "description": "Empty-state title prompting the user to pick a saved custom view"
+  },
   "MHWark": {
     "defaultMessage": "Year",
     "description": "Time unit: year"
@@ -5775,6 +5839,10 @@
     "defaultMessage": "Create dataset",
     "description": "Create evaluation dataset button"
   },
+  "N7KBFa": {
+    "defaultMessage": "Create view",
+    "description": "Menu item to create a new custom trace view"
+  },
   "N8/kmr": {
     "defaultMessage": "Invalid JSON",
     "description": "Inline error shown under a dataset record JSON editor when the contents do not parse as a JSON object"
@@ -5839,6 +5907,10 @@
     "defaultMessage": "Click to expand",
     "description": "Tooltip for expandable session cell"
   },
+  "NRjlue": {
+    "defaultMessage": "Save",
+    "description": "Button label to save the current custom trace view"
+  },
   "NU5iHM": {
     "defaultMessage": "Value",
     "description": "Label for the value column in the logged model details metrics table"
@@ -5870,6 +5942,10 @@
   "NW7qsV": {
     "defaultMessage": "Window End",
     "description": "Budget window end date column header"
+  },
+  "NWXZgq": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button label on the custom view naming modal"
   },
   "NWbmIK": {
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
@@ -6006,6 +6082,10 @@
   "O4KXrW": {
     "defaultMessage": "Enter the retention",
     "description": "Placeholder for trace archival retention amount input"
+  },
+  "O75jRh": {
+    "defaultMessage": "This view's definition couldn't be read and can't be displayed. Edit it with the assistant to rebuild it.",
+    "description": "Placeholder shown when a custom view has an invalid or unreadable definition and cannot be rendered"
   },
   "O92ET5": {
     "defaultMessage": "Repository:",
@@ -6375,6 +6455,10 @@
     "defaultMessage": "Role",
     "description": "Roles table column header for the role name"
   },
+  "PiBPUm": {
+    "defaultMessage": "\"{name}\" was deleted while the assistant was working, so it was not updated.",
+    "description": "Error shown when the assistant finishes building a custom view that the user deleted while the request was running"
+  },
   "PlP56F": {
     "defaultMessage": "Enter value",
     "description": "Usage overview > filter row > value input placeholder"
@@ -6722,6 +6806,10 @@
   "RDg+Pl": {
     "defaultMessage": "Time",
     "description": "Label for the time select dropdown for experiment runs view"
+  },
+  "REOeCT": {
+    "defaultMessage": "Select a custom view",
+    "description": "Placeholder label on the custom view switcher when no view is selected"
   },
   "REfKpP": {
     "defaultMessage": "Question for reviewer",
@@ -7174,6 +7262,10 @@
   "TCkOxn": {
     "defaultMessage": "Positive label",
     "description": "Pass/Fail positive label input"
+  },
+  "TCq8db": {
+    "defaultMessage": "Assistant: {error}",
+    "description": "Inline error prefix shown when the assistant fails to apply a custom view spec"
   },
   "TFWXO/": {
     "defaultMessage": "Hide raw server.json",
@@ -7907,6 +7999,10 @@
     "defaultMessage": "Cost: {input} in / {output} out",
     "description": "Model cost per token"
   },
+  "WFT25v": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button label on the delete-custom-view modal"
+  },
   "WGN2f3": {
     "defaultMessage": "Register model",
     "description": "Run page > Header > Register model dropdown > Button label when some models are not registered"
@@ -7994,6 +8090,10 @@
   "WfY+Gj": {
     "defaultMessage": "Delete prompt version",
     "description": "A header for the delete prompt version modal"
+  },
+  "Wg/fjN": {
+    "defaultMessage": "Build with Assistant",
+    "description": "Button label to start building the custom trace view with the MLflow Assistant"
   },
   "Wh+aKq": {
     "defaultMessage": "Details & Timeline",
@@ -8450,6 +8550,10 @@
   "YRxatk": {
     "defaultMessage": "Create dataset",
     "description": "Primary button text for creating a new evaluation dataset on the V2 list page"
+  },
+  "YUC+Y4": {
+    "defaultMessage": "Save",
+    "description": "Confirm button label on the rename-custom-view modal"
   },
   "YV6xFB": {
     "defaultMessage": "Start:",
@@ -9431,6 +9535,10 @@
     "defaultMessage": "Something went wrong",
     "description": "Generic title used when a dataset action surfaces an unexpected error"
   },
+  "cVnOIo": {
+    "defaultMessage": "Save",
+    "description": "Confirm button label on the name-custom-view modal"
+  },
   "cWTq78": {
     "defaultMessage": "Transport Type:",
     "description": "MCP registry endpoint modal transport label"
@@ -9710,6 +9818,10 @@
   "dmN/nA": {
     "defaultMessage": "Name",
     "description": "Queue settings: name field label"
+  },
+  "dnoeCa": {
+    "defaultMessage": "Delete view",
+    "description": "Title of the delete-custom-view confirmation modal"
   },
   "dp7Jva": {
     "defaultMessage": "Cancel",
@@ -10011,6 +10123,10 @@
     "defaultMessage": "Manager",
     "description": "Tag content marking a workspace-admin role (multi-tenant)"
   },
+  "esi0Sa": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button label on the rename-custom-view modal"
+  },
   "et6nRo": {
     "defaultMessage": "No access endpoint available for the latest version",
     "description": "Tooltip for disabled access endpoints icon on MCP server card"
@@ -10306,6 +10422,10 @@
   "g3CQwd": {
     "defaultMessage": "In order to register model in Unity Catalog, copy and run the following code in the notebook:",
     "description": "Instruction to register model in Unity Catalog on the logged model details page"
+  },
+  "g4Gj7e": {
+    "defaultMessage": "Enter a name for this custom view",
+    "description": "Placeholder text in the custom view name input"
   },
   "g4HK6b": {
     "defaultMessage": "Failed to load review queues.",
@@ -11047,6 +11167,14 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
   },
+  "iaTF+E": {
+    "defaultMessage": "Building this view…",
+    "description": "Loading message shown while the assistant builds the custom trace view"
+  },
+  "iaXe6G": {
+    "defaultMessage": "Rename custom view",
+    "description": "Title of the modal for renaming a custom trace view"
+  },
   "iaomsd": {
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
@@ -11495,6 +11623,10 @@
     "defaultMessage": "Rationale",
     "description": "Label for the rationale section of an assessment hover card"
   },
+  "kLnuhe": {
+    "defaultMessage": "Custom views are built by the assistant, which isn't available here.",
+    "description": "Empty state description shown when the custom view assistant is not available"
+  },
   "kMCvRi": {
     "defaultMessage": "Evaluate traces",
     "description": "Label for the primary button that opens the run-evaluation modal"
@@ -11862,6 +11994,10 @@
   "m9e01X": {
     "defaultMessage": "No tags to display.",
     "description": "Text shown when there are no tags to display"
+  },
+  "m9iKMJ": {
+    "defaultMessage": "Choose a saved view from the menu to render it for this trace.",
+    "description": "Empty-state description prompting the user to pick a saved custom view"
   },
   "mBgoBC": {
     "defaultMessage": "Frequency penalty",
@@ -12410,6 +12546,10 @@
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
+  },
+  "oJvsPU": {
+    "defaultMessage": "Name this custom view",
+    "description": "Title of the modal for naming a custom trace view on its first save"
   },
   "oKNOju": {
     "defaultMessage": "Conversational tool call efficiency",
@@ -13259,6 +13399,10 @@
     "defaultMessage": "You are exceeding a limit of {limit} aliases assigned to the single model version",
     "description": "Alias editor > Warning about exceeding aliases limit"
   },
+  "s04351": {
+    "defaultMessage": "Custom view",
+    "description": "Label for the custom view tab in the model trace explorer"
+  },
   "s29iQg": {
     "defaultMessage": "Session",
     "description": "Usage overview > metrics filter > session column option label"
@@ -13378,6 +13522,10 @@
   "sOQcFW": {
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
+  },
+  "sPjG+W": {
+    "defaultMessage": "Assistant unavailable",
+    "description": "Empty state title shown when the custom view assistant connector is not available"
   },
   "sS3GBl": {
     "defaultMessage": "Trace LLM applications for debugging and monitoring.",
@@ -13575,6 +13723,10 @@
     "defaultMessage": "Issue ID",
     "description": "Label for issue ID in popover"
   },
+  "tGfvEG": {
+    "defaultMessage": "Example: Show me all the spans in this trace with their information",
+    "description": "Placeholder text for the custom trace view prompt input"
+  },
   "tGqJL4": {
     "defaultMessage": "Output",
     "description": "Label for the output tokens in the tooltip for the tokens cell."
@@ -13642,6 +13794,10 @@
   "tatySQ": {
     "defaultMessage": "my-api-key",
     "description": "Placeholder for API key name input"
+  },
+  "tcQ02J": {
+    "defaultMessage": "Delete",
+    "description": "Confirm button label on the delete-custom-view modal"
   },
   "tiQptW": {
     "defaultMessage": "Learn more",
@@ -14019,6 +14175,10 @@
     "defaultMessage": "Enter API key or select saved key",
     "description": "Placeholder for API key combobox input"
   },
+  "vfJdto": {
+    "defaultMessage": "This experiment has reached the limit of {maxViews} custom views. Delete a view before creating a new one.",
+    "description": "Explains that no more custom trace views can be created because the per-experiment limit is reached"
+  },
   "vgfy8y": {
     "defaultMessage": "Add assessment",
     "description": "Evaluation review > assessments > add assessment button label"
@@ -14058,6 +14218,10 @@
   "vqWexj": {
     "defaultMessage": "Back to experiment list",
     "description": "Tooltip for experiments button"
+  },
+  "vsxMvp": {
+    "defaultMessage": "Delete this view? This removes it from the experiment for everyone.",
+    "description": "Confirmation text when deleting an unnamed custom trace view"
   },
   "vtQvcd": {
     "defaultMessage": "Save version",
@@ -14283,6 +14447,10 @@
     "defaultMessage": "Session",
     "description": "Column label for session"
   },
+  "wp+LYU": {
+    "defaultMessage": "Custom view name",
+    "description": "Accessible label for the custom view name input"
+  },
   "wq+WyH": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the prompt content in the prompt creation modal"
@@ -14502,6 +14670,10 @@
   "xZALB+": {
     "defaultMessage": "Cancel",
     "description": "Manage review questions: cancel delete"
+  },
+  "xaF4g8": {
+    "defaultMessage": "Edit with Assistant",
+    "description": "Button label to edit the current custom trace view with the MLflow Assistant"
   },
   "xbfKJS": {
     "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
@@ -14803,6 +14975,10 @@
     "defaultMessage": "— model's natural-language response.",
     "description": "Description of the Text mode in the response_format info popover"
   },
+  "z19xIj": {
+    "defaultMessage": "Could not render this view for the current trace: {error}",
+    "description": "Inline error shown when a saved custom view fails to render for the open trace"
+  },
   "z2Gyuw": {
     "defaultMessage": "MLflow Model",
     "description": "Heading text for mlflow model artifact"
@@ -14834,6 +15010,10 @@
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
+  },
+  "z6r4hC": {
+    "defaultMessage": "Enter a name for this custom view",
+    "description": "Placeholder text in the custom view rename input"
   },
   "z8srAp": {
     "defaultMessage": "Trace archival retention",
@@ -14922,6 +15102,10 @@
   "zPxoze": {
     "defaultMessage": "Remove tool {number}",
     "description": "Aria label for the trash button that removes a single tool from the playground request"
+  },
+  "zR3xau": {
+    "defaultMessage": "Custom view name",
+    "description": "Accessible label for the custom view rename input"
   },
   "zRKlAL": {
     "defaultMessage": "Metadata",
@@ -15014,6 +15198,10 @@
   "zp4MBw": {
     "defaultMessage": "Token count",
     "description": "Label for the token count section"
+  },
+  "zqCgyk": {
+    "defaultMessage": "Build a custom trace view",
+    "description": "Heading for the custom view authoring empty state in the model trace explorer"
   },
   "zt66ty": {
     "defaultMessage": "About sampling parameters",

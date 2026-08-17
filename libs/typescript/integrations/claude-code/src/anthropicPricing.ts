@@ -30,6 +30,8 @@ export const ANTHROPIC_MODEL_RATES: Readonly<Record<string, AnthropicModelRate>>
   'claude-fable-5': { input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5 },
   'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
   'claude-haiku-4-5-20251001': { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
+  'claude-mythos-5': { input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5 },
+  'claude-mythos-preview': { input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5 },
   'claude-opus-4-1': { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 },
   'claude-opus-4-1-20250805': { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 },
   'claude-opus-4-20250514': { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 },

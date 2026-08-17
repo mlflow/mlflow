@@ -5,6 +5,11 @@ on:
     # Run every weekday (Mon-Fri) at 00:00 and 12:00 UTC
     - cron: "0 0,12 * * 1-5"
   workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/update-model-catalog.yml
+      - dev/update_model_catalog.py
+      - libs/typescript/integrations/claude-code/scripts/sync-anthropic-pricing.mjs
 
 defaults:
   run:
@@ -12,9 +17,75 @@ defaults:
 
 permissions: {}
 
+env:
+  CATALOG_PATHS: mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts
+
 jobs:
-  update-model-catalog:
+  sync:
     if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Pin both jobs to the same commit so the patch applies cleanly in `publish`
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Fetch and transform model catalog
+        run: uv run python dev/update_model_catalog.py
+
+      - name: Regenerate claude-code pricing snapshot
+        working-directory: libs/typescript
+        run: |
+          # --ignore-scripts skips the root `prepare` script, which builds every
+          # workspace package; sync:pricing only needs node and prettier.
+          npm ci --ignore-scripts
+          npm run -C integrations/claude-code sync:pricing
+
+      - name: Run pre-commit on generated files
+        run: |
+          uv sync --locked --only-group lint
+          uv run --no-sync pre-commit install --install-hooks
+          uv run --no-sync pre-commit run install-bin -a -v
+          # pre-commit exits 1 when it auto-fixes files (e.g. prettier reformats JSON).
+          # That's expected — the fixes are picked up by the subsequent git diff.
+          uv run --no-sync pre-commit run --files mlflow/utils/model_catalog/*.json || true
+
+      - name: Check for changes and create patch
+        id: diff
+        run: |
+          # Intent-to-add so new files (e.g. a new provider catalog) show up in the diff
+          git add -N -- $CATALOG_PATHS
+          git --no-pager diff --stat -- $CATALOG_PATHS
+          if git diff --quiet -- $CATALOG_PATHS; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff -- $CATALOG_PATHS > model-catalog.patch
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          name: model-catalog-patch
+          path: model-catalog.patch
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: sync
+    if: github.event_name != 'pull_request' && needs.sync.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -31,38 +102,20 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: ./.github/actions/setup-python
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pin-micro-version: false
+          name: model-catalog-patch
 
-      - uses: ./.github/actions/setup-node
-
-      - name: Fetch and transform model catalog
-        run: uv run python dev/update_model_catalog.py
-
-      - name: Run pre-commit on generated files
+      - name: Apply patch
         run: |
-          uv sync --locked --only-group lint
-          uv run --no-sync pre-commit install --install-hooks
-          uv run --no-sync pre-commit run install-bin -a -v
-          # pre-commit exits 1 when it auto-fixes files (e.g. prettier reformats JSON).
-          # That's expected — the fixes are picked up by the subsequent git diff.
-          uv run --no-sync pre-commit run --files mlflow/utils/model_catalog/*.json || true
-
-      - name: Check for changes
-        id: diff
-        run: |
-          if git diff --quiet mlflow/utils/model_catalog/; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
+          git apply model-catalog.patch
+          rm model-catalog.patch
 
       - name: Update model-catalog/latest tag
-        if: steps.diff.outputs.changed == 'true'
         run: |
           git fetch origin master --depth=1
           git tag -f model-catalog/latest origin/master
@@ -70,7 +123,6 @@ jobs:
 
       - name: Create or update pull request
         id: pr
-        if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
@@ -78,7 +130,7 @@ jobs:
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
           branch="update-model-catalog"
           git checkout -b "$branch"
-          git add mlflow/utils/model_catalog/
+          git add $CATALOG_PATHS
           git commit -m "Update model catalog from upstream sources"
           git push -f -u origin "$branch"
           existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
@@ -107,7 +159,6 @@ jobs:
           exit 1
 
       - name: Publish to GitHub Releases
-        if: steps.diff.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: bash dev/publish_model_catalog.sh

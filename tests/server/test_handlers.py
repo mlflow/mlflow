@@ -136,6 +136,7 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetExperimentTag,
     SetTraceTag,
     SetTraceTagV3,
     TraceLocation,
@@ -228,6 +229,7 @@ from mlflow.server.handlers import (
     _search_traces_v3,
     _send_artifact,
     _set_dataset_tags_handler,
+    _set_experiment_tag,
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
@@ -271,7 +273,7 @@ from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils import build_otel_context
-from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIEW_TAG_PREFIX
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.server_info import (
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
@@ -280,7 +282,7 @@ from mlflow.utils.server_info import (
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
 )
-from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
+from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE, MAX_CUSTOM_VIEWS_PER_EXPERIMENT
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -666,6 +668,103 @@ def test_can_block_post_request_with_missing_content_type():
     request.get_json.return_value = {"name": "hello"}
     with pytest.raises(MlflowException, match=r"Bad Request. Content-Type"):
         _get_request_message(CreateExperiment(), flask_request=request)
+
+
+def _custom_view_tags(count, value="{}"):
+    return {f"{MLFLOW_CUSTOM_VIEW_TAG_PREFIX}.v1.view-{index}": value for index in range(count)}
+
+
+@pytest.mark.parametrize(
+    ("count", "value", "expected_status"),
+    [
+        (MAX_CUSTOM_VIEWS_PER_EXPERIMENT, "{}", 200),
+        (MAX_CUSTOM_VIEWS_PER_EXPERIMENT + 1, "{}", 400),
+        (MAX_CUSTOM_VIEWS_PER_EXPERIMENT + 1, "", 400),
+    ],
+)
+def test_create_experiment_enforces_custom_view_limit(
+    mock_get_request_message, mock_tracking_store, count, value, expected_status
+):
+    request_message = CreateExperiment(name="custom-view-limit")
+    for key, tag_value in _custom_view_tags(count, value).items():
+        request_message.tags.add(key=key, value=tag_value)
+    mock_get_request_message.return_value = request_message
+    mock_tracking_store.create_experiment.return_value = "exp-1"
+
+    response = _create_experiment()
+
+    assert response.status_code == expected_status
+    if expected_status == 400:
+        body = json.loads(response.get_data())
+        assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert (
+            f"maximum number of custom views per experiment is {MAX_CUSTOM_VIEWS_PER_EXPERIMENT}"
+            in body["message"]
+        )
+        mock_tracking_store.create_experiment.assert_not_called()
+    else:
+        mock_tracking_store.create_experiment.assert_called_once()
+
+
+def test_set_experiment_tag_rejects_new_custom_view_at_limit(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = SetExperimentTag(
+        experiment_id="exp-1",
+        key=f"{MLFLOW_CUSTOM_VIEW_TAG_PREFIX}.v1.new-view",
+        value="{}",
+    )
+    experiment = mock.MagicMock()
+    experiment.experiment_id = "exp-1"
+    experiment.tags = _custom_view_tags(MAX_CUSTOM_VIEWS_PER_EXPERIMENT)
+    mock_tracking_store.get_experiment.return_value = experiment
+
+    response = _set_experiment_tag()
+
+    assert response.status_code == 400
+    body = json.loads(response.get_data())
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "for experiment exp-1" in body["message"]
+    mock_tracking_store.set_experiment_tag.assert_not_called()
+
+
+def test_set_experiment_tag_allows_overwriting_custom_view_at_limit(
+    mock_get_request_message, mock_tracking_store
+):
+    tags = _custom_view_tags(MAX_CUSTOM_VIEWS_PER_EXPERIMENT)
+    existing_key = next(iter(tags))
+    mock_get_request_message.return_value = SetExperimentTag(
+        experiment_id="exp-1", key=existing_key, value='{"updated":true}'
+    )
+    experiment = mock.MagicMock()
+    experiment.experiment_id = "exp-1"
+    experiment.tags = tags
+    mock_tracking_store.get_experiment.return_value = experiment
+
+    response = _set_experiment_tag()
+
+    assert response.status_code == 200
+    mock_tracking_store.set_experiment_tag.assert_called_once()
+
+
+def test_set_experiment_tag_counts_empty_custom_view_tags(
+    mock_get_request_message, mock_tracking_store
+):
+    tags = _custom_view_tags(MAX_CUSTOM_VIEWS_PER_EXPERIMENT, value="")
+    mock_get_request_message.return_value = SetExperimentTag(
+        experiment_id="exp-1",
+        key=f"{MLFLOW_CUSTOM_VIEW_TAG_PREFIX}.v1.new-view",
+        value="{}",
+    )
+    experiment = mock.MagicMock()
+    experiment.experiment_id = "exp-1"
+    experiment.tags = tags
+    mock_tracking_store.get_experiment.return_value = experiment
+
+    response = _set_experiment_tag()
+
+    assert response.status_code == 400
+    mock_tracking_store.set_experiment_tag.assert_not_called()
 
 
 def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_store):

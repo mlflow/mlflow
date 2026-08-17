@@ -20,6 +20,14 @@ def test_from_exception_never_yields_empty_error(exc, expected):
     assert event.data["error"] == expected
 
 
+def test_from_error_includes_session_id_only_when_provided():
+    assert Event.from_error("boom").data == {"error": "boom"}
+    assert Event.from_error("boom", session_id="provider-session").data == {
+        "error": "boom",
+        "session_id": "provider-session",
+    }
+
+
 def test_from_client_tool_call_carries_request_id_tool_name_and_input():
     event = Event.from_client_tool_call(
         "req-1", "render_custom_view", {"title": "Trace Summary", "messages": []}
@@ -43,3 +51,10 @@ def test_client_tool_call_event_serializes_to_a_valid_sse_frame():
         "tool_name": "render_custom_view",
         "tool_input": {"title": "t"},
     }
+
+
+def test_terminal_client_tool_call_carries_continuation():
+    event = Event.from_client_tool_call(
+        "req-1", "render_custom_view", {"title": "t"}, continuation="terminal"
+    )
+    assert event.data["continuation"] == "terminal"
