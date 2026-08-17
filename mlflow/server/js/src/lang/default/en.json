@@ -575,6 +575,10 @@
     "defaultMessage": "This trace is already in this queue, and you don't have permission to remove it.",
     "description": "Add to review queue: queue option locked because the trace is a member the reviewer cannot remove"
   },
+  "0Ox6UC": {
+    "defaultMessage": "Show run parameters",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Show run params toggle"
+  },
   "0P5Ooz": {
     "defaultMessage": "+{count} more",
     "description": "Suffix on the dataset record tags column indicating how many additional tags are hidden in the preview"
@@ -4982,6 +4986,10 @@
   "JW4EB/": {
     "defaultMessage": "On exceeded",
     "description": "Budget on exceeded label"
+  },
+  "JWoyvm": {
+    "defaultMessage": "Run details",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Run details section"
   },
   "JWxMHS": {
     "defaultMessage": "Created",
@@ -14166,6 +14174,10 @@
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",
     "description": "Placeholder for API key combobox input"
+  },
+  "vfJdto": {
+    "defaultMessage": "This experiment has reached the limit of {maxViews} custom views. Delete a view before creating a new one.",
+    "description": "Explains that no more custom trace views can be created because the per-experiment limit is reached"
   },
   "vgfy8y": {
     "defaultMessage": "Add assessment",
