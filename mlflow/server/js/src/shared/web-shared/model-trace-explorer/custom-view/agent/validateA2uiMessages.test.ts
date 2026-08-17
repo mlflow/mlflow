@@ -130,7 +130,7 @@ const feedbackFormTemplate = (components: Record<string, unknown>[]) => [
   },
 ];
 
-const radio = (id: string, extra: Record<string, unknown> = {}) => ({
+const radioGroup = (id: string, extra: Record<string, unknown> = {}) => ({
   id,
   component: 'RadioGroup',
   name: 'Accuracy',
@@ -143,7 +143,7 @@ describe('validateTemplate feedback form pairing', () => {
   it('accepts one form with matching controls and submit', () => {
     const result = validateTemplate(
       feedbackFormTemplate([
-        radio('rating'),
+        radioGroup('rating'),
         { id: 'rationale', component: 'FeedbackInputText', name: 'Accuracy', formId: 'feedback' },
         { id: 'submit', component: 'FeedbackSubmit', formId: 'feedback' },
       ]),
@@ -154,9 +154,9 @@ describe('validateTemplate feedback form pairing', () => {
   it('accepts independent forms and a form spanning multiple spans', () => {
     const result = validateTemplate(
       feedbackFormTemplate([
-        radio('trace-rating', { formId: 'trace' }),
-        radio('span-one', { formId: 'spans', spanId: { $spanRef: { type: 'TOOL', nth: 0 } } }),
-        radio('span-two', { formId: 'spans', spanId: { $spanRef: { type: 'TOOL', nth: 1 } } }),
+        radioGroup('trace-rating', { formId: 'trace' }),
+        radioGroup('span-one', { formId: 'spans', spanId: { $spanRef: { type: 'TOOL', nth: 0 } } }),
+        radioGroup('span-two', { formId: 'spans', spanId: { $spanRef: { type: 'TOOL', nth: 1 } } }),
         { id: 'trace-submit', component: 'FeedbackSubmit', formId: 'trace' },
         { id: 'span-submit', component: 'FeedbackSubmit', formId: 'spans' },
       ]),
@@ -166,7 +166,7 @@ describe('validateTemplate feedback form pairing', () => {
 
   it.each([
     { id: 'thumbs', component: 'FeedbackThumbsUpDownButtons', spanId: 'span-1' },
-    radio('rating', { spanId: 'span-1' }),
+    radioGroup('rating', { spanId: 'span-1' }),
     {
       id: 'note',
       component: 'FeedbackInputText',
@@ -184,7 +184,7 @@ describe('validateTemplate feedback form pairing', () => {
     const toolSpan = { $spanRef: { type: 'TOOL' } };
     const result = validateTemplate(
       feedbackFormTemplate([
-        radio('rating', { spanId: toolSpan }),
+        radioGroup('rating', { spanId: toolSpan }),
         {
           id: 'rationale',
           component: 'FeedbackInputText',
@@ -207,7 +207,7 @@ describe('validateTemplate feedback form pairing', () => {
   ])('rejects a rationale whose %s differs from its radio', (field, rationaleProps) => {
     const result = validateTemplate(
       feedbackFormTemplate([
-        radio('rating'),
+        radioGroup('rating'),
         { id: 'rationale', component: 'FeedbackInputText', ...rationaleProps },
         { id: 'submit', component: 'FeedbackSubmit', formId: 'feedback' },
         ...(field === 'formId' ? [{ id: 'other-submit', component: 'FeedbackSubmit', formId: 'other' }] : []),
@@ -220,7 +220,7 @@ describe('validateTemplate feedback form pairing', () => {
   });
 
   it.each([
-    ['RadioGroup', radio('rating', { formId: undefined })],
+    ['RadioGroup', radioGroup('rating', { formId: undefined })],
     ['FeedbackInputText', { id: 'note', component: 'FeedbackInputText', name: 'Notes' }],
     ['FeedbackSubmit', { id: 'submit', component: 'FeedbackSubmit' }],
   ])('rejects %s without a static formId', (_name, component) => {
@@ -231,7 +231,7 @@ describe('validateTemplate feedback form pairing', () => {
   it('rejects a submit whose form has no control', () => {
     const result = validateTemplate(
       feedbackFormTemplate([
-        radio('rating', { formId: 'ratings' }),
+        radioGroup('rating', { formId: 'ratings' }),
         { id: 'submit', component: 'FeedbackSubmit', formId: 'typo' },
       ]),
     );
@@ -244,8 +244,8 @@ describe('validateTemplate feedback form pairing', () => {
   it('rejects a staged control whose form has no submit', () => {
     const result = validateTemplate(
       feedbackFormTemplate([
-        radio('rating', { formId: 'ratings' }),
-        radio('orphan', { formId: 'orphan' }),
+        radioGroup('rating', { formId: 'ratings' }),
+        radioGroup('orphan', { formId: 'orphan' }),
         { id: 'submit', component: 'FeedbackSubmit', formId: 'ratings' },
       ]),
     );
