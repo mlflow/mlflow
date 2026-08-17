@@ -62,7 +62,7 @@ Request Structure
 | artifact_location | ``STRING``                             | Location where all artifacts for the experiment are stored. If not provided, the remote server will select an appropriate default.      |
 +-------------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
 | tags              | An array of :ref:`mlflowexperimenttag` | A collection of tags to set on the experiment. Maximum tag size and number of tags per request depends on the storage backend. All      |
-|                   |                                        | storage backends are guaranteed to support tag keys up to 250 bytes in size and tag values up to 5000 bytes in size. All storage        |
+|                   |                                        | storage backends are guaranteed to support tag keys up to 250 bytes in size and tag values up to 20000 bytes in size. All storage       |
 |                   |                                        | backends are also guaranteed to support up to 20 tags per request.                                                                      |
 +-------------------+----------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------+
 
@@ -419,8 +419,8 @@ Request Structure
 +---------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | key           | ``STRING`` | Name of the tag. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 250 bytes in size. This field is required.    |
 +---------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| value         | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend. All storage backends are guaranteed to support key values up to 5000 bytes in size. This |
-|               |            | field is required.                                                                                                                                                      |
+| value         | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend. All storage backends are guaranteed to support tag values up to 20000 bytes in size.     |
+|               |            | This field is required.                                                                                                                                                 |
 +---------------+------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ===========================

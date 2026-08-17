@@ -111,7 +111,7 @@ def wls_model():
 def recursivels_model():
     # Recursive Least Squares
     dta = sm.datasets.copper.load_pandas().data
-    dta.index = pd.date_range("1951-01-01", "1975-01-01", freq="AS")
+    dta.index = pd.date_range("1951-01-01", "1975-01-01", freq=pd.offsets.YearBegin())
     endog = dta.WORLDCONSUMPTION
 
     # To the regressors in the dataset, we add a column of ones for an intercept
@@ -227,7 +227,7 @@ def arma_model():
     maparams = np.array([1, 0.65, 0.35])
     nobs = 250
     y = arma_generate_sample(arparams, maparams, nobs)
-    dates = pd.date_range("1980-1-1", freq="M", periods=nobs)
+    dates = pd.date_range("1980-1-1", freq=pd.offsets.MonthEnd(), periods=nobs)
     y = pd.Series(y, index=dates)
 
     arima = ARIMA(y, order=(2, 0, 2), trend="n")

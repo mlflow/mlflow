@@ -1,4 +1,5 @@
 import logging
+import os
 import threading
 from collections import defaultdict
 from contextlib import nullcontext
@@ -12,7 +13,7 @@ from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
-from mlflow.exceptions import RestException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.display import get_display_handler
@@ -28,10 +29,49 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
-from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 _logger = logging.getLogger(__name__)
+
+# HTTP statuses that mean the caller's credential was rejected.
+_AUTH_FAILURE_STATUS_CODES = (401, 403)
+
+
+def _is_auth_failure(exc: Exception) -> bool:
+    """Return True if *exc* indicates that the caller's credential was rejected.
+
+    A dropped trace from an auth failure is worth an ERROR rather than a WARNING
+    because the fix is a re-auth rather than a transient retry.  Detection relies
+    exclusively on the structured HTTP status code (401 or 403) exposed by
+    ``MlflowException.get_http_status_code()``, so a message such as
+    ``RESOURCE_DOES_NOT_EXIST: No Experiment with id=403 exists`` is never
+    misreported as an authentication problem.
+    """
+    return (
+        isinstance(exc, MlflowException)
+        and exc.get_http_status_code() in _AUTH_FAILURE_STATUS_CODES
+    )
+
+
+def _get_profile_from_uri(tracking_uri: str | None) -> str:
+    """Resolve the Databricks CLI profile that a tracking URI selects.
+
+    ``databricks://<profile>`` names the profile directly. A bare ``databricks``
+    URI selects the profile named by ``DATABRICKS_CONFIG_PROFILE``, or ``DEFAULT``.
+    Naming this in an export-failure message tells the user which credential was
+    attempted so they can spot a wrong-profile misconfiguration.
+
+    ``get_db_info_from_uri`` raises ``MlflowException`` for malformed URIs (e.g.
+    a single-slash ``databricks:/host``). This function catches that so the caller
+    — which already lives inside an exception handler — can never propagate a
+    secondary exception, per the best-effort tracing contract from issue #24689.
+    """
+    try:
+        profile, _ = get_db_info_from_uri(tracking_uri)
+        return profile or os.environ.get("DATABRICKS_CONFIG_PROFILE") or "DEFAULT"
+    except Exception:
+        return os.environ.get("DATABRICKS_CONFIG_PROFILE") or "DEFAULT"
 
 
 class MlflowV3SpanExporter(SpanExporter):
@@ -80,7 +120,6 @@ class MlflowV3SpanExporter(SpanExporter):
 
         Args:
             spans: Sequence of ReadableSpan objects to export.
-            manager: The trace manager instance.
         """
         if is_databricks_uri(self._client.tracking_uri):
             _logger.debug(
@@ -288,10 +327,30 @@ class MlflowV3SpanExporter(SpanExporter):
                 else:
                     _logger.warning("No trace or trace info provided, unable to export")
             except Exception as e:
-                _logger.warning(
-                    f"Failed to send trace to MLflow backend: {e}",
-                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                # Name the tracking URI and resolved profile so the user can see which
+                # credential was attempted, which surfaces a wrong-profile misconfiguration.
+                creds = (
+                    f" (tracking URI: {self._client.tracking_uri!r}, "
+                    f"profile: {_get_profile_from_uri(self._client.tracking_uri)!r})"
+                    if is_databricks_uri(self._client.tracking_uri)
+                    else ""
                 )
+                if _is_auth_failure(e):
+                    # An expired or missing credential silently drops the trace: the app
+                    # keeps running, so without a loud signal the user never learns the
+                    # trace was lost. Surface it at ERROR with a re-auth hint.
+                    _logger.error(
+                        "Failed to send trace to MLflow backend because of an "
+                        f"authentication error, so the trace was NOT saved: {e}{creds}. "
+                        "Refresh your credentials (for example, run `databricks auth login`) "
+                        "and retry.",
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
+                else:
+                    _logger.warning(
+                        f"Failed to send trace to MLflow backend: {e}{creds}",
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
 
             # Upload attachments in a separate try-except so trace data still lands
             # even if attachment upload fails. Runs regardless of span storage mode —

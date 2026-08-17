@@ -149,6 +149,31 @@ def test_message(client):
     assert response.json()["session_id"] == session_id
 
 
+def test_message_clears_omitted_turn_scoped_context(client):
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={
+            "message": "Build a view",
+            "context": {
+                "trace_id": "tr-123",
+                "customTraceView": {"guide": "authoring guide"},
+            },
+        },
+    )
+    session_id = response.json()["session_id"]
+
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "What is 2+2?", "session_id": session_id},
+    )
+
+    assert response.status_code == 200
+    session = SessionManager.load(session_id)
+    assert session is not None
+    assert "customTraceView" not in session.context
+    assert session.context["trace_id"] == "tr-123"
+
+
 def test_message_stream_url_includes_static_prefix(client, monkeypatch):
     monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
     response = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hello"})
@@ -310,7 +335,7 @@ def test_get_providers_auto_resolves_available_default(client):
             "requires_api_key": False,
             "has_api_key": False,
             "allows_remote_access": False,
-            "supports_client_tools": False,
+            "client_tool_delivery": "unsupported",
             "model_options": [],
         }
     ]
@@ -320,12 +345,28 @@ def test_get_providers_auto_resolves_available_default(client):
         "auto_selected": True,
         "requires_api_key": False,
         "has_api_key": False,
-        "supports_client_tools": False,
+        "client_tool_delivery": "unsupported",
         "model_provider": None,
         "model_options": [],
         "provider_model": None,
     }
     assert data["gateway_vendor_options"]["openai"] == ["gpt-5.5"]
+
+
+def test_get_providers_reports_native_client_tool_delivery_for_ollama():
+    app = FastAPI()
+    app.include_router(assistant_router)
+    ollama_provider = OllamaProvider()
+
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[ollama_provider]),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/providers")
+
+    assert response.status_code == 200
+    provider = response.json()["providers"][0]
+    assert provider["client_tool_delivery"] == "tool"
 
 
 def test_get_providers_resolves_selected_managed_gateway_endpoint():
@@ -357,7 +398,7 @@ def test_get_providers_resolves_selected_managed_gateway_endpoint():
         "auto_selected": False,
         "requires_api_key": False,
         "has_api_key": True,
-        "supports_client_tools": True,
+        "client_tool_delivery": "tool",
         "model_provider": "openai",
         "model_options": ["gpt-5.5"],
         "provider_model": "gpt-5.5",
@@ -903,6 +944,59 @@ class _CaptureProvider(MockProvider):
     ):
         self.captured = {"prompt": prompt, "tracking_uri": tracking_uri, "context": context or {}}
         yield Event.from_result(result=None, session_id="prov-done")
+
+
+class _ErrorThenCaptureProvider(MockProvider):
+    def __init__(self):
+        self.session_ids: list[str | None] = []
+
+    async def astream(
+        self,
+        prompt,
+        tracking_uri,
+        session_id=None,
+        mlflow_session_id=None,
+        cwd=None,
+        context=None,
+    ):
+        self.session_ids.append(session_id)
+        if len(self.session_ids) == 1:
+            yield Event.from_error("invalid structured output", session_id="prov-error")
+        else:
+            assert session_id is not None
+            yield Event.from_result(result=None, session_id=session_id)
+
+
+@pytest.mark.asyncio
+async def test_stream_preserves_provider_session_id_from_error_for_next_turn():
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="build a view")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
+    provider = _ErrorThenCaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        first = "".join([chunk async for chunk in response.body_iterator])
+
+    assert "event: error" in first
+    session = SessionManager.load(session_id)
+    assert session is not None
+    assert session.provider_session_id == "prov-error"
+
+    session.set_pending_message(role="user", content="repair the view")
+    SessionManager.save(session_id, session)
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([chunk async for chunk in response.body_iterator])
+
+    assert provider.session_ids == [None, "prov-error"]
 
 
 @pytest.mark.asyncio
