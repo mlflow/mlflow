@@ -79,7 +79,7 @@ export const FeedbackSubmit: ReactComponentImplementation = createComponentImple
         }}
       >
         <Button
-          componentId="shared.model-trace-explorer.custom-view.feedback-submit"
+          componentId="shared.model-trace-explorer.custom-view.feedback-submit-button"
           type="primary"
           icon={isSuccess ? <CheckIcon /> : undefined}
           loading={isPending}

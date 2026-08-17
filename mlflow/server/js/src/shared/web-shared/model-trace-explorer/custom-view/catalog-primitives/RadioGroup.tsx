@@ -135,7 +135,7 @@ export const RadioGroup: ReactComponentImplementation = createComponentImplement
         {label && <Typography.Text color="secondary">{label}</Typography.Text>}
         <Radio.Group
           name={groupName}
-          componentId="shared.model-trace-explorer.custom-view.radio-group"
+          componentId="shared.model-trace-explorer.custom-view.feedback-radio-group"
           value={selected}
           onChange={(event) => select(asString(event.target.value))}
         >

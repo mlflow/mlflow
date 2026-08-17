@@ -125,7 +125,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
         ) : (
           <>
             <Button
-              componentId="shared.model-trace-explorer.custom-view.feedback-up"
+              componentId="shared.model-trace-explorer.custom-view.feedback-button-up"
               icon={<ThumbsUpIcon />}
               type={selected === true ? 'primary' : undefined}
               disabled={isLoading}
@@ -137,7 +137,7 @@ export const FeedbackThumbsUpDownButtons: ReactComponentImplementation = createC
               })}
             />
             <Button
-              componentId="shared.model-trace-explorer.custom-view.feedback-down"
+              componentId="shared.model-trace-explorer.custom-view.feedback-button-down"
               icon={<ThumbsDownIcon />}
               type={selected === false ? 'primary' : undefined}
               disabled={isLoading}
