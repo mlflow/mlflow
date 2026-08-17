@@ -321,7 +321,7 @@ class Scorer(BaseModel):
 
     @property
     def is_session_level_scorer(self) -> bool:
-        """Get whether this scorer is a session-level scorer.
+        """Whether this scorer is a session-level scorer.
 
         Defaults to False. Child classes can override this property to return True
         or compute the value dynamically based on their configuration.
@@ -780,7 +780,6 @@ class Scorer(BaseModel):
         """
         Implement the custom scorer's logic here.
 
-
         The scorer will be called for each row in the input evaluation dataset.
 
         Your scorer doesn't need to have all the parameters defined in the base
@@ -915,7 +914,8 @@ class Scorer(BaseModel):
 
 
                 registered_custom = custom_length_check.register(
-                    name="output_length_checker", experiment_id="12345"
+                    name="output_length_checker",
+                    experiment_id="12345",
                 )
         """
         # Get the current tracking store
