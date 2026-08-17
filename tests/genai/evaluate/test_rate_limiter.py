@@ -1,7 +1,7 @@
-import pytest
 from unittest.mock import patch
 
-import mlflow.genai.judges.adapters.rate_limit_retry_adapters  # noqa: F401 — ensure adapters are registered before any @patch
+import mlflow.genai.judges.adapters.rate_limit_retry_adapters  # noqa: F401
+import pytest
 
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
@@ -400,25 +400,31 @@ def _retry_flags_active():
     return is_litellm_rate_limit_retries_disabled() and is_429_retry_disabled()
 
 
-@patch("mlflow.genai.judges.adapters.litellm_adapter._RETRY_ADAPTER_REGISTRY", _BOTH_ADAPTERS_ACTIVE)
 def test_eval_retry_context_sets_and_resets():
     assert not _retry_flags_active()
 
-    with eval_retry_context():
-        assert _retry_flags_active()
+    with patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._RETRY_ADAPTER_REGISTRY",
+        _BOTH_ADAPTERS_ACTIVE,
+    ):
+        with eval_retry_context():
+            assert _retry_flags_active()
 
     assert not _retry_flags_active()
 
 
-@patch("mlflow.genai.judges.adapters.litellm_adapter._RETRY_ADAPTER_REGISTRY", _BOTH_ADAPTERS_ACTIVE)
 def test_eval_retry_context_nests():
     assert not _retry_flags_active()
 
-    with eval_retry_context():
-        assert _retry_flags_active()
+    with patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._RETRY_ADAPTER_REGISTRY",
+        _BOTH_ADAPTERS_ACTIVE,
+    ):
         with eval_retry_context():
             assert _retry_flags_active()
-        assert _retry_flags_active()
+            with eval_retry_context():
+                assert _retry_flags_active()
+            assert _retry_flags_active()
 
     assert not _retry_flags_active()
 

@@ -6,8 +6,6 @@ all adapters are visible in a single place.
 
 from __future__ import annotations
 
-from mlflow.utils.rest_utils import disable_429_retry  # noqa: F401 — re-exported for tests
-
 
 def _is_databricks_tracking_uri() -> bool:
     try:
