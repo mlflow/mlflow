@@ -14,6 +14,7 @@ import asyncio
 import base64
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -28,6 +29,13 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
 from mlflow.entities.span import Span
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.otlp_metrics import (
+    INGESTION_ERRORS,
+    REQUEST_DURATION,
+    REQUEST_PAYLOAD_BYTES,
+    SPANS_INGESTED,
+    SPANS_PER_REQUEST,
+)
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils import dump_span_attribute_value
@@ -44,6 +52,8 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 )
 
 _logger = logging.getLogger(__name__)
+
+_PROTOCOL_LABEL = "otlp"
 
 # Allowlist of known OTEL client service names.
 # Only service names on this list are stored and propagated to root spans.
@@ -126,137 +136,161 @@ async def export_traces(
     Raises:
         HTTPException: If the request is invalid or span logging fails
     """
-    # Validate Content-Type header. Normalize by stripping parameters like
-    # charset (e.g., "application/json; charset=utf-8" → "application/json").
-    media_type = content_type.split(";")[0].strip() if content_type else None
-    if media_type not in ("application/x-protobuf", "application/json"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid Content-Type: {content_type}. "
-            "Expected: application/x-protobuf or application/json",
-        )
-
-    # Read & decompress request body
-    body = await request.body()
-    if content_encoding:
-        body = decompress_otlp_body(body, content_encoding.lower())
-
-    # Parse payload — supports both protobuf and JSON encoding per the OTLP spec:
-    # https://opentelemetry.io/docs/specs/otlp/#otlphttp
-    parsed_request = ExportTraceServiceRequest()
+    start_time = time.perf_counter()
 
     try:
-        if media_type == "application/json":
-            # OTLP JSON encodes trace_id/span_id as hex strings, but protobuf's
-            # JSON mapping expects base64 for `bytes` fields (per proto3 spec).
-            # We must convert hex→base64 before calling Parse(), otherwise the
-            # IDs are decoded incorrectly and overflow downstream int conversions.
-            body = _convert_otlp_json_ids_to_base64(body)
-            ParseJsonProto(body, parsed_request, ignore_unknown_fields=True)
-        else:
-            # In Python protobuf library 5.x, ParseFromString may not raise
-            # DecodeError on invalid data
-            parsed_request.ParseFromString(body)
-
-        if not parsed_request.resource_spans:
+        # Validate Content-Type header. Normalize by stripping parameters like
+        # charset (e.g., "application/json; charset=utf-8" → "application/json").
+        media_type = content_type.split(";")[0].strip() if content_type else None
+        if media_type not in ("application/x-protobuf", "application/json"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid OpenTelemetry format - no spans found",
+                detail=f"Invalid Content-Type: {content_type}. "
+                "Expected: application/x-protobuf or application/json",
             )
 
-    except (DecodeError, ProtoJsonError, json.JSONDecodeError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid OpenTelemetry format",
-        )
+        # Read & decompress request body
+        body = await request.body()
+        if REQUEST_PAYLOAD_BYTES is not None:
+            REQUEST_PAYLOAD_BYTES.observe(len(body))
+        if content_encoding:
+            body = decompress_otlp_body(body, content_encoding.lower())
 
-    all_spans = []
-    completed_trace_ids = set()
-    service_names = set()
-    for resource_span in parsed_request.resource_spans:
-        # Extract service.name from resource attributes for telemetry and root span propagation
-        resource_service_name = None
-        for attr in resource_span.resource.attributes:
-            if attr.key == "service.name":
-                value = _decode_otel_proto_anyvalue(attr.value)
-                if value is not None and str(value) in _KNOWN_SERVICE_NAMES:
-                    resource_service_name = str(value)
-                    service_names.add(resource_service_name)
-                break
-
-        resource = resource_span.resource
-        for scope_span in resource_span.scope_spans:
-            for otel_proto_span in scope_span.spans:
-                try:
-                    mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
-
-                    # Propagate service.name onto root spans so it's visible
-                    # in the UI. Per the OTel resource spec, resource attrs
-                    # describe the entity producing telemetry:
-                    # https://opentelemetry.io/docs/specs/otel/resource/sdk/
-                    if mlflow_span.parent_id is None:
-                        completed_trace_ids.add(mlflow_span.trace_id)
-                        if resource_service_name:
-                            mlflow_span._span._attributes["service.name"] = (
-                                dump_span_attribute_value(resource_service_name)
-                            )
-
-                    all_spans.append(mlflow_span)
-                except Exception:
-                    raise HTTPException(
-                        status_code=422,
-                        detail="Cannot convert OpenTelemetry span to MLflow span",
-                    )
-
-    if all_spans:
-        store = _get_tracking_store()
+        # Parse payload — supports both protobuf and JSON encoding per the OTLP spec:
+        # https://opentelemetry.io/docs/specs/otlp/#otlphttp
+        parsed_request = ExportTraceServiceRequest()
 
         try:
-            await store.log_spans_async(x_mlflow_experiment_id, all_spans)
-        except NotImplementedError:
-            store_name = store.__class__.__name__
-            raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail=f"REST OTLP span logging is not supported by {store_name}",
-            )
-        except MlflowException as e:
-            return JSONResponse(
-                status_code=e.get_http_status_code(),
-                content=json.loads(e.serialize_as_json()),
-            )
-        except Exception as e:
-            raise HTTPException(status_code=422, detail="Failed to log OpenTelemetry spans") from e
-
-        if x_mlflow_run_id and completed_trace_ids:
-            try:
-                await asyncio.to_thread(
-                    store.link_traces_to_run, list(completed_trace_ids), x_mlflow_run_id
-                )
-            except Exception:
-                _logger.exception("Failed to link OpenTelemetry traces to MLflow run")
-
-        if completed_trace_ids:
-            if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX):
-                trace_source = TraceSource.MLFLOW_PYTHON_CLIENT
-            elif service_names:
-                trace_source = TraceSource.EXTERNAL_OTEL_CLIENT
+            if media_type == "application/json":
+                # OTLP JSON encodes trace_id/span_id as hex strings, but protobuf's
+                # JSON mapping expects base64 for `bytes` fields (per proto3 spec).
+                # We must convert hex→base64 before calling Parse(), otherwise the
+                # IDs are decoded incorrectly and overflow downstream int conversions.
+                body = _convert_otlp_json_ids_to_base64(body)
+                ParseJsonProto(body, parsed_request, ignore_unknown_fields=True)
             else:
-                trace_source = TraceSource.UNKNOWN
+                # In Python protobuf library 5.x, ParseFromString may not raise
+                # DecodeError on invalid data
+                parsed_request.ParseFromString(body)
 
-            event_params: dict[str, object] = {
-                "source": trace_source,
-                "count": len(completed_trace_ids),
-            }
-            if service_names:
-                event_params["service_names"] = sorted(service_names)
+            if not parsed_request.resource_spans:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid OpenTelemetry format - no spans found",
+                )
 
-            _record_event(TracesReceivedByServerEvent, event_params)
+        except (DecodeError, ProtoJsonError, json.JSONDecodeError, ValueError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OpenTelemetry format",
+            )
 
-    # Return protobuf response as per OTLP specification
-    response_message = ExportTraceServiceResponse()
-    response_bytes = response_message.SerializeToString()
-    return Response(
-        content=response_bytes,
-        media_type="application/x-protobuf",
-        status_code=200,
-    )
+        all_spans = []
+        completed_trace_ids = set()
+        service_names = set()
+        for resource_span in parsed_request.resource_spans:
+            # Extract service.name from resource attributes for telemetry and root span propagation
+            resource_service_name = None
+            for attr in resource_span.resource.attributes:
+                if attr.key == "service.name":
+                    value = _decode_otel_proto_anyvalue(attr.value)
+                    if value is not None and str(value) in _KNOWN_SERVICE_NAMES:
+                        resource_service_name = str(value)
+                        service_names.add(resource_service_name)
+                    break
+
+            resource = resource_span.resource
+            for scope_span in resource_span.scope_spans:
+                for otel_proto_span in scope_span.spans:
+                    try:
+                        mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
+
+                        # Propagate service.name onto root spans so it's visible
+                        # in the UI. Per the OTel resource spec, resource attrs
+                        # describe the entity producing telemetry:
+                        # https://opentelemetry.io/docs/specs/otel/resource/sdk/
+                        if mlflow_span.parent_id is None:
+                            completed_trace_ids.add(mlflow_span.trace_id)
+                            if resource_service_name:
+                                mlflow_span._span._attributes["service.name"] = (
+                                    dump_span_attribute_value(resource_service_name)
+                                )
+
+                        all_spans.append(mlflow_span)
+                    except Exception:
+                        raise HTTPException(
+                            status_code=422,
+                            detail="Cannot convert OpenTelemetry span to MLflow span",
+                        )
+
+        span_count = len(all_spans)
+
+        if all_spans:
+            store = _get_tracking_store()
+
+            try:
+                await store.log_spans_async(x_mlflow_experiment_id, all_spans)
+            except NotImplementedError:
+                if INGESTION_ERRORS is not None:
+                    INGESTION_ERRORS.labels(protocol=_PROTOCOL_LABEL).inc()
+                store_name = store.__class__.__name__
+                raise HTTPException(
+                    status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                    detail=f"REST OTLP span logging is not supported by {store_name}",
+                )
+            except MlflowException as e:
+                http_code = e.get_http_status_code()
+                if INGESTION_ERRORS is not None and http_code >= 500:
+                    INGESTION_ERRORS.labels(protocol=_PROTOCOL_LABEL).inc()
+                return JSONResponse(
+                    status_code=http_code,
+                    content=json.loads(e.serialize_as_json()),
+                )
+            except Exception as e:
+                if INGESTION_ERRORS is not None:
+                    INGESTION_ERRORS.labels(protocol=_PROTOCOL_LABEL).inc()
+                raise HTTPException(
+                    status_code=422, detail="Failed to log OpenTelemetry spans"
+                ) from e
+
+            if SPANS_INGESTED is not None:
+                SPANS_INGESTED.labels(protocol=_PROTOCOL_LABEL).inc(span_count)
+            if SPANS_PER_REQUEST is not None:
+                SPANS_PER_REQUEST.observe(span_count)
+
+            if x_mlflow_run_id and completed_trace_ids:
+                try:
+                    await asyncio.to_thread(
+                        store.link_traces_to_run, list(completed_trace_ids), x_mlflow_run_id
+                    )
+                except Exception:
+                    _logger.exception("Failed to link OpenTelemetry traces to MLflow run")
+
+            if completed_trace_ids:
+                if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX):
+                    trace_source = TraceSource.MLFLOW_PYTHON_CLIENT
+                elif service_names:
+                    trace_source = TraceSource.EXTERNAL_OTEL_CLIENT
+                else:
+                    trace_source = TraceSource.UNKNOWN
+
+                event_params: dict[str, object] = {
+                    "source": trace_source,
+                    "count": len(completed_trace_ids),
+                }
+                if service_names:
+                    event_params["service_names"] = sorted(service_names)
+
+                _record_event(TracesReceivedByServerEvent, event_params)
+
+        # Return protobuf response as per OTLP specification
+        response_message = ExportTraceServiceResponse()
+        response_bytes = response_message.SerializeToString()
+        return Response(
+            content=response_bytes,
+            media_type="application/x-protobuf",
+            status_code=200,
+        )
+    finally:
+        if REQUEST_DURATION is not None:
+            REQUEST_DURATION.observe(time.perf_counter() - start_time)
