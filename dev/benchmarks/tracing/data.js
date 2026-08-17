@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786928674196,
+  "lastUpdate": 1787005329465,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -22895,6 +22895,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 53.814191999998684,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jacek@japila.pl",
+            "name": "Jacek Laskowski",
+            "username": "jaceklaskowski"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d46e84c129c29fff0198cc47a51f82310ad1bc2",
+          "message": "Clean up GenAI docs and docstrings (#25164)\n\nSigned-off-by: Jacek Laskowski <jacek@japila.pl>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-18T06:20:30+08:00",
+          "tree_id": "c9f1555c1baed78949ae6485fb369b50412bcf0e",
+          "url": "https://github.com/mlflow/mlflow/commit/5d46e84c129c29fff0198cc47a51f82310ad1bc2"
+        },
+        "date": 1787005327664,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.15012504999913,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.3833433725499855,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.51195940816392,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.296110054052847,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.820714461538811,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.915936199996622,
             "unit": "ms"
           }
         ]
