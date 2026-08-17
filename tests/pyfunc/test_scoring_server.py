@@ -4,6 +4,7 @@ import os
 import random
 import signal
 from io import BytesIO, StringIO
+from unittest import mock
 from typing import Any, NamedTuple
 
 import keras
@@ -22,6 +23,7 @@ from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import _get_jsonable_obj, get_cmd
+from mlflow.utils.proto_json_utils import MlflowInvalidInputException
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.types.schema import Array, Object, Property
 from mlflow.utils import env_manager as _EnvManager
@@ -1130,3 +1132,30 @@ def test_split_data_and_params_for_llm_input(dict_input, param_schema, expected)
     expected_data, expected_params = expected
     assert data == expected_data
     assert params == expected_params
+
+
+def test_decode_json_input_rejects_non_utf8_body():
+    """A body that is not valid UTF-8 is bad input, not a server error.
+
+    json.loads() decodes bytes before parsing them, so an invalid byte sequence
+    raises UnicodeDecodeError rather than JSONDecodeError. That escaped the
+    handler and surfaced as an unhandled exception instead of a 400.
+    """
+    with pytest.raises(MlflowInvalidInputException, match="valid JSON formatted string"):
+        pyfunc_scoring_server._decode_json_input(b"\x80\x81")
+
+
+def test_decode_json_input_still_rejects_malformed_json():
+    with pytest.raises(MlflowInvalidInputException, match="valid JSON formatted string"):
+        pyfunc_scoring_server._decode_json_input(b"{not json")
+
+
+def test_invocations_rejects_non_utf8_csv_body():
+    """The CSV branch decoded the request body with no guard at all."""
+    with pytest.raises(MlflowInvalidInputException, match="valid UTF-8 encoded string"):
+        pyfunc_scoring_server.invocations(
+            b"\x80\x81",
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_CSV,
+            model=mock.MagicMock(),
+            input_schema=None,
+        )
