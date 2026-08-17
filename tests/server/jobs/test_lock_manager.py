@@ -6,7 +6,7 @@ from sqlalchemy.orm import Query
 from sqlalchemy.orm.session import Session
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.jobs.lock_manager import JobLockManager
+from mlflow.server.jobs.lock_manager import JobLockManager, SchedulerLease
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.dbmodels.models import SqlSchedulerLease
 
@@ -19,6 +19,190 @@ def job_store() -> SqlAlchemyJobStore:
 @pytest.fixture
 def lock_mgr(job_store: SqlAlchemyJobStore) -> JobLockManager:
     return JobLockManager(job_store)
+
+
+@pytest.mark.parametrize("invalid_ttl", [-1, 0], ids=["negative", "zero"])
+def test_renew_scheduler_lease_raises_when_ttl_invalid(
+    lock_mgr: JobLockManager, invalid_ttl: int
+) -> None:
+
+    missing_scheduler_lease = SchedulerLease(lease_key="doesnt-exist", acquired_at=0, ttl_seconds=0)
+    match = f"ttl_seconds must be greater than zero, got {invalid_ttl}"
+    with pytest.raises(MlflowException, match=match):
+        _ = lock_mgr.renew_scheduler_lease(missing_scheduler_lease, ttl_seconds=invalid_ttl)
+
+
+def test_renew_scheduler_lease_fails_when_no_lease_exists(lock_mgr: JobLockManager) -> None:
+
+    missing_scheduler_lease = SchedulerLease(lease_key="doesnt-exist", acquired_at=0, ttl_seconds=1)
+    assert lock_mgr.renew_scheduler_lease(missing_scheduler_lease, ttl_seconds=1) is None
+
+
+@pytest.mark.parametrize(
+    "caller_lease",
+    [
+        SchedulerLease("wrong-key", 0, 10),
+        SchedulerLease("lease-key", 1, 10),
+        SchedulerLease("lease-key", 0, 11),
+        SchedulerLease("lease-key", 1, 11),
+    ],
+    ids=[
+        "different_key",
+        "different_acquired_at",
+        "different_ttl",
+        "different_acquired_at_and_ttl",
+    ],
+)
+def test_renew_scheduler_lease_refused(
+    lock_mgr: JobLockManager, caller_lease: SchedulerLease
+) -> None:
+
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    existing_lease = SchedulerLease("lease-key", 0, 10)
+
+    # stage existing lease
+    with mock.patch(patch_time_lock_mgr, return_value=existing_lease.acquired_at) as mock_time:
+        assert (
+            lock_mgr.acquire_scheduler_lease(existing_lease.lease_key, existing_lease.ttl_seconds)
+            == existing_lease
+        )
+        mock_time.assert_called_once()
+
+    assert lock_mgr.renew_scheduler_lease(caller_lease, caller_lease.ttl_seconds) is None
+
+
+def test_renew_scheduler_lease_granted_when_existing_lease_valid(lock_mgr: JobLockManager) -> None:
+
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    existing_lease = SchedulerLease("lease-key", 0, 10)
+
+    # stage existing lease
+    with mock.patch(patch_time_lock_mgr, return_value=existing_lease.acquired_at) as mock_time:
+        assert (
+            lock_mgr.acquire_scheduler_lease(existing_lease.lease_key, existing_lease.ttl_seconds)
+            == existing_lease
+        )
+        mock_time.assert_called_once()
+
+    with mock.patch(patch_time_lock_mgr, return_value=5) as renew_time:
+        renewed_lease = lock_mgr.renew_scheduler_lease(existing_lease, 20)
+        assert renewed_lease.lease_key == existing_lease.lease_key
+        assert renewed_lease.acquired_at == 5
+        assert renewed_lease.ttl_seconds == 20
+        renew_time.assert_called_once()
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        updated_row = (
+            session
+            .query(SqlSchedulerLease)
+            .filter(SqlSchedulerLease.lease_key == existing_lease.lease_key)
+            .one()
+        )
+
+        assert updated_row.acquired_at == 5
+        assert updated_row.ttl_seconds == 20
+
+
+def test_renew_scheduler_lease_granted_when_existing_lease_expired(
+    lock_mgr: JobLockManager,
+) -> None:
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    existing_lease = SchedulerLease("lease-key", 0, 10)
+
+    # stage existing lease
+    with mock.patch(patch_time_lock_mgr, return_value=existing_lease.acquired_at) as mock_time:
+        assert (
+            lock_mgr.acquire_scheduler_lease(existing_lease.lease_key, existing_lease.ttl_seconds)
+            == existing_lease
+        )
+        mock_time.assert_called_once()
+
+    with mock.patch(patch_time_lock_mgr, return_value=10_000) as renew_time:
+        renewed_lease = lock_mgr.renew_scheduler_lease(existing_lease, 20)
+        assert renewed_lease.lease_key == existing_lease.lease_key
+        assert renewed_lease.acquired_at == 10_000
+        assert renewed_lease.ttl_seconds == 20
+        renew_time.assert_called_once()
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        updated_row = (
+            session
+            .query(SqlSchedulerLease)
+            .filter(SqlSchedulerLease.lease_key == existing_lease.lease_key)
+            .one()
+        )
+
+        assert updated_row.acquired_at == 10_000
+        assert updated_row.ttl_seconds == 20
+
+
+def test_renew_scheduler_lease_works_once_with_original_lease(lock_mgr: JobLockManager) -> None:
+
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    existing_lease = SchedulerLease("lease-key", 0, 10)
+
+    # stage existing lease
+    with mock.patch(patch_time_lock_mgr, return_value=existing_lease.acquired_at) as mock_time:
+        assert (
+            lock_mgr.acquire_scheduler_lease(existing_lease.lease_key, existing_lease.ttl_seconds)
+            == existing_lease
+        )
+        mock_time.assert_called_once()
+
+    with mock.patch(patch_time_lock_mgr, return_value=10_000) as renew_time:
+        renewed_lease = lock_mgr.renew_scheduler_lease(existing_lease, 20)
+        assert renewed_lease.lease_key == existing_lease.lease_key
+        assert renewed_lease.acquired_at == 10_000
+        assert renewed_lease.ttl_seconds == 20
+        renew_time.assert_called_once()
+
+    assert lock_mgr.renew_scheduler_lease(existing_lease, 20) is None
+
+
+def test_scheduler_lease_full_lifecycle(lock_mgr: JobLockManager) -> None:
+
+    lease_key = "scheduler"
+    ttl = 10
+    patch_time = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+
+    # 1. Replica A acquires the lease at T=0.
+    with mock.patch(patch_time, return_value=0) as mock_t:
+        lease_a = lock_mgr.acquire_scheduler_lease(lease_key, ttl_seconds=ttl)
+        assert lease_a is not None
+        assert lease_a.lease_key == lease_key
+        mock_t.assert_called_once()
+
+    # 2. Replica A renews within TTL at T=5s.
+    with mock.patch(patch_time, return_value=5_000) as mock_t:
+        lease_a = lock_mgr.renew_scheduler_lease(lease_a, ttl_seconds=ttl)
+        assert lease_a is not None
+        assert lease_a.acquired_at == 5_000
+        mock_t.assert_called_once()
+
+    # 3. Lease expires Replica B acquires the expired lease at T=16s.
+    with mock.patch(patch_time, return_value=16_000) as mock_t:
+        lease_b = lock_mgr.acquire_scheduler_lease(lease_key, ttl_seconds=ttl)
+        assert lease_b is not None
+        assert lease_b.acquired_at == 16_000
+        mock_t.assert_called_once()
+
+    # 4. Replica A attempts renewal with its stale lease and fails
+    assert lock_mgr.renew_scheduler_lease(lease_a, ttl_seconds=ttl) is None
+
+    # 5. Replica B can still renew with its current lease.
+    with mock.patch(patch_time, return_value=20_000) as mock_t:
+        lease_b = lock_mgr.renew_scheduler_lease(lease_b, ttl_seconds=ttl)
+        assert lease_b is not None
+        assert lease_b.acquired_at == 20_000
+        mock_t.assert_called_once()
+
+    # 6. Verify final DB state matches Replica B's lease.
+    with lock_mgr._session_maker() as session:
+        row = (
+            session.query(SqlSchedulerLease).filter(SqlSchedulerLease.lease_key == lease_key).one()
+        )
+        assert row.acquired_at == 20_000
+        assert row.ttl_seconds == ttl
 
 
 def test_acquire_scheduler_lease_succeeds_when_no_lease_exists(lock_mgr: JobLockManager) -> None:
