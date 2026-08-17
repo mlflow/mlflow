@@ -82,7 +82,7 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
 
       // Toggle a visible row (row 5) to hide it
       act(() => {
-        result.current.toggleRowVisibility('run-5');
+        result.current.toggleRowVisibility('run-5', 5, 'RUNNING');
       });
 
       expect(result.current.usingCustomVisibility).toBe(true);
@@ -106,7 +106,7 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
       expect(result.current.usingCustomVisibility).toBe(false);
 
       act(() => {
-        result.current.toggleRowVisibility('run-1');
+        result.current.toggleRowVisibility('run-1', 0, 'RUNNING');
       });
 
       expect(result.current.isRowHidden('run-1', 0, 'RUNNING')).toBe(true);
@@ -117,12 +117,12 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
       const { result } = renderConfiguredHook();
 
       act(() => {
-        result.current.toggleRowVisibility('run-1');
+        result.current.toggleRowVisibility('run-1', 0, 'RUNNING');
       });
       expect(result.current.isRowHidden('run-1', 0, 'RUNNING')).toBe(true);
 
       act(() => {
-        result.current.toggleRowVisibility('run-1');
+        result.current.toggleRowVisibility('run-1', 0, 'RUNNING');
       });
       expect(result.current.isRowHidden('run-1', 0, 'RUNNING')).toBe(false);
       expect(result.current.usingCustomVisibility).toBe(false);
@@ -141,7 +141,7 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
 
       // Toggle row 15 - should SHOW it (override the mode)
       act(() => {
-        result.current.toggleRowVisibility('run-15');
+        result.current.toggleRowVisibility('run-15', 15, 'RUNNING');
       });
 
       expect(result.current.isRowHidden('run-15', 15, 'RUNNING')).toBe(false);
@@ -161,7 +161,7 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
 
       // Toggle row 5 - should HIDE it (override the mode)
       act(() => {
-        result.current.toggleRowVisibility('run-5');
+        result.current.toggleRowVisibility('run-5', 5, 'RUNNING');
       });
 
       expect(result.current.isRowHidden('run-5', 5, 'RUNNING')).toBe(true);
@@ -178,7 +178,7 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
 
       // Toggle row 5 to hide it
       act(() => {
-        result.current.toggleRowVisibility('run-5');
+        result.current.toggleRowVisibility('run-5', 5, 'RUNNING');
       });
 
       // Verify row 5 is hidden
@@ -200,9 +200,9 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
 
       // Toggle multiple rows
       act(() => {
-        result.current.toggleRowVisibility('run-5'); // visible -> hidden
-        result.current.toggleRowVisibility('run-15'); // hidden -> visible
-        result.current.toggleRowVisibility('run-20'); // hidden -> visible
+        result.current.toggleRowVisibility('run-5', 5, 'RUNNING'); // visible -> hidden
+        result.current.toggleRowVisibility('run-15', 15, 'RUNNING'); // hidden -> visible
+        result.current.toggleRowVisibility('run-20', 20, 'RUNNING'); // hidden -> visible
       });
 
       expect(result.current.isRowHidden('run-5', 5, 'RUNNING')).toBe(true); // overridden to hide
@@ -224,11 +224,105 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
 
       // Toggle to show it
       act(() => {
-        result.current.toggleRowVisibility('run-1');
+        result.current.toggleRowVisibility('run-1', 0, 'RUNNING');
       });
 
       expect(result.current.isRowHidden('run-1', 0, 'RUNNING')).toBe(false);
       expect(result.current.usingCustomVisibility).toBe(true);
+    });
+  });
+
+  describe('explicit visibility - status/index changes', () => {
+    test('should keep run hidden when user hides it and status later changes', () => {
+      const { result } = renderConfiguredHook();
+
+      // Set HIDE_FINISHED_RUNS mode
+      act(() => {
+        result.current.setVisibilityMode(RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS);
+      });
+
+      // Run is RUNNING (visible by mode)
+      expect(result.current.isRowHidden('run-1', 5, 'RUNNING')).toBe(false);
+
+      // User explicitly hides it
+      act(() => {
+        result.current.toggleRowVisibility('run-1', 5, 'RUNNING');
+      });
+
+      expect(result.current.isRowHidden('run-1', 5, 'RUNNING')).toBe(true);
+
+      // Status changes to FINISHED (mode would hide it now)
+      // But user's explicit choice should persist - still hidden
+      expect(result.current.isRowHidden('run-1', 5, 'FINISHED')).toBe(true);
+    });
+
+    test('should keep run visible when user shows it and status later changes', () => {
+      const { result } = renderConfiguredHook();
+
+      // Set HIDE_FINISHED_RUNS mode
+      act(() => {
+        result.current.setVisibilityMode(RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS);
+      });
+
+      // Run is FINISHED (hidden by mode)
+      expect(result.current.isRowHidden('run-1', 5, 'FINISHED')).toBe(true);
+
+      // User explicitly shows it
+      act(() => {
+        result.current.toggleRowVisibility('run-1', 5, 'FINISHED');
+      });
+
+      expect(result.current.isRowHidden('run-1', 5, 'FINISHED')).toBe(false);
+
+      // Status changes to RUNNING (mode would show it now)
+      // But user's explicit choice should persist - still visible
+      expect(result.current.isRowHidden('run-1', 5, 'RUNNING')).toBe(false);
+    });
+
+    test('should keep run hidden when user hides it and index later changes', () => {
+      const { result } = renderConfiguredHook();
+
+      // Set FIRST_10_RUNS mode
+      act(() => {
+        result.current.setVisibilityMode(RUNS_VISIBILITY_MODE.FIRST_10_RUNS);
+      });
+
+      // Run at index 5 (visible by mode)
+      expect(result.current.isRowHidden('run-1', 5, 'RUNNING')).toBe(false);
+
+      // User explicitly hides it
+      act(() => {
+        result.current.toggleRowVisibility('run-1', 5, 'RUNNING');
+      });
+
+      expect(result.current.isRowHidden('run-1', 5, 'RUNNING')).toBe(true);
+
+      // Index changes to 15 due to sorting/filtering (mode would hide it now)
+      // But user's explicit choice should persist - still hidden
+      expect(result.current.isRowHidden('run-1', 15, 'RUNNING')).toBe(true);
+    });
+
+    test('should keep run visible when user shows it and index later changes', () => {
+      const { result } = renderConfiguredHook();
+
+      // Set FIRST_10_RUNS mode
+      act(() => {
+        result.current.setVisibilityMode(RUNS_VISIBILITY_MODE.FIRST_10_RUNS);
+      });
+
+      // Run at index 15 (hidden by mode)
+      expect(result.current.isRowHidden('run-1', 15, 'RUNNING')).toBe(true);
+
+      // User explicitly shows it
+      act(() => {
+        result.current.toggleRowVisibility('run-1', 15, 'RUNNING');
+      });
+
+      expect(result.current.isRowHidden('run-1', 15, 'RUNNING')).toBe(false);
+
+      // Index changes to 5 due to sorting/filtering (mode would show it now)
+      // But user's explicit choice should persist - still visible
+      expect(result.current.isRowHidden('run-1', 5, 'RUNNING')).toBe(false);
     });
   });
 
@@ -250,7 +344,7 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
 
       act(() => {
         result.current.setVisibilityMode(RUNS_VISIBILITY_MODE.FIRST_10_RUNS);
-        result.current.toggleRowVisibility('run-5');
+        result.current.toggleRowVisibility('run-5', 5, 'RUNNING');
       });
 
       expect(result.current.usingCustomVisibility).toBe(true);
@@ -260,16 +354,16 @@ describe('useExperimentEvaluationRunsRowVisibility', () => {
       const { result } = renderConfiguredHook();
 
       act(() => {
-        result.current.toggleRowVisibility('run-1');
-        result.current.toggleRowVisibility('run-2');
+        result.current.toggleRowVisibility('run-1', 0, 'RUNNING');
+        result.current.toggleRowVisibility('run-2', 1, 'RUNNING');
       });
 
       expect(result.current.usingCustomVisibility).toBe(true);
 
       // Remove all overrides
       act(() => {
-        result.current.toggleRowVisibility('run-1');
-        result.current.toggleRowVisibility('run-2');
+        result.current.toggleRowVisibility('run-1', 0, 'RUNNING');
+        result.current.toggleRowVisibility('run-2', 1, 'RUNNING');
       });
 
       expect(result.current.usingCustomVisibility).toBe(false);
