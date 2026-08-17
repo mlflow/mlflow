@@ -37,10 +37,81 @@ class JobLockManager:
         if scheduler_lease is not None:
             # This replica holds the scheduler lease.
             ...
+
+            # Renew scheduler lease
+            renewed_lease = lock_mgr.renew_scheduler_lease(scheduler_lease, ttl_seconds=90)
+            if renewed_lease is not None:
+                # This replica still holds the scheduler lease.
+                ...
     """
 
     def __init__(self, job_store: SqlAlchemyJobStore):
         self._session_maker = job_store.ManagedSessionMaker
+
+    def renew_scheduler_lease(
+        self, scheduler_lease: SchedulerLease, ttl_seconds: int
+    ) -> SchedulerLease | None:
+        """
+        Renew an existing scheduler lease.
+
+        This method matches all three fields of ``scheduler_lease`` against the
+        database row to verify that the caller holds the lease.
+
+        If the row matches, the method renews the lease and returns a new
+        ``SchedulerLease``. The renewal succeeds whether the lease is active
+        or expired, as long as no other replica has acquired it.
+
+        If the row does not match, the method returns ``None``. The caller
+        no longer holds the lease.
+
+        .. important::
+            Callers must use the returned ``SchedulerLease`` for all subsequent
+            operations. The original object becomes invalid after renewal because
+            ``acquired_at`` and ``ttl_seconds`` change.
+
+        Args:
+            scheduler_lease: The current lease that proves the caller holds it.
+            ttl_seconds: Time-to-live for the renewed lease, in seconds.
+                Must be greater than zero.
+
+        Returns:
+            A new ``SchedulerLease`` on success. ``None`` if the caller no
+            longer holds the lease.
+
+        Raises:
+            MlflowException: If ``ttl_seconds`` is zero or negative.
+        """
+
+        if ttl_seconds <= 0:
+            raise MlflowException.invalid_parameter_value(
+                f"ttl_seconds must be greater than zero, got {ttl_seconds}"
+            )
+
+        with self._session_maker(read_only=False) as session:
+            existing = (
+                session
+                .query(SqlSchedulerLease)
+                .filter(
+                    SqlSchedulerLease.lease_key == scheduler_lease.lease_key,
+                    SqlSchedulerLease.acquired_at == scheduler_lease.acquired_at,
+                    SqlSchedulerLease.ttl_seconds == scheduler_lease.ttl_seconds,
+                )
+                .with_for_update()
+                .one_or_none()
+            )
+
+            # Refuse lease renewal if exact match is not found in table.
+            if existing is None:
+                return None
+
+            existing.acquired_at = get_current_time_millis()
+            existing.ttl_seconds = ttl_seconds
+
+            return SchedulerLease(
+                lease_key=existing.lease_key,
+                acquired_at=existing.acquired_at,
+                ttl_seconds=existing.ttl_seconds,
+            )
 
     def acquire_scheduler_lease(self, lease_key: str, ttl_seconds: int) -> SchedulerLease | None:
         """
