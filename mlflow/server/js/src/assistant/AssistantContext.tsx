@@ -25,6 +25,7 @@ import {
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
+  streamChatViaFetch,
   getConfig,
   getProviders,
   resumeStream,
@@ -295,6 +296,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Chat state - messages/tokenUsage seeded once from the persisted conversation on first mount.
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -315,6 +317,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
+  const [clientCarriesHistory, setClientCarriesHistory] = useState(false);
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
 
   // Whether the (possibly optimistically-picked) provider still needs an API key
@@ -344,8 +347,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // NB: Using the actions hook to avoid re-rendering the component when the context changes.
   const { getContext: getPageContext } = useAssistantPageContextActions();
 
-  // Use ref to track active EventSource for cancellation
-  const eventSourceRef = useRef<EventSource | null>(null);
+  // Use ref to track the active stream handle for cancellation (EventSource close or fetch abort).
+  const streamHandleRef = useRef<SendMessageStreamResult | null>(null);
 
   // Token identifying the in-flight send; reset/cancel invalidates it so a late POST's
   // guarded callbacks no-op and its stream is closed instead of leaking into new state.
@@ -374,10 +377,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Store the resolved stream if its send is still current, otherwise close the orphan.
   const attachStreamIfCurrent = useCallback((isCurrent: () => boolean, result: SendMessageStreamResult): boolean => {
     if (!isCurrent()) {
-      result.eventSource?.close();
+      result.cancel();
       return false;
     }
-    eventSourceRef.current = result.eventSource;
+    streamHandleRef.current = result;
     return true;
   }, []);
 
@@ -462,7 +465,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       rafPendingRef.current = null;
     }
     closeStreamingMessage({ reason: TurnEndReason.Completed });
-    eventSourceRef.current = null;
+    streamHandleRef.current = null;
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
@@ -478,6 +481,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const handleSessionId = useCallback((newSessionId: string) => {
     setSessionId(newSessionId);
+  }, []);
+
+  const handleConversationHistory = useCallback((history: string) => {
+    setConversationHistory(history);
   }, []);
 
   const addToolCalls = useCallback(
@@ -552,8 +559,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     try {
       const [config, providersResponse] = await Promise.all([getConfig(), getProviders()]);
       const resolved = resolveSetupFromProviders(providersResponse);
+      const selectedProviderConfig = Object.values(config.providers ?? {}).find(
+        (providerConfig) => providerConfig.selected === true,
+      );
       setSetupComplete(resolved.setupComplete);
       setRemoteAccessAllowed(config.remote_access_allowed ?? false);
+      setClientCarriesHistory(Boolean(selectedProviderConfig?.client_carries_history));
       setProviders(providersResponse.providers);
       setGatewayVendorOptions(providersResponse.gateway_vendor_options ?? {});
       // Don't clobber an uncommitted optimistic pick with the resolved provider;
@@ -565,6 +576,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // On error, assume setup is not complete
       setSetupComplete(false);
       setRemoteAccessAllowed(false);
+      setClientCarriesHistory(false);
       setProviders([]);
       setGatewayVendorOptions({});
       if (!pendingProviderSelectionRef.current) {
@@ -584,6 +596,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       pendingProviderSelectionRef.current = selection;
+      setClientCarriesHistory(selection.kind === 'gateway');
       setActiveProvider(activeProviderFromSelection(selection, providers));
     },
     [isLocalServer, providers],
@@ -641,9 +654,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         cancelAnimationFrame(rafPendingRef.current);
         rafPendingRef.current = null;
       }
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
+      if (streamHandleRef.current) {
+        streamHandleRef.current.cancel();
+        streamHandleRef.current = null;
       }
     };
   }, []);
@@ -664,7 +677,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setErrorCode(code ?? null);
       setIsStreaming(false);
       setCurrentStatus(null);
-      eventSourceRef.current = null;
+      streamHandleRef.current = null;
       setActiveTools([]);
       setPendingPermission(null);
       setPendingClientToolCall(null);
@@ -683,7 +696,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setPendingClientToolCall(null);
     structuredRepairAttemptsRef.current = 0;
     structuredRepairContextRef.current = null;
-    eventSourceRef.current = null;
+    streamHandleRef.current = null;
     if (rafPendingRef.current !== null) {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
@@ -781,6 +794,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       onDone: endStreamingTurn,
       onStatus: handleStatus,
       onSessionId: handleSessionId,
+      onConversationHistory: handleConversationHistory,
       onToolUse: addToolCalls,
       onToolResult: resolveToolCall,
       onInterrupted: interruptStreamingTurn,
@@ -794,6 +808,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       endStreamingTurn,
       handleStatus,
       handleSessionId,
+      handleConversationHistory,
       addToolCalls,
       resolveToolCall,
       interruptStreamingTurn,
@@ -835,15 +850,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // so its guarded callbacks no-op and its EventSource is closed when the await resolves.
     activeRequestRef.current = null;
     // Tear down any active stream so its callbacks can't leak into the reset state
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (streamHandleRef.current) {
+      streamHandleRef.current.cancel();
+      streamHandleRef.current = null;
     }
     if (rafPendingRef.current !== null) {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
     setSessionId(null);
+    setConversationHistory(null);
     setMessages([]);
     setIsStreaming(false);
     setError(null);
@@ -912,14 +928,26 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         }
         const pageContext = getPageContext();
         structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
-        const result = await sendMessageStream(
-          {
-            message: prompt || '',
-            experiment_id: pageContext['experimentId'] as string | undefined,
-            context: pageContext,
-          },
-          withGuard(isCurrent, streamCallbacks),
-        );
+        const experimentId = pageContext['experimentId'] as string | undefined;
+        const guarded = withGuard(isCurrent, streamCallbacks);
+        const result = clientCarriesHistory
+          ? await streamChatViaFetch(
+              {
+                message: prompt || '',
+                experiment_id: experimentId,
+                context: pageContext,
+                conversation_history: conversationHistory ?? undefined,
+              },
+              guarded,
+            )
+          : await sendMessageStream(
+              {
+                message: prompt || '',
+                experiment_id: experimentId,
+                context: pageContext,
+              },
+              guarded,
+            );
         if (!attachStreamIfCurrent(isCurrent, result)) {
           return;
         }
@@ -930,7 +958,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         failStreamingTurn(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [beginRequest, attachStreamIfCurrent, flushPendingProvider, getPageContext, streamCallbacks, failStreamingTurn],
+    [
+      conversationHistory,
+      clientCarriesHistory,
+      beginRequest,
+      attachStreamIfCurrent,
+      flushPendingProvider,
+      getPageContext,
+      streamCallbacks,
+      failStreamingTurn,
+    ],
   );
 
   const respondToPermission = useCallback(
@@ -947,9 +984,28 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setIsStreaming(true);
 
       // The paused assistant placeholder keeps streaming — no new message; the
-      // resume stream continues accumulating into it until done.
+      // resume continues accumulating into it until done.
       const isCurrent = beginRequest();
-      resumeStream(requestSessionId, requestId, allow ? 'allow' : 'deny', withGuard(isCurrent, streamCallbacks))
+      const decision = allow ? 'allow' : 'deny';
+      const guarded = withGuard(isCurrent, streamCallbacks);
+      // Stateless (client-carried-history) providers have no server session to resume against:
+      // replay the decision with the carried history — which already holds the unresolved
+      // tool_call — via a fresh /chat POST (no new user message). Legacy providers resume their
+      // server session via POST /sessions/{id}/permission.
+      const pageContext = getPageContext();
+      const resumed = clientCarriesHistory
+        ? streamChatViaFetch(
+            {
+              message: '',
+              experiment_id: pageContext['experimentId'] as string | undefined,
+              context: pageContext,
+              conversation_history: conversationHistory ?? undefined,
+              tool_decisions: { [requestId]: decision },
+            },
+            guarded,
+          )
+        : resumeStream(requestSessionId ?? '', requestId, decision, guarded);
+      resumed
         .then((result) => {
           attachStreamIfCurrent(isCurrent, result);
         })
@@ -959,7 +1015,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           }
         });
     },
-    [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
+    [
+      pendingPermission,
+      clientCarriesHistory,
+      conversationHistory,
+      beginRequest,
+      attachStreamIfCurrent,
+      getPageContext,
+      streamCallbacks,
+      failStreamingTurn,
+    ],
   );
 
   const submitClientToolResult = useCallback(
@@ -1086,15 +1151,27 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         // Send message and stream response
         const pageContext = getPageContext();
         structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
-        const result = await sendMessageStream(
-          {
-            session_id: sessionId,
-            message,
-            experiment_id: pageContext['experimentId'] as string | undefined,
-            context: pageContext,
-          },
-          withGuard(isCurrent, streamCallbacks),
-        );
+        const experimentId = pageContext['experimentId'] as string | undefined;
+        const guarded = withGuard(isCurrent, streamCallbacks);
+        const result = clientCarriesHistory
+          ? await streamChatViaFetch(
+              {
+                message,
+                experiment_id: experimentId,
+                context: pageContext,
+                conversation_history: conversationHistory ?? undefined,
+              },
+              guarded,
+            )
+          : await sendMessageStream(
+              {
+                session_id: sessionId,
+                message,
+                experiment_id: experimentId,
+                context: pageContext,
+              },
+              guarded,
+            );
         attachStreamIfCurrent(isCurrent, result);
       } catch (err) {
         if (!isCurrent()) {
@@ -1105,6 +1182,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     },
     [
       sessionId,
+      conversationHistory,
+      clientCarriesHistory,
       reset,
       startChat,
       beginRequest,
@@ -1154,23 +1233,24 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   ]);
 
   const handleCancelSession = useCallback(() => {
-    if (!sessionId || !isStreaming) return;
+    if (!isStreaming || !streamHandleRef.current) return;
 
     // Invalidate any in-flight send so a late POST can't reopen a stream after cancel
     activeRequestRef.current = null;
 
-    // Close EventSource immediately to stop receiving data
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+    // Tear down the active stream immediately to stop receiving data.
+    streamHandleRef.current.cancel();
+    streamHandleRef.current = null;
 
-    // Send cancel request to backend
-    cancelSessionApi(sessionId).catch((err) => {
-      if (err) {
-        // fail silently
-      }
-    });
+    // Only the legacy path has a server-side process to terminate. The stateless path holds no
+    // server session, so aborting the fetch above is the whole cancellation.
+    if (sessionId) {
+      cancelSessionApi(sessionId).catch((err) => {
+        if (err) {
+          // fail silently
+        }
+      });
+    }
 
     // Flush any buffered text and mark the turn interrupted through the shared terminal,
     // matching the server-driven interrupt path (interruptStreamingTurn) so a user cancel
@@ -1247,15 +1327,27 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // Re-send the last user message
       const pageContext = getPageContext();
       structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
-      const result = await sendMessageStream(
-        {
-          session_id: sessionId ?? undefined,
-          message: userMessageContent,
-          experiment_id: pageContext['experimentId'] as string | undefined,
-          context: pageContext,
-        },
-        withGuard(isCurrent, streamCallbacks),
-      );
+      const experimentId = pageContext['experimentId'] as string | undefined;
+      const guarded = withGuard(isCurrent, streamCallbacks);
+      const result = clientCarriesHistory
+        ? await streamChatViaFetch(
+            {
+              message: userMessageContent,
+              experiment_id: experimentId,
+              context: pageContext,
+              conversation_history: conversationHistory ?? undefined,
+            },
+            guarded,
+          )
+        : await sendMessageStream(
+            {
+              session_id: sessionId ?? undefined,
+              message: userMessageContent,
+              experiment_id: experimentId,
+              context: pageContext,
+            },
+            guarded,
+          );
       attachStreamIfCurrent(isCurrent, result);
     } catch (err) {
       if (!isCurrent()) {
@@ -1266,6 +1358,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   }, [
     messages,
     sessionId,
+    conversationHistory,
+    clientCarriesHistory,
     isStreaming,
     beginRequest,
     attachStreamIfCurrent,
