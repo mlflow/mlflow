@@ -1451,6 +1451,10 @@
     "defaultMessage": "API key name",
     "description": "Label for API key name input"
   },
+  "4Dpb3c": {
+    "defaultMessage": "Feedback submitted",
+    "description": "Accessible confirmation after thumbs feedback is logged in a custom trace view"
+  },
   "4GPLHq": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
     "description": "Description for the edit aliases modal on the registered prompt details page"
@@ -1806,6 +1810,10 @@
   "5umyLP": {
     "defaultMessage": "Edit endpoint name",
     "description": "Aria label for edit endpoint name button"
+  },
+  "5wqwBZ": {
+    "defaultMessage": "Thumbs down",
+    "description": "Accessible label for the thumbs-down feedback button in a custom trace view"
   },
   "5xPlEu": {
     "defaultMessage": "Source run",
@@ -6823,6 +6831,10 @@
     "defaultMessage": "Users",
     "description": "Add to review queue: per-user personal-queue section header"
   },
+  "RJ34Xe": {
+    "defaultMessage": "Submit feedback",
+    "description": "Default label for the button that submits staged feedback in a custom trace view"
+  },
   "RJenO+": {
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
@@ -7346,6 +7358,10 @@
   "TcXjUy": {
     "defaultMessage": "Eval",
     "description": "Type pill text for a regular evaluation run in the evaluation runs table"
+  },
+  "TdOzAP": {
+    "defaultMessage": "Thumbs up",
+    "description": "Accessible label for the thumbs-up feedback button in a custom trace view"
   },
   "TeN9hs": {
     "defaultMessage": "Traces",
@@ -7926,6 +7942,10 @@
   "W1ZIP4": {
     "defaultMessage": "Safety",
     "description": "LLM template option"
+  },
+  "W1jrck": {
+    "defaultMessage": "Feedback submitted",
+    "description": "Confirmation shown briefly on the feedback submit button after staged feedback is logged"
   },
   "W2PfF7": {
     "defaultMessage": "Stop sequences",
@@ -9699,6 +9719,10 @@
     "defaultMessage": "You don't own any queues yet.",
     "description": "Review queue sidebar: empty state for the My-queues filter"
   },
+  "dA7hRP": {
+    "defaultMessage": "Could not save. Try again.",
+    "description": "Inline error shown when logging thumbs feedback fails in a custom trace view"
+  },
   "dDbfnY": {
     "defaultMessage": "{count} {count, plural, one {hour} other {hours}}",
     "description": "Formatted trace archival retention in hours"
@@ -11214,6 +11238,10 @@
   "ik/j6P": {
     "defaultMessage": "Show {count} more",
     "description": "MCP server package show more env vars button"
+  },
+  "ilJcHq": {
+    "defaultMessage": "Could not submit feedback. Try again.",
+    "description": "Inline error shown when submitting staged feedback fails in a custom trace view"
   },
   "imKpxw": {
     "defaultMessage": "ID",
