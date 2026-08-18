@@ -129,8 +129,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 393216,
+        "max_tokens": 393216
       },
       "pricing": {
         "input_per_million_tokens": 0.14,
@@ -145,14 +145,14 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-29"
+      "last_updated_at": "2026-08-17"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 8192,
-        "max_tokens": 8192
+        "max_output": 393216,
+        "max_tokens": 393216
       },
       "pricing": {
         "input_per_million_tokens": 0.435,
@@ -167,7 +167,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-29"
+      "last_updated_at": "2026-08-17"
     }
   }
 }

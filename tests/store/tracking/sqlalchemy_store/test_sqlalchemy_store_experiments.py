@@ -789,12 +789,14 @@ def test_set_experiment_tag(store: SqlAlchemyStore):
     experiment = store.get_experiment(exp_id)
     assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
     # test cannot set tags that are too long
-    long_tag = entities.ExperimentTag("longTagKey", "a" * 100_001)
-    with pytest.raises(MlflowException, match="exceeds the maximum length of 5000"):
+    long_tag = entities.ExperimentTag("longTagKey", "a" * 20_001)
+    with pytest.raises(MlflowException, match="exceeds the maximum length of 20000"):
         store.set_experiment_tag(exp_id, long_tag)
-    # test can set tags that are somewhat long
-    long_tag = entities.ExperimentTag("longTagKey", "a" * 4999)
+    # test can set multibyte tags at the maximum character length
+    max_length_value = "😀" * 20_000
+    long_tag = entities.ExperimentTag("longTagKey", max_length_value)
     store.set_experiment_tag(exp_id, long_tag)
+    assert store.get_experiment(exp_id).tags["longTagKey"] == max_length_value
     # test cannot set tags on deleted experiments
     store.delete_experiment(exp_id)
     with pytest.raises(MlflowException, match="must be in the 'active' state"):

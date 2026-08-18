@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 
 import * as validateModule from './agent/validateA2uiMessages';
 import { useCustomViewDefinitionState } from './CustomViewDefinitionContext';
-import type { CustomView } from './customViewDefinition';
+import { type CustomView, MAX_CUSTOM_VIEWS_PER_EXPERIMENT } from './customViewDefinition';
 
 const makeView = (id: string, overrides: Partial<CustomView> = {}): CustomView => ({
   id,
@@ -38,13 +38,26 @@ describe('useCustomViewDefinitionState', () => {
       useCustomViewDefinitionState(NO_VIEWS, true, jest.fn<() => Promise<void>>(), true),
     );
     expect(withPersist.result.current.canPersist).toBe(true);
+    expect(withPersist.result.current.canDelete).toBe(false);
+
+    const withDelete = renderHook(() =>
+      useCustomViewDefinitionState(NO_VIEWS, true, noopPersistView, true, jest.fn<() => Promise<void>>()),
+    );
+    expect(withDelete.result.current.canDelete).toBe(true);
   });
 
   it('reports canPersist false when a persist callback exists but edit permission is denied', () => {
     const { result } = renderHook(() =>
-      useCustomViewDefinitionState(NO_VIEWS, true, jest.fn<() => Promise<void>>(), false),
+      useCustomViewDefinitionState(
+        NO_VIEWS,
+        true,
+        jest.fn<() => Promise<void>>(),
+        false,
+        jest.fn<() => Promise<void>>(),
+      ),
     );
     expect(result.current.canPersist).toBe(false);
+    expect(result.current.canDelete).toBe(false);
   });
 
   it('does not create or update working views when modification permission is denied', () => {
@@ -514,6 +527,82 @@ describe('useCustomViewDefinitionState', () => {
     }
   });
 
+  it('deletes a persisted view and clears the active selection', async () => {
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+    const initialViews = [makeView('a'), makeView('b')];
+    const { result } = renderHook(() =>
+      useCustomViewDefinitionState(initialViews, true, noopPersistView, true, onDeleteView),
+    );
+
+    act(() => result.current.selectView('a'));
+    await act(async () => {
+      await result.current.deleteView('a');
+    });
+
+    expect(onDeleteView).toHaveBeenCalledWith('a');
+    expect(result.current.views.map((view) => view.id)).toEqual(['b']);
+    expect(result.current.activeViewId).toBeUndefined();
+  });
+
+  it('keeps the view and surfaces the error when deletion fails', async () => {
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockRejectedValue(new Error('delete exploded'));
+    const { result } = renderHook(() =>
+      useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true, onDeleteView),
+    );
+
+    act(() => result.current.selectView('a'));
+    await act(async () => {
+      await result.current.deleteView('a');
+    });
+
+    expect(result.current.saveError).toBe('delete exploded');
+    expect(result.current.views).toEqual(SINGLE_VIEW);
+    expect(result.current.activeViewId).toBe('a');
+    expect(result.current.isSaving).toBe(false);
+
+    let applied: boolean | undefined;
+    act(() => {
+      applied = result.current.upsertViewContent(makeView('a', { label: 'updated' }));
+    });
+    expect(applied).toBe(true);
+    expect(result.current.activeView?.label).toBe('updated');
+  });
+
+  it('rejects an update that lands while deletion is in flight', async () => {
+    let resolveDelete: () => void = () => {};
+    const onDeleteView = jest.fn<(id: string) => Promise<void>>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve;
+        }),
+    );
+    const { result } = renderHook(() =>
+      useCustomViewDefinitionState(SINGLE_VIEW, true, noopPersistView, true, onDeleteView),
+    );
+
+    act(() => result.current.selectView('a'));
+    let deletePromise: Promise<void> | undefined;
+    act(() => {
+      deletePromise = result.current.deleteView('a');
+    });
+
+    let applied: boolean | undefined;
+    act(() => {
+      applied = result.current.upsertViewContent(makeView('a'));
+    });
+
+    expect(applied).toBe(false);
+    expect(result.current.views).toEqual(SINGLE_VIEW);
+
+    await act(async () => {
+      resolveDelete();
+      await deletePromise;
+    });
+
+    expect(result.current.views).toEqual([]);
+    expect(result.current.activeViewId).toBeUndefined();
+  });
+
   it('keeps isSaving true until the LAST of two overlapping mutations settles', async () => {
     // Two independently controllable persists so we can settle them out of order.
     const resolvers: Array<() => void> = [];
@@ -571,6 +660,68 @@ describe('useCustomViewDefinitionState', () => {
     act(() => result.current.selectView('a'));
     expect(result.current.isDirty).toBe(false);
     expect(result.current.isActivePersisted).toBe(true);
+  });
+
+  describe('per-experiment view limit', () => {
+    const MAX_VIEWS: CustomView[] = Array.from({ length: MAX_CUSTOM_VIEWS_PER_EXPERIMENT }, (_unused, index) =>
+      makeView(`view-${index}`),
+    );
+
+    it('reports the limit only after persisted views reach the cap', () => {
+      const belowLimit = MAX_VIEWS.slice(0, MAX_CUSTOM_VIEWS_PER_EXPERIMENT - 1);
+      const below = renderHook(() => useCustomViewDefinitionState(belowLimit, true, noopPersistView, true));
+      expect(below.result.current.hasReachedViewLimit).toBe(false);
+
+      const atLimit = renderHook(() => useCustomViewDefinitionState(MAX_VIEWS, true, noopPersistView, true));
+      expect(atLimit.result.current.hasReachedViewLimit).toBe(true);
+    });
+
+    it('does not count an unsaved draft as a persisted view', () => {
+      const belowLimit = MAX_VIEWS.slice(0, MAX_CUSTOM_VIEWS_PER_EXPERIMENT - 1);
+      const { result } = renderHook(() => useCustomViewDefinitionState(belowLimit, true, noopPersistView, true));
+
+      act(() => result.current.upsertViewContent(makeView('unsaved')));
+
+      expect(result.current.views).toHaveLength(MAX_CUSTOM_VIEWS_PER_EXPERIMENT);
+      expect(result.current.hasReachedViewLimit).toBe(false);
+    });
+
+    it('blocks starting a new draft at the limit', () => {
+      const { result } = renderHook(() => useCustomViewDefinitionState(MAX_VIEWS, true, noopPersistView, true));
+
+      act(() => result.current.startNewView('Blocked draft'));
+
+      expect(result.current.isDraft).toBe(false);
+      expect(result.current.draftName).toBe('');
+    });
+
+    it('still allows saving an existing view at the limit', async () => {
+      const onPersistView = jest.fn<(view: CustomView) => Promise<void>>().mockResolvedValue(undefined);
+      const { result } = renderHook(() => useCustomViewDefinitionState(MAX_VIEWS, true, onPersistView, true));
+
+      act(() => result.current.selectView('view-0'));
+      act(() => result.current.upsertViewContent(makeView('view-0', { label: 'edited' })));
+      await act(async () => {
+        await result.current.saveActiveView();
+      });
+
+      expect(onPersistView).toHaveBeenCalledWith(expect.objectContaining({ id: 'view-0', label: 'edited' }));
+    });
+
+    it('frees a slot after deleting a persisted view', async () => {
+      const onDeleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
+      const { result } = renderHook(() =>
+        useCustomViewDefinitionState(MAX_VIEWS, true, noopPersistView, true, onDeleteView),
+      );
+
+      await act(async () => {
+        await result.current.deleteView('view-0');
+      });
+
+      expect(result.current.hasReachedViewLimit).toBe(false);
+      act(() => result.current.startNewView('Now allowed'));
+      expect(result.current.isDraft).toBe(true);
+    });
   });
 
   it('does not clobber local edits when a later refetch arrives', () => {

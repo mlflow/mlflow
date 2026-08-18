@@ -1333,6 +1333,23 @@ def test_search_traces_with_non_dict_span_inputs_outputs():
 
 
 @skip_when_testing_trace_sdk
+def test_trace_decorator_honors_explicit_set_outputs():
+    @mlflow.trace
+    def predict(x):
+        mlflow.get_current_active_span().set_outputs({"explicit": x * 2})
+        return {"returned": x * 10}
+
+    # The function's real return value is unchanged.
+    assert predict(3) == {"returned": 30}
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    # The explicit set_outputs() call wins over the auto-captured return value.
+    assert span.outputs == {"explicit": 6}
+
+
+@skip_when_testing_trace_sdk
 def test_search_traces_extract_fields_preserves_standard_columns():
     with mlflow.start_span(name="test_span") as span:
         span.set_inputs({"x": 1})

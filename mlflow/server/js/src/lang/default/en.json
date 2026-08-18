@@ -575,6 +575,10 @@
     "defaultMessage": "This trace is already in this queue, and you don't have permission to remove it.",
     "description": "Add to review queue: queue option locked because the trace is a member the reviewer cannot remove"
   },
+  "0Ox6UC": {
+    "defaultMessage": "Show run parameters",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Show run params toggle"
+  },
   "0P5Ooz": {
     "defaultMessage": "+{count} more",
     "description": "Suffix on the dataset record tags column indicating how many additional tags are hidden in the preview"
@@ -1447,6 +1451,10 @@
     "defaultMessage": "API key name",
     "description": "Label for API key name input"
   },
+  "4Dpb3c": {
+    "defaultMessage": "Feedback submitted",
+    "description": "Accessible confirmation after thumbs feedback is logged in a custom trace view"
+  },
   "4GPLHq": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
     "description": "Description for the edit aliases modal on the registered prompt details page"
@@ -1802,6 +1810,10 @@
   "5umyLP": {
     "defaultMessage": "Edit endpoint name",
     "description": "Aria label for edit endpoint name button"
+  },
+  "5wqwBZ": {
+    "defaultMessage": "Thumbs down",
+    "description": "Accessible label for the thumbs-down feedback button in a custom trace view"
   },
   "5xPlEu": {
     "defaultMessage": "Source run",
@@ -2210,6 +2222,10 @@
   "7ZzboF": {
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
     "description": "Helper text describing how to link prompts when no prompt records are available"
+  },
+  "7b9zBN": {
+    "defaultMessage": "Delete the view \"{name}\"? This removes it from the experiment for everyone.",
+    "description": "Confirmation text when deleting a named custom trace view"
   },
   "7cd+cQ": {
     "defaultMessage": "Trace Archival Retention",
@@ -2958,6 +2974,10 @@
   "AanBxl": {
     "defaultMessage": "my-endpoint",
     "description": "Placeholder for endpoint name input"
+  },
+  "Aar6YZ": {
+    "defaultMessage": "Delete view",
+    "description": "Menu item to delete the current custom trace view"
   },
   "AawxF/": {
     "defaultMessage": "Edit Endpoint Name",
@@ -4975,6 +4995,10 @@
     "defaultMessage": "On exceeded",
     "description": "Budget on exceeded label"
   },
+  "JWoyvm": {
+    "defaultMessage": "Run details",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Run details section"
+  },
   "JWxMHS": {
     "defaultMessage": "Created",
     "description": "Metadata label for the dataset record creation time"
@@ -6807,6 +6831,10 @@
     "defaultMessage": "Users",
     "description": "Add to review queue: per-user personal-queue section header"
   },
+  "RJ34Xe": {
+    "defaultMessage": "Submit feedback",
+    "description": "Default label for the button that submits staged feedback in a custom trace view"
+  },
   "RJenO+": {
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
@@ -7330,6 +7358,10 @@
   "TcXjUy": {
     "defaultMessage": "Eval",
     "description": "Type pill text for a regular evaluation run in the evaluation runs table"
+  },
+  "TdOzAP": {
+    "defaultMessage": "Thumbs up",
+    "description": "Accessible label for the thumbs-up feedback button in a custom trace view"
   },
   "TeN9hs": {
     "defaultMessage": "Traces",
@@ -7911,6 +7943,10 @@
     "defaultMessage": "Safety",
     "description": "LLM template option"
   },
+  "W1jrck": {
+    "defaultMessage": "Feedback submitted",
+    "description": "Confirmation shown briefly on the feedback submit button after staged feedback is logged"
+  },
   "W2PfF7": {
     "defaultMessage": "Stop sequences",
     "description": "Label for the stop-sequences input on the playground parameters panel"
@@ -7982,6 +8018,10 @@
   "WFEeyZ": {
     "defaultMessage": "Cost: {input} in / {output} out",
     "description": "Model cost per token"
+  },
+  "WFT25v": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button label on the delete-custom-view modal"
   },
   "WGN2f3": {
     "defaultMessage": "Register model",
@@ -9679,6 +9719,10 @@
     "defaultMessage": "You don't own any queues yet.",
     "description": "Review queue sidebar: empty state for the My-queues filter"
   },
+  "dA7hRP": {
+    "defaultMessage": "Could not save. Try again.",
+    "description": "Inline error shown when logging thumbs feedback fails in a custom trace view"
+  },
   "dDbfnY": {
     "defaultMessage": "{count} {count, plural, one {hour} other {hours}}",
     "description": "Formatted trace archival retention in hours"
@@ -9798,6 +9842,10 @@
   "dmN/nA": {
     "defaultMessage": "Name",
     "description": "Queue settings: name field label"
+  },
+  "dnoeCa": {
+    "defaultMessage": "Delete view",
+    "description": "Title of the delete-custom-view confirmation modal"
   },
   "dp7Jva": {
     "defaultMessage": "Cancel",
@@ -11190,6 +11238,10 @@
   "ik/j6P": {
     "defaultMessage": "Show {count} more",
     "description": "MCP server package show more env vars button"
+  },
+  "ilJcHq": {
+    "defaultMessage": "Could not submit feedback. Try again.",
+    "description": "Inline error shown when submitting staged feedback fails in a custom trace view"
   },
   "imKpxw": {
     "defaultMessage": "ID",
@@ -13771,6 +13823,10 @@
     "defaultMessage": "my-api-key",
     "description": "Placeholder for API key name input"
   },
+  "tcQ02J": {
+    "defaultMessage": "Delete",
+    "description": "Confirm button label on the delete-custom-view modal"
+  },
   "tiQptW": {
     "defaultMessage": "Learn more",
     "description": "Link to the documentation page for GenAI evaluation"
@@ -14147,6 +14203,10 @@
     "defaultMessage": "Enter API key or select saved key",
     "description": "Placeholder for API key combobox input"
   },
+  "vfJdto": {
+    "defaultMessage": "This experiment has reached the limit of {maxViews} custom views. Delete a view before creating a new one.",
+    "description": "Explains that no more custom trace views can be created because the per-experiment limit is reached"
+  },
   "vgfy8y": {
     "defaultMessage": "Add assessment",
     "description": "Evaluation review > assessments > add assessment button label"
@@ -14186,6 +14246,10 @@
   "vqWexj": {
     "defaultMessage": "Back to experiment list",
     "description": "Tooltip for experiments button"
+  },
+  "vsxMvp": {
+    "defaultMessage": "Delete this view? This removes it from the experiment for everyone.",
+    "description": "Confirmation text when deleting an unnamed custom trace view"
   },
   "vtQvcd": {
     "defaultMessage": "Save version",

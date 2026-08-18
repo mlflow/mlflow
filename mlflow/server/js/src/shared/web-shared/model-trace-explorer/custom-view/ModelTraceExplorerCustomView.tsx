@@ -18,6 +18,7 @@ import {
   SparkleFillIcon,
   SparkleIcon,
   Tooltip,
+  TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -26,26 +27,35 @@ import { Catalog, MessageProcessor, type A2uiClientAction, type A2uiMessage } fr
 import { BASIC_FUNCTIONS } from '@a2ui/web_core/v0_9/basic_catalog';
 import { A2uiSurface, Column, Row } from '@a2ui/react/v0_9';
 
-import type { ModelTrace } from '../ModelTrace.types';
+import type { Feedback, ModelTrace } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import { isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import type { CreateAssessmentPayload } from '../api';
+import { getUser } from '../../global-settings/getUser';
 import { shouldUseTracesV4API } from '../FeatureUtils';
+import { useCreateAssessment } from '../hooks/useCreateAssessment';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
 import { AssessmentBoard } from './catalog-primitives/AssessmentBoard';
 import { AssessmentCard } from './catalog-primitives/AssessmentCard';
 import { Card } from './catalog-primitives/Card';
+import { FeedbackThumbsUpDownButtons } from './catalog-primitives/FeedbackThumbsUpDownButtons';
+import { FEEDBACK_STAGED } from './catalog-primitives/feedbackActions';
+import { FeedbackInputText } from './catalog-primitives/FeedbackInputText';
+import { FeedbackSubmit } from './catalog-primitives/FeedbackSubmit';
 import { Icon } from './catalog-primitives/Icon';
 import { KeyValueViewer } from './catalog-primitives/KeyValueViewer';
 import { Markdown } from './catalog-primitives/Markdown';
+import { RadioGroup } from './catalog-primitives/RadioGroup';
 import { StatCard } from './catalog-primitives/StatCard';
 import { Text } from './catalog-primitives/Text';
+import { FeedbackStatusProvider } from './FeedbackStatusContext';
 import type { AgentNode } from './agent/buildAgentPrompt';
 import { validateAndPrepareMessages, validateTemplate } from './agent/validateA2uiMessages';
 import { resolveTemplate } from './resolveTemplate';
 import { useCustomViewAssistantBridge } from './assistant/useCustomViewAssistantBridge';
 import { getDispatchedCustomViewApplyTarget } from './assistant/customViewAuthoringContext';
-import type { RenderCustomViewSpec } from './assistant/customViewSpecApplier';
+import { CustomViewValidationError, type RenderCustomViewSpec } from './assistant/customViewSpecApplier';
 import {
   CUSTOM_VIEW_CATALOG_ID,
   type CustomViewData,
@@ -54,7 +64,7 @@ import {
   getMetricsFromTraceInfo,
   mapToAgentAssessments,
 } from './customViewBuilders';
-import { type CustomView, type CustomViewApplyTarget } from './customViewDefinition';
+import { type CustomView, type CustomViewApplyTarget, MAX_CUSTOM_VIEWS_PER_EXPERIMENT } from './customViewDefinition';
 import { useCustomViewDefinition } from './CustomViewDefinitionContext';
 
 // Deterministic surface id per view so React/A2UI reuse the same surface across
@@ -63,6 +73,20 @@ const surfaceIdForView = (view: CustomView): string => `cv-${view.id}`;
 
 let viewIdCounter = 0;
 const nextViewId = (): string => `${Date.now().toString(36)}-${(viewIdCounter++).toString(36)}`;
+
+const doesFeedbackEntryMatchForm = (entry: { formId?: string }, formId: string | undefined): boolean =>
+  entry.formId === formId;
+
+type PendingFeedbackEntry = {
+  name: string;
+  value?: string;
+  rationale?: string;
+  spanId?: string;
+  formId?: string;
+};
+
+const feedbackEntryKey = ({ name, spanId, formId }: Pick<PendingFeedbackEntry, 'name' | 'spanId' | 'formId'>) =>
+  `${formId ?? ''}\u0000${name}\u0000${spanId ?? ''}`;
 
 const AssistantSparkleButton = ({
   componentId,
@@ -153,12 +177,28 @@ export const ModelTraceExplorerCustomView = ({
   const activeView = cv.activeView;
 
   // The catalog maps component type names to their React implementations: the
-  // layout/content primitives a bound template can reference.
+  // layout/content primitives plus the feedback controls a bound template can
+  // reference.
   const catalog = useMemo(
     () =>
       new Catalog(
         CUSTOM_VIEW_CATALOG_ID,
-        [Text, Row, Column, Card, Icon, StatCard, Markdown, AssessmentBoard, AssessmentCard, KeyValueViewer],
+        [
+          Text,
+          Row,
+          Column,
+          Card,
+          Icon,
+          StatCard,
+          Markdown,
+          AssessmentBoard,
+          AssessmentCard,
+          KeyValueViewer,
+          FeedbackThumbsUpDownButtons,
+          RadioGroup,
+          FeedbackInputText,
+          FeedbackSubmit,
+        ],
         BASIC_FUNCTIONS,
       ),
     [],
@@ -168,11 +208,157 @@ export const ModelTraceExplorerCustomView = ({
     () => (isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.trace_id : (modelTraceInfo.request_id ?? '')),
     [modelTraceInfo],
   );
+  const { createAssessmentMutation } = useCreateAssessment({ traceId });
+
+  // The processor's action handler is created once, so route actions through a
+  // ref that always points at the latest trace and mutation state.
+  const actionHandlerRef = useRef<(action: A2uiClientAction) => void>(() => {});
+
+  // Staged-but-unsubmitted feedback per surface, keyed by form + name + span so
+  // controls in separate forms or on separate spans never collide.
+  const pendingFeedbackRef = useRef<Map<string, Map<string, PendingFeedbackEntry>>>(new Map());
+  // Successful entries increment their own reset version so the matching radio
+  // and text controls clear after persistence while failed or newly edited
+  // entries remain visible for retry.
+  const feedbackResetVersionsRef = useRef<Map<string, Map<string, number>>>(new Map());
+  const [pendingFeedbackVersion, bumpPendingFeedbackVersion] = useReducer((tick: number) => tick + 1, 0);
 
   // A single long-lived processor holds the state for the active view's surface.
-  // No primitive in the catalog dispatches a client action today (the feedback
-  // controls that did are out of scope), so the action handler is a no-op.
-  const [processor] = useState(() => new MessageProcessor([catalog], (_action: A2uiClientAction) => {}));
+  const [processor] = useState(
+    () => new MessageProcessor([catalog], (action: A2uiClientAction) => actionHandlerRef.current(action)),
+  );
+
+  // Adapt the callback-based assessment mutation into a promise so a staged
+  // form can submit dimensions one at a time and retain only failed entries.
+  const createAssessmentAsync = (payload: CreateAssessmentPayload): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+      createAssessmentMutation(payload, {
+        onSuccess: () => resolve(),
+        onError: (error) => reject(error instanceof Error ? error : new Error(String(error))),
+      });
+    });
+
+  const handleStageFeedback = (action: A2uiClientAction) => {
+    const context = action.context ?? {};
+    const name = typeof context['name'] === 'string' && context['name'] ? context['name'] : undefined;
+    if (!name) {
+      return;
+    }
+
+    let surfaceBuffer = pendingFeedbackRef.current.get(action.surfaceId);
+    if (!surfaceBuffer) {
+      surfaceBuffer = new Map();
+      pendingFeedbackRef.current.set(action.surfaceId, surfaceBuffer);
+    }
+    const spanId = typeof context['spanId'] === 'string' && context['spanId'] ? context['spanId'] : undefined;
+    const formId = typeof context['formId'] === 'string' && context['formId'] ? context['formId'] : undefined;
+    const bufferKey = feedbackEntryKey({ formId, name, spanId });
+    const previous = surfaceBuffer.get(bufferKey);
+    const next: PendingFeedbackEntry = {
+      ...previous,
+      name,
+      ...(typeof context['value'] === 'string' ? { value: context['value'] } : {}),
+      ...(typeof context['rationale'] === 'string' ? { rationale: context['rationale'] } : {}),
+      ...(spanId ? { spanId } : {}),
+      ...(formId ? { formId } : {}),
+    };
+    // A data-only surface rebind can remount a control and stage the same bound
+    // value again while its request is in flight. Preserve the entry identity
+    // for a no-op restage so it is not mistaken for a newer user edit.
+    if (
+      previous &&
+      previous.name === next.name &&
+      previous.value === next.value &&
+      previous.rationale === next.rationale &&
+      previous.spanId === next.spanId &&
+      previous.formId === next.formId
+    ) {
+      return;
+    }
+    surfaceBuffer.set(bufferKey, next);
+    bumpPendingFeedbackVersion();
+  };
+
+  const submitStagedFeedback = async (formId?: string): Promise<{ submitted: number }> => {
+    const activeSurfaceId = activeView ? surfaceIdForView(activeView) : undefined;
+    const surfaceBuffer = activeSurfaceId ? pendingFeedbackRef.current.get(activeSurfaceId) : undefined;
+    if (!activeSurfaceId || !surfaceBuffer || surfaceBuffer.size === 0) {
+      throw new Error('There is no staged feedback to submit.');
+    }
+
+    const submittable: { key: string; entry: PendingFeedbackEntry; payload: CreateAssessmentPayload }[] = [];
+    for (const [key, entry] of surfaceBuffer.entries()) {
+      if (!doesFeedbackEntryMatchForm(entry, formId)) {
+        continue;
+      }
+      const hasValue = typeof entry.value === 'string' && entry.value.length > 0;
+      if (!hasValue) {
+        continue;
+      }
+      const hasRationale = typeof entry.rationale === 'string' && entry.rationale.length > 0;
+      const feedbackValue: { feedback: Feedback } = { feedback: { value: entry.value } };
+      submittable.push({
+        key,
+        entry,
+        payload: {
+          assessment: {
+            assessment_name: entry.name,
+            trace_id: traceId,
+            source: { source_type: 'HUMAN', source_id: getUser() ?? '' },
+            ...(entry.spanId ? { span_id: entry.spanId } : {}),
+            ...feedbackValue,
+            ...(hasRationale ? { rationale: entry.rationale } : {}),
+          },
+        },
+      });
+    }
+    if (submittable.length === 0) {
+      throw new Error('There is no staged feedback with a value to submit.');
+    }
+
+    // React Query stores mutate callbacks on one observer, so sequential writes
+    // keep each request's callbacks paired with its promise.
+    let submitted = 0;
+    let failed = 0;
+    for (const { key, entry, payload } of submittable) {
+      try {
+        await createAssessmentAsync(payload);
+        submitted += 1;
+        // A trace/view transition can replace the surface's buffer while this
+        // request is in flight, and the user can edit the same control before
+        // it finishes. Clear/reset only when both the buffer and entry are still
+        // the exact versions captured for this request.
+        if (pendingFeedbackRef.current.get(activeSurfaceId) === surfaceBuffer && surfaceBuffer.get(key) === entry) {
+          surfaceBuffer.delete(key);
+          let resetVersions = feedbackResetVersionsRef.current.get(activeSurfaceId);
+          if (!resetVersions) {
+            resetVersions = new Map();
+            feedbackResetVersionsRef.current.set(activeSurfaceId, resetVersions);
+          }
+          resetVersions.set(key, (resetVersions.get(key) ?? 0) + 1);
+        }
+      } catch {
+        // Failed entries remain staged so the user can retry them.
+        failed += 1;
+      }
+    }
+    if (pendingFeedbackRef.current.get(activeSurfaceId) === surfaceBuffer && surfaceBuffer.size === 0) {
+      pendingFeedbackRef.current.delete(activeSurfaceId);
+    }
+    bumpPendingFeedbackVersion();
+    if (failed > 0) {
+      throw new Error(
+        submitted > 0 ? 'Some staged feedback requests failed.' : 'Every staged feedback request failed.',
+      );
+    }
+    return { submitted };
+  };
+
+  actionHandlerRef.current = (action: A2uiClientAction) => {
+    if (action.name === FEEDBACK_STAGED) {
+      handleStageFeedback(action);
+    }
+  };
 
   // Assessments shown by AssessmentBoard/AssessmentCard come from the base trace
   // MERGED with the trace-cached-actions store, so this view stays live with
@@ -256,11 +442,67 @@ export const ModelTraceExplorerCustomView = ({
   // background selection change (e.g. an assistant apply) can't retarget the
   // rename.
   const [renameTargetId, setRenameTargetId] = useState<string | undefined>(undefined);
+  // Capture the delete target so a background selection change cannot retarget
+  // the confirmation modal to another view.
+  const [deleteTarget, setDeleteTarget] = useState<Pick<CustomView, 'id' | 'name'> | undefined>(undefined);
+
+  const viewLimitReachedMessage = intl.formatMessage(
+    {
+      defaultMessage:
+        'This experiment has reached the limit of {maxViews} custom views. Delete a view before creating a new one.',
+      description:
+        'Explains that no more custom trace views can be created because the per-experiment limit is reached',
+    },
+    { maxViews: MAX_CUSTOM_VIEWS_PER_EXPERIMENT },
+  );
 
   const surfaceId = activeView ? surfaceIdForView(activeView) : '';
   const surface = activeView ? processor.model.getSurface(surfaceId) : undefined;
 
+  const hasStagedFeedback = useCallback(
+    (formId?: string) => {
+      if (!surfaceId) {
+        return false;
+      }
+      const surfaceBuffer = pendingFeedbackRef.current.get(surfaceId);
+      if (!surfaceBuffer) {
+        return false;
+      }
+      for (const entry of surfaceBuffer.values()) {
+        if (doesFeedbackEntryMatchForm(entry, formId) && typeof entry.value === 'string' && entry.value.length > 0) {
+          return true;
+        }
+      }
+      return false;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this state tick makes the mutable ref reactive.
+    [surfaceId, pendingFeedbackVersion],
+  );
+
+  const getFeedbackResetVersion = useCallback(
+    (entry: Pick<PendingFeedbackEntry, 'name' | 'spanId' | 'formId'>) => {
+      if (!surfaceId) {
+        return 0;
+      }
+      return feedbackResetVersionsRef.current.get(surfaceId)?.get(feedbackEntryKey(entry)) ?? 0;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this state tick makes the mutable ref reactive.
+    [surfaceId, pendingFeedbackVersion],
+  );
+
+  const getStagedFeedbackValue = useCallback(
+    (entry: Pick<PendingFeedbackEntry, 'name' | 'spanId' | 'formId'>, field: 'value' | 'rationale' = 'value') => {
+      if (!surfaceId) {
+        return undefined;
+      }
+      return pendingFeedbackRef.current.get(surfaceId)?.get(feedbackEntryKey(entry))?.[field];
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this state tick makes the mutable ref reactive.
+    [surfaceId, pendingFeedbackVersion],
+  );
+
   const managedSurfacesRef = useRef<Set<string>>(new Set());
+  const managedSurfaceTemplateFingerprintsRef = useRef<Map<string, string>>(new Map());
 
   // The id of the view targeted by the next agent spec. Held in a ref so that
   // specs applied in the same tick all resolve to the same id. Kept in sync with
@@ -292,7 +534,7 @@ export const ModelTraceExplorerCustomView = ({
   const prepareTemplate = (spec: RenderCustomViewSpec): A2uiMessage[] => {
     const result = validateTemplate(spec);
     if (!result.ok) {
-      throw new Error(result.error);
+      throw new CustomViewValidationError(result.error);
     }
     return result.messages;
   };
@@ -404,6 +646,10 @@ export const ModelTraceExplorerCustomView = ({
 
   useEffect(() => {
     setInstruction('');
+    // Unsubmitted feedback belongs to the trace it was entered on.
+    pendingFeedbackRef.current.clear();
+    feedbackResetVersionsRef.current.clear();
+    bumpPendingFeedbackVersion();
   }, [traceId]);
 
   // Rebuild the active view's surface whenever the active view, its template, or
@@ -420,13 +666,26 @@ export const ModelTraceExplorerCustomView = ({
       if (!desired.has(surfaceId)) {
         processor.processMessages([{ version: 'v0.9', deleteSurface: { surfaceId } }]);
         managedSurfacesRef.current.delete(surfaceId);
+        pendingFeedbackRef.current.delete(surfaceId);
+        feedbackResetVersionsRef.current.delete(surfaceId);
+        managedSurfaceTemplateFingerprintsRef.current.delete(surfaceId);
+        bumpPendingFeedbackVersion();
       }
     }
 
     for (const view of panelsToRender) {
       const surfaceId = surfaceIdForView(view);
+      const templateFingerprint = JSON.stringify(view.template ?? []);
       // Delete any prior contents so the surface rebinds cleanly to this trace.
       if (managedSurfacesRef.current.has(surfaceId)) {
+        // A changed template can replace or regroup controls while keeping the
+        // same surface id. Drop values staged against the prior definition, but
+        // preserve them across ordinary data-only rebinds of the same template.
+        if (managedSurfaceTemplateFingerprintsRef.current.get(surfaceId) !== templateFingerprint) {
+          pendingFeedbackRef.current.delete(surfaceId);
+          feedbackResetVersionsRef.current.delete(surfaceId);
+          bumpPendingFeedbackVersion();
+        }
         processor.processMessages([{ version: 'v0.9', deleteSurface: { surfaceId } }]);
       }
 
@@ -452,6 +711,7 @@ export const ModelTraceExplorerCustomView = ({
 
       processor.processMessages(messages);
       managedSurfacesRef.current.add(surfaceId);
+      managedSurfaceTemplateFingerprintsRef.current.set(surfaceId, templateFingerprint);
     }
 
     refreshSurfaces();
@@ -567,7 +827,7 @@ export const ModelTraceExplorerCustomView = ({
   // is collected later, on first save. startNewView sets isDraft so the authoring
   // empty state renders even when other saved views already exist.
   const handleCreateView = () => {
-    if (!cv.canPersist) {
+    if (!cv.canPersist || cv.hasReachedViewLimit) {
       return;
     }
     cv.startNewView('');
@@ -613,6 +873,21 @@ export const ModelTraceExplorerCustomView = ({
     }
     setRenameModalOpen(false);
     cv.renameView(renameTargetId, name);
+  };
+
+  const handleOpenDelete = () => {
+    if (!activeView) {
+      return;
+    }
+    setDeleteTarget({ id: activeView.id, name: activeView.name });
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) {
+      return;
+    }
+    cv.deleteView(deleteTarget.id);
+    setDeleteTarget(undefined);
   };
 
   // Shown for a view that has not been saved yet (empty user-provided name): the
@@ -692,6 +967,8 @@ export const ModelTraceExplorerCustomView = ({
                     <DropdownMenu.Item
                       componentId="shared.model-trace-explorer.custom-view.create-view"
                       onClick={handleCreateView}
+                      disabled={cv.hasReachedViewLimit}
+                      disabledReason={cv.hasReachedViewLimit ? viewLimitReachedMessage : undefined}
                     >
                       <DropdownMenu.IconWrapper>
                         <PlusIcon />
@@ -735,7 +1012,7 @@ export const ModelTraceExplorerCustomView = ({
               />
             </AssistantSparkleButton>
           )}
-          {activeView && cv.isActivePersisted && cv.canPersist && (
+          {activeView && cv.isActivePersisted && (cv.canPersist || cv.canDelete) && (
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
                 <Button
@@ -749,43 +1026,60 @@ export const ModelTraceExplorerCustomView = ({
                 />
               </DropdownMenu.Trigger>
               <DropdownMenu.Content align="end" minWidth={150}>
-                <DropdownMenu.Item
-                  componentId="shared.model-trace-explorer.custom-view.rename"
-                  onClick={handleOpenRename}
-                  disabled={cv.isActivePersistedUnreadable}
-                >
-                  <DropdownMenu.IconWrapper>
-                    <PencilIcon />
-                  </DropdownMenu.IconWrapper>
-                  <FormattedMessage
-                    defaultMessage="Rename view"
-                    description="Menu item to rename the current custom trace view"
-                  />
-                  {cv.isActivePersistedUnreadable && (
-                    <Tooltip
-                      componentId="shared.model-trace-explorer.custom-view.rename-disabled-reason"
-                      side="right"
-                      content={intl.formatMessage({
-                        defaultMessage: 'Rebuild this invalid view with the assistant and save it to enable renaming.',
-                        description:
-                          'Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable',
-                      })}
-                    >
-                      <span
-                        css={{
-                          display: 'inline-flex',
-                          marginLeft: 'auto',
-                          paddingLeft: theme.spacing.xs,
-                          color: theme.colors.textSecondary,
-                          pointerEvents: 'all',
-                        }}
-                        onClick={(e) => e.stopPropagation()}
+                {cv.canPersist && (
+                  <DropdownMenu.Item
+                    componentId="shared.model-trace-explorer.custom-view.rename"
+                    onClick={handleOpenRename}
+                    disabled={cv.isActivePersistedUnreadable}
+                  >
+                    <DropdownMenu.IconWrapper>
+                      <PencilIcon />
+                    </DropdownMenu.IconWrapper>
+                    <FormattedMessage
+                      defaultMessage="Rename view"
+                      description="Menu item to rename the current custom trace view"
+                    />
+                    {cv.isActivePersistedUnreadable && (
+                      <Tooltip
+                        componentId="shared.model-trace-explorer.custom-view.rename-disabled-reason"
+                        side="right"
+                        content={intl.formatMessage({
+                          defaultMessage:
+                            'Rebuild this invalid view with the assistant and save it to enable renaming.',
+                          description:
+                            'Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable',
+                        })}
                       >
-                        <InfoIcon aria-hidden />
-                      </span>
-                    </Tooltip>
-                  )}
-                </DropdownMenu.Item>
+                        <span
+                          css={{
+                            display: 'inline-flex',
+                            marginLeft: 'auto',
+                            paddingLeft: theme.spacing.xs,
+                            color: theme.colors.textSecondary,
+                            pointerEvents: 'all',
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <InfoIcon aria-hidden />
+                        </span>
+                      </Tooltip>
+                    )}
+                  </DropdownMenu.Item>
+                )}
+                {cv.canDelete && (
+                  <DropdownMenu.Item
+                    componentId="shared.model-trace-explorer.custom-view.delete-view-modal-open-button"
+                    onClick={handleOpenDelete}
+                  >
+                    <DropdownMenu.IconWrapper>
+                      <TrashIcon />
+                    </DropdownMenu.IconWrapper>
+                    <FormattedMessage
+                      defaultMessage="Delete view"
+                      description="Menu item to delete the current custom trace view"
+                    />
+                  </DropdownMenu.Item>
+                )}
               </DropdownMenu.Content>
             </DropdownMenu.Root>
           )}
@@ -964,7 +1258,20 @@ export const ModelTraceExplorerCustomView = ({
             <Typography.Title level={2} withoutMargins css={{ fontSize: 22, lineHeight: '28px', fontWeight: 600 }}>
               {activeView.label || untitledLabel}
             </Typography.Title>
-            {surface && <A2uiSurface key={`${surfaceId}-${traceId}`} surface={surface} />}
+            {surface && (
+              <FeedbackStatusProvider
+                value={{
+                  enabled: true,
+                  traceId,
+                  hasStagedFeedback,
+                  getStagedFeedbackValue,
+                  submitStagedFeedback,
+                  getFeedbackResetVersion,
+                }}
+              >
+                <A2uiSurface key={`${surfaceId}-${traceId}`} surface={surface} />
+              </FeedbackStatusProvider>
+            )}
           </div>
         )}
       </div>
@@ -1049,6 +1356,41 @@ export const ModelTraceExplorerCustomView = ({
             }
           }}
         />
+      </Modal>
+
+      <Modal
+        componentId="shared.model-trace-explorer.custom-view.delete-view-modal"
+        visible={Boolean(deleteTarget)}
+        title={intl.formatMessage({
+          defaultMessage: 'Delete view',
+          description: 'Title of the delete-custom-view confirmation modal',
+        })}
+        onCancel={() => setDeleteTarget(undefined)}
+        onOk={handleDelete}
+        okText={intl.formatMessage({
+          defaultMessage: 'Delete',
+          description: 'Confirm button label on the delete-custom-view modal',
+        })}
+        cancelText={intl.formatMessage({
+          defaultMessage: 'Cancel',
+          description: 'Cancel button label on the delete-custom-view modal',
+        })}
+        okButtonProps={{ danger: true }}
+      >
+        <Typography.Text>
+          {deleteTarget?.name
+            ? intl.formatMessage(
+                {
+                  defaultMessage: 'Delete the view "{name}"? This removes it from the experiment for everyone.',
+                  description: 'Confirmation text when deleting a named custom trace view',
+                },
+                { name: deleteTarget.name },
+              )
+            : intl.formatMessage({
+                defaultMessage: 'Delete this view? This removes it from the experiment for everyone.',
+                description: 'Confirmation text when deleting an unnamed custom trace view',
+              })}
+        </Typography.Text>
       </Modal>
     </div>
   );

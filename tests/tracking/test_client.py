@@ -579,10 +579,14 @@ def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo)
     )
     assert len(results) == 100
     assert mock_store.batch_get_traces.call_count == 10
-    assert mock_store.batch_get_traces.has_calls([
-        mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
-        for j in range(10)
-    ])
+    mock_store.batch_get_traces.assert_has_calls(
+        [
+            mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
+            for j in range(10)
+        ],
+        # The batches are fetched concurrently, so the call order is not deterministic
+        any_order=True,
+    )
     mock_artifact_repo.download_trace_data.assert_not_called()
 
 

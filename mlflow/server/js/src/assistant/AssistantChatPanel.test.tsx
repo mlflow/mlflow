@@ -30,7 +30,8 @@ const mockSendMessage = jest.fn();
 const mockSelectProvider = jest.fn();
 const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
-const mockSendPendingAutomaticMessage = jest.fn();
+const mockClearComposerFocusRequest = jest.fn();
+const mockForceSendPendingAutomaticMessage = jest.fn();
 const mockRefreshConfig = jest.fn((options?: { silent?: boolean }) => {
   void options;
   return Promise.resolve();
@@ -38,6 +39,7 @@ const mockRefreshConfig = jest.fn((options?: { silent?: boolean }) => {
 const mockRespondToPermission = jest.fn();
 let mockSetupComplete = true;
 let mockPendingPrompt: string | null = null;
+let mockPendingComposerFocus = false;
 let mockPendingAutomaticMessage: PendingAutomaticMessage | null = null;
 let mockActiveProvider: ResolvedProviderInfo | null = null;
 let mockProviders: ProviderInfo[] = [];
@@ -88,6 +90,7 @@ jest.mock('./AssistantContext', () => ({
     gatewayVendorOptions: mockGatewayVendorOptions,
     needsApiKey: mockNeedsApiKey,
     pendingPrompt: mockPendingPrompt,
+    pendingComposerFocus: mockPendingComposerFocus,
     pendingAutomaticMessage: mockPendingAutomaticMessage,
     canUseAssistant: mockCanUseAssistant,
     tokenUsage: mockTokenUsage,
@@ -95,10 +98,12 @@ jest.mock('./AssistantContext', () => ({
     closePanel: jest.fn(),
     sendMessage: mockSendMessage,
     sendMessageWhenReady: jest.fn(),
-    sendPendingAutomaticMessage: mockSendPendingAutomaticMessage,
+    forceSendPendingAutomaticMessage: mockForceSendPendingAutomaticMessage,
     selectProvider: mockSelectProvider,
     prefillPrompt: jest.fn(),
     clearPendingPrompt: mockClearPendingPrompt,
+    requestComposerFocus: jest.fn(),
+    clearComposerFocusRequest: mockClearComposerFocusRequest,
     regenerateLastMessage: jest.fn(),
     reset: jest.fn(),
     cancelSession: mockCancelSession,
@@ -129,13 +134,15 @@ jest.mock('../common/utils/RoutingUtils', () => ({
 const renderChatPanel = () => {
   // The settings escape hatch mounts a config hook that needs a QueryClient.
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return renderWithIntl(
+  const panel = () => (
     <QueryClientProvider client={queryClient}>
       <DesignSystemProvider>
         <AssistantChatPanel />
       </DesignSystemProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const result = renderWithIntl(panel());
+  return { ...result, rerenderChatPanel: () => result.rerender(panel()) };
 };
 
 describe('AssistantChatPanel', () => {
@@ -146,12 +153,14 @@ describe('AssistantChatPanel', () => {
     mockSelectProvider.mockClear();
     mockCancelSession.mockClear();
     mockClearPendingPrompt.mockClear();
-    mockSendPendingAutomaticMessage.mockClear();
+    mockClearComposerFocusRequest.mockClear();
+    mockForceSendPendingAutomaticMessage.mockClear();
     mockRefreshConfig.mockClear();
     mockRespondToPermission.mockClear();
     mockUpdateConfig.mockClear();
     mockSetupComplete = true;
     mockPendingPrompt = null;
+    mockPendingComposerFocus = false;
     mockPendingAutomaticMessage = null;
     mockActiveProvider = null;
     mockProviders = [];
@@ -199,7 +208,7 @@ describe('AssistantChatPanel', () => {
   test('seed waits while setup is incomplete, then prefills the input after setup completes', async () => {
     mockSetupComplete = false;
     mockPendingPrompt = 'SEED';
-    const { rerender } = renderChatPanel();
+    const { rerenderChatPanel } = renderChatPanel();
 
     // Setup prompt is shown; no input yet; the seed has NOT been consumed.
     expect(screen.getByText('Welcome to MLflow Assistant')).toBeInTheDocument();
@@ -209,15 +218,54 @@ describe('AssistantChatPanel', () => {
 
     // Setup completes (provider selected) — ChatPanelContent mounts and consumes the seed.
     mockSetupComplete = true;
-    rerender(
-      <DesignSystemProvider>
-        <AssistantChatPanel />
-      </DesignSystemProvider>,
-    );
+    rerenderChatPanel();
 
     const textarea = await screen.findByDisplayValue('SEED');
     expect(textarea.tagName).toBe('TEXTAREA');
     expect(mockClearPendingPrompt).toHaveBeenCalledTimes(1);
+  });
+
+  test('a focus-only request focuses the composer without changing its text', async () => {
+    mockPendingComposerFocus = true;
+    renderChatPanel();
+
+    const textarea = screen.getByPlaceholderText('Ask a question...');
+    await waitFor(() => expect(textarea).toHaveFocus());
+    expect(textarea).toHaveValue('');
+    expect(mockClearComposerFocusRequest).toHaveBeenCalledTimes(1);
+  });
+
+  test('a focus request waits for setup before focusing the composer', async () => {
+    mockSetupComplete = false;
+    mockPendingComposerFocus = true;
+    const { rerenderChatPanel } = renderChatPanel();
+
+    expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
+    expect(mockClearComposerFocusRequest).not.toHaveBeenCalled();
+
+    mockSetupComplete = true;
+    rerenderChatPanel();
+
+    const textarea = await screen.findByPlaceholderText('Ask a question...');
+    await waitFor(() => expect(textarea).toHaveFocus());
+    expect(mockClearComposerFocusRequest).toHaveBeenCalledTimes(1);
+  });
+
+  test('a focus request refocuses an open composer without replacing draft text', async () => {
+    const user = userEvent.setup();
+    const { rerenderChatPanel } = renderChatPanel();
+    const textarea = screen.getByPlaceholderText('Ask a question...');
+    await user.type(textarea, 'draft edit request');
+    textarea.blur();
+    expect(textarea).not.toHaveFocus();
+
+    mockPendingComposerFocus = true;
+    rerenderChatPanel();
+
+    const refocusedTextarea = await screen.findByPlaceholderText('Ask a question...');
+    await waitFor(() => expect(refocusedTextarea).toHaveFocus());
+    expect(refocusedTextarea).toHaveValue('draft edit request');
+    expect(mockClearComposerFocusRequest).toHaveBeenCalledTimes(1);
   });
 
   test('renders a textarea for chat input', () => {
@@ -298,7 +346,7 @@ describe('AssistantChatPanel', () => {
       model_options: ['gpt-5.5', 'gpt-5-mini'],
       requires_api_key: true,
       has_api_key: false,
-      supports_client_tools: true,
+      client_tool_delivery: 'tool',
     };
     mockNeedsApiKey = true;
     const user = userEvent.setup();
@@ -325,7 +373,7 @@ describe('AssistantChatPanel', () => {
       model_options: ['gpt-5.5'],
       requires_api_key: true,
       has_api_key: false,
-      supports_client_tools: true,
+      client_tool_delivery: 'tool',
     };
     mockNeedsApiKey = true;
     mockPendingAutomaticMessage = {
@@ -343,7 +391,7 @@ describe('AssistantChatPanel', () => {
     await user.type(screen.getByPlaceholderText('sk-...'), 'sk-test');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-    await waitFor(() => expect(mockSendPendingAutomaticMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockForceSendPendingAutomaticMessage).toHaveBeenCalledTimes(1));
     expect(mockSendMessage).not.toHaveBeenCalled();
     expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
   });
@@ -356,7 +404,7 @@ describe('AssistantChatPanel', () => {
       model_options: [],
       requires_api_key: false,
       has_api_key: false,
-      supports_client_tools: true,
+      client_tool_delivery: 'tool',
     };
     mockNeedsApiKey = false;
     mockPendingAutomaticMessage = {
@@ -379,7 +427,7 @@ describe('AssistantChatPanel', () => {
       model_options: ['gpt-5.5', 'gpt-5-mini'],
       requires_api_key: true,
       has_api_key: false,
-      supports_client_tools: true,
+      client_tool_delivery: 'tool',
     };
     mockError = 'OpenAI requires an API key.';
     mockErrorCode = 'api_key_missing';

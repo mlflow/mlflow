@@ -12,6 +12,8 @@
 export interface ClientToolResult {
   content: string;
   isError?: boolean;
+  /** Whether a structured-output provider may automatically retry with this error. */
+  retryable?: boolean;
 }
 
 export type ClientToolHandler = (toolInput: Record<string, any>) => Promise<ClientToolResult>;

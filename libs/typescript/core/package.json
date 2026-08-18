@@ -48,7 +48,11 @@
     "bignumber.js": "^9.0.0",
     "ini": "^5.0.0"
   },
+  "optionalDependencies": {
+    "@kubernetes/client-node": "^1.0.0"
+  },
   "devDependencies": {
+    "@kubernetes/client-node": "^1.0.0",
     "@types/ini": "^4.1.1",
     "@types/jest": "^29.5.3",
     "@types/node": "^20.4.5",

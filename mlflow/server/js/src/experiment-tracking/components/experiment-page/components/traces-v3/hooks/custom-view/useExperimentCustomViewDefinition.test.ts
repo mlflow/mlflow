@@ -98,6 +98,7 @@ describe('useExperimentCustomViewDefinition', () => {
   let queryClient: QueryClient;
   let mockGetExperiment: jest.SpiedFunction<typeof MlflowService.getExperiment>;
   let mockSetExperimentTag: jest.SpiedFunction<typeof MlflowService.setExperimentTag>;
+  let mockDeleteExperimentTag: jest.SpiedFunction<typeof MlflowService.deleteExperimentTag>;
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -109,10 +110,11 @@ describe('useExperimentCustomViewDefinition', () => {
     jest.clearAllMocks();
     mockGetExperiment = jest.spyOn(MlflowService, 'getExperiment').mockResolvedValue(getExperimentResponse([]));
     mockSetExperimentTag = jest.spyOn(MlflowService, 'setExperimentTag').mockResolvedValue({});
+    mockDeleteExperimentTag = jest.spyOn(MlflowService, 'deleteExperimentTag').mockResolvedValue({});
   });
 
   describe('load path', () => {
-    it('skips empty-value tombstones and non-custom-view tags, keeps corrupt tags as unreadable placeholders, and sorts by createdAtMs', async () => {
+    it('loads all custom-view tags, keeps corrupt values as unreadable placeholders, and sorts by createdAtMs', async () => {
       const newer = makeView({ id: 'newer', createdAtMs: 200 });
       const older = makeView({ id: 'older', createdAtMs: 100 });
 
@@ -121,9 +123,9 @@ describe('useExperimentCustomViewDefinition', () => {
           // Presented newest-first so the sort has something to reorder.
           customViewTag(newer),
           customViewTag(older),
-          // Soft-deleted tombstone: correct prefix but empty value → the ONLY case
-          // that is excluded from the list.
-          { key: viewTagKey('deleted'), value: '' },
+          // Empty values are not tombstones in OSS because deletion hard-deletes the tag. Treat a
+          // directly-created empty tag like any other corrupt value so it still consumes a slot.
+          { key: viewTagKey('empty'), value: '' },
           // Corrupt payloads under the custom-view prefix → kept as `unreadable`
           // placeholders (keyed by the recovered id) rather than dropped, so an
           // incompatible saved view stays selectable instead of vanishing.
@@ -141,18 +143,19 @@ describe('useExperimentCustomViewDefinition', () => {
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
 
       expect(mockGetExperiment).toHaveBeenCalledWith({ experiment_id: EXPERIMENT_ID });
-      // Unreadable placeholders get createdAtMs 0, so they sort ahead of the valid
-      // views; the soft-delete tombstone and the non-prefixed note are excluded.
+      // Unreadable placeholders get createdAtMs 0, so they sort ahead of the valid views; only the
+      // non-prefixed note is excluded.
       expect(result.current.views.map((view) => view.id)).toEqual([
+        'empty',
         'bad-json',
         'wrong-shape',
         'named-bad',
         'older',
         'newer',
       ]);
-
       const byId = (id: string) => result.current.views.find((view) => view.id === id);
       // Unparseable bytes and shape mismatches are kept and flagged unreadable.
+      expect(byId('empty')?.unreadable).toBe(true);
       expect(byId('bad-json')?.unreadable).toBe(true);
       expect(byId('wrong-shape')?.unreadable).toBe(true);
       expect(byId('named-bad')?.unreadable).toBe(true);
@@ -325,7 +328,7 @@ describe('useExperimentCustomViewDefinition', () => {
     });
 
     it('uses UTF-8 bytes to decide whether to compress', async () => {
-      const view = makeView({ id: 'unicode', instruction: '🙂'.repeat(2000) });
+      const view = makeView({ id: 'unicode', instruction: '🙂'.repeat(6000) });
       const raw = serializeCustomView(view);
       expect(raw.length).toBeLessThan(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES);
       expect(getUtf8ByteLength(raw)).toBeGreaterThan(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES);
@@ -343,8 +346,8 @@ describe('useExperimentCustomViewDefinition', () => {
       expect(isTextCompressedDeflate(call.value)).toBe(true);
     });
 
-    it('stores raw JSON at the 5,000-byte safe client limit', async () => {
-      expect(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES).toBe(5000);
+    it('stores raw JSON at the 20,000-byte safe client limit', async () => {
+      expect(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES).toBe(20000);
       const baseView = makeView({ id: 'raw-boundary', instruction: '' });
       const instructionLength = CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES - getUtf8ByteLength(serializeCustomView(baseView));
       expect(instructionLength).toBeGreaterThanOrEqual(0);
@@ -386,14 +389,38 @@ describe('useExperimentCustomViewDefinition', () => {
     });
   });
 
+  describe('delete path', () => {
+    it('hard deletes the saved-view tag and invalidates the cached views', async () => {
+      const invalidateQueriesSpy = jest.spyOn(queryClient, 'invalidateQueries');
+      const { result } = renderDefinition(queryClient, EXPERIMENT_ID);
+      await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+      const deleteView = result.current.deleteView;
+      if (!deleteView) {
+        throw new Error('deleteView should be defined when an experiment id is present');
+      }
+      await deleteView('view-1');
+
+      expect(mockDeleteExperimentTag).toHaveBeenCalledWith({
+        experiment_id: EXPERIMENT_ID,
+        key: viewTagKey('view-1'),
+      });
+      expect(invalidateQueriesSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['experiment-custom-views', EXPERIMENT_ID] }),
+      );
+    });
+  });
+
   describe('without an experiment id', () => {
-    it('reports loaded, exposes no persist callback, and never fetches', () => {
+    it('reports loaded, exposes no mutation callbacks, and never fetches', () => {
       const { result } = renderDefinition(queryClient, undefined);
 
       expect(result.current.isLoaded).toBe(true);
       expect(result.current.views).toEqual([]);
       expect(result.current.persistView).toBeUndefined();
+      expect(result.current.deleteView).toBeUndefined();
       expect(mockGetExperiment).not.toHaveBeenCalled();
+      expect(mockDeleteExperimentTag).not.toHaveBeenCalled();
     });
   });
 });
