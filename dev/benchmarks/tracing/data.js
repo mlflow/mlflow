@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787005329465,
+  "lastUpdate": 1787013120802,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -22949,6 +22949,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.915936199996622,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "koustaviitjee@gmail.com",
+            "name": "Koustav Manna",
+            "username": "Koustav-github"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "af7acb646cd96c1bbd6bb1686a5e260c9e02aec8",
+          "message": "Fix late-binding closure in `configure_autologging_for_evaluation` configuring the wrong flavor (#25135)\n\nSigned-off-by: Koustav Manna <koustaviitjee@gmail.com>",
+          "timestamp": "2026-08-18T00:30:35Z",
+          "tree_id": "78bc81cb02d251943b45ba4bf19f027cfe49dae1",
+          "url": "https://github.com/mlflow/mlflow/commit/af7acb646cd96c1bbd6bb1686a5e260c9e02aec8"
+        },
+        "date": 1787013117813,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.033173899999696,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.240935456140145,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.353624006756826,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.191666940169961,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.6800786999995525,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.425141400000257,
             "unit": "ms"
           }
         ]
