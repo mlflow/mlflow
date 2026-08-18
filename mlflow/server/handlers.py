@@ -2272,7 +2272,21 @@ def get_metric_history_bulk_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    max_results = int(request.args.get("max_results", MAX_HISTORY_RESULTS))
+    raw_max_results = request.args.get("max_results", MAX_HISTORY_RESULTS)
+    try:
+        max_results = int(raw_max_results)
+    except (TypeError, ValueError):
+        raise MlflowException(
+            f"Invalid value {raw_max_results!r} for parameter 'max_results' supplied. "
+            "It must be a positive integer.",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from None
+    if max_results <= 0:
+        raise MlflowException(
+            f"Invalid value {max_results} for parameter 'max_results' supplied. "
+            "It must be a positive integer.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     max_results = min(max_results, MAX_HISTORY_RESULTS)
 
     store = _get_tracking_store()

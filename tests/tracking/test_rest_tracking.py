@@ -1052,6 +1052,13 @@ def test_get_metric_history_bulk_rejects_invalid_requests(mlflow_client):
         "GetMetricHistoryBulk request must specify a metric_key",
     )
 
+    for max_results in [0, -1, "invalid", "1.5", ""]:
+        response_invalid_max_results = requests.get(
+            f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
+            params={"run_id": ["123"], "metric_key": "key", "max_results": max_results},
+        )
+        assert_response(response_invalid_max_results, "It must be a positive integer")
+
 
 def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(
     mlflow_client,
