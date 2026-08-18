@@ -5810,19 +5810,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         return update_dict
 
-    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """Async wrapper for log_spans. Delegates to the synchronous implementation.
-
-        Args:
-            location: Experiment ID of an MLflow experiment.
-            spans: List of Span entities to log.
-
-        Returns:
-            List of logged Span entities.
-        """
-        # TODO: Implement proper async support
-        return self.log_spans(location, spans)
-
     def _get_trace_status_from_root_span(self, spans: list[Span]) -> str | None:
         """
         Infer trace status from root span if present.
