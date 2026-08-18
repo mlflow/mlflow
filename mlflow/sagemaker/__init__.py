@@ -16,6 +16,7 @@ from typing import Any
 
 import mlflow
 import mlflow.version
+import numpy as np
 from mlflow import pyfunc
 from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 from mlflow.environment_variables import (
