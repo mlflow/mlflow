@@ -316,9 +316,16 @@ class JobLockManager:
 
         Returns False if a valid lock already exists.
 
+        NOTE:
+            This method cleans up stale locks only when a new acquisition
+            targets the same lock_key. It does not remove stale rows for
+            other keys. Each lock_key persists as a unique row in the
+            ``job_locks`` table until it is manually deleted.
+
         Args:
             lock_key: Framework-computed key
-            job_id: The job ID trying to acquire this lock
+            job_id: The job ID trying to acquire this lock. Must belong
+                to an existing ``SqlJob``
 
         Returns:
             True if lock acquired, False if held by another live job.
@@ -363,15 +370,10 @@ class JobLockManager:
                     session.delete(existing_lock)
                     session.flush()
 
-                requesting_job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
-                if requesting_job is None:
-                    _logger.debug("Job lock acquisition denied. Requesting job not found.")
-                    return False
-
                 session.add(
                     SqlJobLock(
                         lock_key=lock_key,
-                        job_id=requesting_job.id,
+                        job_id=job_id,
                         acquired_at=get_current_time_millis(),
                     )
                 )
@@ -437,4 +439,4 @@ class JobLockManager:
             if now > expiration_time:
                 return False
 
-        return not (holding_job.lease_expires_at is not None and now > holding_job.lease_expires_at)
+        return True
