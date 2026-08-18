@@ -486,7 +486,7 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
         .. code-block:: python
 
-            from mlflow.tracing.destination import Databricks
+            from mlflow.tracing.destination import MlflowExperimentLocation
 
             mlflow.tracing.set_destination(
                 MlflowExperimentLocation(experiment_id="123"),
