@@ -92,6 +92,7 @@ const mockUseAssistant = jest.mocked(useAssistant);
 const makeAssistant = (overrides: Record<string, unknown> = {}) => {
   const value = {
     openPanel: jest.fn(),
+    requestComposerFocus: jest.fn(),
     sendMessageWhenReady: jest.fn(),
     pendingAutomaticMessage: null,
     isStreaming: false,
@@ -131,7 +132,12 @@ describe('ExperimentCustomViewProvider', () => {
   it('passes loaded views, mutation callbacks, and permission through to the definition provider', () => {
     const persistView = jest.fn<(view: CustomView) => Promise<void>>().mockResolvedValue(undefined);
     const deleteView = jest.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined);
-    mockUseExperimentCustomViewDefinition.mockReturnValue({ views: [], isLoaded: true, persistView, deleteView });
+    mockUseExperimentCustomViewDefinition.mockReturnValue({
+      views: [],
+      isLoaded: true,
+      persistView,
+      deleteView,
+    });
     makeAssistant();
     mockCanEdit = { canEdit: false, isLoading: false };
     renderProvider();
@@ -156,6 +162,7 @@ describe('ExperimentCustomViewProvider', () => {
       expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('render_custom_view'), {
         newSession: true,
       });
+      expect(assistant.requestComposerFocus).toHaveBeenCalledTimes(1);
     });
 
     it('reuses the current session (no reset) for a prompted edit without newSession', () => {
@@ -166,6 +173,7 @@ describe('ExperimentCustomViewProvider', () => {
 
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
       expect(assistant.sendMessageWhenReady).toHaveBeenCalledWith(expect.stringContaining('Add a chart'), undefined);
+      expect(assistant.requestComposerFocus).toHaveBeenCalledTimes(1);
     });
 
     it('submits structured-output instructions for a structured local provider', () => {
@@ -189,6 +197,7 @@ describe('ExperimentCustomViewProvider', () => {
 
       expect(assistant.openPanel).toHaveBeenCalledTimes(1);
       expect(assistant.sendMessageWhenReady).not.toHaveBeenCalled();
+      expect(assistant.requestComposerFocus).toHaveBeenCalledTimes(1);
     });
 
     it('exposes the assistant context streaming state on the connector', () => {

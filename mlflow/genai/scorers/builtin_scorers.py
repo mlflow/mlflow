@@ -1807,12 +1807,6 @@ class Correctness(BuiltInScorer):
             )
 
     def get_input_fields(self) -> list[JudgeField]:
-        """
-        Get the input fields for the Correctness judge.
-
-        Returns:
-            List of JudgeField objects defining the input fields based on the __call__ method.
-        """
         return [
             JudgeField(
                 name="inputs",
@@ -2269,8 +2263,13 @@ class BuiltInSessionLevelScorer(BuiltInScorer, SessionLevelScorer):
     implementation details should inherit from SessionLevelScorer directly.
     """
 
-    # All functionality now inherited from SessionLevelScorer
-    # BuiltInScorer provides special serialization for public API
+    # Re-declared because BuiltInScorer precedes SessionLevelScorer in the MRO, so
+    # BuiltInScorer's ``set()`` default would otherwise shadow SessionLevelScorer's
+    # ``{"trace"}``, leaving session scorers with an empty (incorrect) data contract.
+    required_columns: set[str] = {"trace"}
+
+    # Remaining functionality is inherited from SessionLevelScorer;
+    # BuiltInScorer provides special serialization for public API.
 
 
 @format_docstring(_MODEL_API_DOC)

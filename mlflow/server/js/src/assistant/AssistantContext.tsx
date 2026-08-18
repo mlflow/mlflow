@@ -303,6 +303,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
   const [pendingClientToolCall, setPendingClientToolCall] = useState<PendingClientToolCall | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [pendingComposerFocus, setPendingComposerFocus] = useState(false);
   const [pendingAutomaticMessage, setPendingAutomaticMessage] = useState<PendingAutomaticMessage | null>(null);
   const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => normalizeTokenUsage(persistedChat.tokenUsage));
 
@@ -820,11 +821,14 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // Drop any queued prompt — closing the panel is an abandon, so a stale seed shouldn't
     // inject into an unrelated chat opened later.
     setPendingPrompt(null);
+    setPendingComposerFocus(false);
     setPendingAutomaticMessage(null);
   }, [setIsPanelOpen]);
 
   const prefillPrompt = useCallback((prompt: string) => setPendingPrompt(prompt), []);
   const clearPendingPrompt = useCallback(() => setPendingPrompt(null), []);
+  const requestComposerFocus = useCallback(() => setPendingComposerFocus(true), []);
+  const clearComposerFocusRequest = useCallback(() => setPendingComposerFocus(false), []);
 
   const reset = useCallback(() => {
     // Invalidate any in-flight send still awaiting its POST: its captured token no longer matches,
@@ -851,6 +855,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     openTextBufferRef.current = '';
     setPendingPermission(null);
     setPendingClientToolCall(null);
+    // Intentionally preserve pendingComposerFocus: a new-session Custom View
+    // build requests focus before reset, and the fresh composer consumes it.
     setPendingAutomaticMessage(null);
     structuredRepairAttemptsRef.current = 0;
     structuredRepairContextRef.current = null;
@@ -1287,6 +1293,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     gatewayVendorOptions,
     needsApiKey,
     pendingPrompt,
+    pendingComposerFocus,
     pendingAutomaticMessage,
     pendingPermission,
     pendingClientToolCall,
@@ -1301,6 +1308,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     selectProvider,
     prefillPrompt,
     clearPendingPrompt,
+    requestComposerFocus,
+    clearComposerFocusRequest,
     regenerateLastMessage,
     reset,
     cancelSession: handleCancelSession,
@@ -1331,6 +1340,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   gatewayVendorOptions: {},
   needsApiKey: false,
   pendingPrompt: null,
+  pendingComposerFocus: false,
   pendingAutomaticMessage: null,
   pendingPermission: null,
   pendingClientToolCall: null,
@@ -1344,6 +1354,8 @@ const disabledAssistantContext: AssistantAgentContextType = {
   selectProvider: () => {},
   prefillPrompt: () => {},
   clearPendingPrompt: () => {},
+  requestComposerFocus: () => {},
+  clearComposerFocusRequest: () => {},
   regenerateLastMessage: () => {},
   reset: () => {},
   cancelSession: () => {},

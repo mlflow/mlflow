@@ -26,6 +26,7 @@ import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { getTraceLegacy } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { shouldEnableImprovedEvalRunsComparison } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
+import { useScorerDescriptions } from '../../pages/experiment-scorers/hooks/useScorerDescriptions';
 
 export const RunViewEvaluationsTabArtifacts = ({
   experimentId,
@@ -55,6 +56,8 @@ export const RunViewEvaluationsTabArtifacts = ({
 
   const makeHtmlFromMarkdown = useMarkdownConverter();
   const saveAssessmentsQuery = useSavePendingEvaluationAssessments();
+
+  const scorerDescriptionsByName = useScorerDescriptions(experimentId);
 
   const {
     data: compareToRunData,
@@ -94,6 +97,7 @@ export const RunViewEvaluationsTabArtifacts = ({
       saveAssessmentsQuery,
       getTrace: getTraceLegacy,
       initialSelectedColumns,
+      scorerDescriptionsByName,
     } as const;
     return (
       <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>

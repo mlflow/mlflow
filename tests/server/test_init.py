@@ -264,6 +264,8 @@ def test_build_uvicorn_command_user_log_config_takes_precedence(uvicorn_opts):
     assert not any("uvicorn_log_config.yaml" in o for o in cmd)
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 @pytest.mark.parametrize(
     "sig",
     [

@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/review.yml"
+      - ".claude/scripts/**"
       - ".claude/skills/pr-review/**"
 
 concurrency:
@@ -88,7 +89,7 @@ jobs:
     # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
     # fails closed.
     permissions: {}
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -134,12 +135,19 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
+      - uses: ./.github/actions/setup-node
       - name: Install Claude CLI
         run: |
           .claude/scripts/install-claude.sh
       - name: Verify Claude CLI
         run: |
           claude --version
+      - name: Install agent-browser
+        run: |
+          .claude/scripts/install-agent-browser.sh
+      - name: Verify agent-browser
+        run: |
+          agent-browser --version
 
       - name: Parse review arguments
         id: prompt
@@ -178,25 +186,46 @@ jobs:
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
+      # The Claude step never sees the real API key: the proxy holds it and the
+      # CLI talks to the proxy with a random per-run client key. The real key
+      # is passed via stdin (printf is a bash builtin) so it appears in no
+      # process's env or argv, and --disable-sigusr1 blocks same-UID processes
+      # from recovering it through a signal-triggered inspector session.
+      - name: Start Anthropic proxy
+        id: proxy
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+        run: |
+          CLIENT_KEY=$(openssl rand -hex 32)
+          echo "client-key=$CLIENT_KEY" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s' "$ANTHROPIC_API_KEY" "$CLIENT_KEY" \
+            | env -u ANTHROPIC_API_KEY node --disable-sigusr1 .claude/scripts/anthropic-proxy.mjs \
+              > /tmp/anthropic-proxy.log 2>&1 &
+          timeout 10 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8082/healthz; do sleep 0.5; done' \
+            || { echo "::error::Anthropic proxy failed to start"; cat /tmp/anthropic-proxy.log; exit 1; }
+
       - name: Review
         id: review
         env:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: http://127.0.0.1:8082
+          ANTHROPIC_API_KEY: ${{ steps.proxy.outputs.client-key }}
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
+          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/review-shots
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
+          mkdir -p /tmp/review-media
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
           EXIT_CODE=0
-          timeout 20m claude \
+          timeout 30m claude \
             --model "$MODEL" \
             --effort "$EFFORT" \
-            --max-budget-usd 5 \
+            --max-budget-usd 8 \
             --permission-mode auto \
             --allowed-tools "Bash(uv run --package skills skills:*)" \
             --print \
@@ -205,12 +234,35 @@ jobs:
             "/pr-review $PR_URL" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
-            echo "Warning: Claude command timed out after 20 minutes"
+            echo "Warning: Claude command timed out after 30 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
             echo "Error: Claude command failed with exit code $EXIT_CODE"
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
           fi
+
+      # The runner stops reading the proxy's stdout once its own step ends, so
+      # the proxy writes to a file and we dump it here for diagnosability.
+      - name: Show proxy log
+        if: always()
+        run: cat /tmp/anthropic-proxy.log || true
+
+      # Kept out of the Claude step, which holds only the read-only app token, so a
+      # poisoned diff can't reach this PAT. Gated like Post so the pull_request
+      # smoke path stays non-mutating.
+      - name: Upload review media
+        if: github.event_name == 'issue_comment'
+        # Attaching media is a nicety; losing the whole review over it is not. Any
+        # fault here must not take the job down before Post review.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          REPO_ID: ${{ github.event.repository.id }}
+        run: |
+          uv run --frozen --package skills skills embed-media \
+            --dir /tmp/review-media \
+            --target /tmp/review-payload.json \
+            --repository-id "$REPO_ID"
 
       - name: Validate review payload
         run: |
@@ -235,9 +287,9 @@ jobs:
       - name: Redact secrets from transcript
         if: always()
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
           GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
           GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
+          PROXY_CLIENT_KEY: ${{ steps.proxy.outputs.client-key }}
         run: |
           python <<'PY'
           import os
@@ -248,7 +300,7 @@ jobs:
           if not path.exists():
               sys.exit(0)
           data = path.read_text()
-          for name in ("ANTHROPIC_API_KEY", "GH_TOKEN_READ", "GH_TOKEN_WRITE"):
+          for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE", "PROXY_CLIENT_KEY"):
               if val := os.environ.get(name):
                   data = data.replace(val, "***")
           path.write_text(data)
