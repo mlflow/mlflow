@@ -3995,11 +3995,7 @@ def test_create_issue_with_all_fields(tmp_path: Path):
     assert issue.created_timestamp > 0
 
 
-# ─── D2 tests: register_prompt UI discoverability ────────────────────────────
-#
-# D2 fires ONLY from the Unity Catalog branch of register_prompt (when
-# is_databricks_unity_catalog_uri returns True). Tests mock the UC registry
-# backend so the UC branch runs without a live Databricks connection.
+# register_prompt UI discoverability tests
 
 
 def _make_uc_prompt_version(name: str, version: int = 1):
