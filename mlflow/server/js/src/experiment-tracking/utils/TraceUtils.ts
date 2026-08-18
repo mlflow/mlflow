@@ -11,6 +11,7 @@ import {
   TracesServiceV3,
   isV4TraceId,
   getExperimentTraceV3,
+  VIRTUALIZED_TRACE_THRESHOLD,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   getSpanAttribute,
@@ -27,22 +28,36 @@ export async function getTrace(
     return undefined;
   }
 
-  // Check spans location tag to decide the source of span data
-  // If spans are in the tracking store, use V3 get-trace (allow_partial=true)
-  // Otherwise, fall back to artifact route. Currently, tracking store tag is
-  // only set when the backend is OSS SQLAlchemyStore.
-  if (getSpansLocation(traceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
-    const traceResp = await getExperimentTraceV3({ traceId });
-    // The get-trace response is { trace: { trace_info, spans } } (see GetTrace.Response),
-    // so the spans live under trace.spans. Reshape into the { info, data: { spans } } shape
-    // the UI expects, mirroring getTraceV4. Returning here avoids falling through to the
-    // artifact route, which would issue a second full-trace request for the same trace.
-    if (traceResp?.trace) {
+  // Direct trace URLs can reach this function without the trace info normally supplied by the
+  // traces table. Fetch the info first so TRACKING_STORE traces still take the virtualized path.
+  let resolvedTraceInfo = traceInfo;
+  let fetchedTraceInfoForRouting = false;
+  if (!resolvedTraceInfo && traceId.startsWith('tr-')) {
+    const traceInfoResponse = await TracesServiceV3.getTraceV3Info(traceId);
+    resolvedTraceInfo = traceInfoResponse?.trace?.trace_info;
+    fetchedTraceInfoForRouting = Boolean(resolvedTraceInfo);
+  }
+
+  // For TRACKING_STORE traces, use the get-trace endpoint which returns
+  // all spans. The UI decides whether to virtualize based on span count.
+  if (getSpansLocation(resolvedTraceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
+    const resp = await getExperimentTraceV3({ traceId });
+    const trace = resp?.trace;
+    if (trace) {
+      const spans = trace.spans ?? [];
+      const isVirtualized = spans.length > VIRTUALIZED_TRACE_THRESHOLD;
       return {
-        info: traceResp.trace.trace_info || {},
-        data: { spans: traceResp.trace.spans ?? [] },
+        info: trace.trace_info || (resolvedTraceInfo as ModelTraceInfoV3),
+        data: { spans },
+        ...(isVirtualized && {
+          _paginatedResult: {
+            totalSpanCount: spans.length,
+            isVirtualized: true,
+          },
+        }),
       };
     }
+    return undefined;
   }
 
   // v4 trace ID
@@ -55,6 +70,10 @@ export async function getTrace(
 
   // v3 trace ID
   if (traceId.startsWith('tr-')) {
+    if (fetchedTraceInfoForRouting && resolvedTraceInfo) {
+      const traceData = await TracesServiceV3.getTraceV3Data(traceId);
+      return { info: resolvedTraceInfo, data: traceData };
+    }
     return TracesServiceV3.getTraceV3(traceId);
   }
   return getTraceLegacy(traceId);

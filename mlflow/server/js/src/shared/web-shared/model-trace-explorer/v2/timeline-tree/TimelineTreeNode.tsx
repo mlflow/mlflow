@@ -80,6 +80,7 @@ export const TimelineTreeNode = ({
   traceEndTime,
   onSelect,
   linesToRender,
+  renderChildren = true,
 }: {
   node: ModelTraceSpanNode;
   selectedKey: string | number;
@@ -92,6 +93,7 @@ export const TimelineTreeNode = ({
   // connecting line is supposed to in at the `i`th spacer. see
   // TimelineTreeHierarchyBars for more details.
   linesToRender: Array<HierarchyBar>;
+  renderChildren?: boolean;
 }): React.ReactElement => {
   const expanded = expandedKeys.has(node.key);
   const intl = useIntl();
@@ -355,7 +357,8 @@ export const TimelineTreeNode = ({
           </div>
         </div>
       </TimelineTreeSpanTooltip>
-      {expanded &&
+      {renderChildren &&
+        expanded &&
         node.children?.map((child, idx) => (
           <TimelineTreeNode
             key={child.key}

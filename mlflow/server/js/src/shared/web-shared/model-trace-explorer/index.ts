@@ -60,6 +60,7 @@ export * from './oss-notebook-renderer/mlflow-fetch-utils';
 
 export { getAssessmentValue, isFeedbackAssessment, isExpectationAssessment } from './assessments-pane/utils';
 export { TracesServiceV3, TracesServiceV4, getExperimentTraceV3 } from './api';
+export { VIRTUALIZED_TRACE_THRESHOLD } from './constants';
 export { shouldUseTracesV4API } from './FeatureUtils';
 export { useUnifiedTraceTagsModal } from './hooks/useUnifiedTraceTagsModal';
 export { useArrayMemo } from './hooks/useArrayMemo';

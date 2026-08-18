@@ -174,7 +174,17 @@ export type ModelTrace = {
   trace_info?: ModelTraceInfo;
   data: ModelTraceData;
   info: ModelTraceInfoV3 | ModelTraceInfo | NotebookModelTraceInfo;
+  /** Internal loading metadata used to select the virtualized renderer and stop full-span polling.
+   *  Only present for large TRACKING_STORE traces. */
+  _paginatedResult?: PaginatedTraceResult;
 };
+
+export interface PaginatedTraceResult {
+  totalSpanCount: number;
+  /** True when the trace exceeds the virtualization threshold and
+   *  should use AG Grid instead of the recursive tree renderer. */
+  isVirtualized: boolean;
+}
 
 /**
  * Represents the trace data saved in an inference table.

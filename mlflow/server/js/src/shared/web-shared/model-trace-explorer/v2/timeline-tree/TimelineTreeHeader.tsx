@@ -17,6 +17,7 @@ export const TimelineTreeHeader = ({
   setSpanFilterState,
   showGraph,
   onToggleGraph,
+  hideTimelineToggle = false,
 }: {
   showTimelineInfo: boolean;
   setShowTimelineInfo: (showTimelineInfo: boolean) => void;
@@ -24,6 +25,7 @@ export const TimelineTreeHeader = ({
   setSpanFilterState: (state: SpanFilterState) => void;
   showGraph?: boolean;
   onToggleGraph?: () => void;
+  hideTimelineToggle?: boolean;
 }): React.ReactElement => {
   const { theme } = useDesignSystemTheme();
 
@@ -58,33 +60,35 @@ export const TimelineTreeHeader = ({
           </Typography.Text>
         </div>
         <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.sm, flexShrink: 0 }}>
-          <Tooltip
-            componentId="shared.model-trace-explorer.show-timeline-info-tooltip"
-            content={
-              showTimelineInfo ? (
-                <FormattedMessage
-                  defaultMessage="Hide execution timeline"
-                  description="Tooltip for a button that hides execution timeline info in the trace UI."
-                />
-              ) : (
-                <FormattedMessage
-                  defaultMessage="Show execution timeline"
-                  description="Tooltip for a button that shows execution timeline info in the trace UI."
-                />
-              )
-            }
-          >
-            <Button
-              componentId="shared.model-trace-explorer.toggle-show-timeline"
-              icon={<BarsAscendingVerticalIcon />}
-              size="small"
-              css={{ svg: { width: 14, height: 14 } }}
-              type={showTimelineInfo ? 'primary' : undefined}
-              aria-label={showTimelineInfo ? 'Hide execution timeline' : 'Show execution timeline'}
-              aria-pressed={showTimelineInfo}
-              onClick={() => setShowTimelineInfo(!showTimelineInfo)}
-            />
-          </Tooltip>
+          {!hideTimelineToggle && (
+            <Tooltip
+              componentId="shared.model-trace-explorer.show-timeline-info-tooltip"
+              content={
+                showTimelineInfo ? (
+                  <FormattedMessage
+                    defaultMessage="Hide execution timeline"
+                    description="Tooltip for a button that hides execution timeline info in the trace UI."
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Show execution timeline"
+                    description="Tooltip for a button that shows execution timeline info in the trace UI."
+                  />
+                )
+              }
+            >
+              <Button
+                componentId="shared.model-trace-explorer.toggle-show-timeline"
+                icon={<BarsAscendingVerticalIcon />}
+                size="small"
+                css={{ svg: { width: 14, height: 14 } }}
+                type={showTimelineInfo ? 'primary' : undefined}
+                aria-label={showTimelineInfo ? 'Hide execution timeline' : 'Show execution timeline'}
+                aria-pressed={showTimelineInfo}
+                onClick={() => setShowTimelineInfo(!showTimelineInfo)}
+              />
+            </Tooltip>
+          )}
           <TimelineTreeFilterButton
             spanFilterState={spanFilterState}
             setSpanFilterState={setSpanFilterState}

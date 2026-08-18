@@ -42,3 +42,7 @@ export const CHUNK_INDEX_KEY = 'chunk_index';
 // Threshold (in characters) above which markdown rendering is skipped to prevent
 // browser freezes from extremely large strings (e.g., un-extracted base64 data).
 export const MARKDOWN_RENDER_SIZE_LIMIT = 1_000_000;
+
+// Traces with more spans than this use an AG Grid virtualized list instead
+// of the recursive tree renderer.
+export const VIRTUALIZED_TRACE_THRESHOLD = 500;

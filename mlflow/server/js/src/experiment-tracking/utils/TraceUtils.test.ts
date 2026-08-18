@@ -8,13 +8,21 @@ import {
   getTrace,
 } from './TraceUtils';
 import type { ModelTrace, ModelTraceSpanV2, ModelTraceSpanV3 } from '@databricks/web-shared/model-trace-explorer';
-import { getExperimentTraceV3, TracesServiceV3 } from '@databricks/web-shared/model-trace-explorer';
+import {
+  getExperimentTraceV3,
+  TracesServiceV3,
+  VIRTUALIZED_TRACE_THRESHOLD,
+} from '@databricks/web-shared/model-trace-explorer';
 import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '@databricks/web-shared/genai-traces-table';
 
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
   ...jest.requireActual<any>('@databricks/web-shared/model-trace-explorer'),
   getExperimentTraceV3: jest.fn(),
-  TracesServiceV3: { getTraceV3: jest.fn() },
+  TracesServiceV3: {
+    getTraceV3: jest.fn(),
+    getTraceV3Info: jest.fn(),
+    getTraceV3Data: jest.fn(),
+  },
   TracesServiceV4: { getTraceV4: jest.fn() },
 }));
 
@@ -1100,6 +1108,8 @@ describe('extractRetrievalContext', () => {
 describe('getTrace', () => {
   const mockGetExperimentTraceV3 = jest.mocked(getExperimentTraceV3);
   const mockGetTraceV3 = jest.mocked(TracesServiceV3.getTraceV3);
+  const mockGetTraceV3Info = jest.mocked(TracesServiceV3.getTraceV3Info);
+  const mockGetTraceV3Data = jest.mocked(TracesServiceV3.getTraceV3Data);
   const mockGetSpansLocation = jest.mocked(getSpansLocation);
 
   beforeEach(() => {
@@ -1107,9 +1117,6 @@ describe('getTrace', () => {
   });
 
   it('fetches a TRACKING_STORE trace via get-trace only, without the artifact request', async () => {
-    // Regression test for the duplicate full-trace fetch: the get-trace response is
-    // { trace: { trace_info, spans } }, so the branch must consume trace.spans and return
-    // instead of falling through to getTraceV3 (which issues get-trace-artifact).
     mockGetSpansLocation.mockReturnValue(TRACKING_STORE_SPANS_LOCATION);
     const spans = [{ span_id: 's1' }, { span_id: 's2' }] as any;
     mockGetExperimentTraceV3.mockResolvedValue({
@@ -1120,18 +1127,61 @@ describe('getTrace', () => {
 
     expect(mockGetExperimentTraceV3).toHaveBeenCalledWith({ traceId: 'tr-1' });
     expect(mockGetTraceV3).not.toHaveBeenCalled();
-    expect(result).toEqual({ info: { trace_id: 'tr-1' }, data: { spans } });
+    expect(result).toEqual({
+      info: { trace_id: 'tr-1' },
+      data: { spans },
+    });
   });
 
-  it('falls back to getTraceV3 when get-trace returns no trace for a TRACKING_STORE trace', async () => {
+  it('detects and virtualizes a large TRACKING_STORE trace opened by direct URL', async () => {
+    const traceInfo = {
+      trace_id: 'tr-1',
+      tags: { 'mlflow.trace.spansLocation': TRACKING_STORE_SPANS_LOCATION },
+    };
+    const spans = Array.from({ length: VIRTUALIZED_TRACE_THRESHOLD + 1 }, (_, i) => ({
+      span_id: `s${i}`,
+    })) as any;
+    mockGetTraceV3Info.mockResolvedValue({ trace: { trace_info: traceInfo } } as any);
+    mockGetSpansLocation.mockReturnValue(TRACKING_STORE_SPANS_LOCATION);
+    mockGetExperimentTraceV3.mockResolvedValue({ trace: { trace_info: traceInfo, spans } } as any);
+
+    const result = await getTrace('tr-1');
+
+    expect(mockGetTraceV3Info).toHaveBeenCalledWith('tr-1');
+    expect(mockGetExperimentTraceV3).toHaveBeenCalledWith({ traceId: 'tr-1' });
+    expect(mockGetTraceV3Data).not.toHaveBeenCalled();
+    expect(mockGetTraceV3).not.toHaveBeenCalled();
+    expect(result?._paginatedResult).toEqual({
+      totalSpanCount: VIRTUALIZED_TRACE_THRESHOLD + 1,
+      isVirtualized: true,
+    });
+  });
+
+  it('keeps the artifact data path for a non-TRACKING_STORE trace opened by direct URL', async () => {
+    const traceInfo = { trace_id: 'tr-1', tags: {} };
+    const traceData = { spans: [{ span_id: 's1' }] };
+    mockGetTraceV3Info.mockResolvedValue({ trace: { trace_info: traceInfo } } as any);
+    mockGetSpansLocation.mockReturnValue(undefined);
+    mockGetTraceV3Data.mockResolvedValue(traceData as any);
+
+    const result = await getTrace('tr-1');
+
+    expect(mockGetTraceV3Info).toHaveBeenCalledWith('tr-1');
+    expect(mockGetTraceV3Data).toHaveBeenCalledWith('tr-1');
+    expect(mockGetExperimentTraceV3).not.toHaveBeenCalled();
+    expect(mockGetTraceV3).not.toHaveBeenCalled();
+    expect(result).toEqual({ info: traceInfo, data: traceData });
+  });
+
+  it('returns undefined when get-trace returns no trace for a TRACKING_STORE trace', async () => {
     mockGetSpansLocation.mockReturnValue(TRACKING_STORE_SPANS_LOCATION);
     mockGetExperimentTraceV3.mockResolvedValue({ trace: null } as any);
-    mockGetTraceV3.mockResolvedValue({ info: {}, data: { spans: [] } } as any);
 
-    await getTrace('tr-1', { trace_id: 'tr-1' } as any);
+    const result = await getTrace('tr-1', { trace_id: 'tr-1' } as any);
 
     expect(mockGetExperimentTraceV3).toHaveBeenCalledWith({ traceId: 'tr-1' });
-    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1');
+    expect(result).toBeUndefined();
+    expect(mockGetTraceV3).not.toHaveBeenCalled();
   });
 
   it('falls back to getTraceV3 for a non-TRACKING_STORE v3 trace', async () => {
@@ -1142,5 +1192,51 @@ describe('getTrace', () => {
 
     expect(mockGetExperimentTraceV3).not.toHaveBeenCalled();
     expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1');
+  });
+
+  it('does not mark a TRACKING_STORE trace at the virtualization threshold', async () => {
+    mockGetSpansLocation.mockReturnValue(TRACKING_STORE_SPANS_LOCATION);
+    const spans = Array.from({ length: VIRTUALIZED_TRACE_THRESHOLD }, (_, i) => ({ span_id: `s${i}` })) as any;
+    mockGetExperimentTraceV3.mockResolvedValue({
+      trace: { trace_info: { trace_id: 'tr-1' }, spans },
+    } as any);
+
+    const result = await getTrace('tr-1', { trace_id: 'tr-1' } as any);
+
+    expect(result?._paginatedResult).toBeUndefined();
+  });
+
+  it('sets isVirtualized to true when span count exceeds threshold', async () => {
+    mockGetSpansLocation.mockReturnValue(TRACKING_STORE_SPANS_LOCATION);
+    const spans = Array.from({ length: VIRTUALIZED_TRACE_THRESHOLD + 100 }, (_, i) => ({ span_id: `s${i}` })) as any;
+    mockGetExperimentTraceV3.mockResolvedValue({
+      trace: { trace_info: { trace_id: 'tr-1' }, spans },
+    } as any);
+
+    const result = await getTrace('tr-1', { trace_id: 'tr-1' } as any);
+
+    expect(result?._paginatedResult).toEqual({
+      totalSpanCount: VIRTUALIZED_TRACE_THRESHOLD + 100,
+      isVirtualized: true,
+    });
+  });
+
+  it('returns undefined without falling through when getExperimentTraceV3 returns no trace', async () => {
+    mockGetSpansLocation.mockReturnValue(TRACKING_STORE_SPANS_LOCATION);
+    mockGetExperimentTraceV3.mockResolvedValue({ trace: null } as any);
+
+    const result = await getTrace('tr-1', { trace_id: 'tr-1' } as any);
+
+    expect(result).toBeUndefined();
+    expect(mockGetTraceV3).not.toHaveBeenCalled();
+  });
+
+  it('does not call getExperimentTraceV3 for non-TRACKING_STORE traces', async () => {
+    mockGetSpansLocation.mockReturnValue(undefined);
+    mockGetTraceV3.mockResolvedValue({ info: {}, data: { spans: [] } } as any);
+
+    await getTrace('tr-1', { trace_id: 'tr-1' } as any);
+
+    expect(mockGetExperimentTraceV3).not.toHaveBeenCalled();
   });
 });

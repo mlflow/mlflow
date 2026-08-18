@@ -3340,6 +3340,89 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
     assert response.status_code == 200
 
 
+def test_get_trace_handler_with_filter(mock_get_request_message, mock_tracking_store):
+    trace_id = "test-trace-filter"
+    get_trace_proto = GetTrace(trace_id=trace_id, filter="search_text")
+    mock_get_request_message.return_value = get_trace_proto
+
+    otel_span = OTelReadableSpan(
+        name="matching_span",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={
+            "mlflow.spanInputs": json.dumps("inputs"),
+            "mlflow.spanOutputs": json.dumps("outputs"),
+            "mlflow.spanType": json.dumps("LLM"),
+        },
+    )
+    mock_span = Span(otel_span)
+    mock_trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("1"),
+        request_time=1234567890,
+        execution_duration=5000,
+        state=TraceState.OK,
+    )
+
+    mock_tracking_store.get_filtered_trace_spans.return_value = [mock_span]
+    mock_tracking_store.get_trace_info.return_value = mock_trace_info
+
+    response = _get_trace()
+
+    mock_tracking_store.get_filtered_trace_spans.assert_called_once_with(
+        trace_id=trace_id, filter="search_text"
+    )
+    mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
+    mock_tracking_store.get_trace.assert_not_called()
+
+    assert response.status_code == 200
+    data = json.loads(response.get_data())
+    assert len(data["trace"]["spans"]) == 1
+
+
+def test_get_trace_handler_without_filter(mock_get_request_message, mock_tracking_store):
+    trace_id = "test-trace-no-filter"
+    get_trace_proto = GetTrace(trace_id=trace_id, allow_partial=True)
+    mock_get_request_message.return_value = get_trace_proto
+
+    otel_span = OTelReadableSpan(
+        name="span",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={
+            "mlflow.spanInputs": json.dumps("inputs"),
+            "mlflow.spanOutputs": json.dumps("outputs"),
+            "mlflow.spanType": json.dumps("LLM"),
+        },
+    )
+    mock_span = Span(otel_span)
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    response = _get_trace()
+
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
+    mock_tracking_store.get_filtered_trace_spans.assert_not_called()
+
+    assert response.status_code == 200
+    data = json.loads(response.get_data())
+    assert len(data["trace"]["spans"]) == 1
+
+
 def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_store):
     trace_id_1 = "test-trace-123"
     trace_id_2 = "test-trace-456"

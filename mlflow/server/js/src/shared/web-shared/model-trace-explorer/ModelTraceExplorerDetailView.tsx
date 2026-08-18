@@ -6,14 +6,18 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { useResizeObserver } from '@databricks/web-shared/hooks';
 import { ResizableBox } from 'react-resizable';
 
-import type { ModelTrace, ModelTraceSpanNode } from './ModelTrace.types';
+import { SpanLogLevel } from './ModelTrace.types';
+import type { ModelTrace, ModelTraceSpanNode, SpanFilterState } from './ModelTrace.types';
 import type { ModelTraceExplorerResizablePaneRef } from './ModelTraceExplorerResizablePane';
 import ModelTraceExplorerResizablePane from './ModelTraceExplorerResizablePane';
 import ModelTraceExplorerSearchBox from './ModelTraceExplorerSearchBox';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { useModelTraceSearch } from './hooks/useModelTraceSearch';
+import { restoreServerSearchHierarchy, useServerSideTraceSearch } from './hooks/useServerSideTraceSearch';
 import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from './right-pane/ModelTraceExplorerRightPaneTabs';
+import { VIRTUALIZED_TRACE_THRESHOLD } from './constants';
 import { TimelineTree } from './timeline-tree/TimelineTree';
+import { VirtualizedTraceTree } from './timeline-tree/VirtualizedTraceTree';
 import {
   DEFAULT_EXPAND_DEPTH,
   getModelTraceSpanNodeDepth,
@@ -26,9 +30,36 @@ import { computeWorkflowLayout } from './graph-view/GraphView.workflow';
 import { GraphViewSpanNavigator } from './graph-view/GraphViewSpanNavigator';
 import { useGraphTreeLinkedState } from './graph-view/useGraphTreeLinkedState';
 
+const countAllNodes = (nodes: ModelTraceSpanNode[]): number =>
+  nodes.reduce((sum, n) => sum + 1 + countAllNodes(n.children ?? []), 0);
+
 const GraphViewWorkflowCanvas = React.lazy(() =>
   import('./graph-view/GraphViewWorkflowCanvas').then((m) => ({ default: m.GraphViewWorkflowCanvas })),
 );
+
+function applySpanFilter(nodes: ModelTraceSpanNode[], state: SpanFilterState): ModelTraceSpanNode[] {
+  const allTypesSelected = Object.values(state.spanTypeDisplayState).every(Boolean);
+  const minLevel = state.minLogLevel;
+  const isDefault = allTypesSelected && minLevel === SpanLogLevel.DEBUG;
+  if (isDefault) return nodes;
+
+  const filter = (node: ModelTraceSpanNode): ModelTraceSpanNode[] => {
+    const typeOk =
+      !node.type ||
+      Object.keys(state.spanTypeDisplayState).length === 0 ||
+      state.spanTypeDisplayState[node.type] !== false;
+    const levelOk = (node.logLevel ?? SpanLogLevel.DEBUG) >= minLevel;
+    const hasException = state.showExceptions && (node.events ?? []).some((e: any) => e.name === 'exception');
+    const selfVisible = (typeOk && levelOk) || hasException;
+    const filteredChildren = (node.children ?? []).flatMap(filter);
+    if (selfVisible || (state.showParents && filteredChildren.length > 0)) {
+      return [{ ...node, children: filteredChildren }];
+    }
+    return filteredChildren;
+  };
+
+  return nodes.flatMap(filter);
+}
 
 const LEFT_PANE_MIN_WIDTH_LARGE_SPACINGS = 7;
 const LEFT_PANE_HEADER_MIN_WIDTH_PX = 350;
@@ -118,12 +149,13 @@ export const ModelTraceExplorerDetailView = ({
     topLevelNodes,
     selectedNode: viewStateSelectedNode,
     setSelectedNode: setViewStateSelectedNode,
+    isVirtualized,
   } = useModelTraceExplorerViewState();
 
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
   const workflowLayout = useMemo(
-    () => computeWorkflowLayout(rootNode, activeLayoutConfig),
-    [rootNode, activeLayoutConfig],
+    () => computeWorkflowLayout(isVirtualized ? null : rootNode, activeLayoutConfig),
+    [rootNode, activeLayoutConfig, isVirtualized],
   );
 
   const {
@@ -144,7 +176,9 @@ export const ModelTraceExplorerDetailView = ({
     setSelectedNode: setViewStateSelectedNode,
     topLevelNodes,
   });
-  const graphAvailable = Boolean(rootNode) && workflowLayout.nodes.length > 0;
+
+  // graphAvailable and hasGraph are derived below after useVirtualizedView.
+  const graphAvailable = !isVirtualized && Boolean(rootNode) && workflowLayout.nodes.length > 0;
   const hasGraph = showGraph && graphAvailable;
 
   const onSizeRatioChange = useCallback(
@@ -252,16 +286,7 @@ export const ModelTraceExplorerDetailView = ({
     [selectedWorkflowNode, sortedSpans, handleNavigateSpan, setSelectedNode],
   );
 
-  const {
-    matchData,
-    searchFilter,
-    setSearchFilter,
-    spanFilterState,
-    setSpanFilterState,
-    filteredTreeNodes,
-    handleNextSearchMatch,
-    handlePreviousSearchMatch,
-  } = useModelTraceSearch({
+  const clientSearch = useModelTraceSearch({
     treeNodes: topLevelNodes,
     selectedNode,
     setSelectedNode,
@@ -269,6 +294,40 @@ export const ModelTraceExplorerDetailView = ({
     setExpandedKeys,
     modelTraceInfo,
   });
+
+  const serverSearch = useServerSideTraceSearch({
+    modelTraceInfo,
+    enabled: Boolean(isVirtualized),
+  });
+
+  const searchFilter = isVirtualized ? serverSearch.searchFilter : clientSearch.searchFilter;
+  const setSearchFilter = isVirtualized ? serverSearch.setSearchFilter : clientSearch.setSearchFilter;
+  const spanFilterState = clientSearch.spanFilterState;
+  const setSpanFilterState = clientSearch.setSpanFilterState;
+
+  const serverNodes = useMemo(
+    () =>
+      serverSearch.filteredTreeNodes === null
+        ? topLevelNodes
+        : restoreServerSearchHierarchy(
+            topLevelNodes,
+            serverSearch.filteredTreeNodes,
+            spanFilterState.showParents,
+            spanFilterState.showExceptions,
+          ),
+    [serverSearch.filteredTreeNodes, spanFilterState.showExceptions, spanFilterState.showParents, topLevelNodes],
+  );
+  const filteredTreeNodes = useMemo(
+    () => (isVirtualized ? applySpanFilter(serverNodes, spanFilterState) : clientSearch.filteredTreeNodes),
+    [isVirtualized, serverNodes, spanFilterState, clientSearch.filteredTreeNodes],
+  );
+
+  const preFilterNodeCount = useMemo(() => countAllNodes(serverNodes), [serverNodes]);
+  const useVirtualizedView = isVirtualized && preFilterNodeCount > VIRTUALIZED_TRACE_THRESHOLD;
+
+  const matchData = isVirtualized ? undefined : clientSearch.matchData;
+  const handleNextSearchMatch = clientSearch.handleNextSearchMatch;
+  const handlePreviousSearchMatch = clientSearch.handlePreviousSearchMatch;
 
   const onSelectNode = (node?: ModelTraceSpanNode) => {
     setSelectedNode(node);
@@ -278,9 +337,10 @@ export const ModelTraceExplorerDetailView = ({
   };
 
   useLayoutEffect(() => {
+    if (useVirtualizedView) return;
     const list = values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
     setExpandedKeys(new Set(list));
-  }, [filteredTreeNodes, setExpandedKeys]);
+  }, [filteredTreeNodes, setExpandedKeys, useVirtualizedView]);
 
   const leftPaneMinWidth = useMemo(() => {
     const minWidthForSpans =
@@ -391,20 +451,30 @@ export const ModelTraceExplorerDetailView = ({
                 overflow: 'auto',
               }}
             >
-              <TimelineTree
-                rootNodes={filteredTreeNodes}
-                selectedNode={selectedNode}
-                traceStartTime={traceStartTime}
-                traceEndTime={traceEndTime}
-                setSelectedNode={onSelectNode}
-                css={{ flex: 1 }}
-                expandedKeys={expandedKeys}
-                setExpandedKeys={setExpandedKeys}
-                spanFilterState={spanFilterState}
-                setSpanFilterState={setSpanFilterState}
-                showGraph={showGraph && graphAvailable}
-                onToggleGraph={graphAvailable ? handleToggleGraph : undefined}
-              />
+              {useVirtualizedView ? (
+                <VirtualizedTraceTree
+                  rootNodes={filteredTreeNodes}
+                  selectedNode={selectedNode}
+                  onSelect={onSelectNode}
+                  spanFilterState={spanFilterState}
+                  setSpanFilterState={setSpanFilterState}
+                />
+              ) : (
+                <TimelineTree
+                  rootNodes={filteredTreeNodes}
+                  selectedNode={selectedNode}
+                  traceStartTime={traceStartTime}
+                  traceEndTime={traceEndTime}
+                  setSelectedNode={onSelectNode}
+                  css={{ flex: 1 }}
+                  expandedKeys={expandedKeys}
+                  setExpandedKeys={setExpandedKeys}
+                  spanFilterState={spanFilterState}
+                  setSpanFilterState={setSpanFilterState}
+                  showGraph={showGraph && graphAvailable}
+                  onToggleGraph={graphAvailable ? handleToggleGraph : undefined}
+                />
+              )}
             </div>
 
             {/* Graph is secondary — below the tree */}
@@ -462,7 +532,7 @@ export const ModelTraceExplorerDetailView = ({
           <ModelTraceExplorerRightPaneTabs
             activeSpan={selectedNode}
             searchFilter={searchFilter}
-            activeMatch={matchData.match}
+            activeMatch={matchData?.match ?? null}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
           />

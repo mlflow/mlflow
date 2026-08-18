@@ -26,6 +26,20 @@ module.exports = function (app) {
       changeOrigin: true,
     }),
   );
+  // The tracing SDK checks the server version before sending spans to the OTLP endpoint.
+  // Proxy both routes so the frontend development URL can also be used as MLFLOW_TRACKING_URI.
+  app.use(
+    createProxyMiddleware('/version', {
+      target: proxyTarget,
+      changeOrigin: true,
+    }),
+  );
+  app.use(
+    createProxyMiddleware('/v1/traces', {
+      target: proxyTarget,
+      changeOrigin: true,
+    }),
+  );
   app.use(
     createProxyMiddleware('/graphql', {
       target: proxyTarget,
