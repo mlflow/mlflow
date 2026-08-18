@@ -4040,7 +4040,7 @@ def _uc_register_prompt_patches(name: str, tracking_uri: str):
 
 
 def test_register_prompt_uc_branch_logs_ui_link(tracking_uri, caplog):
-    """D2 (UC branch): register_prompt emits an INFO log with the Catalog Explorer URL when
+    """register_prompt emits an INFO log with the Catalog Explorer URL when
     get_workspace_url() returns a workspace URL and the name is a 3-part UC name.
     """
     fake_workspace_url = "https://my-workspace.azuredatabricks.net"
