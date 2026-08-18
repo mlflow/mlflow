@@ -22,7 +22,7 @@ const ModelTraceExplorerSearchBox = ({
 }: {
   searchFilter: string;
   setSearchFilter: (searchFilter: string) => void;
-  matchData: {
+  matchData?: {
     match: SearchMatch | null;
     totalMatches: number;
     currentMatchIndex: number;
@@ -62,7 +62,7 @@ const ModelTraceExplorerSearchBox = ({
           boxSizing: 'border-box',
         }}
       />
-      {matchData.match && (
+      {matchData?.match && (
         <div
           css={{
             display: 'flex',

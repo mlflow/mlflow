@@ -92,6 +92,7 @@ export const ModelTraceExplorerImpl = ({
         assessmentsPaneEnabled={assessmentsPaneEnabled}
         initialAssessmentsPaneCollapsed={collapseAssessmentPane}
         isTraceInitialLoading={isTraceInitialLoading}
+        isVirtualized={modelTrace._paginatedResult?.isVirtualized}
       >
         {showLoadingState ? (
           <ModelTraceExplorerSkeleton />

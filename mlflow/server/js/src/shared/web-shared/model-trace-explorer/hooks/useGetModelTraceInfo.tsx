@@ -53,6 +53,7 @@ export const useGetModelTraceInfo = ({
       setModelTrace((prevModelTrace: ModelTrace) => ({
         data: prevModelTrace.data,
         info: traceInfo ?? {},
+        _paginatedResult: prevModelTrace._paginatedResult,
       }));
       setAssessmentsPaneEnabled(true);
     },

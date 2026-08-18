@@ -376,6 +376,27 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise MlflowNotImplementedException()
 
+    def get_filtered_trace_spans(
+        self,
+        trace_id: str,
+        filter: str,
+    ) -> list[Span]:
+        """
+        Get spans for a trace filtered by a text substring.
+
+        Returns spans whose name or serialized content contains
+        ``filter`` (case-insensitive), ordered root-first then by
+        start_time.
+
+        Args:
+            trace_id: Trace ID to fetch spans for.
+            filter: Case-insensitive text filter on span name/content.
+
+        Returns:
+            List of matching Span objects.
+        """
+        raise MlflowNotImplementedException()
+
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.

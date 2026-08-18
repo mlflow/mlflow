@@ -80,6 +80,12 @@ export function useGetTrace({
     const expected = JSON.parse(traceStats).num_spans;
     const actual = data?.data?.spans?.length ?? 0;
 
+    // Paginated TRACKING_STORE traces intentionally return fewer spans
+    // than total. Don't poll for the "missing" deeper spans.
+    if (data?._paginatedResult && actual > 0) {
+      return false;
+    }
+
     // Poll until the actual span count reaches at least the expected count.
     // NB: In distributed tracing case, the actual span count exceeds the expected count because
     // sizeStats only counts spans from the originating process.

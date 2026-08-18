@@ -21,6 +21,7 @@ export const TimelineTreeHeader = ({
   setSpanFilterState,
   showGraph,
   onToggleGraph,
+  hideTimelineToggle,
 }: {
   showTimelineInfo: boolean;
   setShowTimelineInfo: (showTimelineInfo: boolean) => void;
@@ -28,6 +29,7 @@ export const TimelineTreeHeader = ({
   setSpanFilterState: (state: SpanFilterState) => void;
   showGraph?: boolean;
   onToggleGraph?: () => void;
+  hideTimelineToggle?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -67,50 +69,52 @@ export const TimelineTreeHeader = ({
           </Button>
         )}
         <TimelineTreeFilterButton spanFilterState={spanFilterState} setSpanFilterState={setSpanFilterState} />
-        <SegmentedControlGroup
-          name="size-story"
-          value={showTimelineInfo}
-          onChange={(event) => {
-            setShowTimelineInfo(event.target.value);
-          }}
-          size="small"
-          componentId="shared.model-trace-explorer.toggle-show-timeline"
-        >
-          <SegmentedControlButton
-            data-testid="hide-timeline-info-button"
-            icon={
-              <Tooltip
-                componentId="shared.model-trace-explorer.hide-timeline-info-tooltip"
-                content={
-                  <FormattedMessage
-                    defaultMessage="Show span tree"
-                    description="Tooltip for a button that show the span tree view of the trace UI."
-                  />
-                }
-              >
-                <ListBorderIcon />
-              </Tooltip>
-            }
-            value={false}
-          />
-          <SegmentedControlButton
-            data-testid="show-timeline-info-button"
-            icon={
-              <Tooltip
-                componentId="shared.model-trace-explorer.show-timeline-info-tooltip"
-                content={
-                  <FormattedMessage
-                    defaultMessage="Show execution timeline"
-                    description="Tooltip for a button that shows execution timeline info in the trace UI."
-                  />
-                }
-              >
-                <BarsAscendingVerticalIcon />
-              </Tooltip>
-            }
-            value
-          />
-        </SegmentedControlGroup>
+        {!hideTimelineToggle && (
+          <SegmentedControlGroup
+            name="size-story"
+            value={showTimelineInfo}
+            onChange={(event) => {
+              setShowTimelineInfo(event.target.value);
+            }}
+            size="small"
+            componentId="shared.model-trace-explorer.toggle-show-timeline"
+          >
+            <SegmentedControlButton
+              data-testid="hide-timeline-info-button"
+              icon={
+                <Tooltip
+                  componentId="shared.model-trace-explorer.hide-timeline-info-tooltip"
+                  content={
+                    <FormattedMessage
+                      defaultMessage="Show span tree"
+                      description="Tooltip for a button that show the span tree view of the trace UI."
+                    />
+                  }
+                >
+                  <ListBorderIcon />
+                </Tooltip>
+              }
+              value={false}
+            />
+            <SegmentedControlButton
+              data-testid="show-timeline-info-button"
+              icon={
+                <Tooltip
+                  componentId="shared.model-trace-explorer.show-timeline-info-tooltip"
+                  content={
+                    <FormattedMessage
+                      defaultMessage="Show execution timeline"
+                      description="Tooltip for a button that shows execution timeline info in the trace UI."
+                    />
+                  }
+                >
+                  <BarsAscendingVerticalIcon />
+                </Tooltip>
+              }
+              value
+            />
+          </SegmentedControlGroup>
+        )}
       </div>
     </div>
   );
