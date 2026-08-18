@@ -93,8 +93,10 @@ def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
     from mlflow.utils.file_utils import ExclusiveFileLock
 
     if os.name == "nt":
-        if not _all_tables_exist(engine):
+        if _is_empty_database(engine):
             _initialize_tables(engine)
+        elif not _all_tables_exist(engine):
+            _upgrade_db(engine)
         return
 
     url_hash = hashlib.md5(
@@ -102,8 +104,10 @@ def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
         usedforsecurity=False,
     ).hexdigest()
     with ExclusiveFileLock(f"{tempfile.gettempdir()}/db_init_lock-{url_hash}"):
-        if not _all_tables_exist(engine):
+        if _is_empty_database(engine):
             _initialize_tables(engine)
+        elif not _all_tables_exist(engine):
+            _upgrade_db(engine)
 
 
 def _get_latest_schema_revision():
