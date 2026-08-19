@@ -8,7 +8,13 @@ import sqlalchemy
 
 import mlflow.db
 from mlflow import entities
+from mlflow.entities.trace_metrics import (
+    AggregationType,
+    MetricAggregation,
+    MetricViewType,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.db.utils import (
     _get_latest_schema_revision,
@@ -354,3 +360,69 @@ def test_get_orderby_clauses(tmp_sqlite_uri):
         assert "value IS NULL" in select_clause[0]
         # test that clause name is in parsed
         assert "clause_1" in parsed[0]
+
+
+@pytest.mark.parametrize(
+    ("method_name", "make_args"),
+    [
+        ("_search_datasets", lambda exp_id: ([exp_id],)),
+        ("search_runs", lambda exp_id: ([exp_id], None, entities.ViewType.ALL, 10)),
+        ("search_logged_models", lambda exp_id: ([exp_id],)),
+        ("_delete_traces", lambda exp_id: (exp_id, 1)),
+        (
+            "calculate_trace_filter_correlation",
+            lambda exp_id: ([exp_id], "name = 'a'", "name = 'b'"),
+        ),
+    ],
+)
+@pytest.mark.parametrize("bad_experiment_id", ["not-a-number", "12abc", ""])
+def test_store_methods_reject_non_numeric_experiment_id(
+    store, method_name, make_args, bad_experiment_id
+):
+    # A non-numeric experiment ID must surface as INVALID_PARAMETER_VALUE (HTTP 400) rather
+    # than an unhandled ValueError, which `catch_mlflow_exception` turns into an opaque 500.
+    with pytest.raises(MlflowException, match="Experiment ID must be a valid integer") as exc_info:
+        getattr(store, method_name)(*make_args(bad_experiment_id))
+
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert exc_info.value.get_http_status_code() == 400
+
+
+@pytest.mark.parametrize("bad_experiment_id", ["not-a-number", "12abc"])
+def test_search_issues_rejects_non_numeric_experiment_id(store, bad_experiment_id):
+    with pytest.raises(MlflowException, match="Experiment ID must be a valid integer") as exc_info:
+        store.search_issues(bad_experiment_id)
+
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert exc_info.value.get_http_status_code() == 400
+
+
+@pytest.mark.parametrize("experiment_id", [None, ""])
+def test_search_issues_treats_falsy_experiment_id_as_unfiltered(store, experiment_id):
+    # A falsy experiment_id means "do not filter by experiment" and must stay a no-op rather
+    # than reaching the integer conversion.
+    assert store.search_issues(experiment_id) == []
+
+
+@pytest.mark.parametrize("bad_experiment_id", ["not-a-number", "12abc", ""])
+def test_query_trace_metrics_rejects_non_numeric_experiment_id(store, bad_experiment_id):
+    with pytest.raises(MlflowException, match="Experiment ID must be a valid integer") as exc_info:
+        store.query_trace_metrics(
+            experiment_ids=[bad_experiment_id],
+            view_type=MetricViewType.TRACES,
+            metric_name="trace_count",
+            aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        )
+
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert exc_info.value.get_http_status_code() == 400
+
+
+def test_store_methods_accept_valid_experiment_id(store):
+    # The guard must not reject legitimate IDs, including int-typed and default experiment "0".
+    exp_id = store.create_experiment("valid-experiment-id")
+
+    assert store._search_datasets([exp_id]) == []
+    assert store.search_runs([exp_id], None, entities.ViewType.ALL, 10) == []
+    assert store.search_runs([int(exp_id)], None, entities.ViewType.ALL, 10) == []
+    assert store._delete_traces(exp_id, 1) == 0

@@ -100,6 +100,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.validation import _parse_experiment_id
 
 
 def _validate_one_of(
@@ -709,7 +710,7 @@ class SqlAlchemyGatewayStoreMixin:
                     last_updated_by=created_by,
                     routing_strategy=routing_strategy.value if routing_strategy else None,
                     fallback_config_json=fallback_config_json,
-                    experiment_id=int(experiment_id) if experiment_id else None,
+                    experiment_id=_parse_experiment_id(experiment_id) if experiment_id else None,
                     usage_tracking=usage_tracking,
                 )
             )
@@ -821,7 +822,7 @@ class SqlAlchemyGatewayStoreMixin:
                 )
 
             if experiment_id is not None:
-                sql_endpoint.experiment_id = int(experiment_id)
+                sql_endpoint.experiment_id = _parse_experiment_id(experiment_id)
 
             if routing_strategy is not None:
                 sql_endpoint.routing_strategy = routing_strategy.value

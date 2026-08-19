@@ -573,6 +573,49 @@ def _validate_experiment_id(exp_id):
         )
 
 
+def _parse_experiment_id(experiment_id):
+    """
+    Convert a user-supplied experiment ID to an ``int``.
+
+    SQL-backed stores store ``experiment_id`` as an integer column, so values arriving from
+    request payloads must be converted before they are used in a query. A bare ``int()`` call
+    raises ``ValueError``, which ``catch_mlflow_exception`` does not recognize and therefore
+    surfaces as an opaque 500; raising ``MlflowException`` here yields a 400 instead.
+
+    Args:
+        experiment_id: The experiment ID to convert.
+
+    Returns:
+        The experiment ID as an ``int``.
+
+    Raises:
+        MlflowException: If ``experiment_id`` is not a valid integer.
+    """
+    try:
+        return int(experiment_id)
+    except (ValueError, TypeError):
+        raise MlflowException(
+            f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _parse_experiment_ids(experiment_ids):
+    """
+    Convert a collection of user-supplied experiment IDs to ``int``.
+
+    Args:
+        experiment_ids: The experiment IDs to convert.
+
+    Returns:
+        A list of experiment IDs as ``int``.
+
+    Raises:
+        MlflowException: If any of ``experiment_ids`` is not a valid integer.
+    """
+    return [_parse_experiment_id(experiment_id) for experiment_id in experiment_ids]
+
+
 def _validate_batch_limit(entity_name, limit, length):
     if length > limit:
         error_msg = (

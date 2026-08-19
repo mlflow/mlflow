@@ -250,6 +250,8 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
+    _parse_experiment_id,
+    _parse_experiment_ids,
     _resolve_experiment_ids_and_locations,
     _validate_batch_log_data,
     _validate_batch_log_limits,
@@ -747,13 +749,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         stages = LifecycleStage.view_type_to_stages(view_type)
         query_options = self._get_eager_experiment_query_options() if eager else []
 
-        try:
-            experiment_id_int = int(experiment_id)
-        except (ValueError, TypeError):
-            raise MlflowException(
-                f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
-                INVALID_PARAMETER_VALUE,
-            )
+        experiment_id_int = _parse_experiment_id(experiment_id)
 
         experiment = (
             self
@@ -1906,7 +1902,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
 
         MAX_DATASET_SUMMARIES_RESULTS = 1000
-        experiment_ids = [int(e) for e in experiment_ids]
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         with self.ManagedSessionMaker() as session:
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
             # Note that the join with the input tag table is a left join. This is required so if an
@@ -2251,7 +2247,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 stmt = stmt.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-            experiment_ids = [int(e) for e in experiment_ids]
+            experiment_ids = _parse_experiment_ids(experiment_ids)
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
             stmt = (
                 stmt
@@ -3601,7 +3597,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             models = models.join(subquery)
 
-        experiment_ids = [int(e) for e in experiment_ids]
+        experiment_ids = _parse_experiment_ids(experiment_ids)
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
@@ -4096,14 +4092,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             session_id ASC).
         """
         with self.ManagedSessionMaker() as session:
-            try:
-                experiment_id_int = int(experiment_id)
-            except (ValueError, TypeError):
-                raise MlflowException(
-                    f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid "
-                    "integer.",
-                    INVALID_PARAMETER_VALUE,
-                )
+            experiment_id_int = _parse_experiment_id(experiment_id)
 
             experiment_ids = self._filter_experiment_ids(session, [experiment_id_int])
             if not experiment_ids:
@@ -4389,7 +4378,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             # Filter by experiment IDs
             if experiment_ids:
-                experiment_ids_int = [int(exp_id) for exp_id in experiment_ids]
+                experiment_ids_int = _parse_experiment_ids(experiment_ids)
                 query = query.filter(SqlTraceInfo.experiment_id.in_(experiment_ids_int))
 
             # Filter by time range
@@ -4472,7 +4461,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         deleted_db_backed_count = 0
         selected_archived_traces: list[_TraceDeleteSelection] = []
         with self.ManagedSessionMaker(read_only=False) as session:
-            filters = [SqlTraceInfo.experiment_id == int(experiment_id)]
+            filters = [SqlTraceInfo.experiment_id == _parse_experiment_id(experiment_id)]
             if max_timestamp_millis is not None:
                 filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
             if trace_ids:
@@ -5071,7 +5060,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
 
         with self.ManagedSessionMaker() as session:
-            experiment_ids = self._filter_experiment_ids(session, [int(e) for e in experiment_ids])
+            experiment_ids = self._filter_experiment_ids(
+                session, _parse_experiment_ids(experiment_ids)
+            )
             experiment_ids = [str(e) for e in experiment_ids]
 
             filter1_combined = (
@@ -8217,7 +8208,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
 
             if experiment_id:
-                query = query.filter(SqlIssue.experiment_id == int(experiment_id))
+                query = query.filter(SqlIssue.experiment_id == _parse_experiment_id(experiment_id))
 
             if filter_string:
                 parsed_filters = SearchIssuesUtils.parse_search_filter(filter_string)
