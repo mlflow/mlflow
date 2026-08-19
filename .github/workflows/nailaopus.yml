@@ -260,7 +260,7 @@ jobs:
         with:
           repository: mlflow/internal
           # HEAD of mlflow/internal#81 (add Bash tool). Update to main SHA once merged.
-          ref: ${{ vars.NAILAOPUS_INTERNAL_REF || '590949f070b5a26552e168361744c6f2a0e95504' }}
+          ref: ${{ vars.NAILAOPUS_INTERNAL_REF || '67ad4c21d8a1e36d4bc45f7a55f491b0b624e489' }}
           sparse-checkout: |
             nailaopus
           path: internal
