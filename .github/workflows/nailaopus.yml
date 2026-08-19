@@ -156,13 +156,11 @@ jobs:
           enable-cache: false
 
       - name: Install ripgrep
-        # The orchestrator's Read/Grep/Glob tools shell out to `rg`. ripgrep
-        # is NOT preinstalled on the ubuntu-latest runner image, so every
-        # prior production review hit "ripgrep is not installed on this
-        # runner" on its first Grep and fell back to slow sequential file
-        # reads (25-30 reads on a large PR). Installing it restores fast
-        # pattern search and cuts review latency substantially.
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
+        run: |
+          curl -LsSf https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz -o /tmp/rg.tar.gz
+          tar xzf /tmp/rg.tar.gz -C /tmp
+          sudo mv /tmp/ripgrep-15.2.0-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
+          rg --version
 
       - name: Parse review flags
         id: flags
