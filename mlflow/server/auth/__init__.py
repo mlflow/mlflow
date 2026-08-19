@@ -1197,12 +1197,20 @@ def validate_can_manage_logged_model():
 
 
 def validate_can_update_run_or_logged_model():
-    # The presigned upload endpoint accepts exactly one of run_id / model_id (the
-    # handler enforces this); dispatch on whichever the request carries. The route
-    # is a body-only POST, so read the body the same way ``_get_request_param``
-    # does for POST requests.
+    # The presigned upload endpoint accepts exactly one of run_id / model_id. The
+    # handler enforces this with a 400, but this validator runs first — without the
+    # same check here, a malformed request carrying both IDs would resolve the
+    # model's permission and could surface 403/404 instead of the documented 400.
+    # Mirror the check before looking up either resource. The route is a body-only
+    # POST, so read the body the same way ``_get_request_param`` does for POST
+    # requests.
     body = request.get_json(silent=True)
     args = body if isinstance(body, dict) else {}
+    if bool(args.get("run_id")) == bool(args.get("model_id")):
+        raise MlflowException(
+            "Exactly one of run_id and model_id must be provided.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     if args.get("model_id"):
         return _get_permission_from_model_id().can_update
     return _get_permission_from_run_id().can_update

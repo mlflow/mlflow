@@ -802,6 +802,54 @@ def test_presigned_upload_url_logged_model_authorization_required(client, monkey
 
 
 @pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_presigned_upload_url_exactly_one_scope_enforced_before_authorization(client, monkeypatch):
+    # The auth validator runs before the handler, so it must enforce the
+    # exactly-one-of run_id / model_id contract itself: a malformed request
+    # carrying both IDs (or neither) must get the documented 400 even from a
+    # user without any permission — not a 403/404 leaked by resolving either
+    # resource's permission first.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("presigned-upload-xor-authz-test")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        logged_model = client.create_logged_model(experiment_id)
+        model_id = logged_model.model_id
+
+    # user2 has no permission on user1's experiment; both IDs → 400, not 403.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "model_id": model_id, "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 400
+    assert "Exactly one of run_id and model_id" in response.text
+
+    # A nonexistent model id must not leak existence via 404 either.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "model_id": "m-nonexistent", "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 400
+
+    # Neither ID → 400 with the same message.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 400
+    assert "Exactly one of run_id and model_id" in response.text
+
+
+@pytest.mark.parametrize(
     "fastapi_client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
