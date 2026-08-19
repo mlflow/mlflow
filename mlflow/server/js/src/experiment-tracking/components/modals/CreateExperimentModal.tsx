@@ -1,112 +1,148 @@
-/**
- * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
- * may contain multiple `any` type annotations and `@ts-expect-error` directives.
- * If possible, please improve types while making changes to this file. If the type
- * annotations are already looking good, please remove this comment.
- */
-
-import React, { Component } from 'react';
-import { connect } from 'react-redux';
-import type { NavigateFunction } from '../../../common/utils/RoutingUtils';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { shallowEqual, useDispatch, useSelector } from 'react-redux';
+import { FormattedMessage, useIntl } from 'react-intl';
 import debounce from 'lodash/debounce';
 
+import { Modal } from '@databricks/design-system';
+import { useNavigate } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
-import { GenericInputModal } from './GenericInputModal';
-import { CreateExperimentForm, EXP_NAME_FIELD, ARTIFACT_LOCATION } from './CreateExperimentForm';
-import { getExperimentNameValidator } from '../../../common/forms/validations';
-
 import { createExperimentApi } from '../../actions';
 import { getExperiments } from '../../reducers/Reducers';
-import { withRouterNext } from '../../../common/utils/withRouterNext';
+import { getExperimentNameValidator } from '../../../common/forms/validations';
+import Utils from '../../../common/utils/Utils';
+import { CreateExperimentForm } from './CreateExperimentForm';
+import type { ReduxState, ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
 
-type CreateExperimentModalImplProps = {
-  isOpen?: boolean;
-  onClose: (...args: any[]) => any;
-  experimentNames: string[];
-  createExperimentApi: (...args: any[]) => any;
+type CreateExperimentModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
   onExperimentCreated: () => void;
-  navigate: NavigateFunction;
 };
 
-type CreateExperimentModalImplState = {
-  experimentName: string;
-};
+export const CreateExperimentModal = ({ isOpen, onClose, onExperimentCreated }: CreateExperimentModalProps) => {
+  const intl = useIntl();
+  const navigate = useNavigate();
+  const dispatch = useDispatch<ThunkDispatch>();
+  const experimentNames = useSelector((state: ReduxState) => getExperiments(state).map((e) => e.name), shallowEqual);
 
-export class CreateExperimentModalImpl extends Component<
-  CreateExperimentModalImplProps,
-  CreateExperimentModalImplState
-> {
-  state: CreateExperimentModalImplState = {
-    experimentName: '',
-  };
+  const [experimentName, setExperimentName] = useState('');
+  const [artifactLocation, setArtifactLocation] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  handleValuesChange = (changedValues: any) => {
-    if (EXP_NAME_FIELD in changedValues) {
-      this.setState({ experimentName: changedValues[EXP_NAME_FIELD] ?? '' });
-    }
-  };
+  const experimentNamesRef = useRef(experimentNames);
+  experimentNamesRef.current = experimentNames;
 
-  handleClose = () => {
-    this.setState({ experimentName: '' });
-    this.props.onClose();
-  };
-
-  handleCreateExperiment = async (values: any) => {
-    // get values of input fields
-    const experimentName = values[EXP_NAME_FIELD];
-    const artifactLocation = values[ARTIFACT_LOCATION];
-
-    // createExperimentApi call needs to be fulfilled before redirecting the user to the newly
-    // created experiment page (history.push())
-    const response = await this.props.createExperimentApi(experimentName, artifactLocation);
-    this.props.onExperimentCreated();
-
-    const {
-      value: { experiment_id: newExperimentId },
-    } = response;
-
-    if (newExperimentId) {
-      this.props.navigate(Routes.getExperimentPageRoute(newExperimentId));
-    }
-  };
-
-  debouncedExperimentNameValidator = debounce(
-    getExperimentNameValidator(() => this.props.experimentNames),
-    400,
+  const debouncedValidatorRef = useRef(
+    debounce((value: string) => {
+      const validator = getExperimentNameValidator(() => experimentNamesRef.current);
+      validator(null, value, (error?: string) => {
+        setNameError(error ?? '');
+      });
+    }, 400),
   );
 
-  render() {
-    const { isOpen } = this.props;
-    const { experimentName } = this.state;
-    return (
-      <GenericInputModal
-        title="Create Experiment"
-        okText="Create"
-        isOpen={isOpen}
-        handleSubmit={this.handleCreateExperiment}
-        onClose={this.handleClose}
-        okButtonProps={{ disabled: !experimentName.trim() }}
-      >
-        <CreateExperimentForm
-          // @ts-expect-error TS(2322): injectIntl wrapper loses custom prop types
-          validator={this.debouncedExperimentNameValidator}
-          onValuesChange={this.handleValuesChange}
+  const resetFormState = useCallback(() => {
+    debouncedValidatorRef.current.cancel();
+    setExperimentName('');
+    setArtifactLocation('');
+    setNameError('');
+    setIsSubmitting(false);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      resetFormState();
+    }
+    const cleanup = debouncedValidatorRef.current;
+    return () => cleanup.cancel();
+  }, [isOpen, resetFormState]);
+
+  const handleClose = () => {
+    resetFormState();
+    onClose();
+  };
+
+  const handleNameChange = (value: string) => {
+    setExperimentName(value);
+    if (!value.trim()) {
+      debouncedValidatorRef.current.cancel();
+      setNameError(
+        intl.formatMessage({
+          defaultMessage: 'Please input a new name for the new experiment.',
+          description: 'Error message for name requirement in create experiment for MLflow',
+        }),
+      );
+    } else {
+      debouncedValidatorRef.current(value);
+    }
+  };
+
+  const isCreateDisabled = !experimentName.trim() || !!nameError || isSubmitting;
+
+  const validateExperimentName = async (value: string): Promise<string> => {
+    const validator = getExperimentNameValidator(() => experimentNamesRef.current);
+    return new Promise((resolve) => {
+      validator(undefined, value, (error?: string) => resolve(error ?? ''));
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (isCreateDisabled) return;
+    debouncedValidatorRef.current.cancel();
+    setIsSubmitting(true);
+    const validationError = await validateExperimentName(experimentName);
+    if (validationError) {
+      setNameError(validationError);
+      setIsSubmitting(false);
+      return;
+    }
+    setNameError('');
+    try {
+      // @ts-expect-error -- createExperimentApi has loosely typed params and thunk return
+      const response: { value?: { experiment_id?: string } } = await dispatch(
+        // @ts-expect-error -- artifactPath param is typed as `undefined` due to default value
+        createExperimentApi(experimentName, artifactLocation || undefined),
+      );
+      onExperimentCreated();
+      handleClose();
+      const newExperimentId = response?.value?.experiment_id;
+      if (newExperimentId) {
+        navigate(Routes.getExperimentPageRoute(newExperimentId));
+      }
+    } catch (e) {
+      setIsSubmitting(false);
+      Utils.logErrorAndNotifyUser(e);
+    }
+  };
+
+  return (
+    <Modal
+      componentId="mlflow.experiment.create_experiment_modal"
+      data-testid="mlflow-input-modal"
+      title={
+        <FormattedMessage
+          defaultMessage="Create Experiment"
+          description="Title for create experiment modal in MLflow"
         />
-      </GenericInputModal>
-    );
-  }
-}
-
-const mapStateToProps = (state: any) => {
-  const experiments = getExperiments(state);
-  const experimentNames = experiments.map((e) => e.name);
-  return { experimentNames };
+      }
+      visible={isOpen}
+      onOk={handleSubmit}
+      okText={intl.formatMessage({
+        defaultMessage: 'Create',
+        description: 'Confirm button text for create experiment modal',
+      })}
+      okButtonProps={{ disabled: isCreateDisabled }}
+      confirmLoading={isSubmitting}
+      onCancel={handleClose}
+    >
+      <CreateExperimentForm
+        experimentName={experimentName}
+        artifactLocation={artifactLocation}
+        nameError={nameError}
+        onNameChange={handleNameChange}
+        onArtifactLocationChange={setArtifactLocation}
+      />
+    </Modal>
+  );
 };
-
-const mapDispatchToProps = {
-  createExperimentApi,
-};
-
-const ConnectedCreateExperimentModal = connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl);
-
-export const CreateExperimentModal = withRouterNext(ConnectedCreateExperimentModal);
