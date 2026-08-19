@@ -267,7 +267,8 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: mlflow/internal
-          ref: ${{ vars.NAILAOPUS_INTERNAL_REF || 'main' }}
+          # HEAD of mlflow/internal#81 (add Bash tool). Update to main SHA once merged.
+          ref: ${{ vars.NAILAOPUS_INTERNAL_REF || '590949f070b5a26552e168361744c6f2a0e95504' }}
           sparse-checkout: |
             nailaopus
           path: internal
