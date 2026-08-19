@@ -68,6 +68,7 @@ from mlflow.genai.judges.prompts.summarization import (
 from mlflow.genai.judges.prompts.task_success import (
     TASK_SUCCESS_ASSESSMENT_NAME,
     TASK_SUCCESS_PROMPT,
+    TASK_SUCCESS_PROMPT_WITH_TRACE,
 )
 from mlflow.genai.judges.prompts.tool_call_correctness import (
     TOOL_CALL_CORRECTNESS_PROMPT_INSTRUCTIONS,
@@ -3118,6 +3119,10 @@ class TaskSuccess(BuiltInScorer):
     if the assistant actually performed the requested action rather than just describing how
     to do it. It does not require ground truth data. It returns "yes" or "no".
 
+    When a trace is provided, the judge inspects the trace (e.g., tool calls and intermediate
+    steps) to verify that claimed actions were actually executed, rather than relying solely
+    on the response text.
+
     You can invoke the scorer directly with a single input for testing, or pass it to
     ``mlflow.genai.evaluate`` for running full evaluation on a dataset.
 
@@ -3161,12 +3166,23 @@ class TaskSuccess(BuiltInScorer):
         "Evaluate whether the assistant completed the task described in the user's request."
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
+    _trace_judge: Judge | None = pydantic.PrivateAttr(default=None)
 
     @property
     def feedback_value_type(self) -> Any:
         return Literal["yes", "no"]
 
-    def _get_judge(self) -> Judge:
+    def _get_judge(self, use_trace: bool = False) -> Judge:
+        if use_trace:
+            if self._trace_judge is None:
+                self._trace_judge = InstructionsJudge(
+                    name=self.name,
+                    instructions=TASK_SUCCESS_PROMPT_WITH_TRACE,
+                    model=self.model,
+                    description=self.description,
+                    feedback_value_type=self.feedback_value_type,
+                )
+            return self._trace_judge
         if self._judge is None:
             self._judge = InstructionsJudge(
                 name=self.name,
@@ -3206,10 +3222,12 @@ class TaskSuccess(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
+        # Use the trace-based judge so claimed actions are verified against trace evidence
+        if trace is not None:
+            return self._get_judge(use_trace=True)(trace=trace)
         return self._get_judge()(
             inputs=inputs,
             outputs=outputs,
-            trace=trace,
         )
 
 
