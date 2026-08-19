@@ -49,12 +49,18 @@ export const ExperimentEvaluationRunsRowVisibilityProvider = ({ children }: { ch
       setRowVisibilityOverrides((prev) => {
         const newVisibilityOverrides = { ...prev };
 
-        if (prev[rowUuid] !== undefined) {
-          // Clear override - go back to mode's decision
+        const visibleByMode = isVisibleByMode(visibilityMode, rowIndex, runStatus);
+
+        // Calculate current effective visibility
+        const currentlyVisible = prev[rowUuid] !== undefined ? prev[rowUuid] : visibleByMode;
+
+        // Flip visibility
+        const newVisible = !currentlyVisible;
+
+        if (newVisible === visibleByMode) {
           delete newVisibilityOverrides[rowUuid];
         } else {
-          const visibleByMode = isVisibleByMode(visibilityMode, rowIndex, runStatus);
-          newVisibilityOverrides[rowUuid] = !visibleByMode; // flip visibility
+          newVisibilityOverrides[rowUuid] = newVisible;
         }
 
         return newVisibilityOverrides;
