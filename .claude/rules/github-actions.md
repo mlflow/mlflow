@@ -93,3 +93,21 @@ Set `sparse-checkout-cone-mode: false` only when you need to target individual f
 ## `pipefail` Is Already On
 
 Every workflow in this repo sets top-level `defaults.run.shell: bash` (enforced by [`.github/policy.rego`](../../.github/policy.rego)). GitHub Actions runs `shell: bash` as `bash --noprofile --norc -eo pipefail {0}`, so `pipefail` is already enabled. Don't ask for `set -o pipefail` in workflow `run:` steps. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#defaultsrunshell))
+
+## Prefer a Prebuilt Binary over `apt-get`
+
+`sudo apt-get update` refreshes every package index before installing anything, costing tens of seconds per run. If upstream ships a prebuilt binary, download it instead.
+
+```yaml
+# Bad
+- name: Install ripgrep
+  run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+# Good
+- name: Install ripgrep
+  run: |
+    curl -fsSL https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz \
+      | sudo tar -xz --strip-components=1 --wildcards -C /usr/local/bin '*/rg'
+```
+
+Use `apt-get` only when no binary is published or the package needs distro-matched system libraries (e.g. `ffmpeg`, `build-essential`).
