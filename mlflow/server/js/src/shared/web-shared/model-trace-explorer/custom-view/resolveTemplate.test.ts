@@ -119,16 +119,13 @@ describe('resolveTemplate', () => {
     expect(componentsOf(resolved)[0].text).toBe(JSON.stringify(nodeMap.tool0.outputs));
   });
 
-  // Component type is irrelevant to resolveTemplate (it resolves markers generically,
-  // regardless of catalog membership) — a synthetic name keeps these two cases from
-  // implying any specific real catalog component carries a "spanId" prop.
   it('resolves a $spanRef prop to a concrete span id', () => {
     const resolved = resolveTemplate(
       [
         updateComponents([
           {
             id: 'root',
-            component: 'SpanBoundTestComponent',
+            component: 'FeedbackThumbsUpDownButtons',
             name: 'Helpful',
             spanId: { $spanRef: { type: 'TOOL' } },
           },
@@ -139,13 +136,13 @@ describe('resolveTemplate', () => {
     expect(componentsOf(resolved)[0].spanId).toBe('tool0');
   });
 
-  it('drops an unresolved $spanRef prop instead of pointing at a missing span', () => {
+  it('prunes feedback whose $spanRef target is missing instead of logging it at trace level', () => {
     const resolved = resolveTemplate(
       [
         updateComponents([
           {
             id: 'root',
-            component: 'SpanBoundTestComponent',
+            component: 'FeedbackThumbsUpDownButtons',
             name: 'Helpful',
             spanId: { $spanRef: { type: 'TOOL', nth: 9 } },
           },
@@ -153,7 +150,7 @@ describe('resolveTemplate', () => {
       ],
       ctx,
     );
-    expect('spanId' in componentsOf(resolved)[0]).toBe(false);
+    expect(componentsOf(resolved)).toEqual([{ id: 'root', component: 'Column', children: [] }]);
   });
 
   it('prunes a renderIfSpan subtree when the guard resolves to no span', () => {
