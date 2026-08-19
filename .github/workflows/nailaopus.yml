@@ -285,5 +285,11 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          MLFLOW_ENABLE_TRACING: ${{ vars.NAILAOPUS_MLFLOW_ENABLE_TRACING }}
+          MLFLOW_TRACKING_URI: ${{ vars.NAILAOPUS_MLFLOW_TRACKING_URI }}
+          MLFLOW_EXPERIMENT_ID: ${{ secrets.NAILAOPUS_MLFLOW_EXPERIMENT_ID }}
+          DATABRICKS_HOST: ${{ secrets.NAILAOPUS_DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_SECRET }}
         run: |
-          uv run --directory internal/nailaopus nailaopus 22962 --repo mlflow/mlflow --mlflow-tree "$GITHUB_WORKSPACE/mlflow"
+          uv run --directory internal/nailaopus nailaopus 22962 --repo mlflow/mlflow --mlflow-tree "$GITHUB_WORKSPACE/mlflow" --triggered-by "${{ github.actor }}"
