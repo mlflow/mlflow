@@ -2413,6 +2413,14 @@ class SqlJob(Base):
     Stores additional job status details.
     """
 
+    creator = Column(String(255), nullable=True)
+    """
+    Username who created the job, for per-job ownership. ``NULL`` in three distinct cases:
+    the job was submitted with authentication disabled, the submitter was unauthenticated,
+    or the row predates this column's migration. ``NULL`` therefore does not by itself imply
+    an anonymous submitter.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
@@ -2449,6 +2457,7 @@ class SqlJob(Base):
             last_update_time=self.last_update_time,
             workspace=self.workspace,
             status_details=self.status_details,
+            creator=self.creator,
         )
 
 
