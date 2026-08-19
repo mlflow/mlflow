@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787079992896,
+  "lastUpdate": 1787172475573,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -23111,6 +23111,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.98651980000318,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pattara.sk127@gmail.com",
+            "name": "Pat Sukprasert",
+            "username": "PattaraS"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3e5a36daf9af77bae2f1689fe472d37cccd8f872",
+          "message": "[4/6] basic-auth: gate job routes on per-job ownership (#25069)\n\nSigned-off-by: Pat Sukprasert <pattara.sk127@gmail.com>",
+          "timestamp": "2026-08-20T04:46:29+08:00",
+          "tree_id": "863f4dee28c26e098eed808ec178615c94ce80a9",
+          "url": "https://github.com/mlflow/mlflow/commit/3e5a36daf9af77bae2f1689fe472d37cccd8f872"
+        },
+        "date": 1787172473805,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.87092475000023,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.484080826922969,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.46907452083387,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.2874983846163985,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.851937922480922,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 29.99442640000325,
             "unit": "ms"
           }
         ]
