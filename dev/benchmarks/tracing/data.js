@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787172475573,
+  "lastUpdate": 1787179180744,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -23165,6 +23165,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 29.99442640000325,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "82044803+serena-ruan@users.noreply.github.com",
+            "name": "Serena Ruan",
+            "username": "serena-ruan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e07bf239b9dcf95e23fce5e59dff091df17669bc",
+          "message": "Skip `entry_point.getLogger()` when unavailable in dynamic token config provider (#25207)\n\nSigned-off-by: Serena Ruan <serena.rxy@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-19T15:37:54-07:00",
+          "tree_id": "e9f0f4b1bf051022ee44c58d929d9baa0c1830ad",
+          "url": "https://github.com/mlflow/mlflow/commit/e07bf239b9dcf95e23fce5e59dff091df17669bc"
+        },
+        "date": 1787179178115,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.239543900004264,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.322823566036724,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.472308912750777,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.524887982905747,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 7.054712893443221,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.160467399993877,
             "unit": "ms"
           }
         ]
