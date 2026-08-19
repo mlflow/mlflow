@@ -67,6 +67,7 @@ let capturedDefinitionProviderProps:
       onPersistView?: unknown;
       onDeleteView?: unknown;
       canModifyPersistedViews?: boolean;
+      autoSelectFirstView?: boolean;
     }
   | undefined;
 
@@ -117,7 +118,11 @@ describe('ExperimentCustomViewProvider', () => {
     capturedContextProvider = undefined;
     capturedConnectorProviderProps = undefined;
     capturedDefinitionProviderProps = undefined;
-    mockUseExperimentCustomViewDefinition.mockReturnValue({ views: [], isLoaded: true });
+    mockUseExperimentCustomViewDefinition.mockReturnValue({
+      views: [],
+      isLoaded: true,
+      isDemoExperiment: false,
+    });
     mockCanEdit = { canEdit: true, isLoading: false };
     mockGetCurrentApplierSessionId.mockReturnValue('session-1');
     mockGetCustomViewAuthoringContext.mockReturnValue(null);
@@ -135,6 +140,7 @@ describe('ExperimentCustomViewProvider', () => {
     mockUseExperimentCustomViewDefinition.mockReturnValue({
       views: [],
       isLoaded: true,
+      isDemoExperiment: false,
       persistView,
       deleteView,
     });
@@ -146,6 +152,19 @@ describe('ExperimentCustomViewProvider', () => {
     expect(capturedDefinitionProviderProps?.onPersistView).toBe(persistView);
     expect(capturedDefinitionProviderProps?.onDeleteView).toBe(deleteView);
     expect(capturedDefinitionProviderProps?.canModifyPersistedViews).toBe(false);
+    expect(capturedDefinitionProviderProps?.autoSelectFirstView).toBe(false);
+  });
+
+  it('auto-selects the first saved view on a demo experiment', () => {
+    mockUseExperimentCustomViewDefinition.mockReturnValue({
+      views: [],
+      isLoaded: true,
+      isDemoExperiment: true,
+    });
+    makeAssistant();
+    renderProvider();
+
+    expect(capturedDefinitionProviderProps?.autoSelectFirstView).toBe(true);
   });
 
   describe('connector.openAssistant', () => {

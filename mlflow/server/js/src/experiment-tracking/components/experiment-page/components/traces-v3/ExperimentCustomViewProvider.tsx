@@ -46,7 +46,8 @@ export const ExperimentCustomViewProvider = ({
   experimentId?: string;
   children: ReactNode;
 }) => {
-  const { views, isLoaded, persistView, deleteView } = useExperimentCustomViewDefinition(experimentId);
+  const { views, isLoaded, isDemoExperiment, persistView, deleteView } =
+    useExperimentCustomViewDefinition(experimentId);
   const { canEdit: canModifyPersistedViews } = useCanEditExperimentCustomViews(experimentId);
   const {
     openPanel,
@@ -134,6 +135,7 @@ export const ExperimentCustomViewProvider = ({
         onPersistView={persistView}
         onDeleteView={deleteView}
         canModifyPersistedViews={canModifyPersistedViews}
+        autoSelectFirstView={isDemoExperiment}
       >
         {children}
       </CustomViewDefinitionProvider>
