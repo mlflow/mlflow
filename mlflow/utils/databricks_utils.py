@@ -1473,7 +1473,15 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
             def get_config(self):
-                logger = entry_point.getLogger()
+                # `entry_point.getLogger()` is only used to emit best-effort usage telemetry
+                # below. It is unavailable on some runtimes (e.g. serverless, where the Py4J
+                # entry point is disabled), so resolve it defensively and skip logging if it
+                # cannot be obtained rather than failing credential resolution.
+                try:
+                    logger = entry_point.getLogger()
+                except Exception as e:
+                    logger = None
+                    _logger.debug(f"Failed to get Databricks entry point logger: {e}")
                 try:
                     from dbruntime.databricks_repl_context import get_context
 
@@ -1502,11 +1510,12 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                     # Using apiToken from command context would return back the token which is not
                     # refreshed.
                     fallback_api_token_option = notebook_utils.getContext().apiToken()
-                    logger.logUsage(
-                        "refreshableTokenNotFound",
-                        {"api_url": api_url},
-                        None,
-                    )
+                    if logger is not None:
+                        logger.logUsage(
+                            "refreshableTokenNotFound",
+                            {"api_url": api_url},
+                            None,
+                        )
                     if fallback_api_token_option.isDefined():
                         api_token = fallback_api_token_option.get()
 
