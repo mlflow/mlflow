@@ -166,6 +166,18 @@ describe('useExperimentCustomViewDefinition', () => {
       // Valid views are untouched (not flagged unreadable).
       expect(byId('older')?.unreadable).toBeUndefined();
       expect(byId('newer')?.unreadable).toBeUndefined();
+      expect(result.current.isDemoExperiment).toBe(false);
+    });
+
+    it('flags the experiment as a demo when a demo version tag is present', async () => {
+      mockGetExperiment.mockResolvedValue(
+        getExperimentResponse([{ key: 'mlflow.demo.version.traces', value: '3' }]),
+      );
+
+      const { result } = renderDefinition(queryClient, EXPERIMENT_ID);
+      await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+      expect(result.current.isDemoExperiment).toBe(true);
     });
 
     it('keeps a valid-shape view whose template fails validation as a normal (not unreadable) view', async () => {
