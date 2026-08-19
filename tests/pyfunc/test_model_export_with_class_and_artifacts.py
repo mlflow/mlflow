@@ -2653,7 +2653,7 @@ def test_lock_model_requirements_pip_requirements(monkeypatch: pytest.MonkeyPatc
     assert "# Locked requirements" in contents
     assert "mlflow==" in contents
     assert "openai==" in contents
-    assert "jiter==" in contents
+    assert "pydantic==" in contents
 
 
 def test_lock_model_requirements_extra_pip_requirements(
@@ -2671,7 +2671,7 @@ def test_lock_model_requirements_extra_pip_requirements(
     assert "# Locked requirements" in contents
     assert "mlflow==" in contents
     assert "openai==" in contents
-    assert "jiter==" in contents
+    assert "pydantic==" in contents
 
 
 def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
@@ -2689,7 +2689,7 @@ def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tm
     assert "# Locked requirements" in contents
     assert "mlflow==" in contents
     assert "openai==1.82.0" in contents
-    assert "jiter==" in contents
+    assert "pydantic==" in contents
 
 
 @pytest.mark.parametrize(
