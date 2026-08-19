@@ -427,6 +427,15 @@ def test_dynamic_token_config_provider_get_config_when_logger_unavailable(
     assert config.host == "https://databricks.com"
     assert config.token == "token"
 
+    if get_logger_raises:
+        # No logger is available, so no usage telemetry should be emitted.
+        entry_point.getLogger.return_value.logUsage.assert_not_called()
+    else:
+        # The logger resolved successfully, so the fallback path should emit usage telemetry.
+        entry_point.getLogger.return_value.logUsage.assert_called_once_with(
+            "refreshableTokenNotFound", {"api_url": "https://databricks.com"}, None
+        )
+
 
 def test_get_workspace_info_from_databricks_secrets():
     mock_dbutils = mock.MagicMock()

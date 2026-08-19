@@ -1513,11 +1513,16 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                     # refreshed.
                     fallback_api_token_option = notebook_utils.getContext().apiToken()
                     if entry_point_logger is not None:
-                        entry_point_logger.logUsage(
-                            "refreshableTokenNotFound",
-                            {"api_url": api_url},
-                            None,
-                        )
+                        # Best-effort telemetry: never let a logging failure prevent the fallback
+                        # token retrieval below.
+                        try:
+                            entry_point_logger.logUsage(
+                                "refreshableTokenNotFound",
+                                {"api_url": api_url},
+                                None,
+                            )
+                        except Exception as e:
+                            _logger.debug(f"Failed to emit `refreshableTokenNotFound` usage: {e}")
                     if fallback_api_token_option.isDefined():
                         api_token = fallback_api_token_option.get()
 
