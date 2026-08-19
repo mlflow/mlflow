@@ -1,6 +1,8 @@
 # CI guard for the basic-auth dispatcher: every Flask route must resolve to an
 # authorization decision, or be listed in the debt list _KNOWN_UNGATED_ROUTE_MARKERS.
 
+from types import SimpleNamespace
+
 from mlflow.server import auth as a
 from mlflow.server.handlers import get_endpoints
 
@@ -136,3 +138,21 @@ def test_no_ungated_fastapi_native_routes():
         "_KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS. Add a validator branch in "
         "_find_fastapi_validator, or document the exemption:\n" + "\n".join(uncovered)
     )
+
+
+def test_jobs_owner_check(monkeypatch):
+    # Jobs get/cancel are gated on ownership — the recorded creator must match the
+    # caller; a different creator or no creator is denied (admins bypass upstream).
+    import mlflow.server.jobs as jobs_mod
+
+    monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="alice"))
+    monkeypatch.setattr(a, "_get_request_param", lambda p: "job-1")
+
+    monkeypatch.setattr(jobs_mod, "get_job", lambda jid: SimpleNamespace(creator="alice"))
+    assert a.validate_is_job_owner() is True
+
+    monkeypatch.setattr(jobs_mod, "get_job", lambda jid: SimpleNamespace(creator="bob"))
+    assert a.validate_is_job_owner() is False
+
+    monkeypatch.setattr(jobs_mod, "get_job", lambda jid: SimpleNamespace(creator=None))
+    assert a.validate_is_job_owner() is False
