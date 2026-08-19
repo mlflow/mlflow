@@ -1807,12 +1807,6 @@ class Correctness(BuiltInScorer):
             )
 
     def get_input_fields(self) -> list[JudgeField]:
-        """
-        Get the input fields for the Correctness judge.
-
-        Returns:
-            List of JudgeField objects defining the input fields based on the __call__ method.
-        """
         return [
             JudgeField(
                 name="inputs",
