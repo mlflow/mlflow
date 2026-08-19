@@ -271,7 +271,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: mlflow/mlflow
-          ref: refs/pull/22962/head
+          ref: refs/pull/24602/head
           path: mlflow
           token: ${{ steps.app_token.outputs.token }}
           persist-credentials: false
@@ -281,7 +281,7 @@ jobs:
         with:
           enable-cache: false
 
-      - name: Run dry-run review (PR 22962)
+      - name: Run dry-run review (PR 24602)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ steps.app_token.outputs.token }}
@@ -292,4 +292,4 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.NAILAOPUS_DATABRICKS_CLIENT_SECRET }}
         run: |
-          uv run --directory internal/nailaopus nailaopus 22962 --repo mlflow/mlflow --mlflow-tree "$GITHUB_WORKSPACE/mlflow" --triggered-by "${{ github.actor }}"
+          uv run --directory internal/nailaopus nailaopus 24602 --repo mlflow/mlflow --mlflow-tree "$GITHUB_WORKSPACE/mlflow" --triggered-by "${{ github.actor }}"
