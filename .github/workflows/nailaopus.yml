@@ -151,7 +151,7 @@ jobs:
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable; see mlflow/internal for the policy.
           # TEST ONLY (mlflow/internal#81): revert to a main SHA before merging.
-          ref: 7f211db2b1656f6b628d00a31c47a7dedde052ec
+          ref: 67ad4c21d8a1e36d4bc45f7a55f491b0b624e489
           sparse-checkout: |
             nailaopus
           path: internal
