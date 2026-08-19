@@ -255,14 +255,6 @@ jobs:
           private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
           owner: mlflow
 
-      - name: Checkout PR head of mlflow/mlflow (orchestrator code)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: ${{ github.head_ref }}
-          path: workflow-repo
-          token: ${{ steps.app_token.outputs.token }}
-          persist-credentials: false
-
       - name: Checkout mlflow/internal (orchestrator code)
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
