@@ -235,7 +235,7 @@ class CustomViewDemoGenerator(BaseDemoGenerator):
                 return False
             return bool(experiment.tags.get(DEMO_CUSTOM_VIEW_TAG_KEY))
         except Exception:
-            _logger.debug("Failed to check if custom view demo exists", exc_info=True)
+            _logger.warning("Failed to check if custom view demo exists", exc_info=True)
             return False
 
     def delete_demo(self) -> None:
@@ -245,4 +245,4 @@ class CustomViewDemoGenerator(BaseDemoGenerator):
                 return
             MlflowClient().delete_experiment_tag(experiment.experiment_id, DEMO_CUSTOM_VIEW_TAG_KEY)
         except Exception:
-            _logger.debug("Failed to delete demo custom view", exc_info=True)
+            _logger.warning("Failed to delete demo custom view", exc_info=True)
