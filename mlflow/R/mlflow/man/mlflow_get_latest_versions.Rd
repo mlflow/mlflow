@@ -20,3 +20,7 @@ MLflow will use the tracking server associated with the current tracking URI.}
 \description{
 Retrieves a list of the latest model versions for a given model.
 }
+\details{
+Stages are not supported when the registry URI is `databricks-uc`. Use
+  `mlflow_get_model_version_by_alias()` or load an aliased model URI instead.
+}
