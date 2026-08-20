@@ -1,6 +1,7 @@
-import { describe, expect, test, jest, beforeEach } from '@jest/globals';
-import { screen, within } from '@testing-library/react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { TracesTable, type TracesTableProps } from './TracesTable';
 import { TRACE_COLUMN_IDS } from './constants';
 import type { TraceColumnId } from './types';
@@ -15,6 +16,43 @@ const openColumnMenu = async (columnName: RegExp) => {
 };
 
 const ALL_COLUMNS: TraceColumnId[] = [...TRACE_COLUMN_IDS];
+
+class TestResizeObserver implements ResizeObserver {
+  static instances: TestResizeObserver[] = [];
+  readonly callback: ResizeObserverCallback;
+  target: Element | null = null;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    TestResizeObserver.instances.push(this);
+  }
+
+  observe(target: Element): void {
+    this.target = target;
+  }
+  unobserve(): void {
+    this.target = null;
+  }
+  disconnect(): void {
+    this.target = null;
+  }
+
+  trigger(): void {
+    if (!this.target) return;
+    const entry: ResizeObserverEntry = {
+      target: this.target,
+      contentRect: this.target.getBoundingClientRect(),
+      borderBoxSize: [],
+      contentBoxSize: [],
+      devicePixelContentBoxSize: [],
+    };
+    this.callback([entry], this);
+  }
+
+  static reset(): void {
+    TestResizeObserver.instances = [];
+  }
+}
 
 const baseProps = (over: Partial<TracesTableProps> = {}): TracesTableProps => ({
   traces: makeTraces(3),
@@ -38,8 +76,25 @@ const baseProps = (over: Partial<TracesTableProps> = {}): TracesTableProps => ({
 });
 
 describe('TracesTable', () => {
+  const originalResizeObserver = globalThis.ResizeObserver;
+  const originalPointerEvent = globalThis.PointerEvent;
+
+  beforeAll(() => {
+    globalThis.ResizeObserver = TestResizeObserver;
+    globalThis.PointerEvent = MouseEvent as typeof PointerEvent;
+  });
+
   beforeEach(() => {
-    jest.clearAllMocks();
+    TestResizeObserver.reset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  afterAll(() => {
+    globalThis.ResizeObserver = originalResizeObserver;
+    globalThis.PointerEvent = originalPointerEvent;
   });
 
   test('renders a header for each visible column', async () => {
@@ -120,5 +175,137 @@ describe('TracesTable', () => {
     await renderWithProviders(<TracesTable {...baseProps({ traces, visibleColumns: ['session'] })} />);
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.getByText('my-session')).toBeInTheDocument();
+  });
+
+  test('clamps legacy oversized built-in widths while preserving extra-column widths', async () => {
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          traces: [makeTrace('short')],
+          visibleColumns: ['trace_id'],
+          extraColumns: [
+            {
+              id: 'assessment:relevance',
+              header: () => 'relevance',
+              cell: () => 'yes',
+              size: 160,
+              maxSize: 200,
+            },
+          ],
+          initialColumnSizing: { trace_id: 600, 'assessment:relevance': 350 },
+        })}
+      />,
+    );
+
+    const region = screen.getByRole('region', { name: 'Traces' });
+    // CSS variables should be set with computed column widths
+    expect(region.style.getPropertyValue('--traces-table-column-0')).toMatch(/^\d+px$/);
+    expect(region.style.getPropertyValue('--traces-table-column-1')).toMatch(/^\d+px$/);
+  });
+
+  test('keeps a column bounded across repeated resize drags', async () => {
+    const settledSizes: number[] = [];
+
+    function PersistedSizingTable() {
+      const [columnSizing, setColumnSizing] = useState({ 'assessment:relevance': 160 });
+      return (
+        <TracesTable
+          {...baseProps({
+            visibleColumns: [],
+            extraColumns: [
+              {
+                id: 'assessment:relevance',
+                header: () => 'relevance',
+                cell: () => 'yes',
+                size: 160,
+                maxSize: 200,
+              },
+            ],
+            initialColumnSizing: columnSizing,
+            onColumnSizingSettled: (sizing) => {
+              settledSizes.push(sizing['assessment:relevance']);
+              setColumnSizing({ 'assessment:relevance': sizing['assessment:relevance'] });
+            },
+          })}
+        />
+      );
+    }
+
+    await renderWithProviders(<PersistedSizingTable />);
+    const dragPastMax = () => {
+      const resizeHandle = screen.getByRole('button', { name: 'Resize Column' });
+      fireEvent.pointerDown(resizeHandle, { clientX: 0 });
+      // The first move crosses the DS handle's drag threshold and installs TanStack's listeners.
+      fireEvent.pointerMove(document, { clientX: 10 });
+      fireEvent.mouseMove(document, { clientX: 1000 });
+      fireEvent.mouseUp(document, { clientX: 1000 });
+    };
+
+    dragPastMax();
+    dragPastMax();
+
+    expect(settledSizes).toEqual([200, 200]);
+    const region = screen.getByRole('region', { name: 'Traces' });
+    expect(region.style.getPropertyValue('--traces-table-column-0')).toBe('200px');
+  });
+
+  test('reveals additional tag pills when the tags column grows', async () => {
+    let tagsCellWidth = 180;
+    jest.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => tagsCellWidth);
+    jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return (this.textContent?.length ?? 0) * 10;
+    });
+    const traces = [makeTrace('tagged', { tags: { env: 'prod', team: 'ml', owner: 'agents' } })];
+
+    await renderWithProviders(
+      <TracesTable {...baseProps({ traces, visibleColumns: ['tags'], onFilterByTag: jest.fn() })} />,
+    );
+    const taggedRow = screen.getByRole('row', { name: /Select trace tagged/ });
+
+    expect(within(taggedRow).getByRole('button', { name: 'Filter by tag env: prod' })).toBeVisible();
+    expect(within(taggedRow).queryByRole('button', { name: 'Filter by tag team: ml' })).not.toBeInTheDocument();
+    expect(within(taggedRow).getByRole('button', { name: 'Open trace tagged — tags' })).toHaveTextContent('+2');
+
+    tagsCellWidth = 500;
+    act(() => TestResizeObserver.instances.forEach((observer) => observer.trigger()));
+
+    expect(within(taggedRow).getByRole('button', { name: 'Filter by tag team: ml' })).toBeVisible();
+    expect(within(taggedRow).getByRole('button', { name: 'Filter by tag owner: agents' })).toBeVisible();
+    expect(within(taggedRow).queryByRole('button', { name: 'Open trace tagged — tags' })).not.toBeInTheDocument();
+  });
+
+  test('remeasures tag pills when same-count tag content changes', async () => {
+    jest.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(240);
+    jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return (this.textContent?.length ?? 0) * 10;
+    });
+    const shortTags = { a: '1', b: '2', c: '3' };
+    const longTags = { 'a-very-long-key': 'a-very-long-value', b: '2', c: '3' };
+    const Harness = () => {
+      const [tags, setTags] = useState<Record<string, string>>(shortTags);
+      return (
+        <>
+          <button onClick={() => setTags(longTags)}>Update tags</button>
+          <TracesTable
+            {...baseProps({
+              traces: [makeTrace('changing-tags', { tags })],
+              visibleColumns: ['tags'],
+              onFilterByTag: jest.fn(),
+            })}
+          />
+        </>
+      );
+    };
+
+    await renderWithProviders(<Harness />);
+    const taggedRow = screen.getByRole('row', { name: /Select trace changing-tags/ });
+    expect(
+      within(taggedRow).queryByRole('button', { name: 'Open trace changing-tags — tags' }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Update tags' }));
+
+    expect(within(taggedRow).getByRole('button', { name: 'Open trace changing-tags — tags' })).toHaveTextContent('+2');
+    expect(within(taggedRow).queryByRole('button', { name: 'Filter by tag b: 2' })).not.toBeInTheDocument();
   });
 });

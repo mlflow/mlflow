@@ -83,6 +83,7 @@ export {
 
 // Helpers
 export { formatTraceDuration } from './formatTraceDuration';
+export { getTextColumnMaxSize } from './getColumnMaxSizes';
 
 // Hooks (presentational state)
 export { useBulkTraceSelection, type UseBulkTraceSelectionResult } from './hooks/useBulkTraceSelection';

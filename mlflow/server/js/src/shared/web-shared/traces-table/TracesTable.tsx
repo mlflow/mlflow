@@ -17,10 +17,11 @@ import { createTraceV4LongIdentifier } from '../model-trace-explorer/ModelTraceE
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 import { type ColumnSizingState, flexRender, getCoreRowModel } from '@tanstack/react-table';
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import { isSortableTraceColumn } from './constants';
 import type { SessionHrefGetter, SortDirection, TraceColumnId, TraceTableColumn } from './types';
 import { getVisibleColumnDefs, type TracesTableMeta } from './columns';
+import { getContentColumnMaxSizes } from './getColumnMaxSizes';
 import { TraceColumnHeader } from './TraceColumnHeader';
 
 // No-op sort handlers for non-sortable columns (their header menu omits the sort items anyway).
@@ -36,8 +37,15 @@ const COMPONENT_ID = 'web-shared.traces-table';
 // resized) pixel width and horizontal scroll on the Table handles overflow. A drag still sets
 // `columnSizing[id]`, which becomes the new flex-basis.
 const GROWING_COLUMNS = new Set<string>(['input', 'output']);
-const sizeStyleFor = (id: string, width: number) =>
-  GROWING_COLUMNS.has(id) ? { flex: `1 0 ${width}px`, maxWidth: 'unset' } : { flex: `0 0 ${width}px`, maxWidth: width };
+const columnSizeVariable = (index: number) => `--traces-table-column-${index}`;
+const sizeStyleFor = (id: string, index: number): CSSProperties => {
+  const width = `var(${columnSizeVariable(index)})`;
+  return GROWING_COLUMNS.has(id)
+    ? { flex: `1 0 ${width}`, maxWidth: 'unset' }
+    : { flex: `0 0 ${width}`, maxWidth: width };
+};
+const ROW_WIDTH_VARIABLE = '--traces-table-row-width';
+const rowWidthStyle = { width: `var(${ROW_WIDTH_VARIABLE})`, minWidth: '100%' } as const;
 
 // Row click opens the drawer; the checkbox cell must not also trigger it.
 const stopPropagationProps = {
@@ -132,12 +140,45 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
 
     // Canonical-order visible column defs + any product columns. `extraColumns` is guarded to a stable
     // reference so a stable/undefined value doesn't defeat the deep memo (see `getVisibleColumnDefs`).
-    const columns = useMemo(() => getVisibleColumnDefs(visibleColumns, extraColumns), [visibleColumns, extraColumns]);
+    const columns = useMemo(() => {
+      // Product-specific column ids are intentionally absent and resolve to undefined.
+      const contentMaxSizes: Readonly<Record<string, number | undefined>> = getContentColumnMaxSizes(traces, intl);
+      return getVisibleColumnDefs(visibleColumns, extraColumns).map((column) => {
+        if (column.id === undefined) {
+          return column;
+        }
+        const contentMaxSize = contentMaxSizes[column.id];
+        const persistedSize = initialColumnSizing[column.id];
+        if (contentMaxSize === undefined && persistedSize === undefined) {
+          return column;
+        }
+        // Match the established StatementsTable layout: compact columns are fixed to their measured
+        // content size, while the useful text columns flex into the remaining container width. The
+        // content-derived size is therefore the real ceiling, not a lower bound beneath a larger
+        // static/persisted max. Product columns have no shared content measurement and retain their
+        // own declared/persisted ceiling.
+        const maxSize = contentMaxSize ?? Math.max(column.maxSize ?? 0, persistedSize ?? 0);
+        return { ...column, maxSize };
+      });
+    }, [visibleColumns, extraColumns, traces, intl, initialColumnSizing]);
 
     const meta = useMemo<TracesTableMeta>(
       () => ({ intl, onTraceSelected, getSessionHref, onFilterByTag, renderRunName }),
       [intl, onTraceSelected, getSessionHref, onFilterByTag, renderRunName],
     );
+
+    // Clamp the state TanStack is seeded with as well as the column definition. `getSize()` normally
+    // applies maxSize, but retaining an oversized raw initial value can still leak into the flex-table
+    // layout before the first resize update and leave large blank gaps between compact columns.
+    const normalizedInitialColumnSizing = useMemo(() => {
+      const sizing = { ...initialColumnSizing };
+      for (const column of columns) {
+        if (column.id !== undefined && sizing[column.id] !== undefined && column.maxSize !== undefined) {
+          sizing[column.id] = Math.min(sizing[column.id], column.maxSize);
+        }
+      }
+      return sizing;
+    }, [columns, initialColumnSizing]);
 
     const table = useReactTable_unverifiedWithReact18<ModelTraceInfoV3>('traces-table/TracesTable.tsx', {
       data: traces,
@@ -149,7 +190,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       // `getSize()` tracks the cursor). Sizing is uncontrolled — seeded once via `initialState` — so a
       // drag no longer writes persistence on every mousemove.
       columnResizeMode: 'onChange',
-      initialState: { columnSizing: initialColumnSizing },
+      initialState: { columnSizing: normalizedInitialColumnSizing },
       meta,
     });
 
@@ -157,14 +198,25 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     // falling-edge ref avoids the redundant mount write that a plain `if (!isResizing) persist(...)`
     // would do.
     const isResizingColumn = Boolean(table.getState().columnSizingInfo.isResizingColumn);
-    const columnSizing = table.getState().columnSizing;
     const wasResizing = useRef(false);
     useEffect(() => {
       if (wasResizing.current && !isResizingColumn) {
-        onColumnSizingSettled(columnSizing);
+        // TanStack stores the raw pointer delta in `columnSizing`, even when `getSize()` clamps the
+        // rendered width to the column's min/max. Reset that raw state before persisting it; otherwise
+        // an oversized first drag becomes the next render's persisted max and a second drag can grow
+        // beyond the original ceiling.
+        const columnSizing = table.getState().columnSizing;
+        const clampedSizing = { ...columnSizing };
+        for (const column of table.getAllLeafColumns()) {
+          if (columnSizing[column.id] !== undefined) {
+            clampedSizing[column.id] = column.getSize();
+          }
+        }
+        table.setColumnSizing(clampedSizing);
+        onColumnSizingSettled(clampedSizing);
       }
       wasResizing.current = isResizingColumn;
-    }, [isResizingColumn, columnSizing, onColumnSizingSettled]);
+    }, [table, isResizingColumn, onColumnSizingSettled]);
 
     const leafHeaders = table.getLeafHeaders();
 
@@ -180,7 +232,19 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     // (spacing.md) content width + 8px (spacing.sm) left padding, so it contributes a fixed 24px.
     const selectCellWidth = theme.spacing.md + theme.spacing.sm;
     const rowWidth = leafHeaders.reduce((total, header) => total + header.getSize(), selectCellWidth);
-    const rowWidthStyle = { width: rowWidth, minWidth: '100%' } as const;
+    // Publish live widths once on the scroll container. Header/cell styles reference these variables,
+    // so React updates one DOM node per resize tick instead of diffing a new inline style on every cell.
+    // This follows ProcessListTable's established live-resize performance pattern.
+    const tableSizeVariables = {
+      [ROW_WIDTH_VARIABLE]: `${rowWidth}px`,
+      ...Object.fromEntries(leafHeaders.map((header, index) => [columnSizeVariable(index), `${header.getSize()}px`])),
+    } as CSSProperties;
+    const columnStyles = useMemo(
+      () => new Map(leafHeaders.map((header, index) => [header.column.id, sizeStyleFor(header.column.id, index)])),
+      // Header identities are stable while only column sizing changes.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [table, columns],
+    );
 
     // Header-row overrides: near-black labels and a visible divider.
     const headerRowCss = {
@@ -204,6 +268,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       <div
         role="region"
         aria-busy={isFetching}
+        style={tableSizeVariables}
         aria-label={intl.formatMessage({
           defaultMessage: 'Traces',
           description: 'Region label wrapping the traces table',
@@ -241,7 +306,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                   header={header}
                   column={header.column}
                   setColumnSizing={table.setColumnSizing}
-                  style={sizeStyleFor(columnId, header.getSize())}
+                  style={columnStyles.get(columnId)}
                   wrapContent={false}
                 >
                   <TraceColumnHeader
@@ -265,7 +330,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                     <TableCell
                       key={header.id}
                       css={{ verticalAlign: 'middle' }}
-                      style={sizeStyleFor(header.column.id, header.getSize())}
+                      style={columnStyles.get(header.column.id)}
                     >
                       <TableSkeleton seed={`traces-${header.id}-${i}`} />
                     </TableCell>
@@ -303,7 +368,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                       <TableCell
                         key={cell.id}
                         css={{ verticalAlign: 'middle' }}
-                        style={sizeStyleFor(cell.column.id, cell.column.getSize())}
+                        style={columnStyles.get(cell.column.id)}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
