@@ -61,7 +61,7 @@ export const COLUMN_SIZES: Record<TraceColumnId, ColumnSizeSpec> = {
   session: { size: 140, minSize: 100, maxSize: 480 },
   duration: { size: 100, minSize: 80, maxSize: 240 },
   state: { size: 96, minSize: 72, maxSize: 240 },
-  trace_id: { size: 220, minSize: 120, maxSize: 480 },
+  trace_id: { size: 160, minSize: 100, maxSize: 480 },
   tokens: { size: 110, minSize: 80, maxSize: 220 },
   cost: { size: 110, minSize: 80, maxSize: 220 },
   tags: { size: 200, minSize: 120, maxSize: 600 },

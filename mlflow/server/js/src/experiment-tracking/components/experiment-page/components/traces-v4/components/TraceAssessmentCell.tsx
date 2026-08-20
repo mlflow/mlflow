@@ -1,4 +1,4 @@
-import { HoverCard, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { HoverCard, Tag, Typography, WarningIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, FormattedRelativeTime } from '@databricks/i18n';
 import {
   getAssessmentValue,
@@ -16,7 +16,58 @@ import { pickCellAssessment } from '../utils/assessmentColumns';
 export interface TraceAssessmentCellProps {
   trace: ModelTraceInfoV3;
   assessmentName: string;
+  columnType: 'numeric' | 'categorical';
 }
+
+/**
+ * Renders a numeric assessment value (0–1 range) as a colored fill bar with the value displayed.
+ */
+const AssessmentScoreBar = ({ value }: { value: number }) => {
+  const { theme } = useDesignSystemTheme();
+  const fraction = Math.min(1, Math.max(0, value));
+  const fillColor =
+    fraction < 1 / 3 ? theme.colors.red600 : fraction < 2 / 3 ? theme.colors.yellow400 : theme.colors.green600;
+  return (
+    <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, maxWidth: '100%' }}>
+      <span
+        css={{
+          position: 'relative',
+          flexShrink: 0,
+          width: 48,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: theme.colors.backgroundSecondary,
+          overflow: 'hidden',
+        }}
+      >
+        <span
+          css={{ position: 'absolute', insetBlock: 0, left: 0, borderRadius: 3 }}
+          style={{ width: `${fraction * 100}%`, backgroundColor: fillColor }}
+        />
+      </span>
+      <Typography.Text css={{ fontVariantNumeric: 'tabular-nums' }}>{value.toFixed(2)}</Typography.Text>
+    </span>
+  );
+};
+
+/**
+ * Renders an errored assessment as an amber tag (distinct from a red fail).
+ */
+const AssessmentErrorTag = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <Tag
+      componentId="mlflow.traces-v4.assessment-cell.error"
+      css={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content' }}
+    >
+      <WarningIcon css={{ color: theme.colors.textValidationWarning, marginRight: theme.spacing.xs }} />
+      <FormattedMessage
+        defaultMessage="Error"
+        description="Traces table assessment cell label shown when the assessment failed to compute"
+      />
+    </Tag>
+  );
+};
 
 /**
  * Hover-card body for an assessment cell: the value tag, an optional rationale (markdown), the
@@ -83,17 +134,38 @@ export const TraceAssessmentHoverContent = ({ assessment }: { assessment: Assess
  * as a colored tag (mirrors the prior tab), wrapped in a hover card that reveals rationale, source,
  * and last-updated time. Renders nothing when the trace has no such assessment.
  */
-export const TraceAssessmentCell = ({ trace, assessmentName }: TraceAssessmentCellProps) => {
+export const TraceAssessmentCell = ({ trace, assessmentName, columnType }: TraceAssessmentCellProps) => {
   const assessment = pickCellAssessment(trace, assessmentName);
   if (!assessment) {
     return null;
   }
+
+  const value = getAssessmentValue(assessment);
+
+  // Render error tag if the assessment failed validation (e.g., model errored).
+  if (assessment.error) {
+    return (
+      <HoverCard trigger={<AssessmentErrorTag />} content={<TraceAssessmentHoverContent assessment={assessment} />} />
+    );
+  }
+
+  // For numeric columns with number values, render as a score bar.
+  if (columnType === 'numeric' && typeof value === 'number') {
+    return (
+      <HoverCard
+        trigger={<AssessmentScoreBar value={value} />}
+        content={<TraceAssessmentHoverContent assessment={assessment} />}
+      />
+    );
+  }
+
+  // Default: render as categorical tag.
   return (
     <HoverCard
       trigger={
         <span>
           <AssessmentDisplayValue
-            jsonValue={getAssessmentValue(assessment)?.toString() ?? ''}
+            jsonValue={value?.toString() ?? ''}
             assessmentName={assessmentName}
             // The hover card already reveals the full value, so the tag's own tooltip would be redundant.
             disableTooltip

@@ -7,8 +7,9 @@ import {
 import { TRACE_COLUMN_STORAGE_KEY_PREFIX } from '../utils/constants';
 
 // Bump when the stored schema changes so stale entries reset. v2 → override map (was a flat visible
-// list); v3 → new default-visibility set (Trace ID / Tokens / Cost now hidden by default).
-const COLUMN_STORAGE_VERSION = 3;
+// list); v3 → new default-visibility set (Trace ID / Tokens / Cost now hidden by default); v4 →
+// Tokens now shown by default.
+const COLUMN_STORAGE_VERSION = 4;
 
 export interface UseTracesV4ColumnsParams {
   /** True when the current page has at least one session-tagged trace — drives the Session column's default. */
@@ -17,8 +18,8 @@ export interface UseTracesV4ColumnsParams {
 
 /**
  * MLflow adapter over the shared `useTraceColumnVisibility`: keeps the MLflow storage-key prefix
- * (scoped per experiment), the v3 schema version, and the data-driven Session default (Session shows
- * only when the current page carries sessions; Trace ID / Tokens / Cost hidden by default). The
+ * (scoped per experiment), the v4 schema version, and the data-driven Session default (Session shows
+ * only when the current page carries sessions; Trace ID / Cost hidden by default; Tokens shown by default). The
  * sticky-override + reset behavior lives entirely in the shared hook.
  */
 export const useTracesV4Columns = (
@@ -30,7 +31,7 @@ export const useTracesV4Columns = (
       if (id === 'session') {
         return hasSessionOnPage;
       }
-      return id !== 'trace_id' && id !== 'tokens' && id !== 'cost';
+      return id !== 'trace_id' && id !== 'cost';
     },
     [hasSessionOnPage],
   );

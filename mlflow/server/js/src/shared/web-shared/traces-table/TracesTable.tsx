@@ -191,6 +191,27 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     const rowWidth = leafHeaders.reduce((total, header) => total + header.getSize(), selectCellWidth);
     const rowWidthStyle = { width: rowWidth, minWidth: '100%' } as const;
 
+    // Header-row overrides: near-black labels and a visible divider.
+    const headerRowCss = {
+      ...selectCellAlign,
+      // Doubled `&&` beats the DS 2-class `.table-header-text` var rule, forcing the darkest token.
+      '&& .table-header-text': { color: theme.colors.textPrimary },
+      // Light divider (grey200), overriding the separator var for the header subtree only.
+      ['--table-separator-color' as string]: theme.colors.grey200,
+      // DS sets --table-row-vertical-padding via inline style (not overridable via `css`), so bump the
+      // header cells' bottom padding directly for the label→divider gap. `&&` beats the DS `> *` rule.
+      '&& > *': { paddingBottom: theme.spacing.sm },
+      // ...but the select-all cell must not take that bottom padding: it centers the checkbox, and the
+      // extra padding shifts the centered box up off the label line. Zero it here (higher specificity
+      // than `&& > *`) so the checkbox sits on the labels' center.
+      '&& .table-row-select-cell': { paddingBottom: 0 },
+      // Center each header label against the (vertically-centered) select-all checkbox — DS lets the
+      // label text settle low in the cell otherwise, so the checkbox reads as misaligned above it.
+      '[role="columnheader"]': { alignItems: 'center' },
+      // Always show the header's select-all checkbox (data rows stay hover-reveal); scoped, so body rows are unaffected.
+      '&& .table-row-select-cell input[type="checkbox"] ~ *': { opacity: 1 },
+    };
+
     return (
       <div
         role="region"
@@ -204,7 +225,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
         {/* `scrollable` makes the DuBois Table the scroll container (both axes), which is what activates
           its sticky-header CSS; `flex: 1` gives it a bounded height from the flex parent to scroll within. */}
         <Table scrollable css={{ flex: 1 }} someRowsSelected={isAllOnPageSelected || isSomeOnPageSelected}>
-          <TableRow isHeader css={selectCellAlign} style={rowWidthStyle}>
+          <TableRow isHeader css={headerRowCss} style={rowWidthStyle}>
             <TableRowSelectCell
               componentId={`${COMPONENT_ID}.row-select-all`}
               checked={isAllOnPageSelected}

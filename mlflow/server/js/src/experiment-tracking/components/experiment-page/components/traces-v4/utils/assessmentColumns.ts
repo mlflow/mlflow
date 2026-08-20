@@ -4,6 +4,7 @@ import {
   type Assessment,
   type IssueReferenceAssessment,
   type ModelTraceInfoV3,
+  getAssessmentValue,
 } from '@databricks/web-shared/model-trace-explorer';
 // Not re-exported from the OSS barrel — import from its module.
 import { NOTES_ASSESSMENT_NAME } from '@databricks/web-shared/model-trace-explorer/assessments-pane/AssessmentsPaneNotesSection';
@@ -82,6 +83,26 @@ export const computeAssessmentColumns = (
   const candidateNames = [...names].sort();
   const visibleNames = candidateNames.filter((name) => overrides[name] ?? true);
   return { candidateNames, visibleNames };
+};
+
+export type AssessmentColumnType = 'numeric' | 'categorical';
+
+/**
+ * Determine whether an assessment column should be rendered as numeric (a score with a bar)
+ * or categorical (a simple tag value). Numeric if any value is not an integer; categorical otherwise.
+ */
+export const getAssessmentColumnType = (traces: ModelTraceInfoV3[], name: string): AssessmentColumnType => {
+  for (const trace of traces) {
+    const assessment = pickCellAssessment(trace, name);
+    if (assessment) {
+      const value = getAssessmentValue(assessment);
+      // If any value is not an integer, treat as numeric (e.g., 0.75 score).
+      if (typeof value === 'number' && !Number.isInteger(value)) {
+        return 'numeric';
+      }
+    }
+  }
+  return 'categorical';
 };
 
 /** The assessment shown in a cell for `name`: the most recent displayable one, or none. */
