@@ -16,6 +16,7 @@ class ScorerPresetVersion(_MlflowObject):
         scorer_refs: list[tuple[str, int]],
         creation_time: int,
         preset_id: str | None = None,
+        serialized_scorers: list[str] | None = None,
     ):
         self._experiment_id = experiment_id
         self._preset_name = preset_name
@@ -23,6 +24,7 @@ class ScorerPresetVersion(_MlflowObject):
         self._scorer_refs = scorer_refs
         self._creation_time = creation_time
         self._preset_id = preset_id
+        self._serialized_scorers = serialized_scorers or []
 
     @property
     def experiment_id(self):
@@ -48,6 +50,10 @@ class ScorerPresetVersion(_MlflowObject):
     def preset_id(self):
         return self._preset_id
 
+    @property
+    def serialized_scorers(self) -> list[str]:
+        return self._serialized_scorers
+
     @classmethod
     def from_proto(cls, proto):
         return cls(
@@ -57,6 +63,7 @@ class ScorerPresetVersion(_MlflowObject):
             scorer_refs=[(ref.scorer_id, ref.scorer_version) for ref in proto.scorer_refs],
             creation_time=proto.creation_time,
             preset_id=proto.preset_id if proto.HasField("preset_id") else None,
+            serialized_scorers=list(proto.serialized_scorers) if proto.serialized_scorers else [],
         )
 
     def to_proto(self):
@@ -75,6 +82,8 @@ class ScorerPresetVersion(_MlflowObject):
         proto.creation_time = self.creation_time
         if self.preset_id is not None:
             proto.preset_id = self.preset_id
+        for s in self._serialized_scorers:
+            proto.serialized_scorers.append(s)
         return proto
 
     def __repr__(self):

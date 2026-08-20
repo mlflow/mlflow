@@ -5515,6 +5515,8 @@ message ScorerPreset {
   optional int64 creation_time = 5;
   // The unique identifier for the preset.
   optional string preset_id = 6;
+  // Serialized scorer JSON strings for hydrating a functional Preset on the client.
+  repeated string serialized_scorers = 7;
 }
 
 // ========== Gateway Secrets and Endpoints Entities ==========

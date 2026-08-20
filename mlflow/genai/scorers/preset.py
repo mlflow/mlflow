@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from mlflow.exceptions import MlflowException
@@ -100,11 +101,10 @@ class Preset:
         store = _get_store()
         scorer_store = _get_scorer_store()
 
-        import json
-
         scorer_ids = []
         for s in self._scorers:
-            # Check if this scorer already exists with identical content
+            # Reuse existing scorer if content is identical, avoiding
+            # unnecessary version bumps and auto-increment cascades.
             try:
                 existing = store.get_scorer(experiment_id, s.name)
                 existing_data = json.loads(existing._serialized_scorer)
@@ -112,8 +112,9 @@ class Preset:
                 if existing_data == new_data:
                     scorer_ids.append(existing.scorer_id)
                     continue
-            except Exception:
-                pass
+            except MlflowException as e:
+                if "RESOURCE_DOES_NOT_EXIST" not in str(e.error_code or ""):
+                    raise
             scorer_store.register_scorer(experiment_id, s)
             sv = store.get_scorer(experiment_id, s.name)
             scorer_ids.append(sv.scorer_id)

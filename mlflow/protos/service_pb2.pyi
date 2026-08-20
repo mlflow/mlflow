@@ -2006,20 +2006,22 @@ class ScorerPresetRef(_message.Message):
     def __init__(self, scorer_id: _Optional[str] = ..., scorer_version: _Optional[int] = ...) -> None: ...
 
 class ScorerPreset(_message.Message):
-    __slots__ = ("experiment_id", "preset_name", "version", "scorer_refs", "creation_time", "preset_id")
+    __slots__ = ("experiment_id", "preset_name", "version", "scorer_refs", "creation_time", "preset_id", "serialized_scorers")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     PRESET_NAME_FIELD_NUMBER: _ClassVar[int]
     VERSION_FIELD_NUMBER: _ClassVar[int]
     SCORER_REFS_FIELD_NUMBER: _ClassVar[int]
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
     PRESET_ID_FIELD_NUMBER: _ClassVar[int]
+    SERIALIZED_SCORERS_FIELD_NUMBER: _ClassVar[int]
     experiment_id: int
     preset_name: str
     version: str
     scorer_refs: _containers.RepeatedCompositeFieldContainer[ScorerPresetRef]
     creation_time: int
     preset_id: str
-    def __init__(self, experiment_id: _Optional[int] = ..., preset_name: _Optional[str] = ..., version: _Optional[str] = ..., scorer_refs: _Optional[_Iterable[_Union[ScorerPresetRef, _Mapping]]] = ..., creation_time: _Optional[int] = ..., preset_id: _Optional[str] = ...) -> None: ...
+    serialized_scorers: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, experiment_id: _Optional[int] = ..., preset_name: _Optional[str] = ..., version: _Optional[str] = ..., scorer_refs: _Optional[_Iterable[_Union[ScorerPresetRef, _Mapping]]] = ..., creation_time: _Optional[int] = ..., preset_id: _Optional[str] = ..., serialized_scorers: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class GatewaySecretInfo(_message.Message):
     __slots__ = ("secret_id", "secret_name", "masked_values", "created_at", "last_updated_at", "provider", "created_by", "last_updated_by", "auth_config")

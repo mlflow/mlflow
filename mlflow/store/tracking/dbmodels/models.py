@@ -2330,11 +2330,31 @@ class SqlScorerPresetVersion(Base):
     def __repr__(self):
         return f"<SqlScorerPresetVersion ({self.preset_id}, {self.version_hash})>"
 
-    def to_mlflow_entity(self):
+    def to_mlflow_entity(self, include_serialized_scorers=False):
         from mlflow.entities.scorer_preset import ScorerPresetVersion
 
         memberships = sorted(self.memberships, key=lambda m: m.scorer_id)
         scorer_refs = [(m.scorer_id, m.scorer_version) for m in memberships]
+
+        serialized_scorers = []
+        if include_serialized_scorers:
+            from sqlalchemy.orm import object_session
+
+            session = object_session(self)
+            if session is not None:
+                for m in memberships:
+                    sv = (
+                        session
+                        .query(SqlScorerVersion)
+                        .filter(
+                            SqlScorerVersion.scorer_id == m.scorer_id,
+                            SqlScorerVersion.scorer_version == m.scorer_version,
+                        )
+                        .first()
+                    )
+                    if sv is not None:
+                        serialized_scorers.append(sv.serialized_scorer)
+
         return ScorerPresetVersion(
             experiment_id=str(self.preset.experiment_id),
             preset_name=self.preset.preset_name,
@@ -2342,6 +2362,7 @@ class SqlScorerPresetVersion(Base):
             scorer_refs=scorer_refs,
             creation_time=self.creation_time,
             preset_id=self.preset_id,
+            serialized_scorers=serialized_scorers or None,
         )
 
 

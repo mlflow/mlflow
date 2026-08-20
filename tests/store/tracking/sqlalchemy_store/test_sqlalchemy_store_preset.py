@@ -390,6 +390,33 @@ class TestScorerPresetLatestPointer:
         assert latest.version == v1.version
         assert len(latest.scorer_refs) == 1
 
+    def test_rollback_then_auto_bump_preserves_all_scorers(self, store: SqlAlchemyStore):
+        """Nehanth's repro: rollback then scorer update should bump from the
+        rolled-back version, not the newest-by-creation-time version.
+        """
+        exp_id = store.create_experiment("rollback_bump_test")
+        s1 = _register_scorer(store, exp_id, "scorer_a")
+        s2 = _register_scorer(store, exp_id, "scorer_b")
+
+        # register [a,b], then [a], then rollback to [a,b]
+        store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id, s2.scorer_id])
+        store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id])
+        store.register_scorer_preset(exp_id, "my_preset", [s1.scorer_id, s2.scorer_id])
+
+        # Latest should be [a,b]
+        latest = store.get_scorer_preset(exp_id, "my_preset")
+        assert len(latest.scorer_refs) == 2
+
+        # Update scorer_a — auto-bump should build from [a,b], not [a]
+        _register_scorer(store, exp_id, "scorer_a", '{"name": "scorer_a", "v2": true}')
+
+        bumped_latest = store.get_scorer_preset(exp_id, "my_preset")
+        # Must still have both scorers
+        assert len(bumped_latest.scorer_refs) == 2
+        refs = dict(bumped_latest.scorer_refs)
+        assert refs[s1.scorer_id] == 2
+        assert refs[s2.scorer_id] == 1
+
     def test_latest_pointer_updated_on_auto_increment(self, store: SqlAlchemyStore):
         """Auto-increment should update the latest pointer."""
         exp_id = store.create_experiment("auto_bump_latest_test")

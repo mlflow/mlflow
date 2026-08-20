@@ -3115,11 +3115,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 for i, sv in enumerate(sql_scorer_versions)
             ]
 
-    def get_scorer_by_id(self, scorer_id: str, version: int | None = None) -> ScorerVersion:
-        with self.ManagedSessionMaker() as session:
-            sv = self._get_scorer_version(session, scorer_id, version)
-            return sv.to_mlflow_entity()
-
     # =========================================================================
     # Scorer Preset Management
     # =========================================================================
@@ -3148,14 +3143,31 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         bumped = []
         for pid in preset_ids:
-            # Get the latest version of this preset
-            latest = (
-                session
-                .query(SqlScorerPresetVersion)
-                .filter(SqlScorerPresetVersion.preset_id == pid)
-                .order_by(SqlScorerPresetVersion.creation_time.desc())
-                .first()
-            )
+            preset = session.query(SqlScorerPreset).filter(SqlScorerPreset.preset_id == pid).first()
+            if preset is None:
+                continue
+
+            # Resolve the latest version via the explicit pointer, falling
+            # back to creation_time for presets created before the pointer
+            # was added.
+            if preset.latest_version_hash:
+                latest = (
+                    session
+                    .query(SqlScorerPresetVersion)
+                    .filter(
+                        SqlScorerPresetVersion.preset_id == pid,
+                        SqlScorerPresetVersion.version_hash == preset.latest_version_hash,
+                    )
+                    .first()
+                )
+            else:
+                latest = (
+                    session
+                    .query(SqlScorerPresetVersion)
+                    .filter(SqlScorerPresetVersion.preset_id == pid)
+                    .order_by(SqlScorerPresetVersion.creation_time.desc())
+                    .first()
+                )
             if latest is None:
                 continue
 
@@ -3384,7 +3396,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         RESOURCE_DOES_NOT_EXIST,
                     )
 
-            return pv.to_mlflow_entity()
+            return pv.to_mlflow_entity(include_serialized_scorers=True)
 
     def list_scorer_presets(
         self,
@@ -3474,11 +3486,25 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def _paginate(
         items: list, max_results: int | None, page_token: str | None
     ) -> tuple[list, str | None]:
-        offset = int(page_token) if page_token else 0
+        if page_token is not None:
+            try:
+                offset = int(page_token)
+            except ValueError:
+                raise MlflowException(
+                    f"Invalid page_token: {page_token!r}. Must be a numeric string.",
+                    INVALID_PARAMETER_VALUE,
+                )
+            if offset < 0:
+                raise MlflowException(
+                    f"Invalid page_token: {page_token!r}. Must be non-negative.",
+                    INVALID_PARAMETER_VALUE,
+                )
+        else:
+            offset = 0
         if max_results is not None:
             page = items[offset : offset + max_results]
             next_offset = offset + max_results
-            next_token = str(next_offset) if next_offset < len(items) else None
+            next_token = str(next_offset) if page and next_offset < len(items) else None
             return page, next_token
         return items[offset:], None
 
@@ -3521,17 +3547,21 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         f"experiment {experiment_id}.",
                         RESOURCE_DOES_NOT_EXIST,
                     )
+                was_latest = preset.latest_version_hash == version
                 session.delete(pv)
                 session.flush()
                 # Clean up the preset record if no versions remain
-                remaining = (
+                remaining_versions = (
                     session
                     .query(SqlScorerPresetVersion)
                     .filter(SqlScorerPresetVersion.preset_id == preset.preset_id)
-                    .count()
+                    .order_by(SqlScorerPresetVersion.creation_time.desc())
+                    .all()
                 )
-                if remaining == 0:
+                if not remaining_versions:
                     session.delete(preset)
+                elif was_latest:
+                    preset.latest_version_hash = remaining_versions[0].version_hash
             else:
                 session.delete(preset)
 

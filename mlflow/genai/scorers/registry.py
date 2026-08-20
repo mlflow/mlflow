@@ -734,14 +734,12 @@ def get_scorer_preset(*, name: str, experiment_id: str | None = None, version: s
     from mlflow.genai.scorers.preset import Preset
 
     experiment_id = experiment_id or _get_experiment_id()
-    scorer_store = _get_scorer_store()
-    preset_version = scorer_store._tracking_store.get_scorer_preset(experiment_id, name, version)
+    store = _get_store()
+    preset_version = store.get_scorer_preset(experiment_id, name, version)
 
-    # Hydrate scorer refs into real Scorer instances
     scorers = []
-    for scorer_id, scorer_ver in preset_version.scorer_refs:
-        scorer_version_entity = scorer_store._tracking_store.get_scorer_by_id(scorer_id, scorer_ver)
-        scorer = Scorer.model_validate(json.loads(scorer_version_entity._serialized_scorer))
+    for serialized in preset_version.serialized_scorers:
+        scorer = Scorer.model_validate(json.loads(serialized))
         scorers.append(scorer)
 
     preset = Preset(name=preset_version.preset_name, scorers=scorers)
