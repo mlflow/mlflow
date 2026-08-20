@@ -336,7 +336,10 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
         code_key: The key used by the flavor to indicate custom code artifacts.
             By default this is FLAVOR_CONFIG_CODE.
     """
-    assert isinstance(conf, dict), "`conf` argument must be a dict."
+    if not isinstance(conf, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"`conf` argument must be a dict, got {type(conf).__name__}."
+        )
 
     if code_key in conf and conf[code_key]:
         code_path = os.path.join(local_path, conf[code_key])

@@ -654,7 +654,9 @@ def _gen_classifier_curve(
             xlabel = f"Recall (Positive label: {pos_label})"
             ylabel = f"Precision (Positive label: {pos_label})"
     else:
-        assert False, "illegal curve type"
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid curve_type '{curve_type}'. Must be 'roc' or 'pr'."
+        )
 
     if is_binomial:
         x_data, y_data, line_label, auc = gen_line_x_y_label_auc(y, y_probs, pos_label)
