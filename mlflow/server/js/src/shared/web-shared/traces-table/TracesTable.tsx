@@ -21,17 +21,14 @@ import { memo, useEffect, useMemo, useRef } from 'react';
 import { isSortableTraceColumn } from './constants';
 import type { SessionHrefGetter, SortDirection, TraceColumnId, TraceTableColumn } from './types';
 import { getVisibleColumnDefs, type TracesTableMeta } from './columns';
+import { TraceColumnHeader } from './TraceColumnHeader';
+
+// No-op sort handlers for non-sortable columns (their header menu omits the sort items anyway).
+const noop = () => {};
 
 // Module-local static analytics-id namespace (the `@databricks/no-dynamic-property-value` rule
 // requires `componentId` values to be static, so a runtime-injected prefix isn't possible).
 const COMPONENT_ID = 'web-shared.traces-table';
-
-// Sort affordance props layered onto a header at render time; empty for non-sortable columns.
-interface HeaderSortProps {
-  sortable?: boolean;
-  sortDirection?: SortDirection | 'none';
-  onToggleSort?: () => void;
-}
 
 // Input/Output are the fill columns: each takes grow factor 1 so any leftover container width is
 // split equally between them (no dead whitespace on the right), with `maxWidth: unset` so the cap
@@ -80,6 +77,8 @@ export interface TracesTableProps {
   getSessionHref?: SessionHrefGetter;
   /** Toggle a tag filter — wired to the tag pills in the Tags cell; absent → non-clickable pills. */
   onFilterByTag?: (key: string, value: string) => void;
+  /** Hides the column with the given id — wired to the per-header menu's "Hide column" item. */
+  onHideColumn: (columnId: string) => void;
 }
 
 // The V4 long identifier is the selection key: the consumer stores the same id when a row is opened,
@@ -123,6 +122,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     onSort,
     getSessionHref,
     onFilterByTag,
+    onHideColumn,
   }: TracesTableProps) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
@@ -163,18 +163,6 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       wasResizing.current = isResizingColumn;
     }, [isResizingColumn, columnSizing, onColumnSizingSettled]);
 
-    const headerSortProps = (id: string): HeaderSortProps => {
-      if (!isSortableTraceColumn(id)) {
-        return {};
-      }
-      const isActive = sort === id;
-      return {
-        sortable: true,
-        sortDirection: isActive ? dir : 'none',
-        onToggleSort: () => onSort(id, isActive && dir === 'desc' ? 'asc' : 'desc'),
-      };
-    };
-
     const leafHeaders = table.getLeafHeaders();
 
     // Pin every row to the summed width of the visible columns so its hover/selected background spans
@@ -194,21 +182,18 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     // Header-row overrides: near-black labels and a visible divider.
     const headerRowCss = {
       ...selectCellAlign,
+      // Center each header label against the (vertically-centered) select-all checkbox. Padding sets
+      // the label→divider gap directly — DS applies --table-row-vertical-padding via an inline style,
+      // so a `css` override of it is a no-op.
+      '[role="columnheader"]': { alignItems: 'center', paddingBottom: theme.spacing.sm },
+      // The select-all cell keeps the DS default bottom padding otherwise, which shifts the centered
+      // checkbox up off the label line — zero it so the checkbox sits on the labels' center.
+      '&& .table-row-select-cell': { paddingBottom: 0 },
       // Doubled `&&` beats the DS 2-class `.table-header-text` var rule, forcing the darkest token.
       '&& .table-header-text': { color: theme.colors.textPrimary },
       // Light divider (grey200), overriding the separator var for the header subtree only.
       ['--table-separator-color' as string]: theme.colors.grey200,
-      // DS sets --table-row-vertical-padding via inline style (not overridable via `css`), so bump the
-      // header cells' bottom padding directly for the label→divider gap. `&&` beats the DS `> *` rule.
-      '&& > *': { paddingBottom: theme.spacing.sm },
-      // ...but the select-all cell must not take that bottom padding: it centers the checkbox, and the
-      // extra padding shifts the centered box up off the label line. Zero it here (higher specificity
-      // than `&& > *`) so the checkbox sits on the labels' center.
-      '&& .table-row-select-cell': { paddingBottom: 0 },
-      // Center each header label against the (vertically-centered) select-all checkbox — DS lets the
-      // label text settle low in the cell otherwise, so the checkbox reads as misaligned above it.
-      '[role="columnheader"]': { alignItems: 'center' },
-      // Always show the header's select-all checkbox (data rows stay hover-reveal); scoped, so body rows are unaffected.
+      // Keep the header's select-all checkbox always visible (data rows stay hover-reveal).
       '&& .table-row-select-cell input[type="checkbox"] ~ *': { opacity: 1 },
     };
 
@@ -236,19 +221,37 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                 description: 'Aria label for the select-all checkbox in the traces table header',
               })}
             />
-            {leafHeaders.map((header) => (
-              <TableHeader
-                key={header.id}
-                componentId={`${COMPONENT_ID}.header`}
-                header={header}
-                column={header.column}
-                setColumnSizing={table.setColumnSizing}
-                style={sizeStyleFor(header.column.id, header.getSize())}
-                {...headerSortProps(header.column.id)}
-              >
-                {flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHeader>
-            ))}
+            {leafHeaders.map((header) => {
+              const columnId = header.column.id;
+              const labelNode = flexRender(header.column.columnDef.header, header.getContext());
+              // Sort lives in the menu, so no DuBois `sortable` (its button wrapper can't nest the trigger).
+              const sortHandlers = isSortableTraceColumn(columnId)
+                ? {
+                    onSortAscending: () => onSort(columnId, 'asc'),
+                    onSortDescending: () => onSort(columnId, 'desc'),
+                  }
+                : { onSortAscending: noop, onSortDescending: noop };
+              return (
+                <TableHeader
+                  key={header.id}
+                  componentId={`${COMPONENT_ID}.header`}
+                  header={header}
+                  column={header.column}
+                  setColumnSizing={table.setColumnSizing}
+                  style={sizeStyleFor(columnId, header.getSize())}
+                  wrapContent={false}
+                >
+                  <TraceColumnHeader
+                    label={labelNode}
+                    labelText={typeof labelNode === 'string' ? labelNode : undefined}
+                    sortable={isSortableTraceColumn(columnId)}
+                    sortDirection={sort === columnId ? dir : 'none'}
+                    onHide={() => onHideColumn(columnId)}
+                    {...sortHandlers}
+                  />
+                </TableHeader>
+              );
+            })}
           </TableRow>
 
           {isLoading

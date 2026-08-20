@@ -7,6 +7,13 @@ import type { TraceColumnId } from './types';
 import { makeTrace, makeSessionTrace, makeTraces } from './test-utils/mockTraces';
 import { renderWithProviders } from './test-utils/renderWithProviders';
 
+// Each header renders a per-column options menu; every trigger shares the generic "Column options"
+// label, so scope to the target column's header cell before opening its menu.
+const openColumnMenu = async (columnName: RegExp) => {
+  const header = screen.getByRole('columnheader', { name: columnName });
+  await userEvent.click(within(header).getByRole('button', { name: 'Column options' }));
+};
+
 const ALL_COLUMNS: TraceColumnId[] = [...TRACE_COLUMN_IDS];
 
 const baseProps = (over: Partial<TracesTableProps> = {}): TracesTableProps => ({
@@ -26,6 +33,7 @@ const baseProps = (over: Partial<TracesTableProps> = {}): TracesTableProps => ({
   sort: 'start_time',
   dir: 'desc',
   onSort: jest.fn(),
+  onHideColumn: jest.fn(),
   ...over,
 });
 
@@ -61,21 +69,30 @@ describe('TracesTable', () => {
     expect(onTraceSelected).toHaveBeenCalledWith(traces[0]);
   });
 
-  test('only start_time and duration headers expose a sort affordance', async () => {
+  test("a sortable column's options menu offers Sort ascending and Sort descending", async () => {
     await renderWithProviders(<TracesTable {...baseProps()} />);
-    // Sortable headers render an aria-sort attribute; non-sortable ones don't.
-    expect(screen.getByRole('columnheader', { name: /Time/ })).toHaveAttribute('aria-sort');
-    expect(screen.getByRole('columnheader', { name: /Duration/ })).toHaveAttribute('aria-sort');
-    expect(screen.getByRole('columnheader', { name: /Input/ })).not.toHaveAttribute('aria-sort');
+    await openColumnMenu(/Time/); // start_time is server-sortable
+    expect(screen.getByText('Sort ascending')).toBeInTheDocument();
+    expect(screen.getByText('Sort descending')).toBeInTheDocument();
   });
 
-  test('clicking a sortable header toggles its direction via onSort', async () => {
+  test("a non-sortable column's options menu offers only Hide column, no sort items", async () => {
+    await renderWithProviders(<TracesTable {...baseProps()} />);
+    await openColumnMenu(/Input/); // input is not server-sortable
+    expect(screen.getByText('Hide column')).toBeInTheDocument();
+    expect(screen.queryByText('Sort ascending')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sort descending')).not.toBeInTheDocument();
+  });
+
+  test.each([
+    { item: 'Sort ascending', dir: 'asc' as const },
+    { item: 'Sort descending', dir: 'desc' as const },
+  ])('clicking "$item" in a column menu calls onSort with that column id and $dir', async ({ item, dir }) => {
     const onSort = jest.fn();
-    await renderWithProviders(<TracesTable {...baseProps({ sort: 'start_time', dir: 'desc', onSort })} />);
-    // A sortable header renders an inner role="button" carrying the toggle handler.
-    await userEvent.click(screen.getByRole('button', { name: /Time/ }));
-    // start_time is already the active desc sort → toggles to asc.
-    expect(onSort).toHaveBeenCalledWith('start_time', 'asc');
+    await renderWithProviders(<TracesTable {...baseProps({ onSort })} />);
+    await openColumnMenu(/Duration/); // exercises columnId mapping on a non-default sortable column
+    await userEvent.click(screen.getByText(item));
+    expect(onSort).toHaveBeenCalledWith('duration', dir);
   });
 
   test('the select-all checkbox is indeterminate when some (not all) rows are selected', async () => {
