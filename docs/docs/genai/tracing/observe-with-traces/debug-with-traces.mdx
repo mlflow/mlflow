@@ -51,8 +51,10 @@ for span in trace.data.spans:
     is_error = span.status.status_code == SpanStatusCode.ERROR
     is_empty = span.outputs in (None, "", [], {})
     if is_error or is_empty:
-        print(f"Check {span.name} ({span.span_type}): "
-              f"status={span.status.status_code}, outputs={span.outputs}")
+        print(
+            f"Check {span.name} ({span.span_type}): "
+            f"status={span.status.status_code}, outputs={span.outputs}"
+        )
 ```
 
 You can also open the same trace in the MLflow UI and step through the spans visually. See [View Traces](/genai/tracing/observe-with-traces/ui).
@@ -101,8 +103,10 @@ traces = mlflow.search_traces(
 
 durations = sorted((t.info.execution_duration or 0) for t in traces)
 if durations:
+
     def percentile(p):
         return durations[min(len(durations) - 1, int(len(durations) * p / 100))]
+
     print(f"P50: {percentile(50)}ms  P95: {percentile(95)}ms  P99: {percentile(99)}ms")
 
     print("\nSlowest traces:")
