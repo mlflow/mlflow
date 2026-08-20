@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import shutil
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 AgentName = Literal["claude", "codex", "opencode"]
@@ -20,11 +21,19 @@ class AgentTool:
     binary: str
     # Repo-relative directory where this agent reads SKILL.md from.
     skills_dir: str
+    # Home-relative directory where this agent reads user-global SKILL.md from.
+    global_skills_dir: str
     # Args inserted between the binary and the prompt at launch.
     interactive_args: tuple[str, ...] = ()
 
     def is_installed(self) -> bool:
         return shutil.which(self.binary) is not None
+
+    def project_skill_dirs(self, repo_root: Path) -> tuple[Path, ...]:
+        """Project-level directories this agent loads skills from."""
+        # Two layouts: what the agent reads natively, and what `mlflow agent
+        # setup`'s assistant flow writes. They differ for Codex.
+        return (repo_root / self.skills_dir, repo_root / self.global_skills_dir)
 
 
 AGENTS: dict[AgentName, AgentTool] = {
@@ -33,18 +42,21 @@ AGENTS: dict[AgentName, AgentTool] = {
         display_name="Claude Code",
         binary="claude",
         skills_dir=".claude/skills",
+        global_skills_dir=".claude/skills",
     ),
     "codex": AgentTool(
         name="codex",
         display_name="OpenAI Codex",
         binary="codex",
         skills_dir=".agents/skills",
+        global_skills_dir=".codex/skills",
     ),
     "opencode": AgentTool(
         name="opencode",
         display_name="OpenCode",
         binary="opencode",
         skills_dir=".agents/skills",
+        global_skills_dir=".config/opencode/skills",
         interactive_args=("--prompt",),
     ),
 }
