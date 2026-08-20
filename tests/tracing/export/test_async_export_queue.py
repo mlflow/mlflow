@@ -129,3 +129,45 @@ def test_async_queue_drop_task_when_full(monkeypatch):
     # One more task than the queue size might be processed, because the first task
     # can be drained from the queue immediately, which creates a slot for another task
     assert processed_tasks <= 4
+
+
+def test_concurrent_put_during_flush_does_not_deadlock():
+    queue = AsyncTraceExportQueue()
+
+    calls = []
+    consumer_joined = threading.Event()
+    allow_flush_to_continue = threading.Event()
+
+    queue.activate()
+
+    original_join = queue._consumer_thread.join
+
+    def controlled_join(*args, **kwargs):
+        result = original_join(*args, **kwargs)
+        consumer_joined.set()
+        allow_flush_to_continue.wait(timeout=5)
+        return result
+
+    queue._consumer_thread.join = controlled_join
+
+    flush_thread = threading.Thread(
+        target=queue.flush,
+        kwargs={"terminate": False},
+        daemon=True,
+    )
+    flush_thread.start()
+
+    assert consumer_joined.wait(timeout=5)
+
+    # The consumer has stopped while flush() is still in progress.
+    # A concurrent put() must not enqueue work that no consumer can process.
+    queue.put(Task(handler=calls.append, args=(1,)))
+
+    allow_flush_to_continue.set()
+    flush_thread.join(timeout=5)
+
+    assert not flush_thread.is_alive()
+    assert calls == [1]
+    assert queue.is_active()
+
+    queue.flush(terminate=True)
