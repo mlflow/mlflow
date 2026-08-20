@@ -61,6 +61,16 @@ describe('useTracesV4UrlState', () => {
     expect(result.current.traceId).toBe('tr-1');
   });
 
+  test('reads legacy selectedEvaluationId as the active trace for old deep links', async () => {
+    const { result } = await mountHook('/p?selectedEvaluationId=trace%3A%2Fcat.sch%2Fabc123');
+    expect(result.current.traceId).toBe('trace:/cat.sch/abc123');
+  });
+
+  test('reads selectedTraceId as the active trace for session links', async () => {
+    const { result } = await mountHook('/p?selectedTraceId=tr-session');
+    expect(result.current.traceId).toBe('tr-session');
+  });
+
   test('defaults: page 1, pageSize 25, start_time DESC, no traceId', async () => {
     const { result } = await mountHook('/p');
     expect(result.current.pageIndex).toBe(1);
@@ -113,10 +123,12 @@ describe('useTracesV4UrlState', () => {
     expect(param('dir')).toBeNull();
   });
 
-  test('setTraceId writes and clears the traceId param without touching page', async () => {
-    const { result } = await mountHook('/p?page=3');
+  test('setTraceId writes traceId, clears legacy trace params, and does not touch page', async () => {
+    const { result } = await mountHook('/p?page=3&selectedEvaluationId=tr-old&selectedTraceId=tr-session');
     act(() => result.current.setTraceId('tr-abc'));
     expect(param('traceId')).toBe('tr-abc');
+    expect(param('selectedEvaluationId')).toBeNull();
+    expect(param('selectedTraceId')).toBeNull();
     expect(param('page')).toBe('3'); // opening the drawer must not reset pagination
 
     act(() => result.current.setTraceId(undefined));
