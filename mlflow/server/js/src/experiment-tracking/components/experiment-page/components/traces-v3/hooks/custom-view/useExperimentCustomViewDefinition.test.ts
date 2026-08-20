@@ -170,9 +170,7 @@ describe('useExperimentCustomViewDefinition', () => {
     });
 
     it('flags the experiment as a demo when a demo version tag is present', async () => {
-      mockGetExperiment.mockResolvedValue(
-        getExperimentResponse([{ key: 'mlflow.demo.version.traces', value: '3' }]),
-      );
+      mockGetExperiment.mockResolvedValue(getExperimentResponse([{ key: 'mlflow.demo.version.traces', value: '3' }]));
 
       const { result } = renderDefinition(queryClient, EXPERIMENT_ID);
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
