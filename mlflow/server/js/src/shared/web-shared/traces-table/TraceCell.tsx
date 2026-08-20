@@ -26,6 +26,7 @@ import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types'
 import { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 import { getTraceInfoInputs, getTraceInfoOutputs } from '../genai-traces-table/utils/TraceUtils';
 import { Link } from '../genai-traces-table/utils/RoutingUtils';
+import { SourceCellRenderer } from '../genai-traces-table/cellRenderers/Source/SourceRenderer';
 import type { SessionHrefGetter } from './types';
 import { formatTraceDuration } from './formatTraceDuration';
 
@@ -111,6 +112,50 @@ const CellActivator = forwardRef<HTMLSpanElement, CellActivatorProps>(function C
 });
 
 const EmptyValue = () => <Typography.Text color="secondary">-</Typography.Text>;
+
+const TraceTextCell = ({ value }: { value?: string }) => {
+  if (!value) {
+    return <EmptyValue />;
+  }
+  return (
+    <Tooltip
+      componentId={`${COMPONENT_ID}.cell.text-tooltip`}
+      content={<WrappedTooltipText>{value}</WrappedTooltipText>}
+      maxWidth={CELL_OVERLAY_MAX_WIDTH}
+    >
+      <span css={truncateCss}>{value}</span>
+    </Tooltip>
+  );
+};
+
+/** User identity, matching the legacy metadata-first fallback to the older tag. */
+export const TraceUserCell = ({ trace }: { trace: ModelTraceInfoV3 }): JSX.Element => (
+  <TraceTextCell value={trace.trace_metadata?.['mlflow.trace.user'] || trace.tags?.['mlflow.user']} />
+);
+
+/** Display name recorded on the trace. */
+export const TraceNameCell = ({ trace }: { trace: ModelTraceInfoV3 }): JSX.Element => (
+  <TraceTextCell value={trace.tags?.['mlflow.traceName']} />
+);
+
+/** Notebook/job/project source, using the established legacy source renderer. */
+export const TraceSourceCell = ({ trace }: { trace: ModelTraceInfoV3 }): JSX.Element => (
+  <div onClick={(event) => event.stopPropagation()}>
+    <SourceCellRenderer traceInfo={trace} isComparing={false} />
+  </div>
+);
+
+/** Experiment-scoped run name supplied by the product consumer. */
+export const TraceRunNameCell = ({
+  trace,
+  renderRunName,
+}: {
+  trace: ModelTraceInfoV3;
+  renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
+}): JSX.Element => {
+  const rendered = renderRunName?.(trace);
+  return rendered ? <div onClick={(event) => event.stopPropagation()}>{rendered}</div> : <EmptyValue />;
+};
 
 interface TraceCellProps {
   trace: ModelTraceInfoV3;
