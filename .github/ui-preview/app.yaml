@@ -8,3 +8,5 @@ env:
     value: "*"
   - name: MLFLOW_CRYPTO_KEK_PASSPHRASE
     value: "__KEK_PASSPHRASE__"
+  - name: MLFLOW_ENABLE_REMOTE_ASSISTANT
+    value: "true"

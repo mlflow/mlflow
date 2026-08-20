@@ -6,7 +6,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { AssistantFloatingButton } from './AssistantFloatingButton';
 
 const mockOpenPanel = jest.fn();
-let mockAssistant: { isLocalServer: boolean; isPanelOpen: boolean; openPanel: jest.Mock };
+let mockAssistant: { canUseAssistant: boolean; isLocalServer: boolean; isPanelOpen: boolean; openPanel: jest.Mock };
 let mockObstructionWidth: number;
 let mockObstructionHeight: number;
 
@@ -34,7 +34,7 @@ describe('AssistantFloatingButton', () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockOpenPanel.mockClear();
-    mockAssistant = { isLocalServer: true, isPanelOpen: false, openPanel: mockOpenPanel };
+    mockAssistant = { canUseAssistant: true, isLocalServer: true, isPanelOpen: false, openPanel: mockOpenPanel };
     mockObstructionWidth = 0;
     mockObstructionHeight = 0;
   });
@@ -64,11 +64,20 @@ describe('AssistantFloatingButton', () => {
     expect(mockOpenPanel).not.toHaveBeenCalled();
   });
 
-  test('does not auto-open or render on a remote server', () => {
+  test('does not auto-open or render when the assistant is unavailable', () => {
+    mockAssistant.canUseAssistant = false;
     mockAssistant.isLocalServer = false;
     renderFab();
     expect(mockOpenPanel).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'MLflow Assistant' })).not.toBeInTheDocument();
+  });
+
+  test('renders on a remote server when the assistant is available', () => {
+    mockAssistant.isLocalServer = false;
+    mockAssistant.canUseAssistant = true;
+    renderFab();
+    expect(mockOpenPanel).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'MLflow Assistant' })).toBeInTheDocument();
   });
 
   test('does not auto-open when the panel is already open', () => {
