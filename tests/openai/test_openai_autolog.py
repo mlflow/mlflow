@@ -27,7 +27,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.openai.mock_openai import AZURE_ANNOTATIONS, EMPTY_CHOICES, LIST_CONTENT
+from tests.openai.mock_openai import ANTHROPIC_CACHE_STREAM, AZURE_ANNOTATIONS, EMPTY_CHOICES, LIST_CONTENT
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 MOCK_TOOLS = [
@@ -523,6 +523,39 @@ async def test_chat_completions_streaming_with_list_content(client):
     # Verify the reconstructed message content is correct (text extracted from list)
     assert isinstance(span.outputs, dict)
     assert span.outputs["choices"][0]["message"]["content"] == "Hello world"
+
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_streaming_with_anthropic_cache_tokens(client):
+    # Verify the streaming autolog path captures Anthropic-via-gateway cache fields.
+    # These arrive as top-level usage keys (cache_read_input_tokens,
+    # cache_creation_input_tokens) instead of inside prompt_tokens_details.
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": ANTHROPIC_CACHE_STREAM}],
+        model="claude-opus-4-8",
+        stream=True,
+        stream_options={"include_usage": True},
+    )
+
+    if client._is_async:
+        async for _ in await stream:
+            pass
+    else:
+        for _ in stream:
+            pass
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 40,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 5,
+    }
 
 
 @pytest.mark.asyncio

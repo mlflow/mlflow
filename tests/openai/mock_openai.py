@@ -12,6 +12,7 @@ from mlflow.types.chat import ChatCompletionRequest
 EMPTY_CHOICES = "EMPTY_CHOICES"
 LIST_CONTENT = "LIST_CONTENT"
 AZURE_ANNOTATIONS = "AZURE_ANNOTATIONS"
+ANTHROPIC_CACHE_STREAM = "ANTHROPIC_CACHE_STREAM"
 
 app = fastapi.FastAPI()
 
@@ -118,6 +119,31 @@ def _make_chat_stream_usage_chunk():
     }
 
 
+def _make_chat_stream_anthropic_cache_usage_chunk():
+    """Stream usage chunk with Anthropic-via-gateway top-level cache fields.
+
+    Anthropic endpoints served through an OpenAI-compatible gateway (e.g. Databricks
+    Foundation Model API) surface cache counts at the top level of the usage object
+    instead of the OpenAI-standard prompt_tokens_details.cached_tokens path.
+    """
+    return {
+        "id": "chatcmpl-123",
+        "object": "chat.completion.chunk",
+        "created": 1677652288,
+        "model": "claude-opus-4-8",
+        "system_fingerprint": None,
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 50,
+            "completion_tokens": 20,
+            "total_tokens": 70,
+            "cache_read_input_tokens": 40,
+            "cache_creation_input_tokens": 5,
+            # prompt_tokens_details is absent (Anthropic-via-gateway endpoint)
+        },
+    }
+
+
 def _make_chat_stream_chunk_with_list_content(content_list, include_usage: bool = False):
     # Create a streaming chunk with list content (Databricks format).
     return {
@@ -180,6 +206,17 @@ async def chat_response_stream_with_list_content(include_usage: bool = False):
     )
 
 
+async def chat_response_stream_with_anthropic_cache():
+    """Stream that mimics an Anthropic-via-gateway endpoint.
+
+    The usage chunk carries cache_read_input_tokens and cache_creation_input_tokens at
+    the top level of the usage object (not under prompt_tokens_details.cached_tokens).
+    """
+    yield _make_chat_stream_chunk("Hello", include_usage=False)
+    yield _make_chat_stream_chunk(" world", include_usage=False)
+    yield _make_chat_stream_anthropic_cache_usage_chunk()
+
+
 @app.post("/chat/completions", response_model_exclude_unset=True)
 async def chat(payload: ChatCompletionRequest):
     if payload.stream:
@@ -201,6 +238,11 @@ async def chat(payload: ChatCompletionRequest):
                 async for d in chat_response_stream_with_list_content(
                     include_usage=(payload.stream_options or {}).get("include_usage", False)
                 )
+            )
+        elif ANTHROPIC_CACHE_STREAM == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in chat_response_stream_with_anthropic_cache()
             )
         else:
             content = (
