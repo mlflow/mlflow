@@ -9,6 +9,7 @@ import {
 import { doesTraceSupportV4API, GenAITracesTableProvider } from '@databricks/web-shared/genai-traces-table';
 import {
   EMPTY_FILTER_MODEL,
+  TRACE_COLUMN_IDS,
   TracesErrorAlert,
   TracesTableView,
   type SessionHrefGetter,
@@ -22,6 +23,7 @@ import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
+import { isAssessmentColumnId } from '../utils/assessmentColumns';
 import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
@@ -41,6 +43,9 @@ interface TracesV4PageContentProps {
 // scroll wrapper below). Picked so the flexible search and both button groups remain usable; tune
 // visually against the running UI.
 const MIN_TAB_CONTENT_WIDTH = 850;
+
+// Narrows a column id to a standard `TraceColumnId` (assessment columns are namespaced separately).
+const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_IDS as readonly string[]).includes(id);
 
 /**
  * Layout controller for the V4 traces tab. Owns URL/data state via `useTracesV4Controller` and feeds
@@ -93,6 +98,17 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     columns.resetToDefaults();
     assessments.reset();
   }, [columns, assessments]);
+
+  const handleHideColumn = useCallback(
+    (columnId: string) => {
+      if (isAssessmentColumnId(columnId)) {
+        assessments.toggle(columnId);
+      } else if (isStandardColumnId(columnId)) {
+        columns.toggleColumn(columnId);
+      }
+    },
+    [assessments, columns],
+  );
 
   const actions = useTracesV4TraceActions(experimentId, page.traces, page.refetch);
 
@@ -292,6 +308,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
               onSort={url.setSort}
               getSessionHref={getSessionHref}
               onFilterByTag={controller.onFilterByTag}
+              onHideColumn={handleHideColumn}
               // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
               searchValue={searchInput.input}
               onSearchChange={searchInput.setInput}
