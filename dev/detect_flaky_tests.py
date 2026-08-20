@@ -165,16 +165,16 @@ class Framework:
     """A test framework the detector can mine, decoupling the shared CI-history mining
     from the framework-specific bits: which workflow to scan and how to pull the failing
     test(s) + error out of a job's raw log. New frameworks register one entry in
-    ``FRAMEWORKS`` without touching the mining core.
+    ``FRAMEWORKS`` without touching the mining core; the framework's name is its key in
+    that registry.
     """
 
-    name: str  # CLI value, e.g. "pytest"
     workflow_name: str  # GitHub Actions workflow `name:` to scan
     parse_log: Callable[[str], dict[str, str]]  # raw job log -> {test id: first-line error}
 
 
 FRAMEWORKS: dict[str, Framework] = {
-    "pytest": Framework("pytest", "MLflow tests", parse_pytest_failures),
+    "pytest": Framework("MLflow tests", parse_pytest_failures),
 }
 
 

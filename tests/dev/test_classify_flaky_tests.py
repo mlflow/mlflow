@@ -3,7 +3,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
-from classify_flaky_tests import _aggregate
+from classify_flaky_tests import RETRY_MECHANISMS, _aggregate
+from detect_flaky_tests import FRAMEWORKS
+
+
+def test_retry_mechanisms_cover_exactly_the_detect_frameworks():
+    # The two registries live in different modules; a mismatch would let `--framework X`
+    # pass argparse in detect and then KeyError in classify. Keep them locked together.
+    assert RETRY_MECHANISMS.keys() == FRAMEWORKS.keys()
 
 
 def test_aggregate_collapses_events_per_test_and_counts():

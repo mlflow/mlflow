@@ -28,12 +28,14 @@ import sys
 import urllib.request
 from typing import Any
 
+from detect_flaky_tests import FRAMEWORKS
+
 DEFAULT_MODEL = os.environ.get("FLAKY_CLASSIFIER_MODEL", "claude-sonnet-4-6")
 BASE_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
 
-# The prompt is identical across frameworks except for how a retry is expressed
-# (pytest's `@pytest.mark.flaky` vs. jest's `jest.retryTimes`); `{retry_mechanism}` is
-# filled per framework so the classifier's `annotate` verdict matches the annotator.
+# The prompt is identical across frameworks except for how a retry is expressed;
+# `{retry_mechanism}` is filled per framework (see RETRY_MECHANISMS below) so the
+# classifier's `annotate` verdict names the mechanism a human would actually apply.
 PROMPT_TEMPLATE = """\
 You are triaging a flaky test in the MLflow CI suite. A "flake" here is a test that \
 FAILED on one CI run attempt and PASSED on a re-run of the exact same commit — so the \
@@ -75,9 +77,18 @@ likely a genuine flake safe to retry; a single occurrence with a logic-bug-shape
 should lean toward "investigate" or "fix"."""
 
 # How each framework expresses an automatic retry, injected into the prompt above.
+# Keyed by the same framework names as detect's FRAMEWORKS registry: every framework the
+# detector can mine must have a retry mechanism here, or `--framework X` would pass
+# argparse in detect and then KeyError here. The assert below enforces that at import so
+# the two registries can't silently drift out of sync.
 RETRY_MECHANISMS: dict[str, str] = {
     "pytest": "@pytest.mark.flaky",
 }
+
+assert RETRY_MECHANISMS.keys() == FRAMEWORKS.keys(), (
+    "RETRY_MECHANISMS and detect_flaky_tests.FRAMEWORKS must cover the same frameworks; "
+    f"got {sorted(RETRY_MECHANISMS)} vs {sorted(FRAMEWORKS)}"
+)
 
 _SCHEMA = {
     "type": "object",

@@ -1,9 +1,16 @@
+import dataclasses
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
-from detect_flaky_tests import gh_api_objects, parse_pytest_failures
+from detect_flaky_tests import (
+    FRAMEWORKS,
+    Framework,
+    failing_tests_from_log,
+    gh_api_objects,
+    parse_pytest_failures,
+)
 
 # A captured pytest failure line as it appears in a raw GitHub Actions log: an ISO
 # timestamp prefix, ANSI SGR color codes around FAILED/the nodeid, and the MLflow
@@ -76,3 +83,54 @@ def test_gh_api_objects_returns_empty_on_no_output(monkeypatch):
 
     monkeypatch.setattr(detect_flaky_tests, "gh_api", lambda *a, **k: None)
     assert gh_api_objects("any/path") == []
+
+
+def test_pytest_framework_is_registered_with_its_parser():
+    fw = FRAMEWORKS["pytest"]
+    assert fw.workflow_name == "MLflow tests"
+    assert fw.parse_log is parse_pytest_failures
+
+
+def test_failing_tests_from_log_delegates_to_the_frameworks_parser(monkeypatch):
+    # A custom Framework's parse_log must be the function used to turn the fetched log
+    # into failures, so a new framework only needs to register its own parser.
+    import detect_flaky_tests
+
+    monkeypatch.setattr(detect_flaky_tests, "gh_api_text_bytes", lambda path: "raw-log-text")
+    custom = Framework(workflow_name="Custom", parse_log=lambda log: {f"parsed::{log}": "err"})
+    assert failing_tests_from_log("owner/repo", 123, custom) == {"parsed::raw-log-text": "err"}
+
+
+def test_failing_tests_from_log_returns_empty_when_no_log(monkeypatch):
+    import detect_flaky_tests
+
+    monkeypatch.setattr(detect_flaky_tests, "gh_api_text_bytes", lambda path: None)
+    called = False
+
+    def _parse(_log):
+        nonlocal called
+        called = True
+        return {"x": "y"}
+
+    assert failing_tests_from_log("owner/repo", 1, Framework("W", _parse)) == {}
+    # The parser must not run when there is no log to parse.
+    assert called is False
+
+
+def test_workflow_override_replaces_only_the_workflow_name(monkeypatch, tmp_path):
+    # `--workflow` swaps the scanned workflow while keeping the framework's parser, via
+    # dataclasses.replace. Verify detect() resolves the overridden name.
+    import detect_flaky_tests
+
+    seen = {}
+
+    def _get_workflow_id(repo, workflow_name):
+        seen["workflow_name"] = workflow_name
+        return None  # short-circuit detect() after the name is resolved
+
+    monkeypatch.setattr(detect_flaky_tests, "get_workflow_id", _get_workflow_id)
+    overridden = dataclasses.replace(FRAMEWORKS["pytest"], workflow_name="JS")
+    assert detect_flaky_tests.detect("owner/repo", "2026-01-01", overridden) == []
+    assert seen["workflow_name"] == "JS"
+    # The parser is preserved through the override.
+    assert overridden.parse_log is parse_pytest_failures
