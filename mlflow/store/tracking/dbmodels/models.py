@@ -2272,6 +2272,141 @@ class SqlScorerVersion(Base):
         )
 
 
+class SqlScorerPreset(Base):
+    """
+    DB model for storing scorer preset information. A preset is a named group of scorers
+    within an experiment. Recorded in the ``scorer_presets`` table.
+    """
+
+    __tablename__ = "scorer_presets"
+
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
+    preset_name = Column(String(256), nullable=False)
+    preset_id = Column(String(36), nullable=False)
+    latest_version_hash = Column(String(64), nullable=True)
+
+    experiment = relationship("SqlExperiment", backref=backref("scorer_presets", cascade="all"))
+
+    __table_args__ = (
+        PrimaryKeyConstraint("preset_id", name="scorer_preset_pk"),
+        Index(
+            f"index_{__tablename__}_experiment_id_preset_name",
+            "experiment_id",
+            "preset_name",
+            unique=True,
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorerPreset ({self.experiment_id}, {self.preset_name}, {self.preset_id})>"
+
+
+class SqlScorerPresetVersion(Base):
+    """
+    DB model for storing scorer preset versions. Each version is an immutable snapshot
+    of ``(scorer_id, scorer_version)`` pairs, identified by a hash digest.
+    Recorded in the ``scorer_preset_versions`` table.
+    """
+
+    __tablename__ = "scorer_preset_versions"
+
+    preset_id = Column(
+        String(36),
+        ForeignKey("scorer_presets.preset_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    version_hash = Column(String(64), nullable=False)
+    creation_time = Column(BigInteger(), default=get_current_time_millis)
+
+    preset = relationship("SqlScorerPreset", backref=backref("preset_versions", cascade="all"))
+
+    __table_args__ = (
+        PrimaryKeyConstraint("preset_id", "version_hash", name="scorer_preset_version_pk"),
+        Index(f"index_{__tablename__}_preset_id", "preset_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorerPresetVersion ({self.preset_id}, {self.version_hash})>"
+
+    def to_mlflow_entity(self, include_serialized_scorers=False):
+        from mlflow.entities.scorer_preset import ScorerPresetVersion
+
+        memberships = sorted(self.memberships, key=lambda m: m.scorer_id)
+        scorer_refs = [(m.scorer_id, m.scorer_version) for m in memberships]
+
+        serialized_scorers = []
+        if include_serialized_scorers:
+            from sqlalchemy.orm import object_session
+
+            session = object_session(self)
+            if session is not None:
+                for m in memberships:
+                    sv = (
+                        session
+                        .query(SqlScorerVersion)
+                        .filter(
+                            SqlScorerVersion.scorer_id == m.scorer_id,
+                            SqlScorerVersion.scorer_version == m.scorer_version,
+                        )
+                        .first()
+                    )
+                    if sv is not None:
+                        serialized_scorers.append(sv.serialized_scorer)
+
+        return ScorerPresetVersion(
+            experiment_id=str(self.preset.experiment_id),
+            preset_name=self.preset.preset_name,
+            version=self.version_hash,
+            scorer_refs=scorer_refs,
+            creation_time=self.creation_time,
+            preset_id=self.preset_id,
+            serialized_scorers=serialized_scorers or None,
+        )
+
+
+class SqlScorerPresetMembership(Base):
+    """
+    DB model for the many-to-many relationship between preset versions and scorer versions.
+    A join table enables efficient lookup of which presets contain a given scorer
+    (needed for auto-increment when a scorer version changes).
+    Recorded in the ``scorer_preset_memberships`` table.
+    """
+
+    __tablename__ = "scorer_preset_memberships"
+
+    preset_id = Column(String(36), nullable=False)
+    version_hash = Column(String(64), nullable=False)
+    scorer_id = Column(String(36), nullable=False)
+    scorer_version = Column(Integer, nullable=False)
+
+    preset_version = relationship(
+        "SqlScorerPresetVersion",
+        backref=backref("memberships", cascade="all"),
+        foreign_keys=[preset_id, version_hash],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "preset_id", "version_hash", "scorer_id", name="scorer_preset_membership_pk"
+        ),
+        ForeignKeyConstraint(
+            ["preset_id", "version_hash"],
+            ["scorer_preset_versions.preset_id", "scorer_preset_versions.version_hash"],
+            name="fk_preset_membership_version",
+            ondelete="CASCADE",
+        ),
+        Index(f"index_{__tablename__}_scorer_id", "scorer_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlScorerPresetMembership ({self.preset_id}, {self.version_hash}, "
+            f"{self.scorer_id}, {self.scorer_version})>"
+        )
+
+
 class SqlOnlineScoringConfig(Base):
     """
     DB model for storing online scoring configuration. These are recorded in

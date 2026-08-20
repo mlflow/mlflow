@@ -1,7 +1,14 @@
 from typing import TYPE_CHECKING
 
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, scorer
-from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorers
+from mlflow.genai.scorers.registry import (
+    delete_scorer,
+    delete_scorer_preset,
+    get_scorer,
+    get_scorer_preset,
+    list_scorer_presets,
+    list_scorers,
+)
 
 # Metadata keys for scorer feedback
 FRAMEWORK_METADATA_KEY = "mlflow.scorer.framework"
@@ -54,14 +61,25 @@ _LAZY_IMPORTS = {
     "get_all_scorers",
 }
 
+_PRESET_IMPORTS = {
+    "Preset",
+    "Rag",
+    "Agent",
+    "ConversationalAgent",
+}
+
 
 def __getattr__(name):
-    """Lazily import builtin scorers to avoid circular dependency."""
+    """Lazily import builtin scorers and presets to avoid circular dependency."""
     if name in _LAZY_IMPORTS:
-        # Import the module when first accessed
         from mlflow.genai.scorers import builtin_scorers
 
         return getattr(builtin_scorers, name)
+
+    if name in _PRESET_IMPORTS:
+        from mlflow.genai.scorers import preset
+
+        return getattr(preset, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -75,7 +93,7 @@ def __dir__():
     # Get the default module attributes
     module_attrs = list(globals().keys())
     # Add the lazy imports
-    return sorted(set(module_attrs) | _LAZY_IMPORTS)
+    return sorted(set(module_attrs) | _LAZY_IMPORTS | _PRESET_IMPORTS)
 
 
 # The TYPE_CHECKING block below is for static analysis tools only.
@@ -109,9 +127,17 @@ if TYPE_CHECKING:
         UserFrustration,
         get_all_scorers,
     )
+    from mlflow.genai.scorers.preset import (
+        Agent,
+        ConversationalAgent,
+        Preset,
+        Rag,
+    )
 
 __all__ = [
+    "Agent",
     "Completeness",
+    "ConversationalAgent",
     "ConversationalGuidelines",
     "ConversationalRoleAdherence",
     "ConversationalSafety",
@@ -124,6 +150,8 @@ __all__ = [
     "Equivalence",
     "KnowledgeRetention",
     "PIIDetection",
+    "Preset",
+    "Rag",
     "RegexMatch",
     "RelevanceToQuery",
     "ResponseLength",
@@ -140,6 +168,9 @@ __all__ = [
     "ScorerSamplingConfig",
     "get_all_scorers",
     "get_scorer",
+    "get_scorer_preset",
     "list_scorers",
+    "list_scorer_presets",
     "delete_scorer",
+    "delete_scorer_preset",
 ]

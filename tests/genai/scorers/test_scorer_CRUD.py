@@ -380,3 +380,100 @@ def test_delete_scorer_removes_endpoint_binding(monkeypatch):
     assert len(bindings_after_delete) == 0
 
     mlflow.delete_experiment(experiment_id)
+
+
+def test_mlflow_backend_preset_operations():
+    from mlflow.genai.scorers import Safety, ToolCallCorrectness
+    from mlflow.genai.scorers.preset import Preset
+    from mlflow.genai.scorers.registry import (
+        delete_scorer_preset,
+        get_scorer_preset,
+        list_scorer_presets,
+    )
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        experiment_id = mlflow.create_experiment("test_preset_mlflow_backend")
+        mlflow.set_experiment(experiment_id=experiment_id)
+
+        # Create and register a preset
+        preset = Preset("my_test_preset", scorers=[Safety(), ToolCallCorrectness()])
+        result = preset.register(experiment_id=experiment_id)
+
+        assert result.preset_name == "my_test_preset"
+        assert result.version is not None
+        assert result.preset_id is not None
+
+        # Get the preset — returns a functional Preset object
+        fetched = get_scorer_preset(name="my_test_preset", experiment_id=experiment_id)
+        assert fetched.name == "my_test_preset"
+        assert len(fetched.scorers) == 2
+        assert fetched.version is not None
+
+        # List presets — returns ScorerPresetVersion objects
+        presets = list_scorer_presets(experiment_id=experiment_id)
+        assert len(presets) == 1
+        assert presets[0].preset_name == "my_test_preset"
+
+        # Copy to another experiment
+        experiment_id_2 = mlflow.create_experiment("test_preset_copy_target")
+        preset.copy(to_experiment_id=experiment_id_2, experiment_id=experiment_id)
+
+        copied = get_scorer_preset(name="my_test_preset", experiment_id=experiment_id_2)
+        assert copied.name == "my_test_preset"
+
+        # Delete the preset
+        delete_scorer_preset(name="my_test_preset", experiment_id=experiment_id)
+        assert len(list_scorer_presets(experiment_id=experiment_id)) == 0
+
+        # Clean up
+        mlflow.delete_experiment(experiment_id)
+        mlflow.delete_experiment(experiment_id_2)
+
+
+def test_mlflow_backend_builtin_preset_register():
+    """Agent().register() auto-registers all scorers and creates the preset."""
+    from mlflow.genai.scorers.preset import Agent
+    from mlflow.genai.scorers.registry import delete_scorer_preset, get_scorer_preset
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        experiment_id = mlflow.create_experiment("test_builtin_preset_register")
+        mlflow.set_experiment(experiment_id=experiment_id)
+
+        result = Agent().register(experiment_id=experiment_id)
+        assert result.preset_name == "agent"
+        assert result.version is not None
+
+        fetched = get_scorer_preset(name="agent", experiment_id=experiment_id)
+        assert fetched.name == "agent"
+        assert len(fetched.scorers) == 5
+
+        # All 5 scorers should have been auto-registered
+        scorers = list_scorers(experiment_id=experiment_id)
+        assert len(scorers) == 5
+
+        delete_scorer_preset(name="agent", experiment_id=experiment_id)
+        mlflow.delete_experiment(experiment_id)
+
+
+def test_mlflow_backend_preset_scorer_reuse():
+    """Preset.register() reuses existing scorer IDs instead of creating duplicates."""
+    from mlflow.genai.scorers import Safety, ToolCallCorrectness
+    from mlflow.genai.scorers.preset import Preset
+    from mlflow.genai.scorers.registry import delete_scorer_preset
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        experiment_id = mlflow.create_experiment("test_preset_scorer_reuse")
+        mlflow.set_experiment(experiment_id=experiment_id)
+
+        # Register Safety first
+        Safety().register(experiment_id=experiment_id)
+        assert len(list_scorers(experiment_id=experiment_id)) == 1
+
+        # Preset with Safety + ToolCallCorrectness — Safety should be reused
+        Preset("reuse_test", scorers=[Safety(), ToolCallCorrectness()]).register(
+            experiment_id=experiment_id
+        )
+        assert len(list_scorers(experiment_id=experiment_id)) == 2  # not 3
+
+        delete_scorer_preset(name="reuse_test", experiment_id=experiment_id)
+        mlflow.delete_experiment(experiment_id)

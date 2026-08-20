@@ -13,8 +13,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import reduce
 from pathlib import PurePath
-from typing import Any, Iterable, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Iterable, TypedDict, TypeVar
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from mlflow.entities.scorer_preset import ScorerPresetVersion
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -157,6 +160,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
+    SqlScorerPreset,
+    SqlScorerPresetMembership,
+    SqlScorerPresetVersion,
     SqlScorerVersion,
     SqlSpan,
     SqlSpanMetrics,
@@ -2771,7 +2777,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             session.flush()
 
+            # Auto-increment: find presets containing this scorer and create
+            # new preset versions with the updated scorer version.
+            bumped_presets = self._auto_bump_preset_versions(session, scorer.scorer_id, new_version)
+
             entity = sql_scorer_version.to_mlflow_entity()
+            entity._bumped_presets = bumped_presets
             # Resolve gateway endpoint ID to name before returning
             return self.resolve_endpoint_in_scorer(entity)
 
@@ -3103,6 +3114,581 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 for i, sv in enumerate(sql_scorer_versions)
             ]
+
+    # =========================================================================
+    # Scorer Preset Management
+    # =========================================================================
+
+    def _auto_bump_preset_versions(
+        self, session, scorer_id: str, new_scorer_version: int
+    ) -> list[dict]:
+        """Create new preset versions when a member scorer is updated.
+
+        Finds presets whose latest version contains the given scorer_id,
+        creates a new version with the updated scorer_version, and returns
+        info about the bumped presets.
+        """
+
+        # Find distinct preset_ids that reference this scorer in any version
+        preset_ids = [
+            row.preset_id
+            for row in session
+            .query(SqlScorerPresetMembership.preset_id)
+            .filter(SqlScorerPresetMembership.scorer_id == scorer_id)
+            .distinct()
+            .all()
+        ]
+        if not preset_ids:
+            return []
+
+        bumped = []
+        for pid in preset_ids:
+            preset = session.query(SqlScorerPreset).filter(SqlScorerPreset.preset_id == pid).first()
+            if preset is None:
+                continue
+
+            # Resolve the latest version via the explicit pointer, falling
+            # back to creation_time for presets created before the pointer
+            # was added.
+            if preset.latest_version_hash:
+                latest = (
+                    session
+                    .query(SqlScorerPresetVersion)
+                    .filter(
+                        SqlScorerPresetVersion.preset_id == pid,
+                        SqlScorerPresetVersion.version_hash == preset.latest_version_hash,
+                    )
+                    .first()
+                )
+            else:
+                latest = (
+                    session
+                    .query(SqlScorerPresetVersion)
+                    .filter(SqlScorerPresetVersion.preset_id == pid)
+                    .order_by(SqlScorerPresetVersion.creation_time.desc())
+                    .first()
+                )
+            if latest is None:
+                continue
+
+            # Get current memberships for the latest version
+            members = (
+                session
+                .query(SqlScorerPresetMembership)
+                .filter(
+                    SqlScorerPresetMembership.preset_id == pid,
+                    SqlScorerPresetMembership.version_hash == latest.version_hash,
+                )
+                .all()
+            )
+
+            # Check if this preset's latest version actually contains the scorer
+            if not any(m.scorer_id == scorer_id for m in members):
+                continue
+
+            # Build updated scorer refs
+            new_refs = []
+            for m in members:
+                if m.scorer_id == scorer_id:
+                    new_refs.append((m.scorer_id, new_scorer_version))
+                else:
+                    new_refs.append((m.scorer_id, m.scorer_version))
+
+            new_hash = self._compute_preset_version_hash(new_refs)
+
+            # Skip if this exact combination already exists (dedup)
+            existing = (
+                session
+                .query(SqlScorerPresetVersion)
+                .filter(
+                    SqlScorerPresetVersion.preset_id == pid,
+                    SqlScorerPresetVersion.version_hash == new_hash,
+                )
+                .first()
+            )
+            if existing is not None:
+                continue
+
+            # Create new preset version
+            new_pv = SqlScorerPresetVersion(
+                preset_id=pid,
+                version_hash=new_hash,
+            )
+            session.add(new_pv)
+            session.flush()
+
+            for sid, sv in new_refs:
+                session.add(
+                    SqlScorerPresetMembership(
+                        preset_id=pid,
+                        version_hash=new_hash,
+                        scorer_id=sid,
+                        scorer_version=sv,
+                    )
+                )
+
+            preset = session.query(SqlScorerPreset).filter(SqlScorerPreset.preset_id == pid).first()
+            preset.latest_version_hash = new_hash
+            bumped.append({
+                "preset_name": preset.preset_name,
+                "version": new_hash,
+                "preset_id": pid,
+            })
+
+        session.flush()
+        return bumped
+
+    def _compute_preset_version_hash(self, scorer_refs: list[tuple[str, int]]) -> str:
+        import hashlib
+
+        canonical = sorted(scorer_refs)
+        payload = "|".join(f"{sid}:{sv}" for sid, sv in canonical)
+        return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
+    def register_scorer_preset(
+        self, experiment_id: str, name: str, scorer_ids: list[str]
+    ) -> "ScorerPresetVersion":
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            if not scorer_ids:
+                raise MlflowException(
+                    "At least one scorer ID is required to register a preset.",
+                    INVALID_PARAMETER_VALUE,
+                )
+
+            # Resolve each scorer ID to its latest version
+            scorer_refs = []
+            for sid in scorer_ids:
+                scorer = session.query(SqlScorer).filter(SqlScorer.scorer_id == sid).first()
+                if scorer is None:
+                    raise MlflowException(
+                        f"Scorer with ID '{sid}' not found.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+                if str(scorer.experiment_id) != str(experiment_id):
+                    raise MlflowException(
+                        f"Scorer with ID '{sid}' belongs to experiment "
+                        f"{scorer.experiment_id}, not {experiment_id}.",
+                        INVALID_PARAMETER_VALUE,
+                    )
+                max_version = (
+                    session
+                    .query(func.max(SqlScorerVersion.scorer_version))
+                    .filter(SqlScorerVersion.scorer_id == sid)
+                    .scalar()
+                )
+                if max_version is None:
+                    raise MlflowException(
+                        f"Scorer with ID '{sid}' has no versions.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+                scorer_refs.append((sid, max_version))
+
+            version_hash = self._compute_preset_version_hash(scorer_refs)
+
+            # Get or create the preset record
+            preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+
+            if preset is None:
+                preset_id = str(uuid.uuid4())
+                preset = SqlScorerPreset(
+                    experiment_id=experiment_id,
+                    preset_name=name,
+                    preset_id=preset_id,
+                )
+                session.add(preset)
+                session.flush()
+
+            # Check if this exact version already exists (hash dedup)
+            existing = (
+                session
+                .query(SqlScorerPresetVersion)
+                .filter(
+                    SqlScorerPresetVersion.preset_id == preset.preset_id,
+                    SqlScorerPresetVersion.version_hash == version_hash,
+                )
+                .first()
+            )
+            if existing is not None:
+                # Update latest pointer even on dedup (supports rollback)
+                preset.latest_version_hash = version_hash
+                session.flush()
+                return existing.to_mlflow_entity()
+
+            # Create the new version
+            preset_version = SqlScorerPresetVersion(
+                preset_id=preset.preset_id,
+                version_hash=version_hash,
+            )
+            session.add(preset_version)
+            preset.latest_version_hash = version_hash
+            session.flush()
+
+            # Create membership records
+            for sid, sv in scorer_refs:
+                membership = SqlScorerPresetMembership(
+                    preset_id=preset.preset_id,
+                    version_hash=version_hash,
+                    scorer_id=sid,
+                    scorer_version=sv,
+                )
+                session.add(membership)
+
+            session.flush()
+            return preset_version.to_mlflow_entity()
+
+    def get_scorer_preset(
+        self, experiment_id: str, name: str, version: str | None = None
+    ) -> "ScorerPresetVersion":
+
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == experiment.experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+            if preset is None:
+                raise MlflowException(
+                    f"Scorer preset with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            query = session.query(SqlScorerPresetVersion).filter(
+                SqlScorerPresetVersion.preset_id == preset.preset_id
+            )
+            if version is not None:
+                pv = query.filter(SqlScorerPresetVersion.version_hash == version).first()
+                if pv is None:
+                    raise MlflowException(
+                        f"Scorer preset '{name}' version '{version}' not found for "
+                        f"experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+            else:
+                # Use the explicit latest pointer if available
+                if preset.latest_version_hash:
+                    pv = query.filter(
+                        SqlScorerPresetVersion.version_hash == preset.latest_version_hash
+                    ).first()
+                else:
+                    pv = query.order_by(SqlScorerPresetVersion.creation_time.desc()).first()
+                if pv is None:
+                    raise MlflowException(
+                        f"Scorer preset '{name}' has no versions for experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+
+            return pv.to_mlflow_entity(include_serialized_scorers=True)
+
+    def list_scorer_presets(
+        self,
+        experiment_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list["ScorerPresetVersion"], str | None]:
+
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            presets = (
+                session
+                .query(SqlScorerPreset)
+                .filter(SqlScorerPreset.experiment_id == experiment.experiment_id)
+                .all()
+            )
+            if not presets:
+                return [], None
+
+            results = []
+            for p in presets:
+                if p.latest_version_hash:
+                    latest = (
+                        session
+                        .query(SqlScorerPresetVersion)
+                        .filter(
+                            SqlScorerPresetVersion.preset_id == p.preset_id,
+                            SqlScorerPresetVersion.version_hash == p.latest_version_hash,
+                        )
+                        .first()
+                    )
+                else:
+                    latest = (
+                        session
+                        .query(SqlScorerPresetVersion)
+                        .filter(SqlScorerPresetVersion.preset_id == p.preset_id)
+                        .order_by(SqlScorerPresetVersion.creation_time.desc())
+                        .first()
+                    )
+                if latest is not None:
+                    results.append(latest.to_mlflow_entity())
+
+            results.sort(key=lambda p: p.preset_name)
+            return self._paginate(results, max_results, page_token)
+
+    def list_scorer_preset_versions(
+        self,
+        experiment_id: str,
+        name: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list["ScorerPresetVersion"], str | None]:
+
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == experiment.experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+            if preset is None:
+                raise MlflowException(
+                    f"Scorer preset with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            versions = (
+                session
+                .query(SqlScorerPresetVersion)
+                .filter(SqlScorerPresetVersion.preset_id == preset.preset_id)
+                .order_by(SqlScorerPresetVersion.creation_time.asc())
+                .all()
+            )
+
+            results = [v.to_mlflow_entity() for v in versions]
+            return self._paginate(results, max_results, page_token)
+
+    @staticmethod
+    def _paginate(
+        items: list, max_results: int | None, page_token: str | None
+    ) -> tuple[list, str | None]:
+        if page_token is not None:
+            try:
+                offset = int(page_token)
+            except ValueError:
+                raise MlflowException(
+                    f"Invalid page_token: {page_token!r}. Must be a numeric string.",
+                    INVALID_PARAMETER_VALUE,
+                )
+            if offset < 0:
+                raise MlflowException(
+                    f"Invalid page_token: {page_token!r}. Must be non-negative.",
+                    INVALID_PARAMETER_VALUE,
+                )
+        else:
+            offset = 0
+        if max_results is not None:
+            page = items[offset : offset + max_results]
+            next_offset = offset + max_results
+            next_token = str(next_offset) if page and next_offset < len(items) else None
+            return page, next_token
+        return items[offset:], None
+
+    def delete_scorer_preset(
+        self, experiment_id: str, name: str, version: str | None = None
+    ) -> None:
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == experiment.experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+            if preset is None:
+                raise MlflowException(
+                    f"Scorer preset with name '{name}' not found for experiment {experiment_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            if version is not None:
+                pv = (
+                    session
+                    .query(SqlScorerPresetVersion)
+                    .filter(
+                        SqlScorerPresetVersion.preset_id == preset.preset_id,
+                        SqlScorerPresetVersion.version_hash == version,
+                    )
+                    .first()
+                )
+                if pv is None:
+                    raise MlflowException(
+                        f"Scorer preset '{name}' version '{version}' not found for "
+                        f"experiment {experiment_id}.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+                was_latest = preset.latest_version_hash == version
+                session.delete(pv)
+                session.flush()
+                # Clean up the preset record if no versions remain
+                remaining_versions = (
+                    session
+                    .query(SqlScorerPresetVersion)
+                    .filter(SqlScorerPresetVersion.preset_id == preset.preset_id)
+                    .order_by(SqlScorerPresetVersion.creation_time.desc())
+                    .all()
+                )
+                if not remaining_versions:
+                    session.delete(preset)
+                elif was_latest:
+                    preset.latest_version_hash = remaining_versions[0].version_hash
+            else:
+                session.delete(preset)
+
+    def copy_scorer_preset(
+        self,
+        experiment_id: str,
+        name: str,
+        to_experiment_id: str,
+        version: str | None = None,
+    ) -> "ScorerPresetVersion":
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            # Validate source
+            source_entity = self.get_scorer_preset(experiment_id, name, version)
+
+            # Validate target experiment
+            target_experiment = self.get_experiment(to_experiment_id)
+            self._check_experiment_is_active(target_experiment)
+
+            # Copy each scorer into the target experiment, mapping old IDs to new
+            new_refs = []
+            for sid, sv in source_entity.scorer_refs:
+                source_sv = self._get_scorer_version(session, sid, sv)
+                source_scorer = source_sv.scorer
+
+                # Check if a scorer with the same name already exists in target
+                target_scorer = (
+                    session
+                    .query(SqlScorer)
+                    .filter(
+                        SqlScorer.experiment_id == to_experiment_id,
+                        SqlScorer.scorer_name == source_scorer.scorer_name,
+                    )
+                    .first()
+                )
+                if target_scorer is None:
+                    target_scorer = SqlScorer(
+                        experiment_id=to_experiment_id,
+                        scorer_name=source_scorer.scorer_name,
+                        scorer_id=str(uuid.uuid4()),
+                    )
+                    session.add(target_scorer)
+                    session.flush()
+
+                # Check if this exact version content exists in target
+                existing_version = (
+                    session
+                    .query(SqlScorerVersion)
+                    .filter(
+                        SqlScorerVersion.scorer_id == target_scorer.scorer_id,
+                        SqlScorerVersion.serialized_scorer == source_sv.serialized_scorer,
+                    )
+                    .first()
+                )
+                if existing_version is not None:
+                    new_refs.append((target_scorer.scorer_id, existing_version.scorer_version))
+                else:
+                    max_ver = (
+                        session
+                        .query(func.max(SqlScorerVersion.scorer_version))
+                        .filter(SqlScorerVersion.scorer_id == target_scorer.scorer_id)
+                        .scalar()
+                    )
+                    new_ver = 1 if max_ver is None else max_ver + 1
+                    target_sv = SqlScorerVersion(
+                        scorer_id=target_scorer.scorer_id,
+                        scorer_version=new_ver,
+                        serialized_scorer=source_sv.serialized_scorer,
+                    )
+                    session.add(target_sv)
+                    session.flush()
+                    new_refs.append((target_scorer.scorer_id, new_ver))
+
+            # Register the preset with the new (target experiment) scorer IDs
+            new_hash = self._compute_preset_version_hash(new_refs)
+
+            target_preset = (
+                session
+                .query(SqlScorerPreset)
+                .filter(
+                    SqlScorerPreset.experiment_id == to_experiment_id,
+                    SqlScorerPreset.preset_name == name,
+                )
+                .first()
+            )
+            if target_preset is None:
+                target_preset = SqlScorerPreset(
+                    experiment_id=to_experiment_id,
+                    preset_name=name,
+                    preset_id=str(uuid.uuid4()),
+                )
+                session.add(target_preset)
+                session.flush()
+
+            existing = (
+                session
+                .query(SqlScorerPresetVersion)
+                .filter(
+                    SqlScorerPresetVersion.preset_id == target_preset.preset_id,
+                    SqlScorerPresetVersion.version_hash == new_hash,
+                )
+                .first()
+            )
+            if existing is not None:
+                target_preset.latest_version_hash = new_hash
+                session.flush()
+                return existing.to_mlflow_entity()
+
+            target_version = SqlScorerPresetVersion(
+                preset_id=target_preset.preset_id,
+                version_hash=new_hash,
+            )
+            session.add(target_version)
+            target_preset.latest_version_hash = new_hash
+            session.flush()
+
+            for sid, sv in new_refs:
+                session.add(
+                    SqlScorerPresetMembership(
+                        preset_id=target_preset.preset_id,
+                        version_hash=new_hash,
+                        scorer_id=sid,
+                        scorer_version=sv,
+                    )
+                )
+            session.flush()
+            return target_version.to_mlflow_entity()
 
     def get_online_scoring_configs(self, scorer_ids: list[str]) -> list[OnlineScoringConfig]:
         """

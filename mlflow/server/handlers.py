@@ -180,8 +180,10 @@ from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
     BatchGetTraceInfos,
     BatchGetTraces,
+    BumpedScorerPreset,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
+    CopyScorerPreset,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -215,6 +217,7 @@ from mlflow.protos.service_pb2 import (
     DeletePromptOptimizationJob,
     DeleteRun,
     DeleteScorer,
+    DeleteScorerPreset,
     DeleteTag,
     DeleteTraces,
     DeleteTracesV3,
@@ -241,6 +244,7 @@ from mlflow.protos.service_pb2 import (
     GetPromptOptimizationJob,
     GetRun,
     GetScorer,
+    GetScorerPreset,
     GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
@@ -257,6 +261,8 @@ from mlflow.protos.service_pb2 import (
     ListGatewayModelDefinitions,
     ListGatewaySecretInfos,
     ListLoggedModelArtifacts,
+    ListScorerPresets,
+    ListScorerPresetVersions,
     ListScorers,
     ListScorerVersions,
     ListWorkspaces,
@@ -270,6 +276,7 @@ from mlflow.protos.service_pb2 import (
     MlflowService,
     QueryTraceMetrics,
     RegisterScorer,
+    RegisterScorerPreset,
     RemoveDatasetFromExperiments,
     RemoveGuardrailFromEndpoint,
     RestoreExperiment,
@@ -5608,6 +5615,12 @@ def _register_scorer():
     response_message.name = scorer_version.scorer_name
     response_message.serialized_scorer = scorer_version._serialized_scorer
     response_message.creation_time = scorer_version.creation_time
+    for bp in getattr(scorer_version, "_bumped_presets", []):
+        bumped = BumpedScorerPreset()
+        bumped.preset_name = bp["preset_name"]
+        bumped.version = bp["version"]
+        bumped.preset_id = bp["preset_id"]
+        response_message.bumped_preset_versions.append(bumped)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -5708,6 +5721,158 @@ def _delete_scorer():
         request_message.version if request_message.HasField("version") else None,
     )
     response_message = DeleteScorer.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+# =============================================================================
+# Scorer Preset Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _register_scorer_preset():
+    request_message = _get_request_message(
+        RegisterScorerPreset(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "scorer_ids": [_assert_required],
+        },
+    )
+    preset_version = _get_tracking_store().register_scorer_preset(
+        request_message.experiment_id,
+        request_message.name,
+        list(request_message.scorer_ids),
+    )
+    response_message = RegisterScorerPreset.Response()
+    response_message.version = preset_version.version
+    response_message.preset_id = preset_version.preset_id
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_scorer_preset():
+    request_message = _get_request_message(
+        GetScorerPreset(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "version": [_assert_string],
+        },
+    )
+    preset_version = _get_tracking_store().get_scorer_preset(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.version if request_message.HasField("version") else None,
+    )
+    response_message = GetScorerPreset.Response()
+    response_message.scorer_preset.CopyFrom(preset_version.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_scorer_presets():
+    request_message = _get_request_message(
+        ListScorerPresets(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    presets, next_page_token = _get_tracking_store().list_scorer_presets(
+        request_message.experiment_id,
+        request_message.max_results if request_message.HasField("max_results") else None,
+        request_message.page_token if request_message.HasField("page_token") else None,
+    )
+    response_message = ListScorerPresets.Response()
+    response_message.scorer_presets.extend([p.to_proto() for p in presets])
+    if next_page_token:
+        response_message.next_page_token = next_page_token
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_scorer_preset_versions():
+    request_message = _get_request_message(
+        ListScorerPresetVersions(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    presets, next_page_token = _get_tracking_store().list_scorer_preset_versions(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.max_results if request_message.HasField("max_results") else None,
+        request_message.page_token if request_message.HasField("page_token") else None,
+    )
+    response_message = ListScorerPresetVersions.Response()
+    response_message.scorer_presets.extend([p.to_proto() for p in presets])
+    if next_page_token:
+        response_message.next_page_token = next_page_token
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_scorer_preset():
+    request_message = _get_request_message(
+        DeleteScorerPreset(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "version": [_assert_string],
+        },
+    )
+    _get_tracking_store().delete_scorer_preset(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.version if request_message.HasField("version") else None,
+    )
+    response_message = DeleteScorerPreset.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _copy_scorer_preset():
+    request_message = _get_request_message(
+        CopyScorerPreset(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "to_experiment_id": [_assert_required, _assert_string],
+            "version": [_assert_string],
+        },
+    )
+    preset_version = _get_tracking_store().copy_scorer_preset(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.to_experiment_id,
+        request_message.version if request_message.HasField("version") else None,
+    )
+    response_message = CopyScorerPreset.Response()
+    response_message.version = preset_version.version
+    response_message.preset_id = preset_version.preset_id
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -8022,6 +8187,12 @@ HANDLERS = {
     ListScorerVersions: _list_scorer_versions,
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
+    RegisterScorerPreset: _register_scorer_preset,
+    GetScorerPreset: _get_scorer_preset,
+    ListScorerPresets: _list_scorer_presets,
+    ListScorerPresetVersions: _list_scorer_preset_versions,
+    DeleteScorerPreset: _delete_scorer_preset,
+    CopyScorerPreset: _copy_scorer_preset,
     # Secrets APIs
     CreateGatewaySecret: _create_gateway_secret,
     GetGatewaySecretInfo: _get_gateway_secret_info,

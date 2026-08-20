@@ -28,6 +28,7 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.entities.scorer_preset import ScorerPresetVersion
     from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
     from mlflow.genai.review_queues import ReviewQueue, ReviewQueueItem
     from mlflow.genai.scorers.online.entities import (
@@ -1720,6 +1721,47 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         Raises:
             MlflowException: If scorer is not found.
         """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def register_scorer_preset(
+        self, experiment_id: str, name: str, scorer_ids: list[str]
+    ) -> "ScorerPresetVersion":
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_scorer_preset(
+        self, experiment_id: str, name: str, version: str | None = None
+    ) -> "ScorerPresetVersion":
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_scorer_presets(
+        self,
+        experiment_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list["ScorerPresetVersion"], str | None]:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_scorer_preset_versions(
+        self,
+        experiment_id: str,
+        name: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> tuple[list["ScorerPresetVersion"], str | None]:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_scorer_preset(
+        self, experiment_id: str, name: str, version: str | None = None
+    ) -> None:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def copy_scorer_preset(
+        self,
+        experiment_id: str,
+        name: str,
+        to_experiment_id: str,
+        version: str | None = None,
+    ) -> "ScorerPresetVersion":
         raise NotImplementedError(self.__class__.__name__)
 
     def upsert_online_scoring_config(
