@@ -2,15 +2,18 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { DetectIssuesButton } from '@databricks/web-shared/genai-traces-table';
 import {
-  TraceColumnSelector,
   TraceFilterButton,
+  type ColumnSelectorGroup,
   type ColumnSelectorOption,
+  type SortDirection,
   type TraceColumnId,
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
 import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { type TracesV4AssessmentColumns } from '../hooks/useTracesV4AssessmentColumns';
+import { type TracesV4Density } from '../hooks/useTracesV4Density';
 import { TracesV4DateSelector, TracesV4RefreshButton } from './TracesV4DateSelector';
+import { TracesV4DisplayButton } from './TracesV4DisplayButton';
 import { TracesV4ActionsButton } from './TracesV4ActionsButton';
 import { type TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
 import { useMlflowTraceFilterFields } from '../utils/filterModel';
@@ -26,6 +29,13 @@ export interface TracesV4ToolbarParams {
   onResetColumns: () => void;
   /** Assessment column selection (dynamic, per-page) rendered as a group in the column selector. */
   assessmentColumns: TracesV4AssessmentColumns;
+  /** Active sort column + direction, and its setter — surfaced in the Display popover's Sort submenu. */
+  sort: TraceColumnId;
+  dir: SortDirection;
+  onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  /** Row-height density + setter — surfaced in the Display popover's Row height submenu. */
+  density: TracesV4Density;
+  onDensityChange: (density: TracesV4Density) => void;
   selectionCount: number;
   onBulkDelete: () => void;
   /** Grays out the Actions → Delete item (UC-backed traces can't be deleted here). */
@@ -102,9 +112,9 @@ export interface TracesV4ToolbarSlots {
 }
 
 /**
- * Builds the V4-specific controls for the shared `TracesTableToolbar`. Filters and columns stay
- * beside the shared search while a flexible spacer pins Detect Issues and refresh right. None depend
- * on trace data, so they paint immediately.
+ * Builds the V4-specific controls for the shared `TracesTableView`. Filters and columns stay beside
+ * the shared search while a flexible spacer pins refresh and Analyze right. None depend on trace
+ * data, so they paint immediately.
  */
 export const useTracesV4ToolbarSlots = ({
   filterModel,
@@ -115,6 +125,11 @@ export const useTracesV4ToolbarSlots = ({
   onToggleColumn,
   onResetColumns,
   assessmentColumns,
+  sort,
+  dir,
+  onSort,
+  density,
+  onDensityChange,
   selectionCount,
   onBulkDelete,
   isDeleteDisabled,
@@ -128,6 +143,25 @@ export const useTracesV4ToolbarSlots = ({
   const intl = useIntl();
   const hasSelection = selectionCount > 0;
   const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames);
+
+  // Assessment columns are dynamic (per-page), so they render as a labeled group under the standard
+  // columns in the Display → Columns submenu. Omitted entirely when the page has no assessments.
+  const columnGroups: ColumnSelectorGroup[] | undefined =
+    assessmentColumns.selectorOptions.length > 0
+      ? [
+          {
+            label: (
+              <FormattedMessage
+                defaultMessage="Assessments"
+                description="Section label for assessment columns in the traces table column selector"
+              />
+            ),
+            options: assessmentColumns.selectorOptions,
+            visibleIds: assessmentColumns.visibleIds,
+            onToggle: assessmentColumns.toggle,
+          },
+        ]
+      : undefined;
 
   // Siloed copy of v3's UC-delete disabled reason.
   const deleteDisabledReason = intl.formatMessage({
@@ -153,28 +187,18 @@ export const useTracesV4ToolbarSlots = ({
           onClearAll={onClearFilters}
           activeCount={activeFilterCount}
         />
-        <TraceColumnSelector
+        <TracesV4DisplayButton
           columns={COLUMN_OPTIONS}
           visibleColumns={visibleColumns}
           onToggleColumn={onToggleColumn}
-          onResetToDefaults={onResetColumns}
-          groups={
-            assessmentColumns.selectorOptions.length > 0
-              ? [
-                  {
-                    label: (
-                      <FormattedMessage
-                        defaultMessage="Assessments"
-                        description="Section label for assessment columns in the traces table column selector"
-                      />
-                    ),
-                    options: assessmentColumns.selectorOptions,
-                    visibleIds: assessmentColumns.visibleIds,
-                    onToggle: assessmentColumns.toggle,
-                  },
-                ]
-              : undefined
-          }
+          onResetColumns={onResetColumns}
+          columnGroups={columnGroups}
+          sortColumnLabels={COLUMN_LABELS}
+          sort={sort}
+          dir={dir}
+          onSort={onSort}
+          density={density}
+          onDensityChange={onDensityChange}
         />
         {hasSelection && (
           <TracesV4ActionsButton

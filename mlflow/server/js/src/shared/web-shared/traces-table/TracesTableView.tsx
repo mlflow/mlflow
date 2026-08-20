@@ -61,6 +61,8 @@ export interface TracesTableViewProps {
   renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
   /** Hides the column with the given id — forwarded to the table's per-header menu. */
   onHideColumn: (columnId: string) => void;
+  /** Row-height density forwarded to the table (`'small'` = compact rows). Defaults to `'default'`. */
+  size?: 'default' | 'small';
 
   // Toolbar passthrough.
   searchValue: string;
@@ -187,6 +189,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onFilterByTag={props.onFilterByTag}
       renderRunName={props.renderRunName}
       onHideColumn={props.onHideColumn}
+      size={props.size}
     />
   );
 

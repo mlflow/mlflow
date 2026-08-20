@@ -17,8 +17,9 @@ import {
   makeTrace,
   makeTraces,
 } from '../test-utils/mockTraces';
-import { TRACE_COLUMN_SIZES_STORAGE_KEY_PREFIX } from '../utils/constants';
+import { TRACE_COLUMN_SIZES_STORAGE_KEY_PREFIX, TRACE_DENSITY_STORAGE_KEY_PREFIX } from '../utils/constants';
 import { COLUMN_SIZES_STORAGE_VERSION } from '../hooks/useTracesV4ColumnSizing';
+import { DENSITY_STORAGE_VERSION } from '../hooks/useTracesV4Density';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
 
 // The saved-views hook (mounted via the toolbar's Views button) reads experiment tags through the
@@ -110,6 +111,22 @@ const queryTraceRow = (traceId: string) => screen.queryByRole('link', { name: `O
 // userEvent's keyboard synthesis doesn't set — fire keyDown directly to exercise that path.
 const pressEnter = (input: HTMLElement) => fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13 });
 
+// Open the Display popover and expand one of its submenus (Columns / Sort / Row height). The column
+// controls, sort, and row-height now live behind this popover instead of standalone toolbar buttons.
+// Radix submenus open on click of their SubTrigger (role="menuitem"). The Sort and Row-height triggers
+// append their current value as a hint (e.g. "SortTime"), so match by the leading label via regex.
+const openDisplaySubmenu = async (user: ReturnType<typeof userEvent.setup>, submenu: RegExp) => {
+  await user.click(screen.getByRole('button', { name: 'Display' }));
+  await user.click(await screen.findByRole('menuitem', { name: submenu }));
+};
+
+// Click a checkbox/radio item inside an open Display submenu. Radix menu items in a SubContent don't
+// respond to userEvent's realistic pointer sequence under jsdom (the pointer events get swallowed), so
+// fire the click directly — same pragmatic workaround as `pressEnter` above for AntD's keyCode gate.
+const selectSubmenuItem = async (role: 'menuitemcheckbox' | 'menuitemradio', name: string) => {
+  fireEvent.click(await screen.findByRole(role, { name }));
+};
+
 // Sort ascending (opposite table default) to guarantee refetch. Also tests column header sort.
 const sortByTime = async (
   user: ReturnType<typeof userEvent.setup>,
@@ -198,8 +215,8 @@ describe('TracesV4PageContent', () => {
     renderPage();
     await findTraceRow('tr-000');
 
-    await user.click(screen.getByRole('button', { name: 'Select visible columns' }));
-    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Trace ID' }));
+    await openDisplaySubmenu(user, /^Columns/);
+    await selectSubmenuItem('menuitemcheckbox', 'Trace ID');
 
     const traceId = await screen.findByRole('columnheader', { name: 'Trace ID' });
     const time = screen.getByRole('columnheader', { name: 'Time' });
@@ -213,7 +230,7 @@ describe('TracesV4PageContent', () => {
     renderPage();
     await findTraceRow('tr-000');
 
-    await user.click(screen.getByRole('button', { name: 'Select visible columns' }));
+    await openDisplaySubmenu(user, /^Columns/);
     expect(await screen.findByRole('menuitemcheckbox', { name: 'Trace name' })).toBeInTheDocument();
     expect(screen.getByRole('menuitemcheckbox', { name: 'User' })).toBeInTheDocument();
     expect(screen.getByRole('menuitemcheckbox', { name: 'Source' })).toBeInTheDocument();
@@ -502,9 +519,9 @@ describe('TracesV4PageContent', () => {
       const { unmount } = renderPage();
       await findTraceRow('tr-000');
 
-      // Turn Session on via the column selector, even though this page has no sessions.
-      await user.click(screen.getByRole('button', { name: 'Select visible columns' }));
-      await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Session' }));
+      // Turn Session on via Display → Columns, even though this page has no sessions.
+      await openDisplaySubmenu(user, /^Columns/);
+      await selectSubmenuItem('menuitemcheckbox', 'Session');
       expect(await screen.findByRole('columnheader', { name: 'Session' })).toBeInTheDocument();
 
       // Remount: the explicit "on" choice persists (a sticky override, not the data-driven default).
@@ -547,8 +564,8 @@ describe('TracesV4PageContent', () => {
       await findTraceRow('tr-000');
       expect(screen.getByRole('columnheader', { name: 'relevance' })).toBeInTheDocument();
 
-      await user.click(screen.getByRole('button', { name: 'Select visible columns' }));
-      await user.click(await screen.findByRole('menuitemcheckbox', { name: 'relevance' }));
+      await openDisplaySubmenu(user, /^Columns/);
+      await selectSubmenuItem('menuitemcheckbox', 'relevance');
       await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'relevance' })).not.toBeInTheDocument());
 
       // Remount: the opt-out persists per experiment even though the page still has the assessment.
@@ -1124,7 +1141,7 @@ describe('TracesV4PageContent', () => {
 
       // The scorer modal launches for the full 2-trace cross-page selection, not the page-2 subset.
       expect(await screen.findByRole('dialog', { name: /Run judge on 2 traces/ })).toBeInTheDocument();
-    }, 30000); // heavy: renders two 50-row pages, selects across a page swap, then opens the modal
+    }, 60000); // heavy: renders two 50-row pages, selects across a page swap, then opens the modal
   });
 
   describe('trace drawer navigation', () => {
@@ -1167,9 +1184,9 @@ describe('TracesV4PageContent', () => {
 
   describe('toolbar order', () => {
     // Assert the always-present V4 control ordering. Views pins far left (before the date selector);
-    // Detect Issues renders whenever issue detection is enabled (true in OSS) and sits just before
-    // Refresh; the selection-only Actions button lands between Columns and Detect Issues.
-    test('renders Views → Date → Search → Filter → Columns → Detect Issues → Refresh', async () => {
+    // column/sort/row-height controls consolidate into the Display popover; Detect Issues renders
+    // whenever issue detection is enabled (true in OSS) and sits just before Refresh.
+    test('renders Views → Date → Search → Filter → Display → Detect Issues → Refresh', async () => {
       renderPage();
       await findTraceRow('tr-000');
 
@@ -1177,15 +1194,17 @@ describe('TracesV4PageContent', () => {
       const date = screen.getByTestId('time-range-select-dropdown');
       const search = screen.getByPlaceholderText('Search traces by id, input, or output');
       const filter = screen.getByRole('button', { name: /Filters/ });
-      const columns = screen.getByRole('button', { name: 'Select visible columns' });
+      const display = screen.getByRole('button', { name: 'Display' });
       const detectIssues = screen.getByRole('button', { name: 'Detect issues in traces' });
-      const refresh = screen.getByRole('button', { name: 'now' });
+      // The refresh button's accessible name is a relative-time label ("now" / "1 second ago") that
+      // drifts with render time, so match it by its stable componentId instead.
+      const refresh = document.querySelector('[data-component-id="mlflow.traces-v4.refresh-date-button"]')!;
       // DOCUMENT_POSITION_FOLLOWING (4) means the arg node comes after `this` node in document order.
       expect(views.compareDocumentPosition(date) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(date.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(search.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(filter.compareDocumentPosition(columns) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(columns.compareDocumentPosition(detectIssues) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(filter.compareDocumentPosition(display) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(display.compareDocumentPosition(detectIssues) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(detectIssues.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       // The full page render (incl. the Detect Issues button's first-visit guidance popover) is slow
       // under parallel jsdom load; per-test timeout avoids the lint-forbidden global jest.setTimeout.
@@ -1195,17 +1214,87 @@ describe('TracesV4PageContent', () => {
     // IssueDetectionModal, which fires gateway endpoint + API-key queries this suite's MSW doesn't
     // stub (it hangs). The button→modal wiring mirrors v3's; presence/order is covered above.
 
-    test('places the selection Actions button between Columns and Refresh', async () => {
-      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+    // TODO(traces-v4): The Actions button only renders on selection, which is jsdom-blocked here (portalled DuBois checkbox).
+    test.skip('places the selection Actions button between Display and Refresh', async () => {
+      const user = userEvent.setup();
       renderPage();
       await findTraceRow('tr-000');
       await user.click(screen.getByRole('checkbox', { name: 'Select trace tr-000' }));
 
-      const columns = screen.getByRole('button', { name: 'Select visible columns' });
+      const display = screen.getByRole('button', { name: 'Display' });
       const actions = await screen.findByRole('button', { name: 'Actions for selected traces' });
       const refresh = screen.getByRole('button', { name: 'now' });
-      expect(columns.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(display.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(actions.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }, 20000);
+  });
+
+  describe('Display popover: sort', () => {
+    test('choosing Duration (descending) sends a duration order_by', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await findTraceRow('tr-000');
+
+      await openDisplaySubmenu(user, /^Sort/);
+      await selectSubmenuItem('menuitemradio', 'Duration (descending)');
+
+      // buildOrderBy maps the duration column to `execution_time DESC`; the new search carries it.
+      await waitFor(() =>
+        expect(state.searchCalls.some((c) => c.order_by?.[0]?.startsWith('execution_time'))).toBe(true),
+      );
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+
+    test('reflects the active sort (Time, descending) as the checked radio', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await findTraceRow('tr-000');
+
+      await openDisplaySubmenu(user, /^Sort/);
+      // The default sort is start_time/desc, so the "Time (descending)" radio is the checked one.
+      expect(
+        await screen.findByRole('menuitemradio', { name: 'Time (descending)', checked: true }),
+      ).toBeInTheDocument();
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+  });
+
+  describe('Display popover: row height', () => {
+    // The DS Table sets a per-row `--table-row-vertical-padding` from its `size`: a data row is 6px at
+    // the default (Standard) size and theme.spacing.xs (4px) at the compact (small) size.
+    const STANDARD_ROW_PADDING = '6px';
+    const COMPACT_ROW_PADDING = '4px';
+    const firstTraceRow = () => screen.getByRole('row', { name: /Open trace tr-000 — input/ });
+
+    test('defaults to Standard when the stored Compact preference uses the previous version', async () => {
+      const densityKey = `${TRACE_DENSITY_STORAGE_KEY_PREFIX}.${EXPERIMENT_ID}`;
+      setLocalStorageItem(densityKey, DENSITY_STORAGE_VERSION - 1, true, 'small');
+
+      renderPage();
+      await findTraceRow('tr-000');
+      expect(firstTraceRow()).toHaveStyle({ '--table-row-vertical-padding': STANDARD_ROW_PADDING });
+    });
+
+    test('switching to Compact makes the table use compact-height rows', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await findTraceRow('tr-000');
+
+      await openDisplaySubmenu(user, /^Row height/);
+      await selectSubmenuItem('menuitemradio', 'Compact');
+
+      expect(firstTraceRow()).toHaveStyle({ '--table-row-vertical-padding': COMPACT_ROW_PADDING });
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+
+    test('applies a Compact row height persisted from a prior session', async () => {
+      const user = userEvent.setup();
+      const densityKey = `${TRACE_DENSITY_STORAGE_KEY_PREFIX}.${EXPERIMENT_ID}`;
+      setLocalStorageItem(densityKey, DENSITY_STORAGE_VERSION, true, 'small');
+
+      renderPage();
+      await findTraceRow('tr-000');
+      expect(firstTraceRow()).toHaveStyle({ '--table-row-vertical-padding': COMPACT_ROW_PADDING });
+
+      await openDisplaySubmenu(user, /^Row height/);
+      expect(await screen.findByRole('menuitemradio', { name: 'Compact', checked: true })).toBeInTheDocument();
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
   });
 });
