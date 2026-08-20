@@ -86,7 +86,10 @@ export {
   getSpansLocation,
   TRACKING_STORE_SPANS_LOCATION,
   RESULT_ASSESSMENT_NAME,
+  MLFLOW_SOURCE_RUN_KEY,
 } from './utils/TraceUtils';
+
+export { RunName } from './cellRenderers/RunName';
 
 export {
   INPUTS_COLUMN_ID,

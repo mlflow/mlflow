@@ -184,8 +184,12 @@ describe('TracesV4PageContent', () => {
     expect(screen.getByRole('columnheader', { name: 'Time' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'State' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Tokens' })).toBeInTheDocument();
-    // Trace ID is hidden by default (available via the column selector).
+    // Opt-in columns are hidden by default (available via the column selector).
     expect(screen.queryByRole('columnheader', { name: 'Trace ID' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Trace name' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'User' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Run name' })).not.toBeInTheDocument();
     // Per-test timeout (matching the file's other heavy renders): the full page render is slow under
     // parallel jsdom load and would otherwise flake against the default 5s ceiling.
   }, 20000);
@@ -204,6 +208,18 @@ describe('TracesV4PageContent', () => {
     // ID is the leftmost data column (left of Time). The row-select cell renders before both.
     expect(traceId.compareDocumentPosition(time) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   }, 20000);
+
+  test('offers the restored legacy columns in the column selector', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await findTraceRow('tr-000');
+
+    await user.click(screen.getByRole('button', { name: 'Select visible columns' }));
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'Trace name' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'User' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Source' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Run name' })).toBeInTheDocument();
+  });
 
   test('Next sends the second page token and shows the second page; Prev does not refetch', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });

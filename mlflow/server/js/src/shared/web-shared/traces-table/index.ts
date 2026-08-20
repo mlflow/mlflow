@@ -52,10 +52,14 @@ export {
 // Cell renderers (exported for consumers building custom columns / tests)
 export {
   TraceIdCell,
+  TraceNameCell,
   TraceInputCell,
   TraceOutputCell,
+  TraceUserCell,
   TraceSessionCell,
   TraceStateCell,
+  TraceSourceCell,
+  TraceRunNameCell,
   TraceStartTimeCell,
   TraceDurationCell,
   TraceTokensCell,

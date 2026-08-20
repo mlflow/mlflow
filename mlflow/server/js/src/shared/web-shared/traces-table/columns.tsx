@@ -2,18 +2,23 @@ import { FormattedMessage, type IntlShape } from '@databricks/i18n';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import { COLUMN_SIZES } from './constants';
+import { TRACE_COLUMN_LABELS } from './columnLabels';
 import type { SessionHrefGetter, TraceColumnId, TraceTableColumn } from './types';
 import {
   TraceCostCell,
   TraceDurationCell,
   TraceIdCell,
   TraceInputCell,
+  TraceNameCell,
   TraceOutputCell,
+  TraceRunNameCell,
   TraceSessionCell,
+  TraceSourceCell,
   TraceStartTimeCell,
   TraceStateCell,
   TraceTagsCell,
   TraceTokensCell,
+  TraceUserCell,
 } from './TraceCell';
 
 /**
@@ -27,6 +32,8 @@ export interface TracesTableMeta {
   getSessionHref?: SessionHrefGetter;
   /** Toggle a tag filter — wired to the tag pills in the Tags cell; absent → non-clickable pills. */
   onFilterByTag?: (key: string, value: string) => void;
+  /** Product-owned renderer for resolving an experiment-scoped run name. */
+  renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
 }
 
 export const getTableMeta = (context: CellContext<ModelTraceInfoV3, unknown>): TracesTableMeta =>
@@ -73,6 +80,12 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     },
   },
   {
+    id: 'trace_name',
+    ...COLUMN_SIZES.trace_name,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.trace_name} />,
+    cell: (ctx) => <TraceNameCell trace={ctx.row.original} />,
+  },
+  {
     id: 'start_time',
     ...COLUMN_SIZES.start_time,
     header: () => (
@@ -113,6 +126,12 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     },
   },
   {
+    id: 'user',
+    ...COLUMN_SIZES.user,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.user} />,
+    cell: (ctx) => <TraceUserCell trace={ctx.row.original} />,
+  },
+  {
     id: 'session',
     ...COLUMN_SIZES.session,
     header: () => (
@@ -133,6 +152,18 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.state,
     header: () => <FormattedMessage defaultMessage="State" description="Header for the traces table state column" />,
     cell: (ctx) => <TraceStateCell trace={ctx.row.original} />,
+  },
+  {
+    id: 'source',
+    ...COLUMN_SIZES.source,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.source} />,
+    cell: (ctx) => <TraceSourceCell trace={ctx.row.original} />,
+  },
+  {
+    id: 'run_name',
+    ...COLUMN_SIZES.run_name,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.run_name} />,
+    cell: (ctx) => <TraceRunNameCell trace={ctx.row.original} renderRunName={getTableMeta(ctx).renderRunName} />,
   },
   {
     id: 'tokens',

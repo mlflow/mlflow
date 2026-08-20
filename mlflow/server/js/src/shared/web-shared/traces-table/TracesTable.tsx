@@ -77,6 +77,8 @@ export interface TracesTableProps {
   getSessionHref?: SessionHrefGetter;
   /** Toggle a tag filter — wired to the tag pills in the Tags cell; absent → non-clickable pills. */
   onFilterByTag?: (key: string, value: string) => void;
+  /** Product-owned renderer for resolving an experiment-scoped run name. */
+  renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
   /** Hides the column with the given id — wired to the per-header menu's "Hide column" item. */
   onHideColumn: (columnId: string) => void;
 }
@@ -122,6 +124,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     onSort,
     getSessionHref,
     onFilterByTag,
+    renderRunName,
     onHideColumn,
   }: TracesTableProps) {
     const { theme } = useDesignSystemTheme();
@@ -132,8 +135,8 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     const columns = useMemo(() => getVisibleColumnDefs(visibleColumns, extraColumns), [visibleColumns, extraColumns]);
 
     const meta = useMemo<TracesTableMeta>(
-      () => ({ intl, onTraceSelected, getSessionHref, onFilterByTag }),
-      [intl, onTraceSelected, getSessionHref, onFilterByTag],
+      () => ({ intl, onTraceSelected, getSessionHref, onFilterByTag, renderRunName }),
+      [intl, onTraceSelected, getSessionHref, onFilterByTag, renderRunName],
     );
 
     const table = useReactTable_unverifiedWithReact18<ModelTraceInfoV3>('traces-table/TracesTable.tsx', {

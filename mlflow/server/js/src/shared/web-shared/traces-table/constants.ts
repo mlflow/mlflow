@@ -13,12 +13,16 @@ export const DEFAULT_PAGE_SIZE = 25;
  */
 export const TRACE_COLUMN_IDS = [
   'trace_id',
+  'trace_name',
   'start_time',
   'input',
   'output',
+  'user',
   'session',
   'duration',
   'state',
+  'source',
+  'run_name',
   'tokens',
   'cost',
   'tags',
@@ -55,12 +59,16 @@ export interface ColumnSizeSpec {
 }
 
 export const COLUMN_SIZES: Record<TraceColumnId, ColumnSizeSpec> = {
+  trace_name: { size: 180, minSize: 100, maxSize: 480 },
   start_time: { size: 120, minSize: 90, maxSize: 320 },
   input: { size: 360, minSize: 160, maxSize: 900 },
   output: { size: 360, minSize: 160, maxSize: 900 },
+  user: { size: 180, minSize: 100, maxSize: 480 },
   session: { size: 140, minSize: 100, maxSize: 480 },
   duration: { size: 100, minSize: 80, maxSize: 240 },
   state: { size: 96, minSize: 72, maxSize: 240 },
+  source: { size: 180, minSize: 100, maxSize: 480 },
+  run_name: { size: 180, minSize: 100, maxSize: 480 },
   trace_id: { size: 160, minSize: 100, maxSize: 480 },
   tokens: { size: 110, minSize: 80, maxSize: 220 },
   cost: { size: 110, minSize: 80, maxSize: 220 },
