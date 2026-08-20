@@ -50,6 +50,7 @@ export interface TracesTableViewProps {
   onSort: (column: TraceColumnId, direction: SortDirection) => void;
   getSessionHref?: SessionHrefGetter;
   onFilterByTag?: (key: string, value: string) => void;
+  renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
   /** Hides the column with the given id — forwarded to the table's per-header menu. */
   onHideColumn: (columnId: string) => void;
 
@@ -175,6 +176,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onSort={props.onSort}
       getSessionHref={props.getSessionHref}
       onFilterByTag={props.onFilterByTag}
+      renderRunName={props.renderRunName}
       onHideColumn={props.onHideColumn}
     />
   );

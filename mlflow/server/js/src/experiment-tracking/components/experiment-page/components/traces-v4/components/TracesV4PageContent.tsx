@@ -6,7 +6,12 @@ import {
   ModelTraceExplorerContextProvider,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
-import { doesTraceSupportV4API, GenAITracesTableProvider } from '@databricks/web-shared/genai-traces-table';
+import {
+  doesTraceSupportV4API,
+  GenAITracesTableProvider,
+  MLFLOW_SOURCE_RUN_KEY,
+  RunName,
+} from '@databricks/web-shared/genai-traces-table';
 import {
   EMPTY_FILTER_MODEL,
   TRACE_COLUMN_IDS,
@@ -184,6 +189,13 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     },
     [experimentId],
   );
+  const renderRunName = useCallback(
+    (trace: ModelTraceInfoV3) => {
+      const runUuid = trace.trace_metadata?.[MLFLOW_SOURCE_RUN_KEY];
+      return runUuid ? <RunName experimentId={experimentId} runUuid={runUuid} /> : undefined;
+    },
+    [experimentId],
+  );
   // Filter button "clear all": resets exactly what the count badge totals — the popover clauses AND
   // the URL tag filters — but leaves the search box (a separate control the badge doesn't count).
   const clearAllFilters = useCallback(() => {
@@ -308,6 +320,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
               onSort={url.setSort}
               getSessionHref={getSessionHref}
               onFilterByTag={controller.onFilterByTag}
+              renderRunName={renderRunName}
               onHideColumn={handleHideColumn}
               // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
               searchValue={searchInput.input}

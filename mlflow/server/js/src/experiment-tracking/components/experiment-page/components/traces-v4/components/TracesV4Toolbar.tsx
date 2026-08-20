@@ -46,13 +46,19 @@ export interface TracesV4ToolbarParams {
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
 // a column to `TraceColumnId` triggers a TypeScript exhaustiveness check on this map.
 const COLUMN_LABELS: Record<TraceColumnId, React.ReactNode> = {
+  trace_id: <FormattedMessage defaultMessage="Trace ID" description="Column selector label for the trace-id column" />,
+  trace_name: (
+    <FormattedMessage defaultMessage="Trace name" description="Column selector label for the trace-name column" />
+  ),
   start_time: <FormattedMessage defaultMessage="Time" description="Column selector label for the start-time column" />,
   input: <FormattedMessage defaultMessage="Input" description="Column selector label for the input column" />,
   output: <FormattedMessage defaultMessage="Output" description="Column selector label for the output column" />,
+  user: <FormattedMessage defaultMessage="User" description="Column selector label for the user column" />,
   session: <FormattedMessage defaultMessage="Session" description="Column selector label for the session column" />,
   duration: <FormattedMessage defaultMessage="Duration" description="Column selector label for the duration column" />,
   state: <FormattedMessage defaultMessage="State" description="Column selector label for the state column" />,
-  trace_id: <FormattedMessage defaultMessage="Trace ID" description="Column selector label for the trace-id column" />,
+  source: <FormattedMessage defaultMessage="Source" description="Column selector label for the source column" />,
+  run_name: <FormattedMessage defaultMessage="Run name" description="Column selector label for the run-name column" />,
   tokens: <FormattedMessage defaultMessage="Tokens" description="Column selector label for the tokens column" />,
   cost: <FormattedMessage defaultMessage="Cost" description="Column selector label for the cost column" />,
   tags: <FormattedMessage defaultMessage="Tags" description="Column selector label for the tags column" />,
@@ -60,6 +66,12 @@ const COLUMN_LABELS: Record<TraceColumnId, React.ReactNode> = {
 
 // Static per-column componentIds (the lint rule requires static ids). Canonical render order.
 const COLUMN_OPTIONS: ColumnSelectorOption[] = [
+  { id: 'trace_id', label: COLUMN_LABELS.trace_id, componentId: 'mlflow.traces-v4.column-selector.item.trace_id' },
+  {
+    id: 'trace_name',
+    label: COLUMN_LABELS.trace_name,
+    componentId: 'mlflow.traces-v4.column-selector.item.trace_name',
+  },
   {
     id: 'start_time',
     label: COLUMN_LABELS.start_time,
@@ -67,10 +79,16 @@ const COLUMN_OPTIONS: ColumnSelectorOption[] = [
   },
   { id: 'input', label: COLUMN_LABELS.input, componentId: 'mlflow.traces-v4.column-selector.item.input' },
   { id: 'output', label: COLUMN_LABELS.output, componentId: 'mlflow.traces-v4.column-selector.item.output' },
+  { id: 'user', label: COLUMN_LABELS.user, componentId: 'mlflow.traces-v4.column-selector.item.user' },
   { id: 'session', label: COLUMN_LABELS.session, componentId: 'mlflow.traces-v4.column-selector.item.session' },
   { id: 'duration', label: COLUMN_LABELS.duration, componentId: 'mlflow.traces-v4.column-selector.item.duration' },
   { id: 'state', label: COLUMN_LABELS.state, componentId: 'mlflow.traces-v4.column-selector.item.state' },
-  { id: 'trace_id', label: COLUMN_LABELS.trace_id, componentId: 'mlflow.traces-v4.column-selector.item.trace_id' },
+  { id: 'source', label: COLUMN_LABELS.source, componentId: 'mlflow.traces-v4.column-selector.item.source' },
+  {
+    id: 'run_name',
+    label: COLUMN_LABELS.run_name,
+    componentId: 'mlflow.traces-v4.column-selector.item.run_name',
+  },
   { id: 'tokens', label: COLUMN_LABELS.tokens, componentId: 'mlflow.traces-v4.column-selector.item.tokens' },
   { id: 'cost', label: COLUMN_LABELS.cost, componentId: 'mlflow.traces-v4.column-selector.item.cost' },
   { id: 'tags', label: COLUMN_LABELS.tags, componentId: 'mlflow.traces-v4.column-selector.item.tags' },
