@@ -41,7 +41,8 @@ def get_endpoint_type(endpoint_uri: str) -> str | None:
 
     endpoint = client.get_endpoint(path)
     # TODO: Standardize the return type of `get_endpoint` and remove this check
-    endpoint = endpoint.dict() if isinstance(endpoint, BaseModel) else endpoint
+    if isinstance(endpoint, BaseModel):
+        endpoint = endpoint.model_dump() if hasattr(endpoint, "model_dump") else endpoint.dict()
     return endpoint.get("task", endpoint.get("endpoint_type"))
 
 
@@ -71,11 +72,14 @@ def score_model_on_payload(
         )
 
     elif prefix == "endpoints":
-        from mlflow.deployments import get_deploy_client
-
         if isinstance(payload, str) and endpoint_type is None:
-            client = get_deploy_client()
-            endpoint_type = client.get_endpoint(suffix).endpoint_type
+            endpoint_type = get_endpoint_type(model_uri)
+            if endpoint_type is None:
+                raise MlflowException(
+                    f"Failed to infer endpoint type for '{model_uri}'. "
+                    "Please specify the endpoint type explicitly or provide a dictionary payload.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
         return call_deployments_api(suffix, payload, eval_parameters, endpoint_type)
     elif prefix in ("model", "runs"):
         # TODO: call _load_model_or_server
