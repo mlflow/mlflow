@@ -12,7 +12,14 @@ interface ServerInfoResponse {
   trace_archival_enabled: boolean;
   multipart_uploads_enabled: boolean;
   multipart_downloads_enabled: boolean;
+  features_enabled?: Record<FeatureKey, boolean>;
 }
+
+/**
+ * Valid keys for the `features_enabled` map in server-info.
+ * Add new entries here when introducing a new runtime feature toggle.
+ */
+export type FeatureKey = 'gateway';
 
 // Default response when the API call fails (e.g., older server without this endpoint)
 const DEFAULT_RESPONSE: ServerInfoResponse = {
@@ -122,6 +129,16 @@ export const getWorkspacesEnabledSync = (): boolean => {
 export const getMultipartDownloadsEnabledSync = (): boolean => {
   const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
   return cachedData?.multipart_downloads_enabled ?? false;
+};
+
+export const useFeatureEnabled = (key: FeatureKey, defaultValue = true): boolean => {
+  const { data } = useServerInfo();
+  return data?.features_enabled?.[key] ?? defaultValue;
+};
+
+export const getFeatureEnabledSync = (key: FeatureKey, defaultValue = true): boolean => {
+  const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
+  return cachedData?.features_enabled?.[key] ?? defaultValue;
 };
 
 // For testing purposes - allows resetting the cached state
