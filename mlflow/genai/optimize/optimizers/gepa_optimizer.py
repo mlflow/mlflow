@@ -155,8 +155,10 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 prompts_dict: Dictionary mapping prompt names to their templates.
                 tracking_enabled: Whether to log traces/metrics/params/artifacts during
                     optimization.
-                full_dataset_size: Size of the full training dataset, used to distinguish
-                    full validation passes from minibatch evaluations.
+                full_dataset_size: Size of the validation dataset (the custom ``valset``
+                    if one is passed via ``gepa_kwargs``, otherwise the training dataset,
+                    mirroring GEPA's own fallback), used to distinguish full validation
+                    passes from minibatch evaluations.
             """
 
             def __init__(self, eval_function, prompts_dict, tracking_enabled, full_dataset_size):
@@ -340,8 +342,16 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
                 return reflective_datasets
 
+        # GEPA runs full validation passes on `valset` when one is provided via
+        # gepa_kwargs, and falls back to `trainset` otherwise. The adapter must
+        # mirror that fallback, or full validation passes are never detected and
+        # per-iteration tracking is silently lost (see issue #24461).
+        valset = self.gepa_kwargs.get("valset")
         adapter = MlflowGEPAAdapter(
-            eval_fn, target_prompts, enable_tracking, full_dataset_size=len(train_data)
+            eval_fn,
+            target_prompts,
+            enable_tracking,
+            full_dataset_size=len(valset) if valset is not None else len(train_data),
         )
 
         kwargs = self.gepa_kwargs | {
