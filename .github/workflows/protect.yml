@@ -17,7 +17,13 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Don't let unrelated label changes (e.g., component/release-note labels) cancel an
+  # in-flight polling run. Only `unprotect` label events restart it.
+  cancel-in-progress: >-
+    ${{
+      github.event.action != 'labeled' && github.event.action != 'unlabeled' ||
+      github.event.label.name == 'unprotect'
+    }}
 
 defaults:
   run:
