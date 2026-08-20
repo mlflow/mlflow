@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.genai.evaluation.rate_limiter import NoOpRateLimiter, RPSRateLimiter
 from mlflow.genai.scorers.builtin_scorers import Completeness
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -527,3 +528,210 @@ def test_create_factory_method():
     assert isinstance(processor._trace_loader, OnlineTraceLoader)
     assert isinstance(processor._checkpoint_manager, OnlineTraceCheckpointManager)
     assert isinstance(processor._sampler, OnlineScorerSampler)
+
+
+# ── Rate limiting tests ──
+
+
+def test_execute_scoring_uses_aimd_rate_limiter_by_default(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured_limiter = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured_limiter["rate_limiter"] = rate_limiter
+        captured_limiter["max_retries"] = max_retries
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "auto")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert isinstance(captured_limiter["rate_limiter"], RPSRateLimiter)
+    assert captured_limiter["rate_limiter"]._adaptive is True
+
+
+def test_execute_scoring_uses_noop_rate_limiter_when_disabled(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured_limiter = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured_limiter["rate_limiter"] = rate_limiter
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert isinstance(captured_limiter["rate_limiter"], NoOpRateLimiter)
+
+
+def test_execute_scoring_passes_max_retries_from_env(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured["max_retries"] = max_retries
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_RETRIES", "5")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert captured["max_retries"] == 5
+
+
+def test_execute_scoring_uses_fixed_rate_limiter_for_numeric_rate(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured["rate_limiter"] = rate_limiter
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "25")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert isinstance(captured["rate_limiter"], RPSRateLimiter)
+    assert captured["rate_limiter"]._adaptive is False
+    assert captured["rate_limiter"]._rps == pytest.approx(25.0)
+
+
+def test_execute_scoring_wraps_in_eval_retry_context(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    """eval_retry_context() is entered once per trace from a worker thread, not the main thread."""
+    import threading
+
+    traces = [make_trace(f"tr-{i:03d}", 1000 + i * 100) for i in range(3)]
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [
+        make_trace_info(f"tr-{i:03d}", 1000 + i * 100) for i in range(3)
+    ]
+    mock_trace_loader.fetch_traces.return_value = traces
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    entered_threads: list[str] = []
+    main_thread_name = threading.current_thread().name
+
+    class _TrackingCtx:
+        def __enter__(self):
+            entered_threads.append(threading.current_thread().name)
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute,
+        patch(
+            "mlflow.genai.evaluation.rate_limiter.eval_retry_context",
+            side_effect=lambda: _TrackingCtx(),
+        ),
+    ):
+        mock_compute.return_value = MagicMock(assessments=[])
+        processor.process_traces()
+
+    # One context entry per trace
+    assert len(entered_threads) == 3
+    # Every entry happened on a worker thread, not the main thread
+    assert all(t != main_thread_name for t in entered_threads)
+
+
+def test_register_retry_adapter_deduplicates_by_name():
+    """Registering an adapter with an existing name replaces it; no duplicates accumulate."""
+    import contextlib
+
+    from mlflow.genai.judges.adapters.litellm_adapter import (
+        RateLimitRetryAdapter,
+        _RETRY_ADAPTER_REGISTRY,
+        register_retry_adapter,
+    )
+
+    original = list(_RETRY_ADAPTER_REGISTRY)
+    try:
+        adapter_v1 = RateLimitRetryAdapter(
+            name="test-dedup",
+            is_adapter_active=lambda: False,
+            disable_internal_retries=contextlib.nullcontext,
+        )
+        adapter_v2 = RateLimitRetryAdapter(
+            name="test-dedup",
+            is_adapter_active=lambda: True,
+            disable_internal_retries=contextlib.nullcontext,
+        )
+        register_retry_adapter(adapter_v1)
+        register_retry_adapter(adapter_v2)
+
+        names = [a.name for a in _RETRY_ADAPTER_REGISTRY]
+        assert names.count("test-dedup") == 1
+        match = next(a for a in _RETRY_ADAPTER_REGISTRY if a.name == "test-dedup")
+        # v2 should have replaced v1
+        assert match.is_adapter_active() is True
+    finally:
+        _RETRY_ADAPTER_REGISTRY[:] = original
