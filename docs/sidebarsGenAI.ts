@@ -114,6 +114,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/debug-with-traces',
+                  label: 'Debug Agents with Traces',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/observe-with-traces/archive-traces',
                   label: 'Archive Traces',
                 },
