@@ -1,10 +1,11 @@
-import { forwardRef, memo } from 'react';
+import { forwardRef, memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ArrowRightIcon,
   CheckCircleIcon,
   ClockIcon,
   HoverCard,
   Tag,
-  type TagColors,
+  TokenIcon,
   Tooltip,
   Typography,
   useDesignSystemTheme,
@@ -12,11 +13,17 @@ import {
 } from '@databricks/design-system';
 import type { CSSObject, Theme } from '@emotion/react';
 import { defineMessages, FormattedMessage, type IntlShape, useIntl } from '@databricks/i18n';
+import { CopyActionButton } from '../copy/CopyActionButton';
 import { getTimeAgoStrings } from '../browse/TimeAgo';
 import { formatCostUSD } from '../model-trace-explorer/CostUtils';
-import { getTraceCost, getTraceTokenUsage } from '../model-trace-explorer/ModelTraceExplorer.utils';
+import {
+  createTraceV4LongIdentifier,
+  getTraceCost,
+  getTraceTokenUsage,
+} from '../model-trace-explorer/ModelTraceExplorer.utils';
 import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
+import { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 import { getTraceInfoInputs, getTraceInfoOutputs } from '../genai-traces-table/utils/TraceUtils';
 import { Link } from '../genai-traces-table/utils/RoutingUtils';
 import type { SessionHrefGetter } from './types';
@@ -26,6 +33,15 @@ import { formatTraceDuration } from './formatTraceDuration';
 // requires every `componentId` to be statically determinable, so a runtime-injected prefix isn't
 // possible — an in-file const (resolved to a literal) is how these cells share a namespace.
 const COMPONENT_ID = 'web-shared.traces-table';
+const CELL_OVERLAY_MAX_WIDTH = 300;
+// DuBois icons are 16px by default and look oversized beside the small cell text. Size them via
+// `fontSize` (their SVG is 1em, so this scales the glyph and its line-box together — width/height
+// alone shrinks the glyph but leaves a 16px box, dropping it below the text).
+const CELL_ICON_SIZE = 13;
+
+const WrappedTooltipText = ({ children }: { children: React.ReactNode }) => (
+  <span css={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{children}</span>
+);
 
 /** Single-line truncation with trailing ellipsis. */
 const truncateCss: CSSObject = {
@@ -99,10 +115,8 @@ const EmptyValue = () => <Typography.Text color="secondary">-</Typography.Text>;
 interface TraceCellProps {
   trace: ModelTraceInfoV3;
   /**
-   * Opens the trace drawer for `trace`. A stable reference (the table's memoized `onTraceSelected`)
-   * so the memoized cell's props don't change per render; the per-trace closure is built *inside* the
-   * cell (`() => onSelect(trace)`), keeping the closure out of the parent's column def where a fresh
-   * `onActivate` each render would defeat `React.memo`.
+   * Opens the trace drawer for `trace`. Must be a stable reference so `React.memo` holds; the
+   * per-trace closure is built inside the cell, not baked into the column def.
    */
   onSelect: (trace: ModelTraceInfoV3) => void;
   accessibleLabel: string;
@@ -113,23 +127,67 @@ interface TraceTagsCellProps extends TraceCellProps {
   onFilterByTag?: (key: string, value: string) => void;
 }
 
-/** Trace id — plain monospace text (not a link), opens the drawer, full id in a tooltip. */
+/** Trace id — monospace text that opens the drawer on click, plus a hover-revealed copy button. */
 export const TraceIdCell: React.MemoExoticComponent<(props: TraceCellProps) => JSX.Element> = memo(
   function TraceIdCell({ trace, onSelect, accessibleLabel }: TraceCellProps) {
     const { theme } = useDesignSystemTheme();
+    // CopyActionButton keeps its "Copied" tooltip open 3s, which would linger over this
+    // hover-hidden button — so drive the tooltip here: open on hover/focus, brief flash on copy.
+    const [copyTooltipOpen, setCopyTooltipOpen] = useState(false);
+    const copiedFlashTimer = useRef<number>();
+    useEffect(() => () => window.clearTimeout(copiedFlashTimer.current), []);
+    const flashCopied = () => {
+      setCopyTooltipOpen(true);
+      window.clearTimeout(copiedFlashTimer.current);
+      copiedFlashTimer.current = window.setTimeout(() => setCopyTooltipOpen(false), 1000);
+    };
     return (
-      <Tooltip componentId={`${COMPONENT_ID}.cell.trace-id-tooltip`} content={trace.trace_id}>
-        <CellActivator
-          componentId={`${COMPONENT_ID}.cell.trace-id`}
-          onActivate={() => onSelect(trace)}
-          accessibleLabel={accessibleLabel}
-          css={{ display: 'block', width: '100%' }}
+      <span
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          width: '100%',
+          minWidth: 0,
+          '&:hover .trace-id-copy, &:focus-within .trace-id-copy': { opacity: 1 },
+        }}
+      >
+        <Tooltip
+          componentId={`${COMPONENT_ID}.cell.trace-id-tooltip`}
+          content={<WrappedTooltipText>{trace.trace_id}</WrappedTooltipText>}
+          maxWidth={CELL_OVERLAY_MAX_WIDTH}
         >
-          <span css={[truncateCss, { fontFamily: 'monospace', fontSize: theme.typography.fontSizeSm }]}>
-            {trace.trace_id}
-          </span>
-        </CellActivator>
-      </Tooltip>
+          <CellActivator
+            componentId={`${COMPONENT_ID}.cell.trace-id`}
+            onActivate={() => onSelect(trace)}
+            accessibleLabel={accessibleLabel}
+            css={{ display: 'block', flex: 1, minWidth: 0 }}
+          >
+            <span
+              css={[
+                truncateCss,
+                { fontFamily: 'monospace', fontSize: theme.typography.fontSizeSm, color: theme.colors.textPrimary },
+              ]}
+            >
+              {trace.trace_id}
+            </span>
+          </CellActivator>
+        </Tooltip>
+        {/* stopPropagation so copy doesn't open the drawer. Copy the full V4 identifier (SDK
+          requires the location prefix) when supported, else the bare id. */}
+        <span
+          className="trace-id-copy"
+          onClick={(event) => event.stopPropagation()}
+          css={{ flexShrink: 0, opacity: 0, transition: 'opacity 0.1s ease' }}
+        >
+          <CopyActionButton
+            componentId={`${COMPONENT_ID}.cell.trace-id-copy`}
+            copyText={doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id}
+            onCopy={flashCopied}
+            tooltipProps={{ open: copyTooltipOpen, onOpenChange: setCopyTooltipOpen }}
+          />
+        </span>
+      </span>
     );
   },
 );
@@ -146,13 +204,15 @@ const TracePreviewCell = ({
   accessibleLabel: string;
   componentId: string;
 }) => {
+  const { theme } = useDesignSystemTheme();
   if (!value) {
     return <EmptyValue />;
   }
   return (
     <Tooltip
       componentId={`${componentId}-tooltip`}
-      content={<span css={{ maxWidth: 480, whiteSpace: 'pre-wrap' }}>{value}</span>}
+      content={<WrappedTooltipText>{value}</WrappedTooltipText>}
+      maxWidth={CELL_OVERLAY_MAX_WIDTH}
     >
       <CellActivator
         componentId={componentId}
@@ -160,7 +220,9 @@ const TracePreviewCell = ({
         accessibleLabel={accessibleLabel}
         css={{ display: 'block', width: '100%' }}
       >
-        <span css={truncateCss}>{value}</span>
+        {/* Plain text color, not link-blue: the whole row is the click target, so the preview reads as
+          content rather than a link. */}
+        <span css={[truncateCss, { color: theme.colors.textPrimary }]}>{value}</span>
       </CellActivator>
     </Tooltip>
   );
@@ -199,38 +261,67 @@ interface TraceSessionCellProps {
 }
 
 /**
- * Session id from trace metadata as a Tag label — single-line truncated with the full id in the
- * tag's `title`; "-" when absent. The only product coupling is the *URL*: when `getSessionHref`
- * returns a `To`, the tag is wrapped in a `Link` (which `stopPropagation`s so clicking it navigates
- * instead of opening the trace drawer); otherwise the tag renders as plain text.
+ * Session id as flat truncated text (full id in a tooltip), "-" when absent. When `getSessionHref`
+ * returns a `To` the text is a `Link` to the session (stopPropagation so it doesn't open the drawer;
+ * Cmd/Ctrl-click still opens a new tab), with a hover-revealed arrow; otherwise plain text.
  */
 export const TraceSessionCell: React.MemoExoticComponent<(props: TraceSessionCellProps) => JSX.Element> = memo(
   function TraceSessionCell({ trace, getSessionHref }: TraceSessionCellProps) {
+    const { theme } = useDesignSystemTheme();
     const sessionId = trace.trace_metadata?.[SESSION_ID_METADATA_KEY];
     if (!sessionId) {
       return <EmptyValue />;
     }
-    const tag = (
-      <Tag componentId={`${COMPONENT_ID}.cell.session`} css={{ width: 'fit-content', maxWidth: '100%' }}>
-        <span css={truncateCss} title={sessionId}>
-          {sessionId}
-        </span>
-      </Tag>
-    );
+    const text = <span css={[truncateCss, { color: theme.colors.textPrimary }]}>{sessionId}</span>;
     const to = getSessionHref?.({ trace, sessionId });
     if (!to) {
-      return tag;
+      return (
+        <Tooltip
+          componentId={`${COMPONENT_ID}.cell.session-tooltip`}
+          content={<WrappedTooltipText>{sessionId}</WrappedTooltipText>}
+          maxWidth={CELL_OVERLAY_MAX_WIDTH}
+        >
+          <span css={{ display: 'block', maxWidth: '100%' }}>{text}</span>
+        </Tooltip>
+      );
     }
     return (
-      <Link componentId={`${COMPONENT_ID}.cell.session-link`} to={to} onClick={(event) => event.stopPropagation()}>
-        {tag}
-      </Link>
+      <Tooltip
+        componentId={`${COMPONENT_ID}.cell.session-tooltip`}
+        content={<WrappedTooltipText>{sessionId}</WrappedTooltipText>}
+        maxWidth={CELL_OVERLAY_MAX_WIDTH}
+      >
+        <span
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            width: '100%',
+            minWidth: 0,
+            '&:hover .session-jump, &:focus-within .session-jump': { opacity: 1 },
+            // The router Link renders an <a>; scope its layout here so Link only carries router props.
+            '& > a': { display: 'flex', alignItems: 'center', gap: theme.spacing.xs, minWidth: 0, flex: 1 },
+          }}
+        >
+          <Link componentId={`${COMPONENT_ID}.cell.session-link`} to={to} onClick={(event) => event.stopPropagation()}>
+            {text}
+            <ArrowRightIcon
+              className="session-jump"
+              css={{
+                flexShrink: 0,
+                fontSize: 12,
+                color: theme.colors.textSecondary,
+                opacity: 0,
+                transition: 'opacity 0.1s ease',
+              }}
+            />
+          </Link>
+        </span>
+      </Tooltip>
     );
   },
 );
 
-// State badge config — colored Tag + icon + label. STATE_UNSPECIFIED intentionally has no label;
-// those traces render `EmptyValue`.
+// Icon + label, no pill. STATE_UNSPECIFIED has no label — those traces render `EmptyValue`.
 const STATE_LABELS = defineMessages({
   IN_PROGRESS: {
     defaultMessage: 'In progress',
@@ -246,35 +337,41 @@ const STATE_LABELS = defineMessages({
   },
 });
 
-const stateTagColor = (state: ModelTraceInfoV3['state']): TagColors | undefined => {
-  if (state === 'IN_PROGRESS') {
-    return 'lemon';
-  }
-  if (state === 'OK') {
-    return 'teal';
-  }
-  if (state === 'ERROR') {
-    return 'coral';
-  }
-  return undefined;
-};
+export const getTraceStateLabel = (state: ModelTraceInfoV3['state'], intl: IntlShape): string =>
+  state && state !== 'STATE_UNSPECIFIED' ? intl.formatMessage(STATE_LABELS[state]) : '-';
 
-const stateIcon = (state: ModelTraceInfoV3['state'], theme: Theme) => {
+// DuBois icons apply their semantic `color` prop with `!important`; a plain `css={{ color }}` loses to
+// the icon's own default-color rule, so the color must go through the prop, not the `css`.
+const stateIcon = (state: ModelTraceInfoV3['state']) => {
   if (state === 'IN_PROGRESS') {
-    return <ClockIcon css={{ color: theme.colors.textValidationWarning, width: 14, height: 14 }} />;
+    return <ClockIcon color="warning" css={{ fontSize: CELL_ICON_SIZE }} />;
   }
   if (state === 'OK') {
-    return <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess, width: 14, height: 14 }} />;
+    return <CheckCircleIcon color="success" css={{ fontSize: CELL_ICON_SIZE }} />;
   }
   if (state === 'ERROR') {
-    return <XCircleIcon css={{ color: theme.colors.textValidationDanger, width: 14, height: 14 }} />;
+    return <XCircleIcon color="danger" css={{ fontSize: CELL_ICON_SIZE }} />;
   }
   return null;
 };
 
+// The label color matches its icon so the word and icon read as one colored status.
+const stateLabelColor = (state: ModelTraceInfoV3['state'], theme: Theme): string | undefined => {
+  if (state === 'IN_PROGRESS') {
+    return theme.colors.textValidationWarning;
+  }
+  if (state === 'OK') {
+    return theme.colors.textValidationSuccess;
+  }
+  if (state === 'ERROR') {
+    return theme.colors.textValidationDanger;
+  }
+  return undefined;
+};
+
 /**
- * Trace state as a colored badge: OK → teal check, ERROR → coral X (with the `error_message` on
- * hover when present), IN_PROGRESS → lemon clock. STATE_UNSPECIFIED renders "-".
+ * Trace state as icon + label (no pill): OK → green check, ERROR → red X (with the `error_message`
+ * on hover when present), IN_PROGRESS → amber clock. STATE_UNSPECIFIED renders "-".
  */
 export const TraceStateCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
   function TraceStateCell({ trace }: { trace: ModelTraceInfoV3 }) {
@@ -286,40 +383,42 @@ export const TraceStateCell: React.MemoExoticComponent<(props: { trace: ModelTra
       return <EmptyValue />;
     }
 
-    const tag = (
-      <Tag
-        color={stateTagColor(state)}
-        componentId={`${COMPONENT_ID}.cell.state`}
-        css={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content' }}
-      >
-        {stateIcon(state, theme)}
-        <span css={{ marginLeft: theme.spacing.xs }}>{intl.formatMessage(STATE_LABELS[state])}</span>
-      </Tag>
+    const badge = (
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm, maxWidth: '100%' }}>
+        {stateIcon(state)}
+        <span css={[truncateCss, { color: stateLabelColor(state, theme) }]}>
+          {intl.formatMessage(STATE_LABELS[state])}
+        </span>
+      </span>
     );
 
     // Surface the trace's error message on hover, but only on the error badge and only when a
-    // non-empty message is present. A focusable wrapper makes the tooltip keyboard-reachable (the
-    // non-interactive Tag renders with tabIndex={-1}). OSS's `ModelTraceInfoV3` doesn't declare a
-    // top-level `error_message` (its `SearchTracesV3` payload never sets one), so read it optionally
-    // — the tooltip stays latent until a backend populates it.
+    // non-empty message is present. A focusable wrapper makes the tooltip keyboard-reachable. OSS's
+    // `ModelTraceInfoV3` has no top-level `error_message` (its `SearchTracesV3` payload never sets
+    // one), so read it optionally through a cast rather than the typed field.
     const errorMessage = (trace as { error_message?: string }).error_message;
     if (state === 'ERROR' && errorMessage) {
       return (
-        <Tooltip componentId={`${COMPONENT_ID}.cell.state-error-tooltip`} content={errorMessage}>
+        <Tooltip
+          componentId={`${COMPONENT_ID}.cell.state-error-tooltip`}
+          content={<WrappedTooltipText>{errorMessage}</WrappedTooltipText>}
+          maxWidth={CELL_OVERLAY_MAX_WIDTH}
+        >
           <span role="button" tabIndex={0} css={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content' }}>
-            {tag}
+            {badge}
           </span>
         </Tooltip>
       );
     }
 
-    return tag;
+    return badge;
   },
 );
 
 /** Humanized "X ago" start time with the full datetime in a hover tooltip. */
 export const TraceStartTimeCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
   function TraceStartTimeCell({ trace }: { trace: ModelTraceInfoV3 }) {
+    const { theme } = useDesignSystemTheme();
     const intl = useIntl();
     const date = trace.request_time ? new Date(trace.request_time) : undefined;
     // Guard against a missing or unparseable timestamp so a malformed row renders "-" not "Invalid Date".
@@ -328,8 +427,13 @@ export const TraceStartTimeCell: React.MemoExoticComponent<(props: { trace: Mode
     }
     const { displayText, tooltipTitle } = getTimeAgoStrings({ date, intl });
     return (
-      <Tooltip componentId={`${COMPONENT_ID}.cell.start-time-tooltip`} content={tooltipTitle}>
-        <span css={truncateCss}>{displayText}</span>
+      <Tooltip
+        componentId={`${COMPONENT_ID}.cell.start-time-tooltip`}
+        content={<WrappedTooltipText>{tooltipTitle}</WrappedTooltipText>}
+        maxWidth={CELL_OVERLAY_MAX_WIDTH}
+      >
+        {/* Muted: the relative time is secondary to the row's content. */}
+        <span css={[truncateCss, { color: theme.colors.textSecondary }]}>{displayText}</span>
       </Tooltip>
     );
   },
@@ -342,20 +446,25 @@ export const TraceStartTimeCell: React.MemoExoticComponent<(props: { trace: Mode
  */
 export const TraceDurationCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
   function TraceDurationCell({ trace }: { trace: ModelTraceInfoV3 }) {
+    const { theme } = useDesignSystemTheme();
     if (!trace.execution_duration) {
       return <EmptyValue />;
     }
     const formatted = formatTraceDuration(trace.execution_duration) ?? trace.execution_duration;
+    const content = (
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm, maxWidth: '100%' }}>
+        <ClockIcon css={{ color: theme.colors.textSecondary, fontSize: CELL_ICON_SIZE }} />
+        <span css={truncateCss}>{formatted}</span>
+      </span>
+    );
     return (
-      <Tag
-        icon={<ClockIcon />}
-        componentId={`${COMPONENT_ID}.cell.duration`}
-        css={{ width: 'fit-content', maxWidth: '100%' }}
+      <Tooltip
+        componentId={`${COMPONENT_ID}.cell.duration-tooltip`}
+        content={<WrappedTooltipText>{trace.execution_duration}</WrappedTooltipText>}
+        maxWidth={CELL_OVERLAY_MAX_WIDTH}
       >
-        <span css={truncateCss} title={trace.execution_duration}>
-          {formatted}
-        </span>
-      </Tag>
+        {content}
+      </Tooltip>
     );
   },
 );
@@ -363,6 +472,7 @@ export const TraceDurationCell: React.MemoExoticComponent<(props: { trace: Model
 /** Total token count in a tag, with an input/output breakdown on hover. */
 export const TraceTokensCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
   function TraceTokensCell({ trace }: { trace: ModelTraceInfoV3 }) {
+    const { theme } = useDesignSystemTheme();
     // `getTraceTokenUsage` can return undefined when the metadata JSON is unparseable — guard so a
     // malformed row renders "-" instead of throwing.
     const usage = getTraceTokenUsage(trace) ?? {};
@@ -373,17 +483,22 @@ export const TraceTokensCell: React.MemoExoticComponent<(props: { trace: ModelTr
       usage.input_tokens !== undefined ? `Input ${usage.input_tokens}` : undefined,
       usage.output_tokens !== undefined ? `Output ${usage.output_tokens}` : undefined,
     ].filter(Boolean);
-    const tag = (
-      <Tag componentId={`${COMPONENT_ID}.cell.tokens`} css={{ width: 'fit-content', maxWidth: '100%' }}>
+    const content = (
+      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm, maxWidth: '100%' }}>
+        <TokenIcon css={{ color: theme.colors.textSecondary, fontSize: CELL_ICON_SIZE }} />
         <span css={truncateCss}>{usage.total_tokens}</span>
-      </Tag>
+      </span>
     );
     if (parts.length === 0) {
-      return tag;
+      return content;
     }
     return (
-      <Tooltip componentId={`${COMPONENT_ID}.cell.tokens-tooltip`} content={parts.join(' · ')}>
-        {tag}
+      <Tooltip
+        componentId={`${COMPONENT_ID}.cell.tokens-tooltip`}
+        content={<WrappedTooltipText>{parts.join(' · ')}</WrappedTooltipText>}
+        maxWidth={CELL_OVERLAY_MAX_WIDTH}
+      >
+        {content}
       </Tooltip>
     );
   },
@@ -401,17 +516,17 @@ export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTrac
       cost.input_cost !== undefined ? `Input ${formatCostUSD(cost.input_cost)}` : undefined,
       cost.output_cost !== undefined ? `Output ${formatCostUSD(cost.output_cost)}` : undefined,
     ].filter(Boolean);
-    const tag = (
-      <Tag componentId={`${COMPONENT_ID}.cell.cost`} css={{ width: 'fit-content', maxWidth: '100%' }}>
-        <span css={truncateCss}>{formatCostUSD(cost.total_cost)}</span>
-      </Tag>
-    );
+    const content = <span css={truncateCss}>{formatCostUSD(cost.total_cost)}</span>;
     if (parts.length === 0) {
-      return tag;
+      return content;
     }
     return (
-      <Tooltip componentId={`${COMPONENT_ID}.cell.cost-tooltip`} content={parts.join(' · ')}>
-        {tag}
+      <Tooltip
+        componentId={`${COMPONENT_ID}.cell.cost-tooltip`}
+        content={<WrappedTooltipText>{parts.join(' · ')}</WrappedTooltipText>}
+        maxWidth={CELL_OVERLAY_MAX_WIDTH}
+      >
+        {content}
       </Tooltip>
     );
   },

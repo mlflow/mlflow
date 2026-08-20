@@ -2,8 +2,13 @@ import { useCallback, useMemo } from 'react';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useArrayMemo, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import type { GenericColumnOption, TraceTableColumn } from '@databricks/web-shared/traces-table';
-import { assessmentColumnId, assessmentNameFromColumnId, computeAssessmentColumns } from '../utils/assessmentColumns';
-import { buildAssessmentColumnDefs } from '../utils/buildAssessmentColumnDefs';
+import {
+  assessmentColumnId,
+  assessmentNameFromColumnId,
+  computeAssessmentColumns,
+  getAssessmentColumnType,
+} from '../utils/assessmentColumns';
+import { buildAssessmentColumnDefs, type AssessmentColumn } from '../utils/buildAssessmentColumnDefs';
 import { TRACE_ASSESSMENT_COLUMN_STORAGE_KEY_PREFIX } from '../utils/constants';
 
 // Bump when the stored schema changes so stale entries reset.
@@ -50,7 +55,12 @@ export const useTracesV4AssessmentColumns = (
   const candidateNames = useArrayMemo(selection.candidateNames);
   const visibleNames = useArrayMemo(selection.visibleNames);
 
-  const columnDefs = useMemo(() => buildAssessmentColumnDefs(visibleNames), [visibleNames]);
+  const assessmentColumns = useMemo<AssessmentColumn[]>(
+    () => visibleNames.map((name) => ({ name, type: getAssessmentColumnType(traces, name) })),
+    [visibleNames, traces],
+  );
+
+  const columnDefs = useMemo(() => buildAssessmentColumnDefs(assessmentColumns), [assessmentColumns]);
   const visibleIds = useMemo(() => visibleNames.map(assessmentColumnId), [visibleNames]);
   const selectorOptions = useMemo<GenericColumnOption[]>(
     () =>

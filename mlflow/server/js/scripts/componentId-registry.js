@@ -2133,6 +2133,7 @@ module.exports = {
   "mlflow.traces-v4.actions.delete": "",
   "mlflow.traces-v4.actions.run-judges": "",
   "mlflow.traces-v4.actions.trigger": "",
+  "mlflow.traces-v4.assessment-cell.error": "",
   "mlflow.traces-v4.bulk-delete-confirm-modal": "",
   "mlflow.traces-v4.bulk-delete-error": "",
   "mlflow.traces-v4.column-selector.item.cost": "",
