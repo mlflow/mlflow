@@ -10,6 +10,12 @@ from detect_flaky_tests import FRAMEWORKS
 def test_retry_mechanisms_cover_exactly_the_detect_frameworks():
     # The two registries live in different modules; a mismatch would let `--framework X`
     # pass argparse in detect and then KeyError in classify. Keep them locked together.
+    #
+    # This intentionally duplicates the module-level assert in classify_flaky_tests.py:
+    # the assert is the real guard (it fires at import, failing fast anywhere the module
+    # loads), while this test exists to give a readable pytest diff of the offending keys.
+    # If the assert ever fires on drift, importing classify here raises and this test
+    # errors too — which is the intended signal, just surfaced through the test runner.
     assert RETRY_MECHANISMS.keys() == FRAMEWORKS.keys()
 
 
