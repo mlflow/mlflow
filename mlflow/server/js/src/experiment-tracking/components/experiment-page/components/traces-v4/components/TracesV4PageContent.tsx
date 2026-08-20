@@ -31,6 +31,7 @@ import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tra
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
 import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
+import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
 import { TracesV4TraceDrawer } from './TracesV4TraceDrawer';
@@ -69,6 +70,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   const controller = useTracesV4Controller({ experimentId });
   const { url, page, columns, assessments, columnSizing, traceCount, bulk, searchInput, filterModel, flags } =
     controller;
+  const { density, setDensity } = useTracesV4Density(experimentId);
 
   // Saved views (URL-first): the hook reads/writes view tags and drives the `cols`+share-key preview
   // overlay. While a shared view is applied, its previewed columns render INSTEAD of the user's own
@@ -245,6 +247,11 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     onToggleColumn: toggleColumn,
     onResetColumns: resetColumns,
     assessmentColumns: assessments,
+    sort: url.sort,
+    dir: url.dir,
+    onSort: url.setSort,
+    density,
+    onDensityChange: setDensity,
     selectionCount: bulk.selected.size,
     onBulkDelete: openDelete,
     isDeleteDisabled: controller.isDeleteDisabled,
@@ -327,6 +334,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
               sort={url.sort}
               dir={url.dir}
               onSort={url.setSort}
+              size={density}
               getTraceHref={getTraceHref}
               getSessionHref={getSessionHref}
               onFilterByTag={controller.onFilterByTag}

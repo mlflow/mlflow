@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Button, ChevronDownIcon, ColumnsIcon, DropdownMenu } from '@databricks/design-system';
+import { Button, ColumnsIcon, DropdownMenu, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import type { TraceColumnId } from './types';
 
@@ -60,34 +60,52 @@ export const TraceColumnSelector: React.FC<TraceColumnSelectorProps> = ({
   groups,
 }: TraceColumnSelectorProps) => {
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
   const visible = new Set(visibleColumns);
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <Button
-          componentId={`${COMPONENT_ID}.column-selector.trigger`}
-          icon={<ColumnsIcon />}
-          endIcon={<ChevronDownIcon />}
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Select visible columns',
-            description: 'Aria label for the column-selector dropdown trigger on the traces table',
-          })}
-        >
-          <FormattedMessage
-            defaultMessage="Columns ({visible}/{total})"
-            description="Column-selector trigger label showing visible columns out of total available"
-            values={{ visible: visibleColumns.length, total: columns.length }}
+    // Non-modal so the open menu doesn't aria-hide / scroll-lock the table behind it — the grid stays
+    // visible and interactive while columns are toggled (and it keeps the menu from trapping focus).
+    <DropdownMenu.Root modal={false}>
+      <Tooltip
+        componentId={`${COMPONENT_ID}.column-selector.trigger.tooltip`}
+        content={intl.formatMessage(
+          {
+            defaultMessage: 'Columns ({visible}/{total})',
+            description: 'Column-selector trigger tooltip showing visible columns out of total available',
+          },
+          { visible: visibleColumns.length, total: columns.length },
+        )}
+      >
+        <DropdownMenu.Trigger asChild>
+          <Button
+            componentId={`${COMPONENT_ID}.column-selector.trigger`}
+            icon={<ColumnsIcon />}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Select visible columns',
+              description: 'Aria label for the column-selector dropdown trigger on the traces table',
+            })}
+            // Icon-only DS Buttons are intentionally borderless: Button runs its `border: none` through
+            // importantify AND puts it on the `&.<prefix>-btn-icon-only` selector (0,2,0). Beating that needs
+            // BOTH `!important` (to tie its importance) AND higher specificity — `&&&` (0,3,0) wins the tie.
+            // Restores the toolbar border (matching the search box) via a theme token, so it adapts to light + dark.
+            css={{ '&&&': { border: `1px solid ${theme.colors.actionDefaultBorderDefault} !important` } }}
           />
-        </Button>
-      </DropdownMenu.Trigger>
+        </DropdownMenu.Trigger>
+      </Tooltip>
       <DropdownMenu.Content align="end">
         {columns.map(({ id, label, componentId }) => (
           <DropdownMenu.CheckboxItem
             key={id}
             componentId={componentId}
             checked={visible.has(id)}
-            onCheckedChange={() => onToggleColumn(id)}
+            // Toggle in onSelect (not onCheckedChange) and preventDefault so the menu stays open across
+            // changes — several columns can be toggled in one visit. preventDefault here also suppresses
+            // onCheckedChange in this Radix version, so the explicit onToggleColumn call is what fires.
+            onSelect={(event) => {
+              event.preventDefault();
+              onToggleColumn(id);
+            }}
           >
             <DropdownMenu.ItemIndicator />
             {label}
@@ -104,7 +122,10 @@ export const TraceColumnSelector: React.FC<TraceColumnSelectorProps> = ({
                   key={id}
                   componentId={componentId}
                   checked={groupVisible.has(id)}
-                  onCheckedChange={() => group.onToggle(id)}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    group.onToggle(id);
+                  }}
                 >
                   <DropdownMenu.ItemIndicator />
                   {label}

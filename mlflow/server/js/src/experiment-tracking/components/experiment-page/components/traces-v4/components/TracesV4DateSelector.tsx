@@ -174,7 +174,6 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
   const button = (
     <Button
       type="tertiary"
-      icon={isFetching ? <SyncIcon spin /> : <RefreshIcon />}
       componentId="mlflow.traces-v4.refresh-date-button"
       disabled={isFetching}
       onClick={() => {
@@ -189,15 +188,31 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
         },
       }}
     >
-      {!isFetching && (
-        <Typography.Text color="secondary">
-          <FormattedRelativeTime
-            value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
-            numeric="auto"
-            updateIntervalInSeconds={10}
-          />
-        </Typography.Text>
-      )}
+      {/* One fixed-width slot for both states so the toolbar never shifts. Settled: refresh icon + the
+          "X min ago" text, left-aligned. Fetching: just the spinner, pushed flush right (flex-end). */}
+      <Typography.Text
+        color="secondary"
+        css={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          minWidth: theme.spacing.xl * 3,
+          justifyContent: isFetching ? 'flex-end' : 'flex-start',
+        }}
+      >
+        {isFetching ? (
+          <SyncIcon spin />
+        ) : (
+          <>
+            <RefreshIcon />
+            <FormattedRelativeTime
+              value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
+              numeric="auto"
+              updateIntervalInSeconds={10}
+            />
+          </>
+        )}
+      </Typography.Text>
     </Button>
   );
 
