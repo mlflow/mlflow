@@ -1329,3 +1329,43 @@ async def test_astream_allowlisted_command_runs_without_prompt(provider):
     assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
     mock_tool.assert_awaited_once()
     assert events[-1].type == EventType.DONE
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_arguments", ["[]", "null", "123", '"just a string"'])
+async def test_astream_non_dict_tool_arguments_does_not_abort_turn(provider, bad_arguments):
+    # Regression guard: a model can emit syntactically valid JSON for a tool call's
+    # "arguments" that isn't an object (e.g. "[]" or "null"). json.loads decodes this
+    # without raising, so the existing "except json.JSONDecodeError: tool_input = {}"
+    # never fires, and the non-dict value used to reach ToolUseBlock's pydantic
+    # validation (input must be a dict) and static_permission_error's tool_input.get(...)
+    # calls uncaught, aborting the turn with an ERROR event instead of a normal tool
+    # result. tool_input must be normalized to a dict right after parsing.
+    turn1 = [
+        _sse(
+            _delta(
+                tool_calls=[
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "function": {"name": "Bash", "arguments": bad_arguments},
+                    }
+                ]
+            )
+        ),
+        b"data: [DONE]\n",
+    ]
+    turn2 = [_sse(_delta(content="Done")), b"data: [DONE]\n"]
+    session, _ = _make_aiohttp_session([turn1, turn2])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [
+            e
+            async for e in provider.astream(
+                "go", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+    assert not any(e.type == EventType.ERROR for e in events)
+    assert events[-1].type == EventType.DONE
