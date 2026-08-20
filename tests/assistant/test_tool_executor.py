@@ -113,6 +113,20 @@ def test_read_non_string_path_denied_not_raised(workspace):
     assert "Permission denied" in result
 
 
+def test_non_dict_tool_input_denied_not_raised():
+    # Regression guard: the model's function-call "arguments" string is parsed with
+    # json.loads and passed through as tool_input unchanged. Any syntactically valid
+    # JSON that isn't an object (e.g. "[]", "null") reaches static_permission_error as
+    # a list/None/etc., and every check there calls tool_input.get(...), which would
+    # raise AttributeError instead of returning a denial. Must be caught regardless of
+    # tool_name, since Read/Write/Edit/Bash all call tool_input.get(...) the same way.
+    for tool_name in ("Bash", "Read", "Write", "Edit"):
+        for bad_input in ([], None, "not a dict", 123):
+            result, is_error = _run(execute_tool(tool_name, bad_input, cwd=None))
+            assert is_error
+            assert "Permission denied" in result
+
+
 def test_bash_python_denied_without_cwd():
     # Regression guard for GHSA-27c7-qx3r-x4f8: without a configured project
     # directory (cwd=None), python/python3 must be denied. Bash previously

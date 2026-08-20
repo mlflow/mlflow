@@ -52,6 +52,15 @@ def static_permission_error(
     if perms.full_access:
         return None
 
+    if not isinstance(tool_input, dict):
+        # The model's function-call "arguments" string is parsed with json.loads and
+        # passed through as-is (mlflow/assistant/providers/openai_compatible.py); any
+        # syntactically valid JSON that isn't an object (e.g. "[]", "null", "\"x\"")
+        # reaches here unchanged, and every check below calls tool_input.get(...),
+        # which would raise AttributeError on a non-dict value rather than returning a
+        # denial.
+        return "Permission denied: malformed tool input"
+
     if tool_name == "Bash":
         command = tool_input.get("command", "")
         if not isinstance(command, str):
