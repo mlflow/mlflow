@@ -174,6 +174,11 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     query_metrics,
     validate_query_trace_metrics_params,
 )
+from mlflow.store.tracking.utils.sql_trace_rollups import (
+    order_and_limit_data_points,
+    resolve_rollup_read,
+    serve_rollup_read,
+)
 from mlflow.store.tracking.utils.trace_analytics import (
     COST_COLUMN_BY_KEY,
     PROMOTED_TRACE_METADATA_KEYS,
@@ -4352,33 +4357,65 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             experiment_ids_int = self._filter_experiment_ids(
                 session, [int(exp_id) for exp_id in experiment_ids]
             )
-            if view_type == MetricViewType.ASSESSMENTS:
-                query = session.query(SqlAssessments).filter(
-                    SqlAssessments.experiment_id.in_(experiment_ids_int)
-                )
-                timestamp_column = SqlAssessments.trace_timestamp_ms
-            else:
-                query = self._trace_query(session).filter(
-                    SqlTraceInfo.experiment_id.in_(experiment_ids_int)
-                )
-                timestamp_column = SqlTraceInfo.timestamp_ms
 
-            if start_time_ms is not None:
-                query = query.filter(timestamp_column >= start_time_ms)
-            if end_time_ms is not None:
-                query = query.filter(timestamp_column <= end_time_ms)
+            def raw_range_query(range_start_ms: int | None, range_end_ms: int | None):
+                if view_type == MetricViewType.ASSESSMENTS:
+                    query = session.query(SqlAssessments).filter(
+                        SqlAssessments.experiment_id.in_(experiment_ids_int)
+                    )
+                    timestamp_column = SqlAssessments.trace_timestamp_ms
+                else:
+                    query = self._trace_query(session).filter(
+                        SqlTraceInfo.experiment_id.in_(experiment_ids_int)
+                    )
+                    timestamp_column = SqlTraceInfo.timestamp_ms
+                if range_start_ms is not None:
+                    query = query.filter(timestamp_column >= range_start_ms)
+                if range_end_ms is not None:
+                    query = query.filter(timestamp_column <= range_end_ms)
+                return query
 
-            data_points = query_metrics(
+            def raw_range_points(range_start_ms: int | None, range_end_ms: int | None):
+                return query_metrics(
+                    view_type=view_type,
+                    db_type=self.db_type,
+                    query=raw_range_query(range_start_ms, range_end_ms),
+                    metric_name=metric_name,
+                    aggregations=aggregations,
+                    dimensions=dimensions,
+                    filters=filters,
+                    time_interval_seconds=time_interval_seconds,
+                    max_results=max_results,
+                )
+
+            # Opt-in fast path: serve whole covered UTC days from precomputed rollups and query only
+            # the partial-day edges (and any not-yet-built days) raw. resolve_rollup_read returns
+            # None whenever rollups are disabled or the request is not exactly rollup-servable, so
+            # the raw path below stays authoritative and results match the rollups-disabled case.
+            plan = resolve_rollup_read(
                 view_type=view_type,
-                db_type=self.db_type,
-                query=query,
                 metric_name=metric_name,
                 aggregations=aggregations,
                 dimensions=dimensions,
                 filters=filters,
                 time_interval_seconds=time_interval_seconds,
-                max_results=max_results,
+                start_time_ms=start_time_ms,
+                end_time_ms=end_time_ms,
+                experiment_ids=experiment_ids_int,
+                db_type=self.db_type,
             )
+            served = serve_rollup_read(session, plan) if plan is not None else None
+
+            if served is not None:
+                rollup_points, raw_ranges = served
+                data_points = list(rollup_points)
+                for range_start_ms, range_end_ms in raw_ranges:
+                    data_points.extend(raw_range_points(range_start_ms, range_end_ms))
+                # Match the single-query raw path: order by time bucket (then grouping dimensions)
+                # and apply the global max_results after merging rollup and raw sub-range results.
+                data_points = order_and_limit_data_points(data_points, max_results)
+            else:
+                data_points = raw_range_points(start_time_ms, end_time_ms)
 
             # TODO: Implement pagination with page_token
             return PagedList(data_points, None)
