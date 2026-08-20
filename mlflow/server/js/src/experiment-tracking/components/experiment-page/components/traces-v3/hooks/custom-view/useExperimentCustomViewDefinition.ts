@@ -18,7 +18,6 @@ import {
   textCompressDeflate,
   textDecompressDeflate,
 } from '../../../../../../../common/utils/StringUtils';
-import { hasDemoVersionTag } from '../../../../../../utils/isDemoExperiment';
 
 type ExperimentTag = { key: string; value: string };
 
@@ -82,9 +81,6 @@ const serializeViewForTag = async (view: CustomView): Promise<string> => {
 export type ExperimentCustomViewDefinition = {
   views: CustomView[];
   isLoaded: boolean;
-  // True when this experiment was created by the demo seeder. The host uses it
-  // to auto-select the first saved view so the seeded sample is visible.
-  isDemoExperiment: boolean;
   // Undefined (no experiment scope) → the host falls back to a session-local,
   // non-persisting engine.
   persistView?: (view: CustomView) => Promise<void>;
@@ -104,7 +100,7 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
   const { data, isLoading } = useQuery({
     queryKey,
     enabled: Boolean(experimentId),
-    queryFn: async (): Promise<{ views: CustomView[]; isDemoExperiment: boolean }> => {
+    queryFn: async (): Promise<CustomView[]> => {
       const response = await MlflowService.getExperiment({ experiment_id: experimentId });
       const tags: ExperimentTag[] = response?.experiment?.tags ?? [];
       const customViewTags = tags.filter((tag) => tag.key.startsWith(CUSTOM_VIEW_TAG_PREFIX));
@@ -114,10 +110,7 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
       const parsed = await Promise.all(
         customViewTags.map((tag) => deserializeView(tag.key.slice(CUSTOM_VIEW_PREFIX_V1.length), tag.value)),
       );
-      return {
-        views: parsed.sort((a, b) => a.createdAtMs - b.createdAtMs),
-        isDemoExperiment: hasDemoVersionTag(tags),
-      };
+      return parsed.sort((a, b) => a.createdAtMs - b.createdAtMs);
     },
   });
 
@@ -151,9 +144,8 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
   );
 
   return {
-    views: data?.views ?? [],
+    views: data ?? [],
     isLoaded: experimentId ? !isLoading : true,
-    isDemoExperiment: data?.isDemoExperiment ?? false,
     persistView: experimentId ? persistView : undefined,
     deleteView: experimentId ? deleteView : undefined,
   };

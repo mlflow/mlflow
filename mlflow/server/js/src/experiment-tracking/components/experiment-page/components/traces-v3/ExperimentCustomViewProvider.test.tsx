@@ -121,7 +121,6 @@ describe('ExperimentCustomViewProvider', () => {
     mockUseExperimentCustomViewDefinition.mockReturnValue({
       views: [],
       isLoaded: true,
-      isDemoExperiment: false,
     });
     mockCanEdit = { canEdit: true, isLoading: false };
     mockGetCurrentApplierSessionId.mockReturnValue('session-1');
@@ -140,7 +139,6 @@ describe('ExperimentCustomViewProvider', () => {
     mockUseExperimentCustomViewDefinition.mockReturnValue({
       views: [],
       isLoaded: true,
-      isDemoExperiment: false,
       persistView,
       deleteView,
     });
@@ -152,15 +150,9 @@ describe('ExperimentCustomViewProvider', () => {
     expect(capturedDefinitionProviderProps?.onPersistView).toBe(persistView);
     expect(capturedDefinitionProviderProps?.onDeleteView).toBe(deleteView);
     expect(capturedDefinitionProviderProps?.canModifyPersistedViews).toBe(false);
-    expect(capturedDefinitionProviderProps?.autoSelectFirstView).toBe(false);
   });
 
-  it('auto-selects the first saved view on a demo experiment', () => {
-    mockUseExperimentCustomViewDefinition.mockReturnValue({
-      views: [],
-      isLoaded: true,
-      isDemoExperiment: true,
-    });
+  it('enables auto-selecting the first saved view for every experiment (not gated on demo experiments)', () => {
     makeAssistant();
     renderProvider();
 

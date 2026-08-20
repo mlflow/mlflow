@@ -46,8 +46,7 @@ export const ExperimentCustomViewProvider = ({
   experimentId?: string;
   children: ReactNode;
 }) => {
-  const { views, isLoaded, isDemoExperiment, persistView, deleteView } =
-    useExperimentCustomViewDefinition(experimentId);
+  const { views, isLoaded, persistView, deleteView } = useExperimentCustomViewDefinition(experimentId);
   const { canEdit: canModifyPersistedViews } = useCanEditExperimentCustomViews(experimentId);
   const {
     openPanel,
@@ -135,7 +134,10 @@ export const ExperimentCustomViewProvider = ({
         onPersistView={persistView}
         onDeleteView={deleteView}
         canModifyPersistedViews={canModifyPersistedViews}
-        autoSelectFirstView={isDemoExperiment}
+        // Every experiment with saved views defaults to its first one on load. With
+        // no saved views this is a no-op: the host's "Build a custom trace view"
+        // authoring prompt (create-first-view empty state) shows unchanged.
+        autoSelectFirstView
       >
         {children}
       </CustomViewDefinitionProvider>

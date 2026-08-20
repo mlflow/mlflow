@@ -161,7 +161,7 @@ export const useCustomViewDefinitionState = (
   // `initialViews` reference after mount, even if `isLoaded` was already true).
   // Once the user diverges (creates / saves / deletes a view) we stop, so a later refetch
   // can't clobber unsaved local edits. The active selection is left untouched
-  // unless `autoSelectFirstView` is set (demo experiment: show the seeded view).
+  // unless `autoSelectFirstView` is set (see the auto-select effect below).
   //
   // We only re-adopt when `initialViews` is a genuinely new reference (callers
   // must pass a stable/memoized array): setting state on every render would loop.
@@ -182,8 +182,11 @@ export const useCustomViewDefinitionState = (
     activeViewIdRef.current = activeViewId;
   }, [activeViewId]);
 
-  // Demo experiments auto-select the first persisted view on first load so the
-  // seeded sample renders immediately. Skip once the user has diverged (draft,
+  // When `autoSelectFirstView` is set, auto-select the first persisted view on
+  // first load so a saved view renders immediately instead of the "select a
+  // view" placeholder the host shows when views exist but none is chosen. With
+  // no saved views this is a no-op (the host renders its create-first-view
+  // authoring empty state instead). Skip once the user has diverged (draft,
   // delete, explicit selection) so we never steal a later empty state.
   useEffect(() => {
     if (
