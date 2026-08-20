@@ -418,6 +418,34 @@ def test_entity_associations_are_workspace_scoped(workspace_tracking_store):
         assert reverse.to_list() == []
 
 
+def test_filter_entity_ids_and_experiment_ids_use_integer_bind_params(workspace_tracking_store):
+    # Regression test for https://github.com/mlflow/mlflow/issues/25188: experiment_id
+    # must be bound as an integer (matching the INTEGER column type), not a string, or
+    # backends like PostgreSQL reject the comparison with "operator does not exist:
+    # integer = character varying".
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_tracking_store.create_experiment("filter-entity-ids-exp")
+
+        with workspace_tracking_store.ManagedSessionMaker() as session:
+            filtered_experiment_ids = workspace_tracking_store._filter_experiment_ids(
+                session, [exp_id]
+            )
+            assert filtered_experiment_ids == [int(exp_id)]
+
+            filtered_entity_ids = workspace_tracking_store._filter_entity_ids(
+                session, EntityAssociationType.EXPERIMENT, [exp_id]
+            )
+            assert filtered_entity_ids == [exp_id]
+
+            compiled = (
+                session
+                .query(SqlExperiment.experiment_id)
+                .filter(SqlExperiment.experiment_id.in_([int(exp_id)]))
+                .statement.compile(compile_kwargs={"literal_binds": True})
+            )
+            assert f"experiments.experiment_id IN ({exp_id})" in str(compiled)
+
+
 def test_artifact_locations_are_scoped_to_workspace(workspace_tracking_store):
     with WorkspaceContext("team-alpha"):
         exp_id = workspace_tracking_store.create_experiment("alpha-exp")
