@@ -28,6 +28,7 @@ import { getTraceInfoInputs, getTraceInfoOutputs } from '../genai-traces-table/u
 import { Link } from '../genai-traces-table/utils/RoutingUtils';
 import { SourceCellRenderer } from '../genai-traces-table/cellRenderers/Source/SourceRenderer';
 import type { SessionHrefGetter } from './types';
+import type { To } from 'react-router';
 import { formatTraceDuration } from './formatTraceDuration';
 
 // Module-local static analytics-id namespace. The `@databricks/no-dynamic-property-value` lint rule
@@ -111,6 +112,55 @@ const CellActivator = forwardRef<HTMLSpanElement, CellActivatorProps>(function C
   );
 });
 
+interface TraceActivatorProps extends React.HTMLAttributes<HTMLElement> {
+  to?: To;
+  onActivate: () => void;
+  accessibleLabel: string;
+  componentId: string;
+  children: React.ReactNode;
+  css?: CSSObject;
+}
+
+const TraceActivator = forwardRef<HTMLElement, TraceActivatorProps>(function TraceActivator(
+  { to, onActivate, accessibleLabel, componentId, children, css, ...rest },
+  ref,
+) {
+  if (to) {
+    return (
+      <Link
+        {...rest}
+        ref={ref as React.Ref<HTMLAnchorElement>}
+        componentId={`${componentId}-link`}
+        to={to}
+        aria-label={accessibleLabel}
+        css={css ? [ACTIVATOR_BASE_CSS, css] : ACTIVATOR_BASE_CSS}
+        onClick={(event) => {
+          // Prevent plain left-click from following the link; only modified clicks (Cmd/Ctrl-click)
+          // or middle-click should navigate in a new tab. Plain clicks open the drawer instead.
+          if (!event.metaKey && !event.ctrlKey && !event.shiftKey && event.button === 0) {
+            event.preventDefault();
+            onActivate();
+          }
+        }}
+      >
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <CellActivator
+      {...(rest as React.HTMLAttributes<HTMLSpanElement>)}
+      ref={ref as React.Ref<HTMLSpanElement>}
+      componentId={componentId}
+      onActivate={onActivate}
+      accessibleLabel={accessibleLabel}
+      css={css}
+    >
+      {children}
+    </CellActivator>
+  );
+});
+
 const EmptyValue = () => <Typography.Text color="secondary">-</Typography.Text>;
 
 const TraceTextCell = ({ value }: { value?: string }) => {
@@ -159,6 +209,8 @@ export const TraceRunNameCell = ({
 
 interface TraceCellProps {
   trace: ModelTraceInfoV3;
+  // eslint-disable-next-line react/no-unused-prop-types -- forwarded by each cell to the shared link activator
+  to?: To;
   /**
    * Opens the trace drawer for `trace`. Must be a stable reference so `React.memo` holds; the
    * per-trace closure is built inside the cell, not baked into the column def.
@@ -172,9 +224,9 @@ interface TraceTagsCellProps extends TraceCellProps {
   onFilterByTag?: (key: string, value: string) => void;
 }
 
-/** Trace id — monospace text that opens the drawer on click, plus a hover-revealed copy button. */
+/** Trace id — monospace text that links when a destination is provided, with the full id in a tooltip. */
 export const TraceIdCell: React.MemoExoticComponent<(props: TraceCellProps) => JSX.Element> = memo(
-  function TraceIdCell({ trace, onSelect, accessibleLabel }: TraceCellProps) {
+  function TraceIdCell({ trace, onSelect, accessibleLabel, to }: TraceCellProps) {
     const { theme } = useDesignSystemTheme();
     // CopyActionButton keeps its "Copied" tooltip open 3s, which would linger over this
     // hover-hidden button — so drive the tooltip here: open on hover/focus, brief flash on copy.
@@ -202,7 +254,8 @@ export const TraceIdCell: React.MemoExoticComponent<(props: TraceCellProps) => J
           content={<WrappedTooltipText>{trace.trace_id}</WrappedTooltipText>}
           maxWidth={CELL_OVERLAY_MAX_WIDTH}
         >
-          <CellActivator
+          <TraceActivator
+            to={to}
             componentId={`${COMPONENT_ID}.cell.trace-id`}
             onActivate={() => onSelect(trace)}
             accessibleLabel={accessibleLabel}
@@ -216,7 +269,7 @@ export const TraceIdCell: React.MemoExoticComponent<(props: TraceCellProps) => J
             >
               {trace.trace_id}
             </span>
-          </CellActivator>
+          </TraceActivator>
         </Tooltip>
         {/* stopPropagation so copy doesn't open the drawer. Copy the full V4 identifier (SDK
           requires the location prefix) when supported, else the bare id. */}
@@ -237,17 +290,19 @@ export const TraceIdCell: React.MemoExoticComponent<(props: TraceCellProps) => J
   },
 );
 
-/** One-line text preview cell (input / output). Full value on hover; opens the drawer on click. */
+/** One-line text preview cell (input / output). Full value on hover; links when a destination is provided. */
 const TracePreviewCell = ({
   value,
   onActivate,
   accessibleLabel,
   componentId,
+  to,
 }: {
   value: string;
   onActivate: () => void;
   accessibleLabel: string;
   componentId: string;
+  to?: To;
 }) => {
   const { theme } = useDesignSystemTheme();
   if (!value) {
@@ -259,7 +314,8 @@ const TracePreviewCell = ({
       content={<WrappedTooltipText>{value}</WrappedTooltipText>}
       maxWidth={CELL_OVERLAY_MAX_WIDTH}
     >
-      <CellActivator
+      <TraceActivator
+        to={to}
         componentId={componentId}
         onActivate={onActivate}
         accessibleLabel={accessibleLabel}
@@ -268,32 +324,34 @@ const TracePreviewCell = ({
         {/* Plain text color, not link-blue: the whole row is the click target, so the preview reads as
           content rather than a link. */}
         <span css={[truncateCss, { color: theme.colors.textPrimary }]}>{value}</span>
-      </CellActivator>
+      </TraceActivator>
     </Tooltip>
   );
 };
 
 export const TraceInputCell: React.MemoExoticComponent<(props: TraceCellProps) => JSX.Element> = memo(
-  function TraceInputCell({ trace, onSelect, accessibleLabel }: TraceCellProps) {
+  function TraceInputCell({ trace, onSelect, accessibleLabel, to }: TraceCellProps) {
     return (
       <TracePreviewCell
         value={getTraceInfoInputs(trace)}
         onActivate={() => onSelect(trace)}
         accessibleLabel={accessibleLabel}
         componentId={`${COMPONENT_ID}.cell.input`}
+        to={to}
       />
     );
   },
 );
 
 export const TraceOutputCell: React.MemoExoticComponent<(props: TraceCellProps) => JSX.Element> = memo(
-  function TraceOutputCell({ trace, onSelect, accessibleLabel }: TraceCellProps) {
+  function TraceOutputCell({ trace, onSelect, accessibleLabel, to }: TraceCellProps) {
     return (
       <TracePreviewCell
         value={getTraceInfoOutputs(trace)}
         onActivate={() => onSelect(trace)}
         accessibleLabel={accessibleLabel}
         componentId={`${COMPONENT_ID}.cell.output`}
+        to={to}
       />
     );
   },

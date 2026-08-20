@@ -3,7 +3,14 @@
 // hooks are an opt-in fetch layer the presentational components never import.
 
 // Types
-export type { TraceColumnId, SortDirection, PageSize, TraceTableColumn, SessionHrefGetter } from './types';
+export type {
+  TraceColumnId,
+  SortDirection,
+  PageSize,
+  TraceTableColumn,
+  SessionHrefGetter,
+  TraceHrefGetter,
+} from './types';
 
 // Constants
 export {
