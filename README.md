@@ -304,7 +304,7 @@ MLflow can be used in a variety of environments, including your local environmen
 ## 💭 Support
 
 - For help or questions about MLflow usage (e.g. "how do I do X?") visit the [documentation](https://mlflow.org/docs/latest).
-- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the right bottom.
+- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the bottom right.
 - Join the [virtual events](https://lu.ma/mlflow?k=c) like office hours and meetups.
 - To report a bug, file a documentation issue, or submit a feature request, please [open a GitHub issue](https://github.com/mlflow/mlflow/issues/new/choose).
 - For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
