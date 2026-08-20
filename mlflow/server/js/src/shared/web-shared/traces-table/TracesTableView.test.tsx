@@ -88,6 +88,18 @@ describe('TracesTableView', () => {
     expect(screen.getByText(/Rows per page/)).toBeInTheDocument();
   });
 
+  test('renders paginationLeadingContent at the start of the pagination bar', async () => {
+    await renderWithProviders(
+      <TracesTableView
+        {...baseProps({ viewState: 'ready', paginationLeadingContent: <button type="button">count-slot</button> })}
+      />,
+    );
+    const leading = screen.getByRole('button', { name: 'count-slot' });
+    // "Rows per page" is unique to the pagination bar; the leading slot renders there, ahead of it.
+    const pageSizeLabel = screen.getByText(/Rows per page/);
+    expect(leading.compareDocumentPosition(pageSizeLabel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   test('customEmptyState short-circuits the viewState region but keeps the toolbar', async () => {
     await renderWithProviders(
       <TracesTableView {...baseProps({ viewState: 'empty', customEmptyState: <div>pick-a-warehouse</div> })} />,

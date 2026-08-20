@@ -22,6 +22,8 @@ export interface TracesPaginationBarProps {
   /** Cursor affordances derived from the token cache — drive the prev/next enabled state. */
   hasNext: boolean;
   hasPrev: boolean;
+  /** Optional content pinned to the left of the bar (e.g. a result-count label), opposite the controls. */
+  leadingContent?: React.ReactNode;
 }
 
 /**
@@ -36,6 +38,7 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
   onPageSizeChange,
   hasNext,
   hasPrev,
+  leadingContent,
 }: TracesPaginationBarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -50,6 +53,9 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
         minHeight: theme.general.heightSm,
       }}
     >
+      {/* `marginRight: auto` pushes the rest of the row flush right, so leading content sits at the
+          far left of the same bar without a wrapping flex layer. */}
+      {leadingContent ? <span css={{ marginRight: 'auto' }}>{leadingContent}</span> : null}
       <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Typography.Text color="secondary" size="sm">
           <FormattedMessage

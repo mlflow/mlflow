@@ -32,6 +32,17 @@ const noop = () => {};
 // requires `componentId` values to be static, so a runtime-injected prefix isn't possible).
 const COMPONENT_ID = 'web-shared.traces-table';
 
+// TableSkeleton and TableRow both reduce their vertical spacing in small tables. Compact loading
+// rows are therefore 25px tall versus 33px at the default size, so rendering the same count leaves
+// the bottom of the table blank. Scale the compact count to preserve the default skeleton height.
+const STANDARD_SKELETON_ROW_HEIGHT = 33;
+const COMPACT_SKELETON_ROW_HEIGHT = 25;
+
+const getRenderedSkeletonRowCount = (skeletonRowCount: number, size: 'default' | 'small') =>
+  size === 'small'
+    ? Math.ceil((skeletonRowCount * STANDARD_SKELETON_ROW_HEIGHT) / COMPACT_SKELETON_ROW_HEIGHT)
+    : skeletonRowCount;
+
 // Input/Output are the fill columns: each takes grow factor 1 so any leftover container width is
 // split equally between them (no dead whitespace on the right), with `maxWidth: unset` so the cap
 // can't block that growth. Every other column stays fixed-width — it occupies exactly its (possibly
@@ -92,6 +103,8 @@ export interface TracesTableProps {
   renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
   /** Hides the column with the given id — wired to the per-header menu's "Hide column" item. */
   onHideColumn: (columnId: string) => void;
+  /** Row-height density passed to the DS `Table` (`'small'` = compact rows). Defaults to `'default'`. */
+  size?: 'default' | 'small';
 }
 
 // The V4 long identifier is the selection key: the consumer stores the same id when a row is opened,
@@ -138,6 +151,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     onFilterByTag,
     renderRunName,
     onHideColumn,
+    size = 'default',
   }: TracesTableProps) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
@@ -223,6 +237,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     }, [table, isResizingColumn, onColumnSizingSettled]);
 
     const leafHeaders = table.getLeafHeaders();
+    const renderedSkeletonRowCount = getRenderedSkeletonRowCount(skeletonRowCount, size);
 
     // Pin every row to the summed width of the visible columns so its hover/selected background spans
     // the full horizontal extent, not just the visible viewport. A DuBois `scrollable` Table makes the
@@ -281,7 +296,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       >
         {/* `scrollable` makes the DuBois Table the scroll container (both axes), which is what activates
           its sticky-header CSS; `flex: 1` gives it a bounded height from the flex parent to scroll within. */}
-        <Table scrollable css={{ flex: 1 }} someRowsSelected={isAllOnPageSelected || isSomeOnPageSelected}>
+        <Table scrollable size={size} css={{ flex: 1 }} someRowsSelected={isAllOnPageSelected || isSomeOnPageSelected}>
           <TableRow isHeader css={headerRowCss} style={rowWidthStyle}>
             <TableRowSelectCell
               componentId={`${COMPONENT_ID}.row-select-all`}
@@ -327,7 +342,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           </TableRow>
 
           {isLoading
-            ? Array.from({ length: skeletonRowCount }, (_, i) => (
+            ? Array.from({ length: renderedSkeletonRowCount }, (_, i) => (
                 <TableRow key={`skeleton-${i}`} css={selectCellAlign} style={rowWidthStyle}>
                   <TableRowSelectCell componentId={`${COMPONENT_ID}.row-select.skeleton`} noCheckbox />
                   {leafHeaders.map((header) => (

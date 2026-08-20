@@ -61,6 +61,8 @@ export interface TracesTableViewProps {
   renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
   /** Hides the column with the given id — forwarded to the table's per-header menu. */
   onHideColumn: (columnId: string) => void;
+  /** Row-height density forwarded to the table (`'small'` = compact rows). Defaults to `'default'`. */
+  size?: 'default' | 'small';
 
   // Toolbar passthrough.
   searchValue: string;
@@ -82,6 +84,8 @@ export interface TracesTableViewProps {
   onPageSizeChange: (pageSize: PageSize) => void;
   hasNext: boolean;
   hasPrev: boolean;
+  /** Content pinned to the left of the pagination bar (e.g. a result-count label). */
+  paginationLeadingContent?: React.ReactNode;
 
   // State handling.
   /** Clear active search/filters — wired to the no-results state's clear affordance. */
@@ -137,7 +141,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
     hasPrev,
   } = props;
 
-  const { PaginationBarWrapper } = props;
+  const { PaginationBarWrapper, paginationLeadingContent } = props;
   const paginationBarInner = (
     <TracesPaginationBar
       pageIndex={pageIndex}
@@ -146,6 +150,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onPageSizeChange={onPageSizeChange}
       hasNext={hasNext}
       hasPrev={hasPrev}
+      leadingContent={paginationLeadingContent}
     />
   );
   // Wrap the bar in the consumer's obstruction-aware shell when provided (else render it bare).
@@ -180,6 +185,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onFilterByTag={props.onFilterByTag}
       renderRunName={props.renderRunName}
       onHideColumn={props.onHideColumn}
+      size={props.size}
     />
   );
 

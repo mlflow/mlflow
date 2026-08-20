@@ -31,6 +31,7 @@ import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tra
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
 import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
+import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
 import { TracesV4TraceDrawer } from './TracesV4TraceDrawer';
@@ -69,6 +70,7 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
 
   const controller = useTracesV4Controller({ experimentId, storageUCSchema });
   const { url, page, columns, assessments, columnSizing, bulk, searchInput, filterModel, flags } = controller;
+  const { density, setDensity } = useTracesV4Density(experimentId);
 
   // Saved views (URL-first): the hook reads/writes view tags and drives the `cols`+share-key preview
   // overlay. While a shared view is applied, its previewed columns render INSTEAD of the user's own
@@ -245,10 +247,20 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
     onToggleColumn: toggleColumn,
     onResetColumns: resetColumns,
     assessmentColumns: assessments,
+    sort: url.sort,
+    dir: url.dir,
+    onSort: url.setSort,
+    density,
+    onDensityChange: setDensity,
     selectionCount: bulk.selected.size,
     onBulkDelete: openDelete,
     isDeleteDisabled: controller.isDeleteDisabled,
     isRefreshing: page.isFetching && !page.isLoading,
+    isFetching: page.isFetching,
+    shownCount: page.traces.length,
+    // Cursor search has no total; a single page (no next AND no prev) means the shown rows are the
+    // whole set, so we can show "N of N" — otherwise fall back to "N of many".
+    isTotalKnown: !page.hasNext && !page.hasPrev,
     experimentId,
     actions,
     selectedTraceInfos,
@@ -327,6 +339,7 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
               sort={url.sort}
               dir={url.dir}
               onSort={url.setSort}
+              size={density}
               getTraceHref={getTraceHref}
               getSessionHref={getSessionHref}
               onFilterByTag={controller.onFilterByTag}
@@ -340,6 +353,7 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
               searchInputRef={searchInputRef}
               leftControls={toolbarSlots.leftControls}
               rightControls={toolbarSlots.rightControls}
+              paginationLeadingContent={toolbarSlots.paginationLeadingContent}
               bannerSlot={
                 <>
                   <TracesV4SharedViewBanner savedViews={savedViews} />

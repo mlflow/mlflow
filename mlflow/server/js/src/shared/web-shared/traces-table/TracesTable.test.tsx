@@ -110,10 +110,16 @@ describe('TracesTable', () => {
     expect(screen.queryByRole('columnheader', { name: /Duration/ })).not.toBeInTheDocument();
   });
 
-  test('renders skeleton rows (not real rows) while loading', async () => {
-    await renderWithProviders(<TracesTable {...baseProps({ isLoading: true, skeletonRowCount: 5 })} />);
+  test('renders the requested number of skeleton rows at the default size', async () => {
+    await renderWithProviders(<TracesTable {...baseProps({ isLoading: true, skeletonRowCount: 25 })} />);
     // Real row content (the input preview text) is absent during the skeleton.
     expect(screen.queryByText('request for tr-000')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('row')).toHaveLength(26);
+  });
+
+  test('renders enough compact skeleton rows to match the default-size loading height', async () => {
+    await renderWithProviders(<TracesTable {...baseProps({ isLoading: true, skeletonRowCount: 25, size: 'small' })} />);
+    expect(screen.getAllByRole('row')).toHaveLength(34);
   });
 
   test('clicking a row calls onTraceSelected with that trace', async () => {

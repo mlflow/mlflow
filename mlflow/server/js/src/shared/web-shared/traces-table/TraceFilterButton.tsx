@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Button,
+  ChevronDownIcon,
   CloseSmallIcon,
   DialogCombobox,
   DialogComboboxContent,
@@ -15,7 +16,9 @@ import {
   Popover,
   SimpleSelect,
   SimpleSelectOption,
+  Tooltip,
   Typography,
+  XCircleFillIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
@@ -343,6 +346,14 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
   }, [open, filterModel, fields]);
 
   const hasActiveFilters = activeCount > 0;
+  const anchorRef = useRef<HTMLDivElement>(null);
+
+  // The buttons drive the popover via a controlled toggle (Popover.Anchor positions it) so a click
+  // while open closes it. But the buttons live outside Radix's Content, so an open-state click first
+  // triggers Radix's outside-interaction auto-close, then our toggle reopens it — a close→reopen
+  // flicker. `onInteractOutside` below preventDefaults interactions that land on the anchor pill, so
+  // our toggle is the single source of truth for those clicks.
+  const toggleOpen = () => setOpen((prev) => !prev);
 
   const changeClause = (index: number, next: FilterClause) =>
     setDraft((prev) => prev.map((clause, i) => (i === index ? next : clause)));
@@ -368,39 +379,112 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
 
   return (
     <Popover.Root componentId={`${COMPONENT_ID}.filter.popover`} open={open} onOpenChange={setOpen}>
-      {/* Trigger + clear are siblings (not clear nested inside the trigger button): nesting an
-          interactive control inside a <button> is invalid a11y and, in the browser, the inner click
-          bubbles to the trigger and toggles the popover instead of clearing. */}
-      <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
-        <Popover.Trigger asChild>
-          <Button
-            componentId={`${COMPONENT_ID}.filter.trigger`}
-            icon={<FilterIcon />}
-            css={{
-              border: hasActiveFilters ? `1px solid ${theme.colors.actionDefaultBorderFocus} !important` : undefined,
-              backgroundColor: hasActiveFilters ? `${theme.colors.actionDefaultBackgroundHover} !important` : undefined,
-            }}
-          >
-            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-              <FormattedMessage defaultMessage="Filters" description="Label for the traces table filter button" />
-              {hasActiveFilters && <Typography.Text color="secondary">({activeCount})</Typography.Text>}
-            </span>
-          </Button>
-        </Popover.Trigger>
-        {hasActiveFilters && (
-          <Button
-            componentId={`${COMPONENT_ID}.filter.clear-all`}
-            type="tertiary"
-            icon={<CloseSmallIcon />}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Clear all filters',
-              description: 'Aria label for the clear-all-filters button next to the traces filter button',
-            })}
-            onClick={clearAll}
-          />
-        )}
-      </div>
-      <Popover.Content align="end" css={{ padding: theme.spacing.md }}>
+      {/* Two states share one bordered wrapper so the visible border is owned in one place (the child DS
+          Buttons are borderless tertiary). Inactive: an icon-only funnel with a tooltip, matching the
+          Columns control. Active: a pill reading funnel + "Filters" (N), then the clear (×), then the
+          chevron last. Trigger and clear stay siblings — nesting an interactive control inside the
+          trigger <button> is invalid a11y and bubbles the clear click back into toggling the popover. */}
+      {/* Popover.Anchor (not Trigger) positions the content; the buttons drive `open` themselves via a
+          controlled toggle so clicking while open closes it (a second Trigger would be read as an
+          outside-click then reopen, causing a flicker). The child DS Buttons keep their default type
+          (gray icon, not tertiary-blue) and the wrapper owns the single visible border + active fill. */}
+      <Popover.Anchor asChild>
+        <div
+          ref={anchorRef}
+          css={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            borderRadius: theme.borders.borderRadiusSm,
+            border: `1px solid ${
+              hasActiveFilters ? theme.colors.actionDefaultBorderFocus : theme.colors.actionDefaultBorderDefault
+            }`,
+            backgroundColor: hasActiveFilters ? theme.colors.actionDefaultBackgroundHover : undefined,
+            '& > button': {
+              border: 'none !important',
+              boxShadow: 'none !important',
+              backgroundColor: 'transparent !important',
+            },
+          }}
+        >
+          {hasActiveFilters ? (
+            <>
+              <Button
+                componentId={`${COMPONENT_ID}.filter.trigger`}
+                icon={<FilterIcon />}
+                onClick={toggleOpen}
+                // Popover.Anchor (unlike Trigger) adds no ARIA, so announce the popover state ourselves.
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                // The DS label padding `4px 12px` is importantified, so the override needs `!important` (plus
+                // `&&&` specificity) to win. Trim the right side below 12px so the × sits closer to (N).
+                css={{ '&&&': { paddingRight: '6px !important' } }}
+              >
+                <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  <FormattedMessage defaultMessage="Filters" description="Label for the traces table filter button" />
+                  <Typography.Text color="secondary">({activeCount})</Typography.Text>
+                </span>
+              </Button>
+              <Button
+                componentId={`${COMPONENT_ID}.filter.clear-all`}
+                icon={<XCircleFillIcon />}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Clear all filters',
+                  description: 'Aria label for the clear-all-filters button next to the traces filter button',
+                })}
+                onClick={clearAll}
+                // Icon-only DS Buttons are forced to a fixed square width (`width: heightSm`), which leaves a
+                // big empty box around the glyph. Unset that, but keep a modest side padding so the × has a
+                // comfortable click target (rather than hugging the glyph exactly).
+                css={{ '&&&': { width: 'auto !important', minWidth: '0 !important', paddingLeft: 4, paddingRight: 4 } }}
+              />
+              <Button
+                componentId={`${COMPONENT_ID}.filter.chevron`}
+                icon={<ChevronDownIcon />}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Toggle filters',
+                  description: 'Aria label for the chevron that toggles the traces filter popover',
+                })}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                onClick={toggleOpen}
+                css={{ '&&&': { width: 'auto !important', minWidth: '0 !important', paddingLeft: 2, paddingRight: 2 } }}
+              />
+            </>
+          ) : (
+            <Tooltip
+              componentId={`${COMPONENT_ID}.filter.trigger.tooltip`}
+              content={intl.formatMessage({
+                defaultMessage: 'Filters',
+                description: 'Tooltip for the traces table filter button',
+              })}
+            >
+              <Button
+                componentId={`${COMPONENT_ID}.filter.trigger`}
+                icon={<FilterIcon />}
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Filters',
+                  description: 'Aria label for the traces table filter button',
+                })}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                onClick={toggleOpen}
+              />
+            </Tooltip>
+          )}
+        </div>
+      </Popover.Anchor>
+      <Popover.Content
+        align="end"
+        css={{ padding: theme.spacing.md }}
+        // Clicks on the anchor pill (the toggle buttons) must not trigger Radix's outside-close, or the
+        // close races our onClick toggle and reopens — a flicker. Let our toggle own those clicks.
+        onInteractOutside={(event) => {
+          const target = event.detail.originalEvent.target;
+          if (target instanceof Node && anchorRef.current?.contains(target)) {
+            event.preventDefault();
+          }
+        }}
+      >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
             {draft.map((clause, index) => (

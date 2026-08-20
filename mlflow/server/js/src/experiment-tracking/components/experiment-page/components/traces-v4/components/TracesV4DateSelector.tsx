@@ -166,6 +166,45 @@ interface TracesV4RefreshButtonProps {
  * shared v3 `TracesV3RefreshButton`, siloed in the V4 directory so the tab has no cross-imports
  * back into traces-v3.
  */
+interface TracesV4ResultCountProps {
+  /** Traces on the current page — the "N" in "N of …". */
+  shownCount: number;
+  /** True when the page is the whole result set (single cursor page) → show "N of N", else "N of many". */
+  isTotalKnown: boolean;
+  /** Hide the number while a fetch is in flight (the reserved-width slot stays, so no layout shift). */
+  isFetching: boolean;
+}
+
+/**
+ * Result-count label ("N of N" when the page is the full set, else "N of many" — the cursor search
+ * API has no total). Rendered at the far left of the pagination bar; it's the leftmost element with
+ * the controls pinned right, so its width changing between fetches can't shift them.
+ */
+export const TracesV4ResultCount = React.memo(function TracesV4ResultCount({
+  shownCount,
+  isTotalKnown,
+  isFetching,
+}: TracesV4ResultCountProps) {
+  return (
+    <Typography.Text color="secondary" size="sm">
+      {!isFetching &&
+        (isTotalKnown ? (
+          <FormattedMessage
+            defaultMessage="{count} of {count}"
+            description="Traces count on the V4 pagination bar when the current page is the full result set"
+            values={{ count: shownCount }}
+          />
+        ) : (
+          <FormattedMessage
+            defaultMessage="{count} of many"
+            description="Traces count on the V4 pagination bar when more pages exist so the total is unknown"
+            values={{ count: shownCount }}
+          />
+        ))}
+    </Typography.Text>
+  );
+});
+
 export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
   isFetching,
 }: TracesV4RefreshButtonProps) {
@@ -175,7 +214,6 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
   const button = (
     <Button
       type="tertiary"
-      icon={isFetching ? <SyncIcon spin /> : <RefreshIcon />}
       componentId="mlflow.traces-v4.refresh-date-button"
       disabled={isFetching}
       onClick={() => {
@@ -190,15 +228,31 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
         },
       }}
     >
-      {!isFetching && (
-        <Typography.Text color="secondary">
-          <FormattedRelativeTime
-            value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
-            numeric="auto"
-            updateIntervalInSeconds={10}
-          />
-        </Typography.Text>
-      )}
+      {/* One fixed-width slot for both states so the toolbar never shifts. Settled: refresh icon + the
+          "X min ago" text, left-aligned. Fetching: just the spinner, pushed flush right (flex-end). */}
+      <Typography.Text
+        color="secondary"
+        css={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          minWidth: theme.spacing.xl * 3,
+          justifyContent: isFetching ? 'flex-end' : 'flex-start',
+        }}
+      >
+        {isFetching ? (
+          <SyncIcon spin />
+        ) : (
+          <>
+            <RefreshIcon />
+            <FormattedRelativeTime
+              value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
+              numeric="auto"
+              updateIntervalInSeconds={10}
+            />
+          </>
+        )}
+      </Typography.Text>
     </Button>
   );
 
