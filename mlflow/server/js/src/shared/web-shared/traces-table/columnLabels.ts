@@ -1,4 +1,4 @@
-import { defineMessages } from '@databricks/i18n';
+import { defineMessages, type IntlShape } from '@databricks/i18n';
 import type { TraceColumnId } from './types';
 
 export const TRACE_COLUMN_LABELS = defineMessages({
@@ -17,3 +17,6 @@ export const TRACE_COLUMN_LABELS = defineMessages({
   cost: { defaultMessage: 'Cost', description: 'Header for the traces table cost column' },
   tags: { defaultMessage: 'Tags', description: 'Header for the traces table tags column' },
 } as const);
+
+export const getTraceColumnLabel = (columnId: TraceColumnId, intl: IntlShape): string =>
+  intl.formatMessage(TRACE_COLUMN_LABELS[columnId]);

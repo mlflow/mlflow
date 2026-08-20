@@ -431,9 +431,7 @@ export const TraceStateCell: React.MemoExoticComponent<(props: { trace: ModelTra
     const badge = (
       <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm, maxWidth: '100%' }}>
         {stateIcon(state)}
-        <span css={[truncateCss, { color: stateLabelColor(state, theme) }]}>
-          {intl.formatMessage(STATE_LABELS[state])}
-        </span>
+        <span css={[truncateCss, { color: stateLabelColor(state, theme) }]}>{getTraceStateLabel(state, intl)}</span>
       </span>
     );
 
@@ -580,6 +578,8 @@ export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTrac
 // Tags prefixed `mlflow.` are machine-set metadata (e.g. `mlflow.trace.sizeBytes`), not user tags —
 // hidden here to match the shared tags renderer and avoid noise.
 const MLFLOW_INTERNAL_TAG_PREFIX = 'mlflow.';
+// A tags column is capped at 600px; even the smallest DS pills exhaust that width well before this limit.
+const MAX_MEASURED_TAG_PILLS = 32;
 
 // Aria label for a clickable tag pill that applies a tag filter. Static first arg keeps i18n
 // extraction happy; the key/value are interpolated values.
@@ -597,11 +597,13 @@ const TagPill = ({
   value,
   onFilterByTag,
   intl,
+  wrapText,
 }: {
   tagKey: string;
   value: string;
   onFilterByTag?: (key: string, value: string) => void;
   intl: IntlShape;
+  wrapText?: boolean;
 }) => {
   // Without a filter handler the pill is a plain, non-interactive tag (no role/aria-label/onClick).
   const filterProps = onFilterByTag
@@ -617,7 +619,7 @@ const TagPill = ({
     : {};
   return (
     <Tag componentId={`${COMPONENT_ID}.cell.tags-pill`} color="default" css={{ maxWidth: 200 }} {...filterProps}>
-      <span css={truncateCss}>
+      <span css={wrapText ? { overflowWrap: 'anywhere' } : truncateCss}>
         {tagKey}: {value}
       </span>
     </Tag>
@@ -625,9 +627,14 @@ const TagPill = ({
 };
 
 /**
- * User tags preview with optional click-to-filter: the first non-internal tag renders as a pill
- * (clickable when `onFilterByTag` is provided), plus a "+N" affordance that opens the drawer and
- * reveals the full list on hover — each tag in that list is itself a pill. Empty (or all-internal) → "-".
+ * User tags preview with optional click-to-filter: renders tags that fit in the available width
+ * as inline pills (clickable when `onFilterByTag` is provided), plus a "+N" affordance that opens
+ * the drawer and reveals the full list on hover — each tag in that list is itself a pill. Empty
+ * (or all-internal) → "-".
+ *
+ * The responsive behavior measures visible pill widths and fits as many as possible, then
+ * collapses the rest into a "+N" indicator. The measurement happens via ResizeObserver, so
+ * the pill count updates when the column width changes.
  *
  * The overflow list uses `HoverCard`, not `Tooltip`: the list is *interactive* (each tag can be a
  * filter pill you click), and `Tooltip` (a) defaults to `disableHoverableContent` so the pointer
@@ -643,51 +650,118 @@ export const TraceTagsCell: React.MemoExoticComponent<(props: TraceTagsCellProps
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
     const entries = Object.entries(trace.tags ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX));
+    const containerRef = useRef<HTMLSpanElement>(null);
+    const pillRefs = useRef<Array<HTMLSpanElement | null>>([]);
+    const overflowRefs = useRef<Array<HTMLSpanElement | null>>([]);
+    const [visibleCount, setVisibleCount] = useState(1);
+    const entriesSignature = entries.map(([key, value]) => `${key} ${value}`).join('');
+
+    const measure = useCallback(() => {
+      const containerWidth = containerRef.current?.clientWidth ?? 0;
+      if (containerWidth === 0) return;
+      const widths = pillRefs.current
+        .slice(0, Math.min(entries.length, MAX_MEASURED_TAG_PILLS))
+        .map((pill) => pill?.offsetWidth ?? 0);
+      const gap = theme.spacing.xs;
+      let used = 0;
+      let count = 0;
+      for (const width of widths) {
+        const overflowWidth = count + 1 < entries.length ? (overflowRefs.current[count]?.offsetWidth ?? 0) + gap : 0;
+        if (used + width + (count > 0 ? gap : 0) + overflowWidth > containerWidth) break;
+        used += width + (count > 0 ? gap : 0);
+        count += 1;
+      }
+      setVisibleCount(Math.max(1, count));
+    }, [entries.length, theme.spacing.xs]);
+
+    useEffect(() => {
+      measure();
+      const container = containerRef.current;
+      if (!container || typeof ResizeObserver === 'undefined') return;
+      const observer = new ResizeObserver(measure);
+      observer.observe(container);
+      return () => observer.disconnect();
+    }, [entriesSignature, measure]);
+
     if (entries.length === 0) {
       return <EmptyValue />;
     }
-    const [firstKey, firstValue] = entries[0];
-    const restCount = entries.length - 1;
 
-    const firstPill = <TagPill tagKey={firstKey} value={firstValue} onFilterByTag={onFilterByTag} intl={intl} />;
+    const restCount = entries.length - visibleCount;
 
-    // Single tag: just the pill (no "+N", no drawer affordance needed here — the row still opens the drawer).
-    if (restCount === 0) {
-      return <span css={{ display: 'inline-flex', maxWidth: '100%' }}>{firstPill}</span>;
-    }
-
-    // Multi-tag: the pill sits beside a "+N" that opens the drawer and, on hover, lists every tag as its
-    // own pill. Activator and pills are siblings (no interactive nesting).
+    // Activator and pills are siblings (no interactive nesting).
     return (
-      <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, maxWidth: '100%' }}>
-        {firstPill}
-        <HoverCard
-          align="start"
-          minWidth={0}
-          maxWidth={480}
-          trigger={
-            <CellActivator
-              componentId={`${COMPONENT_ID}.cell.tags`}
-              onActivate={() => onSelect(trace)}
-              accessibleLabel={accessibleLabel}
+      <span
+        ref={containerRef}
+        css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, width: '100%', maxWidth: '100%' }}
+      >
+        <span aria-hidden css={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none' }}>
+          {entries.slice(0, MAX_MEASURED_TAG_PILLS).map(([key, value], index) => (
+            <span
+              key={key}
+              ref={(element) => {
+                pillRefs.current[index] = element;
+              }}
+            >
+              <TagPill tagKey={key} value={value} intl={intl} />
+            </span>
+          ))}
+          {entries.slice(1, MAX_MEASURED_TAG_PILLS).map((_, index) => (
+            <span
+              key={`overflow-${index}`}
+              ref={(element) => {
+                overflowRefs.current[index] = element;
+              }}
             >
               <Typography.Text color="secondary" size="sm">
                 <FormattedMessage
                   defaultMessage="+{count}"
                   description="Compact suffix on the traces table tags column indicating how many additional tags are hidden in the preview"
-                  values={{ count: restCount }}
+                  values={{ count: entries.length - index - 1 }}
                 />
               </Typography.Text>
-            </CellActivator>
-          }
-          content={
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              {entries.map(([key, value]) => (
-                <TagPill key={key} tagKey={key} value={value} onFilterByTag={onFilterByTag} intl={intl} />
-              ))}
-            </div>
-          }
-        />
+            </span>
+          ))}
+        </span>
+        {entries.slice(0, visibleCount).map(([key, value]) => (
+          <TagPill key={key} tagKey={key} value={value} onFilterByTag={onFilterByTag} intl={intl} />
+        ))}
+        {restCount > 0 && (
+          <HoverCard
+            align="start"
+            minWidth={0}
+            maxWidth={CELL_OVERLAY_MAX_WIDTH}
+            trigger={
+              <CellActivator
+                componentId={`${COMPONENT_ID}.cell.tags`}
+                onActivate={() => onSelect(trace)}
+                accessibleLabel={accessibleLabel}
+              >
+                <Typography.Text color="secondary" size="sm">
+                  <FormattedMessage
+                    defaultMessage="+{count}"
+                    description="Compact suffix on the traces table tags column indicating how many additional tags are hidden in the preview"
+                    values={{ count: restCount }}
+                  />
+                </Typography.Text>
+              </CellActivator>
+            }
+            content={
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: theme.spacing.xs,
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                {entries.map(([key, value]) => (
+                  <TagPill key={key} tagKey={key} value={value} onFilterByTag={onFilterByTag} intl={intl} wrapText />
+                ))}
+              </div>
+            }
+          />
+        )}
       </span>
     );
   },
