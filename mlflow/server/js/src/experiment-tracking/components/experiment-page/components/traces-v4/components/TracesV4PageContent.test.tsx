@@ -111,6 +111,16 @@ const queryTraceRow = (traceId: string) => screen.queryByRole('button', { name: 
 // userEvent's keyboard synthesis doesn't set — fire keyDown directly to exercise that path.
 const pressEnter = (input: HTMLElement) => fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13 });
 
+// Sort ascending (opposite table default) to guarantee refetch. Also tests column header sort.
+const sortByTime = async (
+  user: ReturnType<typeof userEvent.setup>,
+  direction: 'ascending' | 'descending' = 'ascending',
+) => {
+  const timeHeader = screen.getByRole('columnheader', { name: 'Time' });
+  await user.click(within(timeHeader).getByRole('button', { name: 'Column options' }));
+  await user.click(await screen.findByRole('menuitem', { name: `Sort ${direction}` }));
+};
+
 const server = setupServer(
   // OSS uses the synchronous V3 search endpoint. Record the request body (assertions target this),
   // look up the page by token, and return { traces, next_page_token }.
@@ -241,18 +251,21 @@ describe('TracesV4PageContent', () => {
     renderPage();
     expect(await findTraceRow('tr-000')).toBeInTheDocument();
 
-    // The sortable start-time header (relabeled "Time") renders a button; the date-range selector
-    // with the same label is a combobox, so this targets the column header unambiguously.
-    await user.click(screen.getByRole('button', { name: /^Time$/ }));
-    await waitFor(() => expect(state.searchCalls.some((c) => c.order_by?.[0]?.startsWith('timestamp'))).toBe(true));
+    await sortByTime(user);
+    // The initial load sorts timestamp DESC; the ascending pick must issue a distinct 'timestamp ASC'.
+    await waitFor(() => expect(state.searchCalls.some((c) => c.order_by?.[0] === 'timestamp ASC')).toBe(true));
   });
 
-  test('non-sortable headers (State) expose no sort control', async () => {
+  test('non-sortable headers (State) expose no sort control in their menu', async () => {
+    const user = userEvent.setup();
     renderPage();
     await findTraceRow('tr-000');
-    // Sortable headers render a button; the display-only State column must not.
-    expect(screen.queryByRole('button', { name: /^State$/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'State' })).toBeInTheDocument();
+
+    const stateHeader = screen.getByRole('columnheader', { name: 'State' });
+    // A display-only column still has a menu (for Hide column) but offers no sort items.
+    await user.click(within(stateHeader).getByRole('button', { name: 'Column options' }));
+    expect(await screen.findByRole('menuitem', { name: 'Hide column' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /^Sort/ })).not.toBeInTheDocument();
   });
 
   test('select rows → Actions (2) → Delete is enabled in OSS and opens the confirm modal', async () => {
@@ -411,9 +424,9 @@ describe('TracesV4PageContent', () => {
         }),
       );
 
-      await user.click(screen.getByRole('button', { name: /^Time$/ }));
+      await sortByTime(user);
 
-      // Skeleton is back and the prior rows are replaced by it (rather than kept via keepPreviousData).
+      // Skeleton replaces rows (not kept via keepPreviousData).
       await waitFor(() => expect(screen.getByRole('region', { name: 'Traces' })).toHaveAttribute('aria-busy', 'true'));
       expect(queryTraceRow('tr-000')).not.toBeInTheDocument();
 
