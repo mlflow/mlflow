@@ -19,6 +19,8 @@ const PAGE_SIZE_PARAM = 'pageSize';
 const SORT_PARAM = 'sort';
 const DIR_PARAM = 'dir';
 const TRACE_ID_PARAM = 'traceId';
+const SELECTED_TRACE_ID_PARAM = 'selectedTraceId';
+const LEGACY_SELECTED_EVALUATION_ID_PARAM = 'selectedEvaluationId';
 // Repeatable param (like v3's `filter`): each value is `encodeURIComponent(key)=encodeURIComponent(value)`.
 const TAG_PARAM = 'tag';
 
@@ -99,7 +101,11 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const pageSizeRaw = searchParams.get(PAGE_SIZE_PARAM);
   const sortRaw = searchParams.get(SORT_PARAM);
   const dirRaw = searchParams.get(DIR_PARAM);
-  const traceId = searchParams.get(TRACE_ID_PARAM) ?? undefined;
+  const traceId =
+    searchParams.get(TRACE_ID_PARAM) ??
+    searchParams.get(SELECTED_TRACE_ID_PARAM) ??
+    searchParams.get(LEGACY_SELECTED_EVALUATION_ID_PARAM) ??
+    undefined;
   // getAll → the repeatable `tag` values.
   const tagFilters = searchParams
     .getAll(TAG_PARAM)
@@ -166,6 +172,8 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
         } else {
           params.delete(TRACE_ID_PARAM);
         }
+        params.delete(SELECTED_TRACE_ID_PARAM);
+        params.delete(LEGACY_SELECTED_EVALUATION_ID_PARAM);
         return params;
       });
     },

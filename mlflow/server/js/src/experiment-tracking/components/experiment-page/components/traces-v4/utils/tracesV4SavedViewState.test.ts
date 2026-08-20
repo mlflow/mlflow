@@ -37,7 +37,9 @@ describe('tracesV4SavedViewState tag-key helpers', () => {
 describe('captureV4ViewState', () => {
   test('captures the whitelisted URL view params and drops the transient ones', () => {
     const state = captureV4ViewState(
-      params('q=refund&sort=duration&dir=asc&pageSize=50&page=3&traceId=abc123&startTimeLabel=LAST_7_DAYS'),
+      params(
+        'q=refund&sort=duration&dir=asc&pageSize=50&page=3&traceId=abc123&selectedTraceId=def456&selectedEvaluationId=ghi789&startTimeLabel=LAST_7_DAYS',
+      ),
       ['start_time', 'input', 'duration'],
     );
     const query = buildV4ViewQuery(state, 'view-1');
@@ -51,6 +53,8 @@ describe('captureV4ViewState', () => {
     // Transient state is never part of a saved view.
     expect(out.get('page')).toBeNull();
     expect(out.get('traceId')).toBeNull();
+    expect(out.get('selectedTraceId')).toBeNull();
+    expect(out.get('selectedEvaluationId')).toBeNull();
   });
 
   test('preserves repeatable tag filters in order', () => {
@@ -97,7 +101,9 @@ describe('urlHasCapturedV4ViewState', () => {
     expect(urlHasCapturedV4ViewState(params(`${TRACE_V4_SHARE_URL_PARAM_KEY}=x`))).toBe(false);
     expect(urlHasCapturedV4ViewState(params(''))).toBe(false);
     // Transient params alone are not view state.
-    expect(urlHasCapturedV4ViewState(params('page=2&traceId=abc'))).toBe(false);
+    expect(urlHasCapturedV4ViewState(params('page=2&traceId=abc&selectedTraceId=def&selectedEvaluationId=ghi'))).toBe(
+      false,
+    );
   });
 });
 
