@@ -564,9 +564,10 @@ describe('TracesV4PageContent', () => {
       await findTraceRow('tr-000');
 
       expect(screen.getByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
-      // First tag is shown as a pill; the second is collapsed into "+1".
-      expect(screen.getByText('env: prod')).toBeInTheDocument();
-      expect(screen.getByText('+1')).toBeInTheDocument();
+      // First tag is shown as a pill; the second is collapsed into "+1". The responsive tags cell
+      // renders a hidden measurement copy alongside the visible pill in jsdom, so match on count.
+      expect(screen.getAllByText('env: prod').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('+1').length).toBeGreaterThan(0);
       // Heavy full-page render is slow under parallel jsdom load; per-test timeout avoids the
       // lint-forbidden global jest.setTimeout.
     }, 20000);
@@ -661,8 +662,16 @@ describe('TracesV4PageContent', () => {
       setLocalStorageItem(sizesKey, COLUMN_SIZES_STORAGE_VERSION, true, { input: 321 });
 
       renderPage();
-      const header = await screen.findByRole('columnheader', { name: 'Input' });
-      expect(header).toHaveStyle({ flexBasis: '321px' });
+      await screen.findByRole('columnheader', { name: 'Input' });
+      // Widths are published as `--traces-table-column-<index>` CSS variables on the region and
+      // referenced by each header's `flex`. jsdom drops a `flex` shorthand containing `var()`, so we
+      // can't read the size off the header's inline style; assert on the published variable instead.
+      // 321 is not a default column size, so its presence proves the persisted width flowed through.
+      const region = screen.getByRole('region', { name: 'Traces' });
+      const publishedWidths = Array.from({ length: region.style.length }, (_, i) => region.style.item(i))
+        .filter((prop) => prop.startsWith('--traces-table-column-'))
+        .map((prop) => region.style.getPropertyValue(prop));
+      expect(publishedWidths).toContain('321px');
     });
   });
 
