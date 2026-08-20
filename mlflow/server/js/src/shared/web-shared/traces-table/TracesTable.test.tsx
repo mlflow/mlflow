@@ -124,6 +124,29 @@ describe('TracesTable', () => {
     expect(onTraceSelected).toHaveBeenCalledWith(traces[0]);
   });
 
+  test('trace identity and preview cells render links when getTraceHref is provided', async () => {
+    const traces = [makeTrace('only')];
+    await renderWithProviders(<TracesTable {...baseProps({ traces, getTraceHref: () => '/traces?traceId=only' })} />);
+    expect(screen.getAllByRole('link')).toHaveLength(3);
+    for (const link of screen.getAllByRole('link')) {
+      expect(link).toHaveAttribute('href', expect.stringContaining('/traces?traceId=only'));
+    }
+  });
+
+  test.each(['ctrlKey', 'metaKey'] as const)('%s-clicking anywhere on a row opens its trace link', async (key) => {
+    const traces = [makeTrace('only')];
+    const onTraceSelected = jest.fn();
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+    await renderWithProviders(
+      <TracesTable {...baseProps({ traces, onTraceSelected, getTraceHref: () => '/traces?traceId=only' })} />,
+    );
+
+    fireEvent.click(screen.getAllByRole('row')[1], { [key]: true });
+
+    expect(openSpy).toHaveBeenCalledWith('/traces?traceId=only', '_blank', 'noopener,noreferrer');
+    expect(onTraceSelected).not.toHaveBeenCalled();
+  });
+
   test("a sortable column's options menu offers Sort ascending and Sort descending", async () => {
     await renderWithProviders(<TracesTable {...baseProps()} />);
     await openColumnMenu(/Time/); // start_time is server-sortable

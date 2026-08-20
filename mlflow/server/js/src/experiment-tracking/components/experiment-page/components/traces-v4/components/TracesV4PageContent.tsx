@@ -19,6 +19,7 @@ import {
   TracesTableView,
   type SessionHrefGetter,
   type TraceColumnId,
+  type TraceHrefGetter,
   type TracesTableViewState,
 } from '@databricks/web-shared/traces-table';
 import { useDeleteTracesMutation } from '@mlflow/mlflow/src/experiment-tracking/components/evaluations/hooks/useDeleteTraces';
@@ -178,6 +179,14 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   );
   const closeDrawer = useCallback(() => url.setTraceId(undefined), [url]);
 
+  const getTraceHref = useCallback<TraceHrefGetter>(
+    (trace) => {
+      const traceId = doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id;
+      return `${Routes.getExperimentPageTracesTabRoute(experimentId)}?traceId=${encodeURIComponent(traceId)}`;
+    },
+    [experimentId],
+  );
+
   // The session cell's only product coupling: build the single-chat-session route (matching v1),
   // deep-linking the current trace via `?selectedTraceId` so the destination opens on that trace.
   const getSessionHref = useCallback<SessionHrefGetter>(
@@ -318,6 +327,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
               sort={url.sort}
               dir={url.dir}
               onSort={url.setSort}
+              getTraceHref={getTraceHref}
               getSessionHref={getSessionHref}
               onFilterByTag={controller.onFilterByTag}
               renderRunName={renderRunName}

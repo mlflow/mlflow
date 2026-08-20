@@ -18,8 +18,9 @@ import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types'
 import { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 import { type ColumnSizingState, flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { memo, useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { createPath } from 'react-router';
 import { isSortableTraceColumn } from './constants';
-import type { SessionHrefGetter, SortDirection, TraceColumnId, TraceTableColumn } from './types';
+import type { SessionHrefGetter, SortDirection, TraceColumnId, TraceHrefGetter, TraceTableColumn } from './types';
 import { getVisibleColumnDefs, type TracesTableMeta } from './columns';
 import { getContentColumnMaxSizes } from './getColumnMaxSizes';
 import { TraceColumnHeader } from './TraceColumnHeader';
@@ -81,6 +82,8 @@ export interface TracesTableProps {
   sort: TraceColumnId;
   dir: SortDirection;
   onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  /** Resolves trace-cell links; when absent trace cells open through onTraceSelected. */
+  getTraceHref?: TraceHrefGetter;
   /** Resolves the session cell's link destination; when absent the session renders as plain text. */
   getSessionHref?: SessionHrefGetter;
   /** Toggle a tag filter — wired to the tag pills in the Tags cell; absent → non-clickable pills. */
@@ -130,6 +133,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     sort,
     dir,
     onSort,
+    getTraceHref,
     getSessionHref,
     onFilterByTag,
     renderRunName,
@@ -163,8 +167,8 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     }, [visibleColumns, extraColumns, traces, intl, initialColumnSizing]);
 
     const meta = useMemo<TracesTableMeta>(
-      () => ({ intl, onTraceSelected, getSessionHref, onFilterByTag, renderRunName }),
-      [intl, onTraceSelected, getSessionHref, onFilterByTag, renderRunName],
+      () => ({ intl, onTraceSelected, getTraceHref, getSessionHref, onFilterByTag, renderRunName }),
+      [intl, onTraceSelected, getTraceHref, getSessionHref, onFilterByTag, renderRunName],
     );
 
     // Clamp the state TanStack is seeded with as well as the column definition. `getSize()` normally
@@ -343,7 +347,19 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                 return (
                   <TableRow
                     key={row.id}
-                    onClick={() => onTraceSelected(row.original)}
+                    onClick={(event) => {
+                      const traceHref = getTraceHref?.(row.original);
+                      if ((event.ctrlKey || event.metaKey) && traceHref) {
+                        event.preventDefault();
+                        window.open(
+                          typeof traceHref === 'string' ? traceHref : createPath(traceHref),
+                          '_blank',
+                          'noopener,noreferrer',
+                        );
+                        return;
+                      }
+                      onTraceSelected(row.original);
+                    }}
                     style={rowWidthStyle}
                     css={{
                       cursor: 'pointer',

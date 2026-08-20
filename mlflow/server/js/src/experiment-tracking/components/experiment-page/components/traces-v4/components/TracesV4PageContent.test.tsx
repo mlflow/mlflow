@@ -102,10 +102,9 @@ const renderPage = ({ initialUrl = URL }: { initialUrl?: string } = {}) => {
   });
 };
 
-// Trace ID is hidden by default, so locate a row by its Input cell activator (a default-visible
-// role="button" that opens the drawer). Its accessible name is "Open trace <id> — input".
-const findTraceRow = (traceId: string) => screen.findByRole('button', { name: `Open trace ${traceId} — input` });
-const queryTraceRow = (traceId: string) => screen.queryByRole('button', { name: `Open trace ${traceId} — input` });
+// Trace ID is hidden by default, so locate a row by its linked Input cell (a default-visible column).
+const findTraceRow = (traceId: string) => screen.findByRole('link', { name: `Open trace ${traceId} — input` });
+const queryTraceRow = (traceId: string) => screen.queryByRole('link', { name: `Open trace ${traceId} — input` });
 
 // AntD's `onPressEnter` (wired to commit the search) is gated on the legacy `keyCode === 13`, which
 // userEvent's keyboard synthesis doesn't set — fire keyDown directly to exercise that path.
@@ -452,6 +451,12 @@ describe('TracesV4PageContent', () => {
   });
 
   describe('opening a trace', () => {
+    test('input cells link to the V4 long identifier', async () => {
+      renderPage();
+      const link = await findTraceRow('tr-000');
+      expect(link).toHaveAttribute('href', expect.stringContaining('traceId=trace%3A%2Fcat.sch%2Ftr-000'));
+    });
+
     test('clicking a UC-backed row opens the drawer with a V4 long identifier (not a bare hex id)', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();

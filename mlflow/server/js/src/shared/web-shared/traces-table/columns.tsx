@@ -3,7 +3,7 @@ import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import { COLUMN_SIZES } from './constants';
 import { TRACE_COLUMN_LABELS } from './columnLabels';
-import type { SessionHrefGetter, TraceColumnId, TraceTableColumn } from './types';
+import type { SessionHrefGetter, TraceColumnId, TraceHrefGetter, TraceTableColumn } from './types';
 import {
   TraceCostCell,
   TraceDurationCell,
@@ -28,6 +28,8 @@ import {
 export interface TracesTableMeta {
   intl: IntlShape;
   onTraceSelected: (trace: ModelTraceInfoV3) => void;
+  /** Resolves trace-cell link destinations; when absent cells retain button behavior. */
+  getTraceHref?: TraceHrefGetter;
   /** Resolves the session cell's link destination; when absent the session renders as plain text. */
   getSessionHref?: SessionHrefGetter;
   /** Toggle a tag filter — wired to the tag pills in the Tags cell; absent → non-clickable pills. */
@@ -66,12 +68,13 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.trace_id,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.trace_id} />,
     cell: (ctx) => {
-      const { intl, onTraceSelected } = getTableMeta(ctx);
+      const { intl, onTraceSelected, getTraceHref } = getTableMeta(ctx);
       const trace = ctx.row.original;
       return (
         <TraceIdCell
           trace={trace}
           onSelect={onTraceSelected}
+          to={getTraceHref?.(trace)}
           accessibleLabel={openLabel(intl, trace.trace_id, 'trace id')}
         />
       );
@@ -94,12 +97,13 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.input,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.input} />,
     cell: (ctx) => {
-      const { intl, onTraceSelected } = getTableMeta(ctx);
+      const { intl, onTraceSelected, getTraceHref } = getTableMeta(ctx);
       const trace = ctx.row.original;
       return (
         <TraceInputCell
           trace={trace}
           onSelect={onTraceSelected}
+          to={getTraceHref?.(trace)}
           accessibleLabel={openLabel(intl, trace.trace_id, 'input')}
         />
       );
@@ -110,12 +114,13 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.output,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.output} />,
     cell: (ctx) => {
-      const { intl, onTraceSelected } = getTableMeta(ctx);
+      const { intl, onTraceSelected, getTraceHref } = getTableMeta(ctx);
       const trace = ctx.row.original;
       return (
         <TraceOutputCell
           trace={trace}
           onSelect={onTraceSelected}
+          to={getTraceHref?.(trace)}
           accessibleLabel={openLabel(intl, trace.trace_id, 'output')}
         />
       );
