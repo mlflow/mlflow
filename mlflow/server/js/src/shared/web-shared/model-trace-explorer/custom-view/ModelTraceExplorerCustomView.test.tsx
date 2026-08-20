@@ -559,6 +559,20 @@ describe('ModelTraceExplorerCustomView', () => {
     expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeInTheDocument();
   });
 
+  it('does not submit on Enter while an IME composition is being confirmed', async () => {
+    const openAssistant = jest.fn();
+    setBridge({ openAssistant });
+    renderCustomView();
+
+    await userEvent.type(screen.getByRole('textbox'), 'Show me the failed spans');
+    // isComposing marks the Enter that confirms an in-progress IME composition
+    // (e.g. CJK input), which must not submit the prompt.
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', isComposing: true });
+
+    expect(openAssistant).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeInTheDocument();
+  });
+
   it('keeps the building skeleton after streaming ends until a view is created', () => {
     const openAssistant = jest.fn();
     openAssistant.mockImplementation(() => setBridge({ openAssistant, isStreaming: true }));
