@@ -170,12 +170,12 @@ describe('TracesV4PageContent', () => {
     expect(await findTraceRow('tr-000')).toBeInTheDocument();
     expect(screen.getByText('request for tr-000')).toBeInTheDocument();
     expect(screen.getByText('response for tr-000')).toBeInTheDocument();
-    // Default columns: Time, Input, Output, Duration, State (no Session on this session-less page).
+    // Default columns: Time, Input, Output, Duration, State, Tokens (no Session on this session-less page).
     expect(screen.getByRole('columnheader', { name: 'Time' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'State' })).toBeInTheDocument();
-    // Trace ID and Tokens are hidden by default (available via the column selector).
+    expect(screen.getByRole('columnheader', { name: 'Tokens' })).toBeInTheDocument();
+    // Trace ID is hidden by default (available via the column selector).
     expect(screen.queryByRole('columnheader', { name: 'Trace ID' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Tokens' })).not.toBeInTheDocument();
     // Per-test timeout (matching the file's other heavy renders): the full page render is slow under
     // parallel jsdom load and would otherwise flake against the default 5s ceiling.
   }, 20000);

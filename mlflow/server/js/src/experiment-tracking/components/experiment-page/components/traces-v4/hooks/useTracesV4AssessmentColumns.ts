@@ -7,8 +7,9 @@ import {
   assessmentNameFromColumnId,
   computeAssessmentColumns,
   extractTraceIssues,
+  getAssessmentColumnType,
 } from '../utils/assessmentColumns';
-import { buildAssessmentColumnDefs } from '../utils/buildAssessmentColumnDefs';
+import { buildAssessmentColumnDefs, type AssessmentColumn } from '../utils/buildAssessmentColumnDefs';
 import { buildIssuesColumnDef } from '../utils/buildIssuesColumnDef';
 import { TRACE_ASSESSMENT_COLUMN_STORAGE_KEY_PREFIX } from '../utils/constants';
 
@@ -59,9 +60,13 @@ export const useTracesV4AssessmentColumns = (
   // The dedicated Issues column shows only when the current page carries detected issues (data-driven,
   // like the Session column) and renders ahead of the assessment columns, matching the prior tab.
   const hasIssuesOnPage = useMemo(() => traces.some((trace) => extractTraceIssues(trace).length > 0), [traces]);
+  const assessmentColumns = useMemo<AssessmentColumn[]>(
+    () => visibleNames.map((name) => ({ name, type: getAssessmentColumnType(traces, name) })),
+    [visibleNames, traces],
+  );
   const columnDefs = useMemo(
-    () => [...(hasIssuesOnPage ? [buildIssuesColumnDef()] : []), ...buildAssessmentColumnDefs(visibleNames)],
-    [hasIssuesOnPage, visibleNames],
+    () => [...(hasIssuesOnPage ? [buildIssuesColumnDef()] : []), ...buildAssessmentColumnDefs(assessmentColumns)],
+    [hasIssuesOnPage, assessmentColumns],
   );
   const visibleIds = useMemo(() => visibleNames.map(assessmentColumnId), [visibleNames]);
   const selectorOptions = useMemo<GenericColumnOption[]>(

@@ -1,7 +1,12 @@
 import { describe, expect, test } from '@jest/globals';
 import { ASSESSMENT_SESSION_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 import type { Assessment } from '@databricks/web-shared/model-trace-explorer';
-import { computeAssessmentColumns, extractTraceIssues, pickCellAssessment } from './assessmentColumns';
+import {
+  computeAssessmentColumns,
+  extractTraceIssues,
+  getAssessmentColumnType,
+  pickCellAssessment,
+} from './assessmentColumns';
 import { makeFeedbackAssessment, makeIssueAssessment, makeTrace } from '../test-utils/mockTraces';
 
 const traceWith = (id: string, assessments: Assessment[]) => makeTrace(id, { assessments });
@@ -137,5 +142,40 @@ describe('extractTraceIssues', () => {
       makeIssueAssessment('toxicity'),
     ]);
     expect(extractTraceIssues(trace)).toEqual([{ id: 'issue-toxicity', name: 'toxicity' }]);
+  });
+});
+
+describe('getAssessmentColumnType', () => {
+  test('returns "numeric" when any value is a non-integer', () => {
+    const traces = [
+      traceWith('t1', [makeFeedbackAssessment('score', 0.75)]),
+      traceWith('t2', [makeFeedbackAssessment('score', 1)]),
+    ];
+    expect(getAssessmentColumnType(traces, 'score')).toBe('numeric');
+  });
+
+  test('returns "categorical" when all values are integers or missing', () => {
+    const traces = [
+      traceWith('t1', [makeFeedbackAssessment('category', 1)]),
+      traceWith('t2', [makeFeedbackAssessment('category', 2)]),
+    ];
+    expect(getAssessmentColumnType(traces, 'category')).toBe('categorical');
+  });
+
+  test('returns "numeric" when mixed integer and non-integer values are present', () => {
+    const traces = [
+      traceWith('t1', [makeFeedbackAssessment('score', 0.5)]),
+      traceWith('t2', [makeFeedbackAssessment('score', 1)]),
+    ];
+    expect(getAssessmentColumnType(traces, 'score')).toBe('numeric');
+  });
+
+  test('returns "categorical" when traces list is empty', () => {
+    expect(getAssessmentColumnType([], 'score')).toBe('categorical');
+  });
+
+  test('returns "categorical" when no assessments match the name', () => {
+    const traces = [traceWith('t1', [makeFeedbackAssessment('other', 'yes')])];
+    expect(getAssessmentColumnType(traces, 'score')).toBe('categorical');
   });
 });
