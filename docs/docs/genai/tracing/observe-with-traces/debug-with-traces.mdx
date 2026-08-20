@@ -66,40 +66,51 @@ Debugging one bad result often reveals a pattern. Use <APILink fn="mlflow.search
 ```python
 import mlflow
 import time
+from collections import Counter
 
-# Failures in the last hour, most recent first
+# Failures in the last hour, most recent first. return_type="list" gives
+# Trace objects, whose trace.info fields are stable to read.
 cutoff_ms = int(time.time() * 1000) - 60 * 60 * 1000
 failed = mlflow.search_traces(
     filter_string=f"trace.status = 'ERROR' AND trace.timestamp_ms > {cutoff_ms}",
     order_by=["trace.timestamp_ms DESC"],
+    return_type="list",
 )
 
-if len(failed) == 0:
+if not failed:
     print("No errors in the last hour")
 else:
+    by_name = Counter(t.info.tags.get("mlflow.traceName", "unknown") for t in failed)
     print(f"{len(failed)} errors. Grouped by trace name:")
-    print(failed.groupby("tags.mlflow.traceName").size().to_string())
+    for name, count in by_name.most_common():
+        print(f"  {count:4d}  {name}")
 ```
 
 Grouping by trace name (or by any tag you attach, such as a version or a route) turns a pile of failures into a short list of places to look.
 
 ### Slow traces
 
-Latency problems follow the same shape. Pull traces and inspect `execution_time_ms` to find the slow tail, then open the slowest traces and read their spans to see which step dominates.
+Latency problems follow the same shape. Pull traces, sort by `execution_duration` (milliseconds) to find the slow tail, then open the slowest traces and read their spans to see which step dominates.
 
 ```python
-traces = mlflow.search_traces(order_by=["trace.timestamp_ms DESC"])
+traces = mlflow.search_traces(
+    order_by=["trace.execution_time_ms DESC"],
+    max_results=100,
+    return_type="list",
+)
 
-if len(traces) > 0:
-    stats = traces["execution_time_ms"].describe(percentiles=[0.5, 0.95, 0.99])
-    print(f"P50: {stats['50%']:.0f}ms  P95: {stats['95%']:.0f}ms  P99: {stats['99%']:.0f}ms")
+durations = sorted((t.info.execution_duration or 0) for t in traces)
+if durations:
+    def percentile(p):
+        return durations[min(len(durations) - 1, int(len(durations) * p / 100))]
+    print(f"P50: {percentile(50)}ms  P95: {percentile(95)}ms  P99: {percentile(99)}ms")
 
-    slowest = traces.nlargest(3, "execution_time_ms")
-    for _, t in slowest.iterrows():
-        print(f"{t['execution_time_ms']:.0f}ms: {t['request_preview'][:60]}")
+    print("\nSlowest traces:")
+    for t in traces[:3]:
+        print(f"  {t.info.execution_duration}ms  {t.info.trace_id}")
 ```
 
-Once you know which trace is slow, open it and read the span durations to find the step that dominates: a slow tool call, a retrieval over too many documents, or an unnecessary extra model call.
+Once you know which trace is slow, open it with `mlflow.get_trace` and read the span durations to find the step that dominates: a slow tool call, a retrieval over too many documents, or an unnecessary extra model call.
 
 ## Next steps
 
