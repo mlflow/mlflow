@@ -870,14 +870,12 @@ describe('TracesV4PageContent', () => {
   });
 
   describe('default time range', () => {
-    test('displays the 15 minute range on mount when the URL has no startTimeLabel', async () => {
+    test('displays the 7 day range on mount when the URL has no startTimeLabel', async () => {
       renderPage();
       await findTraceRow('tr-000');
       // The standalone hook resolves the default without writing it to the URL, so assert the
       // dropdown *displays* the default rather than checking the URL param.
-      expect(screen.getByRole('button', { name: 'Time range: Last 15 minutes' })).toHaveTextContent(
-        /^Last 15 minutes$/,
-      );
+      expect(screen.getByRole('button', { name: 'Time range: Last 7 days' })).toHaveTextContent(/^Last 7 days$/);
     });
 
     test('ignores a v3 saved time selection (isolated v4 localStorage key)', async () => {
@@ -887,9 +885,7 @@ describe('TracesV4PageContent', () => {
       setLocalStorageItem(`traces_useMonitoringFilters_${EXPERIMENT_ID}`, 1, true, { startTimeLabel: 'LAST_30_DAYS' });
       renderPage();
       await findTraceRow('tr-000');
-      expect(screen.getByRole('button', { name: 'Time range: Last 15 minutes' })).toHaveTextContent(
-        /^Last 15 minutes$/,
-      );
+      expect(screen.getByRole('button', { name: 'Time range: Last 7 days' })).toHaveTextContent(/^Last 7 days$/);
     });
   });
 
@@ -969,13 +965,15 @@ describe('TracesV4PageContent', () => {
       const callsBefore = state.searchCalls.length;
 
       // Open the time-range dropdown and pick a different preset.
-      await user.click(screen.getByRole('button', { name: 'Time range: Last 15 minutes' }));
-      await user.click(await screen.findByRole('option', { name: 'Last 7 days' }));
+      await user.click(screen.getByRole('button', { name: 'Time range: Last 7 days' }));
+      await user.click(await screen.findByRole('option', { name: 'Last 15 minutes' }));
 
       // A new search fires (the filter's time bounds changed), so the call count grows.
       await waitFor(() => expect(state.searchCalls.length).toBeGreaterThan(callsBefore));
-      expect(new URLSearchParams(lastSearch).get('startTimeLabel')).toBe('LAST_7_DAYS');
-      expect(screen.getByRole('button', { name: 'Time range: Last 7 days' })).toHaveTextContent(/^Last 7 days$/);
+      expect(new URLSearchParams(lastSearch).get('startTimeLabel')).toBe('LAST_15_MINUTES');
+      expect(screen.getByRole('button', { name: 'Time range: Last 15 minutes' })).toHaveTextContent(
+        /^Last 15 minutes$/,
+      );
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
     test('selecting a custom value shows the absolute range picker and preset button', async () => {
@@ -983,7 +981,7 @@ describe('TracesV4PageContent', () => {
       renderPage();
       await findTraceRow('tr-000');
 
-      await user.click(screen.getByRole('button', { name: 'Time range: Last 15 minutes' }));
+      await user.click(screen.getByRole('button', { name: 'Time range: Last 7 days' }));
       await user.click(await screen.findByRole('option', { name: 'Custom' }));
 
       await waitFor(() => expect(new URLSearchParams(lastSearch).get('startTimeLabel')).toBe('CUSTOM'));
