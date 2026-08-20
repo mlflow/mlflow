@@ -12,6 +12,7 @@ from mlflow.demo.base import (
 def test_demo_feature_enum():
     assert DemoFeature.TRACES == "traces"
     assert DemoFeature.EVALUATION == "evaluation"
+    assert DemoFeature.CUSTOM_VIEW == "custom_view"
     assert isinstance(DemoFeature.TRACES, str)
 
 

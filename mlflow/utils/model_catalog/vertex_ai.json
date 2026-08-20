@@ -2105,23 +2105,23 @@
         "max_tokens": 65536
       },
       "pricing": {
-        "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 7.5,
-        "cache_read_per_million_tokens": 0.15,
+        "input_per_million_tokens": 0.75,
+        "output_per_million_tokens": 3.75,
+        "cache_read_per_million_tokens": 0.075,
         "service_tiers": {
           "batch": {
-            "input_per_million_tokens": 0.75,
-            "output_per_million_tokens": 3.75
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 1.875
           },
           "flex": {
-            "input_per_million_tokens": 0.75,
-            "output_per_million_tokens": 3.75,
-            "cache_read_per_million_tokens": 0.075
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 1.875,
+            "cache_read_per_million_tokens": 0.0375
           },
           "priority": {
-            "input_per_million_tokens": 2.7,
-            "output_per_million_tokens": 13.5,
-            "cache_read_per_million_tokens": 0.27
+            "input_per_million_tokens": 1.35,
+            "output_per_million_tokens": 6.75,
+            "cache_read_per_million_tokens": 0.135
           }
         },
         "tooling": {
@@ -2139,7 +2139,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-22"
+      "last_updated_at": "2026-08-20"
     },
     "gemini-3.7-flash": {
       "mode": "chat",
