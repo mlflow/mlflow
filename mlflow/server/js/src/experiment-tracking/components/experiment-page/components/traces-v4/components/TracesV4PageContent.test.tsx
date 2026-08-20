@@ -290,7 +290,7 @@ describe('TracesV4PageContent', () => {
     await waitFor(() =>
       expect(state.searchCalls.some((c) => c.filter?.includes("trace.text ILIKE '%hello%'"))).toBe(true),
     );
-  });
+  }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
   test('clearing the search (X) commits an empty search immediately', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -307,7 +307,7 @@ describe('TracesV4PageContent', () => {
     // Du Bois Input renders the X with the accessible name `close-circle` (matches the datasets-v2 tests).
     await user.click(screen.getByLabelText('close-circle'));
     await waitFor(() => expect(new URLSearchParams(lastSearch).get('q')).toBeNull());
-  });
+  }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
   // TODO(traces-v4): The OSS empty state renders TracesViewTableNoTracesQuickstart; this test asserts the Databricks TracingQuickStart CTA copy. Rewrite for the OSS quickstart.
 
