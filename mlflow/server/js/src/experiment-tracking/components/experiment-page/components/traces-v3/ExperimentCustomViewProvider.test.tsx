@@ -67,6 +67,7 @@ let capturedDefinitionProviderProps:
       onPersistView?: unknown;
       onDeleteView?: unknown;
       canModifyPersistedViews?: boolean;
+      autoSelectFirstView?: boolean;
     }
   | undefined;
 
@@ -117,7 +118,10 @@ describe('ExperimentCustomViewProvider', () => {
     capturedContextProvider = undefined;
     capturedConnectorProviderProps = undefined;
     capturedDefinitionProviderProps = undefined;
-    mockUseExperimentCustomViewDefinition.mockReturnValue({ views: [], isLoaded: true });
+    mockUseExperimentCustomViewDefinition.mockReturnValue({
+      views: [],
+      isLoaded: true,
+    });
     mockCanEdit = { canEdit: true, isLoading: false };
     mockGetCurrentApplierSessionId.mockReturnValue('session-1');
     mockGetCustomViewAuthoringContext.mockReturnValue(null);
@@ -146,6 +150,13 @@ describe('ExperimentCustomViewProvider', () => {
     expect(capturedDefinitionProviderProps?.onPersistView).toBe(persistView);
     expect(capturedDefinitionProviderProps?.onDeleteView).toBe(deleteView);
     expect(capturedDefinitionProviderProps?.canModifyPersistedViews).toBe(false);
+  });
+
+  it('enables auto-selecting the first saved view for every experiment (not gated on demo experiments)', () => {
+    makeAssistant();
+    renderProvider();
+
+    expect(capturedDefinitionProviderProps?.autoSelectFirstView).toBe(true);
   });
 
   describe('connector.openAssistant', () => {
