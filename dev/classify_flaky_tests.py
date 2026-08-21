@@ -240,10 +240,45 @@ def _aggregate(flakes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(tests, key=lambda t: t["count"], reverse=True)
 
 
+def render_summary(results: list[dict[str, Any]], framework: str) -> str:
+    """Markdown report of the classified flakes, ranked by flake count.
+
+    The detector's own summary (flakes.md) carries no verdicts, so this is what the
+    weekly issue should publish: each flake's LLM action, category, confidence, and
+    rationale — the fix guidance a human actually acts on.
+    """
+    lines = [
+        f"# Classified flaky {framework} tests",
+        "",
+        f"**{len(results)}** distinct flaky tests/shards, ranked by flake count. Each "
+        "carries an LLM triage verdict (root cause + recommended action).",
+        "",
+    ]
+    for r in results:
+        v = r["verdict"]
+        label = r["test"] or f"{r['shard']} (whole shard — no test line in log)"
+        lines.append(f"### `{label}`")
+        lines.append(
+            f"- **action: {v['action']}** · category: {v['category']} · "
+            f"confidence: {v['confidence']} · flaked {r['count']}×"
+        )
+        if attempts := v.get("attempts"):
+            lines.append(f"- suggested retry attempts: {attempts}")
+        lines.append(f"- shard: `{r['shard']}`")
+        if r.get("error"):
+            lines.append(f"- error: `{r['error']}`")
+        lines.append(f"- _rationale:_ {v['rationale']}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--in", dest="infile", required=True, help="flakes.json from the detector")
     p.add_argument("--out", help="Write classified JSON here")
+    p.add_argument(
+        "--summary", help="Write a Markdown report (with verdicts) here for the issue body."
+    )
     p.add_argument(
         "--framework",
         default="pytest",
@@ -286,6 +321,9 @@ def main() -> None:
     if args.out:
         with open(args.out, "w") as f:
             json.dump(results, f, indent=2)
+    if args.summary:
+        with open(args.summary, "w") as f:
+            f.write(render_summary(results, args.framework) + "\n")
 
 
 if __name__ == "__main__":

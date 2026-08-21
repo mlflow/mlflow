@@ -109,6 +109,33 @@ def test_jest_test_without_a_preceding_fail_file_is_ignored():
     assert parse_jest_failures("2026-07-20T10:00:00Z   ● Some suite › a test\n") == {}
 
 
+def test_jest_second_fail_header_rebinds_the_file_for_following_bullets():
+    # Two FAIL blocks in one log: each bullet must attach to the FAIL header directly
+    # above it, so the second file's failure is not misattributed to the first file.
+    log = (
+        "2026-07-20T10:00:00Z FAIL src/a.test.tsx (1 s)\n"
+        "2026-07-20T10:00:00Z   ● Suite A › first\n"
+        "2026-07-20T10:00:00Z     Error: boom-a\n"
+        "2026-07-20T10:00:00Z FAIL src/b.test.tsx (2 s)\n"
+        "2026-07-20T10:00:00Z   ● Suite B › second\n"
+        "2026-07-20T10:00:00Z     Error: boom-b\n"
+    )
+    assert parse_jest_failures(log) == {
+        "src/a.test.tsx › Suite A › first": "Error: boom-a",
+        "src/b.test.tsx › Suite B › second": "Error: boom-b",
+    }
+
+
+def test_jest_accepts_spec_suffix_files():
+    # `.spec.` is also valid jest naming; failures in such files must not be dropped.
+    log = (
+        "2026-07-20T10:00:00Z FAIL src/widget.spec.ts (1 s)\n"
+        "2026-07-20T10:00:00Z   ● Widget › renders\n"
+        "2026-07-20T10:00:00Z     Error: nope\n"
+    )
+    assert parse_jest_failures(log) == {"src/widget.spec.ts › Widget › renders": "Error: nope"}
+
+
 def test_jest_empty_log_yields_no_failures():
     assert parse_jest_failures("") == {}
 

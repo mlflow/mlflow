@@ -77,7 +77,7 @@ jobs:
             exit 0
           fi
           python dev/classify_flaky_tests.py --in flakes.json --framework jest \
-            --out classified.json
+            --out classified.json --summary classified.md
 
       - name: Upload report
         if: "!cancelled()"
@@ -88,6 +88,7 @@ jobs:
             flakes.json
             flakes.md
             classified.json
+            classified.md
           if-no-files-found: ignore
           retention-days: 90
 
@@ -105,14 +106,20 @@ jobs:
             echo "No flakes detected; skipping issue."
             exit 0
           fi
+          # Publish the classified report (verdicts + fix guidance). Fall back to the
+          # detector's verdict-less flakes.md only if classify didn't run/produce one.
+          body_file=flakes.md
+          if [ -s classified.md ]; then
+            body_file=classified.md
+          fi
           title="Weekly flaky JS-test report"
           # Scope the dedup search to issues this bot authored so we never comment on
           # an unrelated issue that happens to share the title.
           existing=$(gh issue list --repo "$REPO" --author "@me" \
             --search "in:title \"$title\"" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
-            gh issue comment "$existing" --repo "$REPO" --body-file flakes.md
+            gh issue comment "$existing" --repo "$REPO" --body-file "$body_file"
           else
             gh issue create --repo "$REPO" \
-              --title "$title" --body-file flakes.md --label "area/build"
+              --title "$title" --body-file "$body_file" --label "area/build"
           fi

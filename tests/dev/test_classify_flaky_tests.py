@@ -6,7 +6,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
 import classify_flaky_tests
-from classify_flaky_tests import CLASSIFIERS, _aggregate, classify
+from classify_flaky_tests import CLASSIFIERS, _aggregate, classify, render_summary
 from detect_flaky_tests import FRAMEWORKS
 
 
@@ -159,3 +159,27 @@ def test_shard_fallback_verdict_conforms_to_pytest_schema(tmp_path, monkeypatch)
     verdict = _run_main_on_shard_flake(tmp_path, monkeypatch, "pytest")
     assert verdict["attempts"] is None
     _assert_conforms(verdict, CLASSIFIERS["pytest"].schema)
+
+
+def test_render_summary_surfaces_the_verdict_fields():
+    # The weekly issue publishes this, so the LLM's action + rationale (its fix guidance)
+    # must appear in the rendered markdown — not just the raw flake.
+    results = [
+        {
+            "test": "src/foo/Bar.test.tsx › Bar › renders",
+            "shard": "js (rest)",
+            "count": 3,
+            "error": "Unable to find element",
+            "verdict": {
+                "category": "test-harness-race",
+                "action": "fix",
+                "confidence": "high",
+                "rationale": "Missing await on findBy*; wrap in waitFor.",
+            },
+        }
+    ]
+    md = render_summary(results, "jest")
+    assert "src/foo/Bar.test.tsx › Bar › renders" in md
+    assert "action: fix" in md
+    assert "Missing await on findBy*; wrap in waitFor." in md
+    assert "flaked 3×" in md

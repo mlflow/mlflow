@@ -55,8 +55,9 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 # it onto each following bullet to build a "<file> <sep> <suite chain> <sep> <test>" id.
 # Both regexes tolerate leading whitespace since the reporter indents the bullet two
 # spaces (the timestamp strip already removes the Actions prefix). `(?: \(.*\))?` drops
-# the trailing `(1.2 s)` timing.
-_JEST_FAIL_FILE_RE = re.compile(r"^\s*FAIL\s+(\S+\.test\.[jt]sx?)")
+# the trailing `(1.2 s)` timing. The file pattern accepts both jest naming conventions,
+# `.test.` and `.spec.`, so a suffix change never silently drops a file's failures.
+_JEST_FAIL_FILE_RE = re.compile(r"^\s*FAIL\s+(\S+\.(?:test|spec)\.[jt]sx?)")
 _JEST_FAIL_TEST_RE = re.compile(r"^\s*●\s+(.+?)(?:\s+\(\d[\d.]*\s*m?s\))?\s*$")
 
 
