@@ -2768,7 +2768,7 @@ __metadata:
 
 "@databricks/design-system@file:./vendor/design-system::locator=%40mlflow%2Fmlflow%40workspace%3A.":
   version: 1.0.0-b11bd26b
-  resolution: "@databricks/design-system@file:./vendor/design-system#./vendor/design-system::hash=1cd434&locator=%40mlflow%2Fmlflow%40workspace%3A."
+  resolution: "@databricks/design-system@file:./vendor/design-system#./vendor/design-system::hash=00e01e&locator=%40mlflow%2Fmlflow%40workspace%3A."
   dependencies:
     "@ant-design/icons": "npm:^4.7.0"
     "@babel/runtime": "npm:^7.28.4"
@@ -2813,7 +2813,7 @@ __metadata:
     moment: ^2.25.3
     react: "*"
     react-dom: "*"
-  checksum: 10c0/b31070dca01c61b9bf5a063557e9cda6f71d8be7272c01bb02fb2c0b11f14bf893fb45c21addcb846964e51752dcdb1b2a6000dbb9690cc95b9218f936dcee25
+  checksum: 10c0/afe56f95ec84f9be1ec7f468986d2830aecfdf81923b43e5d1ba74bcd756df57839ace72acff4a470456957ba9a8edaec9c36d1997909c3359eabbb0a8df553d
   languageName: node
   linkType: hard
 
@@ -6967,9 +6967,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@radix-ui/react-tooltip-patch@patch:@radix-ui/react-tooltip@npm%3A1.0.7#../js/yarn/patches/@radix-ui-react-tooltip-npm-1.0.7-c7378e5c03.patch::locator=%40databricks%2Fdesign-system%40file%3A.%2Fvendor%2Fdesign-system%23.%2Fvendor%2Fdesign-system%3A%3Ahash%3D1cd434%26locator%3D%2540mlflow%252Fmlflow%2540workspace%253A.":
+"@radix-ui/react-tooltip-patch@patch:@radix-ui/react-tooltip@npm%3A1.0.7#../js/yarn/patches/@radix-ui-react-tooltip-npm-1.0.7-c7378e5c03.patch::locator=%40databricks%2Fdesign-system%40file%3A.%2Fvendor%2Fdesign-system%23.%2Fvendor%2Fdesign-system%3A%3Ahash%3D00e01e%26locator%3D%2540mlflow%252Fmlflow%2540workspace%253A.":
   version: 1.0.7
-  resolution: "@radix-ui/react-tooltip-patch@patch:@radix-ui/react-tooltip@npm%3A1.0.7#../js/yarn/patches/@radix-ui-react-tooltip-npm-1.0.7-c7378e5c03.patch::version=1.0.7&hash=8486cf&locator=%40databricks%2Fdesign-system%40file%3A.%2Fvendor%2Fdesign-system%23.%2Fvendor%2Fdesign-system%3A%3Ahash%3D1cd434%26locator%3D%2540mlflow%252Fmlflow%2540workspace%253A."
+  resolution: "@radix-ui/react-tooltip-patch@patch:@radix-ui/react-tooltip@npm%3A1.0.7#../js/yarn/patches/@radix-ui-react-tooltip-npm-1.0.7-c7378e5c03.patch::version=1.0.7&hash=8486cf&locator=%40databricks%2Fdesign-system%40file%3A.%2Fvendor%2Fdesign-system%23.%2Fvendor%2Fdesign-system%3A%3Ahash%3D00e01e%26locator%3D%2540mlflow%252Fmlflow%2540workspace%253A."
   dependencies:
     "@babel/runtime": "npm:^7.13.10"
     "@radix-ui/primitive": "npm:1.0.1"
@@ -28872,6 +28872,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"postcss@npm:8.5.12":
+  version: 8.5.12
+  resolution: "postcss@npm:8.5.12"
+  dependencies:
+    nanoid: "npm:^3.3.11"
+    picocolors: "npm:^1.1.1"
+    source-map-js: "npm:^1.2.1"
+  checksum: 10c0/5baebaf574c567bc1b3d61197f38af4ce5920b8f611c887fb6bc3dcc14af00253c169dbf19897bc889cce0b0d9818ab5eb4ea0caedf02b0bab10da8a43ce8c12
+  languageName: node
+  linkType: hard
+
 "postcss@npm:^7.0.14, postcss@npm:^7.0.26, postcss@npm:^7.0.32, postcss@npm:^7.0.35, postcss@npm:^7.0.36, postcss@npm:^7.0.5, postcss@npm:^7.0.6":
   version: 7.0.39
   resolution: "postcss@npm:7.0.39"
@@ -28879,17 +28890,6 @@ __metadata:
     picocolors: "npm:^0.2.1"
     source-map: "npm:^0.6.1"
   checksum: 10c0/fd27ee808c0d02407582cccfad4729033e2b439d56cd45534fb39aaad308bb35a290f3b7db5f2394980e8756f9381b458a625618550808c5ff01a125f51efc53
-  languageName: node
-  linkType: hard
-
-"postcss@npm:^8.2.15, postcss@npm:^8.4.33, postcss@npm:^8.4.4, postcss@npm:^8.4.47":
-  version: 8.5.9
-  resolution: "postcss@npm:8.5.9"
-  dependencies:
-    nanoid: "npm:^3.3.11"
-    picocolors: "npm:^1.1.1"
-    source-map-js: "npm:^1.2.1"
-  checksum: 10c0/7cb2b32202ea1ead03f15cfbb2756a64a0f98942378e99b3dfce33678fe5eaf93e31d675a46e3a0dfb417d7b49b82d8999d0dd42a33c3b128e71ade0f978719a
   languageName: node
   linkType: hard
 
@@ -28901,17 +28901,6 @@ __metadata:
     picocolors: "npm:^1.1.1"
     source-map-js: "npm:^1.2.1"
   checksum: 10c0/7f2e63ae22fbe43aace1bf652bd99da4e90737c64194d49e51ddc9cd0f9e51ff2861a7d734379b494deffa03a880a5c65eec70bc29ee9ebaa7136dde3eee8f31
-  languageName: node
-  linkType: hard
-
-"postcss@npm:^8.3.5, postcss@npm:^8.5.6":
-  version: 8.5.8
-  resolution: "postcss@npm:8.5.8"
-  dependencies:
-    nanoid: "npm:^3.3.11"
-    picocolors: "npm:^1.1.1"
-    source-map-js: "npm:^1.2.1"
-  checksum: 10c0/dd918f7127ee7c60a0295bae2e72b3787892296e1d1c3c564d7a2a00c68d8df83cadc3178491259daa19ccc54804fb71ed8c937c6787e08d8bd4bedf8d17044c
   languageName: node
   linkType: hard
 
