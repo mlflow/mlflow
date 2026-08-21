@@ -6,6 +6,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 import mlflow
+from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 
 
 @pytest.fixture
@@ -105,3 +106,95 @@ def test_no_metrics_when_disabled(
                 metric_names.extend(metric.name for metric in scope_metric.metrics)
 
     assert "mlflow.trace.span.duration" not in metric_names
+
+
+def test_setup_metrics_reuses_existing_meter_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "http://localhost:9090",
+    )
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_PROTOCOL",
+        "http/protobuf",
+    )
+
+    reader = InMemoryMetricReader()
+    provider = MeterProvider(metric_readers=[reader])
+
+    set_provider_calls = []
+
+    # Pretend OpenTelemetry already has a configured global MeterProvider.
+    monkeypatch.setattr(metrics, "get_meter_provider", lambda: provider)
+    monkeypatch.setattr(metrics, "get_meter", lambda name: provider.get_meter(name))
+    monkeypatch.setattr(metrics, "set_meter_provider", set_provider_calls.append)
+
+    def unexpected_reader(*args, **kwargs):
+        pytest.fail(
+            "PeriodicExportingMetricReader should not be created "
+            "when a MeterProvider already exists"
+        )
+
+    monkeypatch.setattr(
+        "mlflow.tracing.processor.otel_metrics_mixin.PeriodicExportingMetricReader",
+        unexpected_reader,
+    )
+
+    try:
+        processor = OtelMetricsMixin()
+        processor._setup_metrics_if_necessary()
+
+        assert processor._duration_histogram is not None
+        assert set_provider_calls == []
+    finally:
+        provider.shutdown()
+
+
+def test_setup_metrics_shuts_down_rejected_meter_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "http://localhost:9090",
+    )
+    monkeypatch.setenv(
+        "OTEL_EXPORTER_OTLP_PROTOCOL",
+        "http/protobuf",
+    )
+
+    existing_provider = object()
+    created_providers = []
+
+    class FakeMeterProvider:
+        def __init__(self, metric_readers):
+            self.metric_readers = metric_readers
+            self.shutdown_called = False
+            created_providers.append(self)
+
+        def shutdown(self):
+            self.shutdown_called = True
+
+    class FakeMeter:
+        def create_histogram(self, **kwargs):
+            return object()
+
+    # Simulate an application-owned provider that OpenTelemetry refuses
+    # to replace with MLflow's newly created provider.
+    monkeypatch.setattr(metrics, "get_meter_provider", lambda: existing_provider)
+    monkeypatch.setattr(metrics, "set_meter_provider", lambda provider: None)
+    monkeypatch.setattr(metrics, "get_meter", lambda name: FakeMeter())
+
+    monkeypatch.setattr(
+        "mlflow.tracing.processor.otel_metrics_mixin.MeterProvider",
+        FakeMeterProvider,
+    )
+    monkeypatch.setattr(
+        "mlflow.tracing.processor.otel_metrics_mixin.PeriodicExportingMetricReader",
+        lambda exporter: object(),
+    )
+
+    processor = OtelMetricsMixin()
+    processor._setup_metrics_if_necessary()
+
+    assert len(created_providers) == 1
+    assert created_providers[0].shutdown_called
+    assert processor._duration_histogram is not None
