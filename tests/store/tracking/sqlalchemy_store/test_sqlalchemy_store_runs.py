@@ -247,6 +247,17 @@ def test_create_run_with_tags(store: SqlAlchemyStore):
     assert actual.inputs.dataset_inputs == []
 
 
+def test_create_run_under_deleted_experiment_points_to_recovery(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_deleted_exp")
+    store.delete_experiment(experiment_id)
+    configs = _get_run_configs(experiment_id=experiment_id)
+    with pytest.raises(
+        MlflowException,
+        match=rf"must be in the 'active' state.*restore_experiment\('{experiment_id}'\)",
+    ):
+        store.create_run(**configs)
+
+
 def test_create_run_sets_name(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test_create_run_run_name")
     configs = _get_run_configs(experiment_id=experiment_id)
