@@ -117,7 +117,7 @@ def test_failing_tests_from_log_returns_empty_when_no_log(monkeypatch):
     assert called is False
 
 
-def test_workflow_override_replaces_only_the_workflow_name(monkeypatch, tmp_path):
+def test_workflow_override_replaces_only_the_workflow_name(monkeypatch):
     # `--workflow` swaps the scanned workflow while keeping the framework's parser, via
     # dataclasses.replace. Verify detect() resolves the overridden name.
     import detect_flaky_tests
