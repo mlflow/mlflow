@@ -137,6 +137,18 @@ def job(
     return decorator
 
 
+def _current_authenticated_user() -> str | None:
+    # The basic-auth plugin stamps g.mlflow_authenticated_user; recorded as the job
+    # creator for per-job ownership. None when auth is off or no request context.
+    try:
+        from flask import g, has_request_context
+    except ImportError:
+        return None
+    if not has_request_context():
+        return None
+    return getattr(g, "mlflow_authenticated_user", None)
+
+
 def submit_job(
     function: Callable[..., Any],
     params: dict[str, Any],
@@ -220,7 +232,9 @@ def submit_job(
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(fn_meta.name, serialized_params, timeout)
+    job = job_store.create_job(
+        fn_meta.name, serialized_params, timeout, creator=_current_authenticated_user()
+    )
     # Only propagate workspace to subprocess when workspaces are enabled
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
 

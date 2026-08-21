@@ -10,13 +10,13 @@ export const CUSTOM_VIEW_PREFIX_V1 = `${CUSTOM_VIEW_TAG_PREFIX}.v1.`;
 export const viewTagKey = (id: string): string => `${CUSTOM_VIEW_PREFIX_V1}${id}`;
 
 // The OSS backend caps an experiment tag value at MAX_EXPERIMENT_TAG_VAL_LENGTH
-// (5,000 CHARACTERS, mlflow/utils/validation.py) and rejects anything longer
+// (20,000 CHARACTERS, mlflow/utils/validation.py) and rejects anything longer
 // outright — `_validate_experiment_tag` passes no `truncate`, so an oversized
-// view fails the save rather than being silently cut. Budgeting the same number
-// in UTF-8 BYTES is deliberately conservative: a string's byte length is never
-// below its character count, so nothing that passes here can exceed the
-// server's limit.
-export const CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES = 5000;
+// view fails the save rather than being silently cut. This client-side limit is
+// deliberately conservative: it budgets UTF-8 BYTES using the same numeric
+// value as the server's CHARACTER limit. A string's byte length is never below
+// its character count, so nothing that passes here can exceed the server's limit.
+export const CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES = 20000;
 
 // Each saved view costs one experiment tag, so cap creation before the user authors a view that
 // the backend will reject. The server is authoritative; this constant only drives the UI hint.

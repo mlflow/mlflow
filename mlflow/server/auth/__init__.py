@@ -66,6 +66,12 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    GetIssue,
+    SearchIssues,
+    UpdateIssue,
+)
 from mlflow.protos.label_schemas_pb2 import (
     CreateLabelSchema,
     DeleteLabelSchema,
@@ -321,6 +327,8 @@ from mlflow.server.auth.routes import (
     GRANT_USER_PERMISSION,
     HOME,
     INVOKE_SCORER,
+    JOB_CANCEL,
+    JOB_GET,
     LIST_CURRENT_USER_PERMISSIONS,
     LIST_ROLE_PERMISSIONS,
     LIST_ROLE_USERS,
@@ -350,6 +358,7 @@ from mlflow.server.handlers import (
     _assert_item_type_string,
     _get_ajax_path,
     _get_model_registry_store,
+    _get_normalized_request_json,
     _get_request_message,
     _get_tracking_store,
     _get_validated_flask_request_json,
@@ -1390,6 +1399,21 @@ def sender_is_admin():
     """Validate if the sender is admin"""
     username = authenticate_request().username
     return store.get_user(username).is_admin
+
+
+def validate_is_job_owner():
+    # Jobs have no experiment scope, so ownership is the boundary: the recorded
+    # creator must match the caller. Missing creator or missing job -> denied.
+    from mlflow.server.jobs import get_job
+
+    job_id = _get_request_param("job_id")
+    try:
+        creator = get_job(job_id).creator
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    return creator is not None and creator == authenticate_request().username
 
 
 def _is_workspace_admin(user_id: int, workspace: str) -> bool:
@@ -3060,6 +3084,88 @@ BEFORE_REQUEST_VALIDATORS.update({
 })
 
 
+# Issues are experiment-scoped: authorize from the associated experiment.
+def _issue_experiment_permission():
+    issue_id = _get_request_param("issue_id")
+    username = authenticate_request().username
+    experiment_id = _get_tracking_store().get_issue(issue_id).experiment_id
+    return _get_experiment_permission(experiment_id, username)
+
+
+def validate_can_read_issue():
+    try:
+        return _issue_experiment_permission().can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def validate_can_update_issue():
+    try:
+        return _issue_experiment_permission().can_update
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+
+
+def validate_can_create_issue():
+    # Use the same normalizer as the handler so a legacy double-encoded body is decoded
+    # rather than crashing the auth check with a 500 (a str has no .get).
+    experiment_id = _get_normalized_request_json().get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_update
+
+
+def validate_can_search_issues():
+    experiment_id = _get_normalized_request_json().get("experiment_id")
+    if not experiment_id:
+        return False
+    username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username).can_read
+
+
+ISSUE_BEFORE_REQUEST_HANDLERS = {
+    GetIssue: validate_can_read_issue,
+    UpdateIssue: validate_can_update_issue,
+}
+
+
+def get_issue_before_request_handler(request_class):
+    return ISSUE_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+# Regex-matched (path parameter).
+ISSUE_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_issue_before_request_handler)
+    for method in methods
+    if handler in ISSUE_BEFORE_REQUEST_HANDLERS.values()
+}
+
+
+ISSUE_EXACT_BEFORE_REQUEST_HANDLERS = {
+    CreateIssue: validate_can_create_issue,
+    SearchIssues: validate_can_search_issues,
+}
+
+
+def get_issue_exact_before_request_handler(request_class):
+    return ISSUE_EXACT_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+# Create/search have no path parameters -> exact-match table.
+BEFORE_REQUEST_VALIDATORS.update({
+    (http_path, method): handler
+    for http_path, handler, methods in get_endpoints(get_issue_exact_before_request_handler)
+    for method in methods
+    if handler in ISSUE_EXACT_BEFORE_REQUEST_HANDLERS.values()
+})
+
+
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 
 
@@ -3148,6 +3254,14 @@ def authenticate_request_basic_auth() -> Authorization | Response:
     return make_basic_auth_response()
 
 
+# Job routes carry a <job_id> path parameter, so they need regex matching. Both the
+# per-id fetch and cancel routes are gated on job ownership.
+JOB_BEFORE_REQUEST_VALIDATORS = {
+    (_re_compile_path(JOB_GET), "GET"): validate_is_job_owner,
+    (_re_compile_path(JOB_CANCEL), "PATCH"): validate_is_job_owner,
+}
+
+
 def _find_validator(req: Request) -> Callable[[], bool] | None:
     """
     Finds the validator matching the request path and method.
@@ -3191,6 +3305,37 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         )
         return validator if validator is not None else lambda: False
 
+    # Job routes (/mlflow/jobs/<job_id>, cancel), ownership-gated. The /mlflow/jobs/ substring
+    # is a coarse gate: any path under it that isn't a real job route (including a crafted
+    # /prefix/mlflow/jobs/... path) fails closed here rather than falling through, which is the
+    # safe direction. Matches the sibling dataset/issue branches.
+    if "/mlflow/jobs/" in req.path:
+        route_validator = next(
+            (
+                handler
+                for (pat, method), handler in JOB_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        return route_validator if route_validator is not None else lambda: False
+
+    # Whole /mlflow/issues/ family; unknown paths fail closed, except the not-yet-gated
+    # routes tracked in _KNOWN_UNGATED_ROUTE_MARKERS (e.g. invoke), which fall through.
+    if "/mlflow/issues/" in req.path:
+        validator = next(
+            (
+                v
+                for (pat, method), v in ISSUE_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+        if validator is not None:
+            return validator
+        if not _is_known_ungated_route(req.path):
+            return lambda: False
+
     # Trace routes with path parameters (e.g. /mlflow/traces/<request_id>/tags).
     # Unknown paths under this prefix are denied (fail-closed) rather than skipped.
     if "/mlflow/traces/" in req.path:
@@ -3222,8 +3367,7 @@ _HANDLER_INTERNAL_AUTHZ_SUFFIXES = (
 # Ungated route families, temporarily exempt from fail-closed until each is gated
 # (removed one at a time; when empty the flag can be flipped on).
 _KNOWN_UNGATED_ROUTE_MARKERS = (
-    "/mlflow/issues",
-    "/mlflow/jobs/",
+    "/mlflow/issues/invoke",
     "/gateway/budgets/",
     "/gateway/guardrails/",
     "/gateway/provider-config",

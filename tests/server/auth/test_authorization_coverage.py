@@ -1,6 +1,8 @@
 # CI guard for the basic-auth dispatcher: every Flask route must resolve to an
 # authorization decision, or be listed in the debt list _KNOWN_UNGATED_ROUTE_MARKERS.
 
+from types import SimpleNamespace
+
 from mlflow.server import auth as a
 from mlflow.server.handlers import get_endpoints
 
@@ -78,6 +80,19 @@ def test_known_ungated_markers_are_not_stale():
     )
 
 
+def test_unknown_issue_subpath_fails_closed():
+    # An unrecognized /mlflow/issues/ path resolves to a denying validator (not None), so
+    # it is denied even with MLFLOW_BASIC_AUTH_FAIL_CLOSED off, matching the dataset/trace
+    # branches, rather than silently falling through.
+    v = a._find_validator(_Req("/api/3.0/mlflow/issues/i-1/comments", "POST"))
+    assert v is not None
+    assert v() is False
+    # The invoke route is exempt from that hard-deny: it either has its own validator or is
+    # still tracked in the debt list, never the fail-closed fallback.
+    invoke = "/ajax-api/3.0/mlflow/issues/invoke"
+    assert a._is_known_ungated_route(invoke) or (invoke, "POST") in a.BEFORE_REQUEST_VALIDATORS
+
+
 def _fastapi_native_routes():
     # Routers served directly by FastAPI (Flask is mounted separately and authorized by
     # _before_request, so it is out of scope for this guard).
@@ -123,3 +138,21 @@ def test_no_ungated_fastapi_native_routes():
         "_KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS. Add a validator branch in "
         "_find_fastapi_validator, or document the exemption:\n" + "\n".join(uncovered)
     )
+
+
+def test_jobs_owner_check(monkeypatch):
+    # Jobs get/cancel are gated on ownership — the recorded creator must match the
+    # caller; a different creator or no creator is denied (admins bypass upstream).
+    import mlflow.server.jobs as jobs_mod
+
+    monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="alice"))
+    monkeypatch.setattr(a, "_get_request_param", lambda p: "job-1")
+
+    monkeypatch.setattr(jobs_mod, "get_job", lambda jid: SimpleNamespace(creator="alice"))
+    assert a.validate_is_job_owner() is True
+
+    monkeypatch.setattr(jobs_mod, "get_job", lambda jid: SimpleNamespace(creator="bob"))
+    assert a.validate_is_job_owner() is False
+
+    monkeypatch.setattr(jobs_mod, "get_job", lambda jid: SimpleNamespace(creator=None))
+    assert a.validate_is_job_owner() is False

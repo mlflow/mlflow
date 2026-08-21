@@ -819,7 +819,7 @@ _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
     "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
 )
 
-#: Maximum number of workers to use for running model prediction and scoring during
+#: Maximum number of workers to use for running model prediction and scoring
 #: for each row in the dataset passed to the `mlflow.genai.evaluate` function.
 #: (default: ``10``)
 MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORKERS", int, 10)
@@ -1534,6 +1534,27 @@ MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
+)
+
+#: Specifies whether to run periodic MLflow server jobs from this instance.
+#: In a multi-replica deployment, enable this on only one instance to avoid duplicate scheduling.
+#: (default: ``True``)
+MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS", True
+)
+
+#: Specifies an optional Redis URL for MLflow server job execution.
+#: When set, MLflow uses Redis-backed Huey storage instead of local SQLite files.
+#: (default: ``None``)
+MLFLOW_SERVER_JOB_HUEY_REDIS_URL = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_HUEY_REDIS_URL", str, None
+)
+
+#: Specifies whether to flush stale periodic-task locks when the consumer starts.
+#: If unset, this defaults to ``True`` for SQLite and ``False`` for Redis.
+#: (default: ``None``)
+MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP", None
 )
 
 #: Specifies MLflow server job maximum allowed retries for transient errors.

@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import json
 import random
@@ -3609,6 +3610,40 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         assert content_dict["attributes"]["mlflow.spanType"] == json.dumps(
             expected_type, cls=TraceJSONEncoder
         )
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_offloads_to_worker_thread(store: SqlAlchemyStore):
+    event_loop_ident = threading.get_ident()
+    worker_idents = []
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        worker_idents.append(threading.get_ident())
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        result = await store.log_spans_async("1", [])
+
+    assert result == []
+    assert worker_idents
+    assert worker_idents[0] != event_loop_ident
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_allows_concurrent_store_calls(store: SqlAlchemyStore):
+    barrier = threading.Barrier(2, timeout=5)
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        barrier.wait()
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        results = await asyncio.gather(
+            store.log_spans_async("1", []),
+            store.log_spans_async("1", []),
+        )
+
+    assert results == [[], []]
 
 
 def test_log_spans_multiple_traces(store: SqlAlchemyStore):
