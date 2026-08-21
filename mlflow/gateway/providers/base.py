@@ -828,12 +828,45 @@ class FallbackProvider(BaseProvider):
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         return await self._execute_with_fallback("embeddings", payload)
 
+    async def _passthrough_stream_with_fallback(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> AsyncIterable[Any]:
+        from fastapi import HTTPException
+
+        last_error = None
+
+        for attempt, provider in enumerate(self._providers[: self._max_attempts], 1):
+            try:
+                result = await provider.passthrough(action, payload, headers)
+                async for chunk in result:
+                    yield chunk
+                return
+            except Exception as e:
+                last_error = e
+                if attempt < self._max_attempts:
+                    continue
+                break
+
+        status_code = 500
+        if isinstance(last_error, (AIGatewayException, HTTPException)):
+            status_code = last_error.status_code
+
+        raise AIGatewayException(
+            status_code=status_code,
+            detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
+        )
+
     async def passthrough(
         self,
         action: PassthroughAction,
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
+        if payload.get("stream"):
+            return self._passthrough_stream_with_fallback(action, payload, headers)
         return await self._execute_with_fallback("passthrough", action, payload, headers)
 
     async def proxy(
