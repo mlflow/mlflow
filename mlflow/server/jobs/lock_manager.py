@@ -3,14 +3,31 @@
 import logging
 from dataclasses import dataclass
 
+from sqlalchemy import insert
 from sqlalchemy.exc import IntegrityError
 
 from mlflow.exceptions import MlflowException
+from mlflow.store.db.utils import get_current_time_millis_expression
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.dbmodels.models import SqlSchedulerLease
 from mlflow.utils.time import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
+
+
+def _check_time_drift_and_log(app_now_millis: int, db_now_millis: int) -> None:
+    """
+    Compare the application clock with the database clock and log a warning if the difference is
+    more than 1 second.
+
+    Args:
+        app_now_millis: Current application clock time in milliseconds since the Unix epoch.
+        db_now_millis: Current database clock time in milliseconds since the Unix epoch.
+    """
+
+    drift = app_now_millis - db_now_millis
+    if abs(drift) > 1000:
+        _logger.warning("Time drift > 1s detected APP_time - DB_time = %d ms", drift)
 
 
 @dataclass(frozen=True)
@@ -46,13 +63,14 @@ class JobLockManager:
     """
 
     def __init__(self, job_store: SqlAlchemyJobStore):
+        self.db_type = job_store.db_type
         self._session_maker = job_store.ManagedSessionMaker
 
     def renew_scheduler_lease(
         self, scheduler_lease: SchedulerLease, ttl_seconds: int
     ) -> SchedulerLease | None:
         """
-        Renew an existing scheduler lease.
+        Renew an existing scheduler lease. Lease renewal is best effort.
 
         This method matches all three fields of ``scheduler_lease`` against the
         database row to verify that the caller holds the lease.
@@ -68,6 +86,11 @@ class JobLockManager:
             Callers must use the returned ``SchedulerLease`` for all subsequent
             operations. The original object becomes invalid after renewal because
             ``acquired_at`` and ``ttl_seconds`` change.
+
+            Lease renewal is best effort. In the case of sub-millisecond lease
+            renewal requests with the same ttl, there is no "renewal" and the
+            retuned SchedulerLease will have the same values as the original
+            lease.
 
         Args:
             scheduler_lease: The current lease that proves the caller holds it.
@@ -88,30 +111,42 @@ class JobLockManager:
             )
 
         with self._session_maker(read_only=False) as session:
-            existing = (
+            app_now_millis = get_current_time_millis()
+            filter_args = (
+                SqlSchedulerLease.lease_key == scheduler_lease.lease_key,
+                SqlSchedulerLease.acquired_at == scheduler_lease.acquired_at,
+                SqlSchedulerLease.ttl_seconds == scheduler_lease.ttl_seconds,
+            )
+
+            update_values = {
+                SqlSchedulerLease.acquired_at: get_current_time_millis_expression(self.db_type),
+                SqlSchedulerLease.ttl_seconds: ttl_seconds,
+            }
+
+            rows_updated = (
                 session
                 .query(SqlSchedulerLease)
-                .filter(
-                    SqlSchedulerLease.lease_key == scheduler_lease.lease_key,
-                    SqlSchedulerLease.acquired_at == scheduler_lease.acquired_at,
-                    SqlSchedulerLease.ttl_seconds == scheduler_lease.ttl_seconds,
+                .filter(*filter_args)
+                .update(update_values, synchronize_session=False)
+            )
+
+            if rows_updated > 0:
+                renewed_lease = (
+                    session
+                    .query(SqlSchedulerLease)
+                    .filter(SqlSchedulerLease.lease_key == scheduler_lease.lease_key)
+                    .one()
                 )
-                .with_for_update()
-                .one_or_none()
-            )
+                _check_time_drift_and_log(app_now_millis, renewed_lease.acquired_at)
 
-            # Refuse lease renewal if exact match is not found in table.
-            if existing is None:
-                return None
+                return SchedulerLease(
+                    lease_key=renewed_lease.lease_key,
+                    acquired_at=renewed_lease.acquired_at,
+                    ttl_seconds=renewed_lease.ttl_seconds,
+                )
 
-            existing.acquired_at = get_current_time_millis()
-            existing.ttl_seconds = ttl_seconds
-
-            return SchedulerLease(
-                lease_key=existing.lease_key,
-                acquired_at=existing.acquired_at,
-                ttl_seconds=existing.ttl_seconds,
-            )
+            _logger.debug("Scheduler lease renewal denied, lease no longer valid.")
+            return None
 
     def acquire_scheduler_lease(self, lease_key: str, ttl_seconds: int) -> SchedulerLease | None:
         """
@@ -143,30 +178,67 @@ class JobLockManager:
 
         try:
             with self._session_maker(read_only=False) as session:
+                app_now_millis = get_current_time_millis()
+                now = get_current_time_millis_expression(self.db_type)
+                filter_args = (
+                    SqlSchedulerLease.lease_key == lease_key,
+                    SqlSchedulerLease.acquired_at + (SqlSchedulerLease.ttl_seconds * 1000) <= now,
+                )
+
+                update_values = {
+                    SqlSchedulerLease.acquired_at: now,
+                    SqlSchedulerLease.ttl_seconds: ttl_seconds,
+                }
+
+                rows_updated = (
+                    session
+                    .query(SqlSchedulerLease)
+                    .filter(*filter_args)
+                    .update(update_values, synchronize_session=False)
+                )
+
+                if rows_updated > 0:
+                    new_lease = (
+                        session
+                        .query(SqlSchedulerLease)
+                        .filter(SqlSchedulerLease.lease_key == lease_key)
+                        .one()
+                    )
+                    _check_time_drift_and_log(app_now_millis, new_lease.acquired_at)
+
+                    return SchedulerLease(
+                        lease_key=new_lease.lease_key,
+                        acquired_at=new_lease.acquired_at,
+                        ttl_seconds=new_lease.ttl_seconds,
+                    )
+
                 existing = (
                     session
                     .query(SqlSchedulerLease)
                     .filter(SqlSchedulerLease.lease_key == lease_key)
-                    .with_for_update()
                     .one_or_none()
                 )
-                now = get_current_time_millis()
 
-                if existing is not None:
-                    if now < existing.acquired_at + (existing.ttl_seconds * 1000):
-                        _logger.debug("Scheduler lease denied, a valid lease exists.")
-                        return None
+                if existing is None:
+                    insert_values = {SqlSchedulerLease.lease_key: lease_key, **update_values}
+                    session.execute(insert(SqlSchedulerLease).values(insert_values))
 
-                    existing.acquired_at = now
-                    existing.ttl_seconds = ttl_seconds
-                else:
-                    session.add(
-                        SqlSchedulerLease(
-                            lease_key=lease_key, acquired_at=now, ttl_seconds=ttl_seconds
-                        )
+                    new_lease = (
+                        session
+                        .query(SqlSchedulerLease)
+                        .filter(SqlSchedulerLease.lease_key == lease_key)
+                        .one()
+                    )
+                    _check_time_drift_and_log(app_now_millis, new_lease.acquired_at)
+
+                    return SchedulerLease(
+                        lease_key=new_lease.lease_key,
+                        acquired_at=new_lease.acquired_at,
+                        ttl_seconds=new_lease.ttl_seconds,
                     )
 
-            return SchedulerLease(lease_key=lease_key, acquired_at=now, ttl_seconds=ttl_seconds)
+            _logger.debug("Scheduler lease denied, a valid lease exists.")
+            return None
 
         except MlflowException as e:
             # ManagedSessionMaker wraps all SQLAlchemy exceptions in MlflowException.

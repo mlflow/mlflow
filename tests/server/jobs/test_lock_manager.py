@@ -1,3 +1,4 @@
+from logging import Logger
 from unittest import mock
 
 import pytest
@@ -6,7 +7,11 @@ from sqlalchemy.orm import Query
 from sqlalchemy.orm.session import Session
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.jobs.lock_manager import JobLockManager, SchedulerLease
+from mlflow.server.jobs.lock_manager import (
+    JobLockManager,
+    SchedulerLease,
+    _check_time_drift_and_log,
+)
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.dbmodels.models import SqlSchedulerLease
 
@@ -30,6 +35,29 @@ def test_renew_scheduler_lease_raises_when_ttl_invalid(
     match = f"ttl_seconds must be greater than zero, got {invalid_ttl}"
     with pytest.raises(MlflowException, match=match):
         _ = lock_mgr.renew_scheduler_lease(missing_scheduler_lease, ttl_seconds=invalid_ttl)
+
+
+@pytest.mark.parametrize(
+    ("app_now", "db_now", "drift"),
+    [
+        (0, 0, None),
+        (0, 1000, None),
+        (0, 1001, -1001),
+        (1001, 0, 1001),
+    ],
+    ids=["no_drift", "exactly_1_second", "db_drift_ahead", "app_drift_ahead"],
+)
+def test_check_time_drift_and_log(app_now: int, db_now: int, drift: int | None) -> None:
+
+    with mock.patch.object(Logger, "warning") as mock_logger_warning:
+        _check_time_drift_and_log(app_now_millis=app_now, db_now_millis=db_now)
+
+    if drift is not None:
+        mock_logger_warning.assert_called_once_with(
+            "Time drift > 1s detected APP_time - DB_time = %d ms", drift
+        )
+    else:
+        mock_logger_warning.assert_not_called()
 
 
 def test_renew_scheduler_lease_fails_when_no_lease_exists(lock_mgr: JobLockManager) -> None:
@@ -57,7 +85,7 @@ def test_renew_scheduler_lease_refused(
     lock_mgr: JobLockManager, caller_lease: SchedulerLease
 ) -> None:
 
-    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis_expression"
     existing_lease = SchedulerLease("lease-key", 0, 10)
 
     # stage existing lease
@@ -73,7 +101,7 @@ def test_renew_scheduler_lease_refused(
 
 def test_renew_scheduler_lease_granted_when_existing_lease_valid(lock_mgr: JobLockManager) -> None:
 
-    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis_expression"
     existing_lease = SchedulerLease("lease-key", 0, 10)
 
     # stage existing lease
@@ -106,7 +134,7 @@ def test_renew_scheduler_lease_granted_when_existing_lease_valid(lock_mgr: JobLo
 def test_renew_scheduler_lease_granted_when_existing_lease_expired(
     lock_mgr: JobLockManager,
 ) -> None:
-    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis_expression"
     existing_lease = SchedulerLease("lease-key", 0, 10)
 
     # stage existing lease
@@ -138,7 +166,7 @@ def test_renew_scheduler_lease_granted_when_existing_lease_expired(
 
 def test_renew_scheduler_lease_works_once_with_original_lease(lock_mgr: JobLockManager) -> None:
 
-    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis_expression"
     existing_lease = SchedulerLease("lease-key", 0, 10)
 
     # stage existing lease
@@ -163,7 +191,7 @@ def test_scheduler_lease_full_lifecycle(lock_mgr: JobLockManager) -> None:
 
     lease_key = "scheduler"
     ttl = 10
-    patch_time = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    patch_time = "mlflow.server.jobs.lock_manager.get_current_time_millis_expression"
 
     # 1. Replica A acquires the lease at T=0.
     with mock.patch(patch_time, return_value=0) as mock_t:
@@ -262,7 +290,7 @@ def test_acquire_scheduler_lease_when_a_lease_exists(
 
     lease_key = "scheduler-1"
     base_time = 1_000_000_000_000
-    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis_expression"
 
     with mock.patch(patch_time_lock_mgr, return_value=base_time) as mock_time:
         scheduler_lease = lock_mgr.acquire_scheduler_lease("scheduler-1", ttl_seconds=10)
@@ -305,7 +333,7 @@ def test_acquire_scheduler_lease_returns_none_on_concurrent_insert_race(
 ) -> None:
 
     integrity_error = IntegrityError(None, None, None)
-    with mock.patch.object(Session, "add", side_effect=integrity_error) as mock_add:
+    with mock.patch.object(Session, "execute", side_effect=integrity_error) as mock_add:
         assert lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60) is None
         mock_add.assert_called_once()
 
@@ -317,7 +345,7 @@ def test_acquire_scheduler_lease_raises_non_integrity_errors(lock_mgr: JobLockMa
 
     # Patching the get_current_time_millis call inside of the session context manager is the
     # easiest way to raise an arbitrary exception though it may not be the source.
-    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis_expression"
     exception = ValueError("Non IntegrityError exception")
 
     with mock.patch(patch_time_lock_mgr, side_effect=exception) as mock_time:

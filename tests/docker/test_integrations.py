@@ -16,7 +16,7 @@ import mlflow
         "docker-compose.postgres-test.yaml",
     ],
 )
-def test_backend_and_artifact_store_integration(compose_file):
+def test_backend_and_artifact_store_integration(compose_file, build_mlflow_image):
     compose = DockerCompose(
         context=os.path.dirname(os.path.abspath(__file__)),
         compose_file_name=[compose_file],
