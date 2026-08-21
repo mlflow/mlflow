@@ -777,6 +777,55 @@ def test_presigned_download_url_authorization_required(client, monkeypatch):
 
 
 @pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_presigned_upload_url_authorization_required(client, monkeypatch):
+    # Minting a presigned upload URL grants direct write access to a run's artifacts,
+    # so it must enforce per-run UPDATE permission — the write-side counterpart of the
+    # READ requirement on CreatePresignedDownloadUrl. READ alone must not be enough.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("presigned-upload-authz-test")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+
+    # Grant user2 only READ on user1's experiment. READ permits reading the run but not
+    # updating it, so the write-granting upload route must still reject with 403 at the
+    # auth layer — before the handler runs.
+    grant_role_permission(client.tracking_uri, username2, "experiment", experiment_id, "READ")
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+    # Same READ-only user reaches the download handler (READ satisfies its validator),
+    # which rejects the local (file://) artifact repo with 501. This confirms the READ
+    # grant is genuine and that the 403 above is specifically the UPDATE requirement.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-download-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 501
+
+    # user1 (creator, MANAGE on the experiment) can update the run, so the request passes
+    # the auth layer and reaches the handler, which rejects the local artifact repo with 501.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 501
+
+
+@pytest.mark.parametrize(
     "fastapi_client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
