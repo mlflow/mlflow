@@ -1182,21 +1182,25 @@ describe('TracesV4PageContent', () => {
     // The Analyze (Genie) button is gated behind assistant enablement + a separate safex flag, so it
     // doesn't render here; assert the always-present V4 control ordering, and that the selection-only
     // Actions button lands between Display and Refresh.
-    test('renders Date → Search → Filter → Display → Refresh', async () => {
+    test('renders Views → Date → Search → Filter → Display → Refresh', async () => {
       renderPage();
       await findTraceRow('tr-000');
 
+      const views = screen.getByRole('button', { name: 'Views' });
       const date = screen.getByTestId('time-range-select-dropdown');
       const search = screen.getByPlaceholderText('Search traces by id, input, or output');
       const filter = screen.getByRole('button', { name: /Filters/ });
       const display = screen.getByRole('button', { name: 'Display' });
-      const refresh = screen.getByRole('button', { name: 'now' });
+      // The refresh button's accessible name is a relative-time label ("now" / "1 second ago") that
+      // drifts with render time, so match it by its stable componentId instead.
+      const refresh = document.querySelector('[data-component-id="mlflow.traces-v4.refresh-date-button"]')!;
       // DOCUMENT_POSITION_FOLLOWING (4) means the arg node comes after `this` node in document order.
+      expect(views.compareDocumentPosition(date) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(date.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(search.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(filter.compareDocumentPosition(display) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(display.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    });
+    }, 20000); // heavy full-page render — bump off the flaky 5s default under parallel jsdom load
 
     // TODO(traces-v4): The Actions button only renders on selection, which is jsdom-blocked here (portalled DuBois checkbox).
     test.skip('places the selection Actions button between Display and Refresh', async () => {
