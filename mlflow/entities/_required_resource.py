@@ -21,6 +21,14 @@ class RequiredResource:
     least-privilege scoped permissions for remote execution. The ``type``
     values align with MLflow RBAC resource types defined in
     ``mlflow.server.auth.permissions``.
+
+    Note: this is intentionally separate from ``mlflow.models.resources.Resource``.
+    That pre-existing type models Databricks model-serving infrastructure
+    dependencies — it carries a ``target_uri``, uses a broader Databricks-specific
+    ``ResourceType`` enum, and has its own serialization format. ``RequiredResource``
+    is a deliberately narrower type aligned with MLflow RBAC resource types for the
+    job execution framework's scoped-token model. See the RFC discussion:
+    https://github.com/mlflow/rfcs/pull/2#discussion_r3021753290
     """
 
     type: RequiredResourceType
@@ -29,6 +37,17 @@ class RequiredResource:
     name: str
 
     def __post_init__(self):
+        # Validate runtime types explicitly. `bytes`, for instance, would otherwise slip
+        # past the checks below (it is truthy and has `.strip()`) but breaks JSON
+        # serialization later during scorer registration, since `to_dict()` promises strings.
+        if not isinstance(self.type, str):
+            raise TypeError(
+                f"RequiredResource type must be a string, got {type(self.type).__name__}"
+            )
+        if not isinstance(self.name, str):
+            raise TypeError(
+                f"RequiredResource name must be a string, got {type(self.name).__name__}"
+            )
         if self.type not in VALID_REQUIRED_RESOURCE_TYPES:
             raise ValueError(
                 f"Unknown required resource type: {self.type!r}. "

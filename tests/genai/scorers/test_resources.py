@@ -29,6 +29,20 @@ def test_resource_immutable():
         r.name = "other"
 
 
+@pytest.mark.parametrize("bad_type", [123, None, b"gateway_endpoint", ["gateway_endpoint"]])
+def test_resource_type_must_be_string(bad_type):
+    with pytest.raises(TypeError, match="type must be a string"):
+        RequiredResource(type=bad_type, name="ep")
+
+
+@pytest.mark.parametrize("bad_name", [123, None, b"ep", ["ep"]])
+def test_resource_name_must_be_string(bad_name):
+    # `bytes` in particular is truthy and has `.strip()`, so it would slip past the
+    # empty-name check and only fail later during JSON serialization.
+    with pytest.raises(TypeError, match="name must be a string"):
+        RequiredResource(type="gateway_endpoint", name=bad_name)
+
+
 def test_resource_to_dict():
     assert RequiredResource(type="gateway_endpoint", name="ep-1").to_dict() == {
         "type": "gateway_endpoint",
