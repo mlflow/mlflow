@@ -145,9 +145,7 @@ def retire_batch_processor(processor: "BaseMlflowSpanProcessor") -> None:
         )
     try:
         processor.force_flush()
-        exporter = processor.span_exporter
-        if hasattr(exporter, "_async_queue"):
-            exporter._async_queue.flush(terminate=True)
+        flush_exporter(processor.span_exporter, terminate=True)
     except Exception:
         _logger.debug(f"Failed to flush processor {processor} before retiring", exc_info=True)
     try:

@@ -7,6 +7,10 @@ import pytest
 import mlflow
 from mlflow.entities.span import Span
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+from mlflow.tracing.processor.base_mlflow import (
+    BaseMlflowSpanProcessor,
+    retire_batch_processor,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v4
 
@@ -381,3 +385,32 @@ def test_flush_with_batching_disabled(monkeypatch):
 
     exporter._client.log_spans.assert_called_once()
     assert exporter._span_batcher._span_queue.empty()
+
+
+def test_retire_batch_processor_drains_span_batcher(monkeypatch):
+    # retire_batch_processor() runs whenever a tracer provider is replaced
+    # (provider.py, TracerProviderSingleton.set), so a second set_destination() against a
+    # UC destination retires the previous processor. It reached past the exporter into
+    # _async_queue, which leaves anything still in the SpanBatcher unexported.
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "60000")
+
+    exporter = _make_exporter()
+    processor = BaseMlflowSpanProcessor(exporter, export_metrics=False, use_batch_processor=True)
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=12345, span_id=1)])
+
+        assert exporter._span_batcher._span_queue.qsize() == 1
+        exporter._client.log_spans.assert_not_called()
+
+        retire_batch_processor(processor)
+
+    exporter._client.log_spans.assert_called_once()
+    location, spans = exporter._client.log_spans.call_args[0]
+    assert location == "catalog.schema.spans"
+    assert len(spans) == 1
+    assert processor._batch_delegate is None
