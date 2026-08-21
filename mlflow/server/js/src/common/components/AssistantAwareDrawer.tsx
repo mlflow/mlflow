@@ -171,7 +171,10 @@ function Content({
           const target = event.target as HTMLElement;
           const isAssistantClick = target?.closest('[data-assistant-ui="true"]');
           const isResizeHandle = target?.closest('[data-drawer-resize-handle="true"]');
-          if (isAssistantClick || isResizeHandle) {
+          // Portaled Radix menus/popovers (e.g. the provider picker) render outside the drawer,
+          // so opening one would otherwise dismiss it. Don't count them as outside interactions.
+          const isPopperContent = target?.closest('[data-radix-popper-content-wrapper]');
+          if (isAssistantClick || isResizeHandle || isPopperContent) {
             event.preventDefault();
           }
         }}
