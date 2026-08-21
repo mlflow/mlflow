@@ -1,4 +1,4 @@
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { DetectIssuesButton } from '@databricks/web-shared/genai-traces-table';
 import {
@@ -38,8 +38,6 @@ export interface TracesV4ToolbarParams {
   onDensityChange: (density: TracesV4Density) => void;
   selectionCount: number;
   onBulkDelete: () => void;
-  /** Grays out the Actions → Delete item (UC-backed traces can't be deleted here). */
-  isDeleteDisabled: boolean;
   /** True while any trace-search query is fetching — drives the refresh button's spin state. */
   isRefreshing: boolean;
   experimentId: string;
@@ -132,7 +130,6 @@ export const useTracesV4ToolbarSlots = ({
   onDensityChange,
   selectionCount,
   onBulkDelete,
-  isDeleteDisabled,
   isRefreshing,
   experimentId,
   actions,
@@ -140,7 +137,6 @@ export const useTracesV4ToolbarSlots = ({
   onDetectIssues,
   savedViewsButton,
 }: TracesV4ToolbarParams): TracesV4ToolbarSlots => {
-  const intl = useIntl();
   const hasSelection = selectionCount > 0;
   const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames);
 
@@ -163,14 +159,9 @@ export const useTracesV4ToolbarSlots = ({
         ]
       : undefined;
 
-  // Siloed copy of v3's UC-delete disabled reason.
-  const deleteDisabledReason = intl.formatMessage({
-    defaultMessage:
-      'Trace deletion is not supported for traces located in Unity Catalog schema. You can delete traces from corresponding Delta table.',
-    description:
-      'Trace deletion disabled reason. Displayed in a tooltip when a user attempts to delete a trace housed in the UC delta table.',
-  });
-
+  // Note: the Databricks build disables Delete for UC-backed traces (with a "delete from the Delta
+  // table instead" tooltip). OSS traces are always deletable via the standard path, so that gate is
+  // dropped here and Delete is always enabled.
   return {
     leftControls: (
       <>
@@ -204,8 +195,6 @@ export const useTracesV4ToolbarSlots = ({
           <TracesV4ActionsButton
             selectionCount={selectionCount}
             onDelete={onBulkDelete}
-            disabled={isDeleteDisabled}
-            disabledReason={isDeleteDisabled ? deleteDisabledReason : undefined}
             experimentId={experimentId}
             actions={actions}
             selectedTraceInfos={selectedTraceInfos}

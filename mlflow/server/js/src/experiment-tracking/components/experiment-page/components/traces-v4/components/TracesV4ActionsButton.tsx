@@ -1,6 +1,6 @@
 import { Button, ChevronDownIcon, DropdownMenu, TrashIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { compact } from 'lodash';
-import React, { useContext, useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { convertTraceInfoV3ToRunEvalEntry, GenAITracesTableContext } from '@databricks/web-shared/genai-traces-table';
@@ -15,11 +15,9 @@ const MAX_COMPARE = 3;
 interface TracesV4ActionsButtonProps {
   /** Number of currently-selected traces — shown in the button label. */
   selectionCount: number;
+  // Note: the Databricks build can disable Delete for UC-backed traces; OSS traces are always
+  // deletable, so this button has no disabled/disabledReason props and Delete is always enabled.
   onDelete: () => void;
-  /** Grays out the Delete item (UC-backed traces can't be deleted here). */
-  disabled?: boolean;
-  /** Tooltip explaining why Delete is disabled — rendered by `DropdownMenu.Item`. */
-  disabledReason?: React.ReactNode;
   experimentId: string;
   /** Shared trace-action building blocks powering the "Use for evaluation" group. */
   actions: TracesV4TraceActions;
@@ -47,8 +45,6 @@ interface TracesV4ActionsButtonProps {
 export const TracesV4ActionsButton = ({
   selectionCount,
   onDelete,
-  disabled,
-  disabledReason,
   experimentId,
   actions,
   selectedTraceInfos,
@@ -198,13 +194,7 @@ export const TracesV4ActionsButton = ({
                 description="Bulk action that edits the tags on the single selected trace"
               />
             </DropdownMenu.Item>
-            <DropdownMenu.Item
-              componentId="mlflow.traces-v4.actions.delete"
-              css={groupItemStyles}
-              onClick={onDelete}
-              disabled={disabled}
-              disabledReason={disabledReason}
-            >
+            <DropdownMenu.Item componentId="mlflow.traces-v4.actions.delete" css={groupItemStyles} onClick={onDelete}>
               <DropdownMenu.IconWrapper>
                 <TrashIcon />
               </DropdownMenu.IconWrapper>

@@ -44,10 +44,6 @@ export interface UseTracesV4ControllerResult {
   activeFilterCount: number;
   /** ISO time range currently applied (drives the search filter + refresh label context). */
   timeRange: { startTime?: string; endTime?: string };
-  /** True when V4 needs a SQL warehouse but none is selected — the query stays disabled. */
-  isMissingWarehouse: boolean;
-  /** True when trace deletion is unsupported for the current locations (always so for UC-backed v4). */
-  isDeleteDisabled: boolean;
   /** Navigate to a page, committing any pending typed search first. */
   goToPage: (target: number) => void;
   /** Toggle a URL-persisted click-to-filter tag constraint (from a tag pill in the table). */
@@ -97,9 +93,6 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     [experimentId],
   );
 
-  // Traces in the OSS tracking store are deletable via the standard delete path (no UC/Delta gate).
-  const isDeleteDisabled = false;
-
   const filter = useMemo(
     () =>
       buildFilter({
@@ -118,9 +111,6 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     () => ({ locations, filter, orderBy, pageSize: url.pageSize }),
     [locations, filter, orderBy, url.pageSize],
   );
-
-  // OSS has no SQL warehouse, so the search is never gated on one — it always fires.
-  const isMissingWarehouse = false;
 
   const tokenCache = useTraceTokenCache();
 
@@ -217,8 +207,6 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     setFilterModel,
     activeFilterCount,
     timeRange,
-    isMissingWarehouse,
-    isDeleteDisabled,
     goToPage,
     onFilterByTag: url.addTagFilter,
     flags: { hasActiveSearch, hasNoTracesAtAll, hasNoSearchResults, isEmptyPageBeyondFirst },
