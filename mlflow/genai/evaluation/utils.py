@@ -13,8 +13,10 @@ from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
 )
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers.base import _parse_tag_filter
 from mlflow.models import EvaluationMetric
 from mlflow.tracing.utils.search import traces_to_df
+from mlflow.utils.search_utils import SearchTraceUtils
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -464,3 +466,25 @@ def validate_tags(tags: Any) -> None:
 
     if errors:
         raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
+
+
+class _RowTags:
+    """Minimal object exposing ``.tags`` so ``SearchTraceUtils`` can match a row's tags."""
+
+    def __init__(self, tags: dict[str, str] | None):
+        # A dataset row may carry no tags at all (``None``) or a pandas ``NaN`` when only some
+        # rows in a mixed dataset set tags; either coerces to an empty tag dict.
+        self.tags = tags if isinstance(tags, dict) else {}
+
+
+def row_matches_scorer_filter(tags: dict[str, str] | None, filter_string: str) -> bool:
+    """Whether a row's ``tags`` satisfy a scorer's ``where()`` filter string.
+
+    ``filter_string`` uses MLflow's ``search_traces`` filter grammar restricted to tag clauses
+    (e.g. ``tags.`category` = 'billing'``); a clause on anything else raises, since a dataset
+    row only carries tags. ``.where()`` validates this up front, so the raising path here is a
+    defensive fallback.
+    """
+    parsed = _parse_tag_filter(filter_string)
+    row = _RowTags(tags)
+    return all(SearchTraceUtils._does_trace_match_clause(row, clause) for clause in parsed)
