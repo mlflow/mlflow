@@ -1,9 +1,11 @@
+import json
 import sys
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
-from classify_flaky_tests import CLASSIFIERS, _aggregate
+from classify_flaky_tests import CLASSIFIERS, _aggregate, classify
 from detect_flaky_tests import FRAMEWORKS
 
 
@@ -61,3 +63,59 @@ def test_jest_classifier_is_report_only():
     schema = CLASSIFIERS["jest"].schema
     assert set(schema["properties"]["action"]["enum"]) == {"fix", "investigate"}
     assert "attempts" not in schema["properties"]
+
+
+def _fake_response(verdict: dict[str, object]):
+    """A stub urlopen context manager returning the Messages API envelope for `verdict`."""
+    envelope = {"content": [{"text": json.dumps(verdict)}]}
+    resp = mock.MagicMock()
+    resp.read.return_value = json.dumps(envelope).encode()
+    resp.__enter__.return_value = resp
+    return resp
+
+
+def test_classify_sends_jest_report_only_schema_and_formatted_prompt(monkeypatch):
+    # End-to-end wiring for the JS path: the jest flake's test id is formatted into the
+    # prompt, the request carries the report-only schema (so the model cannot return
+    # `annotate`), and the parsed verdict flows back.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    verdict = {
+        "category": "test-harness-race",
+        "action": "investigate",
+        "confidence": "medium",
+        "rationale": "Likely a missing await on findBy*; wrap in waitFor.",
+    }
+    with mock.patch("urllib.request.urlopen", return_value=_fake_response(verdict)) as urlopen:
+        result = classify(
+            "src/foo/Bar.test.tsx › Bar › renders rows",
+            2,
+            "Unable to find element",
+            CLASSIFIERS["jest"],
+        )
+
+    assert result == verdict
+    urlopen.assert_called_once()
+    sent = json.loads(urlopen.call_args[0][0].data)
+    schema = sent["output_config"]["format"]["schema"]
+    assert set(schema["properties"]["action"]["enum"]) == {"fix", "investigate"}
+    assert "attempts" not in schema["properties"]
+    assert "src/foo/Bar.test.tsx › Bar › renders rows" in sent["messages"][0]["content"]
+
+
+def test_classify_sends_pytest_schema_allowing_annotate(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    verdict = {
+        "category": "timeout",
+        "action": "annotate",
+        "attempts": 3,
+        "confidence": "high",
+        "rationale": "Load-induced timeout, safe to retry.",
+    }
+    with mock.patch("urllib.request.urlopen", return_value=_fake_response(verdict)) as urlopen:
+        result = classify("tests/a.py::t1", 5, "TimeoutError", CLASSIFIERS["pytest"])
+
+    assert result == verdict
+    sent = json.loads(urlopen.call_args[0][0].data)
+    schema = sent["output_config"]["format"]["schema"]
+    assert "annotate" in schema["properties"]["action"]["enum"]
+    assert "attempts" in schema["properties"]

@@ -113,6 +113,12 @@ def test_jest_empty_log_yields_no_failures():
     assert parse_jest_failures("") == {}
 
 
+def test_jest_framework_is_registered_scanning_the_js_workflow():
+    fw = FRAMEWORKS["jest"]
+    assert fw.workflow_name == "JS"
+    assert fw.parse_log is parse_jest_failures
+
+
 def test_gh_api_objects_parses_concatenated_pages(monkeypatch):
     # `gh api --paginate` concatenates each page's JSON body back-to-back; the decoder
     # must recover every object, not just the first.
