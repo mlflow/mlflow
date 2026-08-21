@@ -154,6 +154,39 @@
         "response_schema": false
       },
       "last_updated_at": "2026-05-28"
+    },
+    "gpt-image-2": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-21"
+    },
+    "openai/gpt-image-2": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-21"
+    },
+    "openai/gpt-image-2/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-21"
     }
   }
 }
