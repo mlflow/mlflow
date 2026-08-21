@@ -72,6 +72,24 @@ pytestmark = pytest.mark.notrackingurimock
 
 TEST_PASSPHRASE = "test-passphrase-for-gateway-tests"
 
+# Ensure all gateway SQLAlchemy models are imported and registered with the Base metadata
+# so that Alembic migration scripts can accurately detect existing tables and avoid
+# issues where a table already exists during `mlflow db upgrade`.
+from mlflow.store.tracking.dbmodels.models import (  # noqa: F401
+    SqlGatewayBudgetPolicy,
+    SqlGatewayEndpoint,
+    SqlGatewayEndpointBinding,
+    SqlGatewayEndpointModelMapping,
+    SqlGatewayEndpointTag,
+    SqlGatewayGuardrail,
+    SqlGatewayGuardrailConfig,
+    SqlGatewayModelDefinition,
+    SqlGatewaySecret,
+    SqlOnlineScoringConfig,
+    SqlScorer,
+    SqlScorerVersion,
+)
+
 
 @pytest.fixture(autouse=True)
 def set_kek_passphrase(monkeypatch):
