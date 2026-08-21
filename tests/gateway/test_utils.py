@@ -5,6 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.utils import (
     SearchRoutesToken,
+    _is_unity_catalog_model_name,
     _is_valid_uri,
     assemble_uri_path,
     check_configuration_route_name_collisions,
@@ -65,6 +66,25 @@ def test_resolve_route_url_qualified_url_ignores_base(base_url):
 )
 def test_is_valid_endpoint_name(name, expected):
     assert is_valid_endpoint_name(name) == expected
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        # UC FQNs (three-level: catalog.schema.model)
+        ("system.ai.claude-haiku-4-5", True),
+        ("catalog_ml.schema_ml.my-opus5", True),
+        ("my_catalog.my_schema.my_model", True),
+        # Serving endpoint names (no dots allowed by Databricks API)
+        ("databricks-dbrx-instruct", False),
+        ("my-custom-endpoint", False),
+        ("endpoint_name", False),
+        # One-dot names are not valid UC FQNs; route to legacy path for clearer error
+        ("catalog.model", False),
+    ],
+)
+def test_is_unity_catalog_model_name(model_name, expected):
+    assert _is_unity_catalog_model_name(model_name) == expected
 
 
 def test_check_configuration_route_name_collisions():
