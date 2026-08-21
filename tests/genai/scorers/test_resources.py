@@ -4,7 +4,10 @@ from unittest.mock import patch
 
 import pytest
 
+from mlflow.entities import Feedback
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import RequiredResource, scorer
+from mlflow.genai.scorers.base import Scorer
 
 
 def test_resource_construction():
@@ -204,3 +207,72 @@ def test_resource_types_match_rbac():
         RequiredResource(type="gateway_endpoint", name="x").type == RESOURCE_TYPE_GATEWAY_ENDPOINT
     )
     assert RequiredResource(type="prompt", name="x").type == RESOURCE_TYPE_PROMPT
+
+
+# --- required_resources is only supported on @scorer-decorated scorers ---
+
+
+def test_required_resources_rejected_on_builtin_scorer():
+    from mlflow.genai.scorers.builtin_scorers import Safety
+
+    with pytest.raises(ValueError, match="only supported on @scorer-decorated"):
+        Safety(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+
+
+def test_required_resources_rejected_on_class_based_scorer():
+    class MyScorer(Scorer):
+        name: str = "my_scorer"
+
+        def __call__(self, outputs) -> Feedback:
+            return Feedback(value=True)
+
+    with pytest.raises(ValueError, match="only supported on @scorer-decorated"):
+        MyScorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+
+
+def test_decorator_scorer_allows_required_resources():
+    @scorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+    def s(outputs):
+        return True
+
+    assert s.required_resources == (RequiredResource(type="gateway_endpoint", name="ep"),)
+
+
+# --- required_resources is immutable after construction (declared once, via the decorator) ---
+
+
+def test_required_resources_immutable_after_construction():
+    @scorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+    def s(outputs):
+        return True
+
+    with pytest.raises(MlflowException, match="immutable after construction"):
+        s.required_resources = (RequiredResource(type="gateway_endpoint", name="new-ep"),)
+
+
+def test_loaded_scorer_required_resources_immutable():
+    @scorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+    def s(outputs):
+        return True
+
+    json_str = json.dumps(s.model_dump())
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        restored = Scorer.model_validate(json.loads(json_str))
+
+    assert restored.required_resources == (RequiredResource(type="gateway_endpoint", name="ep"),)
+    with pytest.raises(MlflowException, match="immutable after construction"):
+        restored.required_resources = (RequiredResource(type="gateway_endpoint", name="new-ep"),)
+
+
+def test_required_resources_serialize_mutate_serialize_stays_consistent():
+    # Regression: the serialized resource set can never drift from what was declared, because
+    # reassignment is rejected rather than silently dropped on the next serialization.
+    @scorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+    def s(outputs):
+        return True
+
+    first = s.model_dump()
+    with pytest.raises(MlflowException, match="immutable after construction"):
+        s.required_resources = (RequiredResource(type="gateway_endpoint", name="new-ep"),)
+    assert s.model_dump() == first
+    assert s.model_dump()["required_resources"] == [{"type": "gateway_endpoint", "name": "ep"}]
