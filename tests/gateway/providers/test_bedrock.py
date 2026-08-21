@@ -528,6 +528,29 @@ async def test_bedrock_converse_chat():
 
 
 @pytest.mark.asyncio
+async def test_bedrock_converse_chat_with_reasoning():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = response = _converse_response()
+    reasoning = {"reasoningContent": {"reasoningText": {"text": "Think.", "signature": "sig"}}}
+    response["output"]["message"]["content"].insert(0, reasoning)
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Hello"}],
+            custom_inputs={"thinking": {"type": "enabled", "budget_tokens": 1024}},
+        )
+        response = await provider.chat(payload)
+
+    call_kwargs = mock_client.converse.call_args.kwargs
+    assert call_kwargs["additionalModelRequestFields"] == payload.custom_inputs
+    content = jsonable_encoder(response)["choices"][0]["message"]["content"]
+    assert content[0]["summary"][0]["text"] == "Think."
+    assert content[0]["signature"] == "sig"
+    assert content[1] == {"type": "text", "text": "Hello from Bedrock!"}
+
+
+@pytest.mark.asyncio
 async def test_bedrock_converse_chat_stream():
 
     provider = _make_converse_provider()
