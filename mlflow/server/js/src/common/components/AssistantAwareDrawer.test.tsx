@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it } from '@jest/globals';
+
 import { shouldPreventDrawerDismiss } from './AssistantAwareDrawer';
 
 // These tests exercise the pure guard directly against real DOM nodes so they are fully
