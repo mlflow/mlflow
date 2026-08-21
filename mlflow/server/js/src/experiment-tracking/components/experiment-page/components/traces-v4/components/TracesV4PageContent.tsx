@@ -37,7 +37,7 @@ import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
 import { TracesV4TraceDrawer } from './TracesV4TraceDrawer';
 import { useTracesV4ToolbarSlots } from './TracesV4Toolbar';
 import { TracesV4DeleteModal } from './TracesV4DeleteModal';
-import { makeTracesV4ErrorDescription, TracesV4NoWarehouseState } from './TracesV4States';
+import { makeTracesV4ErrorDescription } from './TracesV4States';
 import { TracesV4EmptyState } from './TracesV4EmptyState';
 import { IssueDetectionModal } from '../../traces-v3/IssueDetectionModal';
 import { TracesV4SavedViewsButton, TracesV4SharedViewBanner, useTracesV4SavedViews } from './TracesV4SavedViews';
@@ -254,7 +254,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     onDensityChange: setDensity,
     selectionCount: bulk.selected.size,
     onBulkDelete: openDelete,
-    isDeleteDisabled: controller.isDeleteDisabled,
     isRefreshing: page.isFetching && !page.isLoading,
     experimentId,
     actions,
@@ -381,15 +380,11 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
               error={page.error}
               getErrorDescription={getErrorDescription}
               customEmptyState={
-                controller.isMissingWarehouse ? (
-                  <TracesV4NoWarehouseState />
-                ) : viewState === 'empty' ? (
-                  // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
-                  // resolved `empty` state, not `hasNoTracesAtAll` alone, so error / no-results /
-                  // no-more-results still flow through the switch — a trace-id-search miss lands on
-                  // `no-results`, and a first-load error on `error`, not the quickstart.
-                  <TracesV4EmptyState experimentId={experimentId} />
-                ) : undefined
+                // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
+                // resolved `empty` state, not `hasNoTracesAtAll` alone, so error / no-results /
+                // no-more-results still flow through the switch — a trace-id-search miss lands on
+                // `no-results`, and a first-load error on `error`, not the quickstart.
+                viewState === 'empty' ? <TracesV4EmptyState experimentId={experimentId} /> : undefined
               }
             />
 
