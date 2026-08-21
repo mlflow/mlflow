@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.span import Span
 from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -267,3 +268,116 @@ def test_at_exit_callback_registered_in_correct_order(monkeypatch):
     assert len(handlers) == 2
     assert handlers[0].__self__.__class__.__name__ == "AsyncTraceExportQueue"
     assert handlers[1].__self__.__class__.__name__ == "SpanBatcher"
+
+
+def _make_exporter():
+    exporter = DatabricksUCTableSpanExporter()
+    exporter._client = mock.MagicMock()
+    return exporter
+
+
+def test_flush_trace_async_logging_drains_span_batcher(monkeypatch):
+    # A long interval means the batcher's own timer will not fire during the test, so
+    # anything exported here was exported because the flush drained the batcher.
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "60000")
+
+    exporter = _make_exporter()
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        exporter._export_spans_incrementally([
+            create_mock_otel_span(trace_id=12345, span_id=1),
+            create_mock_otel_span(trace_id=12345, span_id=2),
+        ])
+
+    # Below the batch size, so the spans are sitting in the batcher's queue.
+    assert exporter._span_batcher._span_queue.qsize() == 2
+    exporter._client.log_spans.assert_not_called()
+
+    with mock.patch("mlflow.tracking.fluent._get_trace_exporter", return_value=exporter):
+        mlflow.flush_trace_async_logging()
+
+    assert exporter._span_batcher._span_queue.qsize() == 0
+    exporter._client.log_spans.assert_called_once()
+    location, spans = exporter._client.log_spans.call_args[0]
+    assert location == "catalog.schema.spans"
+    assert len(spans) == 2
+
+
+def test_flush_leaves_the_exporter_usable(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "60000")
+
+    exporter = _make_exporter()
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=12345, span_id=1)])
+        exporter.flush()
+
+        # SpanBatcher.shutdown() is permanent: add_span() returns early once the stop
+        # event is set. A non-terminating flush must leave the batcher accepting spans.
+        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=12345, span_id=2)])
+        assert exporter._span_batcher._span_queue.qsize() == 1
+        exporter.flush()
+
+    assert exporter._client.log_spans.call_count == 2
+    assert len(exporter._client.log_spans.call_args_list[0][0][1]) == 1
+    assert len(exporter._client.log_spans.call_args_list[1][0][1]) == 1
+
+
+def test_flush_with_terminate_shuts_the_batcher_down(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "10")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "60000")
+
+    exporter = _make_exporter()
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=12345, span_id=1)])
+        exporter.flush(terminate=True)
+
+    exporter._client.log_spans.assert_called_once()
+    assert exporter._span_batcher._stop_event.is_set()
+    assert not exporter._span_batcher._worker.is_alive()
+
+
+def test_flush_without_async_logging_is_a_no_op(monkeypatch):
+    # Neither _span_batcher nor _async_queue is created when async logging is off.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+
+    exporter = _make_exporter()
+    assert not hasattr(exporter, "_span_batcher")
+    assert not hasattr(exporter, "_async_queue")
+
+    exporter.flush()
+    exporter.flush(terminate=True)
+
+
+@pytest.mark.timeout(20)
+def test_flush_with_batching_disabled(monkeypatch):
+    # A batch size below 2 turns batching off: add_span() exports synchronously and the
+    # queue stays empty, so there is no worker thread and nothing to drain. The timeout
+    # guards the shape of _consume_batch(), whose loop condition holds forever once the
+    # batch size is not positive.
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "0")
+
+    exporter = _make_exporter()
+
+    with mock.patch(
+        "mlflow.tracing.export.uc_table.get_active_spans_table_name",
+        return_value="catalog.schema.spans",
+    ):
+        exporter._export_spans_incrementally([create_mock_otel_span(trace_id=12345, span_id=1)])
+
+    exporter.flush()
+
+    exporter._client.log_spans.assert_called_once()
+    assert exporter._span_batcher._span_queue.empty()
