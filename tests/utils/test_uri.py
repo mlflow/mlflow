@@ -1031,3 +1031,74 @@ def test_validate_path_within_directory_blocks_multi_level_dotdot_escape(tmp_pat
     assert not (base_dir / "a").exists()
     with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
         validate_path_within_directory(str(base_dir), str(constructed_path))
+
+
+def _patch_resolve_with_stale_base_dir_snapshot(monkeypatch, base_dir):
+    """
+    Mimic the Windows behavior behind the flaky test_async_log_image_flush failures
+    (#24772): resolve() only canonicalizes the part of a path that exists, so the
+    first resolution of base_dir yields a short-name form while later resolutions
+    yield the canonical form.
+    """
+    real_resolve = pathlib.Path.resolve
+    state = {"stale": True}
+
+    def windows_like_resolve(self, *args, **kwargs):
+        resolved = real_resolve(self, *args, **kwargs)
+        if state["stale"] and self == base_dir:
+            state["stale"] = False
+            return resolved.parent / (resolved.name[:6].upper() + "~1")
+        return resolved
+
+    monkeypatch.setattr(pathlib.Path, "resolve", windows_like_resolve)
+    return state
+
+
+def test_validate_path_within_directory_allows_stale_base_dir_resolution(tmp_path, monkeypatch):
+    base_dir = tmp_path / "artifacts"
+    constructed_path = base_dir / "images"
+    constructed_path.mkdir(parents=True)
+    state = _patch_resolve_with_stale_base_dir_snapshot(monkeypatch, base_dir)
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+    assert state["stale"] is False
+
+
+def test_validate_path_within_directory_allows_stale_base_dir_resolution_nonexistent_leaf(
+    tmp_path, monkeypatch
+):
+    base_dir = tmp_path / "artifacts"
+    constructed_path = base_dir / "images" / "image_0.png"
+    constructed_path.parent.mkdir(parents=True)
+    assert not constructed_path.exists()
+    state = _patch_resolve_with_stale_base_dir_snapshot(monkeypatch, base_dir)
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+    assert state["stale"] is False
+
+
+def test_validate_path_within_directory_blocks_escape_despite_stale_base_dir_resolution(
+    tmp_path, monkeypatch
+):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "a" / ".." / ".." / "evil.txt"
+    state = _patch_resolve_with_stale_base_dir_snapshot(monkeypatch, base_dir)
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert state["stale"] is False
+
+
+def test_validate_path_within_directory_blocks_symlink_escape_despite_stale_base_dir_resolution(
+    tmp_path, monkeypatch
+):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    external_dir = tmp_path / "external"
+    external_dir.mkdir()
+    symlink_path = base_dir / "leak"
+    os.symlink(str(external_dir), str(symlink_path))
+    state = _patch_resolve_with_stale_base_dir_snapshot(monkeypatch, base_dir)
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(symlink_path))
+    assert state["stale"] is False

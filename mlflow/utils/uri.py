@@ -524,33 +524,46 @@ def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
     Returns:
         The constructed_path if validation passes.
     """
-    real_base_dir = pathlib.Path(base_dir).resolve()
     target = pathlib.Path(constructed_path)
-    # On Windows, resolve() canonicalizes the existing vs non-existing parts of a path
-    # differently (e.g. 8.3 short-name expansion only for the part that exists). With the
-    # async artifact queue's pool of worker threads sharing one repository, the boundary
-    # between existing/non-existing can shift between these two resolve() calls, making a
-    # valid destination look like it escapes the base dir. Resolve the leaf only when a
-    # real file/dir or a (possibly dangling) symlink exists there; otherwise resolve the
-    # existing parent and append the caller-sanitized leaf verbatim.
-    #
-    # The is_symlink()/exists() check followed by resolve() is not atomic: a racing thread
-    # could plant a symlink at the leaf in that window. This TOCTOU gap is an accepted
-    # limitation. Writing into the artifact directory already requires local write access
-    # to it, and an attacker with that access needs no symlink trick to read or write
-    # files there. The original guard had an equivalent TOCTOU between its two resolve()
-    # calls, and always calling target.resolve() here would reintroduce the Windows
-    # spurious-rejection race this branch exists to avoid.
-    if target.is_symlink() or target.exists():
-        real_constructed_path = target.resolve()
-    else:
-        real_constructed_path = target.parent.resolve() / target.name
+
+    def _resolve_target() -> pathlib.Path:
+        # On Windows, resolve() canonicalizes the existing vs non-existing parts of a path
+        # differently (e.g. 8.3 short-name expansion only for the part that exists). With the
+        # async artifact queue's pool of worker threads sharing one repository, the boundary
+        # between existing/non-existing can shift between the base_dir and target resolve()
+        # calls, making a valid destination look like it escapes the base dir. Resolve the
+        # leaf only when a real file/dir or a (possibly dangling) symlink exists there;
+        # otherwise resolve the existing parent and append the caller-sanitized leaf
+        # verbatim.
+        #
+        # The is_symlink()/exists() check followed by resolve() is not atomic: a racing
+        # thread could plant a symlink at the leaf in that window. This TOCTOU gap is an
+        # accepted limitation. Writing into the artifact directory already requires local
+        # write access to it, and an attacker with that access needs no symlink trick to
+        # read or write files there. The original guard had an equivalent TOCTOU between
+        # its two resolve() calls, and always calling target.resolve() here would
+        # reintroduce the Windows spurious-rejection race this branch exists to avoid.
+        if target.is_symlink() or target.exists():
+            return target.resolve()
+        return target.parent.resolve() / target.name
+
+    real_base_dir = pathlib.Path(base_dir).resolve()
+    real_constructed_path = _resolve_target()
 
     if not real_constructed_path.is_relative_to(real_base_dir):
-        raise MlflowException(
-            "Invalid path: resolved path is outside the artifact directory",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+        # The base dir and the target were resolved at two different times, so a
+        # directory another worker thread created in between can leave the two forms
+        # mismatched (see the Windows note above). Resolve both again from the same
+        # snapshot and only reject if the target is still outside. A path that
+        # actually escapes the base dir is outside it no matter which snapshot we
+        # resolve in, so this doesn't let anything new through.
+        real_base_dir = pathlib.Path(base_dir).resolve()
+        real_constructed_path = _resolve_target()
+        if not real_constructed_path.is_relative_to(real_base_dir):
+            raise MlflowException(
+                "Invalid path: resolved path is outside the artifact directory",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     return constructed_path
 
