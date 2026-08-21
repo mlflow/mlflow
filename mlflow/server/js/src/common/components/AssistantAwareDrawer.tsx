@@ -39,8 +39,8 @@ function resolveWidthToPixels(w: number | string): number {
 export const shouldPreventDrawerDismiss = (target: HTMLElement | null): boolean =>
   Boolean(
     target?.closest('[data-assistant-ui="true"]') ||
-      target?.closest('[data-drawer-resize-handle="true"]') ||
-      target?.closest('[data-radix-popper-content-wrapper]'),
+    target?.closest('[data-drawer-resize-handle="true"]') ||
+    target?.closest('[data-radix-popper-content-wrapper]'),
   );
 
 // Keeping modal prop for compatibility with Drawer.Root props.
