@@ -93,6 +93,28 @@ test('Non-quota storage errors are re-thrown', () => {
   expect(() => setStorageItem(storage, 'chartUIState', 'new state')).toThrow('Access denied.');
 });
 
+test('Firefox quota errors are ignored', () => {
+  const storage = {
+    setItem: () => {
+      throw new DOMException('The quota has been exceeded.', 'NS_ERROR_DOM_QUOTA_REACHED');
+    },
+  } as unknown as Storage;
+
+  expect(() => setStorageItem(storage, 'chartUIState', 'new state')).not.toThrow();
+});
+
+test('Legacy Firefox quota error codes are ignored', () => {
+  const quotaError = new DOMException('The quota has been exceeded.', 'UnknownError');
+  Object.defineProperty(quotaError, 'code', { value: 1014 });
+  const storage = {
+    setItem: () => {
+      throw quotaError;
+    },
+  } as unknown as Storage;
+
+  expect(() => setStorageItem(storage, 'chartUIState', 'new state')).not.toThrow();
+});
+
 test('Quota exhaustion preserves the last cached state without crashing', () => {
   const store = LocalStorageUtils.getStoreForComponent('QuotaTest', 1);
   store.setItem('chartUIState', 'stale state');

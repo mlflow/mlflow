@@ -12,7 +12,11 @@
 const MAX_STORAGE_ITEM_SIZE = 1_000_000;
 
 const isQuotaExceededError = (error: unknown) =>
-  error instanceof DOMException && (error.name === 'QuotaExceededError' || error.code === 22);
+  error instanceof DOMException &&
+  (error.name === 'QuotaExceededError' ||
+    error.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    error.code === 22 ||
+    error.code === 1014);
 
 export const getStorageItem = (storage: Storage, key: string) => {
   const value = storage.getItem(key);
