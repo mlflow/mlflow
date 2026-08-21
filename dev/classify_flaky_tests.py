@@ -262,12 +262,17 @@ def main() -> None:
     for t in _aggregate(flakes):
         # Only test-level entries carry a nodeid; shard-level ones can't be classified.
         if not t["test"]:
-            verdict = {
+            verdict: dict[str, Any] = {
                 "category": "unknown",
                 "action": "investigate",
                 "confidence": "low",
                 "rationale": "No test-level nodeid recovered (shard/infra flake).",
             }
+            # Keep the fallback conformant with the framework's verdict schema: pytest
+            # lists `attempts` as required, so include it (null) there; jest's schema
+            # omits it entirely.
+            if "attempts" in classifier.schema["properties"]:
+                verdict["attempts"] = None
         else:
             verdict = classify(t["test"], t["count"], t["error"] or "", classifier)
         results.append({**t, "verdict": verdict})

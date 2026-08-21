@@ -5,6 +5,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "dev"))
 
+import classify_flaky_tests
 from classify_flaky_tests import CLASSIFIERS, _aggregate, classify
 from detect_flaky_tests import FRAMEWORKS
 
@@ -119,3 +120,42 @@ def test_classify_sends_pytest_schema_allowing_annotate(monkeypatch):
     schema = sent["output_config"]["format"]["schema"]
     assert "annotate" in schema["properties"]["action"]["enum"]
     assert "attempts" in schema["properties"]
+
+
+def _run_main_on_shard_flake(tmp_path, monkeypatch, framework: str):
+    """Run classify main() on a single shard-level (test=None) flake for `framework`,
+    returning the one verdict it wrote. Shard flakes take the fallback path (no API call).
+    """
+    infile = tmp_path / "flakes.json"
+    outfile = tmp_path / "classified.json"
+    infile.write_text(json.dumps([{"shard": "js (rest)", "test": None, "error": None}]))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["prog", "--in", str(infile), "--out", str(outfile), "--framework", framework],
+    )
+    classify_flaky_tests.main()
+    (entry,) = json.loads(outfile.read_text())
+    return entry["verdict"]
+
+
+def _assert_conforms(verdict: dict[str, object], schema: dict[str, object]):
+    props = schema["properties"]
+    # Every required field is present, and no field outside the schema leaked in.
+    assert set(schema["required"]) <= set(verdict)
+    assert set(verdict) <= set(props)
+    assert verdict["action"] in props["action"]["enum"]
+
+
+def test_shard_fallback_verdict_conforms_to_jest_schema(tmp_path, monkeypatch):
+    # jest's schema omits `attempts`, so the fallback must not include it.
+    verdict = _run_main_on_shard_flake(tmp_path, monkeypatch, "jest")
+    assert "attempts" not in verdict
+    _assert_conforms(verdict, CLASSIFIERS["jest"].schema)
+
+
+def test_shard_fallback_verdict_conforms_to_pytest_schema(tmp_path, monkeypatch):
+    # pytest's schema lists `attempts` as required, so the fallback must carry it (null).
+    verdict = _run_main_on_shard_flake(tmp_path, monkeypatch, "pytest")
+    assert verdict["attempts"] is None
+    _assert_conforms(verdict, CLASSIFIERS["pytest"].schema)

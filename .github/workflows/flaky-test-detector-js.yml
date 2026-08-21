@@ -68,6 +68,14 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
         run: |
+          # The detector always writes flakes.json (even `[]`), so the hashFiles guard
+          # above only proves it exists. Skip the classifier when there are zero flakes
+          # so we don't burn Anthropic quota on an empty run, mirroring the jq guard in
+          # the publish step below.
+          if [ "$(jq 'length' flakes.json)" = "0" ]; then
+            echo "No flakes detected; skipping classify."
+            exit 0
+          fi
           python dev/classify_flaky_tests.py --in flakes.json --framework jest \
             --out classified.json
 
