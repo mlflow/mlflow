@@ -1468,12 +1468,22 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
     dbr_version = get_databricks_runtime_major_minor_version()
     dbr_major_minor_version = (dbr_version.major, dbr_version.minor)
 
+    # `entry_point.getLogger()` is only used to emit best-effort usage telemetry below. It is
+    # unavailable on some runtimes (e.g. serverless, where the Py4J entry point is disabled), so
+    # resolve it once at construction time and skip logging if it cannot be obtained rather than
+    # failing credential resolution. Resolving here (instead of in `get_config()`) avoids emitting
+    # the debug log on every credential refresh.
+    try:
+        entry_point_logger = entry_point.getLogger()
+    except Exception as e:
+        entry_point_logger = None
+        _logger.debug(f"Failed to get Databricks entry point logger: {e}")
+
     # the CLI code in client-branch-1.0 is the same as in the 15.0 runtime branch
     if dbr_version.is_client_image or dbr_major_minor_version >= (13, 2):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
             def get_config(self):
-                logger = entry_point.getLogger()
                 try:
                     from dbruntime.databricks_repl_context import get_context
 
@@ -1502,11 +1512,17 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                     # Using apiToken from command context would return back the token which is not
                     # refreshed.
                     fallback_api_token_option = notebook_utils.getContext().apiToken()
-                    logger.logUsage(
-                        "refreshableTokenNotFound",
-                        {"api_url": api_url},
-                        None,
-                    )
+                    if entry_point_logger is not None:
+                        # Best-effort telemetry: never let a logging failure prevent the fallback
+                        # token retrieval below.
+                        try:
+                            entry_point_logger.logUsage(
+                                "refreshableTokenNotFound",
+                                {"api_url": api_url},
+                                None,
+                            )
+                        except Exception as e:
+                            _logger.debug(f"Failed to emit `refreshableTokenNotFound` usage: {e}")
                     if fallback_api_token_option.isDefined():
                         api_token = fallback_api_token_option.get()
 

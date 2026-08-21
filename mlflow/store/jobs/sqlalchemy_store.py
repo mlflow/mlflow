@@ -86,7 +86,13 @@ class SqlAlchemyJobStore(AbstractJobStore):
             instance.workspace = DEFAULT_WORKSPACE_NAME
         return instance
 
-    def create_job(self, job_name: str, params: str, timeout: float | None = None) -> Job:
+    def create_job(
+        self,
+        job_name: str,
+        params: str,
+        timeout: float | None = None,
+        creator: str | None = None,
+    ) -> Job:
         """
         Create a new job with the specified function and parameters.
 
@@ -94,6 +100,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job_name: The static job name that identifies the decorated job function
             params: The job parameters that are serialized as a JSON string
             timeout: The job execution timeout in seconds
+            creator: Username of the authenticated user creating the job, or ``None``
 
         Returns:
             Job entity instance
@@ -112,6 +119,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     status=JobStatus.PENDING.to_int(),
                     result=None,
                     last_update_time=creation_time,
+                    creator=creator,
                 )
             )
 

@@ -88,3 +88,5 @@ GATEWAY_SUPPORTED_MODELS = _get_ajax_path("/mlflow/gateway/supported-models", ve
 GATEWAY_PROVIDER_CONFIG = _get_ajax_path("/mlflow/gateway/provider-config", version=3)
 GATEWAY_SECRETS_CONFIG = _get_ajax_path("/mlflow/gateway/secrets/config", version=3)
 INVOKE_SCORER = _get_ajax_path("/mlflow/scorer/invoke", version=3)
+JOB_GET = _get_ajax_path("/mlflow/jobs/<job_id>", version=3)
+JOB_CANCEL = _get_ajax_path("/mlflow/jobs/cancel/<job_id>", version=3)

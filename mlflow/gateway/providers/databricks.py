@@ -10,7 +10,11 @@ from mlflow.gateway.providers.openai_compatible import (
 )
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat
-from mlflow.gateway.utils import normalize_databricks_base_url
+from mlflow.gateway.utils import (
+    _DATABRICKS_AI_GATEWAY_PATH,
+    _is_unity_catalog_model_name,
+    normalize_databricks_base_url,
+)
 
 _SUPPORTED_CONTENT_PART_TYPES = {"text", "image_url", "input_audio"}
 _GEMINI_ACTIONS = {
@@ -113,6 +117,9 @@ class DatabricksProvider(OpenAICompatibleProvider):
     def _api_base(self) -> str:
         client = self._get_workspace_client()
         host = client.config.host.rstrip("/")
+        model_name = self.config.model.name
+        if _is_unity_catalog_model_name(model_name):
+            return f"{host}/{_DATABRICKS_AI_GATEWAY_PATH}"
         return normalize_databricks_base_url(host)
 
     def get_endpoint_url(self, route_type: str) -> str:
