@@ -1,4 +1,6 @@
+import contextlib
 import json
+import logging
 import os
 import pickle
 import threading
@@ -4039,3 +4041,90 @@ def test_create_issue_with_all_fields(tmp_path: Path):
     assert issue.source_run_id == run.info.run_id
     assert issue.created_by == "monitoring_system"
     assert issue.created_timestamp > 0
+
+
+# register_prompt UI discoverability tests
+
+
+def _make_uc_prompt_version(name: str, version: int = 1):
+    """Return a minimal PromptVersion suitable for use as a UC registry stub return value."""
+    from mlflow.entities.model_registry.prompt_version import PromptVersion
+
+    return PromptVersion(name=name, version=version, template="stub {{var}}")
+
+
+def _uc_register_prompt_patches(name: str, tracking_uri: str):
+    """Context manager stack that makes register_prompt execute the UC branch.
+
+    Patches applied:
+    - is_databricks_unity_catalog_uri -> True (so the UC branch is entered)
+    - registry_client.create_prompt -> no-op
+    - registry_client.create_prompt_version -> Mock(version=1)
+    - registry_client.get_prompt_version -> minimal PromptVersion
+    """
+    fake_pv = _make_uc_prompt_version(name)
+    mock_version = Mock(version=1)
+    mock_registry_client = Mock()
+    mock_registry_client.create_prompt.return_value = None
+    mock_registry_client.create_prompt_version.return_value = mock_version
+    mock_registry_client.get_prompt_version.return_value = fake_pv
+
+    @contextlib.contextmanager
+    def _stack():
+        with (
+            mock.patch(
+                "mlflow.tracking.client.is_databricks_unity_catalog_uri",
+                return_value=True,
+            ),
+            mock.patch.object(
+                MlflowClient,
+                "_get_registry_client",
+                return_value=mock_registry_client,
+            ),
+        ):
+            yield mock_registry_client
+
+    return _stack()
+
+
+def test_register_prompt_uc_branch_logs_ui_link(tracking_uri, caplog):
+    """register_prompt emits an INFO log with the Catalog Explorer URL when
+    get_workspace_url() returns a workspace URL and the name is a 3-part UC name.
+    """
+    fake_workspace_url = "https://my-workspace.azuredatabricks.net"
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
+        with mock.patch(
+            "mlflow.tracking.client.get_workspace_url",
+            return_value=fake_workspace_url,
+        ):
+            with caplog.at_level(logging.INFO, logger="mlflow.tracking.client"):
+                client.register_prompt(
+                    name="catalog.schema.my_prompt",
+                    template="Answer: {{question}}",
+                )
+
+    log_messages = "\n".join(caplog.messages)
+    assert fake_workspace_url in log_messages
+    assert "/explore/data/" in log_messages
+    assert "catalog" in log_messages
+    assert "schema" in log_messages
+    assert "my_prompt" in log_messages
+
+
+def test_register_prompt_uc_branch_no_ui_link_when_workspace_url_none(tracking_uri, caplog):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
+        with mock.patch(
+            "mlflow.tracking.client.get_workspace_url",
+            return_value=None,
+        ):
+            with caplog.at_level(logging.INFO, logger="mlflow.tracking.client"):
+                client.register_prompt(
+                    name="catalog.schema.my_prompt",
+                    template="Answer: {{question}}",
+                )
+
+    assert "/explore/data/" not in "\n".join(caplog.messages)
