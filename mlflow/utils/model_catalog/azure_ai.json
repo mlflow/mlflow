@@ -80,7 +80,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-21"
     },
     "FW-DeepSeek-V4-Pro": {
       "mode": "chat",
@@ -122,7 +123,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-21"
     },
     "FW-GLM-5.1": {
       "mode": "chat",
@@ -143,7 +145,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-21"
     },
     "FW-GLM-5.2": {
       "mode": "chat",
@@ -227,7 +230,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-21"
     },
     "FW-Kimi-K2.6": {
       "mode": "chat",
@@ -311,7 +315,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-21"
     },
     "FW-MiniMax-M3": {
       "mode": "chat",
@@ -948,7 +953,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-19",
+      "last_updated_at": "2026-08-21"
     },
     "claude-opus-4-1": {
       "mode": "chat",
@@ -992,7 +998,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-19",
+      "last_updated_at": "2026-08-21"
     },
     "claude-opus-4-6": {
       "mode": "chat",
@@ -1021,7 +1028,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-29"
+      "deprecation_date": "2027-02-02",
+      "last_updated_at": "2026-08-21"
     },
     "claude-opus-4-7": {
       "mode": "chat",
@@ -1050,7 +1058,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-29"
+      "deprecation_date": "2027-04-06",
+      "last_updated_at": "2026-08-21"
     },
     "claude-opus-4-8": {
       "mode": "chat",
@@ -1130,7 +1139,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-19",
+      "last_updated_at": "2026-08-21"
     },
     "claude-sonnet-4-6": {
       "mode": "chat",
@@ -1152,7 +1162,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "deprecation_date": "2027-02-10",
+      "last_updated_at": "2026-08-21"
     },
     "claude-sonnet-5": {
       "mode": "chat",
@@ -1321,7 +1332,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2028-02-20",
+      "last_updated_at": "2026-08-21"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
@@ -1341,7 +1353,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2028-02-20",
+      "last_updated_at": "2026-08-21"
     },
     "embed-v-4-0": {
       "mode": "embedding",
@@ -1447,7 +1460,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-18"
+      "deprecation_date": "2027-09-02",
+      "last_updated_at": "2026-08-21"
     },
     "gpt-5.4-2026-03-05": {
       "mode": "chat",
@@ -1483,7 +1497,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-18"
+      "deprecation_date": "2027-09-02",
+      "last_updated_at": "2026-08-21"
     },
     "gpt-5.4-mini": {
       "mode": "chat",
@@ -1511,7 +1526,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2027-09-21",
+      "last_updated_at": "2026-08-21"
     },
     "gpt-5.4-mini-2026-03-17": {
       "mode": "chat",
@@ -1539,7 +1555,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2027-09-21",
+      "last_updated_at": "2026-08-21"
     },
     "gpt-5.4-nano": {
       "mode": "chat",
@@ -1567,7 +1584,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2027-09-21",
+      "last_updated_at": "2026-08-21"
     },
     "gpt-5.4-nano-2026-03-17": {
       "mode": "chat",
@@ -1595,7 +1613,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2027-09-21",
+      "last_updated_at": "2026-08-21"
     },
     "gpt-5.5": {
       "mode": "chat",
@@ -1631,7 +1650,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-08-21"
     },
     "gpt-5.5-2026-04-23": {
       "mode": "chat",
@@ -1928,7 +1948,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-26",
+      "last_updated_at": "2026-08-21"
     },
     "kimi-k2.6": {
       "mode": "chat",
@@ -1948,7 +1969,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-09"
+      "deprecation_date": "2027-04-16",
+      "last_updated_at": "2026-08-21"
     },
     "ministral-3b": {
       "mode": "chat",
