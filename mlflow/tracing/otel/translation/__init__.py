@@ -49,6 +49,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
 
 # Event-based translators (for frameworks that use events for input/output)
 _EVENT_TRANSLATORS = [
+    GenAiTranslator(),
     SpringAiTranslator(),
     LiveKitTranslator(),
 ]
