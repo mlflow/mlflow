@@ -78,6 +78,7 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, 
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
+    MLFLOW_ENABLE_AI_GATEWAY,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
 )
@@ -93,6 +94,7 @@ from mlflow.exceptions import (
 )
 from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
+from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
@@ -387,6 +389,7 @@ from mlflow.utils.providers import (
     get_provider_config_response,
 )
 from mlflow.utils.server_info import (
+    SERVER_INFO_FEATURES_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_STORE_TYPE,
@@ -1341,6 +1344,16 @@ def _disable_if_artifacts_only(func):
                 ),
                 503,
             )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def _disable_if_gateway_disabled(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not MLFLOW_ENABLE_AI_GATEWAY.get():
+            return jsonify(detail=GATEWAY_DISABLED_MESSAGE), 501
         return func(*args, **kwargs)
 
     return wrapper
@@ -5924,6 +5937,7 @@ def _upsert_online_scoring_config():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_secret():
     request_message = _get_request_message(
         CreateGatewaySecret(),
@@ -5951,6 +5965,7 @@ def _create_gateway_secret():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_gateway_secret_info():
     request_message = _get_request_message(
         GetGatewaySecretInfo(),
@@ -5966,6 +5981,7 @@ def _get_gateway_secret_info():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _update_gateway_secret():
     request_message = _get_request_message(
         UpdateGatewaySecret(),
@@ -5993,6 +6009,7 @@ def _update_gateway_secret():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_secret():
     request_message = _get_request_message(
         DeleteGatewaySecret(),
@@ -6007,6 +6024,7 @@ def _delete_gateway_secret():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_secrets():
     request_message = _get_request_message(
         ListGatewaySecretInfos(),
@@ -6049,6 +6067,7 @@ def _assert_linkage_type_specified(model_config, index: int | None = None) -> No
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_endpoint():
     request_message = _get_request_message(
         CreateGatewayEndpoint(),
@@ -6109,6 +6128,7 @@ def _create_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_gateway_endpoint():
     request_message = _get_request_message(
         GetGatewayEndpoint(),
@@ -6128,6 +6148,7 @@ def _get_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _update_gateway_endpoint():
     request_message = _get_request_message(
         UpdateGatewayEndpoint(),
@@ -6193,6 +6214,7 @@ def _update_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_endpoint():
     request_message = _get_request_message(
         DeleteGatewayEndpoint(),
@@ -6207,6 +6229,7 @@ def _delete_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_endpoints():
     request_message = _get_request_message(
         ListGatewayEndpoints(),
@@ -6229,6 +6252,7 @@ def _list_gateway_endpoints():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_model_definition():
     request_message = _get_request_message(
         CreateGatewayModelDefinition(),
@@ -6254,6 +6278,7 @@ def _create_gateway_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_gateway_model_definition():
     request_message = _get_request_message(
         GetGatewayModelDefinition(),
@@ -6271,6 +6296,7 @@ def _get_gateway_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_model_definitions():
     request_message = _get_request_message(
         ListGatewayModelDefinitions(),
@@ -6290,6 +6316,7 @@ def _list_gateway_model_definitions():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _update_gateway_model_definition():
     request_message = _get_request_message(
         UpdateGatewayModelDefinition(),
@@ -6317,6 +6344,7 @@ def _update_gateway_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_model_definition():
     request_message = _get_request_message(
         DeleteGatewayModelDefinition(),
@@ -6336,6 +6364,7 @@ def _delete_gateway_model_definition():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _attach_model_to_gateway_endpoint():
     request_message = _get_request_message(
         AttachModelToGatewayEndpoint(),
@@ -6362,6 +6391,7 @@ def _attach_model_to_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _detach_model_from_gateway_endpoint():
     request_message = _get_request_message(
         DetachModelFromGatewayEndpoint(),
@@ -6385,6 +6415,7 @@ def _detach_model_from_gateway_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_endpoint_binding():
     request_message = _get_request_message(
         CreateGatewayEndpointBinding(),
@@ -6408,6 +6439,7 @@ def _create_gateway_endpoint_binding():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_endpoint_binding():
     request_message = _get_request_message(
         DeleteGatewayEndpointBinding(),
@@ -6428,6 +6460,7 @@ def _delete_gateway_endpoint_binding():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_endpoint_bindings():
     request_message = _get_request_message(
         ListGatewayEndpointBindings(),
@@ -6449,6 +6482,7 @@ def _list_gateway_endpoint_bindings():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _set_gateway_endpoint_tag():
     request_message = _get_request_message(
         SetGatewayEndpointTag(),
@@ -6468,6 +6502,7 @@ def _set_gateway_endpoint_tag():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_endpoint_tag():
     request_message = _get_request_message(
         DeleteGatewayEndpointTag(),
@@ -6974,6 +7009,9 @@ def _get_server_info():
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
+        SERVER_INFO_FEATURES_ENABLED: {
+            "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
+        },
     })
 
 

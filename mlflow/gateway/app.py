@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, ConfigDict
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -20,6 +20,7 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_AI_GATEWAY,
     MLFLOW_GATEWAY_CONFIG,
     MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI,
     MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV,
@@ -38,6 +39,7 @@ from mlflow.gateway.config import (
     _load_gateway_config,
 )
 from mlflow.gateway.constants import (
+    GATEWAY_DISABLED_MESSAGE,
     MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE,
     MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
     MLFLOW_GATEWAY_CRUD_ROUTE_V3_BASE,
@@ -286,6 +288,15 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         version=VERSION,
         docs_url=None,
     )
+
+    @app.middleware("http")
+    async def gateway_disabled_middleware(request: Request, call_next):
+        if not MLFLOW_ENABLE_AI_GATEWAY.get():
+            return JSONResponse(
+                status_code=501,
+                content={"detail": GATEWAY_DISABLED_MESSAGE},
+            )
+        return await call_next(request)
 
     @app.get("/", include_in_schema=False)
     async def index():
