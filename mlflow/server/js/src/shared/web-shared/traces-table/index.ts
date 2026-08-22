@@ -3,7 +3,14 @@
 // hooks are an opt-in fetch layer the presentational components never import.
 
 // Types
-export type { TraceColumnId, SortDirection, PageSize, TraceTableColumn, SessionHrefGetter } from './types';
+export type {
+  TraceColumnId,
+  SortDirection,
+  PageSize,
+  TraceTableColumn,
+  SessionHrefGetter,
+  TraceHrefGetter,
+} from './types';
 
 // Constants
 export {
@@ -52,10 +59,14 @@ export {
 // Cell renderers (exported for consumers building custom columns / tests)
 export {
   TraceIdCell,
+  TraceNameCell,
   TraceInputCell,
   TraceOutputCell,
+  TraceUserCell,
   TraceSessionCell,
   TraceStateCell,
+  TraceSourceCell,
+  TraceRunNameCell,
   TraceStartTimeCell,
   TraceDurationCell,
   TraceTokensCell,
@@ -79,6 +90,7 @@ export {
 
 // Helpers
 export { formatTraceDuration } from './formatTraceDuration';
+export { getTextColumnMaxSize } from './getColumnMaxSizes';
 
 // Hooks (presentational state)
 export { useBulkTraceSelection, type UseBulkTraceSelectionResult } from './hooks/useBulkTraceSelection';

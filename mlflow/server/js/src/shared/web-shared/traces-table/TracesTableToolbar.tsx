@@ -67,7 +67,9 @@ export const TracesTableToolbar: React.FC<TracesTableToolbarProps> = ({
   return (
     <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
       {leftControls}
-      <div css={{ flex: 3, minWidth: 240 }}>{searchInput}</div>
+      {/* Grows with the toolbar but caps out so a very wide window doesn't stretch the search box
+          across the whole row; extra space past the cap flows to the trailing controls / spacer. */}
+      <div css={{ flex: 3, minWidth: 240, maxWidth: 480 }}>{searchInput}</div>
       {rightControls}
     </div>
   );

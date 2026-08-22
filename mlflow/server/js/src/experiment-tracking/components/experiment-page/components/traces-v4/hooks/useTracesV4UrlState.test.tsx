@@ -184,5 +184,28 @@ describe('useTracesV4UrlState', () => {
       // …and decodes back to the exact original key/value.
       expect(result.current.tagFilters).toEqual([{ key: 'my.tag key', value: 'a=b:c d' }]);
     });
+
+    // Regression: `tagFilters` must keep a stable reference across renders when the URL is unchanged.
+    // It's rebuilt from `searchParams.getAll('tag')`, and consumers use it as an effect dependency
+    // (the controller's clear-selection effect). A fresh array every render re-ran that effect on
+    // every render and wiped the bulk selection the instant it was made. Memoizing on the serialized
+    // params keeps the identity stable until the tags actually change.
+    test('returns a referentially stable tagFilters across re-renders when the URL is unchanged', async () => {
+      const { result, rerender } = await mountHook('/p?tag=env%3Dprod');
+      const first = result.current.tagFilters;
+      rerender();
+      expect(result.current.tagFilters).toBe(first);
+    });
+
+    test('returns a new tagFilters reference only when the tag params change', async () => {
+      const { result } = await mountHook('/p?tag=env%3Dprod');
+      const first = result.current.tagFilters;
+      act(() => result.current.addTagFilter('team', 'ml'));
+      expect(result.current.tagFilters).not.toBe(first);
+      expect(result.current.tagFilters).toEqual([
+        { key: 'env', value: 'prod' },
+        { key: 'team', value: 'ml' },
+      ]);
+    });
   });
 });

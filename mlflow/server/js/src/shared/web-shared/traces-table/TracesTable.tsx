@@ -17,21 +17,31 @@ import { createTraceV4LongIdentifier } from '../model-trace-explorer/ModelTraceE
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 import { type ColumnSizingState, flexRender, getCoreRowModel } from '@tanstack/react-table';
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { createPath } from 'react-router';
 import { isSortableTraceColumn } from './constants';
-import type { SessionHrefGetter, SortDirection, TraceColumnId, TraceTableColumn } from './types';
+import type { SessionHrefGetter, SortDirection, TraceColumnId, TraceHrefGetter, TraceTableColumn } from './types';
 import { getVisibleColumnDefs, type TracesTableMeta } from './columns';
+import { getContentColumnMaxSizes } from './getColumnMaxSizes';
+import { TraceColumnHeader } from './TraceColumnHeader';
+
+// No-op sort handlers for non-sortable columns (their header menu omits the sort items anyway).
+const noop = () => {};
 
 // Module-local static analytics-id namespace (the `@databricks/no-dynamic-property-value` rule
 // requires `componentId` values to be static, so a runtime-injected prefix isn't possible).
 const COMPONENT_ID = 'web-shared.traces-table';
 
-// Sort affordance props layered onto a header at render time; empty for non-sortable columns.
-interface HeaderSortProps {
-  sortable?: boolean;
-  sortDirection?: SortDirection | 'none';
-  onToggleSort?: () => void;
-}
+// TableSkeleton and TableRow both reduce their vertical spacing in small tables. Compact loading
+// rows are therefore 25px tall versus 33px at the default size, so rendering the same count leaves
+// the bottom of the table blank. Scale the compact count to preserve the default skeleton height.
+const STANDARD_SKELETON_ROW_HEIGHT = 33;
+const COMPACT_SKELETON_ROW_HEIGHT = 25;
+
+const getRenderedSkeletonRowCount = (skeletonRowCount: number, size: 'default' | 'small') =>
+  size === 'small'
+    ? Math.ceil((skeletonRowCount * STANDARD_SKELETON_ROW_HEIGHT) / COMPACT_SKELETON_ROW_HEIGHT)
+    : skeletonRowCount;
 
 // Input/Output are the fill columns: each takes grow factor 1 so any leftover container width is
 // split equally between them (no dead whitespace on the right), with `maxWidth: unset` so the cap
@@ -39,8 +49,15 @@ interface HeaderSortProps {
 // resized) pixel width and horizontal scroll on the Table handles overflow. A drag still sets
 // `columnSizing[id]`, which becomes the new flex-basis.
 const GROWING_COLUMNS = new Set<string>(['input', 'output']);
-const sizeStyleFor = (id: string, width: number) =>
-  GROWING_COLUMNS.has(id) ? { flex: `1 0 ${width}px`, maxWidth: 'unset' } : { flex: `0 0 ${width}px`, maxWidth: width };
+const columnSizeVariable = (index: number) => `--traces-table-column-${index}`;
+const sizeStyleFor = (id: string, index: number): CSSProperties => {
+  const width = `var(${columnSizeVariable(index)})`;
+  return GROWING_COLUMNS.has(id)
+    ? { flex: `1 0 ${width}`, maxWidth: 'unset' }
+    : { flex: `0 0 ${width}`, maxWidth: width };
+};
+const ROW_WIDTH_VARIABLE = '--traces-table-row-width';
+const rowWidthStyle = { width: `var(${ROW_WIDTH_VARIABLE})`, minWidth: '100%' } as const;
 
 // Row click opens the drawer; the checkbox cell must not also trigger it.
 const stopPropagationProps = {
@@ -76,10 +93,18 @@ export interface TracesTableProps {
   sort: TraceColumnId;
   dir: SortDirection;
   onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  /** Resolves trace-cell links; when absent trace cells open through onTraceSelected. */
+  getTraceHref?: TraceHrefGetter;
   /** Resolves the session cell's link destination; when absent the session renders as plain text. */
   getSessionHref?: SessionHrefGetter;
   /** Toggle a tag filter — wired to the tag pills in the Tags cell; absent → non-clickable pills. */
   onFilterByTag?: (key: string, value: string) => void;
+  /** Product-owned renderer for resolving an experiment-scoped run name. */
+  renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
+  /** Hides the column with the given id — wired to the per-header menu's "Hide column" item. */
+  onHideColumn: (columnId: string) => void;
+  /** Row-height density passed to the DS `Table` (`'small'` = compact rows). Defaults to `'default'`. */
+  size?: 'default' | 'small';
 }
 
 // The V4 long identifier is the selection key: the consumer stores the same id when a row is opened,
@@ -121,20 +146,57 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     sort,
     dir,
     onSort,
+    getTraceHref,
     getSessionHref,
     onFilterByTag,
+    renderRunName,
+    onHideColumn,
+    size = 'default',
   }: TracesTableProps) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
 
     // Canonical-order visible column defs + any product columns. `extraColumns` is guarded to a stable
     // reference so a stable/undefined value doesn't defeat the deep memo (see `getVisibleColumnDefs`).
-    const columns = useMemo(() => getVisibleColumnDefs(visibleColumns, extraColumns), [visibleColumns, extraColumns]);
+    const columns = useMemo(() => {
+      // Product-specific column ids are intentionally absent and resolve to undefined.
+      const contentMaxSizes: Readonly<Record<string, number | undefined>> = getContentColumnMaxSizes(traces, intl);
+      return getVisibleColumnDefs(visibleColumns, extraColumns).map((column) => {
+        if (column.id === undefined) {
+          return column;
+        }
+        const contentMaxSize = contentMaxSizes[column.id];
+        const persistedSize = initialColumnSizing[column.id];
+        if (contentMaxSize === undefined && persistedSize === undefined) {
+          return column;
+        }
+        // Match the established StatementsTable layout: compact columns are fixed to their measured
+        // content size, while the useful text columns flex into the remaining container width. The
+        // content-derived size is therefore the real ceiling, not a lower bound beneath a larger
+        // static/persisted max. Product columns have no shared content measurement and retain their
+        // own declared/persisted ceiling.
+        const maxSize = contentMaxSize ?? Math.max(column.maxSize ?? 0, persistedSize ?? 0);
+        return { ...column, maxSize };
+      });
+    }, [visibleColumns, extraColumns, traces, intl, initialColumnSizing]);
 
     const meta = useMemo<TracesTableMeta>(
-      () => ({ intl, onTraceSelected, getSessionHref, onFilterByTag }),
-      [intl, onTraceSelected, getSessionHref, onFilterByTag],
+      () => ({ intl, onTraceSelected, getTraceHref, getSessionHref, onFilterByTag, renderRunName }),
+      [intl, onTraceSelected, getTraceHref, getSessionHref, onFilterByTag, renderRunName],
     );
+
+    // Clamp the state TanStack is seeded with as well as the column definition. `getSize()` normally
+    // applies maxSize, but retaining an oversized raw initial value can still leak into the flex-table
+    // layout before the first resize update and leave large blank gaps between compact columns.
+    const normalizedInitialColumnSizing = useMemo(() => {
+      const sizing = { ...initialColumnSizing };
+      for (const column of columns) {
+        if (column.id !== undefined && sizing[column.id] !== undefined && column.maxSize !== undefined) {
+          sizing[column.id] = Math.min(sizing[column.id], column.maxSize);
+        }
+      }
+      return sizing;
+    }, [columns, initialColumnSizing]);
 
     const table = useReactTable_unverifiedWithReact18<ModelTraceInfoV3>('traces-table/TracesTable.tsx', {
       data: traces,
@@ -146,7 +208,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       // `getSize()` tracks the cursor). Sizing is uncontrolled — seeded once via `initialState` — so a
       // drag no longer writes persistence on every mousemove.
       columnResizeMode: 'onChange',
-      initialState: { columnSizing: initialColumnSizing },
+      initialState: { columnSizing: normalizedInitialColumnSizing },
       meta,
     });
 
@@ -154,28 +216,28 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     // falling-edge ref avoids the redundant mount write that a plain `if (!isResizing) persist(...)`
     // would do.
     const isResizingColumn = Boolean(table.getState().columnSizingInfo.isResizingColumn);
-    const columnSizing = table.getState().columnSizing;
     const wasResizing = useRef(false);
     useEffect(() => {
       if (wasResizing.current && !isResizingColumn) {
-        onColumnSizingSettled(columnSizing);
+        // TanStack stores the raw pointer delta in `columnSizing`, even when `getSize()` clamps the
+        // rendered width to the column's min/max. Reset that raw state before persisting it; otherwise
+        // an oversized first drag becomes the next render's persisted max and a second drag can grow
+        // beyond the original ceiling.
+        const columnSizing = table.getState().columnSizing;
+        const clampedSizing = { ...columnSizing };
+        for (const column of table.getAllLeafColumns()) {
+          if (columnSizing[column.id] !== undefined) {
+            clampedSizing[column.id] = column.getSize();
+          }
+        }
+        table.setColumnSizing(clampedSizing);
+        onColumnSizingSettled(clampedSizing);
       }
       wasResizing.current = isResizingColumn;
-    }, [isResizingColumn, columnSizing, onColumnSizingSettled]);
-
-    const headerSortProps = (id: string): HeaderSortProps => {
-      if (!isSortableTraceColumn(id)) {
-        return {};
-      }
-      const isActive = sort === id;
-      return {
-        sortable: true,
-        sortDirection: isActive ? dir : 'none',
-        onToggleSort: () => onSort(id, isActive && dir === 'desc' ? 'asc' : 'desc'),
-      };
-    };
+    }, [table, isResizingColumn, onColumnSizingSettled]);
 
     const leafHeaders = table.getLeafHeaders();
+    const renderedSkeletonRowCount = getRenderedSkeletonRowCount(skeletonRowCount, size);
 
     // Pin every row to the summed width of the visible columns so its hover/selected background spans
     // the full horizontal extent, not just the visible viewport. A DuBois `scrollable` Table makes the
@@ -189,22 +251,65 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     // (spacing.md) content width + 8px (spacing.sm) left padding, so it contributes a fixed 24px.
     const selectCellWidth = theme.spacing.md + theme.spacing.sm;
     const rowWidth = leafHeaders.reduce((total, header) => total + header.getSize(), selectCellWidth);
-    const rowWidthStyle = { width: rowWidth, minWidth: '100%' } as const;
+    // Publish live widths once on the scroll container. Header/cell styles reference these variables,
+    // so React updates one DOM node per resize tick instead of diffing a new inline style on every cell.
+    // This follows ProcessListTable's established live-resize performance pattern.
+    const tableSizeVariables = {
+      [ROW_WIDTH_VARIABLE]: `${rowWidth}px`,
+      ...Object.fromEntries(leafHeaders.map((header, index) => [columnSizeVariable(index), `${header.getSize()}px`])),
+    } as CSSProperties;
+    const columnStyles = useMemo(
+      () => new Map(leafHeaders.map((header, index) => [header.column.id, sizeStyleFor(header.column.id, index)])),
+      // Header identities are stable while only column sizing changes.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [table, columns],
+    );
+
+    // Header-row overrides: near-black labels and a visible divider.
+    const headerRowCss = {
+      ...selectCellAlign,
+      // Center each header label against the (vertically-centered) select-all checkbox. Padding sets
+      // the label→divider gap directly — DS applies --table-row-vertical-padding via an inline style,
+      // so a `css` override of it is a no-op.
+      '[role="columnheader"]': { alignItems: 'center', paddingBottom: theme.spacing.sm },
+      // The select-all cell keeps the DS default bottom padding otherwise, which shifts the centered
+      // checkbox up off the label line — zero it so the checkbox sits on the labels' center.
+      '&& .table-row-select-cell': { paddingBottom: 0 },
+      // Doubled `&&` beats the DS 2-class `.table-header-text` var rule, forcing the darkest token.
+      '&& .table-header-text': { color: theme.colors.textPrimary },
+      // Light divider (grey200), overriding the separator var for the header subtree only.
+      ['--table-separator-color' as string]: theme.colors.grey200,
+      // Keep the header's select-all checkbox always visible (data rows stay hover-reveal).
+      '&& .table-row-select-cell input[type="checkbox"] ~ *': { opacity: 1 },
+    };
 
     return (
       <div
         role="region"
         aria-busy={isFetching}
+        style={tableSizeVariables}
         aria-label={intl.formatMessage({
           defaultMessage: 'Traces',
           description: 'Region label wrapping the traces table',
         })}
-        css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+          // Row-height density (`size='small'`) should change ONLY the row height, not the text size.
+          // DuBois's `TableCell` wraps its content in a `Typography.Text` sized `sm` (12px) when the
+          // table is `small`, which would shrink the cell font. The DS typography class carries a
+          // theme-specific prefix (`du-bois-light-`/`du-bois-dark-`), so pin the whole cell subtree
+          // back to the base size instead — density then affects row height alone. (Cell icons set
+          // their own 13px `fontSize`, which equals the base, so this doesn't disturb them.)
+          '[role="cell"], [role="cell"] *': { fontSize: `${theme.typography.fontSizeBase}px !important` },
+        }}
       >
         {/* `scrollable` makes the DuBois Table the scroll container (both axes), which is what activates
           its sticky-header CSS; `flex: 1` gives it a bounded height from the flex parent to scroll within. */}
-        <Table scrollable css={{ flex: 1 }} someRowsSelected={isAllOnPageSelected || isSomeOnPageSelected}>
-          <TableRow isHeader css={selectCellAlign} style={rowWidthStyle}>
+        <Table scrollable size={size} css={{ flex: 1 }} someRowsSelected={isAllOnPageSelected || isSomeOnPageSelected}>
+          <TableRow isHeader css={headerRowCss} style={rowWidthStyle}>
             <TableRowSelectCell
               componentId={`${COMPONENT_ID}.row-select-all`}
               checked={isAllOnPageSelected}
@@ -215,30 +320,48 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                 description: 'Aria label for the select-all checkbox in the traces table header',
               })}
             />
-            {leafHeaders.map((header) => (
-              <TableHeader
-                key={header.id}
-                componentId={`${COMPONENT_ID}.header`}
-                header={header}
-                column={header.column}
-                setColumnSizing={table.setColumnSizing}
-                style={sizeStyleFor(header.column.id, header.getSize())}
-                {...headerSortProps(header.column.id)}
-              >
-                {flexRender(header.column.columnDef.header, header.getContext())}
-              </TableHeader>
-            ))}
+            {leafHeaders.map((header) => {
+              const columnId = header.column.id;
+              const labelNode = flexRender(header.column.columnDef.header, header.getContext());
+              // Sort lives in the menu, so no DuBois `sortable` (its button wrapper can't nest the trigger).
+              const sortHandlers = isSortableTraceColumn(columnId)
+                ? {
+                    onSortAscending: () => onSort(columnId, 'asc'),
+                    onSortDescending: () => onSort(columnId, 'desc'),
+                  }
+                : { onSortAscending: noop, onSortDescending: noop };
+              return (
+                <TableHeader
+                  key={header.id}
+                  componentId={`${COMPONENT_ID}.header`}
+                  header={header}
+                  column={header.column}
+                  setColumnSizing={table.setColumnSizing}
+                  style={columnStyles.get(columnId)}
+                  wrapContent={false}
+                >
+                  <TraceColumnHeader
+                    label={labelNode}
+                    labelText={typeof labelNode === 'string' ? labelNode : undefined}
+                    sortable={isSortableTraceColumn(columnId)}
+                    sortDirection={sort === columnId ? dir : 'none'}
+                    onHide={() => onHideColumn(columnId)}
+                    {...sortHandlers}
+                  />
+                </TableHeader>
+              );
+            })}
           </TableRow>
 
           {isLoading
-            ? Array.from({ length: skeletonRowCount }, (_, i) => (
+            ? Array.from({ length: renderedSkeletonRowCount }, (_, i) => (
                 <TableRow key={`skeleton-${i}`} css={selectCellAlign} style={rowWidthStyle}>
                   <TableRowSelectCell componentId={`${COMPONENT_ID}.row-select.skeleton`} noCheckbox />
                   {leafHeaders.map((header) => (
                     <TableCell
                       key={header.id}
                       css={{ verticalAlign: 'middle' }}
-                      style={sizeStyleFor(header.column.id, header.getSize())}
+                      style={columnStyles.get(header.column.id)}
                     >
                       <TableSkeleton seed={`traces-${header.id}-${i}`} />
                     </TableCell>
@@ -251,7 +374,19 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                 return (
                   <TableRow
                     key={row.id}
-                    onClick={() => onTraceSelected(row.original)}
+                    onClick={(event) => {
+                      const traceHref = getTraceHref?.(row.original);
+                      if ((event.ctrlKey || event.metaKey) && traceHref) {
+                        event.preventDefault();
+                        window.open(
+                          typeof traceHref === 'string' ? traceHref : createPath(traceHref),
+                          '_blank',
+                          'noopener,noreferrer',
+                        );
+                        return;
+                      }
+                      onTraceSelected(row.original);
+                    }}
                     style={rowWidthStyle}
                     css={{
                       cursor: 'pointer',
@@ -276,7 +411,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                       <TableCell
                         key={cell.id}
                         css={{ verticalAlign: 'middle' }}
-                        style={sizeStyleFor(cell.column.id, cell.column.getSize())}
+                        style={columnStyles.get(cell.column.id)}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>

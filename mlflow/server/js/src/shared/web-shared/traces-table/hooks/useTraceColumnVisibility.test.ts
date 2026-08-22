@@ -23,7 +23,18 @@ describe('useTraceColumnVisibility', () => {
     const { result } = renderHook(() =>
       useTraceColumnVisibility({ storageKey: KEY, version: 1, getDefaultVisible: makeGetDefaultVisible(false) }),
     );
-    expect(result.current.visibleColumns).toEqual(['start_time', 'input', 'output', 'duration', 'state', 'tags']);
+    expect(result.current.visibleColumns).toEqual([
+      'trace_name',
+      'start_time',
+      'input',
+      'output',
+      'user',
+      'duration',
+      'state',
+      'source',
+      'run_name',
+      'tags',
+    ]);
   });
 
   test('session default follows the data-driven flag', () => {

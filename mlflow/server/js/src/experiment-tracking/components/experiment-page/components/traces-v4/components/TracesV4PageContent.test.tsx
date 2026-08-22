@@ -17,8 +17,9 @@ import {
   makeTrace,
   makeTraces,
 } from '../test-utils/mockTraces';
-import { TRACE_COLUMN_SIZES_STORAGE_KEY_PREFIX } from '../utils/constants';
+import { TRACE_COLUMN_SIZES_STORAGE_KEY_PREFIX, TRACE_DENSITY_STORAGE_KEY_PREFIX } from '../utils/constants';
 import { COLUMN_SIZES_STORAGE_VERSION } from '../hooks/useTracesV4ColumnSizing';
+import { DENSITY_STORAGE_VERSION } from '../hooks/useTracesV4Density';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
 
 // The saved-views hook (mounted via the toolbar's Views button) reads experiment tags through the
@@ -31,7 +32,6 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery', () 
 }));
 
 const EXPERIMENT_ID = 'exp-1';
-const STORAGE_UC_SCHEMA = 'cat.sch';
 const PATH = '/ml/experiments/:experimentId/traces';
 const URL = '/ml/experiments/exp-1/traces';
 
@@ -72,6 +72,9 @@ let state: ServerState;
 
 let lastSearch = '';
 
+// Total returned by the trace-metrics endpoint for the footer "{n} of {total}" count.
+let metricsTotalCount = 42;
+
 const LocationSpy = () => {
   const search = useLocation().search;
   useEffect(() => {
@@ -90,7 +93,7 @@ const renderPage = ({ initialUrl = URL }: { initialUrl?: string } = {}) => {
         element: (
           <>
             <LocationSpy />
-            <TracesV4PageContent experimentId={EXPERIMENT_ID} storageUCSchema={STORAGE_UC_SCHEMA} />
+            <TracesV4PageContent experimentId={EXPERIMENT_ID} />
           </>
         ),
       },
@@ -100,14 +103,39 @@ const renderPage = ({ initialUrl = URL }: { initialUrl?: string } = {}) => {
   });
 };
 
-// Trace ID is hidden by default, so locate a row by its Input cell activator (a default-visible
-// role="button" that opens the drawer). Its accessible name is "Open trace <id> — input".
-const findTraceRow = (traceId: string) => screen.findByRole('button', { name: `Open trace ${traceId} — input` });
-const queryTraceRow = (traceId: string) => screen.queryByRole('button', { name: `Open trace ${traceId} — input` });
+// Trace ID is hidden by default, so locate a row by its linked Input cell (a default-visible column).
+const findTraceRow = (traceId: string) => screen.findByRole('link', { name: `Open trace ${traceId} — input` });
+const queryTraceRow = (traceId: string) => screen.queryByRole('link', { name: `Open trace ${traceId} — input` });
 
 // AntD's `onPressEnter` (wired to commit the search) is gated on the legacy `keyCode === 13`, which
 // userEvent's keyboard synthesis doesn't set — fire keyDown directly to exercise that path.
 const pressEnter = (input: HTMLElement) => fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13 });
+
+// Open the Display popover and expand one of its submenus (Columns / Sort / Row height). The column
+// controls, sort, and row-height now live behind this popover instead of standalone toolbar buttons.
+// Radix submenus open on click of their SubTrigger (role="menuitem"). The Sort and Row-height triggers
+// append their current value as a hint (e.g. "SortTime"), so match by the leading label via regex.
+const openDisplaySubmenu = async (user: ReturnType<typeof userEvent.setup>, submenu: RegExp) => {
+  await user.click(screen.getByRole('button', { name: 'Display' }));
+  await user.click(await screen.findByRole('menuitem', { name: submenu }));
+};
+
+// Click a checkbox/radio item inside an open Display submenu. Radix menu items in a SubContent don't
+// respond to userEvent's realistic pointer sequence under jsdom (the pointer events get swallowed), so
+// fire the click directly — same pragmatic workaround as `pressEnter` above for AntD's keyCode gate.
+const selectSubmenuItem = async (role: 'menuitemcheckbox' | 'menuitemradio', name: string) => {
+  fireEvent.click(await screen.findByRole(role, { name }));
+};
+
+// Sort ascending (opposite table default) to guarantee refetch. Also tests column header sort.
+const sortByTime = async (
+  user: ReturnType<typeof userEvent.setup>,
+  direction: 'ascending' | 'descending' = 'ascending',
+) => {
+  const timeHeader = screen.getByRole('columnheader', { name: 'Time' });
+  await user.click(within(timeHeader).getByRole('button', { name: 'Column options' }));
+  await user.click(await screen.findByRole('menuitem', { name: `Sort ${direction}` }));
+};
 
 const server = setupServer(
   // OSS uses the synchronous V3 search endpoint. Record the request body (assertions target this),
@@ -125,6 +153,10 @@ const server = setupServer(
   // The add-to-dataset provider (GenAITracesTableProvider / ExportTracesToDatasetModal) fetches the
   // datasets list on mount; stub it so an unhandled request doesn't disrupt the toolbar render.
   rest.post('/ajax-api/3.0/mlflow/datasets/search', (_req, res, ctx) => res(ctx.json({ datasets: [] }))),
+  // The footer "{n} of {total}" count reads the total from the trace-metrics endpoint.
+  rest.post('/ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) =>
+    res(ctx.json({ data_points: [{ metric_name: 'trace_count', values: { COUNT: metricsTotalCount } }] })),
+  ),
 );
 
 const { history } = setupTestRouter();
@@ -139,6 +171,7 @@ beforeEach(() => {
   // default when unseen), which sets `aria-hidden` on the rest of the page and hides the trace rows
   // from queries — the same returning-user state real sessions land in after the first dismissal.
   window.localStorage.setItem('mlflow.detectIssues.guidanceShown_v1', 'true');
+  metricsTotalCount = 42;
   state = {
     pages: { '': { traces: makeTraces(3), next_page_token: undefined } },
     searchCalls: [],
@@ -163,12 +196,16 @@ describe('TracesV4PageContent', () => {
     expect(await findTraceRow('tr-000')).toBeInTheDocument();
     expect(screen.getByText('request for tr-000')).toBeInTheDocument();
     expect(screen.getByText('response for tr-000')).toBeInTheDocument();
-    // Default columns: Time, Input, Output, Duration, State (no Session on this session-less page).
+    // Default columns: Time, Input, Output, Duration, State, Tokens (no Session on this session-less page).
     expect(screen.getByRole('columnheader', { name: 'Time' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'State' })).toBeInTheDocument();
-    // Trace ID and Tokens are hidden by default (available via the column selector).
+    expect(screen.getByRole('columnheader', { name: 'Tokens' })).toBeInTheDocument();
+    // Opt-in columns are hidden by default (available via the column selector).
     expect(screen.queryByRole('columnheader', { name: 'Trace ID' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: 'Tokens' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Trace name' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'User' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Source' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Run name' })).not.toBeInTheDocument();
     // Per-test timeout (matching the file's other heavy renders): the full page render is slow under
     // parallel jsdom load and would otherwise flake against the default 5s ceiling.
   }, 20000);
@@ -178,8 +215,8 @@ describe('TracesV4PageContent', () => {
     renderPage();
     await findTraceRow('tr-000');
 
-    await user.click(screen.getByRole('button', { name: 'Select visible columns' }));
-    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Trace ID' }));
+    await openDisplaySubmenu(user, /^Columns/);
+    await selectSubmenuItem('menuitemcheckbox', 'Trace ID');
 
     const traceId = await screen.findByRole('columnheader', { name: 'Trace ID' });
     const time = screen.getByRole('columnheader', { name: 'Time' });
@@ -187,6 +224,18 @@ describe('TracesV4PageContent', () => {
     // ID is the leftmost data column (left of Time). The row-select cell renders before both.
     expect(traceId.compareDocumentPosition(time) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   }, 20000);
+
+  test('offers the restored legacy columns in the column selector', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await findTraceRow('tr-000');
+
+    await openDisplaySubmenu(user, /^Columns/);
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'Trace name' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'User' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Source' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Run name' })).toBeInTheDocument();
+  });
 
   test('Next sends the second page token and shows the second page; Prev does not refetch', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -234,25 +283,25 @@ describe('TracesV4PageContent', () => {
     renderPage();
     expect(await findTraceRow('tr-000')).toBeInTheDocument();
 
-    // The sortable start-time header (relabeled "Time") renders a button; the date-range selector
-    // with the same label is a combobox, so this targets the column header unambiguously.
-    await user.click(screen.getByRole('button', { name: /^Time$/ }));
-    await waitFor(() => expect(state.searchCalls.some((c) => c.order_by?.[0]?.startsWith('timestamp'))).toBe(true));
+    await sortByTime(user);
+    // The initial load sorts timestamp DESC; the ascending pick must issue a distinct 'timestamp ASC'.
+    await waitFor(() => expect(state.searchCalls.some((c) => c.order_by?.[0] === 'timestamp ASC')).toBe(true));
   });
 
-  test('non-sortable headers (State) expose no sort control', async () => {
+  test('non-sortable headers (State) expose no sort control in their menu', async () => {
+    const user = userEvent.setup();
     renderPage();
     await findTraceRow('tr-000');
-    // Sortable headers render a button; the display-only State column must not.
-    expect(screen.queryByRole('button', { name: /^State$/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'State' })).toBeInTheDocument();
+
+    const stateHeader = screen.getByRole('columnheader', { name: 'State' });
+    // A display-only column still has a menu (for Hide column) but offers no sort items.
+    await user.click(within(stateHeader).getByRole('button', { name: 'Column options' }));
+    expect(await screen.findByRole('menuitem', { name: 'Hide column' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /^Sort/ })).not.toBeInTheDocument();
   });
 
-  // TODO(traces-v4): OSS enables Delete (no UC gate) AND the row-select checkbox → Actions-button flow doesn't register under jsdom (portalled DuBois checkbox). Needs a jsdom-friendly selection interaction + OSS-correct (delete-enabled) assertions.
-
-  test.skip('select rows → Actions → Delete is disabled for UC-backed traces and does not delete', async () => {
+  test('select rows → Actions (2) → Delete is enabled in OSS and opens the confirm modal', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
-    const deleteSpy = jest.spyOn(MlflowService, 'deleteTracesV3').mockResolvedValue({ traces_deleted: 2 } as never);
     renderPage();
     await findTraceRow('tr-000');
 
@@ -264,15 +313,13 @@ describe('TracesV4PageContent', () => {
     expect(actionsButton).toHaveTextContent('Actions (2)');
     await user.click(actionsButton);
 
-    // Every v4 trace is UC-backed, so Delete is disabled with a tooltip; clicking it is a no-op.
-    // (The disabled item appends an info-icon tooltip, so match the label by regex.)
+    // OSS traces have no UC gate (isDeleteDisabled === false), so Delete is enabled and clicking it
+    // opens the delete-confirmation modal (mirrors the datasets-v2 delete flow).
     const deleteItem = await screen.findByRole('menuitem', { name: /Delete/ });
-    expect(deleteItem).toHaveAttribute('aria-disabled', 'true');
+    expect(deleteItem).not.toHaveAttribute('aria-disabled', 'true');
     await user.click(deleteItem);
-    // No confirm modal opens and the mutation never fires.
-    expect(screen.queryByRole('button', { name: /^Delete$/ })).not.toBeInTheDocument();
-    expect(deleteSpy).not.toHaveBeenCalled();
-  });
+    expect(await screen.findByRole('dialog')).toHaveTextContent(/Delete/);
+  }, 20000);
 
   test('searching commits only on Enter, not per keystroke, then sends an ILIKE filter', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -409,9 +456,9 @@ describe('TracesV4PageContent', () => {
         }),
       );
 
-      await user.click(screen.getByRole('button', { name: /^Time$/ }));
+      await sortByTime(user);
 
-      // Skeleton is back and the prior rows are replaced by it (rather than kept via keepPreviousData).
+      // Skeleton replaces rows (not kept via keepPreviousData).
       await waitFor(() => expect(screen.getByRole('region', { name: 'Traces' })).toHaveAttribute('aria-busy', 'true'));
       expect(queryTraceRow('tr-000')).not.toBeInTheDocument();
 
@@ -421,6 +468,12 @@ describe('TracesV4PageContent', () => {
   });
 
   describe('opening a trace', () => {
+    test('input cells link to the V4 long identifier', async () => {
+      renderPage();
+      const link = await findTraceRow('tr-000');
+      expect(link).toHaveAttribute('href', expect.stringContaining('traceId=trace%3A%2Fcat.sch%2Ftr-000'));
+    });
+
     test('clicking a UC-backed row opens the drawer with a V4 long identifier (not a bare hex id)', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
@@ -466,9 +519,9 @@ describe('TracesV4PageContent', () => {
       const { unmount } = renderPage();
       await findTraceRow('tr-000');
 
-      // Turn Session on via the column selector, even though this page has no sessions.
-      await user.click(screen.getByRole('button', { name: 'Select visible columns' }));
-      await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Session' }));
+      // Turn Session on via Display → Columns, even though this page has no sessions.
+      await openDisplaySubmenu(user, /^Columns/);
+      await selectSubmenuItem('menuitemcheckbox', 'Session');
       expect(await screen.findByRole('columnheader', { name: 'Session' })).toBeInTheDocument();
 
       // Remount: the explicit "on" choice persists (a sticky override, not the data-driven default).
@@ -511,8 +564,8 @@ describe('TracesV4PageContent', () => {
       await findTraceRow('tr-000');
       expect(screen.getByRole('columnheader', { name: 'relevance' })).toBeInTheDocument();
 
-      await user.click(screen.getByRole('button', { name: 'Select visible columns' }));
-      await user.click(await screen.findByRole('menuitemcheckbox', { name: 'relevance' }));
+      await openDisplaySubmenu(user, /^Columns/);
+      await selectSubmenuItem('menuitemcheckbox', 'relevance');
       await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'relevance' })).not.toBeInTheDocument());
 
       // Remount: the opt-out persists per experiment even though the page still has the assessment.
@@ -533,10 +586,13 @@ describe('TracesV4PageContent', () => {
       await findTraceRow('tr-000');
 
       expect(screen.getByRole('columnheader', { name: 'Tags' })).toBeInTheDocument();
-      // First tag is shown as a pill; the second is collapsed into "+1".
-      expect(screen.getByText('env: prod')).toBeInTheDocument();
-      expect(screen.getByText('+1')).toBeInTheDocument();
-    });
+      // First tag is shown as a pill; the second is collapsed into "+1". The responsive tags cell
+      // renders a hidden measurement copy alongside the visible pill in jsdom, so match on count.
+      expect(screen.getAllByText('env: prod').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('+1').length).toBeGreaterThan(0);
+      // Heavy full-page render is slow under parallel jsdom load; per-test timeout avoids the
+      // lint-forbidden global jest.setTimeout.
+    }, 20000);
 
     test('hides internal mlflow.* tags from the preview', async () => {
       // Only an internal tag → nothing user-facing → renders the "-" empty value.
@@ -628,8 +684,16 @@ describe('TracesV4PageContent', () => {
       setLocalStorageItem(sizesKey, COLUMN_SIZES_STORAGE_VERSION, true, { input: 321 });
 
       renderPage();
-      const header = await screen.findByRole('columnheader', { name: 'Input' });
-      expect(header).toHaveStyle({ flexBasis: '321px' });
+      await screen.findByRole('columnheader', { name: 'Input' });
+      // Widths are published as `--traces-table-column-<index>` CSS variables on the region and
+      // referenced by each header's `flex`. jsdom drops a `flex` shorthand containing `var()`, so we
+      // can't read the size off the header's inline style; assert on the published variable instead.
+      // 321 is not a default column size, so its presence proves the persisted width flowed through.
+      const region = screen.getByRole('region', { name: 'Traces' });
+      const publishedWidths = Array.from({ length: region.style.length }, (_, i) => region.style.item(i))
+        .filter((prop) => prop.startsWith('--traces-table-column-'))
+        .map((prop) => region.style.getPropertyValue(prop));
+      expect(publishedWidths).toContain('321px');
     });
   });
 
@@ -683,6 +747,8 @@ describe('TracesV4PageContent', () => {
 
       expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+      // Heavy full-page render is slow under parallel jsdom load; per-test timeout avoids the
+      // lint-forbidden global jest.setTimeout (matches the sibling pagination tests).
     }, 20000);
 
     test('an exactly-full last page → Next enabled; clicking it shows "No more results" with the bar still present', async () => {
@@ -714,15 +780,25 @@ describe('TracesV4PageContent', () => {
       // Full-page renders + two paginations are slow under parallel jsdom load; per-test timeout
       // avoids the lint-forbidden global jest.setTimeout.
     }, 20000);
+
+    test('shows the "{n} of {total}" count — current page rows out of the metrics total', async () => {
+      // 3 rows on the page; the trace-metrics endpoint reports 42 total.
+      state.pages = { '': { traces: makeTraces(3), next_page_token: undefined } };
+      metricsTotalCount = 42;
+      renderPage();
+      await findTraceRow('tr-000');
+
+      expect(await screen.findByText('3 of 42')).toBeInTheDocument();
+    }, 20000);
   });
 
   describe('OSS data path', () => {
-    test('OSS always uses MLFLOW_EXPERIMENT location regardless of storageUCSchema parameter', async () => {
-      renderPage(); // renderPage uses STORAGE_UC_SCHEMA = 'cat.sch', but OSS ignores it
+    test('OSS searches the MLFLOW_EXPERIMENT location', async () => {
+      renderPage();
       await findTraceRow('tr-000');
 
       const location = state.searchCalls[0]?.locations?.[0];
-      // OSS always uses MLFLOW_EXPERIMENT; the storageUCSchema parameter is for Databricks only
+      // OSS always searches by experiment id; UC-schema locations are a Databricks-only concept.
       expect(location?.type).toBe('MLFLOW_EXPERIMENT');
       expect(location?.mlflow_experiment).toEqual({ experiment_id: EXPERIMENT_ID });
     });
@@ -854,14 +930,12 @@ describe('TracesV4PageContent', () => {
   });
 
   describe('default time range', () => {
-    test('displays the 15 minute range on mount when the URL has no startTimeLabel', async () => {
+    test('displays the 7 day range on mount when the URL has no startTimeLabel', async () => {
       renderPage();
       await findTraceRow('tr-000');
       // The standalone hook resolves the default without writing it to the URL, so assert the
       // dropdown *displays* the default rather than checking the URL param.
-      expect(screen.getByRole('button', { name: 'Time range: Last 15 minutes' })).toHaveTextContent(
-        /^Last 15 minutes$/,
-      );
+      expect(screen.getByRole('button', { name: 'Time range: Last 7 days' })).toHaveTextContent(/^Last 7 days$/);
     });
 
     test('ignores a v3 saved time selection (isolated v4 localStorage key)', async () => {
@@ -871,9 +945,7 @@ describe('TracesV4PageContent', () => {
       setLocalStorageItem(`traces_useMonitoringFilters_${EXPERIMENT_ID}`, 1, true, { startTimeLabel: 'LAST_30_DAYS' });
       renderPage();
       await findTraceRow('tr-000');
-      expect(screen.getByRole('button', { name: 'Time range: Last 15 minutes' })).toHaveTextContent(
-        /^Last 15 minutes$/,
-      );
+      expect(screen.getByRole('button', { name: 'Time range: Last 7 days' })).toHaveTextContent(/^Last 7 days$/);
     });
   });
 
@@ -953,13 +1025,15 @@ describe('TracesV4PageContent', () => {
       const callsBefore = state.searchCalls.length;
 
       // Open the time-range dropdown and pick a different preset.
-      await user.click(screen.getByRole('button', { name: 'Time range: Last 15 minutes' }));
-      await user.click(await screen.findByRole('option', { name: 'Last 7 days' }));
+      await user.click(screen.getByRole('button', { name: 'Time range: Last 7 days' }));
+      await user.click(await screen.findByRole('option', { name: 'Last 15 minutes' }));
 
       // A new search fires (the filter's time bounds changed), so the call count grows.
       await waitFor(() => expect(state.searchCalls.length).toBeGreaterThan(callsBefore));
-      expect(new URLSearchParams(lastSearch).get('startTimeLabel')).toBe('LAST_7_DAYS');
-      expect(screen.getByRole('button', { name: 'Time range: Last 7 days' })).toHaveTextContent(/^Last 7 days$/);
+      expect(new URLSearchParams(lastSearch).get('startTimeLabel')).toBe('LAST_15_MINUTES');
+      expect(screen.getByRole('button', { name: 'Time range: Last 15 minutes' })).toHaveTextContent(
+        /^Last 15 minutes$/,
+      );
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
     test('selecting a custom value shows the absolute range picker and preset button', async () => {
@@ -967,7 +1041,7 @@ describe('TracesV4PageContent', () => {
       renderPage();
       await findTraceRow('tr-000');
 
-      await user.click(screen.getByRole('button', { name: 'Time range: Last 15 minutes' }));
+      await user.click(screen.getByRole('button', { name: 'Time range: Last 7 days' }));
       await user.click(await screen.findByRole('option', { name: 'Custom' }));
 
       await waitFor(() => expect(new URLSearchParams(lastSearch).get('startTimeLabel')).toBe('CUSTOM'));
@@ -992,9 +1066,7 @@ describe('TracesV4PageContent', () => {
       return screen.findByRole('menu');
     };
 
-    // TODO(traces-v4): Row-select checkbox → Actions button doesn't surface under jsdom (portalled DuBois selection). Product wiring verified; needs jsdom-friendly selection interaction.
-
-    test.skip('always offers "Run scorers" and "Add to evaluation dataset" for a selection', async () => {
+    test('always offers "Run scorers" and "Add to evaluation dataset" for a selection', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       const menu = await openActionsMenuForFirstTrace(user);
@@ -1002,46 +1074,46 @@ describe('TracesV4PageContent', () => {
       // These two are always available (no extra feature gate) — the core evaluation actions.
       expect(within(menu).getByRole('menuitem', { name: 'Run scorers' })).toBeInTheDocument();
       expect(within(menu).getByRole('menuitem', { name: 'Add to evaluation dataset' })).toBeInTheDocument();
-      // Delete remains, below the evaluation group (disabled for UC-backed traces).
-      expect(within(menu).getByRole('menuitem', { name: /Delete/ })).toBeInTheDocument();
-    });
+      // Delete remains, below the evaluation group. In OSS traces have no UC gate, so it's enabled.
+      const deleteItem = within(menu).getByRole('menuitem', { name: /Delete/ });
+      expect(deleteItem).toBeInTheDocument();
+      expect(deleteItem).not.toHaveAttribute('aria-disabled', 'true');
+    }, 20000);
 
-    // TODO(traces-v4): Review queue is Databricks-only and removed from the OSS Actions menu; the assertion is moot AND the selection→Actions flow is jsdom-blocked.
-
-    test.skip('hides the review-queue item (OSS feature)', async () => {
+    test('offers "Flag for review" — review queues ship in OSS, matching v3', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       const menu = await openActionsMenuForFirstTrace(user);
 
-      // Review queues are Databricks-only; "Flag for review" is never shown in OSS.
-      expect(within(menu).queryByRole('menuitem', { name: 'Flag for review' })).not.toBeInTheDocument();
-    });
+      // v3 (TracesV3Logs) wires AddToReviewQueueDropdown with addToReviewQueue: true in OSS, and OSS
+      // ships a full review-queue page/route, so "Flag for review" must be offered in v4 too.
+      expect(within(menu).getByRole('menuitem', { name: 'Flag for review' })).toBeInTheDocument();
+    }, 20000);
 
-    // TODO(traces-v4): Add-to-labeling-session was removed from the OSS Actions menu (Databricks-only). Feature not present in OSS.
-
-    test.skip('offers "Add to labeling session" when review queues are off', async () => {
+    test('offers "Compare" and "Edit tags", gated on the selection size (v3 parity)', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       const menu = await openActionsMenuForFirstTrace(user);
 
-      expect(within(menu).getByRole('menuitem', { name: 'Add to labeling session' })).toBeInTheDocument();
-    });
+      // With one trace selected: Edit tags is actionable, Compare needs 2–3 (both present, matching v3).
+      const editTags = within(menu).getByRole('menuitem', { name: 'Edit tags' });
+      expect(editTags).not.toHaveAttribute('aria-disabled', 'true');
+      const compare = within(menu).getByRole('menuitem', { name: 'Compare' });
+      expect(compare).toHaveAttribute('aria-disabled', 'true');
+    }, 20000);
 
-    // TODO(traces-v4): Row-select → Actions → menuitem flow is jsdom-blocked (portalled selection/dropdown). Product wiring verified.
-
-    test.skip('opening "Run scorers" launches the scorer-selection modal for the selected trace', async () => {
+    test('opening "Run scorers" launches the scorer-selection modal for the selected trace', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       const menu = await openActionsMenuForFirstTrace(user);
       await user.click(within(menu).getByRole('menuitem', { name: 'Run scorers' }));
 
-      // The shared run-scorers modal opens scoped to the single selected trace.
-      expect(await screen.findByRole('dialog', { name: 'Run scorer on trace' })).toBeInTheDocument();
-    });
+      // The shared run-judges modal opens scoped to the single selected trace. (The menu item reads
+      // "Run scorers"; the modal title uses the underlying "judge" terminology.)
+      expect(await screen.findByRole('dialog', { name: /Run judge on trace/ })).toBeInTheDocument();
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
-    // TODO(traces-v4): Cross-page selection depends on the jsdom-blocked checkbox selection flow. Product wiring verified.
-
-    test.skip('bulk actions run on the full cross-page selection (select on page 1, page to 2, Run scorers)', async () => {
+    test('bulk actions run on the full cross-page selection (select on page 1, page to 2, Run scorers)', async () => {
       // The selection now stores each trace's full info keyed by id, so it spans pages. Selecting one
       // trace on page 1, paging to page 2, selecting another there, then running scorers must scope the
       // action to BOTH selected traces — not just the page-2 subset (the reported "Run scorers (2)" runs
@@ -1068,8 +1140,8 @@ describe('TracesV4PageContent', () => {
       await user.click(within(await screen.findByRole('menu')).getByRole('menuitem', { name: 'Run scorers' }));
 
       // The scorer modal launches for the full 2-trace cross-page selection, not the page-2 subset.
-      expect(await screen.findByRole('dialog', { name: 'Run scorer on 2 traces' })).toBeInTheDocument();
-    });
+      expect(await screen.findByRole('dialog', { name: /Run judge on 2 traces/ })).toBeInTheDocument();
+    }, 60000); // heavy: renders two 50-row pages, selects across a page swap, then opens the modal
   });
 
   describe('trace drawer navigation', () => {
@@ -1111,27 +1183,29 @@ describe('TracesV4PageContent', () => {
   });
 
   describe('toolbar order', () => {
-    // Assert the always-present V4 control ordering. Detect Issues renders whenever issue detection
-    // is enabled (true in OSS) and sits just before Refresh; the selection-only Actions button lands
-    // between Columns and Detect Issues.
-    test('renders Date → Search → Filter → Columns → Detect Issues → Views → Refresh', async () => {
+    // Assert the always-present V4 control ordering. Views pins far left (before the date selector);
+    // column/sort/row-height controls consolidate into the Display popover; Detect Issues renders
+    // whenever issue detection is enabled (true in OSS) and sits just before Refresh.
+    test('renders Views → Date → Search → Filter → Display → Detect Issues → Refresh', async () => {
       renderPage();
       await findTraceRow('tr-000');
 
+      const views = screen.getByTestId('trace-v4-saved-views-trigger');
       const date = screen.getByTestId('time-range-select-dropdown');
       const search = screen.getByPlaceholderText('Search traces by id, input, or output');
       const filter = screen.getByRole('button', { name: /Filters/ });
-      const columns = screen.getByRole('button', { name: 'Select visible columns' });
+      const display = screen.getByRole('button', { name: 'Display' });
       const detectIssues = screen.getByRole('button', { name: 'Detect issues in traces' });
-      const views = screen.getByTestId('trace-v4-saved-views-trigger');
-      const refresh = screen.getByRole('button', { name: 'now' });
+      // The refresh button's accessible name is a relative-time label ("now" / "1 second ago") that
+      // drifts with render time, so match it by its stable componentId instead.
+      const refresh = document.querySelector('[data-component-id="mlflow.traces-v4.refresh-date-button"]')!;
       // DOCUMENT_POSITION_FOLLOWING (4) means the arg node comes after `this` node in document order.
+      expect(views.compareDocumentPosition(date) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(date.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(search.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(filter.compareDocumentPosition(columns) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(columns.compareDocumentPosition(detectIssues) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(detectIssues.compareDocumentPosition(views) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(views.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(filter.compareDocumentPosition(display) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(display.compareDocumentPosition(detectIssues) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(detectIssues.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       // The full page render (incl. the Detect Issues button's first-visit guidance popover) is slow
       // under parallel jsdom load; per-test timeout avoids the lint-forbidden global jest.setTimeout.
     }, 20000);
@@ -1141,18 +1215,86 @@ describe('TracesV4PageContent', () => {
     // stub (it hangs). The button→modal wiring mirrors v3's; presence/order is covered above.
 
     // TODO(traces-v4): The Actions button only renders on selection, which is jsdom-blocked here (portalled DuBois checkbox).
-
-    test.skip('places the selection Actions button between Columns and Refresh', async () => {
-      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+    test.skip('places the selection Actions button between Display and Refresh', async () => {
+      const user = userEvent.setup();
       renderPage();
       await findTraceRow('tr-000');
       await user.click(screen.getByRole('checkbox', { name: 'Select trace tr-000' }));
 
-      const columns = screen.getByRole('button', { name: 'Select visible columns' });
+      const display = screen.getByRole('button', { name: 'Display' });
       const actions = await screen.findByRole('button', { name: 'Actions for selected traces' });
       const refresh = screen.getByRole('button', { name: 'now' });
-      expect(columns.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(display.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(actions.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }, 20000);
+  });
+
+  describe('Display popover: sort', () => {
+    test('choosing Duration (descending) sends a duration order_by', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await findTraceRow('tr-000');
+
+      await openDisplaySubmenu(user, /^Sort/);
+      await selectSubmenuItem('menuitemradio', 'Duration (descending)');
+
+      // buildOrderBy maps the duration column to `execution_time DESC`; the new search carries it.
+      await waitFor(() =>
+        expect(state.searchCalls.some((c) => c.order_by?.[0]?.startsWith('execution_time'))).toBe(true),
+      );
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+
+    test('reflects the active sort (Time, descending) as the checked radio', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await findTraceRow('tr-000');
+
+      await openDisplaySubmenu(user, /^Sort/);
+      // The default sort is start_time/desc, so the "Time (descending)" radio is the checked one.
+      expect(
+        await screen.findByRole('menuitemradio', { name: 'Time (descending)', checked: true }),
+      ).toBeInTheDocument();
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+  });
+
+  describe('Display popover: row height', () => {
+    // The DS Table sets a per-row `--table-row-vertical-padding` from its `size`: a data row is 6px at
+    // the default (Standard) size and theme.spacing.xs (4px) at the compact (small) size.
+    const STANDARD_ROW_PADDING = '6px';
+    const COMPACT_ROW_PADDING = '4px';
+    const firstTraceRow = () => screen.getByRole('row', { name: /Open trace tr-000 — input/ });
+
+    test('defaults to Standard when the stored Compact preference uses the previous version', async () => {
+      const densityKey = `${TRACE_DENSITY_STORAGE_KEY_PREFIX}.${EXPERIMENT_ID}`;
+      setLocalStorageItem(densityKey, DENSITY_STORAGE_VERSION - 1, true, 'small');
+
+      renderPage();
+      await findTraceRow('tr-000');
+      expect(firstTraceRow()).toHaveStyle({ '--table-row-vertical-padding': STANDARD_ROW_PADDING });
     });
+
+    test('switching to Compact makes the table use compact-height rows', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await findTraceRow('tr-000');
+
+      await openDisplaySubmenu(user, /^Row height/);
+      await selectSubmenuItem('menuitemradio', 'Compact');
+
+      expect(firstTraceRow()).toHaveStyle({ '--table-row-vertical-padding': COMPACT_ROW_PADDING });
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+
+    test('applies a Compact row height persisted from a prior session', async () => {
+      const user = userEvent.setup();
+      const densityKey = `${TRACE_DENSITY_STORAGE_KEY_PREFIX}.${EXPERIMENT_ID}`;
+      setLocalStorageItem(densityKey, DENSITY_STORAGE_VERSION, true, 'small');
+
+      renderPage();
+      await findTraceRow('tr-000');
+      expect(firstTraceRow()).toHaveStyle({ '--table-row-vertical-padding': COMPACT_ROW_PADDING });
+
+      await openDisplaySubmenu(user, /^Row height/);
+      expect(await screen.findByRole('menuitemradio', { name: 'Compact', checked: true })).toBeInTheDocument();
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
   });
 });

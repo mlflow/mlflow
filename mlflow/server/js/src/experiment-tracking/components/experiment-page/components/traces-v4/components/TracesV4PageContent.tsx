@@ -6,13 +6,20 @@ import {
   ModelTraceExplorerContextProvider,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
-import { doesTraceSupportV4API, GenAITracesTableProvider } from '@databricks/web-shared/genai-traces-table';
+import {
+  doesTraceSupportV4API,
+  GenAITracesTableProvider,
+  MLFLOW_SOURCE_RUN_KEY,
+  RunName,
+} from '@databricks/web-shared/genai-traces-table';
 import {
   EMPTY_FILTER_MODEL,
+  TRACE_COLUMN_IDS,
   TracesErrorAlert,
   TracesTableView,
   type SessionHrefGetter,
   type TraceColumnId,
+  type TraceHrefGetter,
   type TracesTableViewState,
 } from '@databricks/web-shared/traces-table';
 import { useDeleteTracesMutation } from '@mlflow/mlflow/src/experiment-tracking/components/evaluations/hooks/useDeleteTraces';
@@ -22,20 +29,21 @@ import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
+import { isAssessmentColumnId } from '../utils/assessmentColumns';
 import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
+import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
 import { TracesV4TraceDrawer } from './TracesV4TraceDrawer';
 import { useTracesV4ToolbarSlots } from './TracesV4Toolbar';
 import { TracesV4DeleteModal } from './TracesV4DeleteModal';
-import { makeTracesV4ErrorDescription, TracesV4NoWarehouseState } from './TracesV4States';
+import { makeTracesV4ErrorDescription } from './TracesV4States';
 import { TracesV4EmptyState } from './TracesV4EmptyState';
 import { IssueDetectionModal } from '../../traces-v3/IssueDetectionModal';
 import { TracesV4SavedViewsButton, TracesV4SharedViewBanner, useTracesV4SavedViews } from './TracesV4SavedViews';
 
 interface TracesV4PageContentProps {
   experimentId: string;
-  storageUCSchema: string;
 }
 
 // Below this width the tab stops compressing its controls and scrolls horizontally instead (see the
@@ -43,21 +51,26 @@ interface TracesV4PageContentProps {
 // visually against the running UI.
 const MIN_TAB_CONTENT_WIDTH = 850;
 
+// Narrows a column id to a standard `TraceColumnId` (assessment columns are namespaced separately).
+const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_IDS as readonly string[]).includes(id);
+
 /**
  * Layout controller for the V4 traces tab. Owns URL/data state via `useTracesV4Controller` and feeds
  * the shared `TracesTableView`, mapping the controller's flags to a single `viewState`. The two
  * providers (ModelTraceExplorer, GenAITracesTable), the drawer, the delete modal, and notifications
  * stay MLflow-side.
  */
-export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4PageContentProps) => {
+export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { notify, notificationContainer } = useTracesV4Notifications();
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
 
-  const controller = useTracesV4Controller({ experimentId, storageUCSchema });
-  const { url, page, columns, assessments, columnSizing, bulk, searchInput, filterModel, flags } = controller;
+  const controller = useTracesV4Controller({ experimentId });
+  const { url, page, columns, assessments, columnSizing, traceCount, bulk, searchInput, filterModel, flags } =
+    controller;
+  const { density, setDensity } = useTracesV4Density(experimentId);
 
   // Saved views (URL-first): the hook reads/writes view tags and drives the `cols`+share-key preview
   // overlay. While a shared view is applied, its previewed columns render INSTEAD of the user's own
@@ -94,7 +107,18 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
     assessments.reset();
   }, [columns, assessments]);
 
-  const actions = useTracesV4TraceActions(experimentId);
+  const handleHideColumn = useCallback(
+    (columnId: string) => {
+      if (isAssessmentColumnId(columnId)) {
+        assessments.toggle(columnId);
+      } else if (isStandardColumnId(columnId)) {
+        columns.toggleColumn(columnId);
+      }
+    },
+    [assessments, columns],
+  );
+
+  const actions = useTracesV4TraceActions(experimentId, page.traces, page.refetch);
 
   // The selection stores the full `ModelTraceInfoV3` per trace (keyed by id), so this is the entire
   // cross-page selection — every bulk action (judges, Genie, add-to-dataset, labeling, review queue)
@@ -157,6 +181,14 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
   );
   const closeDrawer = useCallback(() => url.setTraceId(undefined), [url]);
 
+  const getTraceHref = useCallback<TraceHrefGetter>(
+    (trace) => {
+      const traceId = doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id;
+      return `${Routes.getExperimentPageTracesTabRoute(experimentId)}?traceId=${encodeURIComponent(traceId)}`;
+    },
+    [experimentId],
+  );
+
   // The session cell's only product coupling: build the single-chat-session route (matching v1),
   // deep-linking the current trace via `?selectedTraceId` so the destination opens on that trace.
   const getSessionHref = useCallback<SessionHrefGetter>(
@@ -165,6 +197,13 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
       return trace.trace_id
         ? `${baseUrl}?${new URLSearchParams({ [SELECTED_TRACE_ID_QUERY_PARAM]: trace.trace_id }).toString()}`
         : baseUrl;
+    },
+    [experimentId],
+  );
+  const renderRunName = useCallback(
+    (trace: ModelTraceInfoV3) => {
+      const runUuid = trace.trace_metadata?.[MLFLOW_SOURCE_RUN_KEY];
+      return runUuid ? <RunName experimentId={experimentId} runUuid={runUuid} /> : undefined;
     },
     [experimentId],
   );
@@ -208,9 +247,13 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
     onToggleColumn: toggleColumn,
     onResetColumns: resetColumns,
     assessmentColumns: assessments,
+    sort: url.sort,
+    dir: url.dir,
+    onSort: url.setSort,
+    density,
+    onDensityChange: setDensity,
     selectionCount: bulk.selected.size,
     onBulkDelete: openDelete,
-    isDeleteDisabled: controller.isDeleteDisabled,
     isRefreshing: page.isFetching && !page.isLoading,
     experimentId,
     actions,
@@ -290,8 +333,12 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
               sort={url.sort}
               dir={url.dir}
               onSort={url.setSort}
+              size={density}
+              getTraceHref={getTraceHref}
               getSessionHref={getSessionHref}
               onFilterByTag={controller.onFilterByTag}
+              renderRunName={renderRunName}
+              onHideColumn={handleHideColumn}
               // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
               searchValue={searchInput.input}
               onSearchChange={searchInput.setInput}
@@ -320,6 +367,10 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
               onPageSizeChange={url.setPageSize}
               hasNext={page.hasNext}
               hasPrev={page.hasPrev}
+              // "{n} of {total}" footer count (bottom-left).
+              traceCount={traceCount.currentCount}
+              traceTotal={traceCount.totalCount}
+              isTraceCountLoading={traceCount.isTotalLoading}
               // Reserve the pinned pagination bar's height with the floating-obstruction store so the
               // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
               PaginationBarWrapper={AssistantAwareActionBar}
@@ -329,15 +380,11 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
               error={page.error}
               getErrorDescription={getErrorDescription}
               customEmptyState={
-                controller.isMissingWarehouse ? (
-                  <TracesV4NoWarehouseState />
-                ) : viewState === 'empty' ? (
-                  // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
-                  // resolved `empty` state, not `hasNoTracesAtAll` alone, so error / no-results /
-                  // no-more-results still flow through the switch — a trace-id-search miss lands on
-                  // `no-results`, and a first-load error on `error`, not the quickstart.
-                  <TracesV4EmptyState experimentId={experimentId} />
-                ) : undefined
+                // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
+                // resolved `empty` state, not `hasNoTracesAtAll` alone, so error / no-results /
+                // no-more-results still flow through the switch — a trace-id-search miss lands on
+                // `no-results`, and a first-load error on `error`, not the quickstart.
+                viewState === 'empty' ? <TracesV4EmptyState experimentId={experimentId} /> : undefined
               }
             />
 
@@ -360,6 +407,7 @@ export const TracesV4PageContent = ({ experimentId, storageUCSchema }: TracesV4P
             />
 
             {actions.runJudges?.RunJudgesModal}
+            {actions.editTags.EditTagsModal}
 
             {isIssueDetectionOpen && (
               <IssueDetectionModal

@@ -2,7 +2,14 @@ import { type RefObject } from 'react';
 import { type InputRef, useDesignSystemTheme } from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import type { ColumnSizingState } from '@tanstack/react-table';
-import type { SessionHrefGetter, PageSize, SortDirection, TraceColumnId, TraceTableColumn } from './types';
+import type {
+  SessionHrefGetter,
+  PageSize,
+  SortDirection,
+  TraceColumnId,
+  TraceHrefGetter,
+  TraceTableColumn,
+} from './types';
 import { TracesTable } from './TracesTable';
 import { TracesTableToolbar } from './TracesTableToolbar';
 import { TracesPaginationBar } from './TracesPaginationBar';
@@ -48,8 +55,14 @@ export interface TracesTableViewProps {
   sort: TraceColumnId;
   dir: SortDirection;
   onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  getTraceHref?: TraceHrefGetter;
   getSessionHref?: SessionHrefGetter;
   onFilterByTag?: (key: string, value: string) => void;
+  renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
+  /** Hides the column with the given id — forwarded to the table's per-header menu. */
+  onHideColumn: (columnId: string) => void;
+  /** Row-height density forwarded to the table (`'small'` = compact rows). Defaults to `'default'`. */
+  size?: 'default' | 'small';
 
   // Toolbar passthrough.
   searchValue: string;
@@ -71,6 +84,10 @@ export interface TracesTableViewProps {
   onPageSizeChange: (pageSize: PageSize) => void;
   hasNext: boolean;
   hasPrev: boolean;
+  /** Optional "{n} of {total}" footer count (see `TracesPaginationBar`). */
+  traceCount?: number;
+  traceTotal?: number;
+  isTraceCountLoading?: boolean;
 
   // State handling.
   /** Clear active search/filters — wired to the no-results state's clear affordance. */
@@ -135,6 +152,9 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onPageSizeChange={onPageSizeChange}
       hasNext={hasNext}
       hasPrev={hasPrev}
+      count={props.traceCount}
+      total={props.traceTotal}
+      isCountLoading={props.isTraceCountLoading}
     />
   );
   // Wrap the bar in the consumer's obstruction-aware shell when provided (else render it bare).
@@ -164,8 +184,12 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       sort={props.sort}
       dir={props.dir}
       onSort={props.onSort}
+      getTraceHref={props.getTraceHref}
       getSessionHref={props.getSessionHref}
       onFilterByTag={props.onFilterByTag}
+      renderRunName={props.renderRunName}
+      onHideColumn={props.onHideColumn}
+      size={props.size}
     />
   );
 

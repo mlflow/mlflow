@@ -121,7 +121,6 @@ export const TracesV4DateSelector = React.memo(function TracesV4DateSelector({
             <DialogComboboxCustomButtonTriggerWrapper>
               <Button
                 componentId="mlflow.traces-v4.date-selector.trigger"
-                icon={<CalendarIcon />}
                 endIcon={<ChevronDownIcon />}
                 aria-label={timeRangeButtonLabel}
                 data-testid="time-range-select-dropdown"
@@ -175,7 +174,6 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
   const button = (
     <Button
       type="tertiary"
-      icon={isFetching ? <SyncIcon spin /> : <RefreshIcon />}
       componentId="mlflow.traces-v4.refresh-date-button"
       disabled={isFetching}
       onClick={() => {
@@ -190,15 +188,32 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
         },
       }}
     >
-      {!isFetching && (
-        <Typography.Text color="secondary">
-          <FormattedRelativeTime
-            value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
-            numeric="auto"
-            updateIntervalInSeconds={10}
-          />
-        </Typography.Text>
-      )}
+      {/* One fixed-width slot for both states so the toolbar never shifts. Content (settled: refresh
+          icon + "X min ago"; fetching: the spinner) is pushed flush right so it hugs the toolbar's
+          right edge rather than leaving a gap. */}
+      <Typography.Text
+        color="secondary"
+        css={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          minWidth: theme.spacing.xl * 3,
+          justifyContent: 'flex-end',
+        }}
+      >
+        {isFetching ? (
+          <SyncIcon spin />
+        ) : (
+          <>
+            <RefreshIcon />
+            <FormattedRelativeTime
+              value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
+              numeric="auto"
+              updateIntervalInSeconds={10}
+            />
+          </>
+        )}
+      </Typography.Text>
     </Button>
   );
 

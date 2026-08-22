@@ -20,3 +20,6 @@ export type TraceTableColumn = ColumnDef<ModelTraceInfoV3>;
  * keeps its Tag + truncation + `stopPropagation` styling and asks the consumer only for the route.
  */
 export type SessionHrefGetter = (params: { trace: ModelTraceInfoV3; sessionId: string }) => To | undefined;
+
+/** Resolves the destination used by trace identity and preview cells. */
+export type TraceHrefGetter = (trace: ModelTraceInfoV3) => To | undefined;
