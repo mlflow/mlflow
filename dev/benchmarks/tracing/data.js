@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787378380602,
+  "lastUpdate": 1787379876148,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -23489,6 +23489,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.18146380000735,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "128332426+adamgurary@users.noreply.github.com",
+            "name": "adamgurary",
+            "username": "adamgurary"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac9005c2d5f47d0771670732702902fc9c9dd33f",
+          "message": "Fix $0.00 cost panel for bare Databricks serving-endpoint model names (#24620)\n\nSigned-off-by: Adam Gurary <adam.gurary@databricks.com>\nSigned-off-by: Adam Gurary <guraryadam@gmail.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Adam Gurary <adam.gurary@databricks.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>",
+          "timestamp": "2026-08-22T06:23:13Z",
+          "tree_id": "017c91faee28f20f50ef5324cda643761375343a",
+          "url": "https://github.com/mlflow/mlflow/commit/ac9005c2d5f47d0771670732702902fc9c9dd33f"
+        },
+        "date": 1787379874228,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.079686900002145,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.610657232142714,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.526366227586021,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.405313034482957,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.815025031008788,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.945816800000217,
             "unit": "ms"
           }
         ]
