@@ -13,6 +13,7 @@ from mlflow.telemetry.constant import (
 )
 from mlflow.telemetry.schemas import Environment
 from mlflow.telemetry.utils import (
+    _detect_agent,
     _detect_environment,
     _get_config_url,
     fetch_ui_telemetry_config,
@@ -76,6 +77,50 @@ def test_detect_environment_docker(tmp_path, monkeypatch):
 
 def test_detect_environment_none():
     assert _detect_environment() is None
+
+
+@pytest.mark.parametrize(
+    ("environment", "expected"),
+    [
+        ({"AI_AGENT": "custom-agent"}, "custom-agent"),
+        ({"CODEX_THREAD_ID": "thread-id"}, "codex"),
+        ({"GEMINI_CLI": "1"}, "gemini-cli"),
+        ({"COPILOT_CLI": "1"}, "copilot-cli"),
+        ({"OPENCODE": "1"}, "opencode"),
+        ({"CLINE_ACTIVE": "true"}, "cline"),
+        ({"CLAUDECODE": "1"}, "claude-code"),
+        ({"CURSOR_TRACE_ID": "trace-id"}, "cursor"),
+        ({"CURSOR_AGENT": "1"}, "cursor-cli"),
+        ({"KIRO_AGENT_PATH": "/path/to/kiro"}, "kiro"),
+        ({"PI_CODING_AGENT": "1"}, "pi"),
+    ],
+)
+def test_detect_agent(environment, expected):
+    with patch.dict("os.environ", environment, clear=True):
+        assert _detect_agent() == expected
+
+
+@pytest.mark.parametrize("agent", ["", "contains spaces", "agent@1", "x" * 65])
+def test_detect_agent_ignores_invalid_ai_agent(agent):
+    with patch.dict("os.environ", {"AI_AGENT": agent}, clear=True):
+        assert _detect_agent() is None
+
+
+def test_detect_agent_none():
+    with patch.dict("os.environ", {}, clear=True):
+        assert _detect_agent() is None
+
+
+@pytest.mark.parametrize(
+    "environment",
+    [
+        {"AGENT": "amp", "CLAUDECODE": "1"},
+        {"CLAUDE_CODE": "1", "CLAUDE_CODE_IS_COWORK": "1"},
+    ],
+)
+def test_detect_agent_ignores_unsupported_claude_variants(environment):
+    with patch.dict("os.environ", environment, clear=True):
+        assert _detect_agent() is None
 
 
 def test_is_telemetry_disabled(monkeypatch, bypass_env_check):
