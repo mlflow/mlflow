@@ -267,6 +267,10 @@ MLFLOW_KERBEROS_USER = _EnvironmentVariable("MLFLOW_KERBEROS_USER", str, None)
 #: (default: ``None``)
 MLFLOW_PYARROW_EXTRA_CONF = _EnvironmentVariable("MLFLOW_PYARROW_EXTRA_CONF", str, None)
 
+#: Specifies the chunk size in bytes to use for HDFS artifact operations (uploads and downloads).
+#: (default: ``134217728`` (128 MiB))
+MLFLOW_HDFS_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_HDFS_CHUNK_SIZE", int, 128 * 1024 * 1024)
+
 #: Specifies the ``pool_size`` parameter to use for ``sqlalchemy.create_engine`` in the SQLAlchemy
 #: tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_size
 #: for more information.

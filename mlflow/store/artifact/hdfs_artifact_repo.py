@@ -10,12 +10,20 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
+    MLFLOW_HDFS_CHUNK_SIZE,
     MLFLOW_KERBEROS_TICKET_CACHE,
     MLFLOW_KERBEROS_USER,
     MLFLOW_PYARROW_EXTRA_CONF,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+
+
+def _get_chunk_size():
+    chunk_size = MLFLOW_HDFS_CHUNK_SIZE.get()
+    if chunk_size <= 0:
+        raise ValueError(f"MLFLOW_HDFS_CHUNK_SIZE must be a positive integer, got {chunk_size}")
+    return chunk_size
 
 
 class HdfsArtifactRepository(ArtifactRepository):
@@ -45,9 +53,11 @@ class HdfsArtifactRepository(ArtifactRepository):
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
             _, file_name = os.path.split(local_file)
             destination_path = posixpath.join(hdfs_base_path, file_name)
+            chunk_size = _get_chunk_size()
             with open(local_file, "rb") as source:
                 with hdfs.open_output_stream(destination_path) as destination:
-                    destination.write(source.read())
+                    while chunk := source.read(chunk_size):
+                        destination.write(chunk)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         """
@@ -64,6 +74,7 @@ class HdfsArtifactRepository(ArtifactRepository):
             if not hdfs.get_file_info(hdfs_base_path).type == FileType.Directory:
                 hdfs.create_dir(hdfs_base_path, recursive=True)
 
+            chunk_size = _get_chunk_size()
             for subdir_path, _, files in os.walk(local_dir):
                 relative_path = _relative_path_local(local_dir, subdir_path)
 
@@ -81,7 +92,8 @@ class HdfsArtifactRepository(ArtifactRepository):
                     destination_path = posixpath.join(hdfs_subdir_path, each_file)
                     with open(source_path, "rb") as source:
                         with hdfs.open_output_stream(destination_path) as destination:
-                            destination.write(source.read())
+                            while chunk := source.read(chunk_size):
+                                destination.write(chunk)
 
     def list_artifacts(self, path=None):
         """
@@ -129,10 +141,12 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         hdfs_base_path = _resolve_base_path(self.path, remote_file_path)
+        chunk_size = _get_chunk_size()
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
             with hdfs.open_input_stream(hdfs_base_path) as source:
                 with open(local_path, "wb") as destination:
-                    destination.write(source.read())
+                    while chunk := source.read(chunk_size):
+                        destination.write(chunk)
 
     def delete_artifacts(self, artifact_path=None):
         path = posixpath.join(self.path, artifact_path) if artifact_path else self.path
