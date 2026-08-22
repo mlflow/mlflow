@@ -75,6 +75,12 @@ class OtelMetricsMixin:
                 # Registration was refused. Shut down this provider so its
                 # metric reader thread does not leak.
                 provider.shutdown()
+        else:
+            _logger.debug(
+                "An OpenTelemetry MeterProvider is already configured. MLflow tracing metrics "
+                "will use the existing provider instead of creating a separate exporter for "
+                "the configured OTLP metrics endpoint."
+            )
 
         meter = metrics.get_meter("mlflow.tracing")
         self._duration_histogram = meter.create_histogram(
