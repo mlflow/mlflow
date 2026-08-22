@@ -1,3 +1,4 @@
+import builtins
 import datetime
 import json
 import math
@@ -35,8 +36,23 @@ from mlflow.types.utils import (
     _infer_colspec_type,
     _infer_param_schema,
     _infer_schema,
+    _is_spark_df,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
 )
+
+
+def test_is_spark_df_when_connect_import_exits(monkeypatch):
+    # pyspark >= 4.2 calls `sys.exit(0)` on importing `pyspark.sql.connect` when the Spark
+    # Connect extras are missing and it mistakes the interpreter for a doctest session
+    real_import = builtins.__import__
+
+    def exiting_import(name, *args, **kwargs):
+        if name.startswith("pyspark.sql.connect"):
+            raise SystemExit(0)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", exiting_import)
+    assert _is_spark_df(object()) is False
 
 
 @pytest.fixture(scope="module")
