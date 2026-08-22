@@ -292,7 +292,19 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           defaultMessage: 'Traces',
           description: 'Region label wrapping the traces table',
         })}
-        css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
+          // Row-height density (`size='small'`) should change ONLY the row height, not the text size.
+          // DuBois's `TableCell` wraps its content in a `Typography.Text` sized `sm` (12px) when the
+          // table is `small`, which would shrink the cell font. The DS typography class carries a
+          // theme-specific prefix (`du-bois-light-`/`du-bois-dark-`), so pin the whole cell subtree
+          // back to the base size instead — density then affects row height alone. (Cell icons set
+          // their own 13px `fontSize`, which equals the base, so this doesn't disturb them.)
+          '[role="cell"], [role="cell"] *': { fontSize: `${theme.typography.fontSizeBase}px !important` },
+        }}
       >
         {/* `scrollable` makes the DuBois Table the scroll container (both axes), which is what activates
           its sticky-header CSS; `flex: 1` gives it a bounded height from the flex parent to scroll within. */}
