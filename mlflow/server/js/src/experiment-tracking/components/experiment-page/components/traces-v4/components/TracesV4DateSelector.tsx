@@ -188,8 +188,9 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
         },
       }}
     >
-      {/* One fixed-width slot for both states so the toolbar never shifts. Settled: refresh icon + the
-          "X min ago" text, left-aligned. Fetching: just the spinner, pushed flush right (flex-end). */}
+      {/* One fixed-width slot for both states so the toolbar never shifts. Content (settled: refresh
+          icon + "X min ago"; fetching: the spinner) is pushed flush right so it hugs the toolbar's
+          right edge rather than leaving a gap. */}
       <Typography.Text
         color="secondary"
         css={{
@@ -197,7 +198,7 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
           alignItems: 'center',
           gap: theme.spacing.xs,
           minWidth: theme.spacing.xl * 3,
-          justifyContent: isFetching ? 'flex-end' : 'flex-start',
+          justifyContent: 'flex-end',
         }}
       >
         {isFetching ? (
