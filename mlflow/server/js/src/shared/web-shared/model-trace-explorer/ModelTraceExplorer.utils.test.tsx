@@ -46,6 +46,7 @@ import {
   isSessionLevelAssessment,
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
+  tryDeserializeAttribute,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -1557,6 +1558,38 @@ describe('parseTraceV4SerializedLocation', () => {
       type: 'UC_TABLE_PREFIX',
       uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
     });
+  });
+});
+
+describe('tryDeserializeAttribute', () => {
+  it.each([
+    ['small int', '42', 42],
+    ['float', '3.14', 3.14],
+    ['string', '"hello"', 'hello'],
+    ['object', '{"a":1}', { a: 1 }],
+    ['array', '[1,2,3]', [1, 2, 3]],
+  ])('parses %s into its JSON value', (_label, raw, expected) => {
+    expect(tryDeserializeAttribute(raw)).toEqual(expected);
+  });
+
+  it.each([
+    ['non-JSON string', 'not json'],
+    ['malformed JSON', '{'],
+  ])('returns the original string unchanged for %s', (_label, raw) => {
+    expect(tryDeserializeAttribute(raw)).toBe(raw);
+  });
+
+  it('keeps a large int64-range numeric string as-is instead of losing precision', () => {
+    // 2051281657916407550 and 2051281657916407549 differ only in the last digit, well within
+    // IEEE-754 double's rounding granularity at this magnitude (~512) — JSON.parse would
+    // otherwise silently collapse both to the same corrupted number, 2051281657916407600.
+    expect(tryDeserializeAttribute('2051281657916407550')).toBe('2051281657916407550');
+    expect(tryDeserializeAttribute('2051281657916407549')).toBe('2051281657916407549');
+  });
+
+  it('keeps a numeric string far beyond int64 range as-is', () => {
+    const huge = '1' + '0'.repeat(400);
+    expect(tryDeserializeAttribute(huge)).toBe(huge);
   });
 });
 

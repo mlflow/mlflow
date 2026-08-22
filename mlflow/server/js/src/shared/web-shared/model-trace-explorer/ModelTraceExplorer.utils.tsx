@@ -164,7 +164,15 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
 
 export function tryDeserializeAttribute(value: string): any {
   try {
-    return JSON.parse(value);
+    const parsed = JSON.parse(value);
+    // Guard against precision loss for numeric literals of any magnitude: a JSON number
+    // that doesn't round-trip back to the exact original text (e.g. an int64-range ID like
+    // "2051281657916407550") has already lost precision in `JSON.parse` itself, so keep the
+    // original string instead of the corrupted number.
+    if (typeof parsed === 'number' && String(parsed) !== value) {
+      return value;
+    }
+    return parsed;
   } catch (e) {
     return value;
   }
