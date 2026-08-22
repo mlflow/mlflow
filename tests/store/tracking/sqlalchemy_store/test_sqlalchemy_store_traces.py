@@ -10794,3 +10794,356 @@ def test_log_spans_retries_on_deadlock(store: SqlAlchemyStore):
 
     assert calls["n"] == 2
     assert store.get_trace_info(trace_id).trace_id == trace_id
+
+
+# ===================== get_filtered_trace_spans tests =====================
+
+
+def _make_trace_with_spans(store, num_children=2):
+    """Helper to create a trace with a root span and child spans."""
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    root = create_test_span(
+        trace_id=trace_id,
+        name="root",
+        span_id=1,
+        parent_id=None,
+        start_ns=1_000_000_000,
+        end_ns=10_000_000_000,
+        span_type="CHAIN",
+    )
+    children = [
+        create_test_span(
+            trace_id=trace_id,
+            name=f"child_{i}",
+            span_id=100 + i,
+            parent_id=1,
+            start_ns=2_000_000_000 + i * 1_000_000_000,
+            end_ns=3_000_000_000 + i * 1_000_000_000,
+            span_type="LLM",
+        )
+        for i in range(num_children)
+    ]
+    store.log_spans(experiment_id, [root] + children)
+    return trace_id, experiment_id
+
+
+def test_get_filtered_trace_spans_by_name(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    root = create_test_span(
+        trace_id=trace_id, name="orchestrator", span_id=1, parent_id=None, span_type="CHAIN"
+    )
+    llm_span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=10,
+        parent_id=1,
+        start_ns=2_000_000_000,
+        span_type="LLM",
+    )
+    retriever_span = create_test_span(
+        trace_id=trace_id,
+        name="retriever_lookup",
+        span_id=20,
+        parent_id=1,
+        start_ns=3_000_000_000,
+        span_type="RETRIEVER",
+    )
+    store.log_spans(experiment_id, [root, llm_span, retriever_span])
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="LLM")
+    assert len(spans) == 1
+    assert spans[0].name == "llm_call"
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="retriever")
+    assert len(spans) == 1
+    assert spans[0].name == "retriever_lookup"
+
+
+def test_get_filtered_trace_spans_by_content(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    root = create_test_span(
+        trace_id=trace_id,
+        name="root",
+        span_id=1,
+        parent_id=None,
+        span_type="CHAIN",
+        attributes={"mlflow.spanInputs": {"query": "hello world"}},
+    )
+    child = create_test_span(
+        trace_id=trace_id,
+        name="child",
+        span_id=10,
+        parent_id=1,
+        start_ns=2_000_000_000,
+        span_type="LLM",
+        attributes={"mlflow.spanInputs": {"query": "something else"}},
+    )
+    store.log_spans(experiment_id, [root, child])
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="hello world")
+    assert len(spans) == 1
+    assert spans[0].name == "root"
+
+
+def test_get_filtered_trace_spans_no_match(store: SqlAlchemyStore):
+    trace_id, _ = _make_trace_with_spans(store, num_children=3)
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="nonexistent_xyz")
+    assert len(spans) == 0
+
+
+def test_get_filtered_trace_spans_root_first(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    child = create_test_span(
+        trace_id=trace_id,
+        name="child_span",
+        span_id=50,
+        parent_id=1,
+        start_ns=500_000_000,
+        end_ns=900_000_000,
+        span_type="LLM",
+    )
+    root = create_test_span(
+        trace_id=trace_id,
+        name="root_span",
+        span_id=1,
+        parent_id=None,
+        start_ns=1_000_000_000,
+        end_ns=10_000_000_000,
+        span_type="CHAIN",
+    )
+    store.log_spans(experiment_id, [child, root])
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="span")
+    assert len(spans) == 2
+    assert spans[0].name == "root_span"
+    assert spans[1].name == "child_span"
+
+
+def test_get_filtered_trace_spans_case_insensitive(store: SqlAlchemyStore):
+    trace_id, _ = _make_trace_with_spans(store, num_children=2)
+
+    spans_lower = store.get_filtered_trace_spans(trace_id, filter="child")
+    spans_upper = store.get_filtered_trace_spans(trace_id, filter="CHILD")
+    assert len(spans_lower) == len(spans_upper) == 2
+
+
+def test_get_filtered_trace_spans_like_wildcard_characters(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    root = create_test_span(
+        trace_id=trace_id,
+        name="100%_complete",
+        span_id=1,
+        parent_id=None,
+        span_type="CHAIN",
+    )
+    child_underscore = create_test_span(
+        trace_id=trace_id,
+        name="step_1_done",
+        span_id=10,
+        parent_id=1,
+        start_ns=2_000_000_000,
+        span_type="LLM",
+    )
+    child_normal = create_test_span(
+        trace_id=trace_id,
+        name="normal span",
+        span_id=20,
+        parent_id=1,
+        start_ns=3_000_000_000,
+        span_type="LLM",
+    )
+    store.log_spans(experiment_id, [root, child_underscore, child_normal])
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="%")
+    assert len(spans) == 1
+    assert spans[0].name == "100%_complete"
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="_1_")
+    assert len(spans) == 1
+    assert spans[0].name == "step_1_done"
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="%%")
+    assert len(spans) == 0
+
+
+def test_get_filtered_trace_spans_no_duplicate_on_name_and_content_match(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    root = create_test_span(
+        trace_id=trace_id,
+        name="hello_world",
+        span_id=1,
+        parent_id=None,
+        span_type="CHAIN",
+        attributes={"mlflow.spanInputs": {"query": "hello_world request"}},
+    )
+    other = create_test_span(
+        trace_id=trace_id,
+        name="other_span",
+        span_id=10,
+        parent_id=1,
+        start_ns=2_000_000_000,
+        span_type="LLM",
+    )
+    store.log_spans(experiment_id, [root, other])
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="hello_world")
+    assert len(spans) == 1
+    assert spans[0].name == "hello_world"
+
+
+def test_get_filtered_trace_spans_unicode_emoji(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    root = create_test_span(
+        trace_id=trace_id,
+        name="处理请求",
+        span_id=1,
+        parent_id=None,
+        span_type="CHAIN",
+    )
+    child_emoji = create_test_span(
+        trace_id=trace_id,
+        name="step_🚀_launch",
+        span_id=10,
+        parent_id=1,
+        start_ns=2_000_000_000,
+        span_type="LLM",
+    )
+    child_plain = create_test_span(
+        trace_id=trace_id,
+        name="plain_step",
+        span_id=20,
+        parent_id=1,
+        start_ns=3_000_000_000,
+        span_type="LLM",
+    )
+    store.log_spans(experiment_id, [root, child_emoji, child_plain])
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="处理")
+    assert len(spans) == 1
+    assert spans[0].name == "处理请求"
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="🚀")
+    assert len(spans) == 1
+    assert spans[0].name == "step_🚀_launch"
+
+
+def test_get_filtered_trace_spans_very_long_filter(store: SqlAlchemyStore):
+    trace_id, _ = _make_trace_with_spans(store, num_children=2)
+
+    long_filter = "a" * 1500
+    spans = store.get_filtered_trace_spans(trace_id, filter=long_filter)
+    assert len(spans) == 0
+
+
+def test_get_filtered_trace_spans_sql_injection_safety(store: SqlAlchemyStore):
+    trace_id, _ = _make_trace_with_spans(store, num_children=2)
+
+    malicious_filter = "'; DROP TABLE spans;--"
+    spans = store.get_filtered_trace_spans(trace_id, filter=malicious_filter)
+    assert len(spans) == 0
+
+    verify_spans = store.get_filtered_trace_spans(trace_id, filter="child")
+    assert len(verify_spans) == 2
+
+
+def test_get_filtered_trace_spans_empty_trace_no_spans(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    _create_trace(store, trace_id, experiment_id=experiment_id)
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="anything")
+    assert len(spans) == 0
+
+
+def test_get_filtered_trace_spans_multiple_traces_isolation(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id_a = f"tr-{uuid.uuid4().hex}"
+    trace_id_b = f"tr-{uuid.uuid4().hex}"
+
+    span_a = create_test_span(
+        trace_id=trace_id_a,
+        name="shared_keyword_span",
+        span_id=1,
+        parent_id=None,
+        span_type="CHAIN",
+    )
+    span_b = create_test_span(
+        trace_id=trace_id_b,
+        name="shared_keyword_span",
+        span_id=2,
+        parent_id=None,
+        start_ns=1_000_000_000,
+        span_type="CHAIN",
+        trace_num=99999,
+    )
+    store.log_spans(experiment_id, [span_a])
+    store.log_spans(experiment_id, [span_b])
+
+    spans_a = store.get_filtered_trace_spans(trace_id_a, filter="shared_keyword")
+    assert len(spans_a) == 1
+    assert spans_a[0].name == "shared_keyword_span"
+
+    spans_b = store.get_filtered_trace_spans(trace_id_b, filter="shared_keyword")
+    assert len(spans_b) == 1
+    assert spans_b[0].name == "shared_keyword_span"
+
+
+def test_get_filtered_trace_spans_ordering_across_tree_levels(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    grandchild = create_test_span(
+        trace_id=trace_id,
+        name="deep_matching_span",
+        span_id=100,
+        parent_id=10,
+        start_ns=500_000_000,
+        end_ns=800_000_000,
+        span_type="LLM",
+    )
+    child = create_test_span(
+        trace_id=trace_id,
+        name="mid_matching_span",
+        span_id=10,
+        parent_id=1,
+        start_ns=1_500_000_000,
+        end_ns=4_000_000_000,
+        span_type="CHAIN",
+    )
+    root = create_test_span(
+        trace_id=trace_id,
+        name="root_matching_span",
+        span_id=1,
+        parent_id=None,
+        start_ns=2_000_000_000,
+        end_ns=10_000_000_000,
+        span_type="CHAIN",
+    )
+    store.log_spans(experiment_id, [grandchild, child, root])
+
+    spans = store.get_filtered_trace_spans(trace_id, filter="matching_span")
+    assert len(spans) == 3
+    assert spans[0].name == "root_matching_span"
+    assert spans[1].name == "deep_matching_span"
+    assert spans[2].name == "mid_matching_span"
+
+
+# NOTE: Handler integration test for _get_trace with filter parameter is not included here
+# because handler tests require Flask app context, request mocking, and live server setup
+# that is out of scope for this unit test file. The handler integration is covered by
+# the endpoint tests in tests/server/test_handlers.py.

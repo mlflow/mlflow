@@ -57,6 +57,7 @@ export type ModelTraceExplorerViewState = {
   topLevelNodes: ModelTraceSpanNode[];
   subscribeToHighlightEvent: (assessmentId: string, callback: () => void) => () => void;
   highlightAssessment: (assessmentId: string) => void;
+  isVirtualized?: boolean;
 };
 
 export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplorerViewState>({
@@ -77,6 +78,7 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   setAssessmentsPaneExpanded: () => {},
   isTraceInitialLoading: false,
   assessmentsPaneEnabled: true,
+  isVirtualized: false,
   updatePaneSizeRatios: () => {},
   getPaneSizeRatios: () => getDefaultPaneSizeRatios(),
   readOnly: false,
@@ -101,6 +103,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   isTraceInitialLoading = false,
   children,
   readOnly = false,
+  isVirtualized = false,
 }: {
   modelTrace: ModelTrace;
   initialActiveView?: 'summary' | 'detail';
@@ -110,6 +113,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   initialAssessmentsPaneCollapsed?: boolean | 'force-open';
   isTraceInitialLoading?: boolean;
   readOnly?: boolean;
+  isVirtualized?: boolean;
 }) => {
   const topLevelNodes = useMemo(() => parseModelTraceToTreeWithMultipleRoots(modelTrace), [modelTrace]);
   const rootNode = topLevelNodes.length === 1 ? topLevelNodes[0] : null;
@@ -258,6 +262,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       topLevelNodes,
       subscribeToHighlightEvent,
       highlightAssessment,
+      isVirtualized,
     }),
     [
       activeView,
@@ -280,6 +285,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       topLevelNodes,
       subscribeToHighlightEvent,
       highlightAssessment,
+      isVirtualized,
     ],
   );
 

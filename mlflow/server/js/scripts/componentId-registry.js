@@ -2320,5 +2320,6 @@ module.exports = {
   "shared.model-trace-explorer.trace-too-large.documentation-link": "",
   "shared.model-trace-explorer.trace-too-large.force-display-button": "",
   "shared.model-trace-explorer.view-mode-toggle": "",
+  "shared.model-trace-explorer.virtualized-toggle-span": "",
   "shared.model-trace-explorer.workflow-node-tooltip": "",
 };

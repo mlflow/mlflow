@@ -174,7 +174,17 @@ export type ModelTrace = {
   trace_info?: ModelTraceInfo;
   data: ModelTraceData;
   info: ModelTraceInfoV3 | ModelTraceInfo | NotebookModelTraceInfo;
+  /** Pagination metadata populated by the paginated get-spans endpoint.
+   *  Only present for TRACKING_STORE traces. */
+  _paginatedResult?: PaginatedTraceResult;
 };
+
+export interface PaginatedTraceResult {
+  totalSpanCount: number;
+  /** True when the trace exceeds the virtualization threshold and
+   *  should use AG Grid instead of the recursive tree renderer. */
+  isVirtualized: boolean;
+}
 
 /**
  * Represents the trace data saved in an inference table.

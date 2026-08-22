@@ -5907,6 +5907,44 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             return Trace(info=trace_snapshot.trace_info, data=TraceData(spans=spans))
         return None
 
+    def get_filtered_trace_spans(
+        self,
+        trace_id: str,
+        filter: str,
+    ) -> list[Span]:
+        """
+        Get spans for a trace filtered by a text substring.
+
+        Returns spans whose name or serialized content contains
+        ``filter`` (case-insensitive), ordered root-first then by
+        start_time. Only supported for TRACKING_STORE traces.
+        """
+        with self.ManagedSessionMaker() as session:
+            escaped = filter.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            like_pattern = f"%{escaped}%"
+            rows = (
+                session
+                .query(SqlSpan.content)
+                .filter(
+                    SqlSpan.trace_id == trace_id,
+                    SqlSpan.content != "",
+                    or_(
+                        SqlSpan.name.ilike(like_pattern, escape="\\"),
+                        SqlSpan.content.ilike(like_pattern, escape="\\"),
+                    ),
+                )
+                .order_by(
+                    case((SqlSpan.parent_span_id.is_(None), 0), else_=1),
+                    SqlSpan.start_time_unix_nano,
+                    SqlSpan.span_id,
+                )
+                .all()
+            )
+
+            return [
+                Span.from_dict(translate_loaded_span(json.loads(content))) for (content,) in rows
+            ]
+
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
         Get complete traces with spans for given trace ids.

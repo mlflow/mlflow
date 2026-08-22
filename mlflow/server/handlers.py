@@ -70,6 +70,8 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
@@ -4142,18 +4144,29 @@ def _batch_get_trace_infos() -> Response:
 @_disable_if_artifacts_only
 def _get_trace() -> Response:
     """
-    A request handler for `GET /mlflow/traces/get` to get a trace with spans for given trace id.
+    A request handler for `GET /mlflow/traces/get` to get a trace with spans.
+    When ``filter`` is provided, only spans whose name or content matches the
+    substring (case-insensitive) are returned.
     """
     request_message = _get_request_message(
         GetTrace(),
         schema={
             "trace_id": [_assert_string, _assert_required],
             "allow_partial": [_assert_bool],
+            "filter": [_assert_string],
         },
     )
     trace_id = request_message.trace_id
+    store = _get_tracking_store()
+    if text_filter := (request_message.filter or None):
+        spans = store.get_filtered_trace_spans(trace_id=trace_id, filter=text_filter)
+        trace_info = store.get_trace_info(trace_id)
+        proto_trace = Trace(info=trace_info, data=TraceData(spans=spans)).to_proto()
+        response_message = GetTrace.Response(trace=proto_trace)
+        return _wrap_response(response_message, pretty=False)
+
     allow_partial = request_message.allow_partial
-    trace = _get_tracking_store().get_trace(trace_id, allow_partial=allow_partial)
+    trace = store.get_trace(trace_id, allow_partial=allow_partial)
     response_message = GetTrace.Response(trace=trace.to_proto())
     return _wrap_response(response_message, pretty=False)
 
