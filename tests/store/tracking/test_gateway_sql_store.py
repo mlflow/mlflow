@@ -103,7 +103,24 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlExperiment,
         ):
             session.query(model).delete()
-
+        # Reset identity columns for MySQL/MariaDB compatibility.
+        # This prevents auto-increment counters from growing beyond the table's
+        # allocated range, which can cause 'table already exists' errors in
+        # upgrade scenarios when MySQL chooses a conflicting auto-increment value.
+        if session.bind.dialect.name == "mysql":
+            for model in (
+                SqlGatewaySecret,
+                SqlGatewayEndpoint,
+                SqlGatewayGuardrail,
+                SqlGatewayBudgetPolicy,
+                SqlGatewayModelDefinition,
+                SqlTraceInfo,
+                SqlTraceMetadata,
+                SqlSpan,
+                SqlExperiment,
+            ):
+                table_name = model.__tablename__
+                session.execute(text(f"ALTER TABLE {table_name} AUTO_INCREMENT = 1"))
         # Ensure the default experiment exists in the default workspace (ID 0).
         with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
             store._create_default_experiment(session)
