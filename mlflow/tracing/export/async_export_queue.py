@@ -53,33 +53,36 @@ class AsyncTraceExportQueue:
 
     def put(self, task: Task):
         """Put a new task to the queue for processing."""
-        if not self.is_active():
-            if self._stop_event.is_set():
-                # Queue was terminated via flush(terminate=True); _stop_event will never be
-                # cleared, so activating and then waiting would deadlock. Execute synchronously.
-                task.handle()
-                return
-            self.activate()
+        handle_synchronously = False
 
-        # If stop event is set, wait for the queue to be drained before putting the task
-        if self._stop_event.is_set():
-            self._stop_event.wait()
+        with self._lock:
+            if not self.is_active():
+                if self._stop_event.is_set():
+                    # Queue is flushing or was terminated. There may be no consumer
+                    # available to process new tasks, so execute synchronously.
+                    handle_synchronously = True
+                else:
+                    self.activate()
 
-        try:
-            # Do not block if the queue is full, it will block the main application
-            self._queue.put(task, block=False)
-        except queue_Full:
-            if self._last_full_queue_warning_time is None or (
-                time.time() - self._last_full_queue_warning_time > 30
-            ):
-                _logger.warning(
-                    "Trace export queue is full, trace will be discarded. "
-                    "Consider increasing the queue size through "
-                    "`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` environment variable or "
-                    "number of workers through `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`"
-                    " environment variable."
-                )
-                self._last_full_queue_warning_time = time.time()
+            if not handle_synchronously:
+                try:
+                    # Do not block if the queue is full, it will block the main application
+                    self._queue.put(task, block=False)
+                except queue_Full:
+                    if self._last_full_queue_warning_time is None or (
+                        time.time() - self._last_full_queue_warning_time > 30
+                    ):
+                        _logger.warning(
+                            "Trace export queue is full, trace will be discarded. "
+                            "Consider increasing the queue size through "
+                            "`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` environment variable or "
+                            "number of workers through `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`"
+                            " environment variable."
+                        )
+                        self._last_full_queue_warning_time = time.time()
+
+        if handle_synchronously:
+            task.handle()
 
     def _consumer_loop(self) -> None:
         while not self._stop_event.is_set():
@@ -170,17 +173,22 @@ class AsyncTraceExportQueue:
         Args:
             terminate: If True, shut down the logging threads after flushing.
         """
-        if not self.is_active():
-            return
+        with self._lock:
+            if not self.is_active():
+                return
 
-        self._stop_event.set()
+            # Mark the queue inactive before stopping the consumer so concurrent
+            # put() calls cannot enqueue work that no consumer will process.
+            self._is_active = False
+            self._stop_event.set()
+
         self._consumer_thread.join()
 
         # Wait for all tasks to be processed
         self._queue.join()
 
         self._worker_threadpool.shutdown(wait=True)
-        self._is_active = False
+
         # Restart threads to listen to incoming requests after flushing, if not terminating
         if not terminate:
             self._stop_event.clear()
