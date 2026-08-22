@@ -133,6 +133,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewaySecret,
     CreateLoggedModel,
     CreatePresignedDownloadUrl,
+    CreatePresignedUploadUrl,
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
@@ -2671,6 +2672,10 @@ BEFORE_REQUEST_HANDLERS = {
     # artifacts, so it requires the same per-run READ permission as the
     # proxied artifact download paths.
     CreatePresignedDownloadUrl: validate_can_read_run,
+    # Minting a presigned upload URL grants direct write access to a run's
+    # artifacts, so it requires per-run UPDATE permission (the write-side
+    # counterpart of CreatePresignedDownloadUrl above).
+    CreatePresignedUploadUrl: validate_can_update_run,
     # Routes for model registry (shared with prompts — dispatch via
     # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
@@ -3376,7 +3381,6 @@ _KNOWN_UNGATED_ROUTE_MARKERS = (
     "/gateway/supported-models",
     "/gateway/endpoints/list",
     "/gateway/model-definitions/list",
-    "/mlflow/artifacts/presigned-upload-url",
     "/mlflow/demo/",
     "/mlflow/genai/evaluate/invoke",
     "/api/2.0/mlflow/metrics/get-history-bulk-interval",
