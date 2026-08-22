@@ -249,6 +249,7 @@ class RestGatewayStoreMixin:
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool = True,
+        exclude_content: bool = False,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with associated model definitions.
@@ -263,6 +264,8 @@ class RestGatewayStoreMixin:
             experiment_id: Optional experiment ID for tracing. Only used when usage_tracking
                           is True. If not provided and usage_tracking is True, one is auto-created.
             usage_tracking: Whether to enable usage tracking for this endpoint.
+            exclude_content: Whether to exclude request/response content from traces
+                            while keeping usage metadata.
 
         Returns:
             The created GatewayEndpoint object with associated model mappings.
@@ -276,6 +279,7 @@ class RestGatewayStoreMixin:
                 fallback_config=fallback_config.to_proto() if fallback_config else None,
                 experiment_id=experiment_id,
                 usage_tracking=usage_tracking,
+                exclude_content=exclude_content,
             )
         )
         response_proto = self._call_endpoint(CreateGatewayEndpoint, req_body)
@@ -308,6 +312,7 @@ class RestGatewayStoreMixin:
         model_configs: list[GatewayEndpointModelConfig] | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool | None = None,
+        exclude_content: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -321,6 +326,8 @@ class RestGatewayStoreMixin:
             model_configs: Optional new list of model configurations (replaces all linkages).
             experiment_id: Optional new experiment ID for tracing.
             usage_tracking: Optional flag to enable/disable usage tracking.
+            exclude_content: Optional flag to exclude request/response content from
+                            traces while keeping usage metadata.
 
         Returns:
             The updated GatewayEndpoint object.
@@ -337,6 +344,7 @@ class RestGatewayStoreMixin:
                 else [],
                 experiment_id=experiment_id,
                 usage_tracking=usage_tracking,
+                exclude_content=exclude_content,
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayEndpoint, req_body)

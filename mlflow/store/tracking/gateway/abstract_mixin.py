@@ -234,6 +234,7 @@ class GatewayStoreMixin:
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool = True,
+        exclude_content: bool = False,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -251,6 +252,10 @@ class GatewayStoreMixin:
                           and usage_tracking is True, an experiment will be auto-created.
             usage_tracking: Whether to enable usage tracking for this endpoint.
                            When True, traces will be logged for endpoint invocations.
+            exclude_content: Whether to exclude request/response content from traces.
+                            When True, prompts, messages, and model responses are redacted
+                            from traces while usage metadata (token counts, latency,
+                            status) is kept.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -282,6 +287,7 @@ class GatewayStoreMixin:
         model_configs: list[GatewayEndpointModelConfig] | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool | None = None,
+        exclude_content: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -298,6 +304,8 @@ class GatewayStoreMixin:
                            When set to True, enables usage tracking and auto-creates
                            experiment if not provided. When set to False, disables
                            usage tracking (experiment_id is cleared).
+            exclude_content: Optional flag to exclude request/response content from
+                            traces while keeping usage metadata.
 
         Returns:
             Updated Endpoint entity.
