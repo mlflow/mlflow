@@ -6,6 +6,8 @@ import type {
   PromptModelConfigFormData,
   RegisteredPrompt,
   RegisteredPromptVersion,
+  SchemaProperty,
+  SchemaPropertyType,
 } from './types';
 import { MLFLOW_LINKED_PROMPTS_TAG } from '../../constants';
 
@@ -290,4 +292,72 @@ export const validateResponseFormatJson = (value: string): { valid: boolean; err
     const message = e instanceof Error ? e.message : 'Invalid JSON';
     return { valid: false, error: message };
   }
+};
+
+let idCounter = 0;
+export const nextSchemaPropertyId = () => `prop_${Date.now()}_${idCounter++}`;
+
+/**
+ * Parse a JSON schema string into a flat list of properties for the visual editor.
+ * Returns an empty list if the schema is empty or fails to parse.
+ */
+export const jsonSchemaToProperties = (schemaText: string): SchemaProperty[] => {
+  if (!schemaText?.trim()) return [];
+  try {
+    const schema = JSON.parse(schemaText);
+    const props = schema.properties ?? {};
+    const required: string[] = Array.isArray(schema.required) ? schema.required : [];
+    // Read for compatibility with schemas that use Gemini's `propertyOrdering`; never written.
+    const order: string[] = Array.isArray(schema.propertyOrdering) ? schema.propertyOrdering : Object.keys(props);
+
+    return order
+      .filter((name) => name in props)
+      .map((name) => {
+        const def = props[name] ?? {};
+        const isArray = def.type === 'array';
+        const inner = isArray ? (def.items ?? {}) : def;
+        const isEnum = Array.isArray(inner.enum);
+        const knownTypes: SchemaPropertyType[] = ['string', 'number', 'integer', 'boolean'];
+        const type: SchemaPropertyType = isEnum
+          ? 'enum'
+          : knownTypes.includes(inner.type)
+            ? inner.type
+            : 'string';
+        const enumValues: string[] = isEnum ? inner.enum.map(String) : [];
+        return { id: nextSchemaPropertyId(), name, type, isArray, required: required.includes(name), enumValues };
+      });
+  } catch {
+    // Invalid JSON: caller should fall back to the code editor
+    return [];
+  }
+};
+
+/**
+ * Convert a list of visual editor properties back into a JSON schema string.
+ * Properties with an empty name are skipped.
+ */
+export const propertiesToJsonSchema = (properties: SchemaProperty[]): string => {
+  const validProps = properties.filter((p) => p.name.trim());
+
+  const propertyDef = (p: SchemaProperty) => {
+    if (p.type === 'enum') {
+      // JSON Schema requires `enum` values to be unique; omit the keyword entirely rather
+      // than emitting an invalid empty array.
+      const values = Array.from(new Set(p.enumValues.map((v) => v.trim()).filter((v) => v)));
+      return values.length > 0 ? { type: 'string', enum: values } : { type: 'string' };
+    }
+    return { type: p.type };
+  };
+
+  const requiredNames = validProps.filter((p) => p.required).map((p) => p.name.trim());
+
+  const schema = {
+    type: 'object',
+    properties: Object.fromEntries(
+      validProps.map((p) => [p.name.trim(), p.isArray ? { type: 'array', items: propertyDef(p) } : propertyDef(p)]),
+    ),
+    ...(requiredNames.length > 0 ? { required: requiredNames } : {}),
+  };
+
+  return JSON.stringify(schema, null, 2);
 };
