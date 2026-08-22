@@ -1,6 +1,7 @@
 # CI guard for the basic-auth dispatcher: every Flask route must resolve to an
 # authorization decision, or be listed in the debt list _KNOWN_UNGATED_ROUTE_MARKERS.
 
+import json
 from types import SimpleNamespace
 
 from mlflow.server import auth as a
@@ -156,3 +157,91 @@ def test_jobs_owner_check(monkeypatch):
 
     monkeypatch.setattr(jobs_mod, "get_job", lambda jid: SimpleNamespace(creator=None))
     assert a.validate_is_job_owner() is False
+
+
+def test_gateway_discovery_config_budget_gating():
+    def vname(path, method="GET"):
+        v = a._find_validator(_Req(path, method))
+        return v.__name__ if v is not None else None
+
+    # Discovery + config back the gateway UI for any signed-in user (no secret material).
+    assert vname("/ajax-api/3.0/mlflow/gateway/supported-providers") == "_allow_authenticated"
+    assert vname("/ajax-api/3.0/mlflow/gateway/supported-models") == "_allow_authenticated"
+    assert vname("/ajax-api/3.0/mlflow/gateway/provider-config") == "_allow_authenticated"
+    assert vname("/ajax-api/3.0/mlflow/gateway/secrets/config") == "_allow_authenticated"
+    # Budget-policy reads are authenticated-open; writes are admin-only (matches #21120).
+    assert vname("/api/3.0/mlflow/gateway/budgets/get") == "_allow_authenticated"
+    assert vname("/api/3.0/mlflow/gateway/budgets/list") == "_allow_authenticated"
+    assert vname("/api/3.0/mlflow/gateway/budgets/windows") == "_allow_authenticated"
+    assert vname("/api/3.0/mlflow/gateway/budgets/create", "POST") == "sender_is_admin"
+    assert vname("/api/3.0/mlflow/gateway/budgets/delete", "DELETE") == "sender_is_admin"
+
+
+def test_gateway_guardrail_gating():
+    def vname(path, method):
+        v = a._find_validator(_Req(path, method))
+        return v.__name__ if v is not None else None
+
+    base = "/api/3.0/mlflow/gateway/guardrails"
+    # Standalone guardrail CRUD -> admin-only.
+    assert vname(f"{base}/create", "POST") == "sender_is_admin"
+    assert vname(f"{base}/get", "GET") == "sender_is_admin"
+    assert vname(f"{base}/list", "GET") == "sender_is_admin"
+    assert vname(f"{base}/delete", "DELETE") == "sender_is_admin"
+    # Endpoint-attached routes gate on the owning gateway endpoint.
+    assert vname(f"{base}/add-to-endpoint", "POST") == "validate_can_update_gateway_endpoint"
+    assert vname(f"{base}/remove-from-endpoint", "DELETE") == "validate_can_update_gateway_endpoint"
+    assert vname(f"{base}/update-config", "PATCH") == "validate_can_update_gateway_endpoint"
+    assert vname(f"{base}/list-for-endpoint", "GET") == "validate_can_read_gateway_endpoint"
+
+
+def test_filter_list_gateway_endpoints_drops_unreadable(monkeypatch):
+    # Cross-resource gateway list endpoints are filtered after-request to rows the
+    # caller can read.
+    monkeypatch.setattr(a, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        a, "_role_based_read_predicate", lambda username, rt: lambda rid: rid == "ep-allowed"
+    )
+    resp = SimpleNamespace(
+        json={"endpoints": [{"endpoint_id": "ep-allowed"}, {"endpoint_id": "ep-denied"}]},
+        data=None,
+    )
+    a.filter_list_gateway_endpoints(resp)
+    ids = [e["endpoint_id"] for e in json.loads(resp.data)["endpoints"]]
+    assert ids == ["ep-allowed"]
+
+
+def test_filter_list_gateway_model_definitions_drops_unreadable(monkeypatch):
+    monkeypatch.setattr(a, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        a, "_role_based_read_predicate", lambda username, rt: lambda rid: rid == "md-allowed"
+    )
+    resp = SimpleNamespace(
+        json={
+            "model_definitions": [
+                {"model_definition_id": "md-allowed"},
+                {"model_definition_id": "md-denied"},
+            ]
+        },
+        data=None,
+    )
+    a.filter_list_gateway_model_definitions(resp)
+    ids = [m["model_definition_id"] for m in json.loads(resp.data)["model_definitions"]]
+    assert ids == ["md-allowed"]
+
+
+def test_filter_list_gateway_secrets_drops_unreadable(monkeypatch):
+    monkeypatch.setattr(a, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        a, "_role_based_read_predicate", lambda username, rt: lambda rid: rid == "sec-allowed"
+    )
+    resp = SimpleNamespace(
+        json={"secrets": [{"secret_id": "sec-allowed"}, {"secret_id": "sec-denied"}]},
+        data=None,
+    )
+    a.filter_list_gateway_secrets(resp)
+    ids = [s["secret_id"] for s in json.loads(resp.data)["secrets"]]
+    assert ids == ["sec-allowed"]
