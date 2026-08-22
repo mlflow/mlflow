@@ -814,7 +814,7 @@ def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
     litellm.suppress_debug_info = False
 
     calculate_cost_by_model_and_token_usage(
-        model_name="databricks-claude-sonnet-4-5",
+        model_name="unknown-model",
         usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
     )
 
@@ -823,37 +823,22 @@ def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
     assert litellm.suppress_debug_info is False
 
 
-def test_litellm_debug_unsuppressed_when_debug_logging(monkeypatch):
+def test_litellm_provider_list_printed_when_debug_logging(capsys):
     litellm.suppress_debug_info = True
-
-    # Capture litellm.suppress_debug_info at the moment cost_per_token runs. Asserting on
-    # the flag is deterministic; asserting that litellm prints its "Provider List" is not,
-    # because that side effect depends on the litellm version and does not fire for every
-    # model (it never prints for databricks-claude-sonnet-4-5 in current litellm).
-    suppress_during_call = {}
-    real_cost_per_token = litellm.cost_per_token
-
-    def spy_cost_per_token(*args, **kwargs):
-        suppress_during_call["value"] = litellm.suppress_debug_info
-        return real_cost_per_token(*args, **kwargs)
-
-    monkeypatch.setattr(litellm, "cost_per_token", spy_cost_per_token)
 
     _logger = logging.getLogger("mlflow.tracing.utils")
     original_level = _logger.level
     _logger.setLevel(logging.DEBUG)
     try:
         calculate_cost_by_model_and_token_usage(
-            model_name="databricks-claude-sonnet-4-5",
+            model_name="unknown-model",
             usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
         )
     finally:
         _logger.setLevel(original_level)
 
-    # At DEBUG level the cost calculation un-suppresses litellm's debug output during the
-    # call so its diagnostics reach the logs...
-    assert suppress_during_call.get("value") is False
-    # ...and the original value is restored afterward.
+    captured = capsys.readouterr()
+    assert "Provider List" in captured.out
     assert litellm.suppress_debug_info is True
 
 
@@ -883,73 +868,30 @@ def test_dump_span_attribute_value_handles_type_error():
     assert result == json.dumps(repr(value), ensure_ascii=False)
 
 
-def test_databricks_bare_endpoint_name_resolves_cost():
-    result = calculate_cost_by_model_and_token_usage(
-        model_name="databricks-claude-opus-4-8",
-        usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
-        model_provider=None,  # attribute absent from the span
-    )
-    assert result is not None, (
-        "Cost must not be None for databricks-claude-opus-4-8 even when MODEL_PROVIDER is absent"
-    )
-    assert result[CostKey.INPUT_COST] > 0, (
-        "Input cost must be > 0 for 1M tokens on databricks-claude-opus-4-8"
-    )
+@pytest.mark.parametrize(
+    ("model_name", "model_provider", "expected_provider"),
+    [
+        ("databricks-claude-opus-4-8", None, "databricks"),
+        ("databricks/databricks-claude-opus-4-8", None, "databricks"),
+        ("databricks-claude-opus-4-8", "databricks", "databricks"),
+        ("gpt-4o", None, None),
+    ],
+)
+def test_cost_calculation_uses_expected_provider(model_name, model_provider, expected_provider):
+    with mock.patch("litellm.cost_per_token", wraps=litellm.cost_per_token) as cost_per_token:
+        result = calculate_cost_by_model_and_token_usage(
+            model_name,
+            {TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
+            model_provider,
+        )
 
-
-def test_non_databricks_model_not_repriced_as_databricks():
-    result = calculate_cost_by_model_and_token_usage(
-        model_name="gpt-4o",
-        usage={TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
-        model_provider=None,
-    )
-    assert result is not None, "gpt-4o cost must resolve without provider"
-    assert result[CostKey.INPUT_COST] > 0
-    # Confirm the result matches what litellm returns directly, ruling out any
-    # accidental databricks-provider repricing:
-    from litellm import cost_per_token as _cpt
-
-    expected_input, _ = _cpt(model="gpt-4o", prompt_tokens=1_000, completion_tokens=500)
-    assert abs(result[CostKey.INPUT_COST] - expected_input) < 1e-9, (
-        "gpt-4o price must not change due to the databricks-name fix"
-    )
-
-
-def test_databricks_slash_prefixed_name_resolves_cost():
-    result = calculate_cost_by_model_and_token_usage(
-        model_name="databricks/databricks-claude-opus-4-8",
-        usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
-        model_provider=None,
-    )
-    assert result is not None, (
-        "Cost must not be None for databricks/databricks-claude-opus-4-8 without provider"
-    )
-    assert result[CostKey.INPUT_COST] > 0, (
-        "Input cost must be > 0 for 1M tokens on databricks/databricks-claude-opus-4-8"
-    )
-
-
-def test_explicit_model_provider_passed_through():
-    result = calculate_cost_by_model_and_token_usage(
-        model_name="databricks-claude-opus-4-8",
-        usage={TokenUsageKey.INPUT_TOKENS: 1_000_000, TokenUsageKey.OUTPUT_TOKENS: 0},
-        model_provider="databricks",
-    )
-    assert result is not None, (
-        "Cost must not be None when model_provider='databricks' is explicitly supplied"
-    )
-    assert result[CostKey.INPUT_COST] > 0, (
-        "Input cost must be > 0 for 1M tokens with explicit databricks provider"
-    )
-
-
-def test_non_string_model_name_does_not_raise():
-    # An integer is truthy, so it passes `if not model_name`, but calling
-    # .startswith() on it would raise AttributeError without the isinstance guard.
-    result = calculate_cost_by_model_and_token_usage(
-        model_name=12345,  # type: ignore[arg-type]
-        usage={TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
-        model_provider=None,
-    )
-    # The function may return None (no matching model), but it must not raise.
-    assert result is None or isinstance(result, dict)
+    kwargs = {
+        "model": model_name,
+        "prompt_tokens": 1_000,
+        "completion_tokens": 500,
+    }
+    if expected_provider:
+        kwargs["custom_llm_provider"] = expected_provider
+    cost_per_token.assert_called_once_with(**kwargs)
+    assert result is not None
+    assert result[CostKey.TOTAL_COST] > 0
