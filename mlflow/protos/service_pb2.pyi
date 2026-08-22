@@ -950,26 +950,30 @@ class GetTraceInfoV3(_message.Message):
     def __init__(self, trace_id: _Optional[str] = ...) -> None: ...
 
 class BatchGetTraces(_message.Message):
-    __slots__ = ("trace_ids",)
+    __slots__ = ("trace_ids", "experiment_ids")
     class Response(_message.Message):
         __slots__ = ("traces",)
         TRACES_FIELD_NUMBER: _ClassVar[int]
         traces: _containers.RepeatedCompositeFieldContainer[Trace]
         def __init__(self, traces: _Optional[_Iterable[_Union[Trace, _Mapping]]] = ...) -> None: ...
     TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
     trace_ids: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, trace_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, trace_ids: _Optional[_Iterable[str]] = ..., experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class BatchGetTraceInfos(_message.Message):
-    __slots__ = ("trace_ids",)
+    __slots__ = ("trace_ids", "experiment_ids")
     class Response(_message.Message):
         __slots__ = ("trace_infos",)
         TRACE_INFOS_FIELD_NUMBER: _ClassVar[int]
         trace_infos: _containers.RepeatedCompositeFieldContainer[TraceInfoV3]
         def __init__(self, trace_infos: _Optional[_Iterable[_Union[TraceInfoV3, _Mapping]]] = ...) -> None: ...
     TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
     trace_ids: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, trace_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, trace_ids: _Optional[_Iterable[str]] = ..., experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class GetTrace(_message.Message):
     __slots__ = ("trace_id", "allow_partial")
@@ -1818,15 +1822,17 @@ class RegisterScorer(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., serialized_scorer: _Optional[str] = ...) -> None: ...
 
 class ListScorers(_message.Message):
-    __slots__ = ("experiment_id",)
+    __slots__ = ("experiment_id", "experiment_ids")
     class Response(_message.Message):
         __slots__ = ("scorers",)
         SCORERS_FIELD_NUMBER: _ClassVar[int]
         scorers: _containers.RepeatedCompositeFieldContainer[Scorer]
         def __init__(self, scorers: _Optional[_Iterable[_Union[Scorer, _Mapping]]] = ...) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
-    def __init__(self, experiment_id: _Optional[str] = ...) -> None: ...
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, experiment_id: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ListScorerVersions(_message.Message):
     __slots__ = ("experiment_id", "name")

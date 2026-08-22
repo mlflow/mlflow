@@ -350,6 +350,40 @@ def test_search_experiments_filter_by_attribute(store: SqlAlchemyStore):
     assert [e.name for e in experiments] == ["ab"]
 
 
+def test_search_experiments_filter_by_experiment_id_in(store: SqlAlchemyStore):
+    id_a, id_b, id_c = _create_experiments(store, ["a", "b", "c"])
+
+    experiments = store.search_experiments(filter_string=f"experiment_id IN ('{id_a}', '{id_b}')")
+    assert {e.experiment_id for e in experiments} == {id_a, id_b}
+
+    experiments = store.search_experiments(filter_string=f"experiment_id IN ('{id_a}')")
+    assert {e.experiment_id for e in experiments} == {id_a}
+
+    experiments = store.search_experiments(
+        filter_string=f"experiment_id IN ('{id_a}', '{id_b}') AND name = 'a'"
+    )
+    assert {e.experiment_id for e in experiments} == {id_a}
+
+    experiments = store.search_experiments(
+        filter_string=f"experiment_id NOT IN ('{id_a}', '{id_b}')"
+    )
+    assert {e.experiment_id for e in experiments} == {id_c, store.DEFAULT_EXPERIMENT_ID}
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            r"While parsing a list in the query, "
+            r"expected string value, punctuation, or whitespace, "
+            r"but got different type in list"
+        ),
+    ) as exception_context:
+        store.search_experiments(filter_string="experiment_id IN (1,2,3)")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match=r"support comparison with a list"):
+        store.search_experiments(filter_string="name IN ('a', 'b')")
+
+
 def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
     # Sleep to ensure that the first experiment has a different creation_time than the default
     # experiment and eliminate flakiness.
