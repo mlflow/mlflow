@@ -1043,7 +1043,9 @@ def test_get_latest_versions(mock_get_request_message, mock_model_registry_store
         assert args == {"name": name, "stages": stages}
 
 
-def test_create_model_version(mock_get_request_message, mock_model_registry_store):
+def test_create_model_version(
+    mock_get_request_message, mock_model_registry_store, mock_tracking_store
+):
     run_id = uuid.uuid4().hex
     tags = [
         ModelVersionTag(key="key", value="value"),
@@ -1069,6 +1071,31 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == run_link
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
+
+
+def test_create_model_version_initializes_tracking_store_before_registry(
+    mock_get_request_message, mock_model_registry_store
+):
+    """Registry-only workers must set the tracking URI before create_model_version.
+
+    create_model_version uses MlflowClient() to resolve models:/ sources. If the
+    worker has never handled a tracking request, the default ./mlruns URI 500s
+    (https://github.com/mlflow/mlflow/issues/17812).
+    """
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source="models:/m-abc",
+        model_id="m-abc",
+    )
+    mv = ModelVersion(name="model_1", version="1", creation_timestamp=123)
+    mock_model_registry_store.create_model_version.return_value = mv
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_tracking_store:
+        get_tracking_store.return_value = mock.MagicMock()
+        with mock.patch("mlflow.server.handlers._validate_source_model"):
+            resp = _create_model_version()
+        get_tracking_store.assert_called()
+        assert get_tracking_store.call_count >= 1
+    assert json.loads(resp.get_data())["model_version"]["name"] == "model_1"
 
 
 @pytest.mark.parametrize(
@@ -2271,7 +2298,9 @@ def test_create_prompt_as_registered_model(mock_get_request_message, mock_model_
     assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm)}
 
 
-def test_create_prompt_as_model_version(mock_get_request_message, mock_model_registry_store):
+def test_create_prompt_as_model_version(
+    mock_get_request_message, mock_model_registry_store, mock_tracking_store
+):
     tags = [
         ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
         ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value="some prompt text"),
