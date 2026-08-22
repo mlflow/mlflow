@@ -2,6 +2,7 @@ const ACTIVITY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_REPOS_TO_DISPLAY = 10;
 
 const UI_FILE = /^mlflow\/server\/js\/src\/.+\.(tsx|jsx|ts|js|css|scss|less)$/;
+const STACKED_PR_SECTION = /^(#{1,6}|>)\s.*\bStacked PRs?\b/m;
 const MEDIA =
   /!\[[^\]]*\]\([^)]+\)|<(img|video)\b|https:\/\/github\.com\/user-attachments\/|https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4|mov|webm)\b/i;
 
@@ -187,6 +188,15 @@ ${activitySection}
       "#### &#x274C; Invalid PR template\n\n" +
         "The PR description is missing required sections. " +
         "Please use the [PR template](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)."
+    );
+  }
+
+  if (STACKED_PR_SECTION.test(body || "")) {
+    messages.push(
+      "#### &#x1F95E; Not a GitHub stack\n\n" +
+        "GitHub now supports " +
+        "[stacked pull requests](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs) " +
+        "natively. Please use those instead."
     );
   }
 
