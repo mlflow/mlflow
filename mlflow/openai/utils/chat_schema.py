@@ -141,25 +141,7 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
         from openai.types.chat import ChatCompletion
 
         if isinstance(output, ChatCompletion) and (usage := output.usage):
-            usage_dict = {
-                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
-                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
-                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
-            }
-            if details := getattr(usage, "prompt_tokens_details", None):
-                if (cached := getattr(details, "cached_tokens", None)) is not None:
-                    usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-            # Databricks-served Anthropic endpoints return cache counts as top-level
-            # usage fields (cache_read_input_tokens, cache_creation_input_tokens) while
-            # prompt_tokens_details is None.  Read these when present and not already set
-            # via prompt_tokens_details.cached_tokens above.
-            if TokenUsageKey.CACHE_READ_INPUT_TOKENS not in usage_dict:
-                if (v := getattr(usage, "cache_read_input_tokens", None)) is not None:
-                    usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = v
-            if TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage_dict:
-                if (v := getattr(usage, "cache_creation_input_tokens", None)) is not None:
-                    usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = v
-            return usage_dict
+            return _parse_chat_completion_usage(usage)
     except ImportError:
         pass
 
@@ -181,3 +163,20 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
         pass
 
     return None
+
+
+def _parse_chat_completion_usage(usage: Any) -> dict[str, Any]:
+    usage_dict = {
+        TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+        TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+    }
+    details = getattr(usage, "prompt_tokens_details", None)
+    cached = getattr(details, "cached_tokens", None)
+    if cached is None:
+        cached = getattr(usage, "cache_read_input_tokens", None)
+    if cached is not None:
+        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+    if (created := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+        usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+    return usage_dict
