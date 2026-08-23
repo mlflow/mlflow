@@ -12,7 +12,10 @@ from sqlalchemy.dialects import mssql
 
 # revision identifiers, used by Alembic.
 revision = "dc11669786a5"
-down_revision = "a8b9c0d1e2f3"
+# Re-parented onto master's jobs head (b7e2c1a4d9f3, add_jobs_creator) during the
+# rebase so the alembic DAG stays single-headed. Original down_revision was
+# "a8b9c0d1e2f3". VERIFY: confirm this ordering is what you want for the merged history.
+down_revision = "b7e2c1a4d9f3"
 branch_labels = None
 depends_on = None
 
