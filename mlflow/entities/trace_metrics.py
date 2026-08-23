@@ -15,8 +15,10 @@ class MetricViewType(str, Enum):
         return self.value
 
     def to_proto(self) -> int:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(int, pb.MetricViewType.Value(self))
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: int = pb.MetricViewType.Value(self)
+        return proto_value
 
     @classmethod
     def from_proto(cls, proto: int) -> "MetricViewType":
@@ -35,8 +37,10 @@ class AggregationType(str, Enum):
         return self.value
 
     def to_proto(self) -> int:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(int, pb.AggregationType.Value(self))
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: int = pb.AggregationType.Value(self)
+        return proto_value
 
 
 @dataclass

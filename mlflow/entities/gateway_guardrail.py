@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import cast
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.scorer import ScorerVersion
@@ -25,8 +24,10 @@ class GuardrailStage(str, Enum):
         return cls(ProtoGuardrailStage.Name(proto))
 
     def to_proto(self) -> ProtoGuardrailStage:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoGuardrailStage, ProtoGuardrailStage.Value(self.value))
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: ProtoGuardrailStage = ProtoGuardrailStage.Value(self.value)
+        return proto_value
 
 
 class GuardrailAction(str, Enum):
@@ -41,8 +42,10 @@ class GuardrailAction(str, Enum):
         return cls(ProtoGuardrailAction.Name(proto))
 
     def to_proto(self) -> ProtoGuardrailAction:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoGuardrailAction, ProtoGuardrailAction.Value(self.value))
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: ProtoGuardrailAction = ProtoGuardrailAction.Value(self.value)
+        return proto_value
 
 
 @dataclass

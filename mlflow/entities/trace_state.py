@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import cast
 
 from opentelemetry import trace as trace_api
 
@@ -24,8 +23,10 @@ class TraceState(str, Enum):
         return self.value
 
     def to_proto(self) -> int:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(int, pb.TraceInfoV3.State.Value(self))
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: int = pb.TraceInfoV3.State.Value(self)
+        return proto_value
 
     @classmethod
     def from_proto(cls, proto: int) -> "TraceState":

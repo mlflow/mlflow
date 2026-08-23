@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, cast
 
 from typing_extensions import Self
 
@@ -29,7 +29,10 @@ class WebhookStatus(str, Enum):
             raise ValueError(f"Unknown proto status: {proto_name}")
 
     def to_proto(self) -> int:
-        return ProtoWebhookStatus.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: int = ProtoWebhookStatus.Value(self.value)
+        return proto_value
 
     def is_active(self) -> bool:
         return self == WebhookStatus.ACTIVE
@@ -58,7 +61,10 @@ class WebhookEntity(str, Enum):
 
     def to_proto(self) -> int:
         proto_name = self.value.upper()
-        return ProtoWebhookEntity.Value(proto_name)
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: int = ProtoWebhookEntity.Value(proto_name)
+        return proto_value
 
 
 class WebhookAction(str, Enum):
@@ -84,7 +90,10 @@ class WebhookAction(str, Enum):
     def to_proto(self) -> int:
         # Convert lowercase to UPPER_CASE
         proto_name = self.value.upper()
-        return ProtoWebhookAction.Value(proto_name)
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: int = ProtoWebhookAction.Value(proto_name)
+        return proto_value
 
 
 WebhookEventStr: TypeAlias = Literal[
@@ -154,7 +163,7 @@ class WebhookEvent:
         self,
         entity: str | WebhookEntity,
         action: str | WebhookAction,
-    ):
+    ) -> None:
         """
         Initialize a WebhookEvent.
 
@@ -235,8 +244,10 @@ class WebhookEvent:
 
     def to_proto(self) -> ProtoWebhookEvent:
         event = ProtoWebhookEvent()
-        event.entity = self.entity.to_proto()
-        event.action = self.action.to_proto()
+        # The generated stubs type proto enum fields as the enum wrapper classes,
+        # while `to_proto()` yields the raw integer value, hence the casts.
+        event.entity = cast(ProtoWebhookEntity, self.entity.to_proto())
+        event.action = cast(ProtoWebhookAction, self.action.to_proto())
         return event
 
     def __str__(self) -> str:
@@ -271,7 +282,7 @@ class Webhook:
         status: str | WebhookStatus = WebhookStatus.ACTIVE,
         secret: str | None = None,
         workspace: str | None = None,
-    ):
+    ) -> None:
         """
         Initialize a Webhook entity.
 
@@ -354,7 +365,7 @@ class Webhook:
             last_updated_timestamp=proto.last_updated_timestamp,
         )
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoWebhook:
         webhook = ProtoWebhook()
         webhook.webhook_id = self.webhook_id
         webhook.name = self.name
@@ -362,7 +373,9 @@ class Webhook:
         webhook.events.extend([event.to_proto() for event in self.events])
         if self.description:
             webhook.description = self.description
-        webhook.status = self.status.to_proto()
+        # The generated stubs type the proto enum field as the enum wrapper
+        # class, while `to_proto()` yields the raw integer value, hence the cast.
+        webhook.status = cast(ProtoWebhookStatus, self.status.to_proto())
         webhook.creation_timestamp = self.creation_timestamp
         webhook.last_updated_timestamp = self.last_updated_timestamp
         return webhook
@@ -393,7 +406,7 @@ class WebhookTestResult:
         response_status: int | None = None,
         response_body: str | None = None,
         error_message: str | None = None,
-    ):
+    ) -> None:
         """
         Initialize a WebhookTestResult entity.
 

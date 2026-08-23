@@ -31,8 +31,10 @@ class BudgetDurationUnit(str, Enum):
             return None
 
     def to_proto(self) -> ProtoBudgetDurationUnit:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoBudgetDurationUnit, ProtoBudgetDurationUnit.Value(self.value))
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: ProtoBudgetDurationUnit = ProtoBudgetDurationUnit.Value(self.value)
+        return proto_value
 
 
 class BudgetTargetScope(str, Enum):
@@ -50,8 +52,10 @@ class BudgetTargetScope(str, Enum):
             return None
 
     def to_proto(self) -> ProtoBudgetTargetScope:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoBudgetTargetScope, ProtoBudgetTargetScope.Value(self.value))
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: ProtoBudgetTargetScope = ProtoBudgetTargetScope.Value(self.value)
+        return proto_value
 
 
 class BudgetAction(str, Enum):
@@ -68,8 +72,10 @@ class BudgetAction(str, Enum):
             return None
 
     def to_proto(self) -> ProtoBudgetAction:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoBudgetAction, ProtoBudgetAction.Value(self.value))
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: ProtoBudgetAction = ProtoBudgetAction.Value(self.value)
+        return proto_value
 
 
 class BudgetUnit(str, Enum):
@@ -85,8 +91,10 @@ class BudgetUnit(str, Enum):
             return None
 
     def to_proto(self) -> ProtoBudgetUnit:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoBudgetUnit, ProtoBudgetUnit.Value(self.value))
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: ProtoBudgetUnit = ProtoBudgetUnit.Value(self.value)
+        return proto_value
 
 
 @dataclass
