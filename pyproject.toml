@@ -583,3 +583,22 @@ timeout = "1200"
 python_version = "3.10"
 strict = true
 exclude_gitignore = true
+
+[[tool.mypy.overrides]]
+# The `mlflow/**` package is adopted into strict typing incrementally: modules
+# passed explicitly to mypy are checked (with definition rules relaxed until
+# they are fully annotated), while anything merely imported from them is
+# analyzed silently - its annotations still inform checking, but its errors
+# don't surface. Fully-typed modules graduate into a follow-up override block
+# that restores full strictness for them.
+module = "mlflow.*"
+follow_imports = "silent"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+# Generated protobuf modules: never hand-checked (excluded from ruff/clint for
+# the same reason); suppress all diagnostics raised within them.
+module = "mlflow.protos.*"
+ignore_errors = true
