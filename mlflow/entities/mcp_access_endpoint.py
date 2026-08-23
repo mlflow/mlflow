@@ -28,7 +28,7 @@ class MCPAccessEndpoint:
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.workspace = resolve_entity_workspace_name(self.workspace)
 
     @classmethod

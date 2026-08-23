@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import cast
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.scorer import ScorerVersion
@@ -24,7 +25,8 @@ class GuardrailStage(str, Enum):
         return cls(ProtoGuardrailStage.Name(proto))
 
     def to_proto(self) -> ProtoGuardrailStage:
-        return ProtoGuardrailStage.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(ProtoGuardrailStage, ProtoGuardrailStage.Value(self.value))
 
 
 class GuardrailAction(str, Enum):
@@ -39,7 +41,8 @@ class GuardrailAction(str, Enum):
         return cls(ProtoGuardrailAction.Name(proto))
 
     def to_proto(self) -> ProtoGuardrailAction:
-        return ProtoGuardrailAction.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(ProtoGuardrailAction, ProtoGuardrailAction.Value(self.value))
 
 
 @dataclass
@@ -56,14 +59,14 @@ class GatewayGuardrail(_MlflowObject):
     last_updated_by: str | None = None
     workspace: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.workspace = resolve_entity_workspace_name(self.workspace)
         if isinstance(self.stage, str):
             self.stage = GuardrailStage(self.stage)
         if isinstance(self.action, str):
             self.action = GuardrailAction(self.action)
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoGatewayGuardrail:
         proto = ProtoGatewayGuardrail()
         proto.guardrail_id = self.guardrail_id
         proto.name = self.name
@@ -79,7 +82,7 @@ class GatewayGuardrail(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewayGuardrail) -> GatewayGuardrail:
         return cls(
             guardrail_id=proto.guardrail_id,
             name=proto.name,
@@ -106,7 +109,7 @@ class GatewayGuardrailConfig(_MlflowObject):
     created_by: str | None = None
     workspace: str | None = None
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoGatewayGuardrailConfig:
         proto = ProtoGatewayGuardrailConfig()
         proto.endpoint_id = self.endpoint_id
         proto.guardrail_id = self.guardrail_id
@@ -119,7 +122,7 @@ class GatewayGuardrailConfig(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewayGuardrailConfig) -> GatewayGuardrailConfig:
         guardrail = None
         if proto.HasField("guardrail"):
             guardrail = GatewayGuardrail.from_proto(proto.guardrail)
