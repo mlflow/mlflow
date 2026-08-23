@@ -1,6 +1,6 @@
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from mlflow.entities import Span
 from mlflow.tracing.constant import SpanAttributeKey
@@ -19,11 +19,11 @@ class TraceData:
 
     # NB: Custom constructor to allow passing additional kwargs for backward compatibility for
     # DBX agent evaluator. Once they migrates to trace V3 schema, we can remove this.
-    def __init__(self, spans: list[Span] | None = None, **kwargs):
+    def __init__(self, spans: list[Span] | None = None, **kwargs: Any):
         self.spans = spans or []
 
     @classmethod
-    def from_dict(cls, d):
+    def from_dict(cls, d: dict[str, Any]) -> "TraceData":
         if not isinstance(d, dict):
             raise TypeError(f"TraceData.from_dict() expects a dictionary. Got: {type(d).__name__}")
         return cls(spans=[Span.from_dict(span) for span in d.get("spans", [])])
@@ -33,7 +33,7 @@ class TraceData:
 
     # TODO: remove this property in 3.7.0
     @property
-    @deprecated(since="3.6.0", alternative="trace.search_spans(name=...)")
+    @deprecated(since="3.6.0", alternative="trace.search_spans(name=...)")  # type: ignore[misc]
     def intermediate_outputs(self) -> dict[str, Any] | None:
         """
         .. deprecated:: 3.6.0
@@ -51,9 +51,9 @@ class TraceData:
             return root_span.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS)
 
         if len(self.spans) > 1:
-            result = {}
+            result: dict[str, Any] = {}
             # spans may have duplicate names, so deduplicate the names by appending an index number.
-            span_name_counter = Counter(span.name for span in self.spans)
+            span_name_counter: dict[str, int] = Counter(span.name for span in self.spans)
             span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
             for span in self.spans:
                 span_name = span.name
@@ -63,23 +63,27 @@ class TraceData:
                 if span.parent_id and span.outputs is not None:
                     result[span_name] = span.outputs
             return result
+        return None
 
     def _get_root_span(self) -> Span | None:
         for span in self.spans:
             if span.parent_id is None:
                 return span
+        return None
 
     # `request` and `response` are preserved for backward compatibility with v2
     @property
     def request(self) -> str | None:
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
-            return span._span.attributes.get(SpanAttributeKey.INPUTS)
+            attributes = cast("dict[str, str]", span._span.attributes)
+            return attributes.get(SpanAttributeKey.INPUTS)
         return None
 
     @property
     def response(self) -> str | None:
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
-            return span._span.attributes.get(SpanAttributeKey.OUTPUTS)
+            attributes = cast("dict[str, str]", span._span.attributes)
+            return attributes.get(SpanAttributeKey.OUTPUTS)
         return None

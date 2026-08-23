@@ -28,7 +28,7 @@ class LoggedModel(_MlflowObject):
         tags: list[LoggedModelTag] | dict[str, str] | None = None,
         params: list[LoggedModelParameter] | dict[str, str] | None = None,
         metrics: list[Metric] | None = None,
-    ):
+    ) -> None:
         super().__init__()
         self._experiment_id: str = experiment_id
         self._model_id: str = model_id
@@ -76,7 +76,7 @@ class LoggedModel(_MlflowObject):
         return self._experiment_id
 
     @experiment_id.setter
-    def experiment_id(self, new_experiment_id: str):
+    def experiment_id(self, new_experiment_id: str) -> None:
         self._experiment_id = new_experiment_id
 
     @property
@@ -85,7 +85,7 @@ class LoggedModel(_MlflowObject):
         return self._model_id
 
     @model_id.setter
-    def model_id(self, new_model_id: str):
+    def model_id(self, new_model_id: str) -> None:
         self._model_id = new_model_id
 
     @property
@@ -94,7 +94,7 @@ class LoggedModel(_MlflowObject):
         return self._name
 
     @name.setter
-    def name(self, new_name: str):
+    def name(self, new_name: str) -> None:
         self._name = new_name
 
     @property
@@ -103,7 +103,7 @@ class LoggedModel(_MlflowObject):
         return self._artifact_location
 
     @artifact_location.setter
-    def artifact_location(self, new_artifact_location: str):
+    def artifact_location(self, new_artifact_location: str) -> None:
         self._artifact_location = new_artifact_location
 
     @property
@@ -119,7 +119,7 @@ class LoggedModel(_MlflowObject):
         return self._last_updated_timestamp
 
     @last_updated_timestamp.setter
-    def last_updated_timestamp(self, updated_timestamp: int):
+    def last_updated_timestamp(self, updated_timestamp: int) -> None:
         self._last_updated_timestamp = updated_timestamp
 
     @property
@@ -128,7 +128,7 @@ class LoggedModel(_MlflowObject):
         return self._model_type
 
     @model_type.setter
-    def model_type(self, new_model_type: str | None):
+    def model_type(self, new_model_type: str | None) -> None:
         self._model_type = new_model_type
 
     @property
@@ -142,7 +142,7 @@ class LoggedModel(_MlflowObject):
         return self._status
 
     @status.setter
-    def status(self, updated_status: str):
+    def status(self, updated_status: LoggedModelStatus) -> None:
         self._status = updated_status
 
     @property
@@ -165,14 +165,14 @@ class LoggedModel(_MlflowObject):
         """List of metrics associated with this Model."""
         return self._metrics
 
+    @metrics.setter
+    def metrics(self, new_metrics: list[Metric] | None) -> None:
+        self._metrics = new_metrics
+
     @property
     def model_uri(self) -> str:
         """URI of the model."""
         return self._model_uri
-
-    @metrics.setter
-    def metrics(self, new_metrics: list[Metric] | None):
-        self._metrics = new_metrics
 
     @classmethod
     def _properties(cls) -> list[str]:
@@ -189,7 +189,7 @@ class LoggedModel(_MlflowObject):
         del model_dict["model_uri"]
         return model_dict
 
-    def to_proto(self):
+    def to_proto(self) -> pb2.LoggedModel:
         return pb2.LoggedModel(
             info=pb2.LoggedModelInfo(
                 experiment_id=self.experiment_id,
@@ -210,7 +210,7 @@ class LoggedModel(_MlflowObject):
         )
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: pb2.LoggedModel) -> "LoggedModel":
         return cls(
             experiment_id=proto.info.experiment_id,
             model_id=proto.info.model_id,

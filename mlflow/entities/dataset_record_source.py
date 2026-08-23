@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
@@ -74,8 +74,8 @@ class DatasetRecordSourceType(str, Enum):
         return DatasetRecordSourceType(parsed)
 
     @classmethod
-    def from_proto(cls, proto_source_type) -> str:
-        return ProtoDatasetRecordSource.SourceType.Name(proto_source_type)
+    def from_proto(cls, proto_source_type: int) -> str:
+        return cast(str, ProtoDatasetRecordSource.SourceType.Name(proto_source_type))
 
 
 @dataclass
@@ -92,7 +92,7 @@ class DatasetRecordSource(_MlflowObject):
     source_type: DatasetRecordSourceType
     source_data: dict[str, Any] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.source_type = DatasetRecordSourceType._standardize(self.source_type)
 
         if self.source_data is None:
@@ -114,7 +114,9 @@ class DatasetRecordSource(_MlflowObject):
             else None
         )
 
-        return cls(source_type=source_type, source_data=source_data)
+        # NB: A str source_type is standardized to the enum in __post_init__, but an unset
+        # proto field passes None, which _standardize does not handle.
+        return cls(source_type=source_type, source_data=source_data)  # type: ignore[arg-type]
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
