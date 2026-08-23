@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 import time
 from pathlib import Path
 from unittest import mock
@@ -20,6 +21,7 @@ from mlflow.server.jobs.utils import (
     _exec_job,
     _job_name_to_fn_fullname_map,
 )
+from mlflow.store.jobs.abstract_store import JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -431,3 +433,81 @@ def test_launch_job_execution_runner_dispatch(monkeypatch, engine, expected):
     launchers.pop(expected).assert_called_once_with(env_map, 1234)
     for unused in launchers.values():
         unused.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Job-lease renewal
+# ---------------------------------------------------------------------------
+
+
+def test_lease_renewer_renews_while_running_then_stops():
+    store = mock.MagicMock()
+    calls = []
+    reached_two = threading.Event()
+
+    def _renew(job_id, lease_duration):
+        calls.append(job_id)
+        if len(calls) >= 2:
+            reached_two.set()
+        return JobUpdateStatus.APPLIED
+
+    store.renew_job_lease.side_effect = _renew
+    with runner._LeaseRenewer(store, "job-1", lease_duration=0.6):
+        # Wait for two renewals to fire, then exit; no wall-clock sleep drives the count.
+        assert reached_two.wait(timeout=5.0)
+    # __exit__ joins the renewer thread, so the count is final and no renewals fire after.
+    assert store.renew_job_lease.call_count >= 2
+    store.renew_job_lease.assert_called_with("job-1", 0.6)
+
+
+def test_lease_renewer_stops_when_lease_no_longer_renewable():
+    store = mock.MagicMock()
+    renewed = threading.Event()
+
+    def _renew(job_id, lease_duration):
+        renewed.set()
+        return JobUpdateStatus.WRONG_STATE
+
+    store.renew_job_lease.side_effect = _renew
+    with runner._LeaseRenewer(store, "job-1", lease_duration=0.6):
+        assert renewed.wait(timeout=5.0)
+    # A non-APPLIED status makes the renewer stop on its own after a single attempt.
+    assert store.renew_job_lease.call_count == 1
+
+
+def test_lease_renewer_survives_renew_error_and_keeps_renewing():
+    store = mock.MagicMock()
+    calls = []
+    reached_second = threading.Event()
+
+    def _renew(job_id, lease_duration):
+        calls.append(job_id)
+        if len(calls) == 1:
+            raise RuntimeError("transient store error")
+        reached_second.set()
+        return JobUpdateStatus.APPLIED
+
+    store.renew_job_lease.side_effect = _renew
+    with mock.patch.object(runner, "_logger") as mock_logger:
+        with runner._LeaseRenewer(store, "job-1", lease_duration=0.6):
+            # The first renewal raises; the renewer must log and keep going to a second.
+            assert reached_second.wait(timeout=5.0)
+    mock_logger.exception.assert_called()
+    assert store.renew_job_lease.call_count >= 2
+
+
+def test_long_running_job_lease_is_renewed(registered_jobs, job_store, executor, monkeypatch):
+    created = job_store.create_job("executor_engine_sleep", json.dumps({"sleep_secs": 1.0}))
+    renew_calls = []
+    real_renew = job_store.renew_job_lease
+
+    def _spy(job_id, lease_duration):
+        renew_calls.append(job_id)
+        return real_renew(job_id, lease_duration)
+
+    monkeypatch.setattr(job_store, "renew_job_lease", _spy)
+    # Short lease so renewal (~lease/3) fires several times during the ~1s job.
+    runner._poll_and_execute_once(job_store, executor, lease_duration=0.6)
+
+    assert created.job_id in renew_calls
+    assert job_store.get_job(created.job_id).status == JobStatus.SUCCEEDED

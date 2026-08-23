@@ -14,6 +14,7 @@ import json
 import logging
 import threading
 import time
+from contextlib import nullcontext
 
 from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
@@ -36,6 +37,56 @@ _logger = logging.getLogger("mlflow.server.jobs._executor_runner")
 
 # How long the loop sleeps when it finds no PENDING jobs to run.
 _POLL_INTERVAL = 1.0
+
+# How many times a running job's lease is renewed per lease TTL: the renew interval is the
+# TTL divided by this, so the lease is refreshed well before it expires. The interval is
+# floored so a very short TTL cannot cause a busy loop.
+_LEASE_RENEWALS_PER_TTL = 3.0
+_MIN_LEASE_RENEW_INTERVAL = 0.2
+
+
+class _LeaseRenewer:
+    """Keeps a running job's lease alive until the job finishes.
+
+    ``claim_job`` sets an initial lease when it moves a job to RUNNING. A job that runs
+    longer than the lease TTL would otherwise look abandoned to stale-job recovery, so while
+    the job runs this renews the lease in the background and stops as soon as the job returns.
+    Used as a context manager around the blocking ``wait_for_job`` call.
+    """
+
+    def __init__(self, job_store: AbstractJobStore, job_id: str, lease_duration: float) -> None:
+        self._job_store = job_store
+        self._job_id = job_id
+        self._lease_duration = lease_duration
+        self._interval = max(lease_duration / _LEASE_RENEWALS_PER_TTL, _MIN_LEASE_RENEW_INTERVAL)
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._renew_until_stopped,
+            name=f"mlflow-job-lease-renewer-{job_id}",
+            daemon=True,
+        )
+
+    def _renew_until_stopped(self) -> None:
+        # ``Event.wait`` returns True once stopped and False on each timeout; renew on timeout.
+        while not self._stop.wait(self._interval):
+            try:
+                status = self._job_store.renew_job_lease(self._job_id, self._lease_duration)
+            except Exception:
+                # A transient store error should not silently kill renewal: log and retry on
+                # the next tick so the lease keeps being refreshed while the job runs.
+                _logger.exception(f"Failed to renew lease for job {self._job_id}; will retry")
+                continue
+            if status != JobUpdateStatus.APPLIED:
+                # The job row is no longer renewable (finalized or reset elsewhere); stop.
+                return
+
+    def __enter__(self) -> "_LeaseRenewer":
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        self._thread.join(timeout=self._interval + 5.0)
 
 
 def _select_executor() -> AbstractJobExecutor:
@@ -100,9 +151,16 @@ def _record_result(
 
 
 def _execute_claimed_job(
-    job_store: AbstractJobStore, executor: AbstractJobExecutor, job: Job
+    job_store: AbstractJobStore,
+    executor: AbstractJobExecutor,
+    job: Job,
+    lease_duration: float | None,
 ) -> None:
-    """Execute a job that has already been claimed (moved to RUNNING) and record its result."""
+    """Execute a job that has already been claimed (moved to RUNNING) and record its result.
+
+    While the job runs, its lease is renewed in the background so a long-running job is not
+    treated as abandoned by stale-job recovery.
+    """
     from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
 
     fn_fullname = get_job_fn_fullname(job.job_name)
@@ -124,7 +182,17 @@ def _execute_claimed_job(
         python_env=python_env,
         timeout=job.timeout,
     )
-    result = executor.wait_for_job(job.job_id)
+    # The lease is set at claim time; the renewer only covers wait_for_job. If submit_job does
+    # long setup first (e.g. installing a job's environment), the lease can lapse before the
+    # first renewal, but that renewal self-heals it since it only applies while the job is still
+    # RUNNING. If that window ever matters, raise the initial lease TTL rather than move this.
+    lease_renewer = (
+        _LeaseRenewer(job_store, job.job_id, lease_duration)
+        if lease_duration is not None
+        else nullcontext()
+    )
+    with lease_renewer:
+        result = executor.wait_for_job(job.job_id)
     _logger.info(f"Executor engine job {job.job_id} finished with status {result.status.value}")
     _record_result(job_store, job.job_id, job.job_name, result)
 
@@ -152,7 +220,7 @@ def _poll_and_execute_once(
                     # A concurrent worker claimed it first, or its status changed.
                     continue
                 try:
-                    _execute_claimed_job(job_store, executor, job)
+                    _execute_claimed_job(job_store, executor, job, lease_duration)
                 except Exception as exc:
                     # A claimed job left RUNNING would be stuck; fail it so recovery is
                     # not needed.
