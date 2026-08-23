@@ -2,8 +2,9 @@ import ast
 import base64
 import json
 import logging
+from collections.abc import Mapping
 from functools import cached_property
-from typing import Any, Union
+from typing import Any, cast
 
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
@@ -73,7 +74,7 @@ class SpanType:
 
 def create_mlflow_span(
     otel_span: Any, trace_id: str, span_type: str | None = None
-) -> Union["Span", "LiveSpan", "NoOpSpan"]:
+) -> "Span | LiveSpan | NoOpSpan":
     """
     Factory function to create a span object.
 
@@ -84,7 +85,9 @@ def create_mlflow_span(
         return NoOpSpan()
 
     if isinstance(otel_span, OTelSpan):
-        return LiveSpan(otel_span, trace_id, span_type)
+        # `span_type` is passed through unchanged; the cast is for the (declared)
+        # non-optional signature of LiveSpan.__init__.
+        return LiveSpan(otel_span, trace_id, cast(str, span_type))
 
     if isinstance(otel_span, OTelReadableSpan):
         return Span(otel_span)
@@ -106,7 +109,15 @@ class Span:
     represented by the :py:class:`LiveSpan <mlflow.entities.LiveSpan>` subclass.
     """
 
-    def __init__(self, otel_span: OTelReadableSpan):
+    # NB: Subclasses store different concrete implementations of these fields: `_span`
+    # holds an immutable ReadableSpan here, a recording SDK Span in LiveSpan, and a
+    # NonRecordingSpan in NoOpSpan; `_attributes` is an attributes registry here and in
+    # LiveSpan, but a plain dict in NoOpSpan. OpenTelemetry splits these surfaces across
+    # its API/SDK classes with no common base type, hence the loose typing of `_span`.
+    _span: Any
+    _attributes: "_SpanAttributesRegistry"
+
+    def __init__(self, otel_span: OTelReadableSpan) -> None:
         if not isinstance(otel_span, OTelReadableSpan):
             raise MlflowException(
                 "The `otel_span` argument for the Span class must be an instance of ReadableSpan, "
@@ -121,6 +132,7 @@ class Span:
         self._attachments: dict[str, Attachment] = {}
         request_id = self._attributes.get(SpanAttributeKey.REQUEST_ID)
         otel_links = getattr(otel_span, "links", ())
+        self._links: list["Link"]
         if request_id and request_id.startswith(TRACE_ID_V4_PREFIX):
             if otel_links:
                 _logger.warning(
@@ -129,10 +141,10 @@ class Span:
                     len(otel_links),
                     otel_span.name,
                 )
-            self._links: list["Link"] = []
+            self._links = []
         else:
-            self._links: list["Link"] = [
-                Link(
+            self._links = [
+                Link(  # type: ignore[abstract]
                     trace_id=f"tr-{otel_link.context.trace_id:032x}",
                     span_id=f"{otel_link.context.span_id:016x}",
                     attributes=dict(otel_link.attributes) if otel_link.attributes else None,
@@ -143,7 +155,7 @@ class Span:
     @cached_property
     def trace_id(self) -> str:
         """The trace ID of the span, a unique identifier for the trace it belongs to."""
-        return self.get_attribute(SpanAttributeKey.REQUEST_ID)
+        return cast(str, self.get_attribute(SpanAttributeKey.REQUEST_ID))
 
     @property
     def request_id(self) -> str:
@@ -158,17 +170,21 @@ class Span:
     @property
     def name(self) -> str:
         """The name of the span."""
-        return self._span.name
+        # OTel types the underlying span loosely; the typed local converts it statically.
+        span_name: str = self._span.name
+        return span_name
 
     @property
     def start_time_ns(self) -> int:
         """The start time of the span in nanosecond."""
-        return self._span._start_time
+        start_time: int = self._span._start_time
+        return start_time
 
     @property
     def end_time_ns(self) -> int | None:
         """The end time of the span in nanosecond."""
-        return self._span._end_time
+        end_time: int | None = self._span._end_time
+        return end_time
 
     @property
     def parent_id(self) -> str | None:
@@ -195,7 +211,7 @@ class Span:
     @property
     def span_type(self) -> str:
         """The type of the span."""
-        return self.get_attribute(SpanAttributeKey.SPAN_TYPE)
+        return cast(str, self.get_attribute(SpanAttributeKey.SPAN_TYPE))
 
     @property
     def log_level(self) -> SpanLogLevel | None:
@@ -258,7 +274,7 @@ class Span:
             A list of all events of the span.
         """
         return [
-            SpanEvent(
+            SpanEvent(  # type: ignore[abstract]
                 name=event.name,
                 timestamp=event.timestamp,
                 # Convert from OpenTelemetry's BoundedAttributes class to a simple dict
@@ -277,7 +293,7 @@ class Span:
             A list of all links of the span.
         """
         return [
-            Link(
+            Link(  # type: ignore[abstract]
                 trace_id=link.trace_id,
                 span_id=link.span_id,
                 attributes=dict(link.attributes) if link.attributes else None,
@@ -285,7 +301,7 @@ class Span:
             for link in self._links
         ]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"{type(self).__name__}(name={self.name!r}, trace_id={self.trace_id!r}, "
             f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
@@ -362,7 +378,9 @@ class Span:
                 # In 3.5.0, Span.to_dict keeps trace_id and span_id as the object's properties
                 # format, so we need special handling for it.
                 otel_trace_id = decode_id(
-                    parse_trace_id_v4(data["trace_id"])[1].removeprefix(TRACE_REQUEST_ID_PREFIX)
+                    cast(str, parse_trace_id_v4(data["trace_id"])[1]).removeprefix(
+                        TRACE_REQUEST_ID_PREFIX
+                    )
                 )
                 span_id = decode_id(data["span_id"])
                 parent_id = decode_id(data["parent_span_id"]) if data["parent_span_id"] else None
@@ -596,7 +614,7 @@ class Span:
         for link in self.links:
             proto_link = otel_span.links.add()
             # Convert MLflow trace ID (tr-xxx or trace:/loc/xxx) back to OTel bytes
-            link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
+            link_trace_id_hex = cast(str, parse_trace_id_v4(link.trace_id)[1]).removeprefix(
                 TRACE_REQUEST_ID_PREFIX
             )
             proto_link.trace_id = decode_id(link_trace_id_hex).to_bytes(16, "big")
@@ -612,7 +630,9 @@ class Span:
         return otel_span
 
 
-def _encode_span_id_to_byte(span_id: int | None) -> bytes:
+# NB: `span_id` is always a concrete ID here; the helper unconditionally calls `to_bytes`,
+# so an Optional annotation was provably wrong.
+def _encode_span_id_to_byte(span_id: int) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L131
     return span_id.to_bytes(length=8, byteorder="big", signed=False)
 
@@ -654,7 +674,7 @@ class LiveSpan(Span):
         otel_span: OTelSpan,
         trace_id: str,
         span_type: str = SpanType.UNKNOWN,
-    ):
+    ) -> None:
         """
         The `otel_span` argument takes an instance of OpenTelemetry Span class, which is
         indeed a subclass of ReadableSpan. Thanks to this, the getter methods of the Span
@@ -676,6 +696,7 @@ class LiveSpan(Span):
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
         otel_links = getattr(otel_span, "links", ())
+        self._links: list["Link"]
         if trace_id.startswith(TRACE_ID_V4_PREFIX):
             if otel_links:
                 _logger.warning(
@@ -684,10 +705,10 @@ class LiveSpan(Span):
                     len(otel_links),
                     otel_span.name,
                 )
-            self._links: list["Link"] = []
+            self._links = []
         else:
-            self._links: list["Link"] = [
-                Link(
+            self._links = [
+                Link(  # type: ignore[abstract]
                     trace_id=f"tr-{otel_link.context.trace_id:032x}",
                     span_id=f"{otel_link.context.span_id:016x}",
                     attributes=dict(otel_link.attributes) if otel_link.attributes else None,
@@ -701,11 +722,11 @@ class LiveSpan(Span):
         # make each span uniquely identifiable within its trace
         self._original_name = otel_span.name
 
-    def set_span_type(self, span_type: str):
+    def set_span_type(self, span_type: str) -> None:
         """Set the type of the span."""
         self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
 
-    def set_log_level(self, level: SpanLogLevel | str):
+    def set_log_level(self, level: SpanLogLevel | str) -> None:
         """
         Set the severity level of the span.
 
@@ -717,9 +738,9 @@ class LiveSpan(Span):
         self.set_attribute(SpanAttributeKey.LOG_LEVEL, int(normalized))
 
     def _is_recording(self) -> bool:
-        return self._span.is_recording()
+        return bool(self._span.is_recording())
 
-    def set_inputs(self, inputs: Any):
+    def set_inputs(self, inputs: Any) -> None:
         """Set the input values to the span."""
         extract_base64 = self._should_extract_base64()
         inputs = self._extract_attachments(inputs, extract_base64)
@@ -730,7 +751,7 @@ class LiveSpan(Span):
         if extract_base64:
             self._extract_attachments_from_serialized(SpanAttributeKey.INPUTS)
 
-    def set_outputs(self, outputs: Any):
+    def set_outputs(self, outputs: Any) -> None:
         """Set the output values to the span."""
         extract_base64 = self._should_extract_base64()
         outputs = self._extract_attachments(outputs, extract_base64)
@@ -762,16 +783,16 @@ class LiveSpan(Span):
                 if converted is not None:
                     return converted
             if isinstance(value, dict):
-                converted = self._try_convert_structured_content(value)
-                if converted is not None:
+                structured = self._try_convert_structured_content(value)
+                if structured is not None:
                     # Recurse into the converted dict to catch remaining patterns
                     # in sibling keys (e.g. a data URI in another field)
-                    if isinstance(converted, dict):
+                    if isinstance(structured, dict):
                         return {
                             k: self._extract_attachments(v, extract_base64)
-                            for k, v in converted.items()
+                            for k, v in structured.items()
                         }
-                    return converted
+                    return structured
         if isinstance(value, dict):
             return {k: self._extract_attachments(v, extract_base64) for k, v in value.items()}
         if isinstance(value, (list, tuple)):
@@ -803,7 +824,7 @@ class LiveSpan(Span):
     def _should_extract_base64() -> bool:
         from mlflow.environment_variables import MLFLOW_TRACE_EXTRACT_ATTACHMENTS
 
-        return MLFLOW_TRACE_EXTRACT_ATTACHMENTS.get()
+        return bool(MLFLOW_TRACE_EXTRACT_ATTACHMENTS.get())
 
     def _try_convert_data_uri(self, value: str) -> str | None:
         if not value.startswith("data:") or ";base64," not in value:
@@ -832,12 +853,15 @@ class LiveSpan(Span):
             fmt = audio.get("format", "wav")
             if isinstance(data, str) and data:
                 try:
-                    content_bytes = base64.b64decode(data, validate=True)
+                    # NB: annotated here as this is the first assignment in the function;
+                    # later branches reuse the variable for a None sentinel.
+                    content_bytes: bytes | None = base64.b64decode(data, validate=True)
                 except Exception:
                     return None
                 content_type = "audio/mpeg" if fmt == "mp3" else f"audio/{fmt}"
+                # The b64decode above either succeeded or returned early on failure.
                 ref = self._store_attachment(
-                    Attachment(content_type=content_type, content_bytes=content_bytes)
+                    Attachment(content_type=content_type, content_bytes=cast(bytes, content_bytes))
                 )
                 return {
                     **value,
@@ -961,7 +985,7 @@ class LiveSpan(Span):
 
         return None
 
-    def set_attributes(self, attributes: dict[str, Any]):
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
         """
         Set the attributes to the span. The attributes must be a dictionary of key-value pairs.
         This method is additive, i.e. it will add new attributes to the existing ones. If an
@@ -976,11 +1000,11 @@ class LiveSpan(Span):
         for key, value in attributes.items():
             self.set_attribute(key, value)
 
-    def set_attribute(self, key: str, value: Any):
+    def set_attribute(self, key: str, value: Any) -> None:
         """Set a single attribute to the span."""
         self._attributes.set(key, value)
 
-    def set_status(self, status: SpanStatusCode | str):
+    def set_status(self, status: SpanStatus | SpanStatusCode | str) -> None:
         """
         Set the status of the span.
 
@@ -991,8 +1015,11 @@ class LiveSpan(Span):
                 :py:class:`SpanStatusCode <mlflow.entities.SpanStatusCode>`
                 e.g. ``"OK"``, ``"ERROR"``.
         """
-        if isinstance(status, str):
-            status = SpanStatus(status)
+        # NB: SpanStatusCode is a str subclass, so this branch also catches enum values,
+        # exactly like the previous `isinstance(status, str)` check did.
+        # SpanStatus.__post_init__ coerces raw strings and enum values alike.
+        if isinstance(status, (str, SpanStatusCode)):
+            status = SpanStatus(cast(SpanStatusCode, status))
 
         # NB: We need to set the OpenTelemetry native StatusCode, because span's set_status
         #     method only accepts a StatusCode enum in their definition.
@@ -1004,7 +1031,7 @@ class LiveSpan(Span):
         #     StatusCode object, which makes future migration easier.
         self._span.set_status(status.to_otel_status())
 
-    def add_event(self, event: SpanEvent):
+    def add_event(self, event: SpanEvent) -> None:
         """
         Add an event to the span.
 
@@ -1022,7 +1049,7 @@ class LiveSpan(Span):
             if current is None or int(current) < SpanLogLevel.ERROR:
                 self._attributes.set(SpanAttributeKey.LOG_LEVEL, int(SpanLogLevel.ERROR))
 
-    def add_link(self, link: "Link"):
+    def add_link(self, link: "Link") -> None:
         """
         Add a link to this span.
 
@@ -1053,7 +1080,7 @@ class LiveSpan(Span):
 
         # Validate and forward to the underlying OTel span so external exporters can see links
         try:
-            link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
+            link_trace_id_hex = cast(str, parse_trace_id_v4(link.trace_id)[1]).removeprefix(
                 TRACE_REQUEST_ID_PREFIX
             )
             trace_id_int = decode_id(link_trace_id_hex)
@@ -1070,7 +1097,7 @@ class LiveSpan(Span):
             ) from e
 
         self._links.append(
-            Link(
+            Link(  # type: ignore[abstract]
                 trace_id=link.trace_id,
                 span_id=link.span_id,
                 attributes=dict(link.attributes) if link.attributes else None,
@@ -1079,7 +1106,7 @@ class LiveSpan(Span):
         if hasattr(self._span, "add_link"):
             self._span.add_link(otel_context, link.attributes)
 
-    def record_exception(self, exception: str | Exception):
+    def record_exception(self, exception: str | Exception) -> None:
         """
         Record an exception on the span, adding an exception event and setting span status to ERROR.
 
@@ -1110,7 +1137,7 @@ class LiveSpan(Span):
         attributes: dict[str, Any] | None = None,
         status: SpanStatus | str | None = None,
         end_time_ns: int | None = None,
-    ):
+    ) -> None:
         """
         End the span.
 
@@ -1169,7 +1196,10 @@ class LiveSpan(Span):
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 
-    def from_dict(cls, data: dict[str, Any]) -> "Span":
+    # NB: The missing @classmethod decorator here is pre-existing and intentionally left
+    # as-is to avoid behavior changes; it makes this override incompatible with the
+    # classmethod `Span.from_dict`, hence the ignore.
+    def from_dict(cls, data: dict[str, Any]) -> "Span":  # type: ignore[override]
         raise NotImplementedError("The `from_dict` method is not supported for the LiveSpan class.")
 
     def to_immutable_span(self) -> "Span":
@@ -1183,7 +1213,7 @@ class LiveSpan(Span):
         # Shallow copies so the immutable span is independent of further LiveSpan mutations
         span._attachments = dict(self._attachments)
         span._links = [
-            Link(
+            Link(  # type: ignore[abstract]
                 trace_id=link.trace_id,
                 span_id=link.span_id,
                 attributes=dict(link.attributes) if link.attributes else None,
@@ -1232,17 +1262,25 @@ class LiveSpan(Span):
         parent_span = trace_manager.get_span_from_id(trace_id, parent_span_id)
 
         # Create a new span with the same name, parent, and start time
-        otel_span = mlflow.tracing.provider.start_detached_span(
-            name=span.name,
-            parent=parent_span._span if parent_span else None,
-            start_time_ns=span.start_time_ns,
-            experiment_id=experiment_id,
+        # NB: provider.start_detached_span returns the created OpenTelemetry span directly;
+        # its upstream return annotation does not match the runtime behavior (cross-file).
+        otel_span = cast(
+            "OTelReadableSpan",
+            mlflow.tracing.provider.start_detached_span(
+                name=span.name,
+                parent=parent_span._span if parent_span else None,
+                start_time_ns=span.start_time_ns,
+                experiment_id=experiment_id,
+            ),
         )
 
         # The latter one from attributes is the newly generated trace ID by the span processor.
-        trace_id = trace_id or json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
+        otel_span_attributes = cast(Mapping[str, Any], otel_span.attributes)
+        trace_id = trace_id or json.loads(
+            cast(str, otel_span_attributes.get(SpanAttributeKey.REQUEST_ID))
+        )
         # Span processor registers a new span in the in-memory trace manager, but we want to pop it
-        clone_span = trace_manager._traces[trace_id].span_dict.pop(
+        clone_span: LiveSpan = trace_manager._traces[trace_id].span_dict.pop(
             encode_span_id(otel_span.context.span_id)
         )
 
@@ -1293,14 +1331,14 @@ class LazySpan(Span):
     dict (for example ``get-trace-artifact`` or ``TraceData.to_dict``).
     """
 
-    def __init__(self, span_dict: dict[str, Any]):
+    def __init__(self, span_dict: dict[str, Any]) -> None:
         # Skip Span.__init__: we intentionally avoid constructing an OTel span
         # until a caller needs property access or OTLP conversion.
         self.__dict__["_span_dict"] = span_dict
         self.__dict__["_materialized"] = False
 
     def to_dict(self) -> dict[str, Any]:
-        return self.__dict__["_span_dict"]
+        return cast("dict[str, Any]", self.__dict__["_span_dict"])
 
     def _ensure_materialized(self) -> None:
         if self.__dict__["_materialized"]:
@@ -1312,11 +1350,11 @@ class LazySpan(Span):
         self.__dict__["_links"] = span._links
         self.__dict__["_materialized"] = True
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         self._ensure_materialized()
         return object.__getattribute__(self, name)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.__dict__.get("_materialized"):
             return super().__repr__()
         span_dict = self.__dict__["_span_dict"]
@@ -1356,75 +1394,78 @@ class NoOpSpan(Span):
 
     """
 
-    def __init__(self, otel_span=None):
-        self._span = otel_span or NonRecordingSpan(context=None)
-        self._attributes = {}
+    def __init__(self, otel_span: OTelSpan | None = None) -> None:
+        # NB: OTel stubs require a SpanContext argument; None is accepted at runtime and
+        # simply means "no context" (NoOpSpan never reads it).
+        self._span = otel_span or NonRecordingSpan(context=None)  # type: ignore[arg-type]
+        # NB: A plain dict placeholder; NoOpSpan never touches the attributes.
+        self._attributes = {}  # type: ignore[assignment]
         self._links = []
 
     @property
-    def trace_id(self):
+    def trace_id(self) -> str:
         """
         No-op span returns a special trace ID to distinguish it from the real spans.
         """
         return NO_OP_SPAN_TRACE_ID
 
     @property
-    def span_id(self):
+    def span_id(self) -> None:  # type: ignore[override]
         return None
 
     @property
-    def name(self):
+    def name(self) -> None:  # type: ignore[override]
         return None
 
     @property
-    def start_time_ns(self):
+    def start_time_ns(self) -> None:  # type: ignore[override]
         return None
 
     @property
-    def end_time_ns(self):
+    def end_time_ns(self) -> int | None:
         return None
 
     @property
-    def context(self):
+    def context(self) -> None:
         return None
 
     @property
-    def parent_id(self):
+    def parent_id(self) -> str | None:
         return None
 
     @property
-    def status(self):
+    def status(self) -> None:  # type: ignore[override]
         return None
 
     @property
     def _trace_id(self):
         return None
 
-    def set_inputs(self, inputs: dict[str, Any]):
+    def set_inputs(self, inputs: dict[str, Any]) -> None:
         pass
 
-    def set_outputs(self, outputs: dict[str, Any]):
+    def set_outputs(self, outputs: dict[str, Any]) -> None:
         pass
 
-    def set_attributes(self, attributes: dict[str, Any]):
+    def set_attributes(self, attributes: dict[str, Any]) -> None:
         pass
 
-    def set_attribute(self, key: str, value: Any):
+    def set_attribute(self, key: str, value: Any) -> None:
         pass
 
-    def set_log_level(self, level: SpanLogLevel | int | str):
+    def set_log_level(self, level: SpanLogLevel | int | str) -> None:
         pass
 
-    def set_status(self, status: SpanStatus):
+    def set_status(self, status: SpanStatus | SpanStatusCode | str) -> None:
         pass
 
-    def add_event(self, event: SpanEvent):
+    def add_event(self, event: SpanEvent) -> None:
         pass
 
     def add_link(self, link: Link) -> None:
         pass
 
-    def record_exception(self, exception: str | Exception):
+    def record_exception(self, exception: str | Exception) -> None:
         pass
 
     def end(
@@ -1433,7 +1474,7 @@ class NoOpSpan(Span):
         attributes: dict[str, Any] | None = None,
         status: SpanStatus | str | None = None,
         end_time_ns: int | None = None,
-    ):
+    ) -> None:
         pass
 
 
@@ -1448,7 +1489,11 @@ class _SpanAttributesRegistry:
     without worrying about the serde process.
     """
 
-    def __init__(self, otel_span: OTelSpan):
+    # NB: The registry reads `.attributes` from both immutable ReadableSpan and live SDK
+    # Span objects (and writes via `set_attribute` on live spans only). OpenTelemetry
+    # splits these surfaces across its API/SDK classes with no common base type, hence
+    # the loose typing of the stored span.
+    def __init__(self, otel_span: Any) -> None:
         self._span = otel_span
 
     def get_all(self) -> dict[str, Any]:
@@ -1483,7 +1528,7 @@ class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):
     spans that are immutable, and thus implemented as a subclass of _SpanAttributesRegistry.
     """
 
-    def __init__(self, otel_span: OTelSpan):
+    def __init__(self, otel_span: Any) -> None:
         super().__init__(otel_span)
         self._cache: dict[str, Any] = {}
 

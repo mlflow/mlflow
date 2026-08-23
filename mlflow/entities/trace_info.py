@@ -1,10 +1,10 @@
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
-from google.protobuf.duration_pb2 import Duration
-from google.protobuf.json_format import MessageToDict
-from google.protobuf.timestamp_pb2 import Timestamp
+from google.protobuf.duration_pb2 import Duration  # type: ignore[import-untyped]
+from google.protobuf.json_format import MessageToDict  # type: ignore[import-untyped]
+from google.protobuf.timestamp_pb2 import Timestamp  # type: ignore[import-untyped]
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment import Assessment
@@ -12,6 +12,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfoV4
+from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfoV2
 from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
 from mlflow.tracing.constant import TraceMetadataKey
 
@@ -57,7 +58,9 @@ class TraceInfo(_MlflowObject):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the TraceInfoV3 object to a dictionary."""
-        res = MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+        # MessageToDict is untyped upstream (protobuf stubs not installed); the typed
+        # local converts the resulting `Any` without adding a runtime call.
+        res: dict[str, Any] = MessageToDict(self.to_proto(), preserving_proto_field_name=True)
         if self.execution_duration is not None:
             res.pop("execution_duration", None)
             res["execution_duration_ms"] = self.execution_duration
@@ -117,18 +120,21 @@ class TraceInfo(_MlflowObject):
             response_preview=self.response_preview,
             request_time=request_time,
             execution_duration=execution_duration,
-            state=self.state.to_proto(),
+            # The proto enum field is typed as its EnumTypeWrapper class; cast the raw int back.
+            state=cast(ProtoTraceInfoV3.State, self.state.to_proto()),
             trace_metadata=_truncate_request_metadata(self.trace_metadata),
             tags=_truncate_tags(self.tags),
             assessments=[a.to_proto() for a in self.assessments],
         )
 
     @classmethod
-    def from_proto(cls, proto) -> "TraceInfo":
+    def from_proto(cls, proto: ProtoTraceInfoV3 | ProtoTraceInfoV4) -> "TraceInfo":
         if "request_id" in proto.DESCRIPTOR.fields_by_name:
+            # Presence of the `request_id` field identifies a V2 proto, which is not
+            # representable in the declared parameter union above.
             from mlflow.entities.trace_info_v2 import TraceInfoV2
 
-            return TraceInfoV2.from_proto(proto).to_v3()
+            return TraceInfoV2.from_proto(cast(ProtoTraceInfoV2, proto)).to_v3()
 
         # import inside the function to avoid introducing top-level dependency on
         # mlflow.tracing.utils in entities module
@@ -176,14 +182,15 @@ class TraceInfo(_MlflowObject):
         An MLflow experiment ID associated with the trace, if the trace is stored
         in MLflow tracking server. Otherwise, None.
         """
-        return (
-            self.trace_location.mlflow_experiment
-            and self.trace_location.mlflow_experiment.experiment_id
-        )
+        experiment = self.trace_location.mlflow_experiment
+        # An `MlflowExperimentLocation` instance is always truthy, so this is equivalent to
+        # the previous `experiment and experiment.experiment_id` expression.
+        return experiment.experiment_id if experiment is not None else None
 
     @experiment_id.setter
     def experiment_id(self, value: str | None) -> None:
-        self.trace_location.mlflow_experiment.experiment_id = value
+        # Assumes the location is an MLflow experiment; raises AttributeError otherwise.
+        self.trace_location.mlflow_experiment.experiment_id = value  # type: ignore[union-attr]
 
     @property
     def request_metadata(self) -> dict[str, str]:
@@ -233,7 +240,9 @@ class TraceInfo(_MlflowObject):
             support token usage tracking.
         """
         if usage_json := self.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
-            return json.loads(usage_json)
+            # json.loads returns Any; the metadata is always written as a token-usage dict.
+            token_usage: dict[str, int] = json.loads(usage_json)
+            return token_usage
         return None
 
     @property
@@ -255,7 +264,9 @@ class TraceInfo(_MlflowObject):
             support cost tracking.
         """
         if cost_json := self.trace_metadata.get(TraceMetadataKey.COST):
-            return json.loads(cost_json)
+            # json.loads returns Any; the metadata is always written as a cost dict.
+            cost: dict[str, float] = json.loads(cost_json)
+            return cost
         return None
 
     def _is_v4(self) -> bool:

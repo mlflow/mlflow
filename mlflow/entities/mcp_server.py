@@ -19,7 +19,7 @@ class MCPStatus(str, Enum):
     DEPRECATED = "deprecated"
     DELETED = "deleted"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
 
@@ -34,7 +34,7 @@ class MCPRemoteTransportType(str, Enum):
     STREAMABLE_HTTP = "streamable-http"
     SSE = "sse"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
 
@@ -146,7 +146,7 @@ class MCPServer:
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.workspace = resolve_entity_workspace_name(self.workspace)
 
     @classmethod
