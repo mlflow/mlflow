@@ -1,9 +1,10 @@
 import { ChainIcon, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { getModelTraceId, type ModelTrace, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import type { MutableRefObject } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { ExperimentSingleChatIcon } from './ExperimentSingleChatIcon';
 import { FormattedMessage } from 'react-intl';
+import { useInfiniteScrollFetch } from './useInfiniteScrollFetch';
 
 export const ExperimentSingleChatSessionSidebar = ({
   traces,
@@ -11,14 +12,22 @@ export const ExperimentSingleChatSessionSidebar = ({
   setSelectedTurnIndex,
   setSelectedTrace,
   chatRefs,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
 }: {
   traces: ModelTrace[];
   selectedTurnIndex: number | null;
   setSelectedTurnIndex: (turnIndex: number | null) => void;
   setSelectedTrace: (trace: ModelTrace) => void;
   chatRefs: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const onScroll = useInfiniteScrollFetch({ containerRef, fetchNextPage, hasNextPage, isFetchingNextPage });
 
   const scrollToTrace = useCallback(
     (trace: ModelTrace) => {
@@ -36,6 +45,8 @@ export const ExperimentSingleChatSessionSidebar = ({
 
   return (
     <div
+      ref={containerRef}
+      onScroll={onScroll}
       css={{
         minHeight: 0,
         width: 200,
