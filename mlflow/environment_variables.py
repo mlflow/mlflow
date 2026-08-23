@@ -1537,6 +1537,15 @@ MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None
 )
 
+#: Selects the engine that runs server-side jobs. ``"huey"`` (default) uses the
+#: built-in Huey consumers. ``"executor"`` routes job execution through the
+#: ``AbstractJobExecutor`` framework (``LocalJobExecutor`` by default). Periodic
+#: tasks always run on Huey regardless of this setting.
+#: (default: ``"huey"``)
+MLFLOW_SERVER_JOB_EXECUTION_ENGINE = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_EXECUTION_ENGINE", str, "huey"
+)
+
 #: Default timeout in seconds applied by the executor framework when a job
 #: submission does not specify one explicitly.
 #: (default: ``3600.0``)

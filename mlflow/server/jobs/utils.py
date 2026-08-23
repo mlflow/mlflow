@@ -22,6 +22,7 @@ from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_LOGGING_LEVEL,
+    MLFLOW_SERVER_JOB_EXECUTION_ENGINE,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
     MLFLOW_WORKSPACE,
@@ -741,6 +742,49 @@ def _launch_job_runner(env_map, server_proc_pid):
             MLFLOW_SERVER_UP_TIME: server_up_time,
         },
     )
+
+
+_VALID_JOB_EXECUTION_ENGINES = ("huey", "executor")
+
+
+def get_job_execution_engine() -> str:
+    """Return the validated, case-normalized job execution engine.
+
+    Raises ``MlflowException`` for any value other than ``"huey"`` or ``"executor"``
+    (after case-normalization), so an unrecognized value fails loudly instead of
+    silently falling back to Huey and disabling the feature.
+    """
+    engine = MLFLOW_SERVER_JOB_EXECUTION_ENGINE.get().strip().lower()
+    if engine not in _VALID_JOB_EXECUTION_ENGINES:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value for {MLFLOW_SERVER_JOB_EXECUTION_ENGINE.name}: {engine!r}. "
+            f"Valid values are {_VALID_JOB_EXECUTION_ENGINES}."
+        )
+    return engine
+
+
+def _launch_executor_runner(env_map, server_proc_pid):
+    server_up_time = str(int(time.time() * 1000))
+    return subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow.server.jobs._executor_runner",
+        ],
+        env={
+            **os.environ,
+            **env_map,
+            "MLFLOW_SERVER_PID": str(server_proc_pid),
+            MLFLOW_SERVER_UP_TIME: server_up_time,
+        },
+    )
+
+
+def _launch_job_execution_runner(env_map, server_proc_pid):
+    """Launch the job runner for the configured execution engine."""
+    if get_job_execution_engine() == "executor":
+        return _launch_executor_runner(env_map, server_proc_pid)
+    return _launch_job_runner(env_map, server_proc_pid)
 
 
 def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval: float = 1.0) -> None:
