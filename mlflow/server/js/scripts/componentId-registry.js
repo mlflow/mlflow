@@ -2000,7 +2000,7 @@ module.exports = {
   "mlflow.settings.general.preferences-card": "",
   "mlflow.settings.telemetry.documentation-link": "",
   "mlflow.settings.telemetry.toggle-switch": "",
-  "mlflow.settings.theme.toggle-switch": "",
+  "mlflow.settings.theme.selector": "",
   "mlflow.settings.webhooks.create-button": "",
   "mlflow.settings.webhooks.delete-button": "",
   "mlflow.settings.webhooks.delete-modal": "",

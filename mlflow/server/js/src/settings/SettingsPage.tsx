@@ -1,6 +1,17 @@
-import { Button, Card, Modal, Spinner, Switch, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  Card,
+  Modal,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  Spinner,
+  Switch,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
+import type { MLflowThemePreference } from '../common/hooks/useMLflowDarkTheme';
 import { TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from '../telemetry/utils';
 import { telemetryClient } from '../telemetry';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -79,8 +90,7 @@ const SettingsPage = () => {
   const { section: sectionParam } = useParams();
   const [isCleaningDemo, setIsCleaningDemo] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const { setIsDarkTheme } = useDarkThemeContext();
-  const isDarkTheme = theme.isDarkMode;
+  const { themePreference, setThemePreference } = useDarkThemeContext();
 
   const activeSection: SettingsPathSegment = useMemo(() => {
     if (sectionParam && isSettingsPathSegment(sectionParam)) {
@@ -118,11 +128,11 @@ const SettingsPage = () => {
     [setIsTelemetryEnabled],
   );
 
-  const handleThemeToggle = useCallback(
-    (checked: boolean) => {
-      setIsDarkTheme(checked);
+  const handleThemePreferenceChange = useCallback(
+    (e) => {
+      setThemePreference(e.target.value as MLflowThemePreference);
     },
-    [setIsDarkTheme],
+    [setThemePreference],
   );
 
   const handleClearAllDemoData = useCallback(async () => {
@@ -176,18 +186,25 @@ const SettingsPage = () => {
               <SettingsRow
                 isFirst
                 trailing={
-                  <Switch
-                    componentId="mlflow.settings.theme.toggle-switch"
-                    checked={isDarkTheme}
-                    onChange={handleThemeToggle}
-                    label={
-                      isDarkTheme
-                        ? intl.formatMessage({ defaultMessage: 'Dark', description: 'Dark theme label' })
-                        : intl.formatMessage({ defaultMessage: 'Light', description: 'Light theme label' })
-                    }
-                    activeLabel={intl.formatMessage({ defaultMessage: 'Dark', description: 'Dark theme label' })}
-                    inactiveLabel={intl.formatMessage({ defaultMessage: 'Light', description: 'Light theme label' })}
-                  />
+                  <SegmentedControlGroup
+                    componentId="mlflow.settings.theme.selector"
+                    name="theme-preference"
+                    value={themePreference}
+                    onChange={handleThemePreferenceChange}
+                  >
+                    <SegmentedControlButton value="system">
+                      <FormattedMessage
+                        defaultMessage="System"
+                        description="Follow system color scheme theme preference label"
+                      />
+                    </SegmentedControlButton>
+                    <SegmentedControlButton value="light">
+                      <FormattedMessage defaultMessage="Light" description="Light theme preference label" />
+                    </SegmentedControlButton>
+                    <SegmentedControlButton value="dark">
+                      <FormattedMessage defaultMessage="Dark" description="Dark theme preference label" />
+                    </SegmentedControlButton>
+                  </SegmentedControlGroup>
                 }
               >
                 <Typography.Title level={4} withoutMargins>
@@ -195,7 +212,7 @@ const SettingsPage = () => {
                 </Typography.Title>
                 <Typography.Text>
                   <FormattedMessage
-                    defaultMessage="Select your theme preference between light and dark."
+                    defaultMessage="Follow your system color scheme, or choose light or dark."
                     description="Description for the theme setting in the settings page"
                   />
                 </Typography.Text>

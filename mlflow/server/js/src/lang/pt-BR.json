@@ -9563,10 +9563,6 @@
     "defaultMessage" : "Clique em uma execução individual para ver todos os modelos associados a ela",
     "description" : "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
   },
-  "c1it6D" : {
-    "defaultMessage" : "Selecione sua preferência de tema entre claro e escuro.",
-    "description" : "Description for the theme setting in the settings page"
-  },
   "c1jD8u" : {
     "defaultMessage" : "Criar um conjunto de dados de avaliação",
     "description" : "Evaluation datasets empty state title"
@@ -11239,10 +11235,6 @@
     "defaultMessage" : "Duração do treinamento",
     "description" : "Run Page > FinetuneParamsTable > Training Duration"
   },
-  "ioD6Ho" : {
-    "defaultMessage" : "Escuro",
-    "description" : "Dark theme label"
-  },
   "ipMyYm" : {
     "defaultMessage" : "Intervalos",
     "description" : "Label for the spans telemetry table"
@@ -11934,10 +11926,6 @@
   "lNO3kK" : {
     "defaultMessage" : "Sem parâmetros para apresentar.",
     "description" : "Text shown when there are no parameters to display"
-  },
-  "lNv2QR" : {
-    "defaultMessage" : "Claro",
-    "description" : "Light theme label"
   },
   "lOfzvM" : {
     "defaultMessage" : "Ao treinar os notebooks, o AutoML codificou caraterísticas com base em transformações categóricas.",
@@ -15582,5 +15570,21 @@
   "zzrjqF" : {
     "defaultMessage" : "Remover",
     "description" : "Tooltip text for removing a selected item"
+  },
+  "aBuJid" : {
+    "defaultMessage" : "Sistema",
+    "description" : "Follow system color scheme theme preference label"
+  },
+  "RwEpXi" : {
+    "defaultMessage" : "Claro",
+    "description" : "Light theme preference label"
+  },
+  "YW+c+F" : {
+    "defaultMessage" : "Escuro",
+    "description" : "Dark theme preference label"
+  },
+  "dBPk0s" : {
+    "defaultMessage" : "Seguir o esquema de cores do sistema ou escolher claro ou escuro.",
+    "description" : "Description for the theme setting in the settings page"
   }
 }

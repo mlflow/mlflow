@@ -9563,10 +9563,6 @@
     "defaultMessage" : "個々の実行をクリックすると、それに関連付けられているすべてのモデルが表示されます。",
     "description" : "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
   },
-  "c1it6D" : {
-    "defaultMessage" : "テーマ設定をライトかダークで選択します。",
-    "description" : "Description for the theme setting in the settings page"
-  },
   "c1jD8u" : {
     "defaultMessage" : "評価データセットを作成",
     "description" : "Evaluation datasets empty state title"
@@ -11239,10 +11235,6 @@
     "defaultMessage" : "トレーニング期間",
     "description" : "Run Page > FinetuneParamsTable > Training Duration"
   },
-  "ioD6Ho" : {
-    "defaultMessage" : "ダーク",
-    "description" : "Dark theme label"
-  },
   "ipMyYm" : {
     "defaultMessage" : "スパン",
     "description" : "Label for the spans telemetry table"
@@ -11934,10 +11926,6 @@
   "lNO3kK" : {
     "defaultMessage" : "表示するパラメータがありません。",
     "description" : "Text shown when there are no parameters to display"
-  },
-  "lNv2QR" : {
-    "defaultMessage" : "ライト",
-    "description" : "Light theme label"
   },
   "lOfzvM" : {
     "defaultMessage" : "学習用ノートブックはカテゴリに応じた変換に基づき特徴量を符号化しました。",
@@ -15582,5 +15570,21 @@
   "zzrjqF" : {
     "defaultMessage" : "削除",
     "description" : "Tooltip text for removing a selected item"
+  },
+  "aBuJid" : {
+    "defaultMessage" : "システム",
+    "description" : "Follow system color scheme theme preference label"
+  },
+  "RwEpXi" : {
+    "defaultMessage" : "ライト",
+    "description" : "Light theme preference label"
+  },
+  "YW+c+F" : {
+    "defaultMessage" : "ダーク",
+    "description" : "Dark theme preference label"
+  },
+  "dBPk0s" : {
+    "defaultMessage" : "システムの配色に従うか、ライトかダークを選択します。",
+    "description" : "Description for the theme setting in the settings page"
   }
 }

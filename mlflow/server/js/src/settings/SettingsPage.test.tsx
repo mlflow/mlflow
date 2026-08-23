@@ -40,7 +40,7 @@ describe('SettingsPage', () => {
             path="/settings/:section"
             element={
               <DesignSystemProvider>
-                <DarkThemeProvider setIsDarkTheme={() => {}}>
+                <DarkThemeProvider themePreference="system" setThemePreference={() => {}}>
                   <SettingsPage />
                 </DarkThemeProvider>
               </DesignSystemProvider>

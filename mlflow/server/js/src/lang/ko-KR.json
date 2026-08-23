@@ -9563,10 +9563,6 @@
     "defaultMessage" : "개별 실행을 클릭하면 관련된 모든 모델을 볼 수 있습니다",
     "description" : "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
   },
-  "c1it6D" : {
-    "defaultMessage" : "테마 기본 설정을 밝은 테마와 어두운 테마 중에서 선택하세요.",
-    "description" : "Description for the theme setting in the settings page"
-  },
   "c1jD8u" : {
     "defaultMessage" : "평가 데이터 집합 만들기",
     "description" : "Evaluation datasets empty state title"
@@ -11239,10 +11235,6 @@
     "defaultMessage" : "트레이닝 기간",
     "description" : "Run Page > FinetuneParamsTable > Training Duration"
   },
-  "ioD6Ho" : {
-    "defaultMessage" : "다크",
-    "description" : "Dark theme label"
-  },
   "ipMyYm" : {
     "defaultMessage" : "기간",
     "description" : "Label for the spans telemetry table"
@@ -11934,10 +11926,6 @@
   "lNO3kK" : {
     "defaultMessage" : "표시할 매개 변수가 없습니다.",
     "description" : "Text shown when there are no parameters to display"
-  },
-  "lNv2QR" : {
-    "defaultMessage" : "라이트",
-    "description" : "Light theme label"
   },
   "lOfzvM" : {
     "defaultMessage" : "학습 노트북이 범주형 변환을 기반으로 기능을 인코딩했습니다.",
@@ -15582,5 +15570,21 @@
   "zzrjqF" : {
     "defaultMessage" : "제거",
     "description" : "Tooltip text for removing a selected item"
+  },
+  "aBuJid" : {
+    "defaultMessage" : "시스템",
+    "description" : "Follow system color scheme theme preference label"
+  },
+  "RwEpXi" : {
+    "defaultMessage" : "라이트",
+    "description" : "Light theme preference label"
+  },
+  "YW+c+F" : {
+    "defaultMessage" : "다크",
+    "description" : "Dark theme preference label"
+  },
+  "dBPk0s" : {
+    "defaultMessage" : "시스템 색 구성표를 따르거나 밝은 테마 또는 어두운 테마를 선택하세요.",
+    "description" : "Description for the theme setting in the settings page"
   }
 }

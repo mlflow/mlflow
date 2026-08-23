@@ -9563,10 +9563,6 @@
     "defaultMessage" : "Haga clic en una ejecución individual para ver todos los modelos asociados a ella",
     "description" : "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
   },
-  "c1it6D" : {
-    "defaultMessage" : "Seleccione su preferencia de tema entre claro y oscuro.",
-    "description" : "Description for the theme setting in the settings page"
-  },
   "c1jD8u" : {
     "defaultMessage" : "Crear un conjunto de datos de evaluación",
     "description" : "Evaluation datasets empty state title"
@@ -11239,10 +11235,6 @@
     "defaultMessage" : "Duración del entrenamiento",
     "description" : "Run Page > FinetuneParamsTable > Training Duration"
   },
-  "ioD6Ho" : {
-    "defaultMessage" : "Oscuro",
-    "description" : "Dark theme label"
-  },
   "ipMyYm" : {
     "defaultMessage" : "Intervalos",
     "description" : "Label for the spans telemetry table"
@@ -11934,10 +11926,6 @@
   "lNO3kK" : {
     "defaultMessage" : "No hay parámetros que mostrar.",
     "description" : "Text shown when there are no parameters to display"
-  },
-  "lNv2QR" : {
-    "defaultMessage" : "Claro",
-    "description" : "Light theme label"
   },
   "lOfzvM" : {
     "defaultMessage" : "El cuaderno de entrenamiento codificó las características en función de transformaciones categóricas.",
@@ -15582,5 +15570,21 @@
   "zzrjqF" : {
     "defaultMessage" : "Eliminar",
     "description" : "Tooltip text for removing a selected item"
+  },
+  "aBuJid" : {
+    "defaultMessage" : "Sistema",
+    "description" : "Follow system color scheme theme preference label"
+  },
+  "RwEpXi" : {
+    "defaultMessage" : "Claro",
+    "description" : "Light theme preference label"
+  },
+  "YW+c+F" : {
+    "defaultMessage" : "Oscuro",
+    "description" : "Dark theme preference label"
+  },
+  "dBPk0s" : {
+    "defaultMessage" : "Seguir el esquema de color del sistema o elegir claro u oscuro.",
+    "description" : "Description for the theme setting in the settings page"
   }
 }

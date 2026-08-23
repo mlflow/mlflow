@@ -1,21 +1,28 @@
 import React, { createContext, useContext } from 'react';
+import type { MLflowThemePreference } from '../hooks/useMLflowDarkTheme';
 
 interface DarkThemeContextType {
-  setIsDarkTheme: (isDarkTheme: boolean) => void;
+  themePreference: MLflowThemePreference;
+  setThemePreference: (themePreference: MLflowThemePreference) => void;
 }
 
 const DarkThemeContext = createContext<DarkThemeContextType>({
-  setIsDarkTheme: () => {},
+  themePreference: 'system',
+  setThemePreference: () => {},
 });
 
 export const DarkThemeProvider = ({
   children,
-  setIsDarkTheme,
+  themePreference,
+  setThemePreference,
 }: {
   children: React.ReactNode;
-  setIsDarkTheme: (isDarkTheme: boolean) => void;
+  themePreference: MLflowThemePreference;
+  setThemePreference: (themePreference: MLflowThemePreference) => void;
 }) => {
-  return <DarkThemeContext.Provider value={{ setIsDarkTheme }}>{children}</DarkThemeContext.Provider>;
+  return (
+    <DarkThemeContext.Provider value={{ themePreference, setThemePreference }}>{children}</DarkThemeContext.Provider>
+  );
 };
 
 export const useDarkThemeContext = () => useContext(DarkThemeContext);

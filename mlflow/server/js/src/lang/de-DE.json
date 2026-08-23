@@ -9563,10 +9563,6 @@
     "defaultMessage" : "Klicken Sie auf eine einzelne Ausführung, um alle damit verbundenen Modelle anzuzeigen",
     "description" : "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
   },
-  "c1it6D" : {
-    "defaultMessage" : "Wählen Sie Ihr bevorzugtes Design: hell oder dunkel.",
-    "description" : "Description for the theme setting in the settings page"
-  },
   "c1jD8u" : {
     "defaultMessage" : "Evaluierungsdatensatz erstellen",
     "description" : "Evaluation datasets empty state title"
@@ -11239,10 +11235,6 @@
     "defaultMessage" : "Trainingsdauer",
     "description" : "Run Page > FinetuneParamsTable > Training Duration"
   },
-  "ioD6Ho" : {
-    "defaultMessage" : "Dunkel",
-    "description" : "Dark theme label"
-  },
   "ipMyYm" : {
     "defaultMessage" : "Spannen",
     "description" : "Label for the spans telemetry table"
@@ -11934,10 +11926,6 @@
   "lNO3kK" : {
     "defaultMessage" : "Keine Parameter verfügbar.",
     "description" : "Text shown when there are no parameters to display"
-  },
-  "lNv2QR" : {
-    "defaultMessage" : "Hell",
-    "description" : "Light theme label"
   },
   "lOfzvM" : {
     "defaultMessage" : "Die Training-Notebooks kodierten Features auf Grundlage kategorischer Transformationen.",
@@ -15582,5 +15570,21 @@
   "zzrjqF" : {
     "defaultMessage" : "Entfernen",
     "description" : "Tooltip text for removing a selected item"
+  },
+  "aBuJid" : {
+    "defaultMessage" : "System",
+    "description" : "Follow system color scheme theme preference label"
+  },
+  "RwEpXi" : {
+    "defaultMessage" : "Hell",
+    "description" : "Light theme preference label"
+  },
+  "YW+c+F" : {
+    "defaultMessage" : "Dunkel",
+    "description" : "Dark theme preference label"
+  },
+  "dBPk0s" : {
+    "defaultMessage" : "Dem Farbschema des Systems folgen oder Hell bzw. Dunkel wählen.",
+    "description" : "Description for the theme setting in the settings page"
   }
 }

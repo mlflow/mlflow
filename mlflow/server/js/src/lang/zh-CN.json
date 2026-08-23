@@ -9563,10 +9563,6 @@
     "defaultMessage" : "单击进入单个运行以查看与其关联的所有模型",
     "description" : "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
   },
-  "c1it6D" : {
-    "defaultMessage" : "在浅色和深色之间选择您喜欢的主题。",
-    "description" : "Description for the theme setting in the settings page"
-  },
   "c1jD8u" : {
     "defaultMessage" : "创建评估数据集",
     "description" : "Evaluation datasets empty state title"
@@ -11239,10 +11235,6 @@
     "defaultMessage" : "训练时间",
     "description" : "Run Page > FinetuneParamsTable > Training Duration"
   },
-  "ioD6Ho" : {
-    "defaultMessage" : "深色",
-    "description" : "Dark theme label"
-  },
   "ipMyYm" : {
     "defaultMessage" : "范围",
     "description" : "Label for the spans telemetry table"
@@ -11934,10 +11926,6 @@
   "lNO3kK" : {
     "defaultMessage" : "没有可显示的参数。",
     "description" : "Text shown when there are no parameters to display"
-  },
-  "lNv2QR" : {
-    "defaultMessage" : "浅色",
-    "description" : "Light theme label"
   },
   "lOfzvM" : {
     "defaultMessage" : "训练笔记本根据分类转换对功能进行了编码。",
@@ -15582,5 +15570,21 @@
   "zzrjqF" : {
     "defaultMessage" : "移除",
     "description" : "Tooltip text for removing a selected item"
+  },
+  "aBuJid" : {
+    "defaultMessage" : "系统",
+    "description" : "Follow system color scheme theme preference label"
+  },
+  "RwEpXi" : {
+    "defaultMessage" : "浅色",
+    "description" : "Light theme preference label"
+  },
+  "YW+c+F" : {
+    "defaultMessage" : "深色",
+    "description" : "Dark theme preference label"
+  },
+  "dBPk0s" : {
+    "defaultMessage" : "跟随系统配色，或选择浅色或深色。",
+    "description" : "Description for the theme setting in the settings page"
   }
 }

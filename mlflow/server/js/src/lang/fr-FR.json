@@ -9563,10 +9563,6 @@
     "defaultMessage" : "Cliquez sur une exécution individuelle pour afficher tous les modèles qui lui sont associés",
     "description" : "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
   },
-  "c1it6D" : {
-    "defaultMessage" : "Choisissez votre thème préféré, à savoir clair ou foncé.",
-    "description" : "Description for the theme setting in the settings page"
-  },
   "c1jD8u" : {
     "defaultMessage" : "Créer un jeu de données d'évaluation",
     "description" : "Evaluation datasets empty state title"
@@ -11239,10 +11235,6 @@
     "defaultMessage" : "Durée d'entraînement",
     "description" : "Run Page > FinetuneParamsTable > Training Duration"
   },
-  "ioD6Ho" : {
-    "defaultMessage" : "Sombre",
-    "description" : "Dark theme label"
-  },
   "ipMyYm" : {
     "defaultMessage" : "Portées",
     "description" : "Label for the spans telemetry table"
@@ -11934,10 +11926,6 @@
   "lNO3kK" : {
     "defaultMessage" : "Aucun paramètre à afficher.",
     "description" : "Text shown when there are no parameters to display"
-  },
-  "lNv2QR" : {
-    "defaultMessage" : "Clair",
-    "description" : "Light theme label"
   },
   "lOfzvM" : {
     "defaultMessage" : "Les notebooks d'entraînement ont encodé les features en fonction des transformations catégorielles.",
@@ -15582,5 +15570,21 @@
   "zzrjqF" : {
     "defaultMessage" : "Supprimer",
     "description" : "Tooltip text for removing a selected item"
+  },
+  "aBuJid" : {
+    "defaultMessage" : "Système",
+    "description" : "Follow system color scheme theme preference label"
+  },
+  "RwEpXi" : {
+    "defaultMessage" : "Clair",
+    "description" : "Light theme preference label"
+  },
+  "YW+c+F" : {
+    "defaultMessage" : "Sombre",
+    "description" : "Dark theme preference label"
+  },
+  "dBPk0s" : {
+    "defaultMessage" : "Suivre le jeu de couleurs du système ou choisir clair ou sombre.",
+    "description" : "Description for the theme setting in the settings page"
   }
 }

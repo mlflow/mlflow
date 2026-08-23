@@ -6963,6 +6963,10 @@
     "defaultMessage": "Name must start and end with a letter or digit, be less than 63 characters long, and contain only letters, digits, dots (.), underscores (_), and hyphens (-).",
     "description": "Webhook name validation error"
   },
+  "RwEpXi": {
+    "defaultMessage": "Light",
+    "description": "Light theme preference label"
+  },
   "Rwi+VC": {
     "defaultMessage": "avg score",
     "description": "Subtitle for average assessment score"
@@ -8579,6 +8583,10 @@
     "defaultMessage": "Start:",
     "description": "Label for the start time of a span"
   },
+  "YW+c+F": {
+    "defaultMessage": "Dark",
+    "description": "Dark theme preference label"
+  },
   "YXS+Tk": {
     "defaultMessage": "You're viewing a shared view. Your changes won't be saved unless you override your own view.",
     "description": "Traces page > shared view banner explaining that changes are not persisted while previewing"
@@ -8970,6 +8978,10 @@
   "aB6xFd": {
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
+  },
+  "aBuJid": {
+    "defaultMessage": "System",
+    "description": "Follow system color scheme theme preference label"
   },
   "aCzpU3": {
     "defaultMessage": "Off",
@@ -9411,10 +9423,6 @@
     "defaultMessage": "Delete dataset",
     "description": "Overflow-menu item to delete the current V2 evaluation dataset from its detail page"
   },
-  "c1it6D": {
-    "defaultMessage": "Select your theme preference between light and dark.",
-    "description": "Description for the theme setting in the settings page"
-  },
   "c1jD8u": {
     "defaultMessage": "Create an evaluation dataset",
     "description": "Evaluation datasets empty state title"
@@ -9722,6 +9730,10 @@
   "dA7hRP": {
     "defaultMessage": "Could not save. Try again.",
     "description": "Inline error shown when logging thumbs feedback fails in a custom trace view"
+  },
+  "dBPk0s": {
+    "defaultMessage": "Follow your system color scheme, or choose light or dark.",
+    "description": "Description for the theme setting in the settings page"
   },
   "dDbfnY": {
     "defaultMessage": "{count} {count, plural, one {hour} other {hours}}",
@@ -11247,10 +11259,6 @@
     "defaultMessage": "ID",
     "description": "Label for the ID section"
   },
-  "ioD6Ho": {
-    "defaultMessage": "Dark",
-    "description": "Dark theme label"
-  },
   "iq1aqV": {
     "defaultMessage": "Create dataset",
     "description": "Button label that opens the create-dataset modal on the v2 datasets list"
@@ -11870,10 +11878,6 @@
   "lNO3kK": {
     "defaultMessage": "No parameters to display.",
     "description": "Text shown when there are no parameters to display"
-  },
-  "lNv2QR": {
-    "defaultMessage": "Light",
-    "description": "Light theme label"
   },
   "lPNTq7": {
     "defaultMessage": "Metrics ({length})",
