@@ -19,6 +19,20 @@ _logger = logging.getLogger(__name__)
 _gateway_uri: str | None = None
 
 DATABRICKS_SERVING_ENDPOINTS_PATH = "/serving-endpoints"
+_DATABRICKS_AI_GATEWAY_PATH = "ai-gateway/mlflow/v1"
+
+
+def _is_unity_catalog_model_name(model_name: str) -> bool:
+    """Whether a Databricks model name is a Unity Catalog FQN (three-level, served via AI Gateway).
+
+    Unity Catalog names follow ``<catalog>.<schema>.<model>`` (e.g. ``system.ai.claude-haiku-4-5``)
+    and contain at least two dots. Serving endpoint names are restricted to ``[a-zA-Z0-9_-]+`` and
+    cannot contain dots, so this shape check reliably distinguishes the two surfaces.
+
+    Requiring two separators keeps a one-dot name from being silently misrouted; such a name is
+    also invalid as a serving endpoint, so the legacy path will produce a clearer error.
+    """
+    return model_name.count(".") >= 2
 
 
 def normalize_databricks_base_url(base_url: str | None) -> str | None:
