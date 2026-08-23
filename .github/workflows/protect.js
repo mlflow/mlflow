@@ -11,7 +11,20 @@ module.exports = async ({ github, context }) => {
   const {
     repo: { owner, repo },
   } = context;
-  const { sha } = context.payload.pull_request.head;
+  const pullRequest = context.payload.pull_request;
+  const { sha } = pullRequest.head;
+
+  // TODO: Remove this once stacked PRs support force-merging.
+  // The `unprotect` label bypasses this check on stacked PRs, which can't be
+  // force-merged like regular PRs (`gh pr merge --admin`). The `stack` property
+  // is only present while the PR belongs to a stack.
+  if (pullRequest.labels.some(({ name }) => name === "unprotect")) {
+    if (pullRequest.stack) {
+      console.log("The `unprotect` label is present on a stacked PR. Skipping this check.");
+      return;
+    }
+    console.log("Ignoring the `unprotect` label: it is only valid on stacked PRs.");
+  }
 
   const STATE = {
     pending: "pending",

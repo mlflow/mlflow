@@ -18,13 +18,14 @@ mlflow/demo/
     ├── __init__.py          # Registers generators (order matters!)
     ├── prompts.py           # Prompt versions and aliases
     ├── traces.py            # Sample traces with various patterns
+    ├── custom_view.py       # Saved custom view (span I/O cards + accuracy form)
     ├── evaluation.py        # Evaluation runs and datasets
     ├── judges.py            # Registered LLM judges
     ├── issues.py            # Detected issues linked to failing traces
     └── review_queues.py     # Review queues, label schemas, and queued items
 ```
 
-**Generator order matters** - some generators depend on others (e.g., traces depend on prompts, evaluation depends on traces).
+**Generator order matters** - some generators depend on others (e.g., traces depend on prompts, the custom view and evaluation depend on traces).
 
 ## API Endpoints
 

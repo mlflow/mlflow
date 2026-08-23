@@ -155,6 +155,13 @@ jobs:
         with:
           enable-cache: false
 
+      - name: Install ripgrep
+        run: |
+          curl -LsSf https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz -o /tmp/rg.tar.gz
+          tar xzf /tmp/rg.tar.gz -C /tmp
+          sudo mv /tmp/ripgrep-15.2.0-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
+          rg --version
+
       - name: Parse review flags
         id: flags
         env:
