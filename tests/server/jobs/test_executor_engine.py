@@ -24,7 +24,8 @@ from mlflow.server.jobs.utils import (
 from mlflow.store.jobs.abstract_store import JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
 
 pytestmark = [
     pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
@@ -511,3 +512,167 @@ def test_long_running_job_lease_is_renewed(registered_jobs, job_store, executor,
 
     assert created.job_id in renew_calls
     assert job_store.get_job(created.job_id).status == JobStatus.SUCCEEDED
+
+
+# ---------------------------------------------------------------------------
+# Startup stale-job recovery
+# ---------------------------------------------------------------------------
+
+
+def _expired_now():
+    # A "now" far in the future so a normally-set lease looks expired.
+    return get_current_time_millis() + 10**9
+
+
+def test_recovery_resets_running_job_with_expired_lease(registered_jobs, job_store):
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    assert job_store.claim_job(created.job_id, 60.0) == JobUpdateStatus.APPLIED
+
+    with mock.patch.object(runner, "get_current_time_millis", side_effect=_expired_now):
+        runner._recover_orphaned_jobs(job_store)
+
+    assert job_store.get_job(created.job_id).status == JobStatus.PENDING
+
+
+def test_recovery_leaves_running_job_with_valid_lease(registered_jobs, job_store):
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    assert job_store.claim_job(created.job_id, 60.0) == JobUpdateStatus.APPLIED
+
+    runner._recover_orphaned_jobs(job_store)
+
+    # A live worker still holds a valid lease, so the job is left RUNNING.
+    assert job_store.get_job(created.job_id).status == JobStatus.RUNNING
+
+
+def test_recovery_resets_needs_recovery_job(registered_jobs, job_store):
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(created.job_id, 60.0)
+    assert job_store.mark_job_needs_recovery(created.job_id) == JobUpdateStatus.APPLIED
+
+    runner._recover_orphaned_jobs(job_store)
+
+    assert job_store.get_job(created.job_id).status == JobStatus.PENDING
+
+
+def test_recovery_leaves_finalized_jobs_untouched(registered_jobs, job_store):
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(created.job_id, 60.0)
+    job_store.finish_job(created.job_id, "3")
+
+    runner._recover_orphaned_jobs(job_store)
+
+    assert job_store.get_job(created.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_recovered_job_reruns_on_next_poll(registered_jobs, job_store, executor):
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 2, "y": 3}))
+    job_store.claim_job(created.job_id, 60.0)
+
+    with mock.patch.object(runner, "get_current_time_millis", side_effect=_expired_now):
+        runner._recover_orphaned_jobs(job_store)
+    assert job_store.get_job(created.job_id).status == JobStatus.PENDING
+
+    executed = runner._poll_and_execute_once(job_store, executor, lease_duration=60.0)
+
+    assert executed == 1
+    updated = job_store.get_job(created.job_id)
+    assert updated.status == JobStatus.SUCCEEDED
+    assert updated.result == "5"
+
+
+def test_recovery_is_scoped_per_workspace(registered_jobs, tmp_path, monkeypatch):
+    from mlflow.entities import Workspace
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = WorkspaceAwareSqlAlchemyJobStore(f"sqlite:///{tmp_path / 'ws.db'}")
+
+    created = {}
+    for ws in ("workspace-a", "workspace-b"):
+        with WorkspaceContext(ws):
+            j = store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+            assert store.claim_job(j.job_id, 60.0) == JobUpdateStatus.APPLIED
+            created[ws] = j.job_id
+
+    # Recovery enumerates workspaces via the workspace store; make both visible so each
+    # workspace's orphaned jobs are recovered in that workspace's context.
+    mock_workspace_store = mock.MagicMock()
+    mock_workspace_store.list_workspaces.return_value = [
+        Workspace(name="workspace-a"),
+        Workspace(name="workspace-b"),
+    ]
+    with (
+        mock.patch(
+            "mlflow.server.workspace_helpers._get_workspace_store",
+            return_value=mock_workspace_store,
+        ),
+        mock.patch.object(runner, "get_current_time_millis", side_effect=_expired_now),
+    ):
+        runner._recover_orphaned_jobs(store)
+
+    for ws, job_id in created.items():
+        with WorkspaceContext(ws):
+            assert store.get_job(job_id).status == JobStatus.PENDING
+
+
+def test_recovery_continues_after_reset_failure(registered_jobs, job_store):
+    first = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    second = job_store.create_job("executor_engine_add", json.dumps({"x": 3, "y": 4}))
+    assert job_store.claim_job(first.job_id, 60.0) == JobUpdateStatus.APPLIED
+    assert job_store.claim_job(second.job_id, 60.0) == JobUpdateStatus.APPLIED
+
+    real_reset = job_store.reset_job
+    attempted = []
+
+    def _reset(job_id):
+        attempted.append(job_id)
+        if job_id == first.job_id:
+            raise RuntimeError("reset failed")
+        return real_reset(job_id)
+
+    with (
+        mock.patch.object(job_store, "reset_job", side_effect=_reset),
+        mock.patch.object(runner, "get_current_time_millis", side_effect=_expired_now),
+    ):
+        runner._recover_orphaned_jobs(job_store)
+
+    # Both jobs were attempted; the first one failing did not abort recovery of the second.
+    assert set(attempted) == {first.job_id, second.job_id}
+    assert job_store.get_job(second.job_id).status == JobStatus.PENDING
+
+
+def test_recovery_continues_after_workspace_list_failure(registered_jobs, tmp_path, monkeypatch):
+    from mlflow.entities import Workspace
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = WorkspaceAwareSqlAlchemyJobStore(f"sqlite:///{tmp_path / 'ws.db'}")
+
+    with WorkspaceContext("workspace-b"):
+        j = store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+        assert store.claim_job(j.job_id, 60.0) == JobUpdateStatus.APPLIED
+
+    mock_workspace_store = mock.MagicMock()
+    mock_workspace_store.list_workspaces.return_value = [
+        Workspace(name="workspace-a"),
+        Workspace(name="workspace-b"),
+    ]
+
+    real_list_jobs = store.list_jobs
+
+    def _list_jobs(*args, **kwargs):
+        if get_request_workspace() == "workspace-a":
+            # Listing fails for the first workspace; recovery must continue to the next one.
+            raise RuntimeError("list_jobs failed")
+        return real_list_jobs(*args, **kwargs)
+
+    with (
+        mock.patch(
+            "mlflow.server.workspace_helpers._get_workspace_store",
+            return_value=mock_workspace_store,
+        ),
+        mock.patch.object(store, "list_jobs", side_effect=_list_jobs),
+        mock.patch.object(runner, "get_current_time_millis", side_effect=_expired_now),
+    ):
+        runner._recover_orphaned_jobs(store)
+
+    with WorkspaceContext("workspace-b"):
+        assert store.get_job(j.job_id).status == JobStatus.PENDING

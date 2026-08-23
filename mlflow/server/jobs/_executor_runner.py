@@ -29,6 +29,7 @@ from mlflow.environment_variables import (
 from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutionContext, JobResult
 from mlflow.server.jobs.executor_registry import get_executor_registry
 from mlflow.store.jobs.abstract_store import AbstractJobStore, JobUpdateStatus
+from mlflow.utils.time import get_current_time_millis
 
 # Use an explicit logger name rather than __name__: this module is launched as
 # ``python -m mlflow.server.jobs._executor_runner``, where __name__ is "__main__" and would
@@ -236,14 +237,58 @@ def _poll_and_execute_once(
     return executed
 
 
+def _recover_orphaned_jobs(job_store: AbstractJobStore) -> None:
+    """Requeue jobs a previous runner left mid-flight before the poll loop starts.
+
+    The loop only claims PENDING jobs, so a job that was RUNNING when the server stopped
+    abruptly would otherwise stay RUNNING forever. On startup, reset such jobs back to
+    PENDING so the loop re-claims them. A job whose lease is still valid is left alone: a
+    live worker (for example another replica) may still be running it.
+    """
+    from mlflow.server.jobs.utils import _workspace_contexts_for_recovery
+
+    now = get_current_time_millis()
+    for workspace_ctx in _workspace_contexts_for_recovery():
+        try:
+            with workspace_ctx:
+                unfinished = list(
+                    job_store.list_jobs(statuses=[JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY])
+                )
+                for job in unfinished:
+                    # This assumes a single active runner: recovery runs once at startup,
+                    # before the poll loop, so no lease renewer is running at the same time and
+                    # resetting an expired-lease job is safe. With multiple runners active at
+                    # once, a live worker on another runner could renew this lease between the
+                    # list_jobs call above and the reset_job call below, and the reset would then
+                    # requeue a job that is still running. Fully closing that window needs a
+                    # store-side conditional reset (reset only if the stored lease is still
+                    # expired), which is left to the multi-runner coordination work.
+                    lease_expired = job.lease_expires_at is None or job.lease_expires_at <= now
+                    if job.status != JobStatus.NEEDS_RECOVERY and not lease_expired:
+                        # A live worker still holds this job's lease; leave it running.
+                        continue
+                    _logger.info(
+                        f"Recovering orphaned job {job.job_id} ({job.job_name}) in status "
+                        f"{job.status.value}; resetting to PENDING"
+                    )
+                    try:
+                        job_store.reset_job(job.job_id)
+                    except Exception:
+                        # The job may have left RUNNING/NEEDS_RECOVERY between listing and reset
+                        # (e.g. another worker finalized it), which makes reset_job raise. Skip
+                        # this job and keep recovering the rest.
+                        _logger.exception(f"Failed to reset orphaned job {job.job_id}; skipping")
+        except Exception:
+            # One workspace failing to list or recover must not abort recovery for the others.
+            _logger.exception("Stale-job recovery failed for a workspace; continuing.")
+
+
 def run_executor_loop(
     stop_event: threading.Event | None = None, poll_interval: float = _POLL_INTERVAL
 ) -> None:
     """Run the executor job-execution loop until ``stop_event`` is set."""
     from mlflow.server.handlers import _get_job_store
 
-    # Only PENDING jobs are claimed here. Recovering orphaned RUNNING jobs on server
-    # restart is a follow-up; this loop does not handle it yet.
     stop_event = stop_event or threading.Event()
     job_store = _get_job_store()
     executor = _select_executor()
@@ -253,6 +298,11 @@ def run_executor_loop(
         f"Started executor-backed job runner (backend={MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()})"
     )
     try:
+        try:
+            _recover_orphaned_jobs(job_store)
+        except Exception:
+            # Recovery is best-effort; a failure here must not stop the runner from starting.
+            _logger.exception("Stale-job recovery failed at startup; continuing.")
         while not stop_event.is_set():
             try:
                 executed = _poll_and_execute_once(job_store, executor, lease_duration)
