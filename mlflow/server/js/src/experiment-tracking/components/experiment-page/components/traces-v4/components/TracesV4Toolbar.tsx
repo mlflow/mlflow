@@ -3,7 +3,6 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import { DetectIssuesButton } from '@databricks/web-shared/genai-traces-table';
 import {
   TraceFilterButton,
-  type ColumnSelectorGroup,
   type ColumnSelectorOption,
   type SortDirection,
   type TraceColumnId,
@@ -13,7 +12,7 @@ import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/Feat
 import { type TracesV4AssessmentColumns } from '../hooks/useTracesV4AssessmentColumns';
 import { type TracesV4Density } from '../hooks/useTracesV4Density';
 import { TracesV4DateSelector, TracesV4RefreshButton } from './TracesV4DateSelector';
-import { TracesV4DisplayButton } from './TracesV4DisplayButton';
+import { TracesV4DisplayButton, type TracesV4ColumnGroup } from './TracesV4DisplayButton';
 import { TracesV4ActionsButton } from './TracesV4ActionsButton';
 import { type TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
 import { useMlflowTraceFilterFields } from '../utils/filterModel';
@@ -142,7 +141,7 @@ export const useTracesV4ToolbarSlots = ({
 
   // Assessment columns are dynamic (per-page), so they render as a labeled group under the standard
   // columns in the Display → Columns submenu. Omitted entirely when the page has no assessments.
-  const columnGroups: ColumnSelectorGroup[] | undefined =
+  const columnGroups: TracesV4ColumnGroup[] | undefined =
     assessmentColumns.selectorOptions.length > 0
       ? [
           {
@@ -155,6 +154,7 @@ export const useTracesV4ToolbarSlots = ({
             options: assessmentColumns.selectorOptions,
             visibleIds: assessmentColumns.visibleIds,
             onToggle: assessmentColumns.toggle,
+            onToggleAll: assessmentColumns.setAllVisible,
           },
         ]
       : undefined;
