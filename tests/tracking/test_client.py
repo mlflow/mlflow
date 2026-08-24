@@ -4039,7 +4039,6 @@ def _uc_register_prompt_patches(name: str, tracking_uri: str):
 
 
 def test_register_prompt_uc_branch_logs_experiment_prompt_url(tracking_uri):
-    """register_prompt logs the registered prompt in the active experiment's Prompts tab."""
     fake_workspace_url = "https://my-workspace.azuredatabricks.net/"
     client = MlflowClient(tracking_uri=tracking_uri)
 
