@@ -184,6 +184,12 @@ def submit_job(
         MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
         MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     )
+    from mlflow.genai.scorers.scorer_utils import (
+        params_contain_custom_scorer_code,
+        scorer_params_use_direct_provider_model,
+    )
+    from mlflow.server.jobs.executor_registry import get_executor_registry
+    from mlflow.server.jobs.router import JobExecutorRouter
     from mlflow.server.jobs.utils import (
         _check_requirements,
         _get_or_init_huey_instance,
@@ -229,13 +235,6 @@ def submit_job(
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 
-    from mlflow.genai.scorers.scorer_utils import (
-        params_contain_custom_scorer_code,
-        scorer_params_use_direct_provider_model,
-    )
-    from mlflow.server.jobs.executor_registry import get_executor_registry
-    from mlflow.server.jobs.router import JobExecutorRouter
-
     # Server-derived, fail-closed gate at the single chokepoint every submission path
     # funnels through (including the generic POST /ajax-api/3.0/jobs/ endpoint).
     is_custom_scorer = params_contain_custom_scorer_code(fn_meta.name, params)
@@ -248,8 +247,8 @@ def submit_job(
     registry = get_executor_registry()
     backend = JobExecutorRouter(registry).select(fn_meta.name, is_custom_scorer=is_custom_scorer)
 
-    # Remote backends require Gateway-backed model URIs (RFC). Scorer path only; other
-    # job types are handled by their owning tickets (see spec extension seam).
+    # Remote backends require Gateway-backed (endpoints:/) model URIs; enforced for
+    # scorer jobs only.
     if registry.get(backend).remote_execution and scorer_params_use_direct_provider_model(
         fn_meta.name, params
     ):

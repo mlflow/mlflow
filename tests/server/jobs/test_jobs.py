@@ -1972,7 +1972,6 @@ def test_submit_custom_scorer_rejected_when_flag_off(monkeypatch, tmp_path):
 
 
 def test_submit_persists_default_backend(monkeypatch, tmp_path):
-    monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "local")
     with _setup_job_runner(
         monkeypatch,
         tmp_path,
@@ -1984,16 +1983,48 @@ def test_submit_persists_default_backend(monkeypatch, tmp_path):
 
 
 def test_submit_custom_scorer_routes_to_custom_backend(monkeypatch, tmp_path):
+    from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
+    from mlflow.server.jobs.executor_registry import (
+        get_executor_registry,
+        shutdown_executor_registry,
+    )
+
+    class _FakeLocal(AbstractJobExecutor):
+        def submit_job(self, *args, **kwargs): ...
+
+        def wait_for_job(self, job_id): ...
+
+        def cancel_job(self, job_id): ...
+
+        def recover_jobs(self, ids):
+            return []
+
+        @property
+        def remote_execution(self):
+            return False
+
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
-    monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "local")
     with _setup_job_runner(
         monkeypatch,
         tmp_path,
         supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
         allowed_job_names=["invoke_scorer"],
     ):
-        submitted_job = submit_job(invoke_scorer_job, _custom_scorer_params())
-        assert get_job(submitted_job.job_id).executor_backend == "local"
+        try:
+            # Build a fresh registry (validated against the default "local" backend), then
+            # register a distinct backend and only afterwards point the custom-scorer
+            # override at it. The router reads the env var at select() time, so this proves
+            # custom routing: the assertion fails if the router ignores is_custom_scorer and
+            # falls back to the "local" default.
+            shutdown_executor_registry()
+            registry = get_executor_registry()
+            registry.register("custom-sandbox", _FakeLocal(JobExecutorConfig()))
+            monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "custom-sandbox")
+
+            submitted_job = submit_job(invoke_scorer_job, _custom_scorer_params())
+            assert get_job(submitted_job.job_id).executor_backend == "custom-sandbox"
+        finally:
+            shutdown_executor_registry()
 
 
 def test_generic_job_endpoint_gates_custom_scorer(monkeypatch, tmp_path):
