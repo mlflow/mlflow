@@ -288,6 +288,18 @@ describe('TracesV4PageContent', () => {
     await waitFor(() => expect(state.searchCalls.some((c) => c.order_by?.[0] === 'timestamp ASC')).toBe(true));
   });
 
+  test('clicking the active sort icon in a column header flips the sort direction', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+    renderPage();
+    expect(await findTraceRow('tr-000')).toBeInTheDocument();
+
+    // Time is the default sort (descending), so its header shows a sort-direction icon. That icon is
+    // itself clickable now (previously only the "Column options" chevron sorted) and flips to asc.
+    const timeHeader = screen.getByRole('columnheader', { name: 'Time' });
+    await user.click(within(timeHeader).getByRole('button', { name: /^Sort/ }));
+    await waitFor(() => expect(state.searchCalls.some((c) => c.order_by?.[0] === 'timestamp ASC')).toBe(true));
+  });
+
   test('non-sortable headers (State) expose no sort control in their menu', async () => {
     const user = userEvent.setup();
     renderPage();

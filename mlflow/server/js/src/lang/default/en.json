@@ -1831,6 +1831,10 @@
     "defaultMessage": "Thumbs down",
     "description": "Accessible label for the thumbs-down feedback button in a custom trace view"
   },
+  "5xKC/C": {
+    "defaultMessage": "Sort by {column}",
+    "description": "Accessible label for the clickable sort-direction toggle in a traces table column header"
+  },
   "5xPlEu": {
     "defaultMessage": "Source run",
     "description": "Header title for the source run column in the logged model list table"
@@ -3654,6 +3658,10 @@
   "DHO5TT": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button on the registered prompt details page\""
+  },
+  "DJTuE5": {
+    "defaultMessage": "Sort",
+    "description": "Accessible label for the clickable sort-direction toggle in a traces table column header"
   },
   "DJsLPv": {
     "defaultMessage": "Delete {count, plural, one {guardrail} other {# guardrails}}",

@@ -137,14 +137,41 @@ export const TraceColumnHeader = ({
 
   const showMenu = sortable || Boolean(onHide);
 
+  const sortToggleLabel = labelText
+    ? intl.formatMessage(
+        {
+          defaultMessage: 'Sort by {column}',
+          description: 'Accessible label for the clickable sort-direction toggle in a traces table column header',
+        },
+        { column: labelText },
+      )
+    : intl.formatMessage({
+        defaultMessage: 'Sort',
+        description: 'Accessible label for the clickable sort-direction toggle in a traces table column header',
+      });
+
   return (
     <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, width: '100%', minWidth: 0 }}>
       <Typography.Text bold ellipsis className="table-header-text" css={{ minWidth: 0, flex: '0 1 auto' }}>
         {label}
       </Typography.Text>
       {sortable && sortDirection !== 'none' && (
-        <span css={{ flexShrink: 0, display: 'inline-flex', color: theme.colors.textSecondary }}>
-          {sortDirection === 'asc' ? <SortAscendingIcon /> : <SortDescendingIcon />}
+        // Clicking the active-sort icon flips direction, so reversing sort doesn't need the menu.
+        <span css={{ flexShrink: 0 }}>
+          <Button
+            componentId={`${COMPONENT_ID}.sort-toggle`}
+            size="small"
+            icon={sortDirection === 'asc' ? <SortAscendingIcon /> : <SortDescendingIcon />}
+            aria-label={sortToggleLabel}
+            onClick={(event) => {
+              stopPropagation(event);
+              if (sortDirection === 'asc') {
+                onSortDescending();
+              } else {
+                onSortAscending();
+              }
+            }}
+          />
         </span>
       )}
       {showMenu && (
