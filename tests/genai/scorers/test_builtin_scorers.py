@@ -2201,8 +2201,8 @@ def test_knowledge_retention_success():
     )
 
     fake_scorer = Mock(spec=Scorer)
-    # Mock(spec=Scorer) doesn't expose pydantic fields; a real Scorer always carries
-    # `required_resources` (defaults to None), which Scorer's after-validator reads.
+    # A real Scorer has `required_resources` (default None), but Mock(spec=Scorer) doesn't
+    # expose pydantic fields — set it so Scorer's after-validator doesn't hit AttributeError.
     fake_scorer.required_resources = None
     fake_scorer.return_value = Feedback(
         name="last_turn_knowledge_retention",
@@ -2253,8 +2253,8 @@ def test_knowledge_retention_failure():
     )
 
     fake_scorer = Mock(spec=Scorer)
-    # Mock(spec=Scorer) doesn't expose pydantic fields; a real Scorer always carries
-    # `required_resources` (defaults to None), which Scorer's after-validator reads.
+    # A real Scorer has `required_resources` (default None), but Mock(spec=Scorer) doesn't
+    # expose pydantic fields — set it so Scorer's after-validator doesn't hit AttributeError.
     fake_scorer.required_resources = None
     fake_scorer.return_value = Feedback(
         name="last_turn_knowledge_retention",
@@ -2292,8 +2292,8 @@ def test_knowledge_retention_single_turn():
     )
 
     fake_scorer = Mock(spec=Scorer)
-    # Mock(spec=Scorer) doesn't expose pydantic fields; a real Scorer always carries
-    # `required_resources` (defaults to None), which Scorer's after-validator reads.
+    # A real Scorer has `required_resources` (default None), but Mock(spec=Scorer) doesn't
+    # expose pydantic fields — set it so Scorer's after-validator doesn't hit AttributeError.
     fake_scorer.required_resources = None
     fake_scorer.return_value = Feedback(
         name="last_turn_knowledge_retention",
@@ -2338,8 +2338,8 @@ def test_knowledge_retention_model_propagation():
     # the original scorer should NOT be mutated (we make a copy)
     custom_scorer = Mock(spec=Scorer)
     custom_scorer.model = None
-    # Mock(spec=Scorer) doesn't expose pydantic fields; a real Scorer always carries
-    # `required_resources` (defaults to None), which Scorer's after-validator reads.
+    # A real Scorer has `required_resources` (default None), but Mock(spec=Scorer) doesn't
+    # expose pydantic fields — set it so Scorer's after-validator doesn't hit AttributeError.
     custom_scorer.required_resources = None
     kr = KnowledgeRetention(model="override-model", last_turn_scorer=custom_scorer)
     assert custom_scorer.model is None  # original unchanged

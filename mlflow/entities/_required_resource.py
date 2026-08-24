@@ -37,9 +37,8 @@ class RequiredResource:
     name: str
 
     def __post_init__(self):
-        # Validate runtime types explicitly. `bytes`, for instance, would otherwise slip
-        # past the checks below (it is truthy and has `.strip()`) but breaks JSON
-        # serialization later during scorer registration, since `to_dict()` promises strings.
+        # Validate types so a bad value fails during construction, rather than later like
+        # registration when serializing the object.
         if not isinstance(self.type, str):
             raise TypeError(
                 f"RequiredResource type must be a string, got {type(self.type).__name__}"

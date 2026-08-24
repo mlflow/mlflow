@@ -346,9 +346,9 @@ class Scorer(BaseModel):
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
 
-        # Return cached dump if available. A loaded scorer's function was rebuilt via `exec()` and
-        # has no source file, so re-serializing it from source would fail — we replay the dict
-        # captured at load time instead.
+        # Return cached dump if available. Serializing a scorer requires its function's source
+        # code, but a loaded scorer's function was rebuilt with `exec()` and has no source file
+        # to read back — so we replay the dict we saved when we loaded it from the store instead.
         if self._cached_dump is not None:
             return self._cached_dump
 
@@ -663,9 +663,10 @@ class Scorer(BaseModel):
             aggregations=serialized.aggregations,
         )
         if serialized.required_resources:
-            # Attach resources after rebuilding. A plain `scorer_instance.required_resources = ...`
-            # would hit our `Scorer.__setattr__` guard and raise, so use `object.__setattr__` to go
-            # around it — this is trusted internal reconstruction, not a user reassignment.
+            # Attach resources here, rather than passing them to the scorer built above: that
+            # path would internally run `scorer_instance.required_resources = ...`, which hits
+            # our `Scorer.__setattr__` guard and raises. That guard exists to block a user from
+            # reassigning the field on a live scorer, so we bypass it with `object.__setattr__`.
             object.__setattr__(
                 scorer_instance,
                 "required_resources",
