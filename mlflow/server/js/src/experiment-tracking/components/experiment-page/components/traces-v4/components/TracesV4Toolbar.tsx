@@ -1,5 +1,5 @@
 import { FormattedMessage, useIntl } from 'react-intl';
-import { SchemaIcon, ToggleButton, Tooltip } from '@databricks/design-system';
+import { SchemaIcon, ToggleButton, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { DetectIssuesButton, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import {
@@ -143,6 +143,7 @@ export const useTracesV4ToolbarSlots = ({
   onToggleSessionGrouping,
 }: TracesV4ToolbarParams): TracesV4ToolbarSlots => {
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
   const hasSelection = selectionCount > 0;
   const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames);
 
@@ -204,6 +205,12 @@ export const useTracesV4ToolbarSlots = ({
               pressed={isGroupedBySession}
               onPressedChange={onToggleSessionGrouping}
               icon={<SchemaIcon />}
+              // Icon-only ToggleButtons render borderless here; managed's `forceWithBorder` prop
+              // doesn't exist in this design-system version, so restore the border manually.
+              css={{
+                border: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
+                boxShadow: theme.shadows.xs,
+              }}
               aria-label={intl.formatMessage({
                 defaultMessage: 'Group traces by session',
                 description: 'Accessible label for the group by session button in the V4 traces table toolbar',
