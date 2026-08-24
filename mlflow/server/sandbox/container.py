@@ -25,7 +25,7 @@ from pathlib import Path
 
 import requests
 
-from mlflow.environment_variables import MLFLOW_SANDBOX_DOCKER_IMAGE
+from mlflow.environment_variables import _MLFLOW_SERVER_BOOT_ID, MLFLOW_SANDBOX_DOCKER_IMAGE
 
 _logger = logging.getLogger(__name__)
 
@@ -44,6 +44,19 @@ _WORKSPACE_MOUNT = "/workspace"
 
 # Marker exit code used when the container is killed for exceeding its timeout.
 _TIMEOUT_EXIT_CODE = -1
+
+# Labels stamped on every sandbox container. The first marks it as a sandbox container; the
+# second carries the server's boot id so startup cleanup removes only containers from a
+# previous server generation, never one a sibling worker in the current generation launched.
+SANDBOX_CONTAINER_LABEL = "mlflow.sandbox"
+SANDBOX_BOOT_LABEL = "mlflow.sandbox.boot"
+
+
+def sandbox_container_labels() -> dict[str, str]:
+    labels = {SANDBOX_CONTAINER_LABEL: "1"}
+    if boot_id := _MLFLOW_SERVER_BOOT_ID.get():
+        labels[SANDBOX_BOOT_LABEL] = boot_id
+    return labels
 
 
 class SandboxUnavailableError(Exception):
@@ -203,6 +216,7 @@ def run_in_sandbox(
             image,
             command=container_command,
             detach=True,
+            labels=sandbox_container_labels(),
             network_mode="bridge",
             extra_hosts={"host.docker.internal": "host-gateway"},
             mem_limit=_MEMORY_LIMIT,
@@ -262,8 +276,42 @@ def _kill_quietly(container) -> None:
         pass
 
 
-def _remove_quietly(container) -> None:
+def _remove_quietly(container) -> bool:
     try:
         container.remove(force=True)
+        return True
     except Exception:
-        pass
+        return False
+
+
+def reap_orphaned_sandbox_containers() -> int:
+    """Remove sandbox containers left over from a *previous* server generation.
+
+    Sandbox containers are tied to an in-process stream/wait; once the server that started them
+    exits they are orphaned with no way to reattach. On startup they are force-removed by label,
+    but only those whose boot-id label differs from this server's boot id — so a sibling worker's
+    just-launched container (same boot id) is never removed. If this server has no boot id (e.g.
+    it was not started through the normal server entry point), reaping is skipped entirely rather
+    than risk removing a live container. Best-effort: returns the number removed, never raises.
+    """
+    current_boot = _MLFLOW_SERVER_BOOT_ID.get()
+    if not current_boot:
+        return 0
+    try:
+        client = _get_client()
+    except SandboxUnavailableError:
+        return 0
+    try:
+        containers = client.containers.list(all=True, filters={"label": SANDBOX_CONTAINER_LABEL})
+    except Exception as e:
+        _logger.debug("Could not list sandbox containers to reap: %s", e)
+        return 0
+    removed = 0
+    for container in containers:
+        if (container.labels or {}).get(SANDBOX_BOOT_LABEL) == current_boot:
+            continue  # belongs to this server generation; may be actively serving a turn
+        if _remove_quietly(container):
+            removed += 1
+    if removed:
+        _logger.info("Removed %d orphaned sandbox container(s) on startup.", removed)
+    return removed

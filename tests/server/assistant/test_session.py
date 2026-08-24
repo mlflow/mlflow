@@ -1,5 +1,6 @@
 import os
 import shutil
+import time
 import uuid
 from unittest import mock
 
@@ -274,3 +275,30 @@ def test_get_session_sandbox_home_tightens_preexisting_dir(monkeypatch, tmp_path
     home = session_module.get_session_sandbox_home(sid)
 
     assert (home.stat().st_mode & 0o777) == 0o700
+
+
+def test_reap_stale_sandbox_homes(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    base = tmp_path / "sandbox-home"
+    old = base / "old-session"
+    fresh = base / "fresh-session"
+    old.mkdir(parents=True)
+    fresh.mkdir(parents=True)
+    # Age the "old" directory well past the cutoff.
+    old_time = time.time() - 48 * 60 * 60
+    os.utime(old, (old_time, old_time))
+
+    removed = session_module.reap_stale_sandbox_homes(max_age_seconds=24 * 60 * 60)
+
+    assert removed == 1
+    assert not old.exists()
+    assert fresh.exists()
+
+
+def test_reap_stale_sandbox_homes_no_base_dir(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path / "nonexistent")
+    assert session_module.reap_stale_sandbox_homes() == 0

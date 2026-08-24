@@ -8,6 +8,7 @@ import sys
 import tempfile
 import textwrap
 import types
+import uuid
 import warnings
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from packaging.version import Version
 
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+    _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
@@ -385,6 +387,10 @@ def _run_server(
 
     if secret_key := MLFLOW_FLASK_SERVER_SECRET_KEY.get():
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
+
+    # A per-boot id shared by all worker processes, used to distinguish sandbox containers of
+    # this server generation from orphans left by a previous one during startup cleanup.
+    env_map[_MLFLOW_SERVER_BOOT_ID.name] = uuid.uuid4().hex
 
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
