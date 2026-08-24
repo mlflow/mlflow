@@ -17,6 +17,8 @@ export interface ColumnSelectorOption {
   id: TraceColumnId;
   label: React.ReactNode;
   componentId: string;
+  /** Renders the item checked-but-unclickable (e.g. a column the current view forces on). */
+  disabled?: boolean;
 }
 
 /** A dynamic-id selectable column (e.g. a product-specific column), for use inside a group. */

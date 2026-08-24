@@ -21,6 +21,9 @@ const DIR_PARAM = 'dir';
 const TRACE_ID_PARAM = 'traceId';
 // Repeatable param (like v3's `filter`): each value is `encodeURIComponent(key)=encodeURIComponent(value)`.
 const TAG_PARAM = 'tag';
+// Present only when grouping is on; the single `session` value leaves room for other groupings later.
+const GROUP_BY_PARAM = 'groupBy';
+const SESSION_GROUP_BY_VALUE = 'session';
 
 /** A single click-to-filter tag constraint (`tags.<key> = '<value>'`), persisted in the URL. */
 export interface TagFilter {
@@ -67,6 +70,9 @@ export interface TracesV4UrlState {
   /** Trace id whose detail drawer is open, or undefined. */
   traceId: string | undefined;
   setTraceId: (next: string | undefined) => void;
+  /** Whether traces are grouped into collapsible session rows. */
+  isGroupedBySession: boolean;
+  setIsGroupedBySession: (next: boolean) => void;
   /** Click-to-filter tag constraints, in URL order. */
   tagFilters: TagFilter[];
   /** Add a tag filter; toggles off if the identical (key, value) is already present. Resets `?page`. */
@@ -100,6 +106,7 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const sortRaw = searchParams.get(SORT_PARAM);
   const dirRaw = searchParams.get(DIR_PARAM);
   const traceId = searchParams.get(TRACE_ID_PARAM) ?? undefined;
+  const isGroupedBySession = searchParams.get(GROUP_BY_PARAM) === SESSION_GROUP_BY_VALUE;
   // getAll → the repeatable `tag` values. Memoize on the serialized params: `getAll().map().filter()`
   // returns a fresh array every render, and consumers use `tagFilters` as an effect dependency (e.g.
   // the controller's clear-selection effect). Without a stable identity that effect would re-run on
@@ -181,6 +188,22 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
     [setSearchParams],
   );
 
+  const setIsGroupedBySession = useCallback(
+    (next: boolean) => {
+      setSearchParams((params) => {
+        if (next) {
+          params.set(GROUP_BY_PARAM, SESSION_GROUP_BY_VALUE);
+        } else {
+          params.delete(GROUP_BY_PARAM);
+        }
+        // Grouped mode fetches one big page; a cursor from the paged view is meaningless either way.
+        params.delete(PAGE_PARAM);
+        return params;
+      });
+    },
+    [setSearchParams],
+  );
+
   // Rewrite the whole `tag` param set from a transform of the current list. Centralizes the
   // delete-all-then-re-append dance (URLSearchParams has no "replace all of key X") and the shared
   // `?page` reset that every tag-filter change needs.
@@ -239,6 +262,8 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
     setSort,
     traceId,
     setTraceId,
+    isGroupedBySession,
+    setIsGroupedBySession,
     tagFilters,
     addTagFilter,
     setTagFilters,

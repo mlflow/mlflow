@@ -1,6 +1,7 @@
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { SchemaIcon, ToggleButton, Tooltip } from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { DetectIssuesButton } from '@databricks/web-shared/genai-traces-table';
+import { DetectIssuesButton, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import {
   TraceFilterButton,
   type ColumnSelectorOption,
@@ -48,6 +49,9 @@ export interface TracesV4ToolbarParams {
   onDetectIssues?: () => void;
   /** The "Views" saved-views dropdown, rendered far left (before the date selector). Omit to hide it. */
   savedViewsButton?: React.ReactNode;
+  /** Whether traces are grouped into collapsible session rows. */
+  isGroupedBySession: boolean;
+  onToggleSessionGrouping: (next: boolean) => void;
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -135,9 +139,18 @@ export const useTracesV4ToolbarSlots = ({
   selectedTraceInfos,
   onDetectIssues,
   savedViewsButton,
+  isGroupedBySession,
+  onToggleSessionGrouping,
 }: TracesV4ToolbarParams): TracesV4ToolbarSlots => {
+  const intl = useIntl();
   const hasSelection = selectionCount > 0;
   const filterFields = useMlflowTraceFilterFields(assessmentColumns.candidateNames);
+
+  // While grouped by session the table force-shows the Session column, so lock its column-selector
+  // toggle (checked + disabled) rather than letting an unchecking click silently no-op.
+  const columnOptions = isGroupedBySession
+    ? COLUMN_OPTIONS.map((option) => (option.id === 'session' ? { ...option, disabled: true } : option))
+    : COLUMN_OPTIONS;
 
   // Assessment columns are dynamic (per-page), so they render as a labeled group under the standard
   // columns in the Display → Columns submenu. Omitted entirely when the page has no assessments.
@@ -178,8 +191,28 @@ export const useTracesV4ToolbarSlots = ({
           onClearAll={onClearFilters}
           activeCount={activeFilterCount}
         />
+        {shouldEnableSessionGrouping() && (
+          <Tooltip
+            componentId="mlflow.traces-v4.group-by-session.tooltip"
+            content={intl.formatMessage({
+              defaultMessage: 'Group traces by session',
+              description: 'Tooltip for the group by session button in the V4 traces table toolbar',
+            })}
+          >
+            <ToggleButton
+              componentId="mlflow.traces-v4.group-by-session"
+              pressed={isGroupedBySession}
+              onPressedChange={onToggleSessionGrouping}
+              icon={<SchemaIcon />}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Group traces by session',
+                description: 'Accessible label for the group by session button in the V4 traces table toolbar',
+              })}
+            />
+          </Tooltip>
+        )}
         <TracesV4DisplayButton
-          columns={COLUMN_OPTIONS}
+          columns={columnOptions}
           visibleColumns={visibleColumns}
           onToggleColumn={onToggleColumn}
           onResetColumns={onResetColumns}

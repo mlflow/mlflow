@@ -68,6 +68,19 @@ describe('useTracesV4UrlState', () => {
     expect(result.current.sort).toBe('start_time');
     expect(result.current.dir).toBe('desc');
     expect(result.current.traceId).toBeUndefined();
+    expect(result.current.isGroupedBySession).toBe(false);
+  });
+
+  test('reads and writes session grouping while resetting pagination', async () => {
+    const { result } = await mountHook('/p?page=3&groupBy=session');
+    expect(result.current.isGroupedBySession).toBe(true);
+
+    act(() => result.current.setIsGroupedBySession(false));
+    expect(param('groupBy')).toBeNull();
+    expect(param('page')).toBeNull();
+
+    act(() => result.current.setIsGroupedBySession(true));
+    expect(param('groupBy')).toBe('session');
   });
 
   test('invalid pageSize falls back to the default (25)', async () => {

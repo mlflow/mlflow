@@ -8,7 +8,9 @@ export type {
   SortDirection,
   PageSize,
   TraceTableColumn,
+  SessionCellRenderer,
   SessionHrefGetter,
+  SessionSelectionHandler,
   TraceHrefGetter,
 } from './types';
 

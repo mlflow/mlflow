@@ -122,17 +122,22 @@ export const TracesV4DisplayButton = ({
             />
           </DropdownMenu.SubTrigger>
           <DropdownMenu.SubContent>
-            {columns.map(({ id, label, componentId }) => (
+            {columns.map(({ id, label, componentId, disabled }) => (
               <DropdownMenu.CheckboxItem
                 key={id}
                 componentId={componentId}
                 checked={visible.has(id)}
+                // A disabled option (e.g. the session column while grouping is on) stays checked but
+                // can't be toggled off.
+                disabled={disabled}
                 // Toggle in onSelect + preventDefault so the menu stays open across changes (several
                 // columns can be toggled in one visit); preventDefault also suppresses onCheckedChange
                 // in this Radix version, so the explicit onToggleColumn call is what fires.
                 onSelect={(event) => {
                   event.preventDefault();
-                  onToggleColumn(id);
+                  if (!disabled) {
+                    onToggleColumn(id);
+                  }
                 }}
               >
                 <DropdownMenu.ItemIndicator />

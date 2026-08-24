@@ -1,10 +1,16 @@
 import {
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  SpeechBubbleIcon,
   Table,
   TableCell,
   TableHeader,
   TableRow,
   TableRowSelectCell,
   TableSkeleton,
+  Tag,
+  Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
@@ -15,12 +21,22 @@ import { useIntl } from '@databricks/i18n';
 import { useReactTable_unverifiedWithReact18 } from '../react-table/useReactTable';
 import { createTraceV4LongIdentifier } from '../model-trace-explorer/ModelTraceExplorer.utils';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
+import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 import { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
-import { type ColumnSizingState, flexRender, getCoreRowModel } from '@tanstack/react-table';
-import { memo, useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { getTraceInfoInputs, getTraceInfoOutputs } from '../genai-traces-table/utils/TraceUtils';
+import { Link } from '../genai-traces-table/utils/RoutingUtils';
+import { type ColumnSizingState, flexRender, getCoreRowModel, type Row } from '@tanstack/react-table';
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPath } from 'react-router';
 import { isSortableTraceColumn } from './constants';
-import type { SessionHrefGetter, SortDirection, TraceColumnId, TraceHrefGetter, TraceTableColumn } from './types';
+import type {
+  SessionHrefGetter,
+  SessionSelectionHandler,
+  SortDirection,
+  TraceColumnId,
+  TraceHrefGetter,
+  TraceTableColumn,
+} from './types';
 import { getVisibleColumnDefs, type TracesTableMeta } from './columns';
 import { getContentColumnMaxSizes } from './getColumnMaxSizes';
 import { TraceColumnHeader } from './TraceColumnHeader';
@@ -89,6 +105,8 @@ export interface TracesTableProps {
   isAllOnPageSelected: boolean;
   isSomeOnPageSelected: boolean;
   onToggleBulkRow: (trace: ModelTraceInfoV3) => void;
+  /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
+  onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
   sort: TraceColumnId;
   dir: SortDirection;
@@ -97,14 +115,23 @@ export interface TracesTableProps {
   getTraceHref?: TraceHrefGetter;
   /** Resolves the session cell's link destination; when absent the session renders as plain text. */
   getSessionHref?: SessionHrefGetter;
+  /** Handles clicks on a grouped session summary row. */
+  onSessionSelected?: SessionSelectionHandler;
   /** Toggle a tag filter — wired to the tag pills in the Tags cell; absent → non-clickable pills. */
   onFilterByTag?: (key: string, value: string) => void;
   /** Product-owned renderer for resolving an experiment-scoped run name. */
   renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
   /** Hides the column with the given id — wired to the per-header menu's "Hide column" item. */
   onHideColumn: (columnId: string) => void;
+  /** Groups traces with a session id into collapsible session rows. Standalone traces remain rows. */
+  isGroupedBySession?: boolean;
   /** Row-height density passed to the DS `Table` (`'small'` = compact rows). Defaults to `'default'`. */
   size?: 'default' | 'small';
+}
+
+interface GroupedTraceRows {
+  sessionId?: string;
+  rows: Row<ModelTraceInfoV3>[];
 }
 
 // The V4 long identifier is the selection key: the consumer stores the same id when a row is opened,
@@ -142,15 +169,18 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     isAllOnPageSelected,
     isSomeOnPageSelected,
     onToggleBulkRow,
+    onToggleBulkRows,
     onToggleBulkAll,
     sort,
     dir,
     onSort,
     getTraceHref,
     getSessionHref,
+    onSessionSelected,
     onFilterByTag,
     renderRunName,
     onHideColumn,
+    isGroupedBySession = false,
     size = 'default',
   }: TracesTableProps) {
     const { theme } = useDesignSystemTheme();
@@ -159,9 +189,23 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     // Canonical-order visible column defs + any product columns. `extraColumns` is guarded to a stable
     // reference so a stable/undefined value doesn't defeat the deep memo (see `getVisibleColumnDefs`).
     const columns = useMemo(() => {
+      // Grouped mode always shows session + the input/output previews and pins them left, so a session
+      // header reads left-to-right as "which session → first input → last output" regardless of the
+      // user's own column visibility/order.
+      const groupedLeadingColumns: TraceColumnId[] = ['session', 'input', 'output'];
+      const groupedVisibleColumns = isGroupedBySession
+        ? [...new Set([...visibleColumns, ...groupedLeadingColumns])]
+        : visibleColumns;
+      const visibleColumnDefs = getVisibleColumnDefs(groupedVisibleColumns, extraColumns);
+      const groupedColumnRank = new Map<string, number>(groupedLeadingColumns.map((id, index) => [id, index]));
+      const getGroupedColumnRank = (id: string | undefined) =>
+        id === undefined ? Infinity : (groupedColumnRank.get(id) ?? Infinity);
+      const orderedVisibleColumnDefs = isGroupedBySession
+        ? [...visibleColumnDefs].sort((left, right) => getGroupedColumnRank(left.id) - getGroupedColumnRank(right.id))
+        : visibleColumnDefs;
       // Product-specific column ids are intentionally absent and resolve to undefined.
       const contentMaxSizes: Readonly<Record<string, number | undefined>> = getContentColumnMaxSizes(traces, intl);
-      return getVisibleColumnDefs(visibleColumns, extraColumns).map((column) => {
+      return orderedVisibleColumnDefs.map((column) => {
         if (column.id === undefined) {
           return column;
         }
@@ -178,7 +222,19 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
         const maxSize = contentMaxSize ?? Math.max(column.maxSize ?? 0, persistedSize ?? 0);
         return { ...column, maxSize };
       });
-    }, [visibleColumns, extraColumns, traces, intl, initialColumnSizing]);
+    }, [visibleColumns, extraColumns, isGroupedBySession, traces, intl, initialColumnSizing]);
+
+    // Product-owned per-column session summary renderers (e.g. assessment aggregates), keyed by
+    // column id so a session header cell can look one up.
+    const sessionCellRenderers = useMemo(
+      () =>
+        new Map(
+          columns.flatMap((column) =>
+            column.id && column.renderSessionCell ? [[column.id, column.renderSessionCell] as const] : [],
+          ),
+        ),
+      [columns],
+    );
 
     const meta = useMemo<TracesTableMeta>(
       () => ({ intl, onTraceSelected, getTraceHref, getSessionHref, onFilterByTag, renderRunName }),
@@ -211,6 +267,56 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       initialState: { columnSizing: normalizedInitialColumnSizing },
       meta,
     });
+
+    const [expandedSessions, setExpandedSessions] = useState<Set<string>>(() => new Set());
+    const toggleSessionExpanded = useCallback((sessionId: string) => {
+      setExpandedSessions((current) => {
+        const next = new Set(current);
+        if (next.has(sessionId)) {
+          next.delete(sessionId);
+        } else {
+          next.add(sessionId);
+        }
+        return next;
+      });
+    }, []);
+
+    // In grouped mode, bucket the (already sorted) rows by session id, preserving first-seen session
+    // order; standalone traces (no session id) stay their own single-row groups in place. Traces
+    // within a session are re-sorted oldest-first so an expanded session reads turn 1 → N top-down.
+    const tableRows = table.getRowModel().rows;
+    const groupedRows = useMemo(() => {
+      if (!isGroupedBySession) {
+        return undefined;
+      }
+      const sessions = new Map<string, Row<ModelTraceInfoV3>[]>();
+      const orderedGroups: GroupedTraceRows[] = [];
+      for (const row of tableRows) {
+        const sessionId = row.original.trace_metadata?.[SESSION_ID_METADATA_KEY];
+        if (!sessionId) {
+          orderedGroups.push({ rows: [row] });
+          continue;
+        }
+        let sessionRows = sessions.get(sessionId);
+        if (!sessionRows) {
+          sessionRows = [];
+          sessions.set(sessionId, sessionRows);
+          orderedGroups.push({ sessionId, rows: sessionRows });
+        }
+        sessionRows.push(row);
+      }
+      sessions.forEach((rows) => {
+        rows.sort((left, right) => {
+          const leftStartTime = Date.parse(left.original.request_time);
+          const rightStartTime = Date.parse(right.original.request_time);
+          if (Number.isNaN(leftStartTime)) {
+            return Number.isNaN(rightStartTime) ? 0 : 1;
+          }
+          return Number.isNaN(rightStartTime) ? -1 : leftStartTime - rightStartTime;
+        });
+      });
+      return orderedGroups;
+    }, [isGroupedBySession, tableRows]);
 
     // Persist only on the falling edge of a resize (mouseup): one write per drag, none on mount. The
     // falling-edge ref avoids the redundant mount write that a plain `if (!isResizing) persist(...)`
@@ -250,7 +356,13 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     // The leading select cell lives outside the TanStack column set: it's content-box with a 16px
     // (spacing.md) content width + 8px (spacing.sm) left padding, so it contributes a fixed 24px.
     const selectCellWidth = theme.spacing.md + theme.spacing.sm;
-    const rowWidth = leafHeaders.reduce((total, header) => total + header.getSize(), selectCellWidth);
+    // Grouped mode inserts a leading expand/collapse toggle cell (a small button) before the columns;
+    // reserve its width so header, session, and trace rows all stay column-aligned.
+    const sessionToggleWidth = isGroupedBySession ? theme.general.heightSm + theme.spacing.xs : 0;
+    const rowWidth = leafHeaders.reduce(
+      (total, header) => total + header.getSize(),
+      selectCellWidth + sessionToggleWidth,
+    );
     // Publish live widths once on the scroll container. Header/cell styles reference these variables,
     // so React updates one DOM node per resize tick instead of diffing a new inline style on every cell.
     // This follows ProcessListTable's established live-resize performance pattern.
@@ -281,6 +393,103 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       ['--table-separator-color' as string]: theme.colors.grey200,
       // Keep the header's select-all checkbox always visible (data rows stay hover-reveal).
       '&& .table-row-select-cell input[type="checkbox"] ~ *': { opacity: 1 },
+    };
+
+    // Empty cell matching the leading session-toggle button's width, so rows without a toggle (header,
+    // skeleton, expanded trace rows) keep their columns aligned under the session rows that do.
+    const renderSessionToggleSpacer = () => <div css={{ width: sessionToggleWidth, flexShrink: 0 }} />;
+
+    const renderSessionPreview = (value: string) =>
+      value ? (
+        <Typography.Text ellipsis>{value}</Typography.Text>
+      ) : (
+        <Typography.Text color="secondary">-</Typography.Text>
+      );
+
+    const renderSessionHeaderCell = (sessionId: string, trace: ModelTraceInfoV3) => {
+      const tag = (
+        <Tag componentId={`${COMPONENT_ID}.session-id`} title={sessionId} css={{ maxWidth: '100%' }}>
+          <SpeechBubbleIcon css={{ fontSize: theme.typography.fontSizeBase, marginRight: theme.spacing.xs }} />
+          <Typography.Text ellipsis>{sessionId}</Typography.Text>
+        </Tag>
+      );
+      const sessionHref = getSessionHref?.({ trace, sessionId });
+      return sessionHref ? (
+        <Link
+          componentId={`${COMPONENT_ID}.session-link`}
+          to={sessionHref}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {tag}
+        </Link>
+      ) : (
+        tag
+      );
+    };
+
+    const renderTraceRow = (
+      row: Row<ModelTraceInfoV3>,
+      includeSessionToggleSpacer = false,
+      sessionTurnNumber?: number,
+    ) => {
+      const isSelected = row.id === selectedTraceId;
+      const isBulkChecked = selectedForBulk.has(row.original.trace_id);
+      return (
+        <TableRow
+          key={row.id}
+          onClick={(event) => {
+            const traceHref = getTraceHref?.(row.original);
+            if ((event.ctrlKey || event.metaKey) && traceHref) {
+              event.preventDefault();
+              window.open(
+                typeof traceHref === 'string' ? traceHref : createPath(traceHref),
+                '_blank',
+                'noopener,noreferrer',
+              );
+              return;
+            }
+            onTraceSelected(row.original);
+          }}
+          style={rowWidthStyle}
+          css={{
+            cursor: 'pointer',
+            backgroundColor: isSelected ? theme.colors.tableBackgroundUnselectedHover : undefined,
+            ...selectCellAlign,
+          }}
+        >
+          <TableRowSelectCell
+            componentId={`${COMPONENT_ID}.row-select`}
+            checked={isBulkChecked}
+            onChange={() => onToggleBulkRow(row.original)}
+            checkboxLabel={intl.formatMessage(
+              {
+                defaultMessage: 'Select trace {traceId}',
+                description: 'Aria label for the per-row select checkbox in the traces table',
+              },
+              { traceId: row.original.trace_id },
+            )}
+            {...stopPropagationProps}
+          />
+          {includeSessionToggleSpacer && renderSessionToggleSpacer()}
+          {row.getVisibleCells().map((cell) => (
+            <TableCell key={cell.id} css={{ verticalAlign: 'middle' }} style={columnStyles.get(cell.column.id)}>
+              {cell.column.id === 'session' && sessionTurnNumber !== undefined ? (
+                <Tag componentId={`${COMPONENT_ID}.session-turn`}>
+                  {intl.formatMessage(
+                    {
+                      defaultMessage: 'Turn {turnNumber}',
+                      description: 'Sequential turn number for a trace within an expanded session',
+                    },
+                    { turnNumber: sessionTurnNumber },
+                  )}
+                </Tag>
+              ) : (
+                flexRender(cell.column.columnDef.cell, cell.getContext())
+              )}
+            </TableCell>
+          ))}
+        </TableRow>
+      );
     };
 
     return (
@@ -320,6 +529,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                 description: 'Aria label for the select-all checkbox in the traces table header',
               })}
             />
+            {isGroupedBySession && renderSessionToggleSpacer()}
             {leafHeaders.map((header) => {
               const columnId = header.column.id;
               const labelNode = flexRender(header.column.columnDef.header, header.getContext());
@@ -357,6 +567,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
             ? Array.from({ length: renderedSkeletonRowCount }, (_, i) => (
                 <TableRow key={`skeleton-${i}`} css={selectCellAlign} style={rowWidthStyle}>
                   <TableRowSelectCell componentId={`${COMPONENT_ID}.row-select.skeleton`} noCheckbox />
+                  {isGroupedBySession && renderSessionToggleSpacer()}
                   {leafHeaders.map((header) => (
                     <TableCell
                       key={header.id}
@@ -368,57 +579,107 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                   ))}
                 </TableRow>
               ))
-            : table.getRowModel().rows.map((row) => {
-                const isSelected = row.id === selectedTraceId;
-                const isBulkChecked = selectedForBulk.has(row.original.trace_id);
-                return (
-                  <TableRow
-                    key={row.id}
-                    onClick={(event) => {
-                      const traceHref = getTraceHref?.(row.original);
-                      if ((event.ctrlKey || event.metaKey) && traceHref) {
-                        event.preventDefault();
-                        window.open(
-                          typeof traceHref === 'string' ? traceHref : createPath(traceHref),
-                          '_blank',
-                          'noopener,noreferrer',
-                        );
-                        return;
-                      }
-                      onTraceSelected(row.original);
-                    }}
-                    style={rowWidthStyle}
-                    css={{
-                      cursor: 'pointer',
-                      backgroundColor: isSelected ? theme.colors.tableBackgroundUnselectedHover : undefined,
-                      ...selectCellAlign,
-                    }}
-                  >
-                    <TableRowSelectCell
-                      componentId={`${COMPONENT_ID}.row-select`}
-                      checked={isBulkChecked}
-                      onChange={() => onToggleBulkRow(row.original)}
-                      checkboxLabel={intl.formatMessage(
-                        {
-                          defaultMessage: 'Select trace {traceId}',
-                          description: 'Aria label for the per-row select checkbox in the traces table',
-                        },
-                        { traceId: row.original.trace_id },
-                      )}
-                      {...stopPropagationProps}
-                    />
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        css={{ verticalAlign: 'middle' }}
-                        style={columnStyles.get(cell.column.id)}
+            : groupedRows
+              ? groupedRows.map(({ sessionId, rows }) => {
+                  // A standalone trace (no session id) renders as an ordinary row, indented under the
+                  // toggle column so it lines up with the session rows' content.
+                  if (!sessionId) {
+                    return renderTraceRow(rows[0], true);
+                  }
+                  const isExpanded = expandedSessions.has(sessionId);
+                  const tracesInSession = rows.map((row) => row.original);
+                  const selectedCount = tracesInSession.filter((trace) => selectedForBulk.has(trace.trace_id)).length;
+                  return (
+                    <Fragment key={sessionId}>
+                      <TableRow
+                        isHeader
+                        style={rowWidthStyle}
+                        css={{ cursor: onSessionSelected ? 'pointer' : undefined, ...selectCellAlign }}
+                        onClick={
+                          onSessionSelected
+                            ? () => onSessionSelected({ trace: rows[0].original, sessionId })
+                            : undefined
+                        }
                       >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                );
-              })}
+                        <TableRowSelectCell
+                          componentId={`${COMPONENT_ID}.session-select`}
+                          checked={selectedCount === tracesInSession.length}
+                          indeterminate={selectedCount > 0 && selectedCount < tracesInSession.length}
+                          isDisabled={!onToggleBulkRows}
+                          onChange={() => onToggleBulkRows?.(tracesInSession)}
+                          {...stopPropagationProps}
+                          checkboxLabel={intl.formatMessage(
+                            {
+                              defaultMessage: 'Select session {sessionId}',
+                              description: 'Aria label for selecting every trace in a grouped session',
+                            },
+                            { sessionId },
+                          )}
+                        />
+                        <div css={{ width: sessionToggleWidth, flexShrink: 0 }}>
+                          <Button
+                            componentId={`${COMPONENT_ID}.session-toggle`}
+                            size="small"
+                            icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                            aria-label={
+                              isExpanded
+                                ? intl.formatMessage(
+                                    {
+                                      defaultMessage: 'Collapse session {sessionId}',
+                                      description: 'Accessible label for collapsing a grouped session',
+                                    },
+                                    { sessionId },
+                                  )
+                                : intl.formatMessage(
+                                    {
+                                      defaultMessage: 'Expand session {sessionId}',
+                                      description: 'Accessible label for expanding a grouped session',
+                                    },
+                                    { sessionId },
+                                  )
+                            }
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleSessionExpanded(sessionId);
+                            }}
+                          />
+                        </div>
+                        {leafHeaders.map((header) => {
+                          const firstCell = rows[0]?.getVisibleCells().find((cell) => cell.column.id === header.id);
+                          const lastCell = rows
+                            .at(-1)
+                            ?.getVisibleCells()
+                            .find((cell) => cell.column.id === header.id);
+                          return (
+                            <TableCell
+                              key={header.id}
+                              css={{ verticalAlign: 'middle' }}
+                              style={columnStyles.get(header.column.id)}
+                            >
+                              {/* Session summary per column: the session tag, first-turn input, last-turn
+                                  output/state, first-turn time, else a product-owned aggregate (or blank). */}
+                              {header.column.id === 'session'
+                                ? renderSessionHeaderCell(sessionId, rows[0].original)
+                                : header.column.id === 'input'
+                                  ? renderSessionPreview(getTraceInfoInputs(rows[0].original))
+                                  : header.column.id === 'output'
+                                    ? renderSessionPreview(
+                                        getTraceInfoOutputs(rows.at(-1)?.original ?? rows[0].original),
+                                      )
+                                    : header.column.id === 'start_time' && firstCell
+                                      ? flexRender(firstCell.column.columnDef.cell, firstCell.getContext())
+                                      : header.column.id === 'state' && lastCell
+                                        ? flexRender(lastCell.column.columnDef.cell, lastCell.getContext())
+                                        : (sessionCellRenderers.get(header.column.id)?.(tracesInSession) ?? null)}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                      {isExpanded && rows.map((row, index) => renderTraceRow(row, true, index + 1))}
+                    </Fragment>
+                  );
+                })
+              : table.getRowModel().rows.map((row) => renderTraceRow(row))}
         </Table>
       </div>
     );

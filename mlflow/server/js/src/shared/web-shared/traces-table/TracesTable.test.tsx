@@ -206,6 +206,107 @@ describe('TracesTable', () => {
     expect(screen.getByText('my-session')).toBeInTheDocument();
   });
 
+  test('groups session traces under a collapsed header and expands them on demand', async () => {
+    const onSessionSelected = jest.fn();
+    const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1'), makeTrace('standalone')];
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          traces,
+          visibleColumns: ['start_time'],
+          isGroupedBySession: true,
+          getSessionHref: ({ sessionId }) => `/sessions/${sessionId}`,
+          onSessionSelected,
+        })}
+      />,
+    );
+
+    // Grouped mode force-shows session + the input/output previews, regardless of visibleColumns.
+    expect(screen.getByRole('columnheader', { name: 'Session' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Input' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Output' })).toBeInTheDocument();
+    expect(screen.getByText('s1')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 's1' })).toHaveAttribute('href', expect.stringContaining('/sessions/s1'));
+    // The session header previews the first turn's input and the last turn's output; collapsed, the
+    // individual turn rows aren't rendered. The standalone trace stays its own row.
+    expect(screen.getByText('request for s1-turn-1')).toBeInTheDocument();
+    expect(screen.getByText('response for s1-turn-2')).toBeInTheDocument();
+    expect(screen.queryByText('request for s1-turn-2')).not.toBeInTheDocument();
+    expect(screen.getByText('request for standalone')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand session s1' }));
+    expect(onSessionSelected).not.toHaveBeenCalled();
+    expect(screen.getByText('Turn 1')).toBeInTheDocument();
+    expect(screen.getByText('Turn 2')).toBeInTheDocument();
+    // The first turn's input now appears twice: in the header preview AND in its expanded row.
+    expect(screen.getAllByText('request for s1-turn-1')).toHaveLength(2);
+    expect(screen.getByText('request for s1-turn-2')).toBeInTheDocument();
+  });
+
+  test('passes all child traces to an extra column session renderer', async () => {
+    const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
+    const renderSessionCell = jest.fn((sessionTraces: typeof traces) => (
+      <span>{sessionTraces.length} assessed traces</span>
+    ));
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          traces,
+          visibleColumns: [],
+          extraColumns: [
+            {
+              id: 'assessment:relevance',
+              header: () => 'relevance',
+              cell: () => 'Yes',
+              renderSessionCell,
+            },
+          ],
+          isGroupedBySession: true,
+        })}
+      />,
+    );
+
+    expect(screen.getByText('2 assessed traces')).toBeInTheDocument();
+    expect(renderSessionCell).toHaveBeenCalledWith(traces);
+  });
+
+  test('selecting a session header selects all traces in that session', async () => {
+    const onToggleBulkRows = jest.fn();
+    const onSessionSelected = jest.fn();
+    const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
+    await renderWithProviders(
+      <TracesTable {...baseProps({ traces, isGroupedBySession: true, onToggleBulkRows, onSessionSelected })} />,
+    );
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Select session s1' }));
+    expect(onToggleBulkRows).toHaveBeenCalledWith(traces);
+    expect(onSessionSelected).not.toHaveBeenCalled();
+  });
+
+  test('clicking a grouped session summary selects the overall conversation instead of a trace', async () => {
+    const onSessionSelected = jest.fn();
+    const onTraceSelected = jest.fn();
+    const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
+    await renderWithProviders(
+      <TracesTable {...baseProps({ traces, isGroupedBySession: true, onSessionSelected, onTraceSelected })} />,
+    );
+
+    await userEvent.click(screen.getByText('request for s1-turn-1'));
+
+    expect(onSessionSelected).toHaveBeenCalledWith({ trace: traces[0], sessionId: 's1' });
+    expect(onTraceSelected).not.toHaveBeenCalled();
+  });
+
+  test('a grouped session summary is inert when no session selection handler is provided', async () => {
+    const onTraceSelected = jest.fn();
+    const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
+    await renderWithProviders(<TracesTable {...baseProps({ traces, isGroupedBySession: true, onTraceSelected })} />);
+
+    await userEvent.click(screen.getByText('request for s1-turn-1'));
+
+    expect(onTraceSelected).not.toHaveBeenCalled();
+  });
+
   test('clamps legacy oversized built-in widths while preserving extra-column widths', async () => {
     await renderWithProviders(
       <TracesTable
