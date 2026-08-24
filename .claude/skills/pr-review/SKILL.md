@@ -142,7 +142,6 @@ Authoring rules not captured by the schema:
   suggestion block already shows.
 - Use suggestion blocks for simple fixes: fence with ` ```suggestion ` and preserve original
   indentation.
-- If you have no findings, emit an empty `comments` array.
 - To attach an image or video (a diagram, a chart, a captured repro), write the file into
   `/tmp/review-media/` and cite it by the absolute path you wrote it to:
   `![desc](/tmp/review-media/name.png)` to embed, or `[desc](/tmp/review-media/name.png)`
