@@ -876,7 +876,7 @@ class MlflowClient:
                 query,
             )
         except Exception:
-            pass  # never break registration
+            _logger.debug("Failed to log prompt UI link", exc_info=True)
 
     def _link_prompt_to_experiment(self, prompt_version: PromptVersion, experiment_id: str) -> None:
         """
