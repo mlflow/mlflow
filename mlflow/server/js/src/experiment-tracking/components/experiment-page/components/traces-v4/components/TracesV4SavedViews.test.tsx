@@ -144,6 +144,41 @@ describe('TracesV4SavedViewsButton', () => {
     expect(out.get('cols')).toBe('start_time,input'); // the harness's live columns
   });
 
+  test('saving a new view activates it: the URL gains the new view share key', async () => {
+    let currentSearch = '';
+    const SearchReporter = () => {
+      const [params] = useSearchParams();
+      currentSearch = params.toString();
+      return null;
+    };
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <MockedReduxStoreProvider>
+            <SearchReporter />
+            <SavedViewsButtonHarness experimentId="exp-1" />
+          </MockedReduxStoreProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+      {
+        wrapper: ({ children }) => (
+          <TestRouter routes={[testRoute(<>{children}</>, '/')]} history={history} initialEntries={['/?q=hello']} />
+        ),
+      },
+    );
+    await openDropdown();
+    await userEvent.click(screen.getByTestId('trace-v4-saved-views-save-current'));
+    await userEvent.type(await screen.findByTestId('save-trace-v4-view-name-input'), 'My new view');
+    await userEvent.click(screen.getByTestId('save-trace-v4-view-save-button'));
+
+    await waitFor(() => expect(mockSetExperimentTagApi).toHaveBeenCalled());
+    // Saving activates the view directly from the captured state (no decode round-trip), so its share
+    // key lands in the URL — a copied link then points at the just-saved view.
+    const savedId = mockSetExperimentTagApi.mock.calls[0][1].replace('mlflow.tracesV4ViewState.', '');
+    await waitFor(() => expect(new URLSearchParams(currentSearch).get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBe(savedId));
+    // Save + deflate compression + URL propagation is slow under parallel jsdom load — bump off 5s.
+  }, 20000);
+
   test('rejects a duplicate view name (case-insensitive, trimmed) without writing a tag', async () => {
     const errorSpy = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
     renderButtonAt();

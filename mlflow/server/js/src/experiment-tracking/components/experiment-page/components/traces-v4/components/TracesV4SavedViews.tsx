@@ -192,8 +192,16 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
     [experiment?.tags],
   );
 
-  // Apply a saved view by rewriting the URL query to its stored state (+ the share key). The V4
-  // hooks read their params on the next render, so this IS the applied view — no overlay to mount.
+  // Activate a view by rewriting the URL query to its state (+ the share key). The V4 hooks read
+  // their params on the next render, so this IS the applied view — no overlay to mount.
+  const applyView = useCallback(
+    (state: CapturedV4ViewState, id: string) => {
+      setSearchParams(new URLSearchParams(buildV4ViewQuery(state, id)));
+    },
+    [setSearchParams],
+  );
+
+  // Apply a saved view by decoding its stored state, then activating it.
   const openView = useCallback(
     async (id: string) => {
       const state = await decodeViewState(id);
@@ -207,9 +215,9 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
         );
         return;
       }
-      setSearchParams(new URLSearchParams(buildV4ViewQuery(state, id)));
+      applyView(state, id);
     },
-    [decodeViewState, setSearchParams, intl],
+    [decodeViewState, applyView, intl],
   );
 
   // Build a shareable link from a view's STORED state, so the link carries the view's own
@@ -307,6 +315,7 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
     saveView,
     deleteView,
     openView,
+    applyView,
     buildShareUrl,
     activeShareKey,
     sharedViewActive,
@@ -325,12 +334,15 @@ const SaveTraceV4ViewModal = ({
   saveView,
   atCap,
   onCancel,
+  onSaved,
 }: {
   experimentId: string;
   visible: boolean;
   saveView: (name: string) => Promise<{ id: string; state: CapturedV4ViewState } | null>;
   atCap: boolean;
   onCancel: () => void;
+  /** Called with the new view's id + state after a successful save, so the caller can make it active. */
+  onSaved: (id: string, state: CapturedV4ViewState) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -358,6 +370,8 @@ const SaveTraceV4ViewModal = ({
       if (!result) {
         return;
       }
+      // Activate from the captured state directly — the refetched tags aren't in cache yet this render.
+      onSaved(result.id, result.state);
       setSavedUrl(getTraceV4SavedViewShareUrl(experimentId, result.state, result.id));
       Utils.displayGlobalInfoNotification(
         intl.formatMessage(
@@ -380,7 +394,7 @@ const SaveTraceV4ViewModal = ({
     } finally {
       setSaving(false);
     }
-  }, [name, saving, atCap, saveView, experimentId, intl]);
+  }, [name, saving, atCap, saveView, onSaved, experimentId, intl]);
 
   return (
     <Modal
@@ -468,7 +482,8 @@ export const TracesV4SavedViewsButton = ({
   savedViews: TracesV4SavedViewsApi;
 }) => {
   const intl = useIntl();
-  const { views, canModify, atCap, saveView, deleteView, openView, buildShareUrl, activeShareKey } = savedViews;
+  const { views, canModify, atCap, saveView, deleteView, openView, applyView, buildShareUrl, activeShareKey } =
+    savedViews;
   const { sharedViewActive, override, discard } = savedViews;
   const [showSaveModal, setShowSaveModal] = useState(false);
   // Held above the dropdown so the confirm dialog survives the dropdown closing on outside-click.
@@ -585,6 +600,7 @@ export const TracesV4SavedViewsButton = ({
         saveView={saveView}
         atCap={atCap}
         onCancel={() => setShowSaveModal(false)}
+        onSaved={(id, state) => applyView(state, id)}
       />
     </>
   );
