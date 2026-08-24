@@ -42,6 +42,7 @@ from flask import (
 )
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response as StarletteResponse
+from starlette.routing import BaseRoute, Match, Mount
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
@@ -5602,6 +5603,16 @@ def _apply_fastapi_response_filter(
     )
 
 
+def _native_fastapi_routes(app: FastAPI) -> list[BaseRoute]:
+    # Routes served directly by FastAPI, excluding the mounted Flask app (authorized via Flask).
+    return [route for route in app.routes if not isinstance(route, Mount)]
+
+
+def _scope_matches_native_route(native_routes: list[BaseRoute], scope) -> bool:
+    # True if the request matches a native FastAPI route (vs a path delegated to Flask).
+    return any(route.matches(scope)[0] == Match.FULL for route in native_routes)
+
+
 def add_fastapi_permission_middleware(app: FastAPI) -> None:
     """
     Add permission middleware to FastAPI app for routes not handled by Flask.
@@ -5627,6 +5638,8 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
     Args:
         app: The FastAPI application instance.
     """
+    # Snapshot native routes so the fail-closed check can tell them from Flask-delegated paths.
+    native_routes = _native_fastapi_routes(app)
 
     @app.middleware("http")
     async def fastapi_permission_middleware(request, call_next):
@@ -5639,6 +5652,14 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         # Find validator for this route
         validator = _find_fastapi_validator(path, request.method)
         if validator is None:
+            # Fail-closed (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED): deny a native FastAPI
+            # route with no validator. Flask-delegated paths pass through (authorized by Flask).
+            if (
+                MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
+                and _scope_matches_native_route(native_routes, request.scope)
+                and not any(marker in path for marker in _KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
+            ):
+                return PlainTextResponse("Permission denied", status_code=HTTPStatus.FORBIDDEN)
             return await call_next(request)
 
         # Authenticate using either the custom authorization_function (via Flask
