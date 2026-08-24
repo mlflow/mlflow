@@ -39,6 +39,7 @@ export {
   Feedback,
   assessmentFromJson,
   assessmentToJson,
+  isFeedback,
 } from './core/entities/assessment';
 export type {
   Assessment,

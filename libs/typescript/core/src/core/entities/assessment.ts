@@ -21,6 +21,10 @@ export type FeedbackValueType =
   | FeedbackPrimitive[]
   | { [key: string]: FeedbackPrimitive | FeedbackValueType };
 
+/** Matches Python `mlflow.entities.assessment_error` truncation. */
+export const STACK_TRACE_TRUNCATION_PREFIX = '[Stack trace is truncated]\n...\n';
+export const STACK_TRACE_TRUNCATION_LENGTH = 10000;
+
 export interface AssessmentError {
   errorCode?: string;
   errorMessage?: string;
@@ -104,7 +108,10 @@ export class Feedback {
         }
       : { sourceType: AssessmentSourceType.CODE, sourceId: 'default' };
     this.value = params.value;
-    this.error = typeof params.error === 'string' ? { errorMessage: params.error } : params.error;
+    this.error =
+      typeof params.error === 'string'
+        ? { errorCode: 'ASSESSMENT_ERROR', errorMessage: params.error }
+        : params.error;
     this.traceId = params.traceId;
     this.spanId = params.spanId;
     this.rationale = params.rationale;
@@ -156,11 +163,7 @@ export class Feedback {
       json.feedback.value = this.value;
     }
     if (this.error != null) {
-      json.feedback.error = {
-        error_code: this.error.errorCode,
-        error_message: this.error.errorMessage,
-        stack_trace: this.error.stackTrace,
-      };
+      json.feedback.error = assessmentErrorToJson(this.error);
     }
     return json;
   }
@@ -202,6 +205,29 @@ export type Assessment = Feedback | SerializedAssessment;
 
 export function isFeedback(assessment: Assessment): assessment is Feedback {
   return assessment instanceof Feedback;
+}
+
+/** Truncate stack traces the same way as Python `AssessmentError.to_proto`. */
+export function truncateStackTrace(stackTrace: string): string {
+  if (stackTrace.length <= STACK_TRACE_TRUNCATION_LENGTH) {
+    return stackTrace;
+  }
+  const truncLen = STACK_TRACE_TRUNCATION_LENGTH - STACK_TRACE_TRUNCATION_PREFIX.length;
+  return STACK_TRACE_TRUNCATION_PREFIX + stackTrace.slice(-truncLen);
+}
+
+export function assessmentErrorToJson(error: AssessmentError): SerializedAssessmentError {
+  const json: SerializedAssessmentError = {};
+  if (error.errorCode != null) {
+    json.error_code = error.errorCode;
+  }
+  if (error.errorMessage != null) {
+    json.error_message = error.errorMessage;
+  }
+  if (error.stackTrace != null) {
+    json.stack_trace = truncateStackTrace(error.stackTrace);
+  }
+  return json;
 }
 
 export function assessmentFromJson(json: SerializedAssessment): Assessment {

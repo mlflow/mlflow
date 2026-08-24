@@ -1,10 +1,14 @@
 import {
   AssessmentSourceType,
   Feedback,
+  STACK_TRACE_TRUNCATION_LENGTH,
+  STACK_TRACE_TRUNCATION_PREFIX,
   assessmentFromJson,
   assessmentToJson,
   assertFeedbackPayload,
+  isFeedback,
   standardizeSourceType,
+  truncateStackTrace,
 } from '../../../src/core/entities/assessment';
 
 describe('assessment entities', () => {
@@ -69,5 +73,37 @@ describe('assessment entities', () => {
     const parsed = assessmentFromJson(raw);
     expect(parsed).toEqual(raw);
     expect(assessmentToJson(parsed)).toEqual(raw);
+  });
+
+  it('exports isFeedback for public Assessment narrowing', () => {
+    const feedback = new Feedback({ name: 'correctness', value: true });
+    const opaque = { assessment_name: 'expected_response', expectation: { value: 'Paris' } };
+    expect(isFeedback(feedback)).toBe(true);
+    expect(isFeedback(opaque)).toBe(false);
+  });
+
+  it('maps string error overload to ASSESSMENT_ERROR like Python Feedback', () => {
+    const feedback = new Feedback({ name: 'correctness', error: 'judge failed' });
+    expect(feedback.error).toEqual({
+      errorCode: 'ASSESSMENT_ERROR',
+      errorMessage: 'judge failed',
+    });
+    expect(feedback.toJson().feedback?.error).toEqual({
+      error_code: 'ASSESSMENT_ERROR',
+      error_message: 'judge failed',
+    });
+  });
+
+  it('truncates stackTrace before serialization like Python AssessmentError.to_proto', () => {
+    const longTrace = 'x'.repeat(STACK_TRACE_TRUNCATION_LENGTH + 50);
+    const feedback = new Feedback({
+      name: 'correctness',
+      error: { errorCode: 'TIMEOUT', errorMessage: 'boom', stackTrace: longTrace },
+    });
+    const serialized = feedback.toJson().feedback?.error?.stack_trace;
+    expect(serialized).toBeDefined();
+    expect(serialized!.length).toBe(STACK_TRACE_TRUNCATION_LENGTH);
+    expect(serialized!.startsWith(STACK_TRACE_TRUNCATION_PREFIX)).toBe(true);
+    expect(truncateStackTrace('short')).toBe('short');
   });
 });

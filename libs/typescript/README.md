@@ -19,7 +19,9 @@
 MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com/mlflow/mlflow) that provides a TypeScript API for MLflow.
 
 > [!IMPORTANT]
-> MLflow Typescript SDK is catching up with the Python SDK. Currently only support [Tracing](<>) and [Feedback Collection](<>) features. Please raise an issue in Github if you need a feature that is not supported.
+> MLflow Typescript SDK is catching up with the Python SDK. Currently only support Tracing and
+> Feedback Collection features. Please raise an issue in Github if you need a feature that is not
+> supported.
 
 ## Packages
 
