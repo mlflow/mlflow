@@ -103,6 +103,79 @@ def prepopulate_trace_analytics(url, batch_size):
             engine.dispose()
 
 
+@commands.command("build-trace-rollups")
+@click.argument("url", envvar="MLFLOW_TRACKING_URI")
+@click.option(
+    "--max-partitions",
+    type=click.IntRange(min=1),
+    default=None,
+    help=(
+        "Maximum number of daily partitions to rebuild in this run. Deferred partitions do not "
+        "count against this cap. Defaults to MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN, or "
+        "unlimited when unset."
+    ),
+)
+def build_trace_rollups(url, max_partitions):
+    """Build SQL daily trace analytics rollups and drain the rebuild queue.
+
+    URL may instead be supplied through MLFLOW_TRACKING_URI. This entrypoint is safe for external
+    schedulers such as a Kubernetes CronJob and delegates to the same maintenance function as the
+    server-owned scheduler.
+    """
+    import sqlalchemy.exc
+
+    import mlflow.store.db.utils
+    from mlflow.environment_variables import (
+        MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
+        MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN,
+    )
+    from mlflow.store.db.trace_rollups import run_sql_trace_rollups
+
+    if not MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+        click.echo("SQL trace rollups are disabled; no maintenance performed.")
+        return
+
+    max_partitions_per_run = (
+        max_partitions
+        if max_partitions is not None
+        else MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN.get()
+    )
+
+    engine = None
+    try:
+        engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
+        click.echo("Building SQL daily trace analytics rollups...")
+
+        def report_progress(family, family_stats):
+            click.echo(
+                f"{family} progress: built={family_stats.built}, "
+                f"emptied={family_stats.emptied}, deferred={family_stats.deferred}"
+            )
+
+        stats = run_sql_trace_rollups(
+            engine,
+            max_partitions_per_run=max_partitions_per_run,
+            progress_callback=report_progress,
+        )
+        for family, family_stats in (
+            ("trace_metric", stats.trace_metric),
+            ("assessment", stats.assessment),
+        ):
+            click.echo(
+                f"{family}: built={family_stats.built}, emptied={family_stats.emptied}, "
+                f"deferred={family_stats.deferred}, skipped_cap={family_stats.skipped_cap}"
+            )
+        click.echo("Rollup build completed.")
+    except (RuntimeError, ValueError) as e:
+        raise click.ClickException(str(e)) from e
+    except sqlalchemy.exc.SQLAlchemyError as e:
+        # Driver messages can contain the supplied DSN, including credentials.
+        raise click.ClickException(f"Database operation failed ({type(e).__name__}).") from e
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
 @commands.command("migrate-to-default-workspace")
 @click.argument("url")
 @click.option(
