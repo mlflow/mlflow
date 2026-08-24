@@ -113,7 +113,7 @@ Trace analytics queries (used by the traces dashboards) aggregate metrics such a
 
 Rollups are an **opt-in read acceleration**. They never change query results: any day that is not yet rolled up, and any partial day at the edges of a requested range, is served from the raw path, so enabling rollups only changes query speed. This feature requires a database backend (it is not available for the file store).
 
-To let the query planner serve eligible whole days from the rollup tables, set the following environment variable on the tracking server:
+Configure rollup reads and maintenance with the following environment variables on the tracking server:
 
 <Table>
   <thead>
@@ -126,13 +126,31 @@ To let the query planner serve eligible whole days from the rollup tables, set t
   <tbody>
     <tr>
       <td>`MLFLOW_SQL_TRACE_ROLLUPS_ENABLED`</td>
-      <td>When `true`, trace analytics queries serve eligible whole days from precomputed rollup tables and fall back to the raw path for any day that is not covered. When `false`, all queries use the raw path.</td>
+      <td>When `true`, the server maintains daily rollups and trace analytics queries serve eligible whole days from them. When `false`, maintenance is a no-op and all queries use the raw path.</td>
       <td>`false`</td>
+    </tr>
+    <tr>
+      <td>`MLFLOW_TRACE_ROLLUPS_SCHEDULE`</td>
+      <td>Five-field UTC cron expression for the server-owned maintenance task.</td>
+      <td>`0 2 * * *`</td>
+    </tr>
+    <tr>
+      <td>`MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN`</td>
+      <td>Optional maximum number of daily partitions built or rebuilt by one maintenance run.</td>
+      <td>Unset (no limit)</td>
     </tr>
   </tbody>
 </Table>
 
-Enabling this variable does not populate the rollup tables by itself; a separate maintenance job builds and refreshes them. Until a day has been rolled up, queries for that day transparently use the raw path, so the feature is safe to turn on before any rollups exist.
+When job execution is available, MLflow registers the scheduled maintenance task automatically. The task builds only complete UTC-day partitions whose contributing traces have been complete or inactive for at least 24 hours. Writes that can make an existing partition stale add it to a durable rebuild queue; the next maintenance run atomically replaces that partition and removes its queue entry.
+
+Deployments that use an external scheduler, such as a Kubernetes `CronJob`, can invoke the same maintenance path without starting the MLflow scheduler:
+
+```bash
+mlflow db build-trace-rollups "$MLFLOW_TRACKING_URI"
+```
+
+The command and the server-owned task both no-op when `MLFLOW_SQL_TRACE_ROLLUPS_ENABLED` is `false`. Until a day has valid rollup coverage, queries for that day transparently use the raw path.
 
 :::note[Backend-specific behavior]
 
