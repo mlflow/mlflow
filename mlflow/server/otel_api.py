@@ -10,6 +10,7 @@ The actual span ingestion logic would need to properly convert incoming OTel for
 to MLflow spans, which requires more complex conversion logic.
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -211,7 +212,7 @@ async def export_traces(
         store = _get_tracking_store()
 
         try:
-            store.log_spans(x_mlflow_experiment_id, all_spans)
+            await store.log_spans_async(x_mlflow_experiment_id, all_spans)
         except NotImplementedError:
             store_name = store.__class__.__name__
             raise HTTPException(
@@ -228,7 +229,9 @@ async def export_traces(
 
         if x_mlflow_run_id and completed_trace_ids:
             try:
-                store.link_traces_to_run(list(completed_trace_ids), x_mlflow_run_id)
+                await asyncio.to_thread(
+                    store.link_traces_to_run, list(completed_trace_ids), x_mlflow_run_id
+                )
             except Exception:
                 _logger.exception("Failed to link OpenTelemetry traces to MLflow run")
 

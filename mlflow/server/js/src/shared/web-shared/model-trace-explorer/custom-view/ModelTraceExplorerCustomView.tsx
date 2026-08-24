@@ -1218,7 +1218,16 @@ export const ModelTraceExplorerCustomView = ({
                   })}
                   value={instruction}
                   autoSize={{ minRows: 3, maxRows: 8 }}
-                  onKeyDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                    // Enter submits the prompt; Shift+Enter inserts a newline
+                    // (matching the main assistant chat panel). Skip submit while
+                    // an IME composition is being confirmed.
+                    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+                      event.preventDefault();
+                      handleSubmitPrompt();
+                    }
+                  }}
                   onChange={(event) => setInstruction(event.target.value)}
                 />
                 <div>
