@@ -234,7 +234,9 @@ def submit_job(
         # The AbstractJobExecutor.submit_job contract has no extra_envs parameter, so
         # honoring them would silently drop caller-supplied environment (e.g.
         # invoke_issue_detection_job passes credentials). Fail loudly instead.
-        # NOTE: full extra_envs support on the executor engine is a follow-up.
+        # TODO (follow-up, before Huey stops being the default): migrate the only production
+        # caller that uses extra_envs (issue detection) — e.g. pass secret_id/provider in the
+        # job params and resolve them in the executor — so this path is not needed.
         raise MlflowException(
             "extra_envs is not yet supported on the executor job-execution engine; "
             "use the huey engine (unset MLFLOW_SERVER_JOB_EXECUTION_ENGINE) instead."

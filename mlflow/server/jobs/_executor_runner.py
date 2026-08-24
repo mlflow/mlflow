@@ -41,7 +41,11 @@ _POLL_INTERVAL = 1.0
 def _select_executor() -> AbstractJobExecutor:
     """Resolve the executor backend named by ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``.
 
-    For now this is always ``local`` (``LocalJobExecutor``).
+    Defaults to ``local`` (``LocalJobExecutor``); a configured plugin backend is honored too.
+
+    TODO (follow-up): select the backend per job at submit time via a job-executor router
+    (matching the job against the configured executor) rather than a single process-wide
+    backend, so different job types can target different executors.
     """
     backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
     return get_executor_registry().get(backend)
@@ -147,6 +151,11 @@ def _poll_and_execute_once(
     executed = 0
     for workspace_ctx in _workspace_contexts_for_recovery():
         with workspace_ctx:
+            # TODO (follow-up): this claims and runs PENDING jobs serially. Two things are not
+            # yet enforced here and land in follow-ups: (1) per-function ``max_workers`` and
+            # concurrent scheduling, so one job type cannot starve another; (2) exclusive job
+            # locking by key (e.g. keeping online scoring exclusive per experiment), which
+            # builds on the job-lock work in #25200.
             for job in list(job_store.list_jobs(statuses=[JobStatus.PENDING])):
                 if job_store.claim_job(job.job_id, lease_duration) != JobUpdateStatus.APPLIED:
                     # A concurrent worker claimed it first, or its status changed.
@@ -180,11 +189,14 @@ def run_executor_loop(
     job_store = _get_job_store()
     executor = _select_executor()
     lease_duration = executor.config.job_lease_ttl
-    executor.start_executor()
-    _logger.info(
-        f"Started executor-backed job runner (backend={MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()})"
-    )
+    # start_executor() runs inside the try so a failure during startup (e.g. a plugin backend
+    # that allocates resources and then raises) still triggers stop_executor() for cleanup.
     try:
+        executor.start_executor()
+        _logger.info(
+            "Started executor-backed job runner "
+            f"(backend={MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()})"
+        )
         while not stop_event.is_set():
             try:
                 executed = _poll_and_execute_once(job_store, executor, lease_duration)
@@ -194,6 +206,8 @@ def run_executor_loop(
                 # so log it and try again on the next poll.
                 _logger.exception("Executor job loop iteration failed; continuing.")
                 executed = 0
+            if executed:
+                _logger.debug("Executor engine processed %d job(s) this poll.", executed)
             if executed == 0:
                 stop_event.wait(poll_interval)
     finally:
