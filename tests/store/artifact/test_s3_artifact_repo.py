@@ -387,22 +387,24 @@ def test_list_artifacts_directory_marker_filtering(s3_artifact_root):
     mock_paginator.paginate.return_value = [
         {
             "Contents": [
-                {"Key": "some/path/a.txt", "Size": 42},
                 {"Key": "some/path/b/", "Size": 0},
+                {"Key": "some/path/b/b", "Size": 0},
                 {"Key": "some/path/b/c.txt", "Size": 42},
-                {"Key": "some/path/b/d/d", "Size": 0},
-                {"Key": "some/path/b/d/e.txt", "Size": 42},
             ],
-            "CommonPrefixes": [],
+            "CommonPrefixes": [{"Prefix": "some/path/b/d/"}],
         }
     ]
 
     with mock.patch.object(repo, "_get_s3_client", return_value=mock_s3):
-        artifacts = repo.list_artifacts()
+        artifacts = repo.list_artifacts("b")
 
-    actual_paths = [f.path for f in artifacts]
-    expected_paths = ["a.txt", "b/c.txt", "b/d/d", "b/d/e.txt"]
-    assert actual_paths == expected_paths
+    actual = [(f.path, f.is_dir, f.file_size) for f in artifacts]
+    expected = [
+        ("b/b", False, 0),
+        ("b/c.txt", False, 42),
+        ("b/d", True, None),
+    ]
+    assert actual == expected
 
 
 @pytest.mark.parametrize(
