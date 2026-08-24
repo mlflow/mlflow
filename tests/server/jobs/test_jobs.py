@@ -485,6 +485,24 @@ def test_retry_or_fail_job_returns_incremented_retry_count(monkeypatch, tmp_path
     assert store.get_job(job.job_id).retry_count == 1
 
 
+def test_create_job_persists_executor_backend(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("invoke_scorer", "{}", None, executor_backend="local")
+    reloaded = store.get_job(job.job_id)
+    assert reloaded.executor_backend == "local"
+
+
+def test_create_job_executor_backend_defaults_to_none(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("invoke_scorer", "{}", None)
+    reloaded = store.get_job(job.job_id)
+    assert reloaded.executor_backend is None
+
+
 def test_claim_job_and_renew_lease(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
