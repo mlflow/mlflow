@@ -708,8 +708,8 @@ def test_register_retry_adapter_deduplicates_by_name():
     import contextlib
 
     from mlflow.genai.judges.adapters.litellm_adapter import (
-        RateLimitRetryAdapter,
         _RETRY_ADAPTER_REGISTRY,
+        RateLimitRetryAdapter,
         register_retry_adapter,
     )
 

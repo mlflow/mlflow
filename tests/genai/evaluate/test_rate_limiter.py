@@ -1,8 +1,8 @@
 from unittest.mock import patch
 
-import mlflow.genai.judges.adapters.rate_limit_retry_adapters  # noqa: F401
 import pytest
 
+import mlflow.genai.judges.adapters.rate_limit_retry_adapters  # noqa: F401
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
     _make_rate_limiter,
