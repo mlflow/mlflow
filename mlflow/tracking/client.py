@@ -134,6 +134,7 @@ from mlflow.utils.annotations import deprecated, deprecated_parameter, experimen
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
+    get_workspace_id,
     get_workspace_url,
     is_in_databricks_runtime,
 )
@@ -759,7 +760,7 @@ class MlflowClient:
             )
 
             prompt_version = registry_client.get_prompt_version(name, str(prompt_version.version))
-            self._log_prompt_ui_link(name)
+            self._log_prompt_ui_link(name, prompt_version.version)
             return prompt_version
 
         # OSS approach using RegisteredModel with special tags
@@ -844,25 +845,35 @@ class MlflowClient:
 
         return prompt_version
 
-    def _log_prompt_ui_link(self, name: str) -> None:
-        """Log a Catalog Explorer URL for the registered prompt when running on Databricks.
+    def _log_prompt_ui_link(self, name: str, version: int) -> None:
+        """Log the registered prompt in the active experiment's Prompts tab.
 
         Emits an informational message only; never raises.
         """
         try:
             workspace_url = get_workspace_url()
-            if not workspace_url:
+            # Import here to avoid circular import.
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            experiment_id = _get_experiment_id()
+            if not workspace_url or not experiment_id:
                 return
             parts = name.split(".")
             if len(parts) != 3:
                 return
-            catalog, schema, prompt_name = parts
+            workspace_id = get_workspace_id()
+            query = (
+                f"?o={workspace_id}&promptVersion={version}"
+                if workspace_id
+                else f"?promptVersion={version}"
+            )
             _logger.info(
-                "Prompt registered. View in Catalog Explorer: %s/explore/data/%s/%s/%s",
+                "Prompt registered. View in experiment Prompts tab: "
+                "%s/ml/experiments/%s/prompts/%s%s",
                 workspace_url.rstrip("/"),
-                catalog,
-                schema,
-                prompt_name,
+                experiment_id,
+                name,
+                query,
             )
         except Exception:
             pass  # never break registration

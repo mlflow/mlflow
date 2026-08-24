@@ -4039,17 +4039,26 @@ def _uc_register_prompt_patches(name: str, tracking_uri: str):
     return _stack()
 
 
-def test_register_prompt_uc_branch_logs_ui_link(tracking_uri, caplog):
-    """register_prompt emits an INFO log with the Catalog Explorer URL when
-    get_workspace_url() returns a workspace URL and the name is a 3-part UC name.
-    """
+def test_register_prompt_uc_branch_logs_experiment_prompt_url(tracking_uri, caplog):
+    """register_prompt logs the registered prompt in the active experiment's Prompts tab."""
     fake_workspace_url = "https://my-workspace.azuredatabricks.net"
     client = MlflowClient(tracking_uri=tracking_uri)
 
     with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
-        with mock.patch(
-            "mlflow.tracking.client.get_workspace_url",
-            return_value=fake_workspace_url,
+        with (
+            mock.patch(
+                "mlflow.tracking.client.get_workspace_url",
+                return_value=fake_workspace_url,
+            ),
+            mock.patch(
+                "mlflow.tracking.client.get_workspace_id",
+                return_value="123456",
+                create=True,
+            ),
+            mock.patch(
+                "mlflow.tracking.fluent._get_experiment_id",
+                return_value="987654",
+            ),
         ):
             with caplog.at_level(logging.INFO, logger="mlflow.tracking.client"):
                 client.register_prompt(
@@ -4058,11 +4067,10 @@ def test_register_prompt_uc_branch_logs_ui_link(tracking_uri, caplog):
                 )
 
     log_messages = "\n".join(caplog.messages)
-    assert fake_workspace_url in log_messages
-    assert "/explore/data/" in log_messages
-    assert "catalog" in log_messages
-    assert "schema" in log_messages
-    assert "my_prompt" in log_messages
+    assert (
+        f"{fake_workspace_url}/ml/experiments/987654/prompts/"
+        "catalog.schema.my_prompt?o=123456&promptVersion=1"
+    ) in log_messages
 
 
 def test_register_prompt_uc_branch_no_ui_link_when_workspace_url_none(tracking_uri, caplog):
