@@ -371,7 +371,9 @@ def test_submit_job_executor_engine_rejects_extra_envs(monkeypatch, registered_j
     store.create_job.assert_not_called()
 
 
-@pytest.mark.parametrize("engine", ["spark", "kubernetes", ""])
+# "huey" is explicitly rejected: unset uses the default engine, and "executor" is the only
+# settable value, so pinning "huey" by name is not allowed (it would break once Huey is retired).
+@pytest.mark.parametrize("engine", ["spark", "kubernetes", "huey", ""])
 def test_submit_job_rejects_invalid_engine(monkeypatch, registered_jobs, engine):
     _submit_job_env(monkeypatch, engine=engine)
     store = mock.MagicMock()
@@ -379,9 +381,7 @@ def test_submit_job_rejects_invalid_engine(monkeypatch, registered_jobs, engine)
     with (
         mock.patch("mlflow.server.jobs._get_job_store", return_value=store),
         mock.patch("mlflow.server.jobs.utils._check_requirements"),
-        pytest.raises(
-            MlflowException, match="Invalid value for MLFLOW_SERVER_JOB_EXECUTION_ENGINE"
-        ),
+        pytest.raises(MlflowException, match="may only be set to 'executor'"),
     ):
         submit_job(executor_engine_add, {"x": 1, "y": 2})
 
@@ -410,8 +410,7 @@ def test_record_result_skips_job_canceled_after_claim(registered_jobs, job_store
 @pytest.mark.parametrize(
     ("engine", "expected"),
     [
-        (None, "_launch_job_runner"),
-        ("huey", "_launch_job_runner"),
+        (None, "_launch_job_runner"),  # unset -> default engine (Huey)
         ("executor", "_launch_executor_runner"),
     ],
 )

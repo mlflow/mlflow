@@ -744,21 +744,30 @@ def _launch_job_runner(env_map, server_proc_pid):
     )
 
 
-_VALID_JOB_EXECUTION_ENGINES = ("huey", "executor")
+# MLFLOW_SERVER_JOB_EXECUTION_ENGINE is an opt-in: unset -> the default engine (Huey today), or
+# "executor" to opt into the executor framework. "huey" is intentionally not settable by name
+# (see get_job_execution_engine), so nothing has to change when Huey is retired.
+_DEFAULT_JOB_EXECUTION_ENGINE = "huey"
+_EXECUTOR_JOB_EXECUTION_ENGINE = "executor"
 
 
 def get_job_execution_engine() -> str:
-    """Return the validated, case-normalized job execution engine.
+    """Return the job execution engine to use.
 
-    Raises ``MlflowException`` for any value other than ``"huey"`` or ``"executor"``
-    (after case-normalization), so an unrecognized value fails loudly instead of
-    silently falling back to Huey and disabling the feature.
+    ``MLFLOW_SERVER_JOB_EXECUTION_ENGINE`` is an opt-in switch: leave it unset to use the default
+    engine (currently Huey), or set it to ``"executor"`` to route job execution through the
+    ``AbstractJobExecutor`` framework. It is intentionally *not* settable to ``"huey"`` — pinning
+    the current default by name would silently break once Huey is retired — so any explicit value
+    other than ``"executor"`` is rejected rather than silently accepted.
     """
+    if not MLFLOW_SERVER_JOB_EXECUTION_ENGINE.is_set():
+        return _DEFAULT_JOB_EXECUTION_ENGINE
     engine = MLFLOW_SERVER_JOB_EXECUTION_ENGINE.get().strip().lower()
-    if engine not in _VALID_JOB_EXECUTION_ENGINES:
+    if engine != _EXECUTOR_JOB_EXECUTION_ENGINE:
         raise MlflowException.invalid_parameter_value(
-            f"Invalid value for {MLFLOW_SERVER_JOB_EXECUTION_ENGINE.name}: {engine!r}. "
-            f"Valid values are {_VALID_JOB_EXECUTION_ENGINES}."
+            f"{MLFLOW_SERVER_JOB_EXECUTION_ENGINE.name} may only be set to "
+            f"{_EXECUTOR_JOB_EXECUTION_ENGINE!r} to opt into the executor engine; unset it to use "
+            f"the default engine (got {engine!r})."
         )
     return engine
 
