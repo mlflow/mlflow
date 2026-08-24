@@ -17,6 +17,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, FormattedRelativeTime, useIntl } from '@databricks/i18n';
+import { ToolbarCollapsibleLabel, TRACES_TOOLBAR_COLLAPSE_QUERY } from '@databricks/web-shared/traces-table';
 import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { useTracesV4TimeRange } from '../hooks/useTracesV4TimeRange';
 import { getNamedDateFilters } from '../utils/dateUtils';
@@ -121,11 +122,14 @@ export const TracesV4DateSelector = React.memo(function TracesV4DateSelector({
             <DialogComboboxCustomButtonTriggerWrapper>
               <Button
                 componentId="mlflow.traces-v4.date-selector.trigger"
+                icon={<CalendarIcon />}
                 endIcon={<ChevronDownIcon />}
                 aria-label={timeRangeButtonLabel}
                 data-testid="time-range-select-dropdown"
               >
-                {selectedDateFilter?.triggerLabel ?? selectedDateFilter?.label ?? timeLabel}
+                <ToolbarCollapsibleLabel>
+                  {selectedDateFilter?.triggerLabel ?? selectedDateFilter?.label ?? timeLabel}
+                </ToolbarCollapsibleLabel>
               </Button>
             </DialogComboboxCustomButtonTriggerWrapper>
           )}
@@ -199,6 +203,8 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
           gap: theme.spacing.xs,
           minWidth: theme.spacing.xl * 3,
           justifyContent: 'flex-end',
+          // Drop the reserved slot when the label collapses, else a lone refresh icon leaves a gap.
+          [TRACES_TOOLBAR_COLLAPSE_QUERY]: { minWidth: 0 },
         }}
       >
         {isFetching ? (
@@ -206,11 +212,13 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
         ) : (
           <>
             <RefreshIcon />
-            <FormattedRelativeTime
-              value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
-              numeric="auto"
-              updateIntervalInSeconds={10}
-            />
+            <ToolbarCollapsibleLabel>
+              <FormattedRelativeTime
+                value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
+                numeric="auto"
+                updateIntervalInSeconds={10}
+              />
+            </ToolbarCollapsibleLabel>
           </>
         )}
       </Typography.Text>

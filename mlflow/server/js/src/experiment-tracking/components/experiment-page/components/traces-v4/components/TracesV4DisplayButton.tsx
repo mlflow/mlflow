@@ -12,6 +12,7 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import {
   SORTABLE_TRACE_COLUMNS,
+  ToolbarCollapsibleLabel,
   type ColumnSelectorOption,
   type ColumnSelectorGroup,
   type SortDirection,
@@ -91,11 +92,22 @@ export const TracesV4DisplayButton = ({
     // visible and interactive while display options are changed.
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger asChild>
-        <Button componentId={`${COMPONENT_ID}.trigger`} icon={<SlidersIcon />} endIcon={<ChevronDownIcon />}>
-          <FormattedMessage
-            defaultMessage="Display"
-            description="Label for the Display (columns / sort / row height) toolbar button on the V4 traces tab"
-          />
+        <Button
+          componentId={`${COMPONENT_ID}.trigger`}
+          icon={<SlidersIcon />}
+          endIcon={<ChevronDownIcon />}
+          // Names the button when its label collapses to icon-only.
+          aria-label={intl.formatMessage({
+            defaultMessage: 'Display',
+            description: 'Label for the Display (columns / sort / row height) toolbar button on the V4 traces tab',
+          })}
+        >
+          <ToolbarCollapsibleLabel>
+            <FormattedMessage
+              defaultMessage="Display"
+              description="Label for the Display (columns / sort / row height) toolbar button on the V4 traces tab"
+            />
+          </ToolbarCollapsibleLabel>
         </Button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end">

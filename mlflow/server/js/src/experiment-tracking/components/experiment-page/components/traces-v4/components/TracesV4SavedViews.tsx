@@ -12,7 +12,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { TRACE_COLUMN_IDS, type TraceColumnId } from '@databricks/web-shared/traces-table';
+import { TRACE_COLUMN_IDS, ToolbarCollapsibleLabel, type TraceColumnId } from '@databricks/web-shared/traces-table';
 
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
@@ -534,17 +534,27 @@ export const TracesV4SavedViewsButton = ({
             icon={<LayerIcon />}
             endIcon={<ChevronDownIcon />}
             data-testid="trace-v4-saved-views-trigger"
+            // Names the button when its label collapses to icon-only.
+            aria-label={
+              activeView?.name ??
+              intl.formatMessage({
+                defaultMessage: 'Views',
+                description: 'Label for the saved views dropdown in the traces toolbar',
+              })
+            }
           >
-            {activeView ? (
-              <span css={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {activeView.name}
-              </span>
-            ) : (
-              <FormattedMessage
-                defaultMessage="Views"
-                description="Label for the saved views dropdown in the traces toolbar"
-              />
-            )}
+            <ToolbarCollapsibleLabel>
+              {activeView ? (
+                <span css={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeView.name}
+                </span>
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Views"
+                  description="Label for the saved views dropdown in the traces toolbar"
+                />
+              )}
+            </ToolbarCollapsibleLabel>
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end">

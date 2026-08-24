@@ -1,9 +1,17 @@
-import { Button, ChevronDownIcon, DropdownMenu, TrashIcon, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  DropdownMenu,
+  OverflowIcon,
+  TrashIcon,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { compact } from 'lodash';
 import { useContext, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { convertTraceInfoV3ToRunEvalEntry, GenAITracesTableContext } from '@databricks/web-shared/genai-traces-table';
+import { ToolbarCollapsibleLabel } from '@databricks/web-shared/traces-table';
 // Not re-exported from the genai-traces-table barrel — import from its module.
 import { GenAITraceComparisonModal } from '@databricks/web-shared/genai-traces-table/components/GenAITraceComparisonModal';
 import { type TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
@@ -84,17 +92,21 @@ export const TracesV4ActionsButton = ({
       // The button only renders while traces are selected, so it's always primary-styled here to
       // signal that bulk actions are available for the current selection.
       type="primary"
+      icon={<OverflowIcon />}
       endIcon={<ChevronDownIcon />}
+      // Names the button when its label collapses to icon-only.
       aria-label={intl.formatMessage({
         defaultMessage: 'Actions for selected traces',
         description: 'Aria label for the bulk actions dropdown trigger in the V4 traces toolbar',
       })}
     >
-      <FormattedMessage
-        defaultMessage="Actions ({count})"
-        description="Label for the bulk actions dropdown trigger, showing how many traces are selected"
-        values={{ count: selectionCount }}
-      />
+      <ToolbarCollapsibleLabel>
+        <FormattedMessage
+          defaultMessage="Actions ({count})"
+          description="Label for the bulk actions dropdown trigger, showing how many traces are selected"
+          values={{ count: selectionCount }}
+        />
+      </ToolbarCollapsibleLabel>
     </Button>
   );
 

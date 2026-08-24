@@ -30,6 +30,7 @@ import {
   type TraceFilterModel,
   makeEmptyClause,
 } from './filterModel';
+import { ToolbarCollapsibleLabel } from './TracesToolbarResponsive';
 
 // Module-local static analytics-id namespace (static componentId lint rule).
 const COMPONENT_ID = 'web-shared.traces-table';
@@ -415,12 +416,19 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
                 // Popover.Anchor (unlike Trigger) adds no ARIA, so announce the popover state ourselves.
                 aria-haspopup="dialog"
                 aria-expanded={open}
+                // Names the button when its label collapses to icon-only.
+                aria-label={intl.formatMessage({
+                  defaultMessage: 'Filters',
+                  description: 'Aria label for the traces table filter button',
+                })}
                 // The DS label padding `4px 12px` is importantified, so the override needs `!important` (plus
                 // `&&&` specificity) to win. Trim the right side below 12px so the × sits closer to (N).
                 css={{ '&&&': { paddingRight: '6px !important' } }}
               >
                 <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-                  <FormattedMessage defaultMessage="Filters" description="Label for the traces table filter button" />
+                  <ToolbarCollapsibleLabel>
+                    <FormattedMessage defaultMessage="Filters" description="Label for the traces table filter button" />
+                  </ToolbarCollapsibleLabel>
                   <Typography.Text color="secondary">({activeCount})</Typography.Text>
                 </span>
               </Button>

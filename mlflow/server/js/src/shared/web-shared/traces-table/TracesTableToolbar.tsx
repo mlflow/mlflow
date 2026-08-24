@@ -1,6 +1,7 @@
 import { type RefObject } from 'react';
 import { Input, type InputRef, SearchIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
+import { TRACES_TOOLBAR_COLLAPSE_QUERY, TRACES_TOOLBAR_CONTAINER_NAME } from './TracesToolbarResponsive';
 
 // Module-local static analytics-id namespace (the no-dynamic-property-value lint rule requires
 // static componentId values, so a runtime-injected prefix isn't possible).
@@ -65,11 +66,22 @@ export const TracesTableToolbar: React.FC<TracesTableToolbarProps> = ({
   );
 
   return (
-    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+    // Query container so the controls collapse on the toolbar's own width, not the viewport's.
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+        containerType: 'inline-size',
+        containerName: TRACES_TOOLBAR_CONTAINER_NAME,
+      }}
+    >
       {leftControls}
-      {/* Grows with the toolbar but caps out so a very wide window doesn't stretch the search box
-          across the whole row; extra space past the cap flows to the trailing controls / spacer. */}
-      <div css={{ flex: 3, minWidth: 240, maxWidth: 480 }}>{searchInput}</div>
+      {/* Caps out so a wide window doesn't stretch the search box across the row; drops its floor
+          once labels collapse so the trailing controls fit on one row. */}
+      <div css={{ flex: 3, minWidth: 240, maxWidth: 480, [TRACES_TOOLBAR_COLLAPSE_QUERY]: { minWidth: 120 } }}>
+        {searchInput}
+      </div>
       {rightControls}
     </div>
   );
