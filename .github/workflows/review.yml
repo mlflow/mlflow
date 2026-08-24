@@ -214,10 +214,10 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
-          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/review-shots
+          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/review-media
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
-          mkdir -p /tmp/review-media
+          mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
