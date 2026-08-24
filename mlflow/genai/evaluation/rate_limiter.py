@@ -37,9 +37,7 @@ def eval_retry_context():
                 exc_info=True,
             )
 
-    _logger.debug(
-        f"eval_retry_context: disabling retries for {[a.name for a in active_adapters]}"
-    )
+    _logger.debug(f"eval_retry_context: disabling retries for {[a.name for a in active_adapters]}")
     # Adapters are disjoint (each targets a separate provider), so activation order
     # does not matter — the ExitStack unwinds them in reverse order, but there are
     # no shared resources between adapters that could be affected by ordering.

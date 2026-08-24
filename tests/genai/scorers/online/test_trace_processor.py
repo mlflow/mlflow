@@ -1,4 +1,6 @@
+import contextlib
 import json
+import threading
 import uuid
 from unittest.mock import MagicMock, patch
 
@@ -6,6 +8,11 @@ import pytest
 
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.genai.evaluation.rate_limiter import NoOpRateLimiter, RPSRateLimiter
+from mlflow.genai.judges.adapters.litellm_adapter import (
+    _RETRY_ADAPTER_REGISTRY,
+    RateLimitRetryAdapter,
+    register_retry_adapter,
+)
 from mlflow.genai.scorers.builtin_scorers import Completeness
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -660,9 +667,6 @@ def test_execute_scoring_uses_fixed_rate_limiter_for_numeric_rate(
 def test_execute_scoring_wraps_in_eval_retry_context(
     mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
 ):
-    """eval_retry_context() is entered once per trace from a worker thread, not the main thread."""
-    import threading
-
     traces = [make_trace(f"tr-{i:03d}", 1000 + i * 100) for i in range(3)]
     mock_trace_loader.fetch_trace_infos_in_range.return_value = [
         make_trace_info(f"tr-{i:03d}", 1000 + i * 100) for i in range(3)
@@ -704,15 +708,6 @@ def test_execute_scoring_wraps_in_eval_retry_context(
 
 
 def test_register_retry_adapter_deduplicates_by_name():
-    """Registering an adapter with an existing name replaces it; no duplicates accumulate."""
-    import contextlib
-
-    from mlflow.genai.judges.adapters.litellm_adapter import (
-        _RETRY_ADAPTER_REGISTRY,
-        RateLimitRetryAdapter,
-        register_retry_adapter,
-    )
-
     original = list(_RETRY_ADAPTER_REGISTRY)
     try:
         adapter_v1 = RateLimitRetryAdapter(
