@@ -14,6 +14,8 @@ export interface UseBulkTraceSelectionResult {
   /** True iff some — but not all — visible traces are selected (drives the header's indeterminate UI). */
   isSomeVisibleChecked: boolean;
   toggle: (trace: ModelTraceInfoV3) => void;
+  /** Select every supplied trace unless all are selected, in which case clear all supplied traces. */
+  toggleMany: (traces: ModelTraceInfoV3[]) => void;
   /** Select all visible traces when none/some are checked; clear them when all are checked. */
   toggleAll: () => void;
   clear: () => void;
@@ -41,6 +43,21 @@ export const useBulkTraceSelection = (visibleTraces: ModelTraceInfoV3[]): UseBul
       } else {
         next.set(trace.trace_id, trace);
       }
+      return next;
+    });
+  }, []);
+
+  const toggleMany = useCallback((traces: ModelTraceInfoV3[]) => {
+    setSelected((prev) => {
+      const allChecked = traces.length > 0 && traces.every((trace) => prev.has(trace.trace_id));
+      const next = new Map(prev);
+      traces.forEach((trace) => {
+        if (allChecked) {
+          next.delete(trace.trace_id);
+        } else {
+          next.set(trace.trace_id, trace);
+        }
+      });
       return next;
     });
   }, []);
@@ -73,5 +90,5 @@ export const useBulkTraceSelection = (visibleTraces: ModelTraceInfoV3[]): UseBul
     };
   }, [visibleTraces, selected]);
 
-  return { selected, isAllVisibleChecked, isSomeVisibleChecked, toggle, toggleAll, clear };
+  return { selected, isAllVisibleChecked, isSomeVisibleChecked, toggle, toggleMany, toggleAll, clear };
 };

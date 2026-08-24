@@ -32,6 +32,8 @@ export interface TracesPaginationBarProps {
   count?: number;
   total?: number;
   isCountLoading?: boolean;
+  /** Hide the page-size selector — grouped-by-session mode fetches one large page, so it's moot. */
+  hidePageSizeSelector?: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
   count,
   total,
   isCountLoading,
+  hidePageSizeSelector,
 }: TracesPaginationBarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -81,31 +84,33 @@ export const TracesPaginationBar: React.FC<TracesPaginationBarProps> = ({
       </span>
 
       <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.md }}>
-        <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <Typography.Text color="secondary" size="sm">
-            <FormattedMessage
-              defaultMessage="Rows per page"
-              description="Label for the traces table page-size selector"
-            />
-          </Typography.Text>
-          <SimpleSelect
-            componentId={`${COMPONENT_ID}.page-size`}
-            id={`${COMPONENT_ID}.page-size`}
-            value={String(pageSize)}
-            width={80}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Rows per page',
-              description: 'Aria label for the traces table page-size selector',
-            })}
-            onChange={({ target }) => onPageSizeChange(Number(target.value) as PageSize)}
-          >
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <SimpleSelectOption key={size} value={String(size)}>
-                {size}
-              </SimpleSelectOption>
-            ))}
-          </SimpleSelect>
-        </span>
+        {!hidePageSizeSelector && (
+          <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <Typography.Text color="secondary" size="sm">
+              <FormattedMessage
+                defaultMessage="Rows per page"
+                description="Label for the traces table page-size selector"
+              />
+            </Typography.Text>
+            <SimpleSelect
+              componentId={`${COMPONENT_ID}.page-size`}
+              id={`${COMPONENT_ID}.page-size`}
+              value={String(pageSize)}
+              width={80}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Rows per page',
+                description: 'Aria label for the traces table page-size selector',
+              })}
+              onChange={({ target }) => onPageSizeChange(Number(target.value) as PageSize)}
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SimpleSelectOption key={size} value={String(size)}>
+                  {size}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
+          </span>
+        )}
 
         <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
           <Button

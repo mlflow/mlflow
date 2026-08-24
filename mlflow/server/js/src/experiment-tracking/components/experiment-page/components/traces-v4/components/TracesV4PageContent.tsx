@@ -18,6 +18,7 @@ import {
   TracesErrorAlert,
   TracesTableView,
   type SessionHrefGetter,
+  type SessionSelectionHandler,
   type TraceColumnId,
   type TraceHrefGetter,
   type TracesTableViewState,
@@ -26,6 +27,7 @@ import { useDeleteTracesMutation } from '@mlflow/mlflow/src/experiment-tracking/
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
+import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
@@ -58,6 +60,7 @@ const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_ID
 export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const navigate = useNavigate();
   const { notify, notificationContainer } = useTracesV4Notifications();
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
@@ -197,6 +200,18 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     },
     [experimentId],
   );
+
+  // Clicking a grouped session header row navigates to its single-chat-session view (same route the
+  // session cell links to).
+  const handleSessionSelected = useCallback<SessionSelectionHandler>(
+    (session) => {
+      const href = getSessionHref(session);
+      if (href) {
+        navigate(href);
+      }
+    },
+    [getSessionHref, navigate],
+  );
   const renderRunName = useCallback(
     (trace: ModelTraceInfoV3) => {
       const runUuid = trace.trace_metadata?.[MLFLOW_SOURCE_RUN_KEY];
@@ -257,6 +272,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     selectedTraceInfos,
     onDetectIssues: () => setIsIssueDetectionOpen(true),
     savedViewsButton: <TracesV4SavedViewsButton experimentId={experimentId} savedViews={savedViews} />,
+    isGroupedBySession: controller.isGroupedBySession,
+    onToggleSessionGrouping: url.setIsGroupedBySession,
   });
 
   // Map the controller's flags to a single shared `viewState`. Order mirrors the prior
@@ -279,7 +296,11 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       renderExportTracesToDatasetsModal={actions.renderExportTracesToDatasetsModal}
       DrawerComponent={AssistantAwareDrawer}
     >
-      <GenAITracesTableProvider experimentId={experimentId} getTrace={actions.getTrace} isGroupedBySession={false}>
+      <GenAITracesTableProvider
+        experimentId={experimentId}
+        getTrace={actions.getTrace}
+        isGroupedBySession={controller.isGroupedBySession}
+      >
         {/* Vertical-fill column for the tab. Horizontal scroll stays inside the table (TracesTable's
             own `<Table scrollable>`), so the toolbar and pagination bar keep to the visible width
             without a second scroll container of our own (ML-68750/68769) — the toolbar instead
@@ -315,6 +336,11 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             isAllOnPageSelected={bulk.isAllVisibleChecked}
             isSomeOnPageSelected={bulk.isSomeVisibleChecked}
             onToggleBulkRow={bulk.toggle}
+            // Session-level select needs the whole session's traces; when a grouped page spans
+            // multiple pages the off-page traces aren't loaded, so disable it (mirrors universe).
+            onToggleBulkRows={
+              controller.isGroupedBySession && (page.hasNext || page.hasPrev) ? undefined : bulk.toggleMany
+            }
             onToggleBulkAll={bulk.toggleAll}
             sort={url.sort}
             dir={url.dir}
@@ -322,9 +348,11 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             size={density}
             getTraceHref={getTraceHref}
             getSessionHref={getSessionHref}
+            onSessionSelected={handleSessionSelected}
             onFilterByTag={controller.onFilterByTag}
             renderRunName={renderRunName}
             onHideColumn={handleHideColumn}
+            isGroupedBySession={controller.isGroupedBySession}
             // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
             searchValue={searchInput.input}
             onSearchChange={searchInput.setInput}
@@ -353,6 +381,10 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             onPageSizeChange={url.setPageSize}
             hasNext={page.hasNext}
             hasPrev={page.hasPrev}
+            // Grouped mode fetches one big page: hide the page-size selector always, and hide the whole
+            // bar when that page holds everything (no prev/next to offer).
+            hidePagination={controller.isGroupedBySession && !page.hasNext && !page.hasPrev}
+            hidePageSizeSelector={controller.isGroupedBySession}
             // "{n} of {total}" footer count (bottom-left).
             traceCount={traceCount.currentCount}
             traceTotal={traceCount.totalCount}

@@ -1163,6 +1163,10 @@
     "defaultMessage": "Share",
     "description": "Text for share button on experiment view page header"
   },
+  "2p4Fkk": {
+    "defaultMessage": "Group traces by session",
+    "description": "Tooltip for the group by session button in the V4 traces table toolbar"
+  },
   "2pEWG3": {
     "defaultMessage": "Select a version to view details.",
     "description": "MCP server detail placeholder when no version is selected"
@@ -2398,6 +2402,10 @@
   "88l+j9": {
     "defaultMessage": "Are you sure you want to delete model version {versionNum}? This cannot be undone.",
     "description": "Comment text for model version deletion modal in model versions view\n                 page"
+  },
+  "8A7CYH": {
+    "defaultMessage": "Collapse session {sessionId}",
+    "description": "Accessible label for collapsing a grouped session"
   },
   "8ALhnh": {
     "defaultMessage": "Type a key",
@@ -5323,6 +5331,10 @@
     "defaultMessage": "Assessment",
     "description": "Evaluation review > evaluations list > assessment sort option label prefix"
   },
+  "KmZ5PI": {
+    "defaultMessage": "Turn {turnNumber}",
+    "description": "Sequential turn number for a trace within an expanded session"
+  },
   "KoMa6+": {
     "defaultMessage": "Select visible columns",
     "description": "Aria label for the column-selector dropdown trigger on the V2 dataset records page"
@@ -6387,6 +6399,10 @@
     "defaultMessage": "You can start logging traces to this logged model by calling {code} first:",
     "description": "Introductory text for the code example for logging traces to an existing logged model. The code contains reference to \"mlflow.set_active_model\" function call"
   },
+  "PCCIC5": {
+    "defaultMessage": "Select session {sessionId}",
+    "description": "Aria label for selecting every trace in a grouped session"
+  },
   "PDAMaL": {
     "defaultMessage": "Model version alias deleted",
     "description": "Webhook event label"
@@ -7274,6 +7290,10 @@
   "Sw9saQ": {
     "defaultMessage": "Add more traces. Only {count, plural, one {1 trace was} other {# traces were}} analyzed.",
     "description": "Suggestion to analyze more traces, with the number analyzed in this run"
+  },
+  "SwS1nm": {
+    "defaultMessage": "Expand session {sessionId}",
+    "description": "Accessible label for expanding a grouped session"
   },
   "SwvkMI": {
     "defaultMessage": "Is the summary faithful, complete, and concise?",
@@ -10922,6 +10942,10 @@
   "hEF41D": {
     "defaultMessage": "Run name",
     "description": "Column selector label for the run-name column"
+  },
+  "hFKR7V": {
+    "defaultMessage": "Group traces by session",
+    "description": "Accessible label for the group by session button in the V4 traces table toolbar"
   },
   "hHNj31": {
     "defaultMessage": "Cancel",

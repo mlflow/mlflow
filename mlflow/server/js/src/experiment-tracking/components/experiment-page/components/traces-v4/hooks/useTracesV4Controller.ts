@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@databricks/web-shared/query-client';
-import { SEARCH_MLFLOW_TRACES_QUERY_KEY } from '@databricks/web-shared/genai-traces-table';
+import { SEARCH_MLFLOW_TRACES_QUERY_KEY, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import { SESSION_ID_METADATA_KEY, type ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import {
   EMPTY_FILTER_MODEL,
@@ -25,6 +25,10 @@ import { buildFilter, buildOrderBy } from '../utils/buildTracesV4SearchParams';
 import { compileFilterModel, compileTagFilters } from '../utils/filterModel';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 
+// Grouped mode fetches sessions in one big page instead of paginating, so a session isn't split
+// across page boundaries. Mirrors the legacy Sessions tab's bounded single fetch.
+export const GROUPED_TRACES_LIMIT = 1000;
+
 interface UseTracesV4ControllerParams {
   experimentId: string;
 }
@@ -48,6 +52,8 @@ export interface UseTracesV4ControllerResult {
   goToPage: (target: number) => void;
   /** Toggle a URL-persisted click-to-filter tag constraint (from a tag pill in the table). */
   onFilterByTag: (key: string, value: string) => void;
+  /** Effective grouped state — the URL flag gated by the session-grouping feature flag. */
+  isGroupedBySession: boolean;
   flags: {
     hasActiveSearch: boolean;
     hasNoTracesAtAll: boolean;
@@ -69,6 +75,8 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
   const { timeRangeMs: timeRange, setTimeRange } = useTracesV4TimeRange(experimentId);
   const queryClient = useQueryClient();
   const monitoringConfig = useMonitoringConfig();
+
+  const isGroupedBySession = shouldEnableSessionGrouping() && url.isGroupedBySession;
 
   const [filterModel, setFilterModel] = useState<TraceFilterModel>(EMPTY_FILTER_MODEL);
 
@@ -107,9 +115,10 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
 
   const orderBy = useMemo(() => buildOrderBy(url.sort, url.dir), [url.sort, url.dir]);
 
+  const queryPageSize = isGroupedBySession ? GROUPED_TRACES_LIMIT : url.pageSize;
   const identity = useMemo<TracesQueryIdentity>(
-    () => ({ locations, filter, orderBy, pageSize: url.pageSize }),
-    [locations, filter, orderBy, url.pageSize],
+    () => ({ locations, filter, orderBy, pageSize: queryPageSize }),
+    [locations, filter, orderBy, queryPageSize],
   );
 
   const tokenCache = useTraceTokenCache();
@@ -209,6 +218,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     timeRange,
     goToPage,
     onFilterByTag: url.addTagFilter,
+    isGroupedBySession,
     flags: { hasActiveSearch, hasNoTracesAtAll, hasNoSearchResults, isEmptyPageBeyondFirst },
   };
 };
