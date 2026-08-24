@@ -12,7 +12,13 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { TRACE_COLUMN_IDS, ToolbarCollapsibleLabel, type TraceColumnId } from '@databricks/web-shared/traces-table';
+import {
+  EMPTY_FILTER_MODEL,
+  TRACE_COLUMN_IDS,
+  ToolbarCollapsibleLabel,
+  type TraceColumnId,
+  type TraceFilterModel,
+} from '@databricks/web-shared/traces-table';
 
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
@@ -41,6 +47,7 @@ import {
   TRACE_V4_COLS_PARAM_KEY,
   TRACE_V4_SHARE_URL_PARAM_KEY,
 } from '../utils/tracesV4SavedViewState';
+import { DEFAULT_TRACES_V4_TIME_LABEL } from '../utils/timeRange';
 
 /**
  * Saved views for the V4 traces tab. Reuses the shared tag-envelope codec, the {@link SavedViewsMenu}
@@ -72,6 +79,10 @@ interface UseTracesV4SavedViewsParams {
   visibleColumns: TraceColumnId[];
   /** Adopts an explicit column set into the user's persisted store (used by Override). */
   setColumns: (columns: TraceColumnId[]) => void;
+  /** Clears column overrides (standard + assessment) back to defaults; used by "Default view". */
+  resetColumns: () => void;
+  /** Clears the popover filter clauses (React state, not URL-backed); used by "Default view". */
+  setFilterModel: (next: TraceFilterModel) => void;
 }
 
 /**
@@ -79,7 +90,13 @@ interface UseTracesV4SavedViewsParams {
  * Tags are read from the Apollo experiment query (the traces route's source of truth) and written
  * via the redux tag thunks; after a write we refetch Apollo so the new view shows up in the list.
  */
-export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns }: UseTracesV4SavedViewsParams) => {
+export const useTracesV4SavedViews = ({
+  experimentId,
+  visibleColumns,
+  setColumns,
+  resetColumns,
+  setFilterModel,
+}: UseTracesV4SavedViewsParams) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -201,6 +218,14 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
     [setSearchParams],
   );
 
+  // Return to the default state: drop every view param, clear the non-URL surfaces (columns +
+  // popover filters). Time-range label is kept (not dropped) so the default has a window, not empty.
+  const resetToDefaultView = useCallback(() => {
+    setSearchParams(new URLSearchParams({ startTimeLabel: DEFAULT_TRACES_V4_TIME_LABEL }));
+    resetColumns();
+    setFilterModel(EMPTY_FILTER_MODEL);
+  }, [setSearchParams, resetColumns, setFilterModel]);
+
   // Apply a saved view by decoding its stored state, then activating it.
   const openView = useCallback(
     async (id: string) => {
@@ -316,6 +341,7 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
     deleteView,
     openView,
     applyView,
+    resetToDefaultView,
     buildShareUrl,
     activeShareKey,
     sharedViewActive,
@@ -482,8 +508,18 @@ export const TracesV4SavedViewsButton = ({
   savedViews: TracesV4SavedViewsApi;
 }) => {
   const intl = useIntl();
-  const { views, canModify, atCap, saveView, deleteView, openView, applyView, buildShareUrl, activeShareKey } =
-    savedViews;
+  const {
+    views,
+    canModify,
+    atCap,
+    saveView,
+    deleteView,
+    openView,
+    applyView,
+    resetToDefaultView,
+    buildShareUrl,
+    activeShareKey,
+  } = savedViews;
   const { sharedViewActive, override, discard } = savedViews;
   const [showSaveModal, setShowSaveModal] = useState(false);
   // Held above the dropdown so the confirm dialog survives the dropdown closing on outside-click.
@@ -538,8 +574,9 @@ export const TracesV4SavedViewsButton = ({
             aria-label={
               activeView?.name ??
               intl.formatMessage({
-                defaultMessage: 'Views',
-                description: 'Label for the saved views dropdown in the traces toolbar',
+                defaultMessage: 'Default view',
+                description:
+                  'Label for the saved views dropdown in the traces toolbar when no saved view is active (the default, unfiltered state)',
               })
             }
           >
@@ -550,8 +587,8 @@ export const TracesV4SavedViewsButton = ({
                 </span>
               ) : (
                 <FormattedMessage
-                  defaultMessage="Views"
-                  description="Label for the saved views dropdown in the traces toolbar"
+                  defaultMessage="Default view"
+                  description="Label for the saved views dropdown in the traces toolbar when no saved view is active (the default, unfiltered state)"
                 />
               )}
             </ToolbarCollapsibleLabel>
@@ -568,6 +605,7 @@ export const TracesV4SavedViewsButton = ({
             onCopyLink={handleCopyLink}
             onRequestDelete={setPendingDelete}
             onSaveCurrent={() => setShowSaveModal(true)}
+            onSelectDefault={resetToDefaultView}
             sharedViewActive={sharedViewActive}
             onOverrideActive={override}
             onDiscardActive={discard}

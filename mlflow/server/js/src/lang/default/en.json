@@ -1687,6 +1687,10 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
+  "5DOwjl": {
+    "defaultMessage": "Default view",
+    "description": "Label for the saved views dropdown in the traces toolbar when no saved view is active (the default, unfiltered state)"
+  },
   "5EY1X7": {
     "defaultMessage": "Small trace samples and weaker models can miss real issues. Ways to improve coverage:",
     "description": "Introduction of the guidance callout on low-result issue detection runs"
@@ -10483,6 +10487,10 @@
     "defaultMessage": "Metrics",
     "description": "Row group title for metrics of runs on the experiment compare runs page"
   },
+  "fs91Hh": {
+    "defaultMessage": "Default view",
+    "description": "Menu item that leaves every saved view and returns the table to its default state"
+  },
   "fsDPRX": {
     "defaultMessage": "View setup instructions",
     "description": "Link to publisher documentation for manual install"
@@ -13298,6 +13306,10 @@
   "r/mP0/": {
     "defaultMessage": "Add rationale (optional)",
     "description": "Evaluation review > assessments > rationale input placeholder"
+  },
+  "r/p2/A": {
+    "defaultMessage": "Default",
+    "description": "Tag marking the built-in default view row, vs the user-created views below"
   },
   "r/uvjS": {
     "defaultMessage": "Failed to delete question: {error}",

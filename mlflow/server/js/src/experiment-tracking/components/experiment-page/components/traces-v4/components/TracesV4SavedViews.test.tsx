@@ -62,6 +62,8 @@ const SavedViewsButtonHarness = ({ experimentId }: { experimentId: string }) => 
     experimentId,
     visibleColumns: ['start_time', 'input'],
     setColumns: jest.fn(),
+    resetColumns: jest.fn(),
+    setFilterModel: jest.fn(),
   });
   return <TracesV4SavedViewsButton experimentId={experimentId} savedViews={savedViews} />;
 };
@@ -306,6 +308,8 @@ describe('useTracesV4SavedViews preview / override / discard', () => {
       experimentId: 'exp-1',
       visibleColumns: ['start_time', 'input'],
       setColumns,
+      resetColumns: jest.fn(),
+      setFilterModel: jest.fn(),
     });
     const [params] = useSearchParams();
     onRender(savedViews, params.toString());
@@ -437,7 +441,13 @@ describe('useTracesV4SavedViews preview / override / discard', () => {
 
 describe('useTracesV4SavedViews stale-tag refetch on active share key', () => {
   const HookProbe = ({ experimentId }: { experimentId: string }) => {
-    useTracesV4SavedViews({ experimentId, visibleColumns: ['start_time'], setColumns: jest.fn() });
+    useTracesV4SavedViews({
+      experimentId,
+      visibleColumns: ['start_time'],
+      setColumns: jest.fn(),
+      resetColumns: jest.fn(),
+      setFilterModel: jest.fn(),
+    });
     return null;
   };
   const renderHookAt = (shareKey?: string) =>
@@ -504,7 +514,13 @@ describe('useTracesV4SavedViews stale-tag refetch on active share key', () => {
 describe('TracesV4SharedViewBanner', () => {
   const setColumns = jest.fn();
   const BannerHarness = ({ entry }: { entry: string }) => {
-    const savedViews = useTracesV4SavedViews({ experimentId: 'exp-1', visibleColumns: ['start_time'], setColumns });
+    const savedViews = useTracesV4SavedViews({
+      experimentId: 'exp-1',
+      visibleColumns: ['start_time'],
+      setColumns,
+      resetColumns: jest.fn(),
+      setFilterModel: jest.fn(),
+    });
     return <TracesV4SharedViewBanner savedViews={savedViews} />;
   };
   const renderBannerAt = (entry: string) =>
