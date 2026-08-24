@@ -26,8 +26,10 @@ import { compileFilterModel, compileTagFilters } from '../utils/filterModel';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 
 // Grouped mode fetches sessions in one big page instead of paginating, so a session isn't split
-// across page boundaries. Mirrors the legacy Sessions tab's bounded single fetch.
-export const GROUPED_TRACES_LIMIT = 1000;
+// across page boundaries. Mirrors the legacy Sessions tab's bounded single fetch. Capped at the
+// OSS `SearchTracesV3` server limit (max_results <= 500 in mlflow/server/handlers.py); the managed
+// backend allows more, but the shared code must stay within the stricter OSS ceiling.
+export const GROUPED_TRACES_LIMIT = 500;
 
 interface UseTracesV4ControllerParams {
   experimentId: string;
