@@ -232,11 +232,9 @@ def test_covered_bucketed_day_is_served_from_rollup(store: SqlAlchemyStore, monk
     assert served == [(raw[0][0], (("COUNT", float(SENTINEL_COUNT)),))]
 
 
-def test_status_grouping_falls_back_to_raw(store: SqlAlchemyStore, monkeypatch):
+def test_incomplete_status_grouping_falls_back_to_raw(store: SqlAlchemyStore, monkeypatch):
     exp_id = _seed(store)
-    # Per-status breakdowns are not served from rollups yet: whole-day completeness of a multi-row
-    # grouping set is a maintenance-job guarantee, so a status request stays on the raw path and the
-    # seeded sentinel rows are ignored.
+    # A status breakdown without its global publication row is incomplete and must stay raw.
     for status in ("OK", "ERROR"):
         _insert_trace_metric_rollup(
             store,
@@ -255,6 +253,60 @@ def test_status_grouping_falls_back_to_raw(store: SqlAlchemyStore, monkeypatch):
         TraceMetricKey.TRACE_COUNT,
         _COUNT,
         [TraceMetricDimensionKey.TRACE_STATUS],
+    )
+
+
+def test_complete_status_grouping_is_served_from_rollup(store: SqlAlchemyStore, monkeypatch):
+    exp_id = _seed(store)
+    _insert_trace_metric_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        TraceMetricKey.TRACE_COUNT,
+        GroupingSet.GLOBAL.value,
+        sample_count=SENTINEL_COUNT * 2,
+    )
+    for status in ("OK", "ERROR"):
+        _insert_trace_metric_rollup(
+            store,
+            exp_id,
+            DAY_A_START,
+            TraceMetricKey.TRACE_COUNT,
+            GroupingSet.STATUS.value,
+            sample_count=SENTINEL_COUNT,
+            trace_status=status,
+        )
+
+    _set_enabled(monkeypatch, True)
+    served = _query(
+        store,
+        exp_id,
+        MetricViewType.TRACES,
+        TraceMetricKey.TRACE_COUNT,
+        _COUNT,
+        [TraceMetricDimensionKey.TRACE_STATUS],
+    )
+
+    counts_by_status = {
+        dict(dimensions)[TraceMetricDimensionKey.TRACE_STATUS]: dict(values)["COUNT"]
+        for dimensions, values in served
+    }
+    assert counts_by_status == {"OK": float(SENTINEL_COUNT), "ERROR": float(SENTINEL_COUNT)}
+
+
+def test_duplicate_global_rollup_falls_back_to_raw(store: SqlAlchemyStore, monkeypatch):
+    exp_id = _seed(store)
+    for _ in range(2):
+        _insert_trace_metric_rollup(
+            store,
+            exp_id,
+            DAY_A_START,
+            TraceMetricKey.TRACE_COUNT,
+            GroupingSet.GLOBAL.value,
+            sample_count=SENTINEL_COUNT,
+        )
+    _assert_enabled_equals_raw(
+        store, monkeypatch, exp_id, MetricViewType.TRACES, TraceMetricKey.TRACE_COUNT, _COUNT, None
     )
 
 

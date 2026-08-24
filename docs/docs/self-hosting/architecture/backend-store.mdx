@@ -137,7 +137,7 @@ Enabling this variable does not populate the rollup tables by itself; a separate
 :::note[Backend-specific behavior]
 
 - **Percentiles** (p50/p90/p99) are served from rollups for trace metrics such as latency and token usage, and only on PostgreSQL. On other backends, and for assessment percentiles, percentile aggregations fall back to the raw path.
-- **Grouping** is limited to whole-experiment daily aggregates. Requests that group by a dimension, such as a per-status breakdown, use the raw path.
+- **Grouping** supports whole-experiment daily aggregates and trace-count breakdowns by trace status. Other dimension groupings use the raw path.
 - **Span cost** metrics are intentionally excluded from rollups and always use the raw path, because their day bucketing cannot be made row-identical to the raw query. All other ungrouped trace-metric and assessment aggregations are eligible.
 
 :::

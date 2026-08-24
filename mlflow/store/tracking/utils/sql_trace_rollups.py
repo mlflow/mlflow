@@ -14,12 +14,11 @@ tables lives in the separate rollup maintenance job.
 
 The reader trusts a full UTC day only when a matching rollup row exists for the metric and grouping
 set and no rebuild is queued for that day and family; it also demotes a covered day back to the raw
-path when the row is missing a column the request needs (a null aggregate value). Whole-day
-completeness of a grouping set is a maintenance-job guarantee, so the reader serves only the
-single-row ``global`` grouping set, whose one row per experiment-day is self-verifying. Multi-row
-grouping sets (for example per-status breakdowns) are served once the maintenance job that writes
-and invalidates them can guarantee that every group's row for a day is present before the day is
-treated as built.
+path when the row is missing a column the request needs (a null aggregate value). The single-row
+``global`` grouping set is self-verifying. Trace-status rows are served only when their distinct
+status counts add up to the corresponding global count, which proves the materialized breakdown is
+complete. Other multi-row grouping sets remain raw-only until they have an equivalent completeness
+proof.
 
 The rollup tables carry no ``workspace`` column (the shipped analytics schema scopes purely on
 ``experiment_id``, which is globally unique), so workspace isolation is preserved by the caller only
@@ -137,12 +136,10 @@ PERCENTILE_BACKENDS = frozenset({db_types.POSTGRES})
 # always exactly reproducible from daily rollups.
 SERVABLE_FAMILIES = frozenset({RollupFamily.TRACE_METRIC, RollupFamily.ASSESSMENT})
 
-# Grouping sets the reader may serve. Restricted to ``global`` because that grouping set has exactly
-# one row per experiment-day, so "a row exists and is not queued" already proves the day complete.
-# Multi-row grouping sets (status, model, provider) need the maintenance job to guarantee that every
-# group's row for a day is written before the day is treated as built; until that job lands, serving
-# them could under-report a day whose sibling rows are missing, so they stay on the raw path.
-SERVABLE_GROUPING_SETS = frozenset({GroupingSet.GLOBAL})
+# Trace-status rollups can be verified against their companion global count row: a day is served
+# only when the status rows' sample counts add up to that global count. Other multi-row grouping
+# sets have no equivalent completeness proof in the read schema and remain raw-only.
+SERVABLE_GROUPING_SETS = frozenset({GroupingSet.GLOBAL, GroupingSet.STATUS})
 
 
 def rollups_enabled() -> bool:
@@ -465,29 +462,72 @@ def read_rollup_data_points(
         model.rollup_day.in_(list(date_to_ms.keys())),
     )
 
+    rows_by_day: dict[date, list] = {}
+    for row in rows:
+        rows_by_day.setdefault(row.rollup_day, []).append(row)
+
+    global_rows_by_day: dict[date, list] = {}
+    if plan.grouping_set == GroupingSet.STATUS:
+        global_rows = session.query(model).filter(
+            model.experiment_id == plan.experiment_id,
+            model.metric_name == plan.metric_name,
+            model.grouping_set == GroupingSet.GLOBAL.value,
+            model.rollup_day.in_(list(date_to_ms.keys())),
+        )
+        for row in global_rows:
+            global_rows_by_day.setdefault(row.rollup_day, []).append(row)
+
     data_points = []
     served_day_starts: set[int] = set()
-    for row in rows:
-        group_dims = _rollup_row_dimensions(plan, row)
-        # Mirror the raw path, which drops rows whose grouping dimension is null.
-        if any(v is None for v in group_dims.values()):
+    for rollup_day, day_rows in rows_by_day.items():
+        # A global aggregate has exactly one row. Duplicate rows can occur while an external
+        # publisher is replacing a day's rollup, so treat them as incomplete rather than risking
+        # a duplicate data point.
+        if plan.grouping_set == GroupingSet.GLOBAL and len(day_rows) != 1:
             continue
 
-        values = {}
-        for agg in plan.aggregations:
-            value = _rollup_row_value(agg, row)
-            if value is None:
-                # A requested aggregation has no value for this day; demote the day to raw.
+        if plan.grouping_set == GroupingSet.STATUS:
+            global_rows = global_rows_by_day.get(rollup_day, [])
+            statuses = [row.trace_status for row in day_rows]
+            # The global row is the publication/completeness marker for a materialized status
+            # breakdown. It must be unique and equal to the sum of the distinct status rows.
+            if (
+                len(global_rows) != 1
+                or any(status is None for status in statuses)
+                or len(set(statuses)) != len(statuses)
+                or sum(row.sample_count for row in day_rows) != global_rows[0].sample_count
+            ):
+                continue
+
+        day_points = []
+        for row in day_rows:
+            group_dims = _rollup_row_dimensions(plan, row)
+            # Mirror the raw path, which drops rows whose grouping dimension is null.
+            if any(v is None for v in group_dims.values()):
                 break
-            values[str(agg)] = value
+
+            values = {}
+            for agg in plan.aggregations:
+                value = _rollup_row_value(agg, row)
+                if value is None:
+                    # A requested aggregation has no value for this day; demote the whole day to
+                    # raw so a grouped result cannot be only partially served.
+                    break
+                values[str(agg)] = value
+            else:
+                day_start_ms = date_to_ms[rollup_day]
+                dimensions = {TIME_BUCKET_LABEL: _day_start_ms_to_iso(day_start_ms)}
+                dimensions.update(group_dims)
+                day_points.append(
+                    MetricDataPoint(
+                        metric_name=plan.metric_name, dimensions=dimensions, values=values
+                    )
+                )
+                continue
+            break
         else:
-            day_start_ms = date_to_ms[row.rollup_day]
-            served_day_starts.add(day_start_ms)
-            dimensions = {TIME_BUCKET_LABEL: _day_start_ms_to_iso(day_start_ms)}
-            dimensions.update(group_dims)
-            data_points.append(
-                MetricDataPoint(metric_name=plan.metric_name, dimensions=dimensions, values=values)
-            )
+            served_day_starts.add(date_to_ms[rollup_day])
+            data_points.extend(day_points)
     return data_points, sorted(served_day_starts)
 
 
