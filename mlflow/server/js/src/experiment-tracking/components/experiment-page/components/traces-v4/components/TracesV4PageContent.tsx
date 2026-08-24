@@ -46,11 +46,6 @@ interface TracesV4PageContentProps {
   experimentId: string;
 }
 
-// Below this width the tab stops compressing its controls and scrolls horizontally instead (see the
-// scroll wrapper below). Picked so the flexible search and both button groups remain usable; tune
-// visually against the running UI.
-const MIN_TAB_CONTENT_WIDTH = 850;
-
 // Narrows a column id to a standard `TraceColumnId` (assessment columns are namespaced separately).
 const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_IDS as readonly string[]).includes(id);
 
@@ -283,144 +278,132 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
       DrawerComponent={AssistantAwareDrawer}
     >
       <GenAITracesTableProvider experimentId={experimentId} getTrace={actions.getTrace} isGroupedBySession={false}>
-        {/* Scroll wrapper (datasets-v2 precedent): takes over the vertical-fill role and scrolls the
-            whole tab horizontally once the inner column hits its MIN_TAB_CONTENT_WIDTH floor, so the
-            toolbar + table move together instead of the controls crushing. Pure CSS, no JS layout.
-            The bottom bleed lives here, NOT on the inner column: `overflowX: auto` forces `overflowY`
-            to compute to `auto`, so a negative bottom margin inside would push the inner box past the
-            scrollport and clip the pinned pagination bar. On the wrapper it instead bleeds into the
-            shared content wrapper's 8px bottom padding, aligning the bar with the sidebar's edge. */}
+        {/* Vertical-fill column for the tab. Horizontal scroll stays inside the table (TracesTable's
+            own `<Table scrollable>`), so the toolbar and pagination bar keep to the visible width
+            without a second scroll container of our own (ML-68750/68769) — the toolbar instead
+            collapses its control labels to fit (see TracesToolbarResponsive). The negative bottom
+            margin bleeds the pinned pagination bar into the shared content wrapper's 8px bottom
+            padding, aligning it with the sidebar. */}
         <div
           css={{
             display: 'flex',
             flexDirection: 'column',
             flex: 1,
             minHeight: 0,
-            overflowX: 'auto',
+            gap: theme.spacing.md,
+            paddingTop: theme.spacing.md,
+            paddingLeft: theme.spacing.md,
             marginBottom: -theme.spacing.sm,
           }}
         >
-          <div
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              flex: 1,
-              minHeight: 0,
-              minWidth: MIN_TAB_CONTENT_WIDTH,
-              gap: theme.spacing.md,
-              paddingTop: theme.spacing.md,
-              paddingLeft: theme.spacing.md,
-            }}
-          >
-            <TracesTableView
-              viewState={viewState}
-              // Table
-              traces={page.traces}
-              visibleColumns={effectiveVisibleColumns}
-              extraColumns={assessments.columnDefs}
-              initialColumnSizing={columnSizing.columnSizing}
-              onColumnSizingSettled={columnSizing.setColumnSizing}
-              isLoading={page.isFetching}
-              isFetching={page.isFetching}
-              skeletonRowCount={url.pageSize}
-              onTraceSelected={handleTraceSelected}
-              selectedTraceId={url.traceId}
-              selectedForBulk={bulk.selected}
-              isAllOnPageSelected={bulk.isAllVisibleChecked}
-              isSomeOnPageSelected={bulk.isSomeVisibleChecked}
-              onToggleBulkRow={bulk.toggle}
-              onToggleBulkAll={bulk.toggleAll}
-              sort={url.sort}
-              dir={url.dir}
-              onSort={url.setSort}
-              size={density}
-              getTraceHref={getTraceHref}
-              getSessionHref={getSessionHref}
-              onFilterByTag={controller.onFilterByTag}
-              renderRunName={renderRunName}
-              onHideColumn={handleHideColumn}
-              // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
-              searchValue={searchInput.input}
-              onSearchChange={searchInput.setInput}
-              onSearchClear={searchInput.clear}
-              onSearchSubmit={searchInput.submit}
-              searchInputRef={searchInputRef}
-              leftControls={toolbarSlots.leftControls}
-              rightControls={toolbarSlots.rightControls}
-              bannerSlot={
-                <>
-                  <TracesV4SharedViewBanner savedViews={savedViews} />
-                  {actions.runJudges?.JudgesStatusBanner}
-                  {showErrorAlert && (
-                    <TracesErrorAlert
-                      error={page.error}
-                      onRetry={page.refetch}
-                      getErrorDescription={getErrorDescription}
-                    />
-                  )}
-                </>
-              }
-              // Pagination
-              pageIndex={url.pageIndex}
-              pageSize={url.pageSize}
-              onPageChange={controller.goToPage}
-              onPageSizeChange={url.setPageSize}
-              hasNext={page.hasNext}
-              hasPrev={page.hasPrev}
-              // "{n} of {total}" footer count (bottom-left).
-              traceCount={traceCount.currentCount}
-              traceTotal={traceCount.totalCount}
-              isTraceCountLoading={traceCount.isTotalLoading}
-              // Reserve the pinned pagination bar's height with the floating-obstruction store so the
-              // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
-              PaginationBarWrapper={AssistantAwareActionBar}
-              // States
-              onClearFilters={clearFilters}
-              onRetry={page.refetch}
-              error={page.error}
-              getErrorDescription={getErrorDescription}
-              customEmptyState={
-                // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
-                // resolved `empty` state, not `hasNoTracesAtAll` alone, so error / no-results /
-                // no-more-results still flow through the switch — a trace-id-search miss lands on
-                // `no-results`, and a first-load error on `error`, not the quickstart.
-                viewState === 'empty' ? <TracesV4EmptyState experimentId={experimentId} /> : undefined
-              }
-            />
+          <TracesTableView
+            viewState={viewState}
+            // Table
+            traces={page.traces}
+            visibleColumns={effectiveVisibleColumns}
+            extraColumns={assessments.columnDefs}
+            initialColumnSizing={columnSizing.columnSizing}
+            onColumnSizingSettled={columnSizing.setColumnSizing}
+            isLoading={page.isFetching}
+            isFetching={page.isFetching}
+            skeletonRowCount={url.pageSize}
+            onTraceSelected={handleTraceSelected}
+            selectedTraceId={url.traceId}
+            selectedForBulk={bulk.selected}
+            isAllOnPageSelected={bulk.isAllVisibleChecked}
+            isSomeOnPageSelected={bulk.isSomeVisibleChecked}
+            onToggleBulkRow={bulk.toggle}
+            onToggleBulkAll={bulk.toggleAll}
+            sort={url.sort}
+            dir={url.dir}
+            onSort={url.setSort}
+            size={density}
+            getTraceHref={getTraceHref}
+            getSessionHref={getSessionHref}
+            onFilterByTag={controller.onFilterByTag}
+            renderRunName={renderRunName}
+            onHideColumn={handleHideColumn}
+            // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
+            searchValue={searchInput.input}
+            onSearchChange={searchInput.setInput}
+            onSearchClear={searchInput.clear}
+            onSearchSubmit={searchInput.submit}
+            searchInputRef={searchInputRef}
+            leftControls={toolbarSlots.leftControls}
+            rightControls={toolbarSlots.rightControls}
+            bannerSlot={
+              <>
+                <TracesV4SharedViewBanner savedViews={savedViews} />
+                {actions.runJudges?.JudgesStatusBanner}
+                {showErrorAlert && (
+                  <TracesErrorAlert
+                    error={page.error}
+                    onRetry={page.refetch}
+                    getErrorDescription={getErrorDescription}
+                  />
+                )}
+              </>
+            }
+            // Pagination
+            pageIndex={url.pageIndex}
+            pageSize={url.pageSize}
+            onPageChange={controller.goToPage}
+            onPageSizeChange={url.setPageSize}
+            hasNext={page.hasNext}
+            hasPrev={page.hasPrev}
+            // "{n} of {total}" footer count (bottom-left).
+            traceCount={traceCount.currentCount}
+            traceTotal={traceCount.totalCount}
+            isTraceCountLoading={traceCount.isTotalLoading}
+            // Reserve the pinned pagination bar's height with the floating-obstruction store so the
+            // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
+            PaginationBarWrapper={AssistantAwareActionBar}
+            // States
+            onClearFilters={clearFilters}
+            onRetry={page.refetch}
+            error={page.error}
+            getErrorDescription={getErrorDescription}
+            customEmptyState={
+              // Short-circuits before the viewState switch (keeping toolbar + banner). Gated on the
+              // resolved `empty` state, not `hasNoTracesAtAll` alone, so error / no-results /
+              // no-more-results still flow through the switch — a trace-id-search miss lands on
+              // `no-results`, and a first-load error on `error`, not the quickstart.
+              viewState === 'empty' ? <TracesV4EmptyState experimentId={experimentId} /> : undefined
+            }
+          />
 
-            <TracesV4DeleteModal
-              open={deleteOpen}
-              count={pendingDeleteIds.length}
-              isLoading={deleteTracesMutation.isLoading}
-              error={deleteTracesMutation.error instanceof Error ? deleteTracesMutation.error : undefined}
-              onConfirm={confirmDelete}
-              onCancel={cancelDelete}
-            />
+          <TracesV4DeleteModal
+            open={deleteOpen}
+            count={pendingDeleteIds.length}
+            isLoading={deleteTracesMutation.isLoading}
+            error={deleteTracesMutation.error instanceof Error ? deleteTracesMutation.error : undefined}
+            onConfirm={confirmDelete}
+            onCancel={cancelDelete}
+          />
 
-            <TracesV4TraceDrawer
-              traceId={url.traceId}
-              onClose={closeDrawer}
+          <TracesV4TraceDrawer
+            traceId={url.traceId}
+            onClose={closeDrawer}
+            experimentId={experimentId}
+            traces={page.traces}
+            onSelectTrace={url.setTraceId}
+            runJudgeConfiguration={actions.runJudges?.runJudgeConfiguration}
+          />
+
+          {actions.runJudges?.RunJudgesModal}
+          {actions.editTags.EditTagsModal}
+
+          {isIssueDetectionOpen && (
+            <IssueDetectionModal
+              key={experimentId}
+              onClose={() => setIsIssueDetectionOpen(false)}
               experimentId={experimentId}
-              traces={page.traces}
-              onSelectTrace={url.setTraceId}
-              runJudgeConfiguration={actions.runJudges?.runJudgeConfiguration}
+              initialSelectedTraceIds={selectedTraceIds}
+              availableTraceIds={availableTraceIds}
             />
+          )}
 
-            {actions.runJudges?.RunJudgesModal}
-            {actions.editTags.EditTagsModal}
-
-            {isIssueDetectionOpen && (
-              <IssueDetectionModal
-                key={experimentId}
-                onClose={() => setIsIssueDetectionOpen(false)}
-                experimentId={experimentId}
-                initialSelectedTraceIds={selectedTraceIds}
-                availableTraceIds={availableTraceIds}
-              />
-            )}
-
-            {notificationContainer}
-          </div>
+          {notificationContainer}
         </div>
       </GenAITracesTableProvider>
     </ModelTraceExplorerContextProvider>
