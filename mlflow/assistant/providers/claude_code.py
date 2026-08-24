@@ -745,7 +745,11 @@ class ClaudeCodeProvider(AssistantProvider):
         env = {"MLFLOW_TRACKING_URI": to_container_host_uri(tracking_uri)}
         for var in _SANDBOX_AUTH_ENV_PASSTHROUGH:
             if value := os.environ.get(var):
-                env[var] = value
+                # ANTHROPIC_BASE_URL is a URL the CLI connects to from *inside* the container, so
+                # a loopback value must be rewritten to reach the host. A non-loopback endpoint
+                # (e.g. a host-only gateway) is forwarded as-is and must be reachable from the
+                # sandbox; if it is not, the idle timeout surfaces a failure instead of hanging.
+                env[var] = to_container_host_uri(value) if var == "ANTHROPIC_BASE_URL" else value
 
         # Persist the CLI's HOME (its --resume session store and caches) across turns of the
         # same session so multi-turn conversations resume correctly.
@@ -801,6 +805,14 @@ class ClaudeCodeProvider(AssistantProvider):
                     clear_container_id(mlflow_session_id)
 
             returncode = await proc.wait()
+            # The idle-timeout watchdog kills a stuck CLI; surface that as a clear error rather
+            # than a bare interrupt (both exit 137, so this must be checked first).
+            if proc.timed_out:
+                yield Event.from_error(
+                    "Claude Code produced no output for too long and was stopped. If a custom "
+                    "ANTHROPIC_BASE_URL is set, it may not be reachable from the sandbox."
+                )
+                return
             # A killed container exits 137 (128 + SIGKILL), which is how cancellation surfaces.
             if returncode == 137:
                 yield Event.from_interrupted()

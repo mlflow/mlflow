@@ -28,6 +28,7 @@ import shlex
 import shutil
 import tempfile
 import threading
+import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -48,6 +49,11 @@ _IO_MOUNT = "/sandbox-io"  # read-only: stdin buffer + any input files (e.g. sys
 _HOME_MOUNT = "/home/sandbox"  # writable bind mount: CLI caches + --resume state
 _STDIN_FILE = "stdin"
 
+# Kill the container if it produces no output for this long. A stuck CLI (e.g. an unreachable
+# model endpoint) otherwise streams nothing and the turn would hang indefinitely. This is an
+# idle timeout, not a total-runtime cap, so a turn that keeps streaming output is never cut.
+_DEFAULT_STREAM_IDLE_TIMEOUT = 120.0
+
 
 def sandbox_input_path(name: str) -> str:
     """In-container path of an input file passed via ``start_sandbox_process(input_files=...)``."""
@@ -63,11 +69,19 @@ class SandboxProcess:
     created because no caller-managed one was supplied).
     """
 
-    def __init__(self, container, io_dir: Path, ephemeral_home: Path | None = None) -> None:
+    def __init__(
+        self,
+        container,
+        io_dir: Path,
+        ephemeral_home: Path | None = None,
+        idle_timeout: float | None = None,
+    ) -> None:
         self._container = container
         self._io_dir = io_dir
         self._ephemeral_home = ephemeral_home
+        self._idle_timeout = idle_timeout
         self._returncode: int | None = None
+        self._timed_out = False
 
     @property
     def container_id(self) -> str:
@@ -76,6 +90,11 @@ class SandboxProcess:
     @property
     def returncode(self) -> int | None:
         return self._returncode
+
+    @property
+    def timed_out(self) -> bool:
+        """Whether the container was killed for producing no output within ``idle_timeout``."""
+        return self._timed_out
 
     async def iter_stdout_lines(self) -> AsyncIterator[bytes]:
         """Yield stdout lines (bytes, newline-stripped) as the container produces them.
@@ -89,6 +108,12 @@ class SandboxProcess:
         # Items are bytes lines, a terminal sentinel, or an Exception raised while draining.
         queue: asyncio.Queue[bytes | object | Exception] = asyncio.Queue()
         sentinel = object()
+        last_activity = time.monotonic()
+        stop_watchdog = threading.Event()
+
+        def _bump() -> None:
+            nonlocal last_activity
+            last_activity = time.monotonic()
 
         def _safe_put(item: object) -> None:
             # The consumer may be torn down (loop closed) while this daemon thread is still
@@ -107,6 +132,7 @@ class SandboxProcess:
                 for chunk in self._container.logs(
                     stream=True, follow=True, stdout=True, stderr=False
                 ):
+                    _bump()
                     buffer.extend(chunk)
                     while (newline := buffer.find(b"\n")) != -1:
                         _safe_put(bytes(buffer[:newline]))
@@ -118,15 +144,32 @@ class SandboxProcess:
             finally:
                 _safe_put(sentinel)
 
-        threading.Thread(target=_drain, name="mlflow-sandbox-stdout-drain", daemon=True).start()
+        def _watchdog() -> None:
+            # Kill the container if it produces no output for `idle_timeout`; that ends the
+            # blocking logs() stream so the drain loop completes and the turn does not hang.
+            interval = min(self._idle_timeout, 5.0)
+            while not stop_watchdog.wait(interval):
+                if time.monotonic() - last_activity > self._idle_timeout:
+                    self._timed_out = True
+                    self.kill()
+                    return
 
-        while True:
-            item = await queue.get()
-            if item is sentinel:
-                break
-            if isinstance(item, Exception):
-                raise SandboxUnavailableError(f"Sandbox output stream failed: {item}")
-            yield item
+        threading.Thread(target=_drain, name="mlflow-sandbox-stdout-drain", daemon=True).start()
+        if self._idle_timeout:
+            threading.Thread(
+                target=_watchdog, name="mlflow-sandbox-idle-watchdog", daemon=True
+            ).start()
+
+        try:
+            while True:
+                item = await queue.get()
+                if item is sentinel:
+                    break
+                if isinstance(item, Exception):
+                    raise SandboxUnavailableError(f"Sandbox output stream failed: {item}")
+                yield item
+        finally:
+            stop_watchdog.set()
 
     async def wait(self) -> int:
         outcome = await asyncio.to_thread(self._container.wait)
@@ -163,6 +206,7 @@ def start_sandbox_process(
     stdin_data: bytes = b"",
     input_files: dict[str, str] | None = None,
     home_dir: Path | None = None,
+    idle_timeout: float | None = _DEFAULT_STREAM_IDLE_TIMEOUT,
 ) -> SandboxProcess:
     """Start ``argv`` in a hardened, streaming sandbox container.
 
@@ -178,6 +222,9 @@ def start_sandbox_process(
             state (such as ``--resume`` session history) persists across calls. It must be
             writable by the current user (the container runs as this uid:gid). When None an
             ephemeral ``$HOME`` is created and removed by ``cleanup()``.
+        idle_timeout: Kill the container if it produces no output for this many seconds (see
+            ``SandboxProcess.timed_out``). None disables it. This bounds a stuck CLI without
+            cutting a turn that keeps streaming.
 
     Returns:
         A SandboxProcess wrapping the started container.
@@ -251,7 +298,9 @@ def start_sandbox_process(
             shutil.rmtree(ephemeral_home, ignore_errors=True)
         raise SandboxUnavailableError(f"Failed to start sandbox container: {e}")
 
-    return SandboxProcess(container, io_dir, ephemeral_home=ephemeral_home)
+    return SandboxProcess(
+        container, io_dir, ephemeral_home=ephemeral_home, idle_timeout=idle_timeout
+    )
 
 
 def _require_image(client, image: str) -> None:

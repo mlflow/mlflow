@@ -1,5 +1,6 @@
 import asyncio
 import os
+import threading
 from pathlib import Path
 from unittest import mock
 
@@ -184,3 +185,43 @@ def test_start_container_failure_cleans_io_and_raises():
 
     # The IO scratch dir is cleaned up when the container fails to start.
     assert not Path(captured["io_dir"]).exists()
+
+
+def test_iter_stdout_lines_idle_timeout_kills_container():
+    stop = threading.Event()
+    container = mock.MagicMock()
+
+    def logs(**kwargs):
+        if kwargs.get("stream"):
+
+            def gen():
+                stop.wait(5)  # block (no output) until the watchdog "kills" the container
+                return
+                yield  # make this a generator
+
+            return gen()
+        return b""
+
+    container.logs.side_effect = logs
+    container.kill.side_effect = lambda: stop.set()  # killing ends the (blocked) logs stream
+    container.wait.return_value = {"StatusCode": 137}
+    client = mock.MagicMock()
+    client.images.get.return_value = mock.MagicMock()
+    client.containers.run.return_value = container
+
+    with mock.patch("docker.from_env", return_value=client):
+        proc = start_sandbox_process(["sleep"], idle_timeout=0.2)
+        lines = _run(_collect(proc.iter_stdout_lines()))
+
+    assert proc.timed_out is True
+    assert lines == []
+    container.kill.assert_called()
+
+
+def test_no_idle_timeout_when_disabled():
+    client, _ = _streaming_container([b"a\n", b"b\n"])
+    with mock.patch("docker.from_env", return_value=client):
+        proc = start_sandbox_process(["x"], idle_timeout=None)
+        lines = _run(_collect(proc.iter_stdout_lines()))
+    assert lines == [b"a", b"b"]
+    assert proc.timed_out is False

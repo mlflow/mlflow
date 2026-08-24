@@ -863,10 +863,11 @@ async def test_astream_skips_rate_limit_event():
 class _FakeSandboxProcess:
     """Stand-in for mlflow.server.sandbox.SandboxProcess used to drive the sandbox path."""
 
-    def __init__(self, lines, returncode=0, stderr=b""):
+    def __init__(self, lines, returncode=0, stderr=b"", timed_out=False):
         self._lines = lines
         self._returncode = returncode
         self._stderr = stderr
+        self.timed_out = timed_out
         self.container_id = "container-abc"
         self.cleaned_up = False
 
@@ -1005,3 +1006,52 @@ async def test_astream_in_sandbox_non_json_line_becomes_message(monkeypatch):
     assert events
     assert not any(e.type == EventType.ERROR for e in events)
     assert fake.cleaned_up is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_timeout_surfaces_error(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    fake = _FakeSandboxProcess(lines=[], returncode=137, timed_out=True)
+    provider = ClaudeCodeProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    errored = [e for e in events if e.type == EventType.ERROR]
+    assert errored, "a timed-out sandbox turn should surface an error, not a bare interrupt"
+    assert "no output for too long" in errored[0].to_sse_event()
+    assert fake.cleaned_up is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_rewrites_loopback_base_url(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://localhost:4000/v1")
+    fake = _FakeSandboxProcess(lines=[], returncode=0)
+    captured = {}
+
+    def _capture(*args, **kwargs):
+        captured["environment"] = kwargs.get("environment")
+        return fake
+
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", side_effect=_capture),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider_astream_once()]
+
+    env = captured["environment"]
+    # A loopback base URL is rewritten so the CLI can reach the host from inside the container.
+    assert env["ANTHROPIC_BASE_URL"] == "http://host.docker.internal:4000/v1"
+    assert env["ANTHROPIC_API_KEY"] == "sk-test"
+
+
+async def provider_astream_once():
+    provider = ClaudeCodeProvider()
+    async for event in provider.astream("hi", "http://localhost:5000"):
+        yield event
