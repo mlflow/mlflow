@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 import time
 from pathlib import Path
 from unittest import mock
@@ -22,7 +23,7 @@ from mlflow.server.jobs.utils import (
 )
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
-from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
 
 pytestmark = [
     pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
@@ -48,6 +49,11 @@ def executor_engine_sleep(sleep_secs):
     time.sleep(sleep_secs)
 
 
+@job(name="executor_engine_parallel", max_workers=2)
+def executor_engine_parallel(x):
+    return x
+
+
 @job(
     name="executor_engine_flaky",
     max_workers=1,
@@ -68,12 +74,14 @@ _JOB_FULLNAMES = [
     "tests.server.jobs.test_executor_engine.executor_engine_add",
     "tests.server.jobs.test_executor_engine.executor_engine_boom",
     "tests.server.jobs.test_executor_engine.executor_engine_sleep",
+    "tests.server.jobs.test_executor_engine.executor_engine_parallel",
     "tests.server.jobs.test_executor_engine.executor_engine_flaky",
 ]
 _JOB_NAMES = [
     "executor_engine_add",
     "executor_engine_boom",
     "executor_engine_sleep",
+    "executor_engine_parallel",
     "executor_engine_flaky",
 ]
 
@@ -118,6 +126,73 @@ def executor():
         ex.stop_executor()
 
 
+def _run_to_completion(job_store, executor, lease_duration=60.0):
+    """Schedule all currently-PENDING jobs and wait for their worker threads to finish.
+
+    The scheduler runs each claimed job in a worker thread, so tests join before asserting the
+    terminal state. Returns the number of jobs scheduled by the single tick.
+    """
+    scheduler = runner._JobScheduler(job_store, executor, lease_duration)
+    scheduled = scheduler.tick()
+    scheduler.join(timeout=60.0)
+    return scheduled
+
+
+class _BlockingExecutor:
+    """Executor stub whose ``wait_for_job`` blocks until released.
+
+    Holding a job in ``wait_for_job`` lets a test observe the scheduler's state while a job is
+    in flight (e.g. concurrency limits, cancellation forwarding), which a real executor that runs
+    to completion immediately would not allow.
+    """
+
+    def __init__(self):
+        self._release = threading.Event()
+        self._lock = threading.Lock()
+        self.submitted = []
+        self.canceled = []
+        # job_id -> workspace resolved on the worker thread at submit time. Records what
+        # get_request_workspace() returns inside each worker, to prove per-thread isolation.
+        self.observed_workspace = {}
+
+    def start_executor(self):
+        pass
+
+    def stop_executor(self):
+        pass
+
+    def submit_job(self, *, job_id, **kwargs):
+        with self._lock:
+            self.submitted.append(job_id)
+            self.observed_workspace[job_id] = get_request_workspace()
+
+    def wait_for_job(self, job_id):
+        self._release.wait(30.0)
+        return JobResult(status=JobStatus.SUCCEEDED, result="ok")
+
+    def cancel_job(self, job_id):
+        with self._lock:
+            self.canceled.append(job_id)
+        self._release.set()
+
+    def wait_until_submitted(self, count=1, timeout=10.0):
+        # Workers submit from their own threads, so tests wait for the jobs to actually reach the
+        # executor before inspecting or cancelling them, rather than racing the workers.
+        deadline = time.monotonic() + timeout
+        while True:
+            with self._lock:
+                if len(self.submitted) >= count:
+                    return
+            if time.monotonic() > deadline:
+                raise AssertionError(
+                    f"only {len(self.submitted)} of {count} jobs submitted in time"
+                )
+            time.sleep(0.02)
+
+    def release(self):
+        self._release.set()
+
+
 def test_select_executor_defaults_to_local():
     assert isinstance(runner._select_executor(), LocalJobExecutor)
 
@@ -125,7 +200,7 @@ def test_select_executor_defaults_to_local():
 def test_loop_runs_pending_job_to_success(registered_jobs, job_store, executor):
     created = job_store.create_job("executor_engine_add", json.dumps({"x": 3, "y": 4}))
 
-    executed = runner._poll_and_execute_once(job_store, executor, lease_duration=60.0)
+    executed = _run_to_completion(job_store, executor, lease_duration=60.0)
 
     assert executed == 1
     updated = job_store.get_job(created.job_id)
@@ -137,14 +212,14 @@ def test_loop_runs_pending_job_to_success(registered_jobs, job_store, executor):
 def test_loop_records_failure(registered_jobs, job_store, executor):
     created = job_store.create_job("executor_engine_boom", "{}")
 
-    runner._poll_and_execute_once(job_store, executor, lease_duration=60.0)
+    _run_to_completion(job_store, executor, lease_duration=60.0)
 
     updated = job_store.get_job(created.job_id)
     assert updated.status == JobStatus.FAILED
 
 
 def test_loop_no_pending_jobs_is_noop(registered_jobs, job_store, executor):
-    assert runner._poll_and_execute_once(job_store, executor, lease_duration=60.0) == 0
+    assert _run_to_completion(job_store, executor, lease_duration=60.0) == 0
 
 
 def test_loop_marks_timed_out_job(registered_jobs, job_store, executor):
@@ -152,7 +227,7 @@ def test_loop_marks_timed_out_job(registered_jobs, job_store, executor):
         "executor_engine_sleep", json.dumps({"sleep_secs": 30}), timeout=1.0
     )
 
-    runner._poll_and_execute_once(job_store, executor, lease_duration=60.0)
+    _run_to_completion(job_store, executor, lease_duration=60.0)
 
     updated = job_store.get_job(created.job_id)
     assert updated.status == JobStatus.TIMEOUT
@@ -170,13 +245,13 @@ def test_loop_retries_transient_error_then_succeeds(
     monkeypatch.setattr(runner, "_backoff_after_transient_retry", lambda retry_count: None)
 
     # First poll: transient error -> retry_or_fail_job resets the job to PENDING.
-    runner._poll_and_execute_once(job_store, executor, lease_duration=60.0)
+    _run_to_completion(job_store, executor, lease_duration=60.0)
     after_first = job_store.get_job(created.job_id)
     assert after_first.status == JobStatus.PENDING
     assert after_first.retry_count == 1
 
     # Second poll: the retried job is re-claimed and succeeds.
-    runner._poll_and_execute_once(job_store, executor, lease_duration=60.0)
+    _run_to_completion(job_store, executor, lease_duration=60.0)
     after_second = job_store.get_job(created.job_id)
     assert after_second.status == JobStatus.SUCCEEDED
     assert after_second.result == "2"
@@ -199,13 +274,111 @@ def test_loop_runs_job_in_non_default_workspace(registered_jobs, tmp_path, execu
         "mlflow.server.workspace_helpers._get_workspace_store",
         return_value=mock_workspace_store,
     ):
-        executed = runner._poll_and_execute_once(store, executor, lease_duration=60.0)
+        executed = _run_to_completion(store, executor, lease_duration=60.0)
 
     assert executed == 1
     with WorkspaceContext("workspace-b"):
         updated = store.get_job(created.job_id)
     assert updated.status == JobStatus.SUCCEEDED
     assert updated.result == "11"
+
+
+def test_scheduler_limits_concurrency_to_max_workers(registered_jobs, job_store):
+    # executor_engine_add is declared with max_workers=1, so only one may run at a time; a second
+    # PENDING job of the same type must stay queued until the first frees its slot.
+    j1 = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    j2 = job_store.create_job("executor_engine_add", json.dumps({"x": 3, "y": 4}))
+    ex = _BlockingExecutor()
+    scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
+
+    # First tick fills the single slot with one job; the other cannot be claimed.
+    assert scheduler.tick() == 1
+    statuses = {job_store.get_job(j1.job_id).status, job_store.get_job(j2.job_id).status}
+    assert statuses == {JobStatus.RUNNING, JobStatus.PENDING}
+    # The slot is still held, so a further tick schedules nothing new.
+    assert scheduler.tick() == 0
+
+    # Let the in-flight job finish; its worker releases the slot.
+    ex.release()
+    scheduler.join(timeout=30.0)
+
+    # With the slot free, the queued job is now schedulable.
+    assert scheduler.tick() == 1
+    scheduler.join(timeout=30.0)
+    assert job_store.get_job(j1.job_id).status == JobStatus.SUCCEEDED
+    assert job_store.get_job(j2.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_scheduler_forwards_cancellation_to_executor(registered_jobs, job_store):
+    # A job cancelled while running must be stopped in the executor, not just marked CANCELED in
+    # the store, so it cannot keep performing side effects after the caller cancelled it.
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    ex = _BlockingExecutor()
+    scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
+
+    assert scheduler.tick() == 1  # claims the job and starts its (blocked) worker
+    ex.wait_until_submitted()
+    assert ex.submitted == [created.job_id]
+
+    # The caller cancels the running job; the store row transitions to CANCELED.
+    job_store.cancel_job(created.job_id)
+
+    # The next tick's cancel sweep forwards the cancellation to the executor.
+    scheduler.tick()
+    scheduler.join(timeout=30.0)
+
+    assert ex.canceled == [created.job_id]
+    assert job_store.get_job(created.job_id).status == JobStatus.CANCELED
+
+
+def test_scheduler_isolates_concurrent_workspaces(registered_jobs, tmp_path, monkeypatch):
+    from mlflow.entities import Workspace
+
+    # Two jobs of a max_workers=2 type run concurrently, one per workspace. Each worker must
+    # resolve its own workspace via the thread-local ContextVar; if they instead shared the
+    # process-global env, the two in-flight workers would race and observe the wrong tenant.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = WorkspaceAwareSqlAlchemyJobStore(f"sqlite:///{tmp_path / 'ws.db'}")
+    with WorkspaceContext("workspace-a"):
+        job_a = store.create_job("executor_engine_parallel", json.dumps({"x": 1}))
+    with WorkspaceContext("workspace-b"):
+        job_b = store.create_job("executor_engine_parallel", json.dumps({"x": 2}))
+
+    ex = _BlockingExecutor()
+    scheduler = runner._JobScheduler(store, ex, lease_duration=60.0)
+    mock_workspace_store = mock.MagicMock()
+    mock_workspace_store.list_workspaces.return_value = [
+        Workspace(name="workspace-a"),
+        Workspace(name="workspace-b"),
+    ]
+    with mock.patch(
+        "mlflow.server.workspace_helpers._get_workspace_store",
+        return_value=mock_workspace_store,
+    ):
+        # Both jobs are scheduled in one tick (two slots) and their workers block in wait_for_job.
+        assert scheduler.tick() == 2
+        ex.wait_until_submitted(count=2)
+        ex.release()
+        scheduler.join(timeout=30.0)
+
+    # Each worker resolved its own workspace, not the other's.
+    assert ex.observed_workspace == {job_a.job_id: "workspace-a", job_b.job_id: "workspace-b"}
+    with WorkspaceContext("workspace-a"):
+        assert store.get_job(job_a.job_id).status == JobStatus.SUCCEEDED
+    with WorkspaceContext("workspace-b"):
+        assert store.get_job(job_b.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_scheduler_fails_job_with_unresolvable_function(registered_jobs, job_store):
+    # A persisted job whose function can't be resolved (e.g. renamed or removed across an upgrade)
+    # must reach a terminal FAILED state, not stay PENDING and re-log on every tick.
+    created = job_store.create_job("executor_engine_unknown", "{}")
+    ex = _BlockingExecutor()
+    scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
+
+    assert scheduler.tick() == 0
+    assert ex.submitted == []
+    assert job_store.get_job(created.job_id).status == JobStatus.FAILED
 
 
 @pytest.mark.parametrize(
@@ -227,7 +400,7 @@ def test_engines_produce_equivalent_terminal_state(
     # Executor engine: drive the loop directly.
     exec_store = SqlAlchemyJobStore(f"sqlite:///{tmp_path / 'exec.db'}")
     exec_job = exec_store.create_job(job_name, json.dumps(params))
-    runner._poll_and_execute_once(exec_store, executor, lease_duration=60.0)
+    _run_to_completion(exec_store, executor, lease_duration=60.0)
     exec_result = exec_store.get_job(exec_job.job_id)
 
     # Huey engine: drive _exec_job directly, pointing _get_job_store at the huey store.
