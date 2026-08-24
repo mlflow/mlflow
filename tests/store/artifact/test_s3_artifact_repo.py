@@ -378,9 +378,7 @@ def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_pat
     assert s3_artifact_repo.list_artifacts() == []
 
 
-def test_list_artifacts_directory_marker_filtering(s3_artifact_root):
-    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
-
+def test_list_artifacts_directory_marker_filtering(s3_artifact_repo):
     mock_s3 = mock.Mock()
     mock_paginator = mock.Mock()
     mock_s3.get_paginator.return_value = mock_paginator
@@ -395,8 +393,8 @@ def test_list_artifacts_directory_marker_filtering(s3_artifact_root):
         }
     ]
 
-    with mock.patch.object(repo, "_get_s3_client", return_value=mock_s3):
-        artifacts = repo.list_artifacts("b")
+    with mock.patch.object(s3_artifact_repo, "_get_s3_client", return_value=mock_s3):
+        artifacts = s3_artifact_repo.list_artifacts("b")
 
     actual = [(f.path, f.is_dir, f.file_size) for f in artifacts]
     expected = [

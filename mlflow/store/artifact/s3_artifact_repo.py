@@ -171,6 +171,11 @@ def _get_s3_client(
     )
 
 
+def _file_is_directory_marker(file_path, file_size):
+    """Check if a file is a standard S3 directory marker."""
+    return file_size == 0 and bool(file_path) and file_path.endswith("/")
+
+
 class S3ArtifactRepository(
     ArtifactRepository, MultipartUploadMixin, MultipartDownloadMixin, PresignedUploadMixin
 ):
@@ -450,7 +455,7 @@ class S3ArtifactRepository(
                     listed_object_path=file_path, artifact_path=artifact_path
                 )
                 file_size = int(obj.get("Size"))
-                if self._file_is_directory_marker(file_path, file_size):
+                if _file_is_directory_marker(file_path, file_size):
                     continue
 
                 file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
@@ -465,11 +470,6 @@ class S3ArtifactRepository(
                 f" artifact path. Artifact path: {artifact_path}. Object path:"
                 f" {listed_object_path}."
             )
-
-    @staticmethod
-    def _file_is_directory_marker(file_path, file_size):
-        """Check if a file is a standard S3 directory marker."""
-        return file_size == 0 and bool(file_path) and file_path.endswith("/")
 
     def _download_file(self, remote_file_path, local_path):
         """
