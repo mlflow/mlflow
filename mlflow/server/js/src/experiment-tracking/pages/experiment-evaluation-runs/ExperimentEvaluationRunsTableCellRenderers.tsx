@@ -408,7 +408,7 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
       <Icon
         onClick={(e: React.MouseEvent) => {
           e.stopPropagation();
-          toggleRowVisibility(runUuid);
+          toggleRowVisibility(runUuid, rowIndex, runStatus);
         }}
         css={{ cursor: 'pointer' }}
       />
