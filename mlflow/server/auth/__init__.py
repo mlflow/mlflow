@@ -4211,6 +4211,20 @@ def filter_list_gateway_secrets(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
+def redact_secrets_config_for_non_admins(resp: Response) -> None:
+    """Strip ``using_default_passphrase`` from the gateway secrets config for non-admins.
+
+    The endpoint is authenticated-open so the gateway UI can read ``secrets_available``, but
+    ``using_default_passphrase`` reveals whether gateway secrets use the default encryption
+    passphrase — a server security-posture signal that should stay admin-only.
+    """
+    if sender_is_admin():
+        return
+    body = resp.json
+    if isinstance(body, dict) and "using_default_passphrase" in body:
+        resp.data = json.dumps({k: v for k, v in body.items() if k != "using_default_passphrase"})
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
@@ -4270,6 +4284,10 @@ WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS = {
     for (path, method), handler in AFTER_REQUEST_HANDLERS.items()
     if "<" in path and "/workspaces/" in path
 }
+
+# GATEWAY_SECRETS_CONFIG is excluded from the auto-built handlers above (it is an ajax gateway
+# path); register its non-admin redaction filter explicitly.
+AFTER_REQUEST_HANDLERS[(GATEWAY_SECRETS_CONFIG, "GET")] = redact_secrets_config_for_non_admins
 
 
 @catch_mlflow_exception
