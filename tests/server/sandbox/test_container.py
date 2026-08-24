@@ -142,6 +142,21 @@ def test_run_in_sandbox_timeout_kills_container():
     container.remove.assert_called_once()
 
 
+def test_run_in_sandbox_timeout_surfaced_as_connection_error():
+    # On the Unix-socket transport, docker-py surfaces a wait() read timeout as a
+    # ConnectionError wrapping urllib3's ReadTimeoutError ("Read timed out"), not ReadTimeout.
+    client, container = _mock_client()
+    container.wait.side_effect = requests.exceptions.ConnectionError(
+        "UnixHTTPConnectionPool(host='localhost', port=None): Read timed out."
+    )
+    with mock.patch("docker.from_env", return_value=client):
+        result = run_in_sandbox(["sleep", "1000"], timeout=0.1)
+
+    assert result.timed_out is True
+    assert result.exit_code == container_mod._TIMEOUT_EXIT_CODE
+    container.kill.assert_called_once()
+
+
 def test_run_in_sandbox_non_timeout_wait_error_raises_unavailable():
     # A non-timeout failure from wait() must not be reported as a timeout: it surfaces as a
     # distinct sandbox failure, and the container is still cleaned up.

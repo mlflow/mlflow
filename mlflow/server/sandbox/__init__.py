@@ -10,6 +10,7 @@ the container security posture lives in one auditable place.
 from mlflow.server.sandbox.container import (
     SandboxResult,
     SandboxUnavailableError,
+    reap_orphaned_sandbox_containers,
     run_in_sandbox,
     to_container_host_uri,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "SandboxProcess",
     "SandboxResult",
     "SandboxUnavailableError",
+    "reap_orphaned_sandbox_containers",
     "run_in_sandbox",
     "sandbox_input_path",
     "start_sandbox_process",

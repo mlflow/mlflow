@@ -244,22 +244,35 @@ def run_in_sandbox(
     try:
         try:
             outcome = container.wait(timeout=timeout)
-        except requests.exceptions.ReadTimeout:
-            # docker-py raises ReadTimeout when wait() exceeds `timeout`; the container is
-            # still running, so kill it and report the timeout.
-            _logger.info("Sandbox command exceeded %.0fs timeout", timeout)
-            _kill_quietly(container)
-            output = _logs(container)
-            return SandboxResult(exit_code=_TIMEOUT_EXIT_CODE, output=output, timed_out=True)
         except Exception as e:
-            # A non-timeout failure (daemon restart, connection drop, API error) is not a
-            # timeout; kill the container and surface it as a sandbox failure rather than
-            # mislabeling it.
+            if _is_read_timeout(e):
+                # A client-side read timeout means the command outran `timeout`; the container
+                # is still running, so kill it and report a timeout.
+                _logger.info("Sandbox command exceeded %.0fs timeout", timeout)
+                _kill_quietly(container)
+                return SandboxResult(
+                    exit_code=_TIMEOUT_EXIT_CODE, output=_logs(container), timed_out=True
+                )
+            # A genuine failure (daemon down, connection refused, API error) is not a timeout;
+            # kill the container and surface it as a sandbox failure rather than mislabeling it.
             _kill_quietly(container)
             raise SandboxUnavailableError(f"Sandbox execution failed while waiting: {e}") from e
         return SandboxResult(exit_code=outcome.get("StatusCode", 0), output=_logs(container))
     finally:
         _remove_quietly(container)
+
+
+def _is_read_timeout(exc: Exception) -> bool:
+    """Whether ``exc`` from ``container.wait(timeout=)`` is a client-side read timeout.
+
+    docker-py maps the deadline being exceeded to a requests ``ReadTimeout``, or — on the Unix-
+    socket transport — a ``ConnectionError`` wrapping urllib3's ``ReadTimeoutError``; both carry
+    "read timed out" in their message. This distinguishes those from genuine daemon errors
+    (e.g. connection refused) so a timeout is not misreported as a sandbox failure.
+    """
+    if isinstance(exc, requests.exceptions.ReadTimeout):
+        return True
+    return isinstance(exc, requests.exceptions.ConnectionError) and "timed out" in str(exc).lower()
 
 
 def _logs(container) -> str:
