@@ -37,7 +37,11 @@ from mlflow.assistant.skill_installer import install_skills, list_installed_skil
 from mlflow.assistant.types import EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.server.asgi_utils import get_server_base_url
-from mlflow.server.assistant.session import SessionManager, terminate_session_process
+from mlflow.server.assistant.session import (
+    SessionManager,
+    terminate_session_container,
+    terminate_session_process,
+)
 from mlflow.server.handlers import _add_static_prefix
 
 
@@ -504,7 +508,11 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
         session.pending_tool_decisions = {}
         session.pending_client_tool_results = {}
         SessionManager.save(session_id, session)
-        terminated = terminate_session_process(session_id)
+        # A turn runs either as a host subprocess or (with the sandbox enabled) in a container.
+        # Attempt both (do not short-circuit) and report if either was actually terminated.
+        proc_terminated = terminate_session_process(session_id)
+        container_terminated = terminate_session_container(session_id)
+        terminated = proc_terminated or container_terminated
         msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
         return SessionPatchResponse(message=msg)
 

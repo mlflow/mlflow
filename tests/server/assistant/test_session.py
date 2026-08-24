@@ -1,5 +1,6 @@
 import shutil
 import uuid
+from unittest import mock
 
 import pytest
 
@@ -193,3 +194,40 @@ def test_message_serialization():
     restored = Message.model_validate(data)
     assert restored.role == "user"
     assert restored.content == "Hello"
+
+
+_VALID_SID = "11111111-1111-1111-1111-111111111111"
+
+
+def test_container_id_roundtrip(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    assert session_module.get_container_id(_VALID_SID) is None
+    session_module.save_container_id(_VALID_SID, "cid-1")
+    assert session_module.get_container_id(_VALID_SID) == "cid-1"
+    session_module.clear_container_id(_VALID_SID)
+    assert session_module.get_container_id(_VALID_SID) is None
+
+
+def test_terminate_session_container_kills_and_clears(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    session_module.save_container_id(_VALID_SID, "cid-1")
+
+    container = mock.MagicMock()
+    client = mock.MagicMock()
+    client.containers.get.return_value = container
+    with mock.patch("docker.from_env", return_value=client):
+        assert session_module.terminate_session_container(_VALID_SID) is True
+
+    container.kill.assert_called_once()
+    assert session_module.get_container_id(_VALID_SID) is None
+
+
+def test_terminate_session_container_no_container_is_noop(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    assert session_module.terminate_session_container(_VALID_SID) is False

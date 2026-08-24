@@ -13,10 +13,18 @@ from mlflow.server.sandbox.container import (
     run_in_sandbox,
     to_container_host_uri,
 )
+from mlflow.server.sandbox.streaming import (
+    SandboxProcess,
+    sandbox_input_path,
+    start_sandbox_process,
+)
 
 __all__ = [
+    "SandboxProcess",
     "SandboxResult",
     "SandboxUnavailableError",
     "run_in_sandbox",
+    "sandbox_input_path",
+    "start_sandbox_process",
     "to_container_host_uri",
 ]

@@ -247,3 +247,75 @@ def terminate_session_process(session_id: str) -> bool:
         except (ProcessLookupError, PermissionError):
             clear_process_pid(session_id)
     return False
+
+
+def get_container_file(session_id: str) -> Path:
+    """Get the file path for storing a session's sandbox container id."""
+    SessionManager.validate_session_id(session_id)
+    return SESSION_DIR / f"{session_id}.container.json"
+
+
+def save_container_id(session_id: str, container_id: str) -> None:
+    """Record the sandbox container running a session's turn, for cancellation support."""
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    get_container_file(session_id).write_text(json.dumps({"container_id": container_id}))
+
+
+def get_container_id(session_id: str) -> str | None:
+    try:
+        container_file = get_container_file(session_id)
+    except ValueError:
+        return None
+    if not container_file.exists():
+        return None
+    return json.loads(container_file.read_text()).get("container_id")
+
+
+def clear_container_id(session_id: str) -> None:
+    try:
+        container_file = get_container_file(session_id)
+    except ValueError:
+        return
+    if container_file.exists():
+        container_file.unlink()
+
+
+def get_session_sandbox_home(session_id: str) -> Path:
+    """Server-owned host directory bind-mounted as the sandbox container's ``$HOME``.
+
+    Persists the CLI's ``--resume`` state and caches across turns of a session. It is created
+    here (owned by the server user) so the container, which runs as that same uid:gid, can
+    write to it. These directories accumulate per session; reaping stale ones is handled by
+    the session-lifecycle work.
+    """
+    SessionManager.validate_session_id(session_id)
+    home = SESSION_DIR / "sandbox-home" / session_id
+    home.mkdir(parents=True, exist_ok=True)
+    return home
+
+
+def terminate_session_container(session_id: str) -> bool:
+    """Kill the sandbox container running a session's turn, if any.
+
+    Returns True only if a container was found and killed. A container that is already gone
+    clears the stored id and returns False. A transient failure (e.g. a daemon hiccup) against
+    a possibly-live container is left as-is — the id is kept so a retry can still reach it.
+    """
+    container_id = get_container_id(session_id)
+    if not container_id:
+        return False
+    try:
+        import docker
+        import docker.errors
+
+        client = docker.from_env()
+        try:
+            container = client.containers.get(container_id)
+        except docker.errors.NotFound:
+            clear_container_id(session_id)
+            return False
+        container.kill()
+        clear_container_id(session_id)
+        return True
+    except Exception:
+        return False
