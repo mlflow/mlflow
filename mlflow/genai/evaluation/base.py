@@ -317,6 +317,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
     # Handle ConversationSimulator: prepare for simulation, but run it inside the run context
     # so that traces are logged to the correct run.
     simulator = None
+    simulator_source_dataset = None
     sim_predict_fn = None
     precomputed_digest = None
     precomputed_dataset_name = None
@@ -331,6 +332,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         # produce the same digest regardless of LLM non-determinism in generated conversations.
         precomputed_digest = data._compute_test_case_digest()
         precomputed_dataset_name = data._get_dataset_name()
+        simulator_source_dataset = data._source_dataset
 
         # Wrap async predict_fn for synchronous execution during simulation
         sim_predict_fn = predict_fn
@@ -402,7 +404,11 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             )
             os.environ[MLFLOW_GENAI_EVAL_MAX_WORKERS.name] = os.environ["RAG_EVAL_MAX_WORKERS"]
 
-        if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
+        if simulator_source_dataset is not None:
+            # Keep the generated traces as evaluation rows while logging the managed dataset
+            # that supplied the simulator's test cases as the run input.
+            mlflow_dataset = simulator_source_dataset
+        elif isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
             mlflow_dataset = data
             df = data.to_df()
         else:
