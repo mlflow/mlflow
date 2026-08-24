@@ -32,6 +32,8 @@ export interface TracesV4AssessmentColumns {
   visibleIds: string[];
   /** Toggle an assessment column's visibility by its namespaced id. */
   toggle: (id: string) => void;
+  /** Show or hide every candidate assessment column at once (the "all assessments" toggle). */
+  setAllVisible: (visible: boolean) => void;
   /** Clear all assessment overrides (return every column to its default visibility). */
   reset: () => void;
 }
@@ -87,7 +89,21 @@ export const useTracesV4AssessmentColumns = (
     [setOverrides],
   );
 
+  const setAllVisible = useCallback(
+    (visible: boolean) => {
+      // Explicit override per candidate so the choice sticks on pages missing that assessment.
+      setOverrides((prev) => {
+        const next = { ...prev };
+        for (const name of candidateNames) {
+          next[name] = visible;
+        }
+        return next;
+      });
+    },
+    [setOverrides, candidateNames],
+  );
+
   const reset = useCallback(() => setOverrides({}), [setOverrides]);
 
-  return { columnDefs, candidateNames, selectorOptions, visibleIds, toggle, reset };
+  return { columnDefs, candidateNames, selectorOptions, visibleIds, toggle, setAllVisible, reset };
 };

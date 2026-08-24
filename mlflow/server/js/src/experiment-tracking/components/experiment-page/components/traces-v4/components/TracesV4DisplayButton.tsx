@@ -19,6 +19,14 @@ import {
 } from '@databricks/web-shared/traces-table';
 import type { TracesV4Density } from '../hooks/useTracesV4Density';
 
+/**
+ * A labeled column group (e.g. assessments) whose header doubles as a show/hide-all toggle when
+ * `onToggleAll` is supplied — otherwise the header is a plain, non-interactive label.
+ */
+export interface TracesV4ColumnGroup extends ColumnSelectorGroup {
+  onToggleAll?: (visible: boolean) => void;
+}
+
 // Module-local static analytics-id namespace (the `@databricks/no-dynamic-property-value` lint rule
 // requires statically-determinable componentId values, so a runtime-injected prefix isn't possible).
 const COMPONENT_ID = 'mlflow.traces-v4.display';
@@ -33,7 +41,7 @@ export interface TracesV4DisplayButtonProps {
   onToggleColumn: (column: TraceColumnId) => void;
   onResetColumns: () => void;
   /** Optional labeled sections of dynamic-id columns (e.g. assessments), each under its own header. */
-  columnGroups?: ColumnSelectorGroup[];
+  columnGroups?: TracesV4ColumnGroup[];
   /** Human-readable label per sortable column id, for the Sort submenu options + the trigger hint. */
   sortColumnLabels: Record<TraceColumnId, React.ReactNode>;
   sort: TraceColumnId;
@@ -121,10 +129,33 @@ export const TracesV4DisplayButton = ({
             ))}
             {columnGroups?.map((group, groupIndex) => {
               const groupVisible = new Set(group.visibleIds);
+              const allVisible = group.options.length > 0 && group.options.every(({ id }) => groupVisible.has(id));
               return (
                 <Fragment key={groupIndex}>
                   <DropdownMenu.Separator />
-                  <DropdownMenu.Label>{group.label}</DropdownMenu.Label>
+                  {group.onToggleAll ? (
+                    // Header doubles as a show/hide-all toggle: checked when every column in the group
+                    // is visible, one click flips them all. Bold + primary weight reads as a section
+                    // header rather than a regular item.
+                    <DropdownMenu.CheckboxItem
+                      componentId={`${COMPONENT_ID}.columns.group-toggle-all`}
+                      checked={allVisible}
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        group.onToggleAll?.(!allVisible);
+                      }}
+                      css={{
+                        fontWeight: theme.typography.typographyBoldFontWeight,
+                        color: theme.colors.textPrimary,
+                        marginTop: theme.spacing.xs,
+                      }}
+                    >
+                      <DropdownMenu.ItemIndicator />
+                      {group.label}
+                    </DropdownMenu.CheckboxItem>
+                  ) : (
+                    <DropdownMenu.Label>{group.label}</DropdownMenu.Label>
+                  )}
                   {group.options.map(({ id, label, componentId }) => (
                     <DropdownMenu.CheckboxItem
                       key={id}

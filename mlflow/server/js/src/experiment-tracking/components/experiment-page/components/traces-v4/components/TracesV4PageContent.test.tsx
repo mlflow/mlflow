@@ -569,6 +569,34 @@ describe('TracesV4PageContent', () => {
       expect(screen.getByText('Yes')).toBeInTheDocument();
     });
 
+    test('offers a single toggle to show/hide all assessment columns at once', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      state.pages = {
+        '': {
+          traces: [
+            makeTrace('tr-000', {
+              assessments: [makeFeedbackAssessment('relevance', 'yes'), makeFeedbackAssessment('correctness', 'no')],
+            }),
+          ],
+          next_page_token: undefined,
+        },
+      };
+      renderPage();
+      await findTraceRow('tr-000');
+      expect(screen.getByRole('columnheader', { name: 'relevance' })).toBeInTheDocument();
+      expect(screen.getByRole('columnheader', { name: 'correctness' })).toBeInTheDocument();
+
+      // The assessment group header is itself a checkbox that toggles every assessment column at once
+      // (the V3 affordance the V4 table had lost).
+      await openDisplaySubmenu(user, /^Columns/);
+      const allToggle = await screen.findByRole('menuitemcheckbox', { name: 'Assessments' });
+      expect(allToggle).toHaveAttribute('aria-checked', 'true');
+
+      await selectSubmenuItem('menuitemcheckbox', 'Assessments');
+      await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'relevance' })).not.toBeInTheDocument());
+      expect(screen.queryByRole('columnheader', { name: 'correctness' })).not.toBeInTheDocument();
+    }, 20000);
+
     test('toggling an assessment off hides its column and the choice persists', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       state.pages = { '': { traces: [traceWithAssessment], next_page_token: undefined } };
