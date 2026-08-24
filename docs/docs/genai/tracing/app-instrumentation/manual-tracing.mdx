@@ -598,7 +598,7 @@ myClass.startSession();
 
 ### Attaching Links at Span Creation
 
-You can pass links when creating a span using either the decorator or context manager:
+You can pass links when creating a span via the `links` parameter. When the link target is known upfront, prefer this approach:
 
 <TabsWrapper>
 <Tabs groupId="programming-language">
@@ -662,7 +662,7 @@ span.end();
 
 ### Adding Links After Span Creation
 
-You can also add links to an active span dynamically using `add_link()`:
+You can also add links to an active span dynamically after it has been created. Use this for cases where the target isn't known until runtime, such as when it arrives in a message payload from another agent:
 
 <TabsWrapper>
 <Tabs groupId="programming-language">
@@ -714,8 +714,6 @@ const result = await mlflow.withSpan(
 
 </Tabs>
 </TabsWrapper>
-
-When the link target is known upfront, prefer attaching links at span creation time via the `links` parameter. Use `add_link()` for cases where the target isn't known until runtime — for example, when it arrives in a message payload from another agent.
 
 :::note
 Span links are not currently supported for Unity Catalog traces.
