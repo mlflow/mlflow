@@ -44,6 +44,7 @@ export const SavedViewsMenu = ({
   onCopyLink,
   onRequestDelete,
   onSaveCurrent,
+  onSelectDefault,
   sharedViewActive,
   onOverrideActive,
   onDiscardActive,
@@ -57,6 +58,9 @@ export const SavedViewsMenu = ({
   // active. Its row gets a leading checkmark so the list shows which view is applied.
   activeViewId?: string | null;
   onOpen: (id: string) => void;
+  // When provided, a pinned "Default view" row is shown above the list; clicking it returns the table
+  // to its default (unfiltered) state. Omit it and the row (and its checkmark) don't render.
+  onSelectDefault?: () => void;
   onCopyLink: (view: SavedViewMenuItem) => void;
   onRequestDelete: (view: SavedViewMenuItem) => void;
   onSaveCurrent: () => void;
@@ -102,6 +106,36 @@ export const SavedViewsMenu = ({
           autoFocus
         />
       </div>
+      {onSelectDefault && (
+        // "Default" is the absence of a saved view, not a stored tag — no copy/delete, pinned above the list.
+        <>
+          <DropdownMenu.Item
+            componentId={`${componentId}.default_item`}
+            data-testid={`${testIdPrefix}-default`}
+            onClick={onSelectDefault}
+            css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm }}
+          >
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, minWidth: 0 }}>
+              <span css={{ width: theme.general.iconFontSize, flexShrink: 0 }}>
+                {!activeViewId && <CheckIcon data-testid={`${testIdPrefix}-active-default`} />}
+              </span>
+              <Typography.Text>
+                <FormattedMessage
+                  defaultMessage="Default view"
+                  description="Menu item that leaves every saved view and returns the table to its default state"
+                />
+              </Typography.Text>
+            </div>
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Default"
+                description="Tag marking the built-in default view row, vs the user-created views below"
+              />
+            </Typography.Text>
+          </DropdownMenu.Item>
+          <DropdownMenu.Separator />
+        </>
+      )}
       {showSharedViewActions && (
         <>
           <DropdownMenu.Label css={{ color: theme.colors.textSecondary }}>

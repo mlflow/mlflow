@@ -67,6 +67,13 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     controller;
   const { density, setDensity } = useTracesV4Density(experimentId);
 
+  // One "Reset to defaults" in the column selector clears both standard and assessment overrides.
+  // (Only reachable when not previewing — a preview's columns come from its `cols` param.)
+  const resetColumns = useCallback(() => {
+    columns.resetToDefaults();
+    assessments.reset();
+  }, [columns, assessments]);
+
   // Saved views (URL-first): the hook reads/writes view tags and drives the `cols`+share-key preview
   // overlay. While a shared view is applied, its previewed columns render INSTEAD of the user's own
   // (without touching localStorage until Override); otherwise the user's own columns show.
@@ -74,6 +81,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     experimentId,
     visibleColumns: columns.visibleColumns,
     setColumns: columns.setColumns,
+    resetColumns,
+    setFilterModel: controller.setFilterModel,
   });
   const effectiveVisibleColumns = savedViews.previewColumns ?? columns.visibleColumns;
 
@@ -94,13 +103,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     },
     [savedViews, effectiveVisibleColumns, columns],
   );
-
-  // One "Reset to defaults" in the column selector clears both standard and assessment overrides.
-  // (Only reachable when not previewing — a preview's columns come from its `cols` param.)
-  const resetColumns = useCallback(() => {
-    columns.resetToDefaults();
-    assessments.reset();
-  }, [columns, assessments]);
 
   const handleHideColumn = useCallback(
     (columnId: string) => {
