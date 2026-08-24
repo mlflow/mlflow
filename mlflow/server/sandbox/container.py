@@ -8,24 +8,32 @@ privileges, read-only root filesystem, non-root user, memory / CPU / PID caps) a
 the container lifecycle (build image, run, wait with timeout, always clean up) live
 here so there is one place to audit and tighten the sandbox security posture.
 
-Network posture: the container runs on the default bridge with an added
-``host.docker.internal`` route so a command can reach an MLflow tracking server
-running on the host. Tightening egress to a strict allowlist (and blocking the
-link-local ``169.254.0.0/16`` range used by cloud metadata services) is a planned
-follow-up; until then a sandbox should not be granted host credentials it must not
-leak. The sandbox is off by default and gated behind an experimental flag.
+Network posture: sandbox containers run on a dedicated bridge network (isolating them from
+other containers on the host) with an added ``host.docker.internal`` route so a command can
+reach an MLflow tracking server on the host. An optional egress proxy
+(``MLFLOW_SANDBOX_EGRESS_PROXY``) steers HTTP(S) egress from cooperating clients through an
+operator-controlled chokepoint. Neither is a hard egress boundary: the container has network
+access, so code that opens raw sockets or ignores the proxy env (e.g. Node's fetch, which does
+not read ``HTTP_PROXY`` by default) can still reach other hosts, including the cloud metadata
+endpoint. A true egress boundary requires host-level firewalling. The sandbox is off by default
+and gated behind an experimental flag.
 """
 
 import logging
 import os
 import tempfile
 import urllib.parse
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import requests
 
-from mlflow.environment_variables import _MLFLOW_SERVER_BOOT_ID, MLFLOW_SANDBOX_DOCKER_IMAGE
+from mlflow.environment_variables import (
+    _MLFLOW_SERVER_BOOT_ID,
+    MLFLOW_SANDBOX_DOCKER_IMAGE,
+    MLFLOW_SANDBOX_EGRESS_PROXY,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -57,6 +65,80 @@ def sandbox_container_labels() -> dict[str, str]:
     if boot_id := _MLFLOW_SERVER_BOOT_ID.get():
         labels[SANDBOX_BOOT_LABEL] = boot_id
     return labels
+
+
+# Dedicated bridge network for sandbox containers, so they are isolated from other containers
+# on the host's default bridge (they can still reach the host via host.docker.internal).
+SANDBOX_NETWORK_NAME = "mlflow-sandbox"
+# Hosts a sandboxed command reaches directly instead of through the egress proxy: the MLflow
+# tracking host and loopback. The metadata endpoint is deliberately NOT here, so a
+# proxy-respecting client cannot reach it directly.
+_EGRESS_PROXY_BYPASS_HOSTS = ("host.docker.internal", "localhost", "127.0.0.1")
+
+
+def ensure_sandbox_network(client) -> str:
+    """Return the name of the dedicated sandbox bridge network, creating it if missing.
+
+    Handles the concurrent-first-launch race: a duplicate-create conflict is treated as the
+    network already existing rather than an error. Falls back to the default ``bridge`` network
+    (with a warning, since that reduces isolation) if the dedicated one truly cannot be used, so
+    a restricted Docker setup still runs the sandbox rather than failing outright.
+    """
+    import docker.errors
+
+    try:
+        try:
+            client.networks.get(SANDBOX_NETWORK_NAME)
+            return SANDBOX_NETWORK_NAME
+        except docker.errors.NotFound:
+            pass
+        try:
+            client.networks.create(SANDBOX_NETWORK_NAME, driver="bridge", check_duplicate=True)
+        except docker.errors.APIError:
+            # Lost a create race with a concurrent launch; the network exists now.
+            client.networks.get(SANDBOX_NETWORK_NAME)
+        return SANDBOX_NETWORK_NAME
+    except Exception as e:
+        _logger.warning(
+            "Falling back to the default bridge network for the sandbox; isolation from other "
+            "containers is reduced: %s",
+            e,
+        )
+        return "bridge"
+
+
+def sandbox_egress_env(no_proxy_hosts: Iterable[str] = ()) -> dict[str, str]:
+    """Environment that routes a sandbox container's HTTP(S) egress through the configured proxy.
+
+    Empty when no proxy is configured (the container then has unrestricted egress). This only
+    shapes egress for clients that honor the standard proxy env vars; it is not an enforcement
+    boundary — code that opens raw sockets, or a runtime that ignores the proxy env (e.g. Node's
+    fetch), can still reach any host. The tracking host and loopback bypass the proxy so they
+    stay reachable; ``no_proxy_hosts`` adds the caller's tracking host for the non-loopback case.
+    """
+    proxy = MLFLOW_SANDBOX_EGRESS_PROXY.get()
+    if not proxy:
+        return {}
+    hosts = [*_EGRESS_PROXY_BYPASS_HOSTS, *(h for h in no_proxy_hosts if h)]
+    no_proxy = ",".join(dict.fromkeys(hosts))  # de-dupe, preserve order
+    return {
+        "HTTP_PROXY": proxy,
+        "HTTPS_PROXY": proxy,
+        "http_proxy": proxy,
+        "https_proxy": proxy,
+        "NO_PROXY": no_proxy,
+        "no_proxy": no_proxy,
+    }
+
+
+def _uri_host(uri: str | None) -> str | None:
+    """Host component of a URI, or None if absent/unparseable (used to build NO_PROXY)."""
+    if not uri:
+        return None
+    try:
+        return urllib.parse.urlsplit(uri).hostname
+    except ValueError:
+        return None
 
 
 class SandboxUnavailableError(Exception):
@@ -198,6 +280,7 @@ def run_in_sandbox(
     # Read-only rootfs plus a writable /tmp: give the command a HOME it can write to
     # (the mlflow CLI and pip both write under HOME) without loosening the rootfs.
     env.setdefault("HOME", "/tmp")
+    env.update(sandbox_egress_env(no_proxy_hosts=[_uri_host(env.get("MLFLOW_TRACKING_URI"))]))
 
     container_command = command
     if use_shell:
@@ -217,7 +300,7 @@ def run_in_sandbox(
             command=container_command,
             detach=True,
             labels=sandbox_container_labels(),
-            network_mode="bridge",
+            network=ensure_sandbox_network(client),
             extra_hosts={"host.docker.internal": "host-gateway"},
             mem_limit=_MEMORY_LIMIT,
             memswap_limit=_MEMORY_LIMIT,

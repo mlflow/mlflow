@@ -92,7 +92,7 @@ def test_run_in_sandbox_applies_hardening_flags():
     assert kwargs["cap_drop"] == ["ALL"]
     assert kwargs["security_opt"] == ["no-new-privileges:true"]
     assert kwargs["read_only"] is True
-    assert kwargs["network_mode"] == "bridge"
+    assert kwargs["network"] == container_mod.SANDBOX_NETWORK_NAME
     assert kwargs["pids_limit"] == container_mod._PIDS_LIMIT
     assert kwargs["mem_limit"] == container_mod._MEMORY_LIMIT
     assert kwargs["user"] == f"{os.getuid()}:{os.getgid()}"
@@ -316,3 +316,79 @@ def test_reap_list_error_returns_zero(monkeypatch):
     client.containers.list.side_effect = Exception("api error")
     with mock.patch("docker.from_env", return_value=client):
         assert reap_orphaned_sandbox_containers() == 0
+
+
+def test_sandbox_egress_env_empty_when_unset(monkeypatch):
+    from mlflow.server.sandbox.container import sandbox_egress_env
+
+    monkeypatch.delenv("MLFLOW_SANDBOX_EGRESS_PROXY", raising=False)
+    assert sandbox_egress_env() == {}
+
+
+def test_sandbox_egress_env_injects_proxy_and_bypass(monkeypatch):
+    from mlflow.server.sandbox.container import sandbox_egress_env
+
+    monkeypatch.setenv("MLFLOW_SANDBOX_EGRESS_PROXY", "http://proxy.internal:3128")
+    env = sandbox_egress_env(no_proxy_hosts=["tracking.example.com"])
+    assert env["HTTP_PROXY"] == "http://proxy.internal:3128"
+    assert env["HTTPS_PROXY"] == "http://proxy.internal:3128"
+    # Lowercase variants for clients that only read them.
+    assert env["no_proxy"] == env["NO_PROXY"]
+    assert env["https_proxy"] == "http://proxy.internal:3128"
+    # The tracking host bypasses the proxy so it stays reachable...
+    assert "host.docker.internal" in env["NO_PROXY"]
+    assert "tracking.example.com" in env["NO_PROXY"]
+    # ...but the cloud metadata endpoint must NOT bypass the proxy.
+    assert "169.254.169.254" not in env["NO_PROXY"]
+
+
+def test_sandbox_egress_env_dedupes_no_proxy(monkeypatch):
+    from mlflow.server.sandbox.container import sandbox_egress_env
+
+    monkeypatch.setenv("MLFLOW_SANDBOX_EGRESS_PROXY", "http://proxy.internal:3128")
+    # A loopback tracking host is already rewritten to host.docker.internal, so it must not be
+    # duplicated in NO_PROXY.
+    env = sandbox_egress_env(no_proxy_hosts=["host.docker.internal", None])
+    assert env["NO_PROXY"].split(",").count("host.docker.internal") == 1
+
+
+def test_run_in_sandbox_injects_egress_proxy(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SANDBOX_EGRESS_PROXY", "http://proxy.internal:3128")
+    client, _ = _mock_client()
+    with mock.patch("docker.from_env", return_value=client):
+        run_in_sandbox(["echo", "hi"])
+    _, kwargs = client.containers.run.call_args
+    assert kwargs["environment"]["HTTPS_PROXY"] == "http://proxy.internal:3128"
+
+
+def test_ensure_sandbox_network_creates_when_missing():
+    import docker.errors
+
+    from mlflow.server.sandbox.container import SANDBOX_NETWORK_NAME, ensure_sandbox_network
+
+    client = mock.MagicMock()
+    client.networks.get.side_effect = docker.errors.NotFound("nope")
+    assert ensure_sandbox_network(client) == SANDBOX_NETWORK_NAME
+    client.networks.create.assert_called_once_with(
+        SANDBOX_NETWORK_NAME, driver="bridge", check_duplicate=True
+    )
+
+
+def test_ensure_sandbox_network_handles_create_race():
+    import docker.errors
+
+    from mlflow.server.sandbox.container import SANDBOX_NETWORK_NAME, ensure_sandbox_network
+
+    client = mock.MagicMock()
+    # First get: not found; create loses the race (409 duplicate); re-get: found.
+    client.networks.get.side_effect = [docker.errors.NotFound("no"), mock.MagicMock()]
+    client.networks.create.side_effect = docker.errors.APIError("network already exists")
+    assert ensure_sandbox_network(client) == SANDBOX_NETWORK_NAME
+
+
+def test_ensure_sandbox_network_falls_back_to_bridge_on_error():
+    from mlflow.server.sandbox.container import ensure_sandbox_network
+
+    client = mock.MagicMock()
+    client.networks.get.side_effect = Exception("permission denied")
+    assert ensure_sandbox_network(client) == "bridge"
