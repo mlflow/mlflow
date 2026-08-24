@@ -1558,6 +1558,19 @@ MLFLOW_SQL_TRACE_ROLLUPS_ENABLED = _BooleanEnvironmentVariable(
     "MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", False
 )
 
+#: Five-field UTC cron expression for the server-owned SQL trace rollup scheduler.
+#: (default: ``"0 2 * * *"``)
+MLFLOW_TRACE_ROLLUPS_SCHEDULE = _EnvironmentVariable(
+    "MLFLOW_TRACE_ROLLUPS_SCHEDULE", str, "0 2 * * *"
+)
+
+#: Caps the number of ``(experiment_id, rollup_day)`` partitions rebuilt in one maintenance pass.
+#: Unset (``None``) means no cap.
+#: (default: ``None``)
+MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN = _EnvironmentVariable(
+    "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", int, None
+)
+
 #: Specifies the maximum number of workers for async judge invocation jobs.
 #: (default: ``10``)
 MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(

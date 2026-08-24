@@ -86,6 +86,10 @@ def _seed(store) -> str:
     t3 = _new_trace(store, exp_id, DAY_B_START + 7_000, duration_ms=500, state=TraceState.OK)
     _add_feedback(store, t1, value=0.4)
     _add_feedback(store, t3, value=0.9)
+    # These read-routing tests seed rollup rows directly. Maintenance-owned invalidations created
+    # by the source writes are cleared so each test can explicitly control coverage and queue state.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlTraceRollupRebuild).delete()
     return exp_id
 
 

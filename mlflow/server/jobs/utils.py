@@ -809,3 +809,43 @@ def register_periodic_tasks(huey_instance) -> None:
         "Registered trace_archival_scheduler periodic task (polls every 1 minute and "
         "no-ops when trace archival is disabled or unconfigured)"
     )
+
+    from mlflow.tracing.trace_rollup_service import (
+        get_sql_trace_rollup_schedule,
+        run_sql_trace_rollup_scheduler,
+    )
+
+    try:
+        rollup_schedule = get_sql_trace_rollup_schedule()
+        rollup_crontab = crontab(
+            minute=rollup_schedule.minute,
+            hour=rollup_schedule.hour,
+            day=rollup_schedule.day,
+            month=rollup_schedule.month,
+            day_of_week=rollup_schedule.day_of_week,
+        )
+    except (MlflowException, ValueError):
+        _logger.warning(
+            "SQL trace rollup scheduler was not registered because "
+            "MLFLOW_TRACE_ROLLUPS_SCHEDULE is invalid.",
+            exc_info=True,
+        )
+        return
+
+    @huey_instance.periodic_task(rollup_crontab)
+    @huey_instance.lock_task("sql-trace-rollup-scheduler-lock")
+    def sql_trace_rollup_scheduler():
+        """Run SQL trace rollup maintenance on the configured UTC cron schedule."""
+        try:
+            run_sql_trace_rollup_scheduler()
+        except Exception as e:
+            _logger.exception(f"SQL trace rollup scheduler failed: {e!r}")
+
+    _logger.info(
+        "Registered sql_trace_rollup_scheduler periodic task (UTC cron: %s %s %s %s %s)",
+        rollup_schedule.minute,
+        rollup_schedule.hour,
+        rollup_schedule.day,
+        rollup_schedule.month,
+        rollup_schedule.day_of_week,
+    )

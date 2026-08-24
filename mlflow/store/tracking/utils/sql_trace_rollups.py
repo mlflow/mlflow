@@ -26,10 +26,12 @@ routing experiment ids the requester may access.
 """
 
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import Enum
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from mlflow.entities.trace_metrics import (
@@ -593,3 +595,51 @@ def order_and_limit_data_points(
     rollups-disabled response.
     """
     return sorted(data_points, key=_data_point_ordering)[:max_results]
+
+
+def ensure_locked_rebuild_entry(
+    session: Session, family: RollupFamily, experiment_id: int, rollup_day: date
+) -> SqlTraceRollupRebuild:
+    """Insert (if absent) and lock a partition rebuild entry in the current transaction."""
+    query = session.query(SqlTraceRollupRebuild).filter(
+        SqlTraceRollupRebuild.experiment_id == experiment_id,
+        SqlTraceRollupRebuild.rollup_day == rollup_day,
+        SqlTraceRollupRebuild.rollup_family == family.value,
+    )
+    if entry := query.with_for_update().one_or_none():
+        return entry
+
+    savepoint = session.begin_nested()
+    try:
+        entry = SqlTraceRollupRebuild(
+            experiment_id=experiment_id,
+            rollup_day=rollup_day,
+            rollup_family=family.value,
+        )
+        session.add(entry)
+        session.flush()
+    except IntegrityError:
+        savepoint.rollback()
+        return query.with_for_update().one()
+    else:
+        savepoint.commit()
+        return entry
+
+
+def enqueue_rollup_rebuilds(
+    session: Session,
+    family: RollupFamily,
+    experiment_id: int | None,
+    timestamp_ms_values: Iterable[int | None],
+) -> None:
+    """Invalidate rollup partitions affected by a source mutation.
+
+    Invalidation is deliberately independent of the read feature gate. If rollups are disabled
+    after rows have been built, writes must continue marking those rows stale so they cannot be
+    served after the feature is enabled again.
+    """
+    if experiment_id is None or family not in SERVABLE_FAMILIES:
+        return
+    days = {_day_start_ms_to_date(ts) for ts in timestamp_ms_values if ts is not None}
+    for rollup_day in sorted(days):
+        ensure_locked_rebuild_entry(session, family, int(experiment_id), rollup_day)
