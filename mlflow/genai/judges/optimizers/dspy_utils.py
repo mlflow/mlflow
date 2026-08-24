@@ -10,6 +10,7 @@ from mlflow import __version__ as VERSION
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.gateway.utils import _DATABRICKS_AI_GATEWAY_PATH, _is_unity_catalog_model_name
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -41,10 +42,9 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-# OpenAI-compatible base paths for the two Databricks model surfaces. See
-# _get_databricks_api_base_key for how a model is routed to one or the other.
+# OpenAI-compatible base path for Databricks model serving endpoints.
 _DATABRICKS_SERVING_ENDPOINTS_PATH = "serving-endpoints"
-_DATABRICKS_AI_GATEWAY_PATH = "ai-gateway/mlflow/v1"
+# _DATABRICKS_AI_GATEWAY_PATH and _is_unity_catalog_model_name imported from mlflow.gateway.utils
 
 
 @contextmanager
@@ -135,25 +135,6 @@ def construct_dspy_lm(model: str):
         if api_base:
             return dspy.LM(model=model_litellm, api_base=api_base, api_key=api_key)
         return dspy.LM(model=model_litellm)
-
-
-def _is_unity_catalog_model_name(model_name: str) -> bool:
-    """
-    Whether a Databricks model name is a Unity Catalog name (and thus served via AI Gateway).
-
-    Unity Catalog model names are three-level (``<catalog>.<schema>.<model>``, e.g.
-    ``system.ai.claude-haiku-4-5``), so they contain at least two ``.`` separators. Databricks
-    serving endpoint names, by contrast, are restricted to ``^[a-zA-Z0-9_-]+$`` and cannot
-    contain ``.`` at all (see the ``name`` field in the create-serving-endpoint API reference:
-    https://docs.databricks.com/api/workspace/servingendpoints/create), so this shape check
-    reliably distinguishes the two surfaces.
-
-    Requiring two separators (rather than just any ``.``) keeps a one-dot name from being
-    misrouted to the AI Gateway. Such a name cannot be a valid serving endpoint either, but
-    leaving it on the legacy path yields a clearer "endpoint not found" error than a malformed
-    gateway URL.
-    """
-    return model_name.count(".") >= 2
 
 
 def _get_api_base_key(model: str) -> tuple[str | None, str | None]:

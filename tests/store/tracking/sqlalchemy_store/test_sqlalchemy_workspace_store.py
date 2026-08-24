@@ -913,6 +913,26 @@ def test_get_trace_is_workspace_scoped(workspace_tracking_store):
         assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
+@pytest.mark.asyncio
+async def test_log_spans_async_is_workspace_scoped(workspace_tracking_store):
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(trace_id=trace_id)
+
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_tracking_store.create_experiment("trace-exp-a-async")
+        logged = await workspace_tracking_store.log_spans_async(exp_id, [span])
+        assert logged == [span]
+        trace = workspace_tracking_store.get_trace(trace_id)
+        assert trace.info.trace_id == trace_id
+
+    with WorkspaceContext("team-b"):
+        with pytest.raises(
+            MlflowException, match=f"Trace with ID {trace_id} is not found."
+        ) as excinfo:
+            workspace_tracking_store.get_trace(trace_id)
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
 def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_tracking_store):
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -949,7 +969,26 @@ def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_track
         assert trace_info.token_usage["total_tokens"] == 300
 
 
-def test_start_trace_conflict_update_is_workspace_scoped(workspace_tracking_store):
+def test_start_trace_conflict_update_is_workspace_scoped(
+    workspace_tracking_store, monkeypatch, tmp_path
+):
+    archive_path = tmp_path / "archive"
+    archive_path.mkdir()
+    config_path = tmp_path / "trace-archival.yaml"
+    # Enable archival so `get_experiment()` takes its broader-scope retention path,
+    # which adds the extra workspace lookup that made the old call-count assertion brittle.
+    config_path.write_text(
+        "\n".join([
+            "trace_archival:",
+            "  enabled: true",
+            f"  location: {archive_path.as_uri()}",
+            "  retention: 30d",
+        ])
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
+
     trace_id = f"tr-{uuid.uuid4().hex}"
     initial_span = create_test_span(
         trace_id=trace_id,
@@ -971,20 +1010,35 @@ def test_start_trace_conflict_update_is_workspace_scoped(workspace_tracking_stor
             trace_metadata={"source": "test"},
         )
 
-        call_state = {"count": 0}
+        original_trace_query = workspace_tracking_store._trace_query
+        conflict_workspace = None
 
-        def workspace_side_effect(*_args, **_kwargs):
-            call_state["count"] += 1
-            return "team-a" if call_state["count"] <= 2 else "team-b"
+        def trace_query_side_effect(session, for_update_or_delete=False, workspace=None):
+            nonlocal conflict_workspace
+            if for_update_or_delete:
+                conflict_workspace = workspace
+                # Simulate the active workspace changing after `start_trace()`
+                # snapshots it for the conflict reread.
+                with WorkspaceContext("team-b"):
+                    return original_trace_query(
+                        session,
+                        for_update_or_delete=for_update_or_delete,
+                        workspace=workspace,
+                    )
+            return original_trace_query(
+                session,
+                for_update_or_delete=for_update_or_delete,
+                workspace=workspace,
+            )
 
         with mock.patch.object(
-            WorkspaceAwareSqlAlchemyStore,
-            "_get_active_workspace",
-            side_effect=workspace_side_effect,
+            workspace_tracking_store,
+            "_trace_query",
+            side_effect=trace_query_side_effect,
         ):
             updated_trace = workspace_tracking_store.start_trace(trace_info)
 
-        assert call_state["count"] == 2
+        assert conflict_workspace == "team-a"
         fetched_trace = workspace_tracking_store.get_trace_info(trace_id)
         assert updated_trace.trace_id == trace_id
         assert fetched_trace.request_time == 1_000
