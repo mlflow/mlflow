@@ -192,7 +192,7 @@ retrieved_docs = retrieve_relevant_documents(user_query)
 
 [Span Links](https://opentelemetry.io/docs/concepts/signals/traces/#span-links) are an OpenTelemetry concept for connecting spans that have a causal relationship but don't share a parent-child hierarchy — for example, spans in different traces. This is useful for:
 
-- **Multi-agent handoffs** — when one agent triggers another and each has its own trace
+- **Multi-agent handoffs** — when one agent triggers another and each has its own trace, e.g. a chat agent handing a task to a long-running research agent
 - **Async workflow continuations** — a background job that was triggered by an earlier request
 - **Retry chains** — linking a retry span to the original failed span
 
@@ -235,5 +235,5 @@ Links appear in the **Links** tab of the trace explorer UI, where each linked tr
 For detailed usage patterns and examples, see [Manual Tracing — Span Links](/genai/tracing/app-instrumentation/manual-tracing#span-links).
 
 :::note
-Span links are not currently supported for Unity Catalog traces.
+Span links are not currently supported for [Unity Catalog traces](https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog).
 :::
