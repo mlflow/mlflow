@@ -330,3 +330,44 @@ def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> st
         args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
         return f"{call.name}({args})"
     return call.name
+
+
+# Scorer job names whose params carry an inline serialized scorer.
+_SCORER_JOB_NAMES_WITH_INLINE_SCORER = frozenset({"invoke_scorer"})
+# Scorer job names whose params carry a list of online scorers.
+_SCORER_JOB_NAMES_WITH_ONLINE_SCORERS = frozenset(
+    {"run_online_trace_scorer", "run_online_session_scorer"}
+)
+
+
+def _serialized_scorer_has_call_source(serialized_scorer: str) -> bool:
+    try:
+        data = json.loads(serialized_scorer)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return isinstance(data, dict) and data.get("call_source") is not None
+
+
+def _iter_serialized_scorers(job_name: str, params: dict) -> list[str]:
+    if job_name in _SCORER_JOB_NAMES_WITH_INLINE_SCORER:
+        s = params.get("serialized_scorer")
+        return [s] if isinstance(s, str) else []
+    if job_name in _SCORER_JOB_NAMES_WITH_ONLINE_SCORERS:
+        return [
+            sc["serialized_scorer"]
+            for sc in params.get("online_scorers") or []
+            if isinstance(sc, dict) and isinstance(sc.get("serialized_scorer"), str)
+        ]
+    return []
+
+
+def params_contain_custom_scorer_code(job_name: str, params: dict) -> bool:
+    """Return True if a job's params carry custom (@scorer decorator) scorer code.
+
+    Custom scorers carry a non-null ``call_source`` that is executed via ``exec()``
+    during deserialization. This is the server-derived signal the job framework uses to
+    gate and route custom scorers. Returns False for non-scorer jobs and malformed input.
+    """
+    return any(
+        _serialized_scorer_has_call_source(s) for s in _iter_serialized_scorers(job_name, params)
+    )

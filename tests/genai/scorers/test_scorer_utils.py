@@ -13,6 +13,7 @@ from mlflow.genai.scorers.scorer_utils import (
     get_tool_call_signature,
     is_gateway_model,
     normalize_tool_call_arguments,
+    params_contain_custom_scorer_code,
     parse_tool_call_expectations,
     recreate_function,
     update_model_in_serialized_scorer,
@@ -649,3 +650,44 @@ def test_get_tool_call_signature_sorts_arguments():
     sig1 = get_tool_call_signature(call1, include_arguments=True)
     sig2 = get_tool_call_signature(call2, include_arguments=True)
     assert sig1 == sig2
+
+
+# ============================================================================
+# CUSTOM SCORER DETECTION TESTS
+# ============================================================================
+
+
+def _custom_scorer_json():
+    return json.dumps({"name": "c", "call_source": "    return 1\n",
+                       "call_signature": "(inputs, outputs)", "original_func_name": "c"})
+
+
+def _builtin_scorer_json():
+    return json.dumps({"name": "b", "builtin_scorer_class": "Safety"})
+
+
+def test_invoke_scorer_custom_detected():
+    params = {"serialized_scorer": _custom_scorer_json(), "trace_ids": ["t1"]}
+    assert params_contain_custom_scorer_code("invoke_scorer", params) is True
+
+
+def test_invoke_scorer_builtin_not_custom():
+    params = {"serialized_scorer": _builtin_scorer_json(), "trace_ids": ["t1"]}
+    assert params_contain_custom_scorer_code("invoke_scorer", params) is False
+
+
+def test_online_scorers_custom_detected():
+    params = {"experiment_id": "e", "online_scorers": [
+        {"serialized_scorer": _builtin_scorer_json()},
+        {"serialized_scorer": _custom_scorer_json()},
+    ]}
+    assert params_contain_custom_scorer_code("run_online_trace_scorer", params) is True
+
+
+def test_non_scorer_job_not_custom():
+    assert params_contain_custom_scorer_code("optimize_prompts", {"anything": 1}) is False
+
+
+def test_malformed_serialized_scorer_not_custom():
+    params = {"serialized_scorer": "not json"}
+    assert params_contain_custom_scorer_code("invoke_scorer", params) is False
