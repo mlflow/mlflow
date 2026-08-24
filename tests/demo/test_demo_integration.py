@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,10 @@ from mlflow import MlflowClient, set_tracking_uri
 from mlflow.demo import generate_all_demos
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DEMO_PROMPT_PREFIX
 from mlflow.demo.data import DEMO_PROMPTS
+from mlflow.demo.generators.custom_view import (
+    DEMO_CUSTOM_VIEW_ID,
+    DEMO_CUSTOM_VIEW_TAG_KEY,
+)
 from mlflow.demo.generators.evaluation import (
     DEMO_DATASET_BASELINE_SESSION_NAME,
     DEMO_DATASET_IMPROVED_SESSION_NAME,
@@ -120,6 +125,15 @@ def test_generate_all_demos_creates_experiment(client):
     experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     assert experiment is not None
     assert experiment.lifecycle_stage == "active"
+
+
+def test_generate_all_demos_seeds_custom_view(client):
+    generate_all_demos()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    stored = json.loads(experiment.tags[DEMO_CUSTOM_VIEW_TAG_KEY])
+    assert stored["id"] == DEMO_CUSTOM_VIEW_ID
+    assert stored["template"][0]["version"] == "v0.9"
 
 
 def test_version_mismatch_triggers_cleanup_and_regeneration(client, traces_generator):

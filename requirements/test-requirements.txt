@@ -49,7 +49,9 @@ gepa
 # required for testing docker compose
 testcontainers
 # required for testing cost tracking
-litellm
+# 1.97.0 ships a broken `Message` pydantic model (unresolved forward ref
+# `ChatCompletionReasoningSummaryTextBlock`), see BerriAI/litellm#36384
+litellm!=1.97.0
 # required for testing Redis budget tracker
 fakeredis[lua]
 # required for testing claude_code tracing

@@ -2511,13 +2511,26 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         )
         response.raise_for_status()
 
+    # Non-admin reads the config (UI needs secrets_available) but the using_default_passphrase
+    # server-posture signal is redacted for them.
     with User(user1, password1, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
             auth=(user1, password1),
         )
         response.raise_for_status()
-        assert "secrets_available" in response.json()
+        body = response.json()
+        assert "secrets_available" in body
+        assert "using_default_passphrase" not in body
+
+    # Admin sees the full config, including using_default_passphrase.
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        )
+        response.raise_for_status()
+        assert "using_default_passphrase" in response.json()
 
     with User(user1, password1, monkeypatch):
         response = requests.delete(

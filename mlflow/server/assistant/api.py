@@ -368,6 +368,13 @@ async def send_message(request: MessageRequest) -> MessageResponse:
         for key in _TURN_SCOPED_CONTEXT_KEYS - request.context.keys():
             session.context.pop(key, None)
         session.update_context(request.context)
+        # A session created without a project directory (e.g. the first message
+        # had no experiment_id) never got a working_dir. If a later message
+        # resolves one, fill it in instead of leaving the session permanently
+        # without file-tool access. Only fills a missing working_dir; an
+        # already-configured one is never replaced.
+        if session.working_dir is None and project_path:
+            session.working_dir = Path(project_path)
 
     # Store the pending message with role
     session.set_pending_message(role="user", content=request.message)
