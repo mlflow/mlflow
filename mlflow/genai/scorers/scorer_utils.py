@@ -371,3 +371,43 @@ def params_contain_custom_scorer_code(job_name: str, params: dict) -> bool:
     return any(
         _serialized_scorer_has_call_source(s) for s in _iter_serialized_scorers(job_name, params)
     )
+
+
+# Matches a leading "<scheme>:/" as used by model URIs (e.g. "openai:/gpt-4",
+# "endpoints:/my-endpoint").
+_MODEL_URI_SCHEME_RE = re.compile(r"^([a-zA-Z0-9_-]+):/")
+_GATEWAY_URI_SCHEME = "endpoints"
+
+
+def _iter_model_uris(obj) -> list[str]:
+    found = []
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if key == "model" and isinstance(value, str):
+                found.append(value)
+            else:
+                found.extend(_iter_model_uris(value))
+    elif isinstance(obj, list):
+        for item in obj:
+            found.extend(_iter_model_uris(item))
+    return found
+
+
+def scorer_params_use_direct_provider_model(job_name: str, params: dict) -> bool:
+    """Return True if any scorer in the job references a non-Gateway (direct-provider) model.
+
+    A remote executor requires Gateway-backed ``endpoints:/`` model URIs. Any model URI
+    whose scheme is not ``endpoints`` is treated as remote-incompatible. Scorers with no
+    model URI are compatible. Scans recursively so it is agnostic to per-scorer-type
+    nesting.
+    """
+    for serialized in _iter_serialized_scorers(job_name, params):
+        try:
+            data = json.loads(serialized)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for uri in _iter_model_uris(data):
+            match = _MODEL_URI_SCHEME_RE.match(uri)
+            if match and match.group(1) != _GATEWAY_URI_SCHEME:
+                return True
+    return False

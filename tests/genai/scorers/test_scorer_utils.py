@@ -16,6 +16,7 @@ from mlflow.genai.scorers.scorer_utils import (
     params_contain_custom_scorer_code,
     parse_tool_call_expectations,
     recreate_function,
+    scorer_params_use_direct_provider_model,
     update_model_in_serialized_scorer,
 )
 from mlflow.genai.utils.type import FunctionCall
@@ -691,3 +692,32 @@ def test_non_scorer_job_not_custom():
 def test_malformed_serialized_scorer_not_custom():
     params = {"serialized_scorer": "not json"}
     assert params_contain_custom_scorer_code("invoke_scorer", params) is False
+
+
+# ============================================================================
+# REMOTE-COMPATIBILITY PREDICATE TESTS
+# ============================================================================
+
+
+def _judge_scorer_json(model_uri):
+    return json.dumps({"name": "j", "instructions_judge_pydantic_data": {"model": model_uri}})
+
+
+def test_direct_provider_model_flagged():
+    params = {"serialized_scorer": _judge_scorer_json("openai:/gpt-4")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is True
+
+
+def test_gateway_endpoint_model_ok():
+    params = {"serialized_scorer": _judge_scorer_json("endpoints:/my-endpoint")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_no_model_is_compatible():
+    params = {"serialized_scorer": _builtin_scorer_json()}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_online_scorers_direct_provider_flagged():
+    params = {"online_scorers": [{"serialized_scorer": _judge_scorer_json("anthropic:/claude")}]}
+    assert scorer_params_use_direct_provider_model("run_online_trace_scorer", params) is True
