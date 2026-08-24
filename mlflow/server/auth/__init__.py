@@ -42,6 +42,7 @@ from flask import (
 )
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response as StarletteResponse
+from starlette.routing import BaseRoute, Match, Mount
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
@@ -5373,6 +5374,39 @@ def _get_require_authentication_validator() -> Callable[[str, StarletteRequest],
     return validator
 
 
+def _job_id_from_path(unprefixed_path: str) -> str | None:
+    # get (/jobs/<id>) and cancel (/jobs/cancel/<id>) carry a job id; submit and search do not.
+    tail = unprefixed_path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/")
+    if not tail or tail == "search":
+        return None
+    if tail.startswith("cancel/"):
+        return tail[len("cancel/") :] or None
+    return tail
+
+
+def _get_job_route_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth.
+    # NB: /jobs/search still returns all jobs — filtering to the caller is a tracked follow-up.
+    job_id = _job_id_from_path(path)
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        if job_id is None:
+            return True
+        from mlflow.server.jobs import get_job
+
+        try:
+            creator = get_job(job_id).creator
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return False
+            raise
+        return creator is not None and creator == username
+
+    return validator
+
+
 def _get_otel_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -5495,7 +5529,7 @@ def _find_fastapi_validator(
         return _get_otel_validator(unprefixed)
 
     if unprefixed.startswith("/ajax-api/3.0/jobs"):
-        return _get_require_authentication_validator()
+        return _get_job_route_validator(unprefixed)
 
     if unprefixed.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
@@ -5602,6 +5636,16 @@ def _apply_fastapi_response_filter(
     )
 
 
+def _native_fastapi_routes(app: FastAPI) -> list[BaseRoute]:
+    # Routes served directly by FastAPI, excluding the mounted Flask app (authorized via Flask).
+    return [route for route in app.routes if not isinstance(route, Mount)]
+
+
+def _scope_matches_native_route(native_routes: list[BaseRoute], scope) -> bool:
+    # True if the request matches a native FastAPI route (vs a path delegated to Flask).
+    return any(route.matches(scope)[0] == Match.FULL for route in native_routes)
+
+
 def add_fastapi_permission_middleware(app: FastAPI) -> None:
     """
     Add permission middleware to FastAPI app for routes not handled by Flask.
@@ -5627,6 +5671,8 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
     Args:
         app: The FastAPI application instance.
     """
+    # Snapshot native routes so the fail-closed check can tell them from Flask-delegated paths.
+    native_routes = _native_fastapi_routes(app)
 
     @app.middleware("http")
     async def fastapi_permission_middleware(request, call_next):
@@ -5639,6 +5685,14 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         # Find validator for this route
         validator = _find_fastapi_validator(path, request.method)
         if validator is None:
+            # Fail-closed (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED): deny a native FastAPI
+            # route with no validator. Flask-delegated paths pass through (authorized by Flask).
+            if (
+                MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()
+                and _scope_matches_native_route(native_routes, request.scope)
+                and not any(marker in path for marker in _KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
+            ):
+                return PlainTextResponse("Permission denied", status_code=HTTPStatus.FORBIDDEN)
             return await call_next(request)
 
         # Authenticate using either the custom authorization_function (via Flask
