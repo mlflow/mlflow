@@ -135,6 +135,7 @@ from mlflow.protos.service_pb2 import (
     CreateGatewaySecret,
     CreateLoggedModel,
     CreatePresignedDownloadUrl,
+    CreatePresignedUploadUrl,
     CreatePromptOptimizationJob,
     CreateRun,
     CreateWorkspace,
@@ -320,6 +321,8 @@ from mlflow.server.auth.routes import (
     CREATE_USER_UI,
     DELETE_ROLE,
     DELETE_USER,
+    DEMO_DELETE,
+    DEMO_GENERATE,
     GATEWAY_PROVIDER_CONFIG,
     GATEWAY_PROXY,
     GATEWAY_SECRETS_CONFIG,
@@ -329,6 +332,7 @@ from mlflow.server.auth.routes import (
     GET_CURRENT_USER,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
+    GET_METRIC_HISTORY_BULK_INTERVAL_REST,
     GET_MODEL_VERSION_ARTIFACT,
     GET_ROLE,
     GET_TRACE_ARTIFACT,
@@ -337,6 +341,8 @@ from mlflow.server.auth.routes import (
     GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
     HOME,
+    INVOKE_GENAI_EVALUATE,
+    INVOKE_ISSUE_DETECTION,
     INVOKE_SCORER,
     JOB_CANCEL,
     JOB_GET,
@@ -2687,6 +2693,8 @@ BEFORE_REQUEST_HANDLERS = {
     # artifacts, so it requires the same per-run READ permission as the
     # proxied artifact download paths.
     CreatePresignedDownloadUrl: validate_can_read_run,
+    # Presigned upload URL grants direct artifact write -> same per-run UPDATE as upload.
+    CreatePresignedUploadUrl: validate_can_update_run,
     # Routes for model registry (shared with prompts — dispatch via
     # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
@@ -2922,11 +2930,18 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GET_TRACE_ARTIFACT_V3, "GET"): validate_can_read_trace_artifact,
     (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
     (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
+    (GET_METRIC_HISTORY_BULK_INTERVAL_REST, "GET"): validate_can_read_metric_history_bulk_interval,
     (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     (INVOKE_SCORER, "POST"): validate_gateway_proxy,
+    # Invoke endpoints create runs in an experiment -> require update on it.
+    (INVOKE_ISSUE_DETECTION, "POST"): validate_can_update_experiment,
+    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
+    # Demo: generate is open to any authenticated user; delete is admin-only.
+    (DEMO_GENERATE, "POST"): _allow_authenticated,
+    (DEMO_DELETE, "POST"): sender_is_admin,
     # Discovery + config back the gateway UI for any signed-in user: static capability
     # lists and provider/secret setup shapes, with no tenant-scoped secret material.
     (GATEWAY_SUPPORTED_PROVIDERS, "GET"): _allow_authenticated,
@@ -3399,15 +3414,9 @@ _HANDLER_INTERNAL_AUTHZ_SUFFIXES = (
     "/graphql",
 )
 
-# Ungated route families, temporarily exempt from fail-closed until each is gated
-# (removed one at a time; when empty the flag can be flipped on).
-_KNOWN_UNGATED_ROUTE_MARKERS = (
-    "/mlflow/issues/invoke",
-    "/mlflow/artifacts/presigned-upload-url",
-    "/mlflow/demo/",
-    "/mlflow/genai/evaluate/invoke",
-    "/api/2.0/mlflow/metrics/get-history-bulk-interval",
-)
+# Empty: every route family is gated, so the fail-closed flag can be flipped on. Add
+# an entry only as a temporary, tracked exception for a route awaiting a validator.
+_KNOWN_UNGATED_ROUTE_MARKERS = ()
 
 # Native FastAPI routes (served by the FastAPI permission middleware, not _before_request)
 # that lack an authorization validator. Empty today — a coverage test asserts every native

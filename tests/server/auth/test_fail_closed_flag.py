@@ -20,6 +20,11 @@ def test_flag_reads_env(monkeypatch):
     assert MLFLOW_BASIC_AUTH_FAIL_CLOSED.get() is True
 
 
+def test_debt_list_is_empty():
+    # All families gated -> the flag can be flipped on safely.
+    assert a._KNOWN_UNGATED_ROUTE_MARKERS == ()
+
+
 def test_unlisted_route_is_denied_when_fail_closed():
     req = _Req("/api/3.0/mlflow/brand-new-feature/do-thing", "POST")
     assert not a._is_known_ungated_route(req.path)
