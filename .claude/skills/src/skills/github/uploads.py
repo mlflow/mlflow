@@ -28,6 +28,10 @@ MIME_TYPES = {
 VIDEO_SUFFIXES = {".mp4", ".mov", ".webm"}
 
 
+# Answered for a fault that is not about the file at hand, so every remaining upload in
+# the run would fail the same way.
+FATAL_STATUSES = frozenset({401, 403, 404})
+
 # The endpoint serves only OAuth tokens, classic PATs, and fine-grained PATs bound to the
 # target repository. Actions and App installation tokens are refused whatever their
 # permissions, and the refusal is a bare 404, so name the kind rather than leave the
@@ -52,13 +56,18 @@ def describe_token(token: str) -> str:
 class UploadFailed(Exception):
     """Raised when one asset does not reach the store; the message says why.
 
-    ``status`` carries the HTTP code when the endpoint answered, so a caller can tell
-    a dead credential (401) from a fault that only affects the file at hand.
+    ``status`` carries the HTTP code when the endpoint answered, and ``fatal`` says
+    whether the rest of the run can continue.
     """
 
     def __init__(self, message: str, status: int | None = None) -> None:
         super().__init__(message)
         self.status = status
+
+    @property
+    def fatal(self) -> bool:
+        """Whether retrying the remaining files would fail identically."""
+        return self.status in FATAL_STATUSES
 
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
