@@ -98,6 +98,12 @@ def error_detail(e: urllib.error.HTTPError) -> str:
                         # The size refusal embeds markup meant for the web uploader, and
                         # dropping the tags leaves the whitespace that sat between them.
                         parts.append(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", message)).strip())
+                    # Only `code: custom` is documented to carry a message, so name the
+                    # field and code rather than collapse to a bare "Validation Failed".
+                    case {"code": str(code), "field": str(field)}:
+                        parts.append(f"{field}: {code}")
+                    case {"code": str(code)}:
+                        parts.append(code)
     return "; ".join(dict.fromkeys(parts))
 
 
@@ -153,9 +159,14 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str:
                 status=404,
             ) from e
         if e.code == 429:
+            # Retry-After rides along only on a secondary limit; a primary one explains
+            # itself in the body, and the two need different waits.
             after = e.headers.get("Retry-After")
+            detail = error_detail(e)
             raise UploadFailed(
-                f"{path.name}: rate limited (429)" + (f"; retry after {after}s" if after else ""),
+                f"{path.name}: rate limited (429)"
+                + (f": {detail}" if detail else "")
+                + (f"; retry after {after}s" if after else ""),
                 status=429,
             ) from e
         detail = error_detail(e)

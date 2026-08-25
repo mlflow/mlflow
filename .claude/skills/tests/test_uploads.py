@@ -1,6 +1,7 @@
 import http.client
 import io
 import json
+import re
 import urllib.error
 from pathlib import Path
 from unittest import mock
@@ -272,3 +273,48 @@ def test_rate_limiting_stops_the_run_and_reports_the_wait(
     opener.assert_called_once()
     assert str(excinfo.value) == f"shot.png: {expected}"
     assert excinfo.value.fatal
+
+
+def test_a_429_carries_the_body_when_retry_after_is_absent(tmp_path: Path) -> None:
+    # Retry-After rides along only on a secondary limit, so a primary one would otherwise
+    # report nothing but the status.
+    path = tmp_path / "shot.png"
+    path.write_bytes(b"\x89PNG")
+    body = json.dumps({"message": "You have exceeded a secondary rate limit"}).encode()
+
+    with (
+        mock.patch("urllib.request.urlopen", side_effect=http_error(429, body)) as opener,
+        pytest.raises(uploads.UploadFailed, match="secondary rate limit") as excinfo,
+    ):
+        uploads.upload_asset(path, "1", "t")
+
+    opener.assert_called_once()
+    assert str(excinfo.value) == (
+        "shot.png: rate limited (429): You have exceeded a secondary rate limit"
+    )
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        ({"field": "content_type", "code": "invalid"}, "content_type: invalid"),
+        ({"code": "unprocessable"}, "unprocessable"),
+    ],
+)
+def test_a_per_field_error_without_a_message_still_names_the_cause(
+    tmp_path: Path, error: dict[str, str], expected: str
+) -> None:
+    # Only `code: custom` is documented to carry a message; without this the report
+    # collapses to a bare "Validation Failed".
+    path = tmp_path / "shot.png"
+    path.write_bytes(b"\x89PNG")
+    body = json.dumps({"message": "Validation Failed", "errors": [error]}).encode()
+
+    with (
+        mock.patch("urllib.request.urlopen", side_effect=http_error(422, body)) as opener,
+        pytest.raises(uploads.UploadFailed, match=re.escape(expected)) as excinfo,
+    ):
+        uploads.upload_asset(path, "1", "t")
+
+    opener.assert_called_once()
+    assert str(excinfo.value) == f"shot.png: 422 nope: Validation Failed; {expected}"
