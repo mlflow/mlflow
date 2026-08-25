@@ -481,18 +481,16 @@ def test_scheduler_skips_submission_for_job_canceled_before_submit(registered_jo
     assert job_store.get_job(created.job_id).status == JobStatus.CANCELED
 
 
-def test_build_execution_context_falls_back_to_backend_store_uri(monkeypatch, registered_jobs):
-    from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
-
-    # On the server MLFLOW_TRACKING_URI is usually unset; the job subprocess must still get a
-    # reachable tracking URI, which comes from the backend-store URI.
-    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
-    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, "sqlite:///backend.db")
+def test_build_execution_context_uses_tracking_uri_env(monkeypatch, registered_jobs):
+    # The runner is launched with MLFLOW_TRACKING_URI set to the server's HTTP URI, and the job
+    # subprocess reaches the store through it (the same way the Huey path does), not the backend
+    # store directly.
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
     job = _make_job(status=JobStatus.PENDING)
 
     context = runner._build_execution_context(job)
 
-    assert context.tracking_uri == "sqlite:///backend.db"
+    assert context.tracking_uri == "http://127.0.0.1:5000"
 
 
 @pytest.mark.parametrize("orphan_status", [JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY])
@@ -551,6 +549,32 @@ def test_fail_claimed_job_retries_once_on_transient_store_error(registered_jobs)
 
     assert store.fail_job.call_count == 2
     store.fail_job.assert_called_with("job-1", "boom")
+
+
+def test_fail_claimed_job_logs_and_stops_on_unexpected_error(registered_jobs):
+    # A non-MlflowException from the store is unexpected and not retryable: log once and stop
+    # (don't retry, don't propagate out of the fail path).
+    store = mock.MagicMock()
+    store.fail_job.side_effect = RuntimeError("unexpected")
+    scheduler = runner._JobScheduler(store, _BlockingExecutor(), lease_duration=60.0)
+
+    scheduler._fail_claimed_job("job-1", None, "boom")
+
+    store.fail_job.assert_called_once_with("job-1", "boom")
+
+
+def test_schedule_pending_releases_slot_if_start_worker_raises(registered_jobs, job_store):
+    # If _start_worker raises unexpectedly after the slot is acquired and the job claimed, the
+    # scheduler must release the slot so the job type is not permanently at capacity.
+    job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    ex = _BlockingExecutor()
+    scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
+
+    with mock.patch.object(scheduler, "_start_worker", side_effect=RuntimeError("boom")):
+        assert scheduler._schedule_pending() == 0
+
+    # The slot (max_workers=1 for executor_engine_add) was released, so it can be acquired again.
+    assert scheduler._slot_for("executor_engine_add").acquire(blocking=False)
 
 
 def test_fail_claimed_job_does_not_retry_invalid_transition(registered_jobs):

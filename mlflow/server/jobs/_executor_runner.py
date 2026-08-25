@@ -36,7 +36,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
-from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR, MLFLOW_SERVER_UP_TIME
+from mlflow.server.constants import MLFLOW_SERVER_UP_TIME
 from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutionContext, JobResult
 from mlflow.server.jobs.executor_registry import get_executor_registry
 from mlflow.store.jobs.abstract_store import AbstractJobStore, JobUpdateStatus
@@ -68,14 +68,13 @@ def _select_executor() -> AbstractJobExecutor:
 
 def _build_execution_context(job: Job) -> JobExecutionContext:
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
-    # The job subprocess talks to the tracking store through this URI. On the server
-    # MLFLOW_TRACKING_URI is usually unset (the server knows its store as the backend-store URI),
-    # so fall back to that; otherwise a job that touches the store from the subprocess would have
-    # no reachable tracking URI.
-    tracking_uri = MLFLOW_TRACKING_URI.get() or os.environ.get(BACKEND_STORE_URI_ENV_VAR)
+    # The runner is launched with MLFLOW_TRACKING_URI set to the server's HTTP URI (see the job
+    # env built in mlflow/server/__init__.py), so the job subprocess reaches the tracking store
+    # the same way the Huey path's subprocess does — through the server — rather than opening the
+    # backend store directly.
     return JobExecutionContext(
         job_id=job.job_id,
-        tracking_uri=tracking_uri,
+        tracking_uri=MLFLOW_TRACKING_URI.get(),
         gateway_uri=MLFLOW_GATEWAY_URI.get(),
         workspace=workspace,
     )
@@ -294,16 +293,16 @@ class _JobScheduler:
         # Randomize the per-workspace order so a fixed (e.g. alphabetical) order can't let the
         # earliest workspaces consistently claim the max_workers slots and starve the rest.
         #
-        # TODO (Phase C item C4, "pending-aware workspace scheduling"): with workspaces enabled,
-        # _workspace_contexts_for_recovery() returns every defined workspace, and the loop below
-        # runs one list_jobs(status=PENDING) query per workspace on every tick (~1s) even when
-        # most have nothing pending — cost scales with total workspaces, not active ones. To fix:
+        # TODO: with workspaces enabled, _workspace_contexts_for_recovery() returns every defined
+        # workspace, and the loop below runs one list_jobs(status=PENDING) query per workspace on
+        # every tick (~1s) even when most have nothing pending — cost scales with total workspaces,
+        # not active ones. To make it scale with active workspaces instead:
         #   1. add an AbstractJobStore method that returns, in a single cross-workspace query, the
         #      distinct workspaces that currently have PENDING jobs (the workspace-aware store
         #      filters by the active workspace today, so this query must not be workspace-scoped);
         #   2. have the scheduler iterate only those workspaces here instead of all of them;
         #   3. cover it with workspace-aware tests (see the jobs store's workspace test module).
-        # Deferred to Phase C because the per-tick cost only bites at multi-tenant scale.
+        # Left as a follow-up since the per-tick cost only becomes material at multi-tenant scale.
         workspace_contexts = list(_workspace_contexts_for_recovery())
         random.shuffle(workspace_contexts)
         scheduled = 0
@@ -328,7 +327,7 @@ class _JobScheduler:
                         # removed across an upgrade). Fail it, matching the old serial path, so it
                         # reaches a terminal state instead of staying PENDING and re-logging on
                         # every tick.
-                        self._fail_unschedulable_job(job, exc)
+                        self._fail_unschedulable_job(job, workspace, exc)
                         continue
                     if not sem.acquire(blocking=False):
                         # This job type is already at max_workers; leave it PENDING for a
@@ -387,8 +386,12 @@ class _JobScheduler:
                 _logger.exception("Unexpected error transitioning job %s to FAILED", job_id)
                 return
 
-    def _fail_unschedulable_job(self, job: Job, exc: Exception) -> None:
-        """Claim and fail a PENDING job whose function cannot be resolved."""
+    def _fail_unschedulable_job(self, job: Job, workspace: str | None, exc: Exception) -> None:
+        """Claim and fail a PENDING job whose function cannot be resolved.
+
+        ``workspace`` is the active workspace the claim runs under, so the fail targets the same
+        workspace scope as the claim.
+        """
         try:
             claimed = (
                 self._job_store.claim_job(job.job_id, self._lease_duration)
@@ -400,7 +403,7 @@ class _JobScheduler:
         if not claimed:
             return
         _logger.error("Job %s (%s) is not runnable: %r", job.job_id, job.job_name, exc)
-        self._fail_claimed_job(job.job_id, job.workspace, repr(exc))
+        self._fail_claimed_job(job.job_id, workspace, repr(exc))
 
     def _start_worker(self, job: Job, workspace: str | None, sem: threading.Semaphore) -> bool:
         """Start the worker thread for a claimed job. Returns whether it started.
@@ -549,9 +552,8 @@ def _recover_orphaned_executor_jobs(job_store: AbstractJobStore) -> None:
     claims PENDING jobs on its next tick.
 
     This is the single-instance crash/restart recovery. Reclaiming a job whose lease expires while
-    the runner is still live (a wedged worker, or another replica's jobs) is Phase C item C3 (live
-    stale-lease reclaim), which the lease primitive exists to enable once there is more than one
-    owner.
+    the runner is still live (a wedged worker, or another replica's jobs) is a follow-up that the
+    lease primitive exists to enable once there is more than one owner.
     """
     from mlflow.server.jobs.utils import _for_each_unfinished_job
 
@@ -597,11 +599,13 @@ def main() -> None:
 
     # Own the executor lifecycle here rather than inside the claim loop, so that when more than
     # one backend can be configured at a time (e.g. a custom-scorer backend alongside the default)
-    # main() can start and stop each configured executor independently. start_executor() runs
-    # inside the try so a failure during startup still triggers stop_executor() for cleanup.
-    executor = _select_executor()
+    # main() can start and stop each configured executor independently. Resolving and starting the
+    # executor both run inside the try so any failure there (the runner re-validates the backend
+    # registry independently of the parent) still triggers cleanup and the SIGTERM below.
+    executor: AbstractJobExecutor | None = None
     fatal_exit = False
     try:
+        executor = _select_executor()
         executor.start_executor()
         _logger.info(
             "Started executor-backed job runner "
@@ -617,10 +621,11 @@ def main() -> None:
         # Guard stop_executor so a failure here (e.g. a half-initialized backend when
         # start_executor raised) cannot skip the SIGTERM below — that signal is the only thing
         # that tears the process down, since the periodic-tasks consumer thread is non-daemon.
-        try:
-            executor.stop_executor()
-        except Exception:
-            _logger.exception("Failed to stop executor during shutdown.")
+        if executor is not None:
+            try:
+                executor.stop_executor()
+            except Exception:
+                _logger.exception("Failed to stop executor during shutdown.")
     if fatal_exit:
         # A non-daemon thread (the periodic-tasks consumer) keeps this process alive, so an
         # unhandled exit from the loop — e.g. a startup failure — would otherwise leave a live
