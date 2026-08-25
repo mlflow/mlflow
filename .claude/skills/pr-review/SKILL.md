@@ -88,7 +88,7 @@ expensive ones: build the docs site, build and boot the UI, start the backend, r
 tests.
 
 Node and `agent-browser` are on PATH for docs and UI changes. Capture to an absolute path named for
-what it shows: `agent-browser screenshot --full $media_dir/traces-table.png`, and cite that same
+what it shows: `agent-browser screenshot --full $media_dir/example.png`, and cite that same
 path in a finding.
 
 Evaluate the changed code across these dimensions:
