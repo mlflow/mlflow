@@ -335,9 +335,10 @@ def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> st
 # Scorer job names whose params carry an inline serialized scorer.
 _SCORER_JOB_NAMES_WITH_INLINE_SCORER = frozenset({"invoke_scorer"})
 # Scorer job names whose params carry a list of online scorers.
-_SCORER_JOB_NAMES_WITH_ONLINE_SCORERS = frozenset(
-    {"run_online_trace_scorer", "run_online_session_scorer"}
-)
+_SCORER_JOB_NAMES_WITH_ONLINE_SCORERS = frozenset({
+    "run_online_trace_scorer",
+    "run_online_session_scorer",
+})
 
 
 def _serialized_scorer_has_call_source(serialized_scorer: str) -> bool:

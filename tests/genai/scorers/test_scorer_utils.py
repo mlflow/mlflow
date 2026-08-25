@@ -659,8 +659,12 @@ def test_get_tool_call_signature_sorts_arguments():
 
 
 def _custom_scorer_json():
-    return json.dumps({"name": "c", "call_source": "    return 1\n",
-                       "call_signature": "(inputs, outputs)", "original_func_name": "c"})
+    return json.dumps({
+        "name": "c",
+        "call_source": "    return 1\n",
+        "call_signature": "(inputs, outputs)",
+        "original_func_name": "c",
+    })
 
 
 def _builtin_scorer_json():
@@ -678,10 +682,13 @@ def test_invoke_scorer_builtin_not_custom():
 
 
 def test_online_scorers_custom_detected():
-    params = {"experiment_id": "e", "online_scorers": [
-        {"serialized_scorer": _builtin_scorer_json()},
-        {"serialized_scorer": _custom_scorer_json()},
-    ]}
+    params = {
+        "experiment_id": "e",
+        "online_scorers": [
+            {"serialized_scorer": _builtin_scorer_json()},
+            {"serialized_scorer": _custom_scorer_json()},
+        ],
+    }
     assert params_contain_custom_scorer_code("run_online_trace_scorer", params) is True
 
 
