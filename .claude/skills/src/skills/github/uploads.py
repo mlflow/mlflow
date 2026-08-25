@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -30,7 +31,7 @@ VIDEO_SUFFIXES = {".mp4", ".mov", ".webm"}
 
 # Answered for a fault that is not about the file at hand, so every remaining upload in
 # the run would fail the same way.
-FATAL_STATUSES = frozenset({401, 403, 404})
+FATAL_STATUSES = frozenset({401, 403, 404, 429})
 
 # The endpoint serves only OAuth tokens, classic PATs, and fine-grained PATs bound to the
 # target repository. Actions and App installation tokens are refused whatever their
@@ -72,6 +73,32 @@ class UploadFailed(Exception):
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_VIDEO_BYTES = 100 * 1024 * 1024
+
+
+def error_detail(e: urllib.error.HTTPError) -> str:
+    """Join what the endpoint said about the refusal.
+
+    The reason phrase names no cause; a 422 explains itself only in the body, and that
+    is the status that separates a bad content type from an oversized file.
+    """
+    try:
+        body = json.loads(e.read())
+    except (OSError, ValueError):
+        return ""
+
+    parts: list[str] = []
+    match body:
+        case {"message": str(message)}:
+            parts.append(message)
+    match body:
+        case {"errors": [*errors]}:
+            for error in errors:
+                match error:
+                    case {"message": str(message)}:
+                        # The size refusal embeds markup meant for the web uploader, and
+                        # dropping the tags leaves the whitespace that sat between them.
+                        parts.append(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", message)).strip())
+    return "; ".join(dict.fromkeys(parts))
 
 
 def is_video(name: str) -> bool:
@@ -125,7 +152,17 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str:
                 f"the endpoint refuses this credential, which is {describe_token(token)}",
                 status=404,
             ) from e
-        raise UploadFailed(f"{path.name}: {e}", status=e.code) from e
+        if e.code == 429:
+            after = e.headers.get("Retry-After")
+            raise UploadFailed(
+                f"{path.name}: rate limited (429)" + (f"; retry after {after}s" if after else ""),
+                status=429,
+            ) from e
+        detail = error_detail(e)
+        raise UploadFailed(
+            f"{path.name}: {e.code} {e.reason}" + (f": {detail}" if detail else ""),
+            status=e.code,
+        ) from e
     except (OSError, http.client.HTTPException, ValueError) as e:
         raise UploadFailed(f"{path.name}: {e}") from e
 
