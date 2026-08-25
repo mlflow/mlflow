@@ -923,13 +923,34 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # in the assessment_metadata JSON field under the reserved
         # "mlflow.assessment.sourceRunId" key, not in the run_id column.
         source_run_id_pattern = f'"{AssessmentMetadataKey.SOURCE_RUN_ID}": "{run.run_uuid}"'
-        session.query(SqlAssessments).filter(
-            SqlAssessments.assessment_metadata.contains(source_run_id_pattern)
-        ).delete(synchronize_session=False)
+        assessment_filter = SqlAssessments.assessment_metadata.contains(source_run_id_pattern)
+        # Invalidate assessment rollups for every experiment/day these rows fall in
+        # before deleting them, so the maintenance engine rebuilds the affected
+        # partitions and stale aggregates are never served (mirrors delete_assessment
+        # and _enqueue_rollup_rebuilds_for_trace_delete).
+        self._enqueue_assessment_rebuilds_for_filter(session, assessment_filter)
+        session.query(SqlAssessments).filter(assessment_filter).delete(synchronize_session=False)
 
         run.lifecycle_stage = LifecycleStage.DELETED
         run.deleted_time = get_current_time_millis()
         session.add(run)
+
+    def _enqueue_assessment_rebuilds_for_filter(self, session, assessment_filter) -> None:
+        """Invalidate assessment partitions before bulk-deleting the matching rows.
+
+        The rows can span multiple experiments and days, so group the denormalized
+        ``experiment_id``/``trace_timestamp_ms`` by experiment and enqueue one
+        ASSESSMENT rebuild batch per experiment while the source rows still exist.
+        """
+        timestamps_by_experiment: dict[int, list[int]] = defaultdict(list)
+        for experiment_id, trace_timestamp_ms in session.query(
+            SqlAssessments.experiment_id, SqlAssessments.trace_timestamp_ms
+        ).filter(assessment_filter):
+            if experiment_id is None:
+                continue
+            timestamps_by_experiment[experiment_id].append(trace_timestamp_ms)
+        for experiment_id, timestamps in timestamps_by_experiment.items():
+            enqueue_rollup_rebuilds(session, RollupFamily.ASSESSMENT, experiment_id, timestamps)
 
     def _mark_run_active(self, session, run):
         run.lifecycle_stage = LifecycleStage.ACTIVE
