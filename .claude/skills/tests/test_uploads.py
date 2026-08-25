@@ -247,15 +247,21 @@ def test_a_body_that_is_not_json_leaves_the_status_readable(tmp_path: Path) -> N
     assert str(excinfo.value) == "shot.png: 500 nope"
 
 
+RATE_LIMITED = json.dumps({"message": "You have exceeded a secondary rate limit"}).encode()
+SECONDARY = "You have exceeded a secondary rate limit"
+
+
 @pytest.mark.parametrize(
-    ("headers", "expected"),
+    ("body", "headers", "expected"),
     [
-        ({"Retry-After": "60"}, "rate limited (429); retry after 60s"),
-        ({}, "rate limited (429)"),
+        (b"", {"Retry-After": "60"}, "rate limited (429); retry after 60s"),
+        (b"", {}, "rate limited (429)"),
+        # Both halves at once, so the formatting between them is pinned.
+        (RATE_LIMITED, {"Retry-After": "60"}, f"rate limited (429): {SECONDARY}; retry after 60s"),
     ],
 )
 def test_rate_limiting_stops_the_run_and_reports_the_wait(
-    tmp_path: Path, headers: dict[str, str], expected: str
+    tmp_path: Path, body: bytes, headers: dict[str, str], expected: str
 ) -> None:
     # Every remaining file would be refused too, so the run has to stop rather than
     # spend the rest of the batch on it.
@@ -263,9 +269,7 @@ def test_rate_limiting_stops_the_run_and_reports_the_wait(
     path.write_bytes(b"\x89PNG")
 
     with (
-        mock.patch(
-            "urllib.request.urlopen", side_effect=http_error(429, headers=headers)
-        ) as opener,
+        mock.patch("urllib.request.urlopen", side_effect=http_error(429, body, headers)) as opener,
         pytest.raises(uploads.UploadFailed, match=r"rate limited \(429\)") as excinfo,
     ):
         uploads.upload_asset(path, "1", "t")
@@ -280,18 +284,15 @@ def test_a_429_carries_the_body_when_retry_after_is_absent(tmp_path: Path) -> No
     # report nothing but the status.
     path = tmp_path / "shot.png"
     path.write_bytes(b"\x89PNG")
-    body = json.dumps({"message": "You have exceeded a secondary rate limit"}).encode()
 
     with (
-        mock.patch("urllib.request.urlopen", side_effect=http_error(429, body)) as opener,
+        mock.patch("urllib.request.urlopen", side_effect=http_error(429, RATE_LIMITED)) as opener,
         pytest.raises(uploads.UploadFailed, match="secondary rate limit") as excinfo,
     ):
         uploads.upload_asset(path, "1", "t")
 
     opener.assert_called_once()
-    assert str(excinfo.value) == (
-        "shot.png: rate limited (429): You have exceeded a secondary rate limit"
-    )
+    assert str(excinfo.value) == f"shot.png: rate limited (429): {SECONDARY}"
 
 
 @pytest.mark.parametrize(
