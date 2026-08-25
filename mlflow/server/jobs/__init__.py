@@ -200,6 +200,7 @@ def submit_job(
         _check_requirements,
         _get_or_init_huey_instance,
         _validate_function_parameters,
+        get_job_execution_engine,
     )
 
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
@@ -241,16 +242,39 @@ def submit_job(
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 
+    # Resolve (and validate) the engine before persisting the job, so a rejected
+    # submission never leaves a runnable PENDING row behind.
+    engine = get_job_execution_engine()
+    if engine == "executor" and extra_envs:
+        # The AbstractJobExecutor.submit_job contract has no extra_envs parameter, so
+        # honoring them would silently drop caller-supplied environment (e.g.
+        # invoke_issue_detection_job passes credentials). Fail loudly instead.
+        # TODO (follow-up, before Huey stops being the default): migrate the only production
+        # caller that uses extra_envs (issue detection) — e.g. pass secret_id/provider in the
+        # job params and resolve them in the executor — so this path is not needed.
+        raise MlflowException(
+            "extra_envs is not yet supported on the executor job-execution engine; "
+            "use the huey engine (unset MLFLOW_SERVER_JOB_EXECUTION_ENGINE) instead."
+        )
+
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     # FastAPI callers pass creator explicitly (no flask.g there); Flask callers fall back to g.
+    # Resolve it before create_job so the creator is recorded on both engine paths.
     if creator is None:
         creator = _current_authenticated_user()
     job = job_store.create_job(fn_meta.name, serialized_params, timeout, creator=creator)
+
+    if engine == "executor":
+        # Executor engine: the job is persisted as PENDING and the executor runner loop
+        # (mlflow.server.jobs._executor_runner) claims and runs it. Nothing to enqueue here.
+        # NOTE: exclusive-job dedup is not yet honored on this path (a follow-up). The default
+        # Huey path is unchanged.
+        return job
+
+    # Huey engine (default): enqueue to the per-job Huey execution pool.
     # Only propagate workspace to subprocess when workspaces are enabled
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
-
-    # enqueue job
     huey_instance = _get_or_init_huey_instance(fn_meta.name)
     huey_instance.submit_task(
         job.job_id,
