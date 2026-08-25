@@ -110,6 +110,15 @@ def job_store(tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _backend_store_uri(tmp_path, monkeypatch):
+    # _build_execution_context hands jobs the backend store URI, which the real server always sets.
+    # The test jobs don't touch the store from their subprocess, so any valid URI suffices here.
+    from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
+
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"sqlite:///{tmp_path / 'backend.db'}")
+
+
+@pytest.fixture(autouse=True)
 def _reset_executor_registry():
     # _select_executor() builds the process-global executor registry singleton; tear it
     # down after each test so it does not leak into later tests.
@@ -481,16 +490,19 @@ def test_scheduler_skips_submission_for_job_canceled_before_submit(registered_jo
     assert job_store.get_job(created.job_id).status == JobStatus.CANCELED
 
 
-def test_build_execution_context_uses_tracking_uri_env(monkeypatch, registered_jobs):
-    # The runner is launched with MLFLOW_TRACKING_URI set to the server's HTTP URI, and the job
-    # subprocess reaches the store through it (the same way the Huey path does), not the backend
-    # store directly.
+def test_build_execution_context_uses_backend_store_uri(monkeypatch, registered_jobs):
+    from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
+
+    # The job runs privileged work against the store, so it gets the backend store URI directly
+    # rather than the server's HTTP tracking URI (which has no general auth story when protected).
+    # An HTTP MLFLOW_TRACKING_URI in the runner env must be ignored for the job's tracking URI.
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, "sqlite:///backend.db")
     monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
     job = _make_job(status=JobStatus.PENDING)
 
     context = runner._build_execution_context(job)
 
-    assert context.tracking_uri == "http://127.0.0.1:5000"
+    assert context.tracking_uri == "sqlite:///backend.db"
 
 
 @pytest.mark.parametrize("orphan_status", [JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY])

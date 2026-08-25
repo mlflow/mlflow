@@ -32,11 +32,10 @@ from mlflow.environment_variables import (
     MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
-    MLFLOW_TRACKING_URI,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
-from mlflow.server.constants import MLFLOW_SERVER_UP_TIME
+from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR, MLFLOW_SERVER_UP_TIME
 from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutionContext, JobResult
 from mlflow.server.jobs.executor_registry import get_executor_registry
 from mlflow.store.jobs.abstract_store import AbstractJobStore, JobUpdateStatus
@@ -68,13 +67,15 @@ def _select_executor() -> AbstractJobExecutor:
 
 def _build_execution_context(job: Job) -> JobExecutionContext:
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
-    # The runner is launched with MLFLOW_TRACKING_URI set to the server's HTTP URI (see the job
-    # env built in mlflow/server/__init__.py), so the job subprocess reaches the tracking store
-    # the same way the Huey path's subprocess does — through the server — rather than opening the
-    # backend store directly.
+    # Jobs get the backend store URI (the DB), not MLFLOW_TRACKING_URI. The runner is launched with
+    # MLFLOW_TRACKING_URI set to the server's own HTTP URI, but a job can't authenticate to the
+    # tracking API over HTTP (its only credential, the internal token, is gateway-only), and jobs
+    # do privileged work directly against the store anyway — scorer jobs already call
+    # _get_tracking_store(), which flips tracking to the DB. Gateway routing still needs the HTTP
+    # URI, so it travels separately as MLFLOW_GATEWAY_URI.
     return JobExecutionContext(
         job_id=job.job_id,
-        tracking_uri=MLFLOW_TRACKING_URI.get(),
+        tracking_uri=os.environ.get(BACKEND_STORE_URI_ENV_VAR),
         gateway_uri=MLFLOW_GATEWAY_URI.get(),
         workspace=workspace,
     )
