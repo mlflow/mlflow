@@ -1,4 +1,6 @@
 import atexit
+import importlib
+import os
 import random
 import sys
 import threading
@@ -13,7 +15,12 @@ from typing import Any, Callable, Literal
 
 import requests
 
-from mlflow.environment_variables import _MLFLOW_TELEMETRY_SESSION_ID, MLFLOW_WORKSPACE
+from mlflow.environment_variables import (
+    _MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK,
+    _MLFLOW_TELEMETRY_SESSION_ID,
+    MLFLOW_ENABLE_DB_SDK,
+    MLFLOW_WORKSPACE,
+)
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
     BATCH_TIME_INTERVAL_SECONDS,
@@ -35,25 +42,30 @@ from mlflow.telemetry.utils import (
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.utils.rest_utils import http_request
+from mlflow.utils.server_info import SERVER_INFO_STORE_TYPE, fetch_server_info
 
 _DATABRICKS_SCHEMES = ("databricks", "databricks-uc", "uc")
 
+# `_forward_to_databricks` resolves credentials, which first-time imports these on the
+# consumer thread. That re-enters the post-import-hook finders on `sys.meta_path`, which
+# hold a hook-registry lock while a user thread mid-import holds CPython's import locks,
+# in the opposite order. Importing here leaves the consumer with `sys.modules` lookups.
+_DATABRICKS_SDK_WARM_UP_MODULES = ("databricks.sdk",)
 
-# Cache per tracking URI; 16 is more than enough for any realistic number of
-# distinct tracking URIs within a single process.
+# `databricks.sdk` does not import this; only `runtime_native_auth` does, and only under
+# Databricks Runtime. Elsewhere it starts a Databricks Connect session and resolves
+# credentials at module scope, so it stays gated on `DATABRICKS_RUNTIME_VERSION`.
+_DATABRICKS_RUNTIME_WARM_UP_MODULES = ("databricks.sdk.runtime",)
+
+
 @lru_cache(maxsize=16)
 def _fetch_server_info(tracking_uri: str) -> dict[str, Any] | None:
+    # Telemetry intentionally caches failures so its background consumer does not repeatedly
+    # block on an unavailable server. Other callers should use the shared helper directly.
     try:
-        response = http_request(
-            host_creds=get_default_host_creds(tracking_uri),
-            endpoint="/api/3.0/mlflow/server-info",
-            method="GET",
-            timeout=3,
-            max_retries=0,
-            raise_on_status=False,
-        )
+        response = fetch_server_info(get_default_host_creds(tracking_uri))
         if response.status_code == 200:
-            return response.json()
+            return response.data
     except Exception:
         pass
     return None
@@ -475,7 +487,7 @@ class TelemetryClient:
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
 
         server_info = _fetch_server_info(get_tracking_uri())
-        store_type = server_info.get("store_type") if server_info else None
+        store_type = server_info.get(SERVER_INFO_STORE_TYPE) if server_info else None
         return _enrich_http_scheme(scheme, store_type)
 
     def _update_backend_store(self):
@@ -505,6 +517,35 @@ _MLFLOW_TELEMETRY_CLIENT = None
 _client_lock = threading.Lock()
 
 
+def _warm_up_databricks_sdk() -> None:
+    """
+    Load the Databricks SDK on the importing thread, so the telemetry consumer never
+    performs a first-time import of it.
+
+    `_MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK=false` opts out, since this moves the SDK
+    import into every `import mlflow` inside Databricks.
+    """
+    if (
+        not _MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK.get()
+        or not _IS_IN_DATABRICKS
+        or _IS_MLFLOW_DEV_VERSION
+        or not MLFLOW_ENABLE_DB_SDK.get()
+    ):
+        return
+
+    modules = _DATABRICKS_SDK_WARM_UP_MODULES
+    # Mirrors the guard in `runtime_native_auth`: without this env var it never reaches its
+    # deferred `databricks.sdk.runtime` import, so there is nothing to warm.
+    if "DATABRICKS_RUNTIME_VERSION" in os.environ:
+        modules += _DATABRICKS_RUNTIME_WARM_UP_MODULES
+
+    for module in modules:
+        try:
+            importlib.import_module(module)
+        except Exception as e:
+            _log_error(f"Failed to pre-import {module} for telemetry: {e}")
+
+
 def set_telemetry_client():
     if is_telemetry_disabled():
         # set to None again so this function can be used to
@@ -512,6 +553,9 @@ def set_telemetry_client():
         _set_telemetry_client(None)
     else:
         try:
+            # Must happen before any consumer thread can exist, so the consumer never drives
+            # a first-time `databricks.sdk` import through the import hook finders.
+            _warm_up_databricks_sdk()
             _set_telemetry_client(TelemetryClient())
         except Exception as e:
             _log_error(f"Failed to set telemetry client: {e}")

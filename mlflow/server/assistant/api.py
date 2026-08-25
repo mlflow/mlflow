@@ -27,6 +27,7 @@ from mlflow.assistant.providers import (
 )
 from mlflow.assistant.providers.base import (
     AssistantProvider,
+    ClientToolDelivery,
     CLINotInstalledError,
     NotAuthenticatedError,
     ProviderNotConfiguredError,
@@ -35,7 +36,9 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
+from mlflow.server.asgi_utils import get_server_base_url
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
+from mlflow.server.handlers import _add_static_prefix
 
 
 def _get_provider(name: str):
@@ -159,6 +162,8 @@ assistant_router = APIRouter(
     route_class=_AssistantAPIRoute,
 )
 
+_TURN_SCOPED_CONTEXT_KEYS = {"customTraceView"}
+
 
 class MessageRequest(BaseModel):
     message: str
@@ -193,6 +198,9 @@ class ProviderInfo(BaseModel):
     requires_api_key: bool
     has_api_key: bool
     allows_remote_access: bool
+    # How client-executed actions are delivered: as native tool calls, terminal
+    # structured output, or not supported by this provider.
+    client_tool_delivery: ClientToolDelivery = "unsupported"
     model_options: list[str] = Field(default_factory=list)
 
 
@@ -202,6 +210,7 @@ class ResolvedProviderInfo(BaseModel):
     auto_selected: bool
     requires_api_key: bool
     has_api_key: bool
+    client_tool_delivery: ClientToolDelivery = "unsupported"
     model_provider: str | None = None
     model_options: list[str] = Field(default_factory=list)
     provider_model: str | None = None
@@ -224,6 +233,12 @@ class SessionPatchResponse(BaseModel):
 class PermissionDecision(BaseModel):
     request_id: str  # the paused tool_call's id
     decision: Literal["allow", "deny"]
+
+
+class ClientToolResult(BaseModel):
+    request_id: str  # the paused tool_call's id
+    content: str
+    is_error: bool = False
 
 
 def _store_gateway_api_key(name: str, provider_data: dict[str, Any]) -> str | None:
@@ -282,6 +297,7 @@ def _resolved_provider_info(
         auto_selected=auto_selected,
         requires_api_key=False,
         has_api_key=False,
+        client_tool_delivery=provider.client_tool_delivery,
     )
     if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
         if vendor := _gateway_vendor_from_managed_endpoint(model):
@@ -345,8 +361,20 @@ async def send_message(request: MessageRequest) -> MessageResponse:
         session = SessionManager.create(
             context=request.context, working_dir=Path(project_path) if project_path else None
         )
-    elif request.context:
+    else:
+        # Page context is merged for conversation continuity, but feature modes
+        # are turn-scoped. Remove omitted transient keys so leaving a feature
+        # cannot keep later turns in its provider/output mode.
+        for key in _TURN_SCOPED_CONTEXT_KEYS - request.context.keys():
+            session.context.pop(key, None)
         session.update_context(request.context)
+        # A session created without a project directory (e.g. the first message
+        # had no experiment_id) never got a working_dir. If a later message
+        # resolves one, fill it in instead of leaving the session permanently
+        # without file-tool access. Only fills a missing working_dir; an
+        # already-configured one is never replaced.
+        if session.working_dir is None and project_path:
+            session.working_dir = Path(project_path)
 
     # Store the pending message with role
     session.set_pending_message(role="user", content=request.message)
@@ -355,7 +383,9 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
     return MessageResponse(
         session_id=session_id,
-        stream_url=f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream",
+        stream_url=_add_static_prefix(
+            f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream"
+        ),
     )
 
 
@@ -376,31 +406,36 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # A turn is driven by either a pending user message (a new turn) or pending
-    # tool-call decisions (resuming a turn paused at a permission prompt). Both
-    # are consumed here so the stream is replay-safe.
+    # A turn is driven by a pending user message (a new turn) or pending tool-call
+    # decisions/results (resuming a turn paused at a permission prompt or a
+    # client-executed tool call). All are consumed here so the stream is replay-safe.
     pending_message = session.clear_pending_message()
     tool_decisions = session.pending_tool_decisions
     session.pending_tool_decisions = {}
-    if not pending_message and not tool_decisions:
+    client_tool_results = session.pending_client_tool_results
+    session.pending_client_tool_results = {}
+    if not pending_message and not tool_decisions and not client_tool_results:
         raise HTTPException(status_code=400, detail="No pending message to process")
     SessionManager.save(session_id, session)
 
     prompt = pending_message.content if pending_message else ""
-    # On resume the decision rides in the context; the provider detects the
+    # On resume the decision/result rides in the context; the provider detects the
     # pending tool_calls in history and applies it instead of starting a turn.
-    # A new message supersedes a pending decision: if both are present (e.g. a
-    # resume stream never consumed the decision and the user typed again),
-    # forwarding the stale tool_decisions would make the provider resume the
-    # abandoned turn and silently drop the new message. Prefer the message.
+    # A new message supersedes pending decisions/results: if both are present (e.g. a
+    # resume stream never consumed them and the user typed again), forwarding the
+    # stale state would make the provider resume the abandoned turn and silently
+    # drop the new message. Prefer the message.
     context = dict(session.context)
-    if tool_decisions and not pending_message:
-        context["tool_decisions"] = tool_decisions
+    if not pending_message:
+        if tool_decisions:
+            context["tool_decisions"] = tool_decisions
+        if client_tool_results:
+            context["client_tool_results"] = client_tool_results
 
     # Extract the MLflow server URL from the request for the assistant to use.
     # This assumes the assistant is accessing the same MLflow server that serves this API.
     # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
-    tracking_uri = str(request.base_url).rstrip("/")
+    tracking_uri = get_server_base_url(request)
     is_remote = not _is_localhost(request)
 
     async def event_generator() -> AsyncGenerator[str, None]:
@@ -422,10 +457,11 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             context=context,
         ):
             # Store provider session ID if returned (for conversation continuity).
-            # On a paused turn this persists the history with the unanswered
-            # tool_call so a later resume can continue from it.
-            if event.type == EventType.DONE:
-                session.provider_session_id = event.data.get("session_id")
+            # On a paused or failed turn this lets a later request resume the same
+            # provider conversation instead of losing its history.
+            provider_session_id = event.data.get("session_id")
+            if event.type in {EventType.DONE, EventType.ERROR} and provider_session_id:
+                session.provider_session_id = provider_session_id
                 SessionManager.save(session_id, session)
 
             yield event.to_sse_event()
@@ -464,8 +500,9 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
     if request.status == "cancelled":
         # Terminate any associated subprocess. The OpenAI-compatible provider
         # holds no in-process state to release (the turn ends at each prompt).
-        # Drop any tool permissions so later stream doesn't see stale decisions.
+        # Drop any tool permissions/results so later stream doesn't see stale state.
         session.pending_tool_decisions = {}
+        session.pending_client_tool_results = {}
         SessionManager.save(session_id, session)
         terminated = terminate_session_process(session_id)
         msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
@@ -495,6 +532,37 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
         raise HTTPException(status_code=404, detail="Session not found")
 
     session.pending_tool_decisions = {request.request_id: request.decision}
+    SessionManager.save(session_id, session)
+
+    return MessageResponse(
+        session_id=session_id,
+        stream_url=_add_static_prefix(
+            f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream"
+        ),
+    )
+
+
+@assistant_router.post("/sessions/{session_id}/tool-result")
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
+async def resolve_client_tool_result(session_id: str, request: ClientToolResult) -> MessageResponse:
+    """Deliver a client-executed tool's result and resume the paused turn on a new stream.
+
+    Mirrors `resolve_permission`: the result is stored on the session and consumed
+    by the next stream, which splices it in as the tool's result message and
+    continues the loop.
+    """
+    try:
+        SessionManager.validate_session_id(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    session = SessionManager.load(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.pending_client_tool_results = {
+        request.request_id: {"content": request.content, "is_error": request.is_error}
+    }
     SessionManager.save(session_id, session)
 
     return MessageResponse(
@@ -541,6 +609,7 @@ async def get_providers() -> ProvidersResponse:
             requires_api_key=False,
             has_api_key=False,
             allows_remote_access=provider.allows_remote_access,
+            client_tool_delivery=provider.client_tool_delivery,
             model_options=[],
         )
         for provider in providers

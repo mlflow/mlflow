@@ -1,27 +1,28 @@
 ---
 name: analyze-ci
-description: Analyze failed GitHub Action jobs for a pull request.
+description: Analyze failed GitHub Action jobs. Takes one or more GitHub URLs (job, workflow-run, or PR) and summarizes each failure with root cause and log paths.
+when_to_use: When CI is red or a check failed, when the user pastes a GitHub Actions job or run URL, or when asked why a PR's checks are failing.
 argument-hint: "url(s) of failed GitHub Action jobs, workflow runs, or PRs"
-allowed-tools:
-  - Bash(uv run --package skills skills fetch-logs:*)
-  - Read
 ---
 
 # Analyze CI Failures
 
 Fetch logs from failed GitHub Action jobs and produce a focused per-job failure summary.
 
+URLs provided: $ARGUMENTS
+
+If no URLs are listed above, ask for a job, run, or PR URL and stop. `fetch-logs` requires at least one and exits 2 without.
+
 ## Prerequisites
 
 - **GitHub Token**: Auto-detected via `gh auth token`, or set `GH_TOKEN`.
-- Single-quote URLs when invoking to keep the shell from interpreting `?` and other special characters in the URL.
 
 ## Steps
 
-1. **Fetch logs.** Run:
+1. **Fetch logs.** Run, single-quoting each URL so the shell does not interpret `?` or other special characters in it:
 
    ```bash
-   uv run --package skills skills fetch-logs $ARGUMENTS
+   uv run --package skills skills fetch-logs '<url>' ['<url>' ...]
    ```
 
    The command prints one block per failed job containing the workflow/job name, URL, failed step, and paths to the cached raw log, failed-step log, and (optional) package versions file.

@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-tracing"
-version = "3.14.1.dev0"
+version = "3.15.2.dev0"
 description = "MLflow Tracing SDK is an open-source, lightweight Python package that only includes the minimum set of dependencies and functionality to instrument your code/models/agents with MLflow Tracing."
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -24,6 +24,10 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
 ]
 requires-python = ">=3.10"
+# Dependency version ranges express compatibility, not security. We do not raise version
+# floors to exclude dependency versions with known CVEs; patched versions are already
+# installable within the existing ranges, and pinning them is the responsibility of the
+# application. See https://sethmlarson.dev/library-version-specifiers-not-for-vulnerabilities
 dependencies = [
   "cachetools<8,>=5.0.0",
   "databricks-sdk<1,>=0.20.0",

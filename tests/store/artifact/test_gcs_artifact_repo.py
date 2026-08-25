@@ -295,8 +295,8 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
 
 
 def test_delete_artifacts(mock_client):
-    experiment_root_path = "/experiment_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + experiment_root_path, client=mock_client)
+    experiment_root_path = "experiment_id"
+    repo = GCSArtifactRepository(f"gs://test_bucket/{experiment_root_path}", client=mock_client)
 
     def delete_file():
         del obj_mock.name
@@ -304,7 +304,7 @@ def test_delete_artifacts(mock_client):
         return obj_mock
 
     obj_mock = mock.Mock()
-    run_id_path = experiment_root_path + "run_id/"
+    run_id_path = experiment_root_path + "/run_id/"
     file_path = "file"
     attrs = {"name": run_id_path + file_path, "size": 1, "delete.side_effect": delete_file}
     obj_mock.configure_mock(**attrs)
@@ -341,6 +341,31 @@ def test_delete_artifacts(mock_client):
     repo.delete_artifacts()
     artifact_file_names = [obj.path for obj in repo.list_artifacts()]
     assert not artifact_file_names
+
+
+@pytest.mark.parametrize("artifact_path", ["foo", "foo/"])
+def test_delete_artifacts_preserves_prefix_siblings(mock_client, artifact_path):
+    repo = GCSArtifactRepository("gs://test_bucket/root", client=mock_client)
+    target = mock.Mock(name="target")
+    target.name = "root/foo/file.txt"
+    sibling_dir = mock.Mock(name="sibling_dir")
+    sibling_dir.name = "root/foobar/keep.txt"
+    sibling_file = mock.Mock(name="sibling_file")
+    sibling_file.name = "root/foo_baz.txt"
+    mock_client.bucket.return_value.list_blobs.return_value = [
+        target,
+        sibling_dir,
+        sibling_file,
+    ]
+
+    repo.delete_artifacts(artifact_path)
+
+    mock_client.bucket.return_value.list_blobs.assert_called_once_with(
+        prefix=posixpath.join("root", artifact_path)
+    )
+    target.delete.assert_called_once_with()
+    sibling_dir.delete.assert_not_called()
+    sibling_file.delete.assert_not_called()
 
 
 def test_gcs_mpu_arguments():

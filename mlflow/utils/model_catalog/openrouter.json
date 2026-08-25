@@ -193,6 +193,28 @@
       },
       "last_updated_at": "2026-06-01"
     },
+    "anthropic/claude-opus-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5,
+        "cache_write_per_million_tokens": 6.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-25"
+    },
     "anthropic/claude-sonnet-4": {
       "mode": "chat",
       "context_window": {
@@ -445,6 +467,46 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "deepseek/deepseek-v4-pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 384000,
+        "max_tokens": 384000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.32,
+        "output_per_million_tokens": 3.96
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-25"
+    },
+    "deepseek/deepseek-v4-pro-0813": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 384000,
+        "max_tokens": 384000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.32,
+        "output_per_million_tokens": 3.96
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-25"
     },
     "google/gemini-2.0-flash-001": {
       "mode": "chat",
@@ -1007,6 +1069,24 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "nvidia/nemotron-3.5-lightning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-14"
     },
     "openai/gpt-3.5-turbo": {
       "mode": "chat",

@@ -94,6 +94,7 @@ CREATE TABLE jobs (
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	status_details JSON,
+	creator VARCHAR(255),
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
@@ -231,7 +232,7 @@ CREATE TABLE evaluation_dataset_tags (
 
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value TEXT,
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	CONSTRAINT experiment_tags_experiment_id_fkey FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)

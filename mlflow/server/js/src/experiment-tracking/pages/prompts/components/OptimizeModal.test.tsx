@@ -57,9 +57,7 @@ describe('OptimizeModal', () => {
       onCancel,
     });
 
-    expect(
-      screen.getByText(/pip install -U 'mlflow>=3.5.0' 'dspy>=3.0.0' openai databricks-agents/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/pip install -U 'mlflow>=3.5.0' 'gepa>=0.0.26' openai/)).toBeInTheDocument();
   });
 
   it('displays Python code with interpolated prompt name and version', () => {

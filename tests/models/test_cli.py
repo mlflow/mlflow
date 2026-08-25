@@ -645,6 +645,8 @@ def test_generate_dockerfile(sk_model, tmp_path):
     assert output_directory.joinpath("Dockerfile").stat().st_size != 0
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_build_docker(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
@@ -663,6 +665,8 @@ def test_build_docker(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_build_docker_virtualenv(iris_data, sk_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
@@ -683,6 +687,8 @@ def test_build_docker_virtualenv(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_build_docker_with_env_override(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
@@ -700,6 +706,8 @@ def test_build_docker_with_env_override(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
     model_path = tmp_path.joinpath("model")
     mlflow.sklearn.save_model(sk_model, model_path, extra_pip_requirements=["/opt/mlflow"])

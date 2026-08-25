@@ -22,6 +22,8 @@ from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_LOGGING_LEVEL,
+    MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP,
+    MLFLOW_SERVER_JOB_HUEY_REDIS_URL,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
     MLFLOW_WORKSPACE,
@@ -36,7 +38,7 @@ from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 if TYPE_CHECKING:
-    import huey
+    from huey import Huey
 
     from mlflow.store.jobs.abstract_store import AbstractJobStore
 
@@ -434,7 +436,7 @@ def _exec_job(
 
 @dataclass
 class HueyInstance:
-    instance: "huey.SqliteHuey"
+    instance: "Huey"
     submit_task: Callable[..., Any]
 
 
@@ -446,8 +448,19 @@ _huey_instance_map: dict[str, HueyInstance] = {}
 _huey_instance_map_lock = threading.RLock()
 
 
+def _get_huey_redis_url() -> str | None:
+    return MLFLOW_SERVER_JOB_HUEY_REDIS_URL.get()
+
+
+def _should_flush_periodic_locks() -> bool:
+    configured = MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP.get()
+    if configured is not None:
+        return configured
+    return _get_huey_redis_url() is None
+
+
 def _get_or_init_huey_instance(instance_key: str):
-    from huey import SqliteHuey
+    from huey import RedisHuey, SqliteHuey
     from huey.serializer import Serializer
 
     class CustomJSONEncoder(json.JSONEncoder):
@@ -485,17 +498,32 @@ def _get_or_init_huey_instance(instance_key: str):
             else:
                 return decoded
 
+    def _get_huey_storage_config(key: str) -> tuple[str, dict[str, str]]:
+        if storage_url := _get_huey_redis_url():
+            return "redis", {"url": storage_url, "name": key}
+
+        huey_store_file = os.path.join(
+            os.environ[HUEY_STORAGE_PATH_ENV_VAR],
+            f"{key}.mlflow-huey-store",
+        )
+        return "sqlite", {"filename": huey_store_file, "name": key}
+
     with _huey_instance_map_lock:
         if instance_key not in _huey_instance_map:
             _logger.debug(f"Creating huey instance for {instance_key}")
-            huey_store_file = os.path.join(
-                os.environ[HUEY_STORAGE_PATH_ENV_VAR], f"{instance_key}.mlflow-huey-store"
-            )
-            huey_instance = SqliteHuey(
-                filename=huey_store_file,
-                results=False,
-                serializer=JsonSerializer(),
-            )
+            storage_type, storage_kwargs = _get_huey_storage_config(instance_key)
+            if storage_type == "redis":
+                huey_instance = RedisHuey(
+                    results=False,
+                    serializer=JsonSerializer(),
+                    **storage_kwargs,
+                )
+            else:
+                huey_instance = SqliteHuey(
+                    results=False,
+                    serializer=JsonSerializer(),
+                    **storage_kwargs,
+                )
             huey_submit_task_fn = huey_instance.task(retries=0)(_exec_job)
             _huey_instance_map[instance_key] = HueyInstance(
                 instance=huey_instance,
@@ -564,7 +592,6 @@ def _start_periodic_tasks_consumer_proc():
         "mlflow.server.jobs._periodic_tasks_consumer.huey_instance",
         "-w",
         str(PERIODIC_TASKS_WORKER_COUNT),
-        "-f",
     ]
 
     # Add quiet flag unless DEBUG logging is explicitly requested,
@@ -572,6 +599,11 @@ def _start_periodic_tasks_consumer_proc():
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
     if log_level != "DEBUG":
         cmd.append("-q")
+
+    # SQLite needs stale-lock recovery after a crash. Redis is shared across replicas,
+    # so flushing locks at startup could remove locks held by another live instance.
+    if _should_flush_periodic_locks():
+        cmd.append("-f")
 
     return _exec_cmd(
         cmd,
