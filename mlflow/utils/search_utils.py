@@ -63,6 +63,8 @@ def _like(string, pattern):
 def _ilike(string, pattern):
     return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
 
+def _is_identifier_like(token):
+    return isinstance(token, Identifier) or token.ttype == TokenType.Keyword
 
 def _join_in_comparison_tokens(tokens, search_traces=False):
     """
@@ -108,16 +110,23 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
                     joined_tokens.extend([first, second, third])
 
         # Wait until we encounter an identifier token
-        if not isinstance(first, Identifier):
+        if not _is_identifier_like(first):
             joined_tokens.append(first)
             continue
 
         (_, second) = next(iterator)
         (_, third) = next(iterator)
 
+        # Standard comparison (=, !=, LIKE, ILIKE, RLIKE, etc.)
+        if second.ttype == TokenType.Operator.Comparison or second.match(
+            ttype=TokenType.Keyword, values=["LIKE", "ILIKE", "RLIKE"]
+        ):
+            joined_tokens.append(Comparison(TokenList([first, second, third])))
+            continue
+
         # IN
         if (
-            isinstance(first, Identifier)
+            _is_identifier_like(first)
             and second.match(ttype=TokenType.Keyword, values=["IN"])
             and isinstance(third, Parenthesis)
         ):
@@ -126,7 +135,7 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
 
         # IS NULL
         if (
-            isinstance(first, Identifier)
+            _is_identifier_like(first)
             and second.match(ttype=TokenType.Keyword, values=["IS"])
             and third.match(ttype=TokenType.Keyword, values=["NULL"])
         ):
@@ -137,7 +146,7 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
 
         # IS NOT NULL
         if (
-            isinstance(first, Identifier)
+            _is_identifier_like(first)
             and second.match(ttype=TokenType.Keyword, values=["IS"])
             and third.ttype == TokenType.Keyword
             and third.value.upper() == "NOT NULL"
@@ -154,7 +163,7 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
 
         # NOT IN
         if (
-            isinstance(first, Identifier)
+            _is_identifier_like(first)
             and second.match(ttype=TokenType.Keyword, values=["NOT"])
             and third.match(ttype=TokenType.Keyword, values=["IN"])
             and isinstance(fourth, Parenthesis)
@@ -237,6 +246,15 @@ class SearchUtils:
     VALID_TIMESTAMP_ORDER_BY_KEYS = {ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP}
     # We encourage users to use timestamp for order-by
     RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = {ORDER_BY_KEY_MODEL_NAME, ORDER_BY_KEY_TIMESTAMP}
+
+    @classmethod
+    def _is_valid_identifier_token(cls, token):
+        if isinstance(token, Identifier):
+            return True
+        return (
+            token.ttype == TokenType.Keyword
+            and token.value.lower() in cls.VALID_SEARCH_ATTRIBUTE_KEYS
+        )
 
     @staticmethod
     def get_comparison_func(comparator):
@@ -495,7 +513,7 @@ class SearchUtils:
         if len(tokens) == 2:
             comparator = tokens[1].value.upper()
             if comparator in ("IS NULL", "IS NOT NULL"):
-                if not isinstance(tokens[0], Identifier):
+                if not cls._is_valid_identifier_token(tokens[0]):
                     raise MlflowException(
                         f"{base_error_string}. Expected 'Identifier' found '{tokens[0]}'",
                         error_code=INVALID_PARAMETER_VALUE,
@@ -506,7 +524,7 @@ class SearchUtils:
                 f"{base_error_string}. Expected 3 tokens found {len(tokens)}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if not isinstance(tokens[0], Identifier):
+        if not cls._is_valid_identifier_token(tokens[0]):
             raise MlflowException(
                 f"{base_error_string}. Expected 'Identifier' found '{tokens[0]}'",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -1106,7 +1124,7 @@ class SearchExperimentsUtils(SearchUtils):
         if len(tokens) == 2:
             comparator = tokens[1].value.upper()
             if comparator in ("IS NULL", "IS NOT NULL"):
-                if not isinstance(tokens[0], Identifier):
+                if not cls._is_valid_identifier_token(tokens[0]):
                     raise MlflowException(
                         f"Invalid comparison clause. Expected 'Identifier' found '{tokens[0]}'",
                         error_code=INVALID_PARAMETER_VALUE,
@@ -2262,7 +2280,7 @@ class SearchTraceUtils(SearchUtils):
         if len(tokens) == 2:
             comparator = tokens[1].value.upper()
             if comparator in ("IS NULL", "IS NOT NULL"):
-                if not isinstance(tokens[0], Identifier):
+                if not cls._is_valid_identifier_token(tokens[0]):
                     raise MlflowException(
                         f"Invalid comparison clause. Expected 'Identifier' found '{tokens[0]}'",
                         error_code=INVALID_PARAMETER_VALUE,
@@ -2814,6 +2832,14 @@ class SearchMCPAccessEndpointUtils(SearchUtils):
     }
     NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
 
+    @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        if key not in ("status", "server_name", "transport_type"):
+            raise MlflowException(
+                f"Only 'status', 'server_name', 'transport_type' support IN comparisons for MCP access endpoints, got '{key}'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
 
 class SearchIssuesUtils(SearchUtils):
     """Utility class for parsing issue search filters."""
@@ -2857,7 +2883,7 @@ class SearchIssuesUtils(SearchUtils):
         left, comparator_token, right = stripped_comparison
 
         # Get field name
-        if not isinstance(left, Identifier):
+        if not cls._is_valid_identifier_token(left):
             raise MlflowException.invalid_parameter_value(
                 f"Invalid comparison: left side must be an identifier, got {type(left)}"
             )
