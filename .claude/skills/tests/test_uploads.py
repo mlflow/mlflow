@@ -142,6 +142,7 @@ def test_upload_asset_explains_a_credential_failure(
 
     opener.assert_called_once()
     assert excinfo.value.status == code
+    assert excinfo.value.fatal
 
 
 def test_a_404_names_the_credential_kind_without_printing_it(tmp_path: Path) -> None:
@@ -179,9 +180,12 @@ def test_upload_asset_carries_the_status_of_other_http_errors(tmp_path: Path) ->
     path.write_bytes(b"\x89PNG")
 
     with (
-        mock.patch("urllib.request.urlopen", side_effect=http_error(500)),
+        mock.patch("urllib.request.urlopen", side_effect=http_error(500)) as opener,
         pytest.raises(uploads.UploadFailed, match="shot.png") as excinfo,
     ):
         uploads.upload_asset(path, "1", "t")
 
+    opener.assert_called_once()
     assert excinfo.value.status == 500
+    # A server fault is worth retrying with the next file; a credential fault is not.
+    assert not excinfo.value.fatal

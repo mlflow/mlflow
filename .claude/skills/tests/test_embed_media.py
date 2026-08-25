@@ -245,7 +245,7 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
 
     # One annotation for the run, and the loop stops rather than retrying a dead token.
     out = capsys.readouterr().out
-    assert out.count("::warning::the GitHub token was rejected (401)") == 1
+    assert out.count("::warning::media upload stopped: the credential was rejected (401)") == 1
     assert uploader.call_count == 1
     assert target.read_text() == "evidence: the bug and more"
 

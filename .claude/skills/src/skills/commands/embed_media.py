@@ -265,12 +265,12 @@ def run(args: argparse.Namespace) -> None:
             try:
                 urls[str(path)] = upload_asset(path, args.repository_id, token)
             except UploadFailed as e:
-                # A rejected credential fails every remaining upload, so stop rather
-                # than retry. The step is continue-on-error, so without an annotation
-                # an expired token would silently stop attaching media on every
-                # future review.
-                if e.status == 401:
-                    print("::warning::the GitHub token was rejected (401); it may have expired")
+                # A fault that is not about this file fails every remaining upload, so
+                # stop rather than retry. The step is continue-on-error, so without an
+                # annotation this would silently stop attaching media on every future
+                # review.
+                if e.fatal:
+                    print(f"::warning::media upload stopped: {e}")
                     break
                 print(f"  failed {e}", file=sys.stderr)
             else:

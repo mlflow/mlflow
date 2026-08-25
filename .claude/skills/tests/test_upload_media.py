@@ -87,12 +87,32 @@ def test_a_failed_file_does_not_stop_the_rest(
     assert capsys.readouterr().out == f"{shot}\t{URL}\n"
 
 
-def test_a_rejected_credential_stops_the_remaining_uploads(
-    tmp_path: Path, shot: Path, credentials: None, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize("status", [401, 403, 404])
+def test_a_credential_fault_stops_the_remaining_uploads(
+    tmp_path: Path, shot: Path, credentials: None, capsys: pytest.CaptureFixture[str], status: int
 ) -> None:
     second = tmp_path / "second.png"
     second.write_bytes(b"\x89PNG")
     args = build_args(str(shot), str(second))
+
+    with (
+        mock.patch.object(
+            upload_media,
+            "upload_asset",
+            side_effect=UploadFailed(f"shot.png: refused ({status})", status=status),
+        ) as uploader,
+        pytest.raises(SystemExit, match="^1$"),
+    ):
+        args.func(args)
+
+    uploader.assert_called_once_with(shot, REPO_ID, "t")
+    assert f"failed shot.png: refused ({status})" in capsys.readouterr().err
+
+
+def test_only_a_401_suggests_reauthenticating(
+    shot: Path, credentials: None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    args = build_args(str(shot))
 
     with (
         mock.patch.object(
@@ -105,8 +125,7 @@ def test_a_rejected_credential_stops_the_remaining_uploads(
         args.func(args)
 
     uploader.assert_called_once_with(shot, REPO_ID, "t")
-    err = capsys.readouterr().err
-    assert "check GH_TOKEN or run `gh auth login`" in err
+    assert "check GH_TOKEN or run `gh auth login`" in capsys.readouterr().err
 
 
 def test_a_missing_path_is_reported_without_uploading(
