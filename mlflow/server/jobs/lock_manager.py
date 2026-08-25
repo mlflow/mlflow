@@ -12,7 +12,6 @@ from sqlalchemy.exc import IntegrityError
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
-from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.db.utils import get_current_time_millis_expression
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.dbmodels.models import SqlSchedulerLease
@@ -71,62 +70,12 @@ class JobLockManager:
             if renewed_lease is not None:
                 # This replica still holds the scheduler lease.
                 ...
-
-    Raises:
-        MlflowException: If ``job_store.engine.driver`` is not in {"pymysql",
-        "psycopg2", "pymssql", "pysqlite"}.
     """
 
     def __init__(self, job_store: SqlAlchemyJobStore):
 
-        # Only certain database drivers are supported by the job lock manager.
-        # Determining an IntegrityError is caused by a unique constraint violation
-        # is **driver** specific not DB specific.
-        if job_store.engine.driver not in _SUPPORTED_DRIVERS:
-            raise MlflowException.invalid_parameter_value(
-                f"JobLockManager only supports {_SUPPORTED_DRIVERS}, got {job_store.engine.driver}"
-            )
-
         self.db_type = job_store.db_type
         self._session_maker = job_store.ManagedSessionMaker
-
-    def _is_unique_constraint_violation(self, integrity_error: IntegrityError) -> bool:
-        """
-        Find if a unique constraint caused the ``IntegrityError``.
-
-        Each database driver reports this error differently. This method reads the
-        driver-specific error code or message.
-
-        Args:
-            integrity_error: The error to examine.
-
-        Returns:
-            ``True`` if a unique constraint caused the error. ``False`` otherwise.
-
-        Raises:
-            MlflowException: If ``self.db_type`` is not a supported dialect.
-        """
-
-        db_driver_exception = integrity_error.orig
-        if self.db_type == POSTGRES:
-            sqlstate = getattr(db_driver_exception, "sqlstate", None)
-            if sqlstate == "23505":
-                return True
-
-            pgcode = getattr(db_driver_exception, "pgcode", None)
-            return pgcode == "23505"
-
-        if self.db_type == MYSQL:
-            return getattr(db_driver_exception, "args", (0,))[0] == 1062
-
-        if self.db_type == SQLITE:
-            return "unique constraint failed" in str(integrity_error).lower()
-
-        if self.db_type == MSSQL:
-            unique_codes = {2601, 2627}
-            return getattr(db_driver_exception, "args", (0,))[0] in unique_codes
-
-        raise MlflowException.invalid_parameter_value(f"Unsupported db type: {self.db_type}")
 
     def _guard_insert_race(
         self, fn: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs
@@ -155,9 +104,7 @@ class JobLockManager:
                 # ManagedSessionMaker wraps all SQLAlchemy exceptions in MlflowException.
                 # An IntegrityError can occur at startup when two replicas both find no
                 # existing row and race to insert the same lease key.
-                if isinstance(e.__cause__, IntegrityError) and self._is_unique_constraint_violation(
-                    e.__cause__
-                ):
+                if isinstance(e.__cause__, IntegrityError):
                     _logger.debug(
                         "Lease acquisition denied. A concurrent insert conflict occurred."
                     )

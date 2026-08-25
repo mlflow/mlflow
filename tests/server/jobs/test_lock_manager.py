@@ -1,6 +1,5 @@
 from logging import Logger
 from unittest import mock
-from unittest.mock import Mock
 
 import pytest
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -14,7 +13,6 @@ from mlflow.server.jobs.lock_manager import (
     SchedulerLease,
     _check_time_drift_and_log,
 )
-from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.dbmodels.models import SqlSchedulerLease
 
@@ -61,119 +59,6 @@ def test_check_time_drift_and_log(app_now: int, db_now: int, drift: int | None) 
         )
     else:
         mock_logger_warning.assert_not_called()
-
-
-def test_is_unique_constraint_violation_sqlite(lock_mgr: JobLockManager) -> None:
-
-    base = BaseException("UNIQUE constraint failed")
-    integrity_error = IntegrityError(None, None, base)
-    assert lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = BaseException("other constraint failed")
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-
-def test_is_unique_constraint_violation_pgsql(lock_mgr: JobLockManager) -> None:
-
-    lock_mgr.db_type = POSTGRES
-
-    base = Mock()
-    base.sqlstate = "23505"
-    base.pgcode = None
-    integrity_error = IntegrityError(None, None, base)
-    assert lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = Mock()
-    base.sqlstate = "23503"
-    base.pgcode = None
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = Mock()
-    base.sqlstate = None
-    base.pgcode = "23505"
-    integrity_error = IntegrityError(None, None, base)
-    assert lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = Mock()
-    base.sqlstate = None
-    base.pgcode = "23503"
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = BaseException("UNIQUE constraint failed")
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-
-def test_is_unique_constraint_violation_mssql(lock_mgr: JobLockManager) -> None:
-
-    lock_mgr.db_type = MSSQL
-
-    base = Mock()
-    base.args = (2627, "other arg")
-    integrity_error = IntegrityError(None, None, base)
-    assert lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = Mock()
-    base.args = (2601, "other arg")
-    integrity_error = IntegrityError(None, None, base)
-    assert lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = Mock()
-    base.args = ("other arg", 2601)
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = Mock()
-    base.args = ("other arg", "(2601, error)")
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = Mock()
-    base.args = ("other arg", "(2627, error)")
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = Mock()
-    base.args = ("other arg", "(2600, error)")
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = BaseException("UNIQUE constraint failed")
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-
-def test_is_unique_constraint_violation_mysql(lock_mgr: JobLockManager) -> None:
-
-    lock_mgr.db_type = MYSQL
-
-    base = Mock()
-    base.args = (1062, "other arg")
-    integrity_error = IntegrityError(None, None, base)
-    assert lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = Mock()
-    base.args = (1060, "other arg")
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-    base = BaseException("UNIQUE constraint failed")
-    integrity_error = IntegrityError(None, None, base)
-    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
-
-
-def test_is_unique_constraint_violation_raises(lock_mgr: JobLockManager) -> None:
-
-    lock_mgr.db_type = "not-supported"
-
-    base = BaseException("UNIQUE constraint failed")
-    integrity_error = IntegrityError(None, None, base)
-
-    with pytest.raises(MlflowException, match="Unsupported db type: not-supported"):
-        _ = lock_mgr._is_unique_constraint_violation(integrity_error)
 
 
 def test_guard_insert_race_success(lock_mgr: JobLockManager) -> None:
