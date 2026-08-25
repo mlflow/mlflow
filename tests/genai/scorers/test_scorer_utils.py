@@ -721,3 +721,18 @@ def test_no_model_is_compatible():
 def test_online_scorers_direct_provider_flagged():
     params = {"online_scorers": [{"serialized_scorer": _judge_scorer_json("anthropic:/claude")}]}
     assert scorer_params_use_direct_provider_model("run_online_trace_scorer", params) is True
+
+
+def test_decorator_scorer_deserializes_when_flag_enabled(monkeypatch):
+    from mlflow.genai.scorers.base import Scorer
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    serialized = json.dumps({
+        "name": "custom",
+        "call_source": "    return 1\n",
+        "call_signature": "(inputs, outputs)",
+        "original_func_name": "custom",
+    })
+    # Should not raise DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR on OSS.
+    scorer = Scorer.model_validate_json(serialized)
+    assert scorer.name == "custom"

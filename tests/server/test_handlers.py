@@ -3818,6 +3818,29 @@ def test_invoke_scorer_rejects_decorator_scorer():
         mock_submit.assert_not_called()
 
 
+def test_invoke_scorer_allows_decorator_scorer_when_flag_enabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    serialized_scorer = json.dumps({
+        "name": "custom",
+        "call_source": "    return 1\n",
+        "call_signature": "(inputs, outputs)",
+        "original_func_name": "custom",
+    })
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_submit.return_value = mock.Mock(job_id="j1")
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 200
+        mock_submit.assert_called_once()
+
+
 def test_invoke_scorer_rejects_invalid_json():
     with app.test_client() as c:
         response = c.post(
