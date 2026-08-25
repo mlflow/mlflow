@@ -206,7 +206,15 @@ def _assessment_days_with_data(session: Session) -> set[tuple[int, int]]:
     rows = (
         session
         .query(SqlAssessments.experiment_id, day_bucket.label("day_bucket"))
-        .filter(SqlAssessments.valid == true())
+        .filter(
+            SqlAssessments.valid == true(),
+            # The denormalized columns are nullable (online prepopulation adds them before
+            # backfill, and orphaned assessments never get backfilled). Such rows are excluded from
+            # every other assessment path (aggregate + has_rows filter on experiment_id/range), so
+            # skip them here too rather than let ``int(None)`` abort the whole run.
+            SqlAssessments.experiment_id.isnot(None),
+            SqlAssessments.trace_timestamp_ms.isnot(None),
+        )
         .group_by(SqlAssessments.experiment_id, day_bucket)
     )
     return {(int(exp), int(bucket)) for exp, bucket in rows}

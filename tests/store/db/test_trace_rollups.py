@@ -22,6 +22,7 @@ from mlflow.store.db.trace_rollups import (
 )
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
+    SqlAssessments,
     SqlSpan,
     SqlSpanCostDailyRollup,
     SqlTraceInfo,
@@ -30,7 +31,12 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.utils.sql_trace_rollups import RollupFamily, enqueue_rollup_rebuilds
-from mlflow.tracing.constant import AssessmentMetricKey, TraceMetricKey, TraceTagKey
+from mlflow.tracing.constant import (
+    AssessmentMetadataKey,
+    AssessmentMetricKey,
+    TraceMetricKey,
+    TraceTagKey,
+)
 
 from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
 
@@ -357,6 +363,65 @@ def test_assessment_mutations_enqueue_rebuild(store: SqlAlchemyStore, mutation: 
         store.delete_assessment(trace_id, assessment.assessment_id)
 
     assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.ASSESSMENT.value) == 1
+
+
+def test_run_deletion_enqueues_assessment_rebuild(store: SqlAlchemyStore):
+    # Deleting a run hard-deletes its source-run assessments via _mark_run_deleted, which must
+    # invalidate the assessment partitions those rows fell in so their rollups are rebuilt.
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="tester",
+        start_time=DAY_A_MS,
+        tags=[],
+        run_name="eval-run",
+    )
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="quality",
+            value=0.3,
+            source=SOURCE,
+            metadata={AssessmentMetadataKey.SOURCE_RUN_ID: run.info.run_id},
+        )
+    )
+    run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
+    assert _count(store, SqlTraceRollupRebuild) == 0
+
+    store.delete_run(run.info.run_id)
+
+    # Only the assessment family is invalidated: run deletion does not remove the trace rows.
+    assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.TRACE_METRIC.value) == 0
+    with store.ManagedSessionMaker() as session:
+        queued = {
+            (row.experiment_id, row.rollup_day, row.rollup_family)
+            for row in session.query(SqlTraceRollupRebuild)
+        }
+    assert queued == {(int(exp_id), _day_of(DAY_A_MS), RollupFamily.ASSESSMENT.value)}
+
+
+def test_null_denormalized_assessment_does_not_abort_run(store: SqlAlchemyStore):
+    # The denormalized assessment columns are nullable (online prepopulation adds them before
+    # backfill; orphaned assessments never get backfilled). A valid row with NULL columns must be
+    # skipped by the day scan, not raise int(None) and abort maintenance for every experiment.
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    assessment = _add_feedback(store, trace_id, value=0.5)
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlAssessments).filter(
+            SqlAssessments.assessment_id == assessment.assessment_id
+        ).update(
+            {"experiment_id": None, "trace_timestamp_ms": None},
+            synchronize_session=False,
+        )
+
+    stats = run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
+
+    # The trace-metric partition still builds; the NULL assessment contributes to no rollup.
+    assert stats.trace_metric.built == 1
+    assert stats.assessment.built == 0
+    assert _count(store, SqlAssessmentDailyRollup) == 0
 
 
 def test_max_partitions_cap_limits_builds_across_runs(store: SqlAlchemyStore):
