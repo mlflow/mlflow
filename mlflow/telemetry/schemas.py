@@ -15,12 +15,14 @@ class Status(str, Enum):
 
 
 @dataclass
+from typing import Any, Dict, Optional
+
 class Record:
     event_name: str
     timestamp_ns: int
-    params: dict[str, Any] | None = None
+    params: Optional[Dict[str, Any]] = None
     status: Status = Status.UNKNOWN
-    duration_ms: int | None = None
+    duration_ms: Optional[int] = None
     # installation and session ID usually comes from the telemetry client,
     # but callers can override with these fields (e.g. in UI telemetry records)
     installation_id: str | None = None
