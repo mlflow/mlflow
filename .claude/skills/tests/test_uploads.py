@@ -123,7 +123,7 @@ def http_error(code: int) -> urllib.error.HTTPError:
     ("code", "expected"),
     [
         (401, r"the credential was rejected \(401\)"),
-        (403, r"not scoped to this repository \(403\)"),
+        (403, r"403, most likely a credential that is not scoped"),
         # A 404 is ambiguous, so the message has to offer both readings.
         (404, r"repository_id=1 does not resolve or the endpoint refuses this credential"),
     ],
@@ -164,7 +164,9 @@ def test_a_404_names_the_credential_kind_without_printing_it(tmp_path: Path) -> 
         ("gho_x", "an OAuth user token"),
         ("ghp_x", "a classic PAT"),
         ("github_pat_x", "a fine-grained PAT"),
+        ("ghu_x", "a GitHub App user-to-server token"),
         ("ghs_x", "a GitHub App or Actions token"),
+        ("ghr_x", "a refresh token"),
         ("x", "a credential of unrecognized kind"),
     ],
 )

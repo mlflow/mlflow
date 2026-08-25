@@ -29,8 +29,9 @@ VIDEO_SUFFIXES = {".mp4", ".mov", ".webm"}
 
 
 # The endpoint serves only OAuth tokens, classic PATs, and fine-grained PATs bound to the
-# target repository. App and Actions tokens are refused whatever their permissions, and the
-# refusal is a bare 404, so name the kind rather than leave the caller guessing.
+# target repository. Actions and App installation tokens are refused whatever their
+# permissions, and the refusal is a bare 404, so name the kind rather than leave the
+# caller guessing.
 TOKEN_KINDS = {
     "gho_": "an OAuth user token",
     "ghp_": "a classic PAT",
@@ -101,12 +102,12 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str:
             body = json.load(resp)
     # Must precede OSError: HTTPError is a URLError, which is an OSError.
     except urllib.error.HTTPError as e:
-        # Callers resolve credentials differently, so name none of them here.
         if e.code == 401:
+            # Callers resolve credentials differently, so name none of them here.
             raise UploadFailed(f"{path.name}: the credential was rejected (401)", status=401) from e
         if e.code == 403:
             raise UploadFailed(
-                f"{path.name}: the credential is not scoped to this repository (403)",
+                f"{path.name}: 403, most likely a credential that is not scoped to this repository",
                 status=403,
             ) from e
         if e.code == 404:
