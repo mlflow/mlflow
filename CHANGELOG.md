@@ -2,21 +2,18 @@
 
 ## 3.15.2 (2026-08-25)
 
-MLflow 3.15.2 includes several major features and improvements
+MLflow 3.15.2 is a patch release that includes several major features and improvements.
 
 Features:
 
-- [Evaluation] [GenAI] Support immutable evaluation dataset versions (#24845, @danielseong1)
+- [Evaluation] Support immutable evaluation dataset versions (#24845, @danielseong1)
 - [Evaluation] Add scorer_ensemble primitive for combining scorer results (#24749, @alkispoly-db)
 
 Bug fixes:
 
 - [Evaluation] Preserve base judge invocation flow in MemAlign aligned judges (#24883, @veronicalyu320)
 - [Tracking] Pre-import `databricks.sdk` in Databricks to avoid telemetry deadlock (#24841, @aaronteo-db)
-
-Small bug fixes and documentation updates:
-
-#24890, @joshuawong-db
+- [Build / Tracking] Align `runs.status` constraint metadata (#24890, @joshuawong-db)
 
 ## 3.15.1 (2026-08-03)
 
