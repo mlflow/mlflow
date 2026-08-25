@@ -1524,15 +1524,23 @@ MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVa
 #: (default: ``30``)
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
 
+#: Opt-in admin flag that enables custom (``@scorer`` decorator) scorers to run on
+#: OSS backends. Disabled by default; when disabled, custom-scorer job submissions are
+#: rejected at the ``submit_job`` chokepoint.
+#: (default: ``False``)
+MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", False
+)
+
 #: Specifies the default job executor backend name.
 #: (default: ``"local"``)
 MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", str, "local"
 )
 
-#: Reserved for routing custom scorer jobs to a non-default backend. Validated
-#: at startup but not yet consulted by job submission until the executor router
-#: lands.
+#: Routes custom scorer jobs to a non-default executor backend. When set, job
+#: submission selects this backend for custom-scorer jobs instead of the default;
+#: when unset, custom-scorer jobs use the default backend. Validated at startup.
 MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None
 )

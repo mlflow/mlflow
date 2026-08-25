@@ -14,6 +14,7 @@ import mlflow
 from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.scorer_utils import (
     DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
@@ -567,11 +568,13 @@ class Scorer(BaseModel):
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
-        # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Only allow loading when connected to a Databricks workspace, where
-        # registration is gated behind authentication. OSS backends don't have this guarantee,
-        # so block loading to prevent executing untrusted code.
-        if not is_databricks_uri(get_tracking_uri()):
+        # NB: Custom (@scorer) scorers use exec() during deserialization, a code-execution risk.
+        # Allowed on Databricks (auth-gated registration) or when the admin has explicitly set
+        # the default-off MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS opt-in, which accepts this risk on
+        # OSS backends. Otherwise block loading to prevent executing untrusted code.
+        if not is_databricks_uri(get_tracking_uri()) and not (
+            MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get()
+        ):
             code_snippet = (
                 "\n\nfrom mlflow.genai import scorer\n\n"
                 f"@scorer\ndef {serialized.original_func_name}{serialized.call_signature}:\n"

@@ -199,7 +199,13 @@ class SqlAlchemyJobStore(AbstractJobStore):
             f"(must be {expected_statuses})"
         )
 
-    def create_job(self, job_name: str, params: str, timeout: float | None = None) -> Job:
+    def create_job(
+        self,
+        job_name: str,
+        params: str,
+        timeout: float | None = None,
+        executor_backend: str | None = None,
+    ) -> Job:
         """
         Create a new job with the specified function and parameters.
 
@@ -207,6 +213,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job_name: The static job name that identifies the decorated job function
             params: The job parameters that are serialized as a JSON string
             timeout: The job execution timeout in seconds
+            executor_backend: The selected executor backend name to persist on the job row.
+                None means no explicit selection; downstream dispatch treats a NULL backend
+                as the default backend.
 
         Returns:
             Job entity instance
@@ -225,6 +234,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
                     status=JobStatus.PENDING.to_int(),
                     result=None,
                     last_update_time=creation_time,
+                    executor_backend=executor_backend,
                 )
             )
 

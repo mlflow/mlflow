@@ -52,6 +52,19 @@ def test_sqlalchemy_job_store_isolates_workspaces(monkeypatch: pytest.MonkeyPatc
         assert {job.job_id for job in store.list_jobs()} == {job_team_b.job_id}
 
 
+def test_workspace_create_job_persists_executor_backend(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    backend_store_uri = f"sqlite:///{tmp_path / 'workspace-executor-backend.db'}"
+    store = WorkspaceAwareSqlAlchemyJobStore(backend_store_uri)
+
+    with WorkspaceContext("team-a"):
+        job = store.create_job("invoke_scorer", "{}", None, executor_backend="local")
+        reloaded = store.get_job(job.job_id)
+        assert reloaded.executor_backend == "local"
+
+
 def test_scheduler_runs_per_workspace(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 

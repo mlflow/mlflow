@@ -75,6 +75,7 @@ from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
+    MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -6701,13 +6702,15 @@ def _invoke_scorer_handler():
 
     # Decorator scorers carry a `call_source` field that is executed via exec() when the
     # scorer is deserialized. Reject such payloads before deserialization so this endpoint
-    # never reconstructs attacker-supplied source code, regardless of the server's tracking
-    # URI. This mirrors the server-side guard in `_register_scorer`.
+    # never reconstructs attacker-supplied source code, unless the admin has explicitly set
+    # the default-off MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS opt-in to accept that risk.
     try:
         serialized_data = json.loads(serialized_scorer)
     except json.JSONDecodeError as e:
         raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
+    if serialized_data.get("call_source") is not None and not (
+        MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get()
+    ):
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )

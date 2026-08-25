@@ -330,3 +330,87 @@ def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> st
         args = json.dumps(normalize_tool_call_arguments(call.arguments), sort_keys=True)
         return f"{call.name}({args})"
     return call.name
+
+
+# Scorer job names whose params carry an inline serialized scorer.
+_SCORER_JOB_NAMES_WITH_INLINE_SCORER = frozenset({"invoke_scorer"})
+# Scorer job names whose params carry a list of online scorers.
+_SCORER_JOB_NAMES_WITH_ONLINE_SCORERS = frozenset({
+    "run_online_trace_scorer",
+    "run_online_session_scorer",
+})
+
+
+def _serialized_scorer_has_call_source(serialized_scorer: str) -> bool:
+    try:
+        data = json.loads(serialized_scorer)
+    except (json.JSONDecodeError, TypeError):
+        return False
+    return isinstance(data, dict) and data.get("call_source") is not None
+
+
+def _iter_serialized_scorers(job_name: str, params: dict[str, Any]) -> list[str]:
+    if job_name in _SCORER_JOB_NAMES_WITH_INLINE_SCORER:
+        s = params.get("serialized_scorer")
+        return [s] if isinstance(s, str) else []
+    if job_name in _SCORER_JOB_NAMES_WITH_ONLINE_SCORERS:
+        return [
+            sc["serialized_scorer"]
+            for sc in params.get("online_scorers") or []
+            if isinstance(sc, dict) and isinstance(sc.get("serialized_scorer"), str)
+        ]
+    return []
+
+
+def params_contain_custom_scorer_code(job_name: str, params: dict[str, Any]) -> bool:
+    """Return True if a job's params carry custom (@scorer decorator) scorer code.
+
+    Custom scorers carry a non-null ``call_source`` that is executed via ``exec()``
+    during deserialization. This is the server-derived signal the job framework uses to
+    gate and route custom scorers. Returns False for non-scorer jobs and malformed input.
+    """
+    return any(
+        _serialized_scorer_has_call_source(s) for s in _iter_serialized_scorers(job_name, params)
+    )
+
+
+# Matches a leading "<scheme>:/" as used by model URIs (e.g. "openai:/gpt-4",
+# "endpoints:/my-endpoint").
+_MODEL_URI_SCHEME_RE = re.compile(r"^([a-zA-Z0-9_-]+):/")
+# The sole Gateway-backed scheme. Any other scheme is a direct-provider URI and is
+# treated as remote-incompatible.
+_GATEWAY_URI_SCHEME = "endpoints"
+
+
+def _iter_model_uris(obj) -> list[str]:
+    found = []
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if key == "model" and isinstance(value, str):
+                found.append(value)
+            else:
+                found.extend(_iter_model_uris(value))
+    elif isinstance(obj, list):
+        for item in obj:
+            found.extend(_iter_model_uris(item))
+    return found
+
+
+def scorer_params_use_direct_provider_model(job_name: str, params: dict[str, Any]) -> bool:
+    """Return True if any scorer in the job references a non-Gateway (direct-provider) model.
+
+    A remote executor requires Gateway-backed ``endpoints:/`` model URIs. Any model URI
+    whose scheme is not ``endpoints`` is treated as remote-incompatible. Scorers with no
+    model URI are compatible. Scans recursively so it is agnostic to per-scorer-type
+    nesting.
+    """
+    for serialized in _iter_serialized_scorers(job_name, params):
+        try:
+            data = json.loads(serialized)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        for uri in _iter_model_uris(data):
+            match = _MODEL_URI_SCHEME_RE.match(uri)
+            if match and match.group(1) != _GATEWAY_URI_SCHEME:
+                return True
+    return False

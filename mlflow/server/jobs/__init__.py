@@ -180,7 +180,16 @@ def submit_job(
         The job entity. You can call `get_job` API by the job id to get
         the updated job entity.
     """
-    from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
+    from mlflow.environment_variables import (
+        MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
+        MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+    )
+    from mlflow.genai.scorers.scorer_utils import (
+        params_contain_custom_scorer_code,
+        scorer_params_use_direct_provider_model,
+    )
+    from mlflow.server.jobs.executor_registry import get_executor_registry
+    from mlflow.server.jobs.router import JobExecutorRouter
     from mlflow.server.jobs.utils import (
         _check_requirements,
         _get_or_init_huey_instance,
@@ -226,9 +235,32 @@ def submit_job(
     # Validate that required parameters are provided
     _validate_function_parameters(function, params)
 
+    # Server-derived, fail-closed gate at the single chokepoint every submission path
+    # funnels through (including the generic POST /ajax-api/3.0/jobs/ endpoint).
+    is_custom_scorer = params_contain_custom_scorer_code(fn_meta.name, params)
+    if is_custom_scorer and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get():
+        raise MlflowException.invalid_parameter_value(
+            "Custom scorers are not enabled on this server. Set "
+            "'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true' to enable them."
+        )
+
+    registry = get_executor_registry()
+    backend = JobExecutorRouter(registry).select(fn_meta.name, is_custom_scorer=is_custom_scorer)
+
+    # Remote backends require Gateway-backed (endpoints:/) model URIs; enforced for
+    # scorer jobs only.
+    if registry.get(backend).remote_execution and scorer_params_use_direct_provider_model(
+        fn_meta.name, params
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"This job uses a direct-provider model URI, which is incompatible with the "
+            f"remote executor backend '{backend}'. Use a Gateway-backed 'endpoints:/' "
+            f"model URI."
+        )
+
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(fn_meta.name, serialized_params, timeout)
+    job = job_store.create_job(fn_meta.name, serialized_params, timeout, executor_backend=backend)
     # Only propagate workspace to subprocess when workspaces are enabled
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
 

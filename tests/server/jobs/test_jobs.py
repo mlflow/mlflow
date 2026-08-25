@@ -13,6 +13,7 @@ from mlflow.entities._job import Job, JobProgress, JobScopedPermission
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_ENV_ROOT, MLFLOW_WORKSPACE
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.job import invoke_scorer_job
 from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.job_api import Job as JobApiResponse
@@ -483,6 +484,24 @@ def test_retry_or_fail_job_returns_incremented_retry_count(monkeypatch, tmp_path
 
     assert retry_count == 1
     assert store.get_job(job.job_id).retry_count == 1
+
+
+def test_create_job_persists_executor_backend(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("invoke_scorer", "{}", None, executor_backend="local")
+    reloaded = store.get_job(job.job_id)
+    assert reloaded.executor_backend == "local"
+
+
+def test_create_job_executor_backend_defaults_to_none(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("invoke_scorer", "{}", None)
+    reloaded = store.get_job(job.job_id)
+    assert reloaded.executor_backend is None
 
 
 def test_claim_job_and_renew_lease(tmp_path: Path):
@@ -1917,6 +1936,157 @@ def test_prepare_job_subprocess_clears_inherited_workspace(monkeypatch, tmp_path
     )
 
     assert MLFLOW_WORKSPACE.name not in prepared_subprocess.env
+
+
+def _custom_scorer_params():
+    return {
+        "experiment_id": "e",
+        "trace_ids": ["t1"],
+        "serialized_scorer": json.dumps({
+            "name": "c",
+            "call_source": "    return 1\n",
+            "call_signature": "(inputs, outputs)",
+            "original_func_name": "c",
+        }),
+    }
+
+
+def _builtin_scorer_params():
+    return {
+        "experiment_id": "e",
+        "trace_ids": ["t1"],
+        "serialized_scorer": json.dumps({"name": "b"}),
+    }
+
+
+def test_submit_custom_scorer_rejected_when_flag_off(monkeypatch, tmp_path):
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        with pytest.raises(MlflowException, match="Custom scorers are not enabled"):
+            submit_job(invoke_scorer_job, _custom_scorer_params())
+
+
+def test_submit_persists_default_backend(monkeypatch, tmp_path):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        submitted_job = submit_job(invoke_scorer_job, _builtin_scorer_params())
+        assert get_job(submitted_job.job_id).executor_backend == "local"
+
+
+def test_submit_custom_scorer_routes_to_custom_backend(monkeypatch, tmp_path):
+    from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
+    from mlflow.server.jobs.executor_registry import (
+        get_executor_registry,
+        shutdown_executor_registry,
+    )
+
+    class _FakeLocal(AbstractJobExecutor):
+        def submit_job(self, *args, **kwargs): ...
+
+        def wait_for_job(self, job_id): ...
+
+        def cancel_job(self, job_id): ...
+
+        def recover_jobs(self, ids):
+            return []
+
+        @property
+        def remote_execution(self):
+            return False
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        try:
+            # Build a fresh registry (validated against the default "local" backend), then
+            # register a distinct backend and only afterwards point the custom-scorer
+            # override at it. The router reads the env var at select() time, so this proves
+            # custom routing: the assertion fails if the router ignores is_custom_scorer and
+            # falls back to the "local" default.
+            shutdown_executor_registry()
+            registry = get_executor_registry()
+            registry.register("custom-sandbox", _FakeLocal(JobExecutorConfig()))
+            monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "custom-sandbox")
+
+            submitted_job = submit_job(invoke_scorer_job, _custom_scorer_params())
+            assert get_job(submitted_job.job_id).executor_backend == "custom-sandbox"
+        finally:
+            shutdown_executor_registry()
+
+
+def test_remote_backend_rejects_direct_provider_scorer(monkeypatch, tmp_path):
+    from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
+    from mlflow.server.jobs.executor_registry import (
+        get_executor_registry,
+        shutdown_executor_registry,
+    )
+
+    class _FakeRemote(AbstractJobExecutor):
+        def submit_job(self, *args, **kwargs): ...
+
+        def wait_for_job(self, job_id): ...
+
+        def cancel_job(self, job_id): ...
+
+        def recover_jobs(self, ids):
+            return []
+
+        @property
+        def remote_execution(self):
+            return True
+
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        try:
+            shutdown_executor_registry()
+            registry = get_executor_registry()
+            registry.register("fake-remote", _FakeRemote(JobExecutorConfig()))
+            monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "fake-remote")
+
+            params = {
+                "experiment_id": "e",
+                "trace_ids": ["t1"],
+                "serialized_scorer": json.dumps({
+                    "name": "j",
+                    "instructions_judge_pydantic_data": {"model": "openai:/gpt-4"},
+                }),
+            }
+            with pytest.raises(MlflowException, match="direct-provider model URI"):
+                submit_job(invoke_scorer_job, params)
+        finally:
+            shutdown_executor_registry()
+
+
+def test_generic_job_endpoint_gates_custom_scorer(monkeypatch, tmp_path):
+    from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
+
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        function = _load_function(get_job_fn_fullname("invoke_scorer"))
+        with pytest.raises(MlflowException, match="Custom scorers are not enabled"):
+            submit_job(function, _custom_scorer_params())
 
 
 def test_subproc_entry_telemetry(tmp_path, monkeypatch):
