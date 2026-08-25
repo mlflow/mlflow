@@ -145,9 +145,12 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
 
     for name in sorted(cited):
         cite = str(by_name[name])
+        size = by_name[name].stat().st_size
         if Path(name).suffix.lower() not in MIME_TYPES:
             report.errors.append(f"{name}: unsupported extension, so the reference is dropped")
-        elif (size := by_name[name].stat().st_size) > (limit := max_bytes(name)):
+        elif size == 0:
+            report.errors.append(f"{name}: empty, so the reference is dropped")
+        elif size > (limit := max_bytes(name)):
             report.errors.append(
                 f"{name}: {size} bytes exceeds the {limit} byte cap, so the reference is dropped"
             )

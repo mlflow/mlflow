@@ -11,7 +11,9 @@ from pathlib import Path
 
 UPLOAD_URL = "https://uploads.github.com/user-attachments/assets"
 
-# The name's extension must agree with content_type or the endpoint returns 422.
+# The name's extension must agree with content_type or the endpoint returns 422. The
+# allowlist is narrower than the formats GitHub documents for attachments: svg and audio
+# are both refused, so extend this map only against a live 201.
 MIME_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
@@ -56,6 +58,10 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str:
         raise UploadFailed(f"{path.name}: unsupported extension")
 
     size = path.stat().st_size
+    if size == 0:
+        # The endpoint refuses an empty file as 422 "Yowza that's a big file. Try again
+        # with a file size less than 10MB", which points at the opposite problem.
+        raise UploadFailed(f"{path.name}: the file is empty")
     if size > (limit := max_bytes(path.name)):
         raise UploadFailed(f"{path.name}: {size} bytes exceeds {limit}")
 

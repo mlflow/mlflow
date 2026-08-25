@@ -72,6 +72,15 @@ def test_upload_asset_rejects_an_unsupported_extension(tmp_path: Path) -> None:
         uploads.upload_asset(path, "1", "t")
 
 
+def test_upload_asset_rejects_an_empty_file(tmp_path: Path) -> None:
+    # The endpoint blames the size cap for this, so catching it here is the only way the
+    # message points at the real problem.
+    path = tmp_path / "shot.png"
+    path.write_bytes(b"")
+    with pytest.raises(uploads.UploadFailed, match="the file is empty"):
+        uploads.upload_asset(path, "1", "t")
+
+
 def test_upload_asset_rejects_a_file_over_the_size_cap(tmp_path: Path) -> None:
     path = tmp_path / "big.png"
     path.write_bytes(b"12345")
