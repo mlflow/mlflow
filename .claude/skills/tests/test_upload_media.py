@@ -98,7 +98,7 @@ def test_a_rejected_credential_stops_the_remaining_uploads(
         mock.patch.object(
             upload_media,
             "upload_asset",
-            side_effect=UploadFailed("the credential was rejected (401)", status=401),
+            side_effect=UploadFailed("shot.png: the credential was rejected (401)", status=401),
         ) as uploader,
         pytest.raises(SystemExit, match="^1$"),
     ):

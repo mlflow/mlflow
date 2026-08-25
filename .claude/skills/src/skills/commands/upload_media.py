@@ -64,7 +64,7 @@ def run(args: argparse.Namespace) -> None:
             # A rejected credential fails every remaining upload, so stop asking, and
             # name the credential this command actually resolved.
             if e.status == 401:
-                print(f"failed {path}: {e}; check GH_TOKEN or run `gh auth login`", file=sys.stderr)
+                print(f"failed {e}; check GH_TOKEN or run `gh auth login`", file=sys.stderr)
                 break
             print(f"failed {e}", file=sys.stderr)
 
