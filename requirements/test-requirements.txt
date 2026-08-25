@@ -45,7 +45,10 @@ gepa
 # required for testing docker compose
 testcontainers
 # required for testing cost tracking
-litellm
+# TODO: litellm>=1.97 references `ChatCompletionReasoningSummaryTextBlock`, which is not present
+# in the latest `openai` release available under the dependency cooldown, breaking
+# `litellm.Message.model_rebuild()`. Remove this pin once a compatible `openai` is available.
+litellm<1.97
 # required for testing Redis budget tracker
 fakeredis[lua]
 # required for testing claude_code tracing
