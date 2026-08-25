@@ -24,7 +24,7 @@ repos:
         name: uv-lock
         entry: uv lock
         language: system
-        files: '^pyproject\.toml$'
+        files: '(^|/)pyproject\.toml$'
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false
