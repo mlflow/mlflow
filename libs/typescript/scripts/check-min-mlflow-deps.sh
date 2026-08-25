@@ -13,10 +13,11 @@
 # resolves the lowest version the declared range allows and installs it into the
 # integration's own node_modules (shadowing the symlink). Published floors come
 # from npm. During a coordinated release, an unpublished floor may instead come
-# from a packed local workspace whose name and version match exactly. Running
-# `tsc --noEmit` against that package makes a newer-than-floor symbol a hard
-# compile error while still allowing core and its integrations to be bumped in
-# one PR.
+# from a packed local workspace whose name and version match exactly. Published
+# floors retain the compatibility comparison described below. For an unpublished
+# workspace floor, the baseline and package come from the same source, so the
+# check only verifies that the package builds, installs, and type-checks; it
+# cannot detect API-floor violations until that version is published.
 #
 # To stay immune to unrelated noise (a third-party module missing from a local
 # sandbox, a pre-existing type error), it type-checks TWICE -- once against
@@ -31,7 +32,39 @@ ROOT="$PWD"
 TSC="$ROOT/node_modules/.bin/tsc"
 ALLOWLIST="$ROOT/scripts/known-floor-violations.txt"
 LOCAL_PACKAGE_CACHE="$(mktemp -d)"
-trap 'rm -rf "$LOCAL_PACKAGE_CACHE"' EXIT
+shadow=""
+backup=""
+tmp=""
+shadow_active=false
+
+restore_shadow() {
+  local backup_dir
+
+  if [[ -n "$tmp" ]]; then
+    rm -rf "$tmp"
+    tmp=""
+  fi
+  if [[ "$shadow_active" != true ]]; then
+    return 0
+  fi
+
+  rm -rf "$shadow"
+  if [[ -n "$backup" && -e "$backup" ]]; then
+    backup_dir="$(dirname "$backup")"
+    mv "$backup" "$shadow"
+    rmdir "$backup_dir"
+  fi
+  shadow=""
+  backup=""
+  shadow_active=false
+}
+
+cleanup() {
+  restore_shadow
+  rm -rf "$LOCAL_PACKAGE_CACHE"
+}
+
+trap cleanup EXIT
 
 # Integrations grandfathered in: they violate the floor today (same class as
 # mlflow#24167) but must not fail the gate yet. New violations still fail.
@@ -100,8 +133,9 @@ pack_workspace_package() {
     if ! packed_filename="$(node -e '
       const fs = require("fs");
       const result = JSON.parse(fs.readFileSync(0, "utf8"));
-      if (typeof result[0]?.filename !== "string") process.exit(1);
-      process.stdout.write(result[0].filename);
+      const packed = Array.isArray(result) ? result : Object.values(result);
+      if (typeof packed[0]?.filename !== "string") process.exit(1);
+      process.stdout.write(packed[0].filename);
     ' <<< "$pack_json")"; then
       echo "        ERROR: failed to parse npm pack output for $dep@$version" >&2
       return 1
@@ -149,10 +183,17 @@ for pkg_json in integrations/*/package.json; do
   # so the check never leaves the working tree modified.
   shadow="$dir/node_modules"
   backup=""
+  tmp=""
+  shadow_active=false
   if [[ -e "$shadow" ]]; then
-    backup="$(mktemp -d)/node_modules"
-    mv "$shadow" "$backup"
+    backup_dir="$(mktemp -d)"
+    if ! mv "$shadow" "$backup_dir/node_modules"; then
+      rmdir "$backup_dir"
+      exit 1
+    fi
+    backup="$backup_dir/node_modules"
   fi
+  shadow_active=true
   mkdir -p "$shadow/@mlflow"
   while IFS= read -r dep; do
     [[ -z "$dep" ]] && continue
@@ -189,30 +230,22 @@ for pkg_json in integrations/*/package.json; do
     else
       status=$?
       if [[ $status -eq 2 ]]; then
-        rm -rf "$shadow"
-        [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
         exit 1
       fi
 
       workspace_path="$(workspace_package_path "$dep")"
       if [[ -z "$workspace_path" ]]; then
         echo "        ERROR: $dep@$floor is unpublished and has no local workspace" >&2
-        rm -rf "$shadow"
-        [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
         exit 1
       fi
       workspace_version="$(node -p "require('./$workspace_path/package.json').version")"
       if [[ "$workspace_version" != "$floor" ]]; then
         echo "        ERROR: $dep@$floor is unpublished and workspace version is $workspace_version" >&2
-        rm -rf "$shadow"
-        [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
         exit 1
       fi
 
       if ! install_spec="$(pack_workspace_package "$dep" "$floor" "$workspace_path")"; then
         echo "        ERROR: failed to prepare workspace package $dep@$floor" >&2
-        rm -rf "$shadow"
-        [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
         exit 1
       fi
       echo "        SOURCE workspace package ($workspace_path)"
@@ -226,23 +259,18 @@ for pkg_json in integrations/*/package.json; do
     if ! npm install --prefix "$tmp" "$install_spec" \
       --no-save --no-package-lock --no-audit --no-fund >/dev/null; then
       echo "        ERROR: failed to install $install_spec (see npm output above)" >&2
-      rm -rf "$tmp" "$shadow"
-      [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
       exit 1
     fi
     rm -rf "$shadow/$dep"
     cp -R "$tmp/node_modules/$dep" "$shadow/$dep"
     rm -rf "$tmp"
+    tmp=""
   done <<< "$mlflow_deps"
 
   # At-floor errors minus baseline errors == breakage caused purely by the floor.
   floor_errors="$(errors_here || true)"
   violations="$(comm -13 <(printf '%s\n' "$baseline") <(printf '%s\n' "$floor_errors"))"
-  rm -rf "$shadow"
-  if [[ -n "$backup" ]]; then
-    mv "$backup" "$shadow"
-    rmdir "$(dirname "$backup")"
-  fi
+  restore_shadow
 
   if [[ -z "$violations" ]]; then
     if is_allowlisted "$slug"; then
