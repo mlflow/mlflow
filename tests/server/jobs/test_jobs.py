@@ -2027,6 +2027,53 @@ def test_submit_custom_scorer_routes_to_custom_backend(monkeypatch, tmp_path):
             shutdown_executor_registry()
 
 
+def test_remote_backend_rejects_direct_provider_scorer(monkeypatch, tmp_path):
+    from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
+    from mlflow.server.jobs.executor_registry import (
+        get_executor_registry,
+        shutdown_executor_registry,
+    )
+
+    class _FakeRemote(AbstractJobExecutor):
+        def submit_job(self, *args, **kwargs): ...
+
+        def wait_for_job(self, job_id): ...
+
+        def cancel_job(self, job_id): ...
+
+        def recover_jobs(self, ids):
+            return []
+
+        @property
+        def remote_execution(self):
+            return True
+
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
+        allowed_job_names=["invoke_scorer"],
+    ):
+        try:
+            shutdown_executor_registry()
+            registry = get_executor_registry()
+            registry.register("fake-remote", _FakeRemote(JobExecutorConfig()))
+            monkeypatch.setenv("MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", "fake-remote")
+
+            params = {
+                "experiment_id": "e",
+                "trace_ids": ["t1"],
+                "serialized_scorer": json.dumps({
+                    "name": "j",
+                    "instructions_judge_pydantic_data": {"model": "openai:/gpt-4"},
+                }),
+            }
+            with pytest.raises(MlflowException, match="direct-provider model URI"):
+                submit_job(invoke_scorer_job, params)
+        finally:
+            shutdown_executor_registry()
+
+
 def test_generic_job_endpoint_gates_custom_scorer(monkeypatch, tmp_path):
     from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
 
