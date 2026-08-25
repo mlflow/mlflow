@@ -732,6 +732,83 @@ def _validate_model_alias_name_reserved(model_alias_name):
         )
 
 
+MAX_SKILL_NAME_LENGTH = 255
+MAX_AGENT_PLUGIN_NAME_LENGTH = 255
+MAX_ORGANIZATION_NAME_LENGTH = 255
+
+# Names may not start with '@' (the URI organization marker) and may not contain
+# reserved URI characters ('/', '@', '#', '?'). Allowed: letters, digits, '.', '_', '-'.
+_SKILL_ENTITY_NAME_REGEX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_ORGANIZATION_NAME_REGEX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _validate_skill_name(name):
+    if not name:
+        raise MlflowException.invalid_parameter_value("Skill name must not be empty.")
+    if _SKILL_ENTITY_NAME_REGEX.fullmatch(name) is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid skill name {name!r}. Names must start with a letter or digit; may "
+            "contain only letters, digits, '.', '_', and '-'; must not start with '@'; and "
+            "must not contain reserved URI characters ('/', '@', '#', '?')."
+        )
+    _validate_length_limit("Skill name", MAX_SKILL_NAME_LENGTH, name)
+
+
+def _validate_agent_plugin_name(name):
+    if not name:
+        raise MlflowException.invalid_parameter_value("Agent plugin name must not be empty.")
+    if _SKILL_ENTITY_NAME_REGEX.fullmatch(name) is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid agent plugin name {name!r}. Names must start with a letter or digit; may "
+            "contain only letters, digits, '.', '_', and '-'; must not start with '@'; and "
+            "must not contain reserved URI characters ('/', '@', '#', '?')."
+        )
+    _validate_length_limit("Agent plugin name", MAX_AGENT_PLUGIN_NAME_LENGTH, name)
+
+
+def _validate_organization_name(organization):
+    if organization is None or organization == "":
+        return
+    if _ORGANIZATION_NAME_REGEX.fullmatch(organization) is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid organization name {organization!r}. Organizations may contain only "
+            "letters, digits, '.', '_', and '-', and must not start with '@'."
+        )
+    _validate_length_limit("Organization name", MAX_ORGANIZATION_NAME_LENGTH, organization)
+
+
+def _validate_skill_version(version):
+    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+        raise MlflowException.invalid_parameter_value(
+            f"Skill version must be a positive integer, got {version!r}."
+        )
+
+
+def _validate_skill_alias(alias):
+    _validate_model_alias_name(alias)
+    _validate_model_alias_name_reserved(alias)
+
+
+def _validate_skill_tag(key, value):
+    _validate_tag(key, value)
+
+
+def _validate_skill_artifact_path(path):
+    if not path or not isinstance(path, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Artifact path must be a non-empty string, got {path!r}."
+        )
+    if path.startswith("/"):
+        raise MlflowException.invalid_parameter_value(
+            f"Artifact path must be relative, got {path!r}."
+        )
+    for segment in path.split("/"):
+        if segment in ("", ".", ".."):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid artifact path {path!r}: empty, '.', or '..' segments are not allowed."
+            )
+
+
 def _validate_experiment_artifact_location(artifact_location):
     if artifact_location is not None and artifact_location.startswith("runs:"):
         raise MlflowException(
