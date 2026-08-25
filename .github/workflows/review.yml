@@ -135,21 +135,20 @@ jobs:
           # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
           # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
           fetch-depth: 2
-      - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
-      - uses: ./.github/actions/setup-node
-      - name: Install Claude CLI
-        run: |
-          .claude/scripts/install-claude.sh
-      - name: Verify Claude CLI
+      - parallel:
+          - uses: ./.github/actions/setup-python
+            with:
+              pin-micro-version: false
+          - uses: ./.github/actions/setup-node
+          - name: Install Claude CLI
+            run: |
+              .claude/scripts/install-claude.sh
+          - name: Install agent-browser
+            run: |
+              .claude/scripts/install-agent-browser.sh
+      - name: Verify tools
         run: |
           claude --version
-      - name: Install agent-browser
-        run: |
-          .claude/scripts/install-agent-browser.sh
-      - name: Verify agent-browser
-        run: |
           agent-browser --version
 
       - name: Parse review arguments
