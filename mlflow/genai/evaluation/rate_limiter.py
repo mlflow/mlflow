@@ -22,8 +22,7 @@ def eval_retry_context():
     """
     # Lazy import to avoid circular dependency: genai.evaluation → genai.judges.
     # Importing rate_limit_retry_adapters triggers all register_retry_adapter() calls.
-    from mlflow.genai.judges.adapters import rate_limit_retry_adapters  # noqa: F401
-    from mlflow.genai.judges.adapters.litellm_adapter import get_retry_adapters
+    from mlflow.genai.judges.adapters.rate_limit_retry_adapters import get_retry_adapters
 
     active_adapters = []
     for adapter in get_retry_adapters():

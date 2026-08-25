@@ -16,11 +16,11 @@ from mlflow.genai.evaluation.rate_limiter import (
     is_rate_limit_error,
 )
 from mlflow.genai.judges.adapters.litellm_adapter import (
-    RateLimitRetryAdapter,
     _get_litellm_retry_policy,
     disable_litellm_rate_limit_retries,
     is_litellm_rate_limit_retries_disabled,
 )
+from mlflow.genai.judges.adapters.rate_limit_retry_adapters import RateLimitRetryAdapter
 from mlflow.utils.rest_utils import disable_429_retry, is_429_retry_disabled
 
 
@@ -404,7 +404,7 @@ def test_eval_retry_context_sets_and_resets():
     assert not _retry_flags_active()
 
     with patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._RETRY_ADAPTER_REGISTRY",
+        "mlflow.genai.judges.adapters.rate_limit_retry_adapters._RETRY_ADAPTER_REGISTRY",
         _BOTH_ADAPTERS_ACTIVE,
     ):
         with eval_retry_context():
@@ -417,7 +417,7 @@ def test_eval_retry_context_nests():
     assert not _retry_flags_active()
 
     with patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._RETRY_ADAPTER_REGISTRY",
+        "mlflow.genai.judges.adapters.rate_limit_retry_adapters._RETRY_ADAPTER_REGISTRY",
         _BOTH_ADAPTERS_ACTIVE,
     ):
         with eval_retry_context():

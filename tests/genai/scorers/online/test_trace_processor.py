@@ -8,7 +8,7 @@ import pytest
 
 from mlflow.entities import Trace, TraceData, TraceInfo
 from mlflow.genai.evaluation.rate_limiter import NoOpRateLimiter, RPSRateLimiter
-from mlflow.genai.judges.adapters.litellm_adapter import (
+from mlflow.genai.judges.adapters.rate_limit_retry_adapters import (
     _RETRY_ADAPTER_REGISTRY,
     RateLimitRetryAdapter,
     register_retry_adapter,
