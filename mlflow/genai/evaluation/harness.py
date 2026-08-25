@@ -975,13 +975,9 @@ def _compute_eval_scores(
         max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
-        # Scorers run in worker threads, which do not inherit the calling thread's
-        # contextvars. eval_retry_context() (entered by the caller in _run_score /
-        # the online scoring path) sets ContextVar flags that disable litellm and
-        # HTTP-layer 429 retries so rate-limit errors propagate to call_with_retry's
-        # AIMD logic. Copy the current context per submission so each worker runs
-        # under those flags. A fresh copy per submit is required: a single shared
-        # Context cannot be entered by more than one thread concurrently.
+        # Carry the caller's context (e.g. eval_retry_context() flags) into each
+        # worker; a fresh copy per submit is required since a Context can't be
+        # entered by two threads at once.
         futures = {
             executor.submit(contextvars.copy_context().run, run_scorer, scorer): scorer
             for scorer in scorers

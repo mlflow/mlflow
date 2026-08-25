@@ -443,12 +443,6 @@ def test_litellm_retry_policy_disables_rate_limit_retries_when_flag_set():
 
 
 # ── contextvar propagation into the scorer thread pool ──
-#
-# eval_retry_context() sets its retry-suppression flags via contextvars.ContextVar.
-# _compute_eval_scores runs each scorer in a worker thread. Worker threads do NOT
-# inherit the submitting thread's context, so the flags must be explicitly carried
-# across the pool boundary or they silently read their defaults inside the scorer —
-# defeating the whole "let 429s bubble up to the AIMD limiter" mechanism.
 
 
 def _flags_in_current_thread() -> tuple[str, bool, bool]:
@@ -494,26 +488,19 @@ def test_scorer_thread_sees_retry_flags_single():
 
     assert len(captured) == 1
     thread_name, litellm_disabled, http_disabled = captured[0]
-    # The scorer runs in a worker thread, not the caller's thread.
     assert thread_name != threading.current_thread().name
     assert thread_name.startswith("MlflowGenAIEvalScorer")
-    # Both flags set by eval_retry_context() reached the worker thread.
     assert litellm_disabled is True
     assert http_disabled is True
 
 
 def test_scorer_threads_see_retry_flags_under_concurrency():
-    # The probe's barrier forces all five scorers to run at once, so multiple
-    # workers hold their (fresh) contexts simultaneously — a single shared copied
-    # Context would raise "already entered" here.
     captured = _run_scores_capturing_flags(num_scorers=5)
 
     assert len(captured) == 5
     worker_threads = {name for name, _, _ in captured}
-    # Genuinely ran across multiple distinct worker threads.
     assert len(worker_threads) > 1
     assert all(name.startswith("MlflowGenAIEvalScorer") for name, _, _ in captured)
-    # Every worker observed both flags as disabled.
     assert all(litellm and http for _, litellm, http in captured)
 
 
@@ -547,28 +534,24 @@ def test_single_shared_context_cannot_be_entered_concurrently():
     hold = threading.Event()
 
     def work(_):
-        # Keep the first worker holding the context open long enough for the
-        # second submission to attempt entry and collide. We do NOT rendezvous
-        # here (a barrier would deadlock, since the colliding worker fails to
-        # enter and never runs work()).
+        # Hold the context open so the other submission collides trying to enter
+        # it. No barrier: the colliding worker never runs work(), so a rendezvous
+        # would deadlock.
         hold.wait(timeout=2)
         return _probe_cv.get()
 
     with ThreadPoolExecutor(max_workers=2, thread_name_prefix="cv-test") as ex:
         futures = [ex.submit(shared.run, work, i) for i in range(2)]
         errors = []
-        results = []
         try:
             for f in as_completed(futures):
                 try:
-                    results.append(f.result())
+                    f.result()
                 except RuntimeError as e:
                     errors.append(str(e))
                     hold.set()  # release the other worker so the pool can drain
         finally:
             hold.set()
-    # Reusing one Context across concurrent workers is illegal — this is why the
-    # fix copies the context per submission rather than once.
     assert any("already entered" in e for e in errors)
 
 
