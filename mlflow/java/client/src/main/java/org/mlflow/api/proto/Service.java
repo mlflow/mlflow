@@ -57072,7 +57072,7 @@ public final class Service {
 
     /**
      * <pre>
-     * URL expiration time in seconds (default: 900, max: 604800).
+     * URL expiration time in seconds (default: 900).
      * </pre>
      *
      * <code>optional int64 expiration = 3;</code>
@@ -57081,7 +57081,7 @@ public final class Service {
     boolean hasExpiration();
     /**
      * <pre>
-     * URL expiration time in seconds (default: 900, max: 604800).
+     * URL expiration time in seconds (default: 900).
      * </pre>
      *
      * <code>optional int64 expiration = 3;</code>
@@ -57094,6 +57094,8 @@ public final class Service {
      * ID of the logged model that owns the artifact, for artifacts stored under a
      * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
      * rather than a run's. Exactly one of run_id and model_id must be provided.
+     * Clients must populate model_id for logged-model artifacts; sending a logged
+     * model ID through run_id is not supported.
      * </pre>
      *
      * <code>optional string model_id = 4;</code>
@@ -57105,6 +57107,8 @@ public final class Service {
      * ID of the logged model that owns the artifact, for artifacts stored under a
      * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
      * rather than a run's. Exactly one of run_id and model_id must be provided.
+     * Clients must populate model_id for logged-model artifacts; sending a logged
+     * model ID through run_id is not supported.
      * </pre>
      *
      * <code>optional string model_id = 4;</code>
@@ -57116,6 +57120,8 @@ public final class Service {
      * ID of the logged model that owns the artifact, for artifacts stored under a
      * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
      * rather than a run's. Exactly one of run_id and model_id must be provided.
+     * Clients must populate model_id for logged-model artifacts; sending a logged
+     * model ID through run_id is not supported.
      * </pre>
      *
      * <code>optional string model_id = 4;</code>
@@ -58397,7 +58403,7 @@ public final class Service {
     private long expiration_;
     /**
      * <pre>
-     * URL expiration time in seconds (default: 900, max: 604800).
+     * URL expiration time in seconds (default: 900).
      * </pre>
      *
      * <code>optional int64 expiration = 3;</code>
@@ -58409,7 +58415,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * URL expiration time in seconds (default: 900, max: 604800).
+     * URL expiration time in seconds (default: 900).
      * </pre>
      *
      * <code>optional int64 expiration = 3;</code>
@@ -58427,6 +58433,8 @@ public final class Service {
      * ID of the logged model that owns the artifact, for artifacts stored under a
      * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
      * rather than a run's. Exactly one of run_id and model_id must be provided.
+     * Clients must populate model_id for logged-model artifacts; sending a logged
+     * model ID through run_id is not supported.
      * </pre>
      *
      * <code>optional string model_id = 4;</code>
@@ -58441,6 +58449,8 @@ public final class Service {
      * ID of the logged model that owns the artifact, for artifacts stored under a
      * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
      * rather than a run's. Exactly one of run_id and model_id must be provided.
+     * Clients must populate model_id for logged-model artifacts; sending a logged
+     * model ID through run_id is not supported.
      * </pre>
      *
      * <code>optional string model_id = 4;</code>
@@ -58466,6 +58476,8 @@ public final class Service {
      * ID of the logged model that owns the artifact, for artifacts stored under a
      * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
      * rather than a run's. Exactly one of run_id and model_id must be provided.
+     * Clients must populate model_id for logged-model artifacts; sending a logged
+     * model ID through run_id is not supported.
      * </pre>
      *
      * <code>optional string model_id = 4;</code>
@@ -59110,7 +59122,7 @@ public final class Service {
       private long expiration_ ;
       /**
        * <pre>
-       * URL expiration time in seconds (default: 900, max: 604800).
+       * URL expiration time in seconds (default: 900).
        * </pre>
        *
        * <code>optional int64 expiration = 3;</code>
@@ -59122,7 +59134,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * URL expiration time in seconds (default: 900, max: 604800).
+       * URL expiration time in seconds (default: 900).
        * </pre>
        *
        * <code>optional int64 expiration = 3;</code>
@@ -59134,7 +59146,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * URL expiration time in seconds (default: 900, max: 604800).
+       * URL expiration time in seconds (default: 900).
        * </pre>
        *
        * <code>optional int64 expiration = 3;</code>
@@ -59149,7 +59161,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * URL expiration time in seconds (default: 900, max: 604800).
+       * URL expiration time in seconds (default: 900).
        * </pre>
        *
        * <code>optional int64 expiration = 3;</code>
@@ -59168,6 +59180,8 @@ public final class Service {
        * ID of the logged model that owns the artifact, for artifacts stored under a
        * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
        * rather than a run's. Exactly one of run_id and model_id must be provided.
+       * Clients must populate model_id for logged-model artifacts; sending a logged
+       * model ID through run_id is not supported.
        * </pre>
        *
        * <code>optional string model_id = 4;</code>
@@ -59181,6 +59195,8 @@ public final class Service {
        * ID of the logged model that owns the artifact, for artifacts stored under a
        * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
        * rather than a run's. Exactly one of run_id and model_id must be provided.
+       * Clients must populate model_id for logged-model artifacts; sending a logged
+       * model ID through run_id is not supported.
        * </pre>
        *
        * <code>optional string model_id = 4;</code>
@@ -59205,6 +59221,8 @@ public final class Service {
        * ID of the logged model that owns the artifact, for artifacts stored under a
        * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
        * rather than a run's. Exactly one of run_id and model_id must be provided.
+       * Clients must populate model_id for logged-model artifacts; sending a logged
+       * model ID through run_id is not supported.
        * </pre>
        *
        * <code>optional string model_id = 4;</code>
@@ -59228,6 +59246,8 @@ public final class Service {
        * ID of the logged model that owns the artifact, for artifacts stored under a
        * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
        * rather than a run's. Exactly one of run_id and model_id must be provided.
+       * Clients must populate model_id for logged-model artifacts; sending a logged
+       * model ID through run_id is not supported.
        * </pre>
        *
        * <code>optional string model_id = 4;</code>
@@ -59249,6 +59269,8 @@ public final class Service {
        * ID of the logged model that owns the artifact, for artifacts stored under a
        * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
        * rather than a run's. Exactly one of run_id and model_id must be provided.
+       * Clients must populate model_id for logged-model artifacts; sending a logged
+       * model ID through run_id is not supported.
        * </pre>
        *
        * <code>optional string model_id = 4;</code>
@@ -59265,6 +59287,8 @@ public final class Service {
        * ID of the logged model that owns the artifact, for artifacts stored under a
        * logged model's artifact location (e.g. "&lt;experiment&gt;/models/&lt;model_id&gt;/artifacts")
        * rather than a run's. Exactly one of run_id and model_id must be provided.
+       * Clients must populate model_id for logged-model artifacts; sending a logged
+       * model ID through run_id is not supported.
        * </pre>
        *
        * <code>optional string model_id = 4;</code>

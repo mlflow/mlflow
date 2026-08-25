@@ -521,6 +521,9 @@ service MlflowService {
   //
   // Consumed by external artifact repository plugins
   // (e.g. https://github.com/aws/sagemaker-mlflow).
+  //
+  // Logged-model uploads require a client that sends model_id and a server that
+  // supports it. Upgrading only one side does not enable this flow.
   rpc createPresignedUploadUrl(CreatePresignedUploadUrl) returns (CreatePresignedUploadUrl.Response) {
     option (rpc) = {
       endpoints: [
@@ -3713,12 +3716,14 @@ message CreatePresignedUploadUrl {
   // (e.g. "models/model.pkl"). Must be provided.
   optional string path = 2;
 
-  // URL expiration time in seconds (default: 900, max: 604800).
+  // URL expiration time in seconds (default: 900).
   optional int64 expiration = 3;
 
   // ID of the logged model that owns the artifact, for artifacts stored under a
   // logged model's artifact location (e.g. "<experiment>/models/<model_id>/artifacts")
   // rather than a run's. Exactly one of run_id and model_id must be provided.
+  // Clients must populate model_id for logged-model artifacts; sending a logged
+  // model ID through run_id is not supported.
   optional string model_id = 4;
 
   message Response {

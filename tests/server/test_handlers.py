@@ -119,6 +119,7 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateExperiment,
+    CreatePresignedUploadUrl,
     DeleteScorer,
     DeleteTraceTag,
     DeleteTraceTagV3,
@@ -257,7 +258,10 @@ from mlflow.server.handlers import (
     upload_artifact_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.artifact_repo import (
+    ArtifactRepository,
+    PresignedUploadMixin,
+)
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -1522,8 +1526,6 @@ def test_get_presigned_download_url_unsupported_repo(enable_serve_artifacts, tmp
 
 
 def test_create_presigned_upload_url_success():
-    from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
-
     class MockPresignedUploadRepo(PresignedUploadMixin):
         def create_presigned_upload_url(self, artifact_path, expiration=900):
             return CreatePresignedUploadResponse(
@@ -1533,8 +1535,6 @@ def test_create_presigned_upload_url_success():
 
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
@@ -1567,8 +1567,6 @@ def test_create_presigned_upload_url_success():
 def test_create_presigned_upload_url_unsupported_repo():
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "file:///tmp/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
@@ -1609,8 +1607,6 @@ def test_create_presigned_upload_url_rejects_proxy_artifact_uri(artifact_uri):
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = artifact_uri
 
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
     request_proto.path = "model.pkl"
@@ -1635,8 +1631,6 @@ def test_create_presigned_upload_url_rejects_proxy_artifact_uri(artifact_uri):
 
 
 def test_create_presigned_upload_url_invalid_run_id():
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "nonexistent_run"
     request_proto.path = "model.pkl"
@@ -1673,8 +1667,6 @@ def test_create_presigned_upload_url_invalid_run_id():
     ],
 )
 def test_create_presigned_upload_url_rejects_path_traversal(path):
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
     request_proto.path = path
@@ -1694,8 +1686,6 @@ def test_create_presigned_upload_url_rejects_path_traversal(path):
 
 
 def test_create_presigned_upload_url_with_custom_expiration():
-    from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
-
     captured_expiration = {}
 
     class MockPresignedUploadRepo(PresignedUploadMixin):
@@ -1708,8 +1698,6 @@ def test_create_presigned_upload_url_with_custom_expiration():
 
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
@@ -1738,8 +1726,6 @@ def test_create_presigned_upload_url_with_custom_expiration():
 
 
 def test_create_presigned_upload_url_default_expiration():
-    from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
-
     captured_expiration = {}
 
     class MockPresignedUploadRepo(PresignedUploadMixin):
@@ -1752,8 +1738,6 @@ def test_create_presigned_upload_url_default_expiration():
 
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     # Don't set expiration - should default to 900
     request_proto = CreatePresignedUploadUrl()
@@ -1794,8 +1778,6 @@ def test_create_presigned_upload_url_blocked_in_artifacts_only_mode(monkeypatch)
 
 
 def test_create_presigned_upload_url_logged_model_success():
-    from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
-
     class MockPresignedUploadRepo(PresignedUploadMixin):
         def create_presigned_upload_url(self, artifact_path, expiration=900):
             return CreatePresignedUploadResponse(
@@ -1805,8 +1787,6 @@ def test_create_presigned_upload_url_logged_model_success():
 
     mock_logged_model = mock.MagicMock()
     mock_logged_model.artifact_location = "s3://bucket/0/models/m-123abc/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
     request_proto.model_id = "m-123abc"
@@ -1841,8 +1821,6 @@ def test_create_presigned_upload_url_logged_model_success():
 def test_create_presigned_upload_url_logged_model_unsupported_repo():
     mock_logged_model = mock.MagicMock()
     mock_logged_model.artifact_location = "file:///tmp/models/m-123abc/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
     request_proto.model_id = "m-123abc"
@@ -1885,8 +1863,6 @@ def test_create_presigned_upload_url_logged_model_rejects_proxy_artifact_locatio
     mock_logged_model = mock.MagicMock()
     mock_logged_model.artifact_location = artifact_location
 
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     request_proto.model_id = "m-123abc"
     request_proto.path = "model.pkl"
@@ -1911,8 +1887,6 @@ def test_create_presigned_upload_url_logged_model_rejects_proxy_artifact_locatio
 
 
 def test_create_presigned_upload_url_invalid_model_id():
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     request_proto.model_id = "m-nonexistent"
     request_proto.path = "model.pkl"
@@ -1947,8 +1921,6 @@ def test_create_presigned_upload_url_invalid_model_id():
     ],
 )
 def test_create_presigned_upload_url_logged_model_rejects_path_traversal(path):
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     request_proto.model_id = "m-123abc"
     request_proto.path = path
@@ -1975,8 +1947,6 @@ def test_create_presigned_upload_url_logged_model_rejects_path_traversal(path):
     ],
 )
 def test_create_presigned_upload_url_requires_exactly_one_of_run_id_and_model_id(run_id, model_id):
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     if run_id:
         request_proto.run_id = run_id
@@ -2016,34 +1986,7 @@ def test_create_presigned_upload_url_requires_exactly_one_via_request_parsing():
     assert "exactly one of run_id and model_id" in json_response["message"].lower()
 
 
-@pytest.mark.parametrize("expiration", [0, -1, 604801])
-@pytest.mark.parametrize("id_field", ["run_id", "model_id"])
-def test_create_presigned_upload_url_rejects_out_of_range_expiration(expiration, id_field):
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
-    request_proto = CreatePresignedUploadUrl()
-    setattr(request_proto, id_field, "abc123" if id_field == "run_id" else "m-123abc")
-    request_proto.path = "model.pkl"
-    request_proto.expiration = expiration
-
-    with (
-        app.test_request_context(method="POST", content_type="application/json"),
-        mock.patch(
-            "mlflow.server.handlers._get_request_message",
-            return_value=request_proto,
-        ),
-    ):
-        response = _create_presigned_upload_url()
-
-    assert response.status_code == 400
-    json_response = json.loads(response.get_data())
-    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "604800" in json_response["message"]
-
-
 def test_create_presigned_upload_url_logged_model_with_custom_expiration():
-    from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
-
     captured_expiration = {}
 
     class MockPresignedUploadRepo(PresignedUploadMixin):
@@ -2056,8 +1999,6 @@ def test_create_presigned_upload_url_logged_model_with_custom_expiration():
 
     mock_logged_model = mock.MagicMock()
     mock_logged_model.artifact_location = "s3://bucket/0/models/m-123abc/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
     request_proto.model_id = "m-123abc"

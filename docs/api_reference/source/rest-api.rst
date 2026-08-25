@@ -2988,6 +2988,9 @@ run artifacts (run_id) and logged model artifacts (model_id).
 Consumed by external artifact repository plugins
 (e.g. https://github.com/aws/sagemaker-mlflow).
 
+Logged-model uploads require a client that sends model_id and a server that
+supports it. Upgrading only one side does not enable this flow.
+
 
 
 
@@ -3008,10 +3011,11 @@ Request Structure
 +------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | path       | ``STRING`` | Relative path within the owning resource's artifact directory (e.g. "models/model.pkl"). Must be provided.                                                                 |
 +------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| expiration | ``INT64``  | URL expiration time in seconds (default: 900, max: 604800).                                                                                                                |
+| expiration | ``INT64``  | URL expiration time in seconds (default: 900).                                                                                                                             |
 +------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | model_id   | ``STRING`` | ID of the logged model that owns the artifact, for artifacts stored under a logged model's artifact location (e.g. "<experiment>/models/<model_id>/artifacts") rather than |
-|            |            | a run's. Exactly one of run_id and model_id must be provided.                                                                                                              |
+|            |            | a run's. Exactly one of run_id and model_id must be provided. Clients must populate model_id for logged-model artifacts; sending a logged model ID through run_id is not   |
+|            |            | supported.                                                                                                                                                                 |
 +------------+------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreatePresignedUploadUrlResponse:

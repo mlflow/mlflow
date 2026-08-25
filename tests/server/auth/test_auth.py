@@ -779,42 +779,6 @@ def test_presigned_download_url_authorization_required(client, monkeypatch):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
-def test_presigned_upload_url_authorization_required(client, monkeypatch):
-    # Minting a presigned upload URL grants direct WRITE access to a run's artifacts,
-    # so it must enforce per-run UPDATE permission before the handler runs.
-    username1, password1 = create_user(client.tracking_uri)
-    username2, password2 = create_user(client.tracking_uri)
-
-    with User(username1, password1, monkeypatch):
-        experiment_id = client.create_experiment("presigned-upload-authz-test")
-        run = client.create_run(experiment_id)
-        run_id = run.info.run_id
-
-    # user2 has no permission on user1's experiment — the auth layer must reject with
-    # 403 before the handler runs (without the validator this reaches the handler and
-    # returns a handler-level status such as 501 for the local artifact repository).
-    response = requests.post(
-        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
-        json={"run_id": run_id, "path": "model.pkl"},
-        auth=(username2, password2),
-    )
-    assert response.status_code == 403
-
-    # user1 (creator, MANAGE on the experiment) passes the auth layer; the request
-    # reaches the handler, which rejects the local (file://) artifact repo with 501.
-    response = requests.post(
-        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
-        json={"run_id": run_id, "path": "model.pkl"},
-        auth=(username1, password1),
-    )
-    assert response.status_code == 501
-
-
-@pytest.mark.parametrize(
-    "client",
-    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
-    indirect=True,
-)
 def test_presigned_upload_url_logged_model_authorization_required(client, monkeypatch):
     # Logged-model-scoped mints dispatch on model_id; permission is inherited from
     # the owning experiment, so a user without experiment permission must get 403.

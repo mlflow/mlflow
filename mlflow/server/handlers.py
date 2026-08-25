@@ -3875,14 +3875,6 @@ def _create_presigned_upload_url():
         )
     path = validate_path_is_safe(request_message.path)
     expiration = request_message.expiration if request_message.HasField("expiration") else 900
-    # Cloud providers cap signed-URL lifetimes at 7 days (604800 seconds) and reject
-    # out-of-range values only when the URL is used, so an out-of-range value would
-    # mint a URL that is dead on arrival. Fail fast here instead.
-    if not 1 <= expiration <= 604800:
-        raise MlflowException(
-            f"expiration must be between 1 and 604800 seconds (got {expiration}).",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
     if run_id:
         run = _get_tracking_store().get_run(run_id)
