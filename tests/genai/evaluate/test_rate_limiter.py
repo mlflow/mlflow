@@ -1,10 +1,15 @@
+import contextvars
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from unittest.mock import patch
 
 import pytest
 
 import mlflow.genai.judges.adapters.rate_limit_retry_adapters  # noqa: F401
+from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
+    _compute_eval_scores,
     _make_rate_limiter,
     _parse_rate_limit,
 )
@@ -21,6 +26,7 @@ from mlflow.genai.judges.adapters.litellm_adapter import (
     is_litellm_rate_limit_retries_disabled,
 )
 from mlflow.genai.judges.adapters.rate_limit_retry_adapters import RateLimitRetryAdapter
+from mlflow.genai.scorers.base import scorer
 from mlflow.utils.rest_utils import disable_429_retry, is_429_retry_disabled
 
 
@@ -434,3 +440,148 @@ def test_litellm_retry_policy_disables_rate_limit_retries_when_flag_set():
         policy = _get_litellm_retry_policy(3)
     assert policy.RateLimitErrorRetries == 0
     assert policy.TimeoutErrorRetries == 3
+
+
+# ── contextvar propagation into the scorer thread pool ──
+#
+# eval_retry_context() sets its retry-suppression flags via contextvars.ContextVar.
+# _compute_eval_scores runs each scorer in a worker thread. Worker threads do NOT
+# inherit the submitting thread's context, so the flags must be explicitly carried
+# across the pool boundary or they silently read their defaults inside the scorer —
+# defeating the whole "let 429s bubble up to the AIMD limiter" mechanism.
+
+
+def _flags_in_current_thread() -> tuple[str, bool, bool]:
+    return (
+        threading.current_thread().name,
+        is_litellm_rate_limit_retries_disabled(),
+        is_429_retry_disabled(),
+    )
+
+
+def _run_scores_capturing_flags(num_scorers):
+    """Run scorers through _compute_eval_scores inside eval_retry_context().
+
+    Returns the (thread_name, litellm_disabled, http_429_disabled) tuple each
+    scorer observed from inside its worker thread. A barrier forces every scorer
+    to run concurrently so the parallel path is genuinely exercised.
+    """
+    captured: list[tuple[str, bool, bool]] = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(num_scorers)
+
+    def make_probe(name):
+        @scorer(name=name)
+        def probe(outputs):
+            barrier.wait()
+            observed = _flags_in_current_thread()
+            with lock:
+                captured.append(observed)
+            return 1.0
+
+        return probe
+
+    scorer_objs = [make_probe(f"probe_{i}") for i in range(num_scorers)]
+    item = EvalItem(request_id="r1", inputs={}, outputs="x", expectations={})
+
+    with eval_retry_context():
+        _compute_eval_scores(eval_item=item, scorers=scorer_objs, max_retries=0)
+    return captured
+
+
+def test_scorer_thread_sees_retry_flags_single():
+    captured = _run_scores_capturing_flags(num_scorers=1)
+
+    assert len(captured) == 1
+    thread_name, litellm_disabled, http_disabled = captured[0]
+    # The scorer runs in a worker thread, not the caller's thread.
+    assert thread_name != threading.current_thread().name
+    assert thread_name.startswith("MlflowGenAIEvalScorer")
+    # Both flags set by eval_retry_context() reached the worker thread.
+    assert litellm_disabled is True
+    assert http_disabled is True
+
+
+def test_scorer_threads_see_retry_flags_under_concurrency():
+    # The probe's barrier forces all five scorers to run at once, so multiple
+    # workers hold their (fresh) contexts simultaneously — a single shared copied
+    # Context would raise "already entered" here.
+    captured = _run_scores_capturing_flags(num_scorers=5)
+
+    assert len(captured) == 5
+    worker_threads = {name for name, _, _ in captured}
+    # Genuinely ran across multiple distinct worker threads.
+    assert len(worker_threads) > 1
+    assert all(name.startswith("MlflowGenAIEvalScorer") for name, _, _ in captured)
+    # Every worker observed both flags as disabled.
+    assert all(litellm and http for _, litellm, http in captured)
+
+
+def test_retry_flags_reset_in_caller_thread_after_scoring():
+    assert not _retry_flags_active()
+
+    _run_scores_capturing_flags(num_scorers=2)
+
+    # The caller's thread context is unchanged after the with-block exits.
+    assert not _retry_flags_active()
+
+
+# The following three tests pin the raw contextvars semantics the fix relies on,
+# independent of MLflow, so a future refactor that reintroduces the bug fails loudly
+# with an explanatory test name rather than a silent behavioral regression.
+
+_probe_cv: contextvars.ContextVar[str] = contextvars.ContextVar("_probe_cv", default="DEFAULT")
+
+
+def test_threadpool_does_not_inherit_context_by_default():
+    _probe_cv.set("SET")
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="cv-test") as ex:
+        observed = list(ex.map(lambda _: _probe_cv.get(), range(2)))
+    # This is the bug: plain submit loses the caller's contextvars.
+    assert observed == ["DEFAULT", "DEFAULT"]
+
+
+def test_single_shared_context_cannot_be_entered_concurrently():
+    _probe_cv.set("SET")
+    shared = contextvars.copy_context()
+    hold = threading.Event()
+
+    def work(_):
+        # Keep the first worker holding the context open long enough for the
+        # second submission to attempt entry and collide. We do NOT rendezvous
+        # here (a barrier would deadlock, since the colliding worker fails to
+        # enter and never runs work()).
+        hold.wait(timeout=2)
+        return _probe_cv.get()
+
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="cv-test") as ex:
+        futures = [ex.submit(shared.run, work, i) for i in range(2)]
+        errors = []
+        results = []
+        try:
+            for f in as_completed(futures):
+                try:
+                    results.append(f.result())
+                except RuntimeError as e:
+                    errors.append(str(e))
+                    hold.set()  # release the other worker so the pool can drain
+        finally:
+            hold.set()
+    # Reusing one Context across concurrent workers is illegal — this is why the
+    # fix copies the context per submission rather than once.
+    assert any("already entered" in e for e in errors)
+
+
+def test_fresh_context_copy_per_submit_propagates_value():
+    _probe_cv.set("SET")
+    started = threading.Barrier(3)
+
+    def work(_):
+        started.wait()
+        return _probe_cv.get()
+
+    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="cv-test") as ex:
+        futures = [ex.submit(contextvars.copy_context().run, work, i) for i in range(3)]
+        observed = [f.result() for f in as_completed(futures)]
+    # A fresh copy per submit both carries the value and tolerates concurrency.
+    assert observed == ["SET", "SET", "SET"]
