@@ -83,14 +83,13 @@ errors, so don't trust them for pre-change history.
 
 Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, or a
 quick search and fetch of the upstream docs will settle most questions in seconds, and an unverified
-finding should be dropped rather than hedged.
+finding should be dropped rather than hedged. When the cheap checks don't settle it, escalate to the
+expensive ones: build the docs site, build and boot the UI, start the backend, run the affected
+tests.
 
-Node and `agent-browser` are on PATH for docs and UI changes. Render when it settles whether the
-change is correct, or when a capture shows a finding more plainly than prose can. Building the
-docs site or the UI is expensive; do it only when the finding justifies it. Capture to an
-absolute path named for what it shows:
-`agent-browser screenshot --full $media_dir/traces-table.png`, and cite that same path
-in a finding.
+Node and `agent-browser` are on PATH for docs and UI changes. Capture to an absolute path named for
+what it shows: `agent-browser screenshot --full $media_dir/example.png`, and cite that same
+path in a finding.
 
 Evaluate the changed code across these dimensions:
 
