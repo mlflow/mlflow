@@ -262,7 +262,7 @@ jobs:
           GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
           REPO_ID: ${{ github.event.repository.id }}
         run: |
-          uv run --frozen --package skills skills embed-media \
+          uv run --package skills skills embed-media \
             --dir "$REVIEW_MEDIA" \
             --target "$REVIEW_PAYLOAD" \
             --repository-id "$REPO_ID"
@@ -273,7 +273,7 @@ jobs:
             echo "::error::Claude did not produce $REVIEW_PAYLOAD"
             exit 1
           fi
-          uv run --frozen --package skills skills validate-review "$REVIEW_PAYLOAD"
+          uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
           echo "::group::Review payload"
           jq . "$REVIEW_PAYLOAD"
           echo "::endgroup::"
