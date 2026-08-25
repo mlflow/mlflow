@@ -462,8 +462,12 @@ def _run_server(
 
         if job_execution_enabled:
             from mlflow.server.jobs.executor_registry import validate_executor_config
+            from mlflow.server.jobs.utils import get_job_execution_engine
 
             validate_executor_config()
+            # Validate the engine selection before the server is spawned below, so an
+            # invalid value fails fast instead of leaving an unmanaged server running.
+            get_job_execution_engine()
 
     if app_name == "basic-auth" and job_execution_enabled:
         # Generate the token here (before forking uvicorn workers) so that all
@@ -500,7 +504,7 @@ def _run_server(
 
     if job_execution_enabled:
         from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
-        from mlflow.server.jobs.utils import _launch_job_runner
+        from mlflow.server.jobs.utils import _launch_job_execution_runner
 
         server_uri = f"http://{host}:{port}"
         job_env = {
@@ -515,6 +519,6 @@ def _run_server(
         # gateway routing (e.g., judge LLM calls via /gateway/mlflow/v1/).
         if not MLFLOW_GATEWAY_URI.is_set():
             job_env[MLFLOW_GATEWAY_URI.name] = server_uri
-        _launch_job_runner(job_env, server_proc.pid)
+        _launch_job_execution_runner(job_env, server_proc.pid)
 
     server_proc.wait()

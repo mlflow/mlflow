@@ -22,6 +22,7 @@ from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_LOGGING_LEVEL,
+    MLFLOW_SERVER_JOB_EXECUTION_ENGINE,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
     MLFLOW_WORKSPACE,
@@ -39,6 +40,7 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 if TYPE_CHECKING:
     import huey
 
+    from mlflow.entities._job import Job
     from mlflow.store.jobs.abstract_store import AbstractJobStore
 
 _logger = logging.getLogger(__name__)
@@ -743,6 +745,58 @@ def _launch_job_runner(env_map, server_proc_pid):
     )
 
 
+# MLFLOW_SERVER_JOB_EXECUTION_ENGINE is an opt-in: unset -> the default engine (Huey today), or
+# "executor" to opt into the executor framework. "huey" is intentionally not settable by name
+# (see get_job_execution_engine), so nothing has to change when Huey is retired.
+_DEFAULT_JOB_EXECUTION_ENGINE = "huey"
+_EXECUTOR_JOB_EXECUTION_ENGINE = "executor"
+
+
+def get_job_execution_engine() -> str:
+    """Return the job execution engine to use.
+
+    ``MLFLOW_SERVER_JOB_EXECUTION_ENGINE`` is an opt-in switch: leave it unset to use the default
+    engine (currently Huey), or set it to ``"executor"`` to route job execution through the
+    ``AbstractJobExecutor`` framework. It is intentionally *not* settable to ``"huey"`` — pinning
+    the current default by name would silently break once Huey is retired — so any explicit value
+    other than ``"executor"`` is rejected rather than silently accepted.
+    """
+    if not MLFLOW_SERVER_JOB_EXECUTION_ENGINE.is_set():
+        return _DEFAULT_JOB_EXECUTION_ENGINE
+    engine = MLFLOW_SERVER_JOB_EXECUTION_ENGINE.get().strip().lower()
+    if engine != _EXECUTOR_JOB_EXECUTION_ENGINE:
+        raise MlflowException.invalid_parameter_value(
+            f"{MLFLOW_SERVER_JOB_EXECUTION_ENGINE.name} may only be set to "
+            f"{_EXECUTOR_JOB_EXECUTION_ENGINE!r} to opt into the executor engine; unset it to use "
+            f"the default engine (got {engine!r})."
+        )
+    return engine
+
+
+def _launch_executor_runner(env_map, server_proc_pid):
+    server_up_time = str(int(time.time() * 1000))
+    return subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow.server.jobs._executor_runner",
+        ],
+        env={
+            **os.environ,
+            **env_map,
+            "MLFLOW_SERVER_PID": str(server_proc_pid),
+            MLFLOW_SERVER_UP_TIME: server_up_time,
+        },
+    )
+
+
+def _launch_job_execution_runner(env_map, server_proc_pid):
+    """Launch the job runner for the configured execution engine."""
+    if get_job_execution_engine() == "executor":
+        return _launch_executor_runner(env_map, server_proc_pid)
+    return _launch_job_runner(env_map, server_proc_pid)
+
+
 def _start_watcher_to_kill_job_runner_if_mlflow_server_dies(check_interval: float = 1.0) -> None:
     mlflow_server_pid = int(os.environ.get("MLFLOW_SERVER_PID"))
 
@@ -797,42 +851,60 @@ def _workspace_contexts_for_recovery() -> list[ContextManager[str | None]]:
     return [WorkspaceContext(workspace.name) for workspace in store.list_workspaces()]
 
 
+def _for_each_unfinished_job(
+    job_store: "AbstractJobStore",
+    statuses: list[JobStatus],
+    end_timestamp: int,
+    handler: "Callable[[Job, str | None], None]",
+) -> None:
+    """Apply ``handler`` to each unfinished job created at/before ``end_timestamp``, per workspace.
+
+    Shared by both engines' startup recovery. It owns the per-workspace iteration and the
+    launch-time bound (so a job submitted to the freshly started server is never touched); the
+    status set and the per-job action stay with each caller, since the engines act differently
+    (Huey resets then re-enqueues; the executor only resets and lets the scheduler re-claim).
+    """
+    for workspace_ctx in _workspace_contexts_for_recovery():
+        with workspace_ctx as workspace:
+            for job in list(job_store.list_jobs(statuses=statuses, end_timestamp=end_timestamp)):
+                handler(job, workspace)
+
+
 def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()
 
-    for workspace_ctx in _workspace_contexts_for_recovery():
-        with workspace_ctx as workspace:
-            unfinished_jobs = job_store.list_jobs(
-                statuses=[JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY],
-                # filter out jobs created after the server is launched.
-                end_timestamp=server_launching_timestamp,
-            )
+    def _reset_and_enqueue(job: "Job", workspace: str | None) -> None:
+        if job.status in {JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY}:
+            job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
-            for job in unfinished_jobs:
-                if job.status in {JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY}:
-                    job_store.reset_job(job.job_id)  # reset the job status to PENDING
+        params = json.loads(job.params)
+        timeout = job.timeout
+        # Only propagate workspace to subprocess when workspaces are enabled
+        if MLFLOW_ENABLE_WORKSPACES.get():
+            job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
+        else:
+            job_workspace = None
+        # Look up exclusive flag from function metadata
+        fn_fullname = get_job_fn_fullname(job.job_name)
+        fn_metadata = _load_function(fn_fullname)._job_fn_metadata
+        # enqueue job
+        _get_or_init_huey_instance(job.job_name).submit_task(
+            job.job_id,
+            job_workspace,
+            job.job_name,
+            params,
+            timeout,
+            fn_metadata.exclusive,
+        )
 
-                params = json.loads(job.params)
-                timeout = job.timeout
-                # Only propagate workspace to subprocess when workspaces are enabled
-                if MLFLOW_ENABLE_WORKSPACES.get():
-                    job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
-                else:
-                    job_workspace = None
-                # Look up exclusive flag from function metadata
-                fn_fullname = get_job_fn_fullname(job.job_name)
-                fn_metadata = _load_function(fn_fullname)._job_fn_metadata
-                # enqueue job
-                _get_or_init_huey_instance(job.job_name).submit_task(
-                    job.job_id,
-                    job_workspace,
-                    job.job_name,
-                    params,
-                    timeout,
-                    fn_metadata.exclusive,
-                )
+    _for_each_unfinished_job(
+        job_store,
+        [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY],
+        server_launching_timestamp,
+        _reset_and_enqueue,
+    )
 
 
 def _validate_function_parameters(function: Callable[..., Any], params: dict[str, Any]) -> None:
