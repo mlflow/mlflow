@@ -37,7 +37,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@mlflow/core": "^0.3.0"
+    "@mlflow/core": "^0.3.0 || ^0.4.0"
   },
   "peerDependencies": {
     "@opencode-ai/plugin": "^1.0.0"
