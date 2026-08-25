@@ -200,6 +200,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
         run: |
           CLIENT_KEY=$(openssl rand -hex 32)
+          echo "::add-mask::$CLIENT_KEY"
           echo "client-key=$CLIENT_KEY" >> "$GITHUB_OUTPUT"
           printf '%s\n%s' "$ANTHROPIC_API_KEY" "$CLIENT_KEY" \
             | env -u ANTHROPIC_API_KEY node --disable-sigusr1 .claude/scripts/anthropic-proxy.mjs \
