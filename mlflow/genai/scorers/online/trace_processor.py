@@ -275,14 +275,22 @@ class OnlineTraceScoringProcessor:
         from mlflow.genai.evaluation.entities import EvalItem
         from mlflow.genai.evaluation.harness import (
             _compute_eval_scores,
+            _get_scorer_rate_config,
             _log_assessments,
             _make_rate_limiter,
             _parse_rate_limit,
         )
         from mlflow.genai.evaluation.rate_limiter import eval_retry_context
 
-        predict_rps, adaptive = _parse_rate_limit(MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get())
-        rate_limiter = _make_rate_limiter(predict_rps, adaptive=adaptive)
+        # No predict step here, so gate scorer calls via _get_scorer_rate_config (same as the
+        # programmatic path): it honors MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT, else scales by the
+        # count of distinct scorers running this tick.
+        predict_rps, predict_adaptive = _parse_rate_limit(
+            MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get()
+        )
+        num_scorers = len({scorer.name for task in tasks.values() for scorer in task.scorers}) or 1
+        scorer_rps, adaptive = _get_scorer_rate_config(predict_rps, predict_adaptive, num_scorers)
+        rate_limiter = _make_rate_limiter(scorer_rps, adaptive=adaptive)
         max_retries = MLFLOW_GENAI_EVAL_MAX_RETRIES.get()
 
         def _score_with_rate_limiting(eval_item, scorers):

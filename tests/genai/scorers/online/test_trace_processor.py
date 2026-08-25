@@ -664,6 +664,83 @@ def test_execute_scoring_uses_fixed_rate_limiter_for_numeric_rate(
     assert captured["rate_limiter"]._rps == pytest.approx(25.0)
 
 
+def test_execute_scoring_honors_scorer_rate_limit_env(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured["rate_limiter"] = rate_limiter
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "25")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "7")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert captured["rate_limiter"]._rps == pytest.approx(7.0)
+
+
+def test_execute_scoring_scales_rate_by_distinct_scorers(
+    mock_trace_loader, mock_checkpoint_manager, monkeypatch
+):
+    # Disjoint scorer subsets across traces: 3 distinct scorers run, so rate is 10 * 3, not the
+    # per-trace peak of 2.
+    configs = [
+        make_online_scorer(Completeness(name="a"), filter_string="tags.env = 'prod'"),
+        make_online_scorer(Completeness(name="b"), filter_string="tags.env = 'prod'"),
+        make_online_scorer(Completeness(name="c"), filter_string="tags.env = 'staging'"),
+    ]
+    sampler = OnlineScorerSampler(configs)
+
+    def mock_fetch_trace_infos(exp_id, min_ts, max_ts, filter_str, limit):
+        if "prod" in filter_str:
+            return [make_trace_info("tr-prod", 1500)]
+        return [make_trace_info("tr-staging", 1600)]
+
+    mock_trace_loader.fetch_trace_infos_in_range.side_effect = mock_fetch_trace_infos
+    mock_trace_loader.fetch_traces.return_value = [
+        make_trace("tr-prod", 1500),
+        make_trace("tr-staging", 1600),
+    ]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+    )
+
+    captured = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured["rate_limiter"] = rate_limiter
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "10")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert captured["rate_limiter"]._rps == pytest.approx(30.0)
+
+
 def test_execute_scoring_wraps_in_eval_retry_context(
     mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
 ):
