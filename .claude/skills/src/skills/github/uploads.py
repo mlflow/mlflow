@@ -56,8 +56,8 @@ def describe_token(token: str) -> str:
 class UploadFailed(Exception):
     """Raised when one asset does not reach the store; the message says why.
 
-    ``status`` carries the HTTP code when the endpoint answered, so a caller can tell
-    a dead credential (401) from a fault that only affects the file at hand.
+    ``status`` carries the HTTP code when the endpoint answered, and ``fatal`` says
+    whether the rest of the run can continue.
     """
 
     def __init__(self, message: str, status: int | None = None) -> None:

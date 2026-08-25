@@ -106,26 +106,10 @@ def test_a_credential_fault_stops_the_remaining_uploads(
         args.func(args)
 
     uploader.assert_called_once_with(shot, REPO_ID, "t")
-    assert f"failed shot.png: refused ({status})" in capsys.readouterr().err
-
-
-def test_only_a_401_suggests_reauthenticating(
-    shot: Path, credentials: None, capsys: pytest.CaptureFixture[str]
-) -> None:
-    args = build_args(str(shot))
-
-    with (
-        mock.patch.object(
-            upload_media,
-            "upload_asset",
-            side_effect=UploadFailed("shot.png: the credential was rejected (401)", status=401),
-        ) as uploader,
-        pytest.raises(SystemExit, match="^1$"),
-    ):
-        args.func(args)
-
-    uploader.assert_called_once_with(shot, REPO_ID, "t")
-    assert "check GH_TOKEN or run `gh auth login`" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert f"failed shot.png: refused ({status})" in err
+    # Only a rejected credential is worth re-authenticating for; a 403 or a 404 is not.
+    assert ("check GH_TOKEN or run `gh auth login`" in err) == (status == 401)
 
 
 def test_a_missing_path_is_reported_without_uploading(
