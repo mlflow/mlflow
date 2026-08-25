@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Type-check each integration against the *lowest published version* of every
-# @mlflow/* workspace dependency its package.json allows.
+# Type-check each integration against the lowest version of every @mlflow/*
+# workspace dependency its package.json allows.
 #
 # Why this exists: in the workspace, node_modules/@mlflow/core is a symlink to
 # ../../core (always the latest source), so `tsc`, eslint, and jest all resolve
@@ -10,9 +10,13 @@
 # floor, where the symbol is missing, and crashes at runtime (see mlflow#24167).
 #
 # This gate reproduces the user's install: for each @mlflow/* dependency, it
-# resolves the lowest version the declared range allows, installs that published
-# version into the integration's own node_modules (shadowing the symlink), and
-# runs `tsc --noEmit`. A newer-than-floor symbol becomes a hard compile error.
+# resolves the lowest version the declared range allows and installs it into the
+# integration's own node_modules (shadowing the symlink). Published floors come
+# from npm. During a coordinated release, an unpublished floor may instead come
+# from a packed local workspace whose name and version match exactly. Running
+# `tsc --noEmit` against that package makes a newer-than-floor symbol a hard
+# compile error while still allowing core and its integrations to be bumped in
+# one PR.
 #
 # To stay immune to unrelated noise (a third-party module missing from a local
 # sandbox, a pre-existing type error), it type-checks TWICE -- once against
@@ -26,6 +30,8 @@ cd "$(dirname "$0")/.."
 ROOT="$PWD"
 TSC="$ROOT/node_modules/.bin/tsc"
 ALLOWLIST="$ROOT/scripts/known-floor-violations.txt"
+LOCAL_PACKAGE_CACHE="$(mktemp -d)"
+trap 'rm -rf "$LOCAL_PACKAGE_CACHE"' EXIT
 
 # Integrations grandfathered in: they violate the floor today (same class as
 # mlflow#24167) but must not fail the gate yet. New violations still fail.
@@ -39,6 +45,61 @@ is_allowlisted() {
 summary() {
   [[ -n "${GITHUB_STEP_SUMMARY:-}" ]] && printf '%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
   return 0
+}
+
+published_version_exists() {
+  local dep="$1"
+  local version="$2"
+  local versions
+
+  if ! versions="$(npm view "$dep" versions --json)"; then
+    echo "        ERROR: failed to query published versions for $dep" >&2
+    return 2
+  fi
+
+  node -e '
+    const fs = require("fs");
+    const value = JSON.parse(fs.readFileSync(0, "utf8"));
+    const versions = Array.isArray(value) ? value : [value];
+    process.exit(versions.includes(process.argv[1]) ? 0 : 1);
+  ' "$version" <<< "$versions"
+}
+
+workspace_package_path() {
+  node -e '
+    const lock = require("./package-lock.json");
+    const name = process.argv[1];
+    const match = Object.entries(lock.packages).find(
+      ([path, pkg]) => path && !path.startsWith("node_modules/") && pkg.name === name,
+    );
+    if (match) process.stdout.write(match[0]);
+  ' "$1"
+}
+
+pack_workspace_package() {
+  local dep="$1"
+  local version="$2"
+  local workspace_path="$3"
+  local cache_key="${dep//@/_}"
+  local pack_json
+  local packed_filename
+  local tarball
+
+  cache_key="${cache_key//\//_}"
+  tarball="$LOCAL_PACKAGE_CACHE/$cache_key-$version.tgz"
+  if [[ ! -f "$tarball" ]]; then
+    echo "        BUILD $dep@$version from workspace $workspace_path" >&2
+    npm run -C "$workspace_path" build >&2
+    pack_json="$(npm pack "./$workspace_path" --pack-destination "$LOCAL_PACKAGE_CACHE" --json)"
+    packed_filename="$(node -e '
+      const fs = require("fs");
+      const result = JSON.parse(fs.readFileSync(0, "utf8"));
+      process.stdout.write(result[0].filename);
+    ' <<< "$pack_json")"
+    mv "$LOCAL_PACKAGE_CACHE/$packed_filename" "$tarball"
+  fi
+
+  printf '%s' "$tarball"
 }
 
 new_failures=()      # not allowlisted -> fail the build
@@ -104,15 +165,49 @@ for pkg_json in integrations/*/package.json; do
       console.log(floors.sort(cmp)[0]);
     " "$range")"
     echo "        $dep  range='$range'  floor=$floor"
-    # Install the published floor into a temp prefix, then copy it into the
-    # integration's node_modules so Node/tsc resolution finds it before the
-    # hoisted workspace symlink.
+    # Prefer the published floor. For a coordinated release, fall back to a
+    # packed workspace only when npm does not contain the floor and the local
+    # package has the exact same name and version. This keeps ordinary feature
+    # PRs pinned to published artifacts while allowing release PRs to validate
+    # the package that will be published.
+    install_spec="$dep@$floor"
+    if published_version_exists "$dep" "$floor"; then
+      echo "        SOURCE npm ($install_spec)"
+    else
+      status=$?
+      if [[ $status -eq 2 ]]; then
+        rm -rf "$shadow"
+        [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
+        exit 1
+      fi
+
+      workspace_path="$(workspace_package_path "$dep")"
+      if [[ -z "$workspace_path" ]]; then
+        echo "        ERROR: $dep@$floor is unpublished and has no local workspace" >&2
+        rm -rf "$shadow"
+        [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
+        exit 1
+      fi
+      workspace_version="$(node -p "require('./$workspace_path/package.json').version")"
+      if [[ "$workspace_version" != "$floor" ]]; then
+        echo "        ERROR: $dep@$floor is unpublished and workspace version is $workspace_version" >&2
+        rm -rf "$shadow"
+        [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
+        exit 1
+      fi
+
+      install_spec="$(pack_workspace_package "$dep" "$floor" "$workspace_path")"
+      echo "        SOURCE workspace package ($workspace_path)"
+    fi
+
+    # Install the floor into a temp prefix, then copy it into the integration's
+    # node_modules so Node/tsc resolution finds it before the hoisted symlink.
     tmp="$(mktemp -d)"
-    # Silence normal progress on stdout but keep stderr, so a failed install
-    # (unpublished version, network error) surfaces its reason in CI logs.
-    if ! npm install --prefix "$tmp" "$dep@$floor" \
+    # Silence normal progress on stdout but keep stderr so failures surface in
+    # CI logs.
+    if ! npm install --prefix "$tmp" "$install_spec" \
       --no-save --no-package-lock --no-audit --no-fund >/dev/null; then
-      echo "        ERROR: failed to install $dep@$floor (see npm output above)" >&2
+      echo "        ERROR: failed to install $install_spec (see npm output above)" >&2
       rm -rf "$tmp" "$shadow"
       [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
       exit 1
