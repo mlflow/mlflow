@@ -1,5 +1,8 @@
+from unittest.mock import patch
+
 import pytest
 
+import mlflow.genai.judges.adapters.rate_limit_retry_adapters  # noqa: F401
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
     _make_rate_limiter,
@@ -14,9 +17,11 @@ from mlflow.genai.evaluation.rate_limiter import (
 )
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _get_litellm_retry_policy,
+    disable_litellm_rate_limit_retries,
     is_litellm_rate_limit_retries_disabled,
 )
-from mlflow.utils.rest_utils import is_429_retry_disabled
+from mlflow.genai.judges.adapters.rate_limit_retry_adapters import RateLimitRetryAdapter
+from mlflow.utils.rest_utils import disable_429_retry, is_429_retry_disabled
 
 
 class FakeClock:
@@ -374,6 +379,21 @@ def test_call_with_retry_reports_throttle_and_success():
 
 # ── eval_retry_context tests ──
 
+# Both built-in adapters forced active so tests don't depend on litellm
+# being installed or a Databricks tracking URI being configured.
+_BOTH_ADAPTERS_ACTIVE = [
+    RateLimitRetryAdapter(
+        name="litellm",
+        is_adapter_active=lambda: True,
+        disable_internal_retries=disable_litellm_rate_limit_retries,
+    ),
+    RateLimitRetryAdapter(
+        name="databricks-sdk",
+        is_adapter_active=lambda: True,
+        disable_internal_retries=disable_429_retry,
+    ),
+]
+
 
 def _retry_flags_active():
     """Check that both downstream retry-suppression flags are set."""
@@ -383,8 +403,12 @@ def _retry_flags_active():
 def test_eval_retry_context_sets_and_resets():
     assert not _retry_flags_active()
 
-    with eval_retry_context():
-        assert _retry_flags_active()
+    with patch(
+        "mlflow.genai.judges.adapters.rate_limit_retry_adapters._RETRY_ADAPTER_REGISTRY",
+        _BOTH_ADAPTERS_ACTIVE,
+    ):
+        with eval_retry_context():
+            assert _retry_flags_active()
 
     assert not _retry_flags_active()
 
@@ -392,11 +416,15 @@ def test_eval_retry_context_sets_and_resets():
 def test_eval_retry_context_nests():
     assert not _retry_flags_active()
 
-    with eval_retry_context():
-        assert _retry_flags_active()
+    with patch(
+        "mlflow.genai.judges.adapters.rate_limit_retry_adapters._RETRY_ADAPTER_REGISTRY",
+        _BOTH_ADAPTERS_ACTIVE,
+    ):
         with eval_retry_context():
             assert _retry_flags_active()
-        assert _retry_flags_active()
+            with eval_retry_context():
+                assert _retry_flags_active()
+            assert _retry_flags_active()
 
     assert not _retry_flags_active()
 
