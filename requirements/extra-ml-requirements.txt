@@ -71,13 +71,18 @@ sentence-transformers
 # Required by mlflow.anthropic
 anthropic
 # Required by mlflow.ag2
-ag2
+# TODO: Consider migrating to ag2 1.x, which renames the `autogen` module to `ag2` and drops
+# `runtime_logging`, and remove this pin.
+ag2<1
 # Required by mlflow.dspy
 # In dspy 2.6.9, `dspy.__name__` is not 'dspy', but 'dspy.__metadata__',
 # which causes auto-logging tests to fail.
 dspy!=2.6.9
 # Required by mlflow.litellm
-litellm
+# TODO: litellm>=1.97 references `ChatCompletionReasoningSummaryTextBlock`, which is not present
+# in the latest `openai` release available under the dependency cooldown, breaking
+# `litellm.Message.model_rebuild()`. Remove this pin once a compatible `openai` is available.
+litellm<1.97
 # Required by mlflow.gemini
 google-genai
 # Required by mlflow.groq
