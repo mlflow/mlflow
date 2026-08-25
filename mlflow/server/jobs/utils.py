@@ -40,6 +40,7 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 if TYPE_CHECKING:
     import huey
 
+    from mlflow.entities._job import Job
     from mlflow.store.jobs.abstract_store import AbstractJobStore
 
 _logger = logging.getLogger(__name__)
@@ -850,42 +851,60 @@ def _workspace_contexts_for_recovery() -> list[ContextManager[str | None]]:
     return [WorkspaceContext(workspace.name) for workspace in store.list_workspaces()]
 
 
+def _for_each_unfinished_job(
+    job_store: "AbstractJobStore",
+    statuses: list[JobStatus],
+    end_timestamp: int,
+    handler: "Callable[[Job, str | None], None]",
+) -> None:
+    """Apply ``handler`` to each unfinished job created at/before ``end_timestamp``, per workspace.
+
+    Shared by both engines' startup recovery. It owns the per-workspace iteration and the
+    launch-time bound (so a job submitted to the freshly started server is never touched); the
+    status set and the per-job action stay with each caller, since the engines act differently
+    (Huey resets then re-enqueues; the executor only resets and lets the scheduler re-claim).
+    """
+    for workspace_ctx in _workspace_contexts_for_recovery():
+        with workspace_ctx as workspace:
+            for job in list(job_store.list_jobs(statuses=statuses, end_timestamp=end_timestamp)):
+                handler(job, workspace)
+
+
 def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()
 
-    for workspace_ctx in _workspace_contexts_for_recovery():
-        with workspace_ctx as workspace:
-            unfinished_jobs = job_store.list_jobs(
-                statuses=[JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY],
-                # filter out jobs created after the server is launched.
-                end_timestamp=server_launching_timestamp,
-            )
+    def _reset_and_enqueue(job: "Job", workspace: str | None) -> None:
+        if job.status in {JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY}:
+            job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
-            for job in unfinished_jobs:
-                if job.status in {JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY}:
-                    job_store.reset_job(job.job_id)  # reset the job status to PENDING
+        params = json.loads(job.params)
+        timeout = job.timeout
+        # Only propagate workspace to subprocess when workspaces are enabled
+        if MLFLOW_ENABLE_WORKSPACES.get():
+            job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
+        else:
+            job_workspace = None
+        # Look up exclusive flag from function metadata
+        fn_fullname = get_job_fn_fullname(job.job_name)
+        fn_metadata = _load_function(fn_fullname)._job_fn_metadata
+        # enqueue job
+        _get_or_init_huey_instance(job.job_name).submit_task(
+            job.job_id,
+            job_workspace,
+            job.job_name,
+            params,
+            timeout,
+            fn_metadata.exclusive,
+        )
 
-                params = json.loads(job.params)
-                timeout = job.timeout
-                # Only propagate workspace to subprocess when workspaces are enabled
-                if MLFLOW_ENABLE_WORKSPACES.get():
-                    job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
-                else:
-                    job_workspace = None
-                # Look up exclusive flag from function metadata
-                fn_fullname = get_job_fn_fullname(job.job_name)
-                fn_metadata = _load_function(fn_fullname)._job_fn_metadata
-                # enqueue job
-                _get_or_init_huey_instance(job.job_name).submit_task(
-                    job.job_id,
-                    job_workspace,
-                    job.job_name,
-                    params,
-                    timeout,
-                    fn_metadata.exclusive,
-                )
+    _for_each_unfinished_job(
+        job_store,
+        [JobStatus.PENDING, JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY],
+        server_launching_timestamp,
+        _reset_and_enqueue,
+    )
 
 
 def _validate_function_parameters(function: Callable[..., Any], params: dict[str, Any]) -> None:

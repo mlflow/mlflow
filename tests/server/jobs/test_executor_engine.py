@@ -11,6 +11,7 @@ from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
 from mlflow.server.jobs import _ALLOWED_JOB_NAME_LIST, _SUPPORTED_JOB_FUNCTION_LIST, job, submit_job
 from mlflow.server.jobs import _executor_runner as runner
 from mlflow.server.jobs.executor import JobExecutorConfig, JobResult
@@ -126,6 +127,24 @@ def executor():
         ex.stop_executor()
 
 
+def _wait_until(predicate, timeout=10.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.02)
+    raise AssertionError("condition not met in time")
+
+
+def _wait_submitted(scheduler, job_id, timeout=10.0):
+    # The worker marks the job submitted just after the executor's submit_job returns, on its own
+    # thread. The scheduler forwards cancellation only after that, so tests wait for it here rather
+    # than racing the worker.
+    _wait_until(
+        lambda: (h := scheduler._in_flight.get(job_id)) is not None and h.submitted, timeout
+    )
+
+
 def _run_to_completion(job_store, executor, lease_duration=60.0):
     """Schedule all currently-PENDING jobs and wait for their worker threads to finish.
 
@@ -151,6 +170,8 @@ class _BlockingExecutor:
         self._lock = threading.Lock()
         self.submitted = []
         self.canceled = []
+        # run_executor_loop reads executor.config.job_lease_ttl.
+        self.config = JobExecutorConfig(default_timeout=60.0)
         # job_id -> workspace resolved on the worker thread at submit time. Records what
         # get_request_workspace() returns inside each worker, to prove per-thread isolation.
         self.observed_workspace = {}
@@ -317,7 +338,7 @@ def test_scheduler_forwards_cancellation_to_executor(registered_jobs, job_store)
     scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
 
     assert scheduler.tick() == 1  # claims the job and starts its (blocked) worker
-    ex.wait_until_submitted()
+    _wait_submitted(scheduler, created.job_id)
     assert ex.submitted == [created.job_id]
 
     # The caller cancels the running job; the store row transitions to CANCELED.
@@ -329,10 +350,8 @@ def test_scheduler_forwards_cancellation_to_executor(registered_jobs, job_store)
 
     assert ex.canceled == [created.job_id]
     assert job_store.get_job(created.job_id).status == JobStatus.CANCELED
-    # The worker finished and cleaned up its bookkeeping, so nothing is orphaned in the
-    # cancel-tracking sets.
-    assert scheduler._canceled_forwarded == set()
-    assert scheduler._cancel_forward_failed == set()
+    # The worker finished and removed its bookkeeping, so nothing is left in flight.
+    assert scheduler._in_flight == {}
 
 
 def test_scheduler_isolates_concurrent_workspaces(registered_jobs, tmp_path, monkeypatch):
@@ -393,7 +412,9 @@ def test_scheduler_skips_pending_job_already_in_flight(registered_jobs, job_stor
     ex = _BlockingExecutor()
     scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
     with scheduler._in_flight_lock:
-        scheduler._in_flight[created.job_id] = (None, threading.current_thread())
+        scheduler._in_flight[created.job_id] = runner._InFlightJob(
+            workspace=None, thread=threading.current_thread()
+        )
 
     assert scheduler._schedule_pending() == 0
     assert ex.submitted == []
@@ -418,7 +439,7 @@ def test_scheduler_retries_cancel_forward_when_executor_raises(registered_jobs, 
     scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
 
     assert scheduler.tick() == 1
-    ex.wait_until_submitted()
+    _wait_submitted(scheduler, created.job_id)
     job_store.cancel_job(created.job_id)
 
     scheduler.tick()  # first forward attempt raises and is not marked forwarded
@@ -443,6 +464,141 @@ def test_record_result_canceled_result_finalizes_running_row(registered_jobs, jo
     )
 
     assert job_store.get_job(created.job_id).status == JobStatus.CANCELED
+
+
+def test_scheduler_skips_submission_for_job_canceled_before_submit(registered_jobs, job_store):
+    # A job cancelled after the claim but before the worker submits must not be submitted at all:
+    # there is no backend job to cancel yet, so submitting would run the already-canceled job.
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(created.job_id, lease_duration=60.0)
+    job_store.cancel_job(created.job_id)
+    ex = _BlockingExecutor()
+
+    # _execute_claimed_job runs on the worker; drive it directly for the pre-submit check.
+    runner._execute_claimed_job(job_store, ex, created)
+
+    assert ex.submitted == []
+    assert job_store.get_job(created.job_id).status == JobStatus.CANCELED
+
+
+def test_build_execution_context_falls_back_to_backend_store_uri(monkeypatch, registered_jobs):
+    from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
+
+    # On the server MLFLOW_TRACKING_URI is usually unset; the job subprocess must still get a
+    # reachable tracking URI, which comes from the backend-store URI.
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, "sqlite:///backend.db")
+    job = _make_job(status=JobStatus.PENDING)
+
+    context = runner._build_execution_context(job)
+
+    assert context.tracking_uri == "sqlite:///backend.db"
+
+
+@pytest.mark.parametrize("orphan_status", [JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY])
+def test_recover_orphaned_executor_jobs_resets_to_pending(
+    registered_jobs, job_store, monkeypatch, orphan_status
+):
+    # A job left RUNNING or NEEDS_RECOVERY by a previous server generation (created at/before this
+    # launch) is reset to PENDING so the scheduler re-claims it, while a RUNNING job created after
+    # launch (i.e. on the live server) is left alone. NEEDS_RECOVERY is the state the shutdown
+    # handoff (mark_orphans_for_recovery) writes, so both must be recovered.
+    old = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(old.job_id, lease_duration=60.0)
+    if orphan_status == JobStatus.NEEDS_RECOVERY:
+        job_store.mark_job_needs_recovery(old.job_id)
+    assert job_store.get_job(old.job_id).status == orphan_status
+    launch_ts = job_store.get_job(old.job_id).creation_time
+    monkeypatch.setenv("_MLFLOW_SERVER_UP_TIME", str(launch_ts))
+
+    time.sleep(0.01)  # ensure the next job's creation_time is strictly after launch_ts
+    new = job_store.create_job("executor_engine_add", json.dumps({"x": 3, "y": 4}))
+    job_store.claim_job(new.job_id, lease_duration=60.0)
+    assert job_store.get_job(new.job_id).creation_time > launch_ts
+
+    runner._recover_orphaned_executor_jobs(job_store)
+
+    assert job_store.get_job(old.job_id).status == JobStatus.PENDING
+    assert job_store.get_job(new.job_id).status == JobStatus.RUNNING
+
+
+def test_recover_orphaned_executor_jobs_skips_without_launch_time(
+    registered_jobs, job_store, monkeypatch
+):
+    # Without a recorded launch time, recovery cannot bound itself to the previous generation, so
+    # it must skip rather than risk resetting freshly submitted jobs.
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(created.job_id, lease_duration=60.0)
+    monkeypatch.delenv("_MLFLOW_SERVER_UP_TIME", raising=False)
+
+    runner._recover_orphaned_executor_jobs(job_store)
+
+    assert job_store.get_job(created.job_id).status == JobStatus.RUNNING
+
+
+def test_fail_claimed_job_retries_once_on_transient_store_error(registered_jobs):
+    # The managed session surfaces a transient DB error as MlflowException(TEMPORARILY_UNAVAILABLE)
+    # — the type the real store actually raises — and it must be retried so a RUNNING row is not
+    # stranded.
+    store = mock.MagicMock()
+    store.fail_job.side_effect = [
+        MlflowException("db unavailable", error_code=TEMPORARILY_UNAVAILABLE),
+        None,
+    ]
+    scheduler = runner._JobScheduler(store, _BlockingExecutor(), lease_duration=60.0)
+
+    scheduler._fail_claimed_job("job-1", None, "boom")
+
+    assert store.fail_job.call_count == 2
+    store.fail_job.assert_called_with("job-1", "boom")
+
+
+def test_fail_claimed_job_does_not_retry_invalid_transition(registered_jobs):
+    # An invalid transition (the row is no longer RUNNING) surfaces as an INVALID_PARAMETER_VALUE
+    # MlflowException; it can't succeed on retry, so it is logged once and not retried.
+    store = mock.MagicMock()
+    store.fail_job.side_effect = MlflowException.invalid_parameter_value("invalid transition")
+    scheduler = runner._JobScheduler(store, _BlockingExecutor(), lease_duration=60.0)
+
+    scheduler._fail_claimed_job("job-1", None, "boom")
+
+    store.fail_job.assert_called_once_with("job-1", "boom")
+
+
+def test_run_executor_loop_recovers_then_exits_on_stop(registered_jobs, job_store, monkeypatch):
+    # run_executor_loop assumes an already-started executor, recovers orphaned rows before the
+    # claim loop, and exits cleanly when stop_event is set. Pre-set the stop_event so the loop
+    # body does not run and the test stays deterministic.
+    orphan = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(orphan.job_id, lease_duration=60.0)
+    monkeypatch.setenv(
+        "_MLFLOW_SERVER_UP_TIME", str(job_store.get_job(orphan.job_id).creation_time)
+    )
+
+    ex = _BlockingExecutor()
+    stop = threading.Event()
+    stop.set()
+    with mock.patch("mlflow.server.handlers._get_job_store", return_value=job_store):
+        runner.run_executor_loop(ex, stop_event=stop, poll_interval=0.01)
+
+    # Recovery ran before the loop returned.
+    assert job_store.get_job(orphan.job_id).status == JobStatus.PENDING
+
+
+def test_scheduler_marks_in_flight_jobs_for_recovery_on_shutdown(registered_jobs, job_store):
+    # Workers are daemon threads; any still in flight at shutdown must be flagged so the next
+    # launch's recovery can re-queue them instead of leaving the row stuck RUNNING.
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    ex = _BlockingExecutor()
+    scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
+    assert scheduler.tick() == 1
+    _wait_submitted(scheduler, created.job_id)
+
+    scheduler.mark_orphans_for_recovery()
+
+    assert job_store.get_job(created.job_id).status == JobStatus.NEEDS_RECOVERY
+    ex.release()
+    scheduler.join(timeout=30.0)
 
 
 @pytest.mark.parametrize(
