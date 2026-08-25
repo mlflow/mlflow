@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787639463956,
+  "lastUpdate": 1787645935674,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -24191,6 +24191,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.624215833326692,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rexminnis@gmail.com",
+            "name": "Rexwell Minnis",
+            "username": "rexminnis"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "998bbc12b04b4031d70dd9fea2a4029faeb8c8c1",
+          "message": "Fix scorer experiment_id VARCHAR binds on PostgreSQL + psycopg v3 (#25315)\n\nSigned-off-by: Rexwell Minnis <rexminnis@gmail.com>",
+          "timestamp": "2026-08-25T17:15:58+09:00",
+          "tree_id": "f08ddcc20c8fac4449242c1c09487c437558eaed",
+          "url": "https://github.com/mlflow/mlflow/commit/998bbc12b04b4031d70dd9fea2a4029faeb8c8c1"
+        },
+        "date": 1787645932880,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 37.5358575000007,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.901638016393265,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.099237968750181,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.868394919998536,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.069121992803018,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 21.33725540000455,
             "unit": "ms"
           }
         ]
