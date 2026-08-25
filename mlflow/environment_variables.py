@@ -1538,9 +1538,9 @@ MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", str, "local"
 )
 
-#: Reserved for routing custom scorer jobs to a non-default backend. Validated
-#: at startup but not yet consulted by job submission until the executor router
-#: lands.
+#: Routes custom scorer jobs to a non-default executor backend. When set, job
+#: submission selects this backend for custom-scorer jobs instead of the default;
+#: when unset, custom-scorer jobs use the default backend. Validated at startup.
 MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None
 )

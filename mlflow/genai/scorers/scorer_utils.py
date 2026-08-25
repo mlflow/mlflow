@@ -349,7 +349,7 @@ def _serialized_scorer_has_call_source(serialized_scorer: str) -> bool:
     return isinstance(data, dict) and data.get("call_source") is not None
 
 
-def _iter_serialized_scorers(job_name: str, params: dict) -> list[str]:
+def _iter_serialized_scorers(job_name: str, params: dict[str, Any]) -> list[str]:
     if job_name in _SCORER_JOB_NAMES_WITH_INLINE_SCORER:
         s = params.get("serialized_scorer")
         return [s] if isinstance(s, str) else []
@@ -362,7 +362,7 @@ def _iter_serialized_scorers(job_name: str, params: dict) -> list[str]:
     return []
 
 
-def params_contain_custom_scorer_code(job_name: str, params: dict) -> bool:
+def params_contain_custom_scorer_code(job_name: str, params: dict[str, Any]) -> bool:
     """Return True if a job's params carry custom (@scorer decorator) scorer code.
 
     Custom scorers carry a non-null ``call_source`` that is executed via ``exec()``
@@ -377,6 +377,8 @@ def params_contain_custom_scorer_code(job_name: str, params: dict) -> bool:
 # Matches a leading "<scheme>:/" as used by model URIs (e.g. "openai:/gpt-4",
 # "endpoints:/my-endpoint").
 _MODEL_URI_SCHEME_RE = re.compile(r"^([a-zA-Z0-9_-]+):/")
+# The sole Gateway-backed scheme. Any other scheme is a direct-provider URI and is
+# treated as remote-incompatible.
 _GATEWAY_URI_SCHEME = "endpoints"
 
 
@@ -394,7 +396,7 @@ def _iter_model_uris(obj) -> list[str]:
     return found
 
 
-def scorer_params_use_direct_provider_model(job_name: str, params: dict) -> bool:
+def scorer_params_use_direct_provider_model(job_name: str, params: dict[str, Any]) -> bool:
     """Return True if any scorer in the job references a non-Gateway (direct-provider) model.
 
     A remote executor requires Gateway-backed ``endpoints:/`` model URIs. Any model URI
