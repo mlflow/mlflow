@@ -154,6 +154,7 @@ def submit_job(
     params: dict[str, Any],
     timeout: float | None = None,
     extra_envs: dict[str, str] | None = None,
+    creator: str | None = None,
 ) -> JobEntity:
     """
     Submit a job to the job queue. The job is executed at most once.
@@ -179,6 +180,8 @@ def submit_job(
         params: The params to be passed to the job function.
         timeout: (optional) The job execution timeout, default None (no timeout)
         extra_envs: (optional) Additional environment variables to set in the job subprocess.
+        creator: (optional) Username to record as the job creator. When omitted, falls back to
+            the authenticated user stamped on ``flask.g`` by the basic-auth plugin.
 
     Returns:
         The job entity. You can call `get_job` API by the job id to get
@@ -232,9 +235,10 @@ def submit_job(
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(
-        fn_meta.name, serialized_params, timeout, creator=_current_authenticated_user()
-    )
+    # FastAPI callers pass creator explicitly (no flask.g there); Flask callers fall back to g.
+    if creator is None:
+        creator = _current_authenticated_user()
+    job = job_store.create_job(fn_meta.name, serialized_params, timeout, creator=creator)
     # Only propagate workspace to subprocess when workspaces are enabled
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
 

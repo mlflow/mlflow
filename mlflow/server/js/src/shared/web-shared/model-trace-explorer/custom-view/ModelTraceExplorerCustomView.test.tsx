@@ -521,6 +521,58 @@ describe('ModelTraceExplorerCustomView', () => {
     expect(screen.queryByRole('button', { name: /Build with Assistant/ })).not.toBeInTheDocument();
   });
 
+  it('submits the typed prompt to the assistant when pressing Enter', async () => {
+    const openAssistant = jest.fn();
+    openAssistant.mockImplementation(() => setBridge({ openAssistant, isStreaming: true }));
+    setBridge({ openAssistant });
+    renderCustomView();
+
+    await userEvent.type(screen.getByRole('textbox'), 'Show me the failed spans');
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+
+    expect(openAssistant).toHaveBeenCalledTimes(1);
+    expect(openAssistant).toHaveBeenCalledWith('Show me the failed spans', { newSession: true });
+    expect(screen.getByText('Building this view…')).toBeInTheDocument();
+  });
+
+  it('does not submit on Shift+Enter so the user can insert a newline', async () => {
+    const openAssistant = jest.fn();
+    setBridge({ openAssistant });
+    renderCustomView();
+
+    await userEvent.type(screen.getByRole('textbox'), 'Show me the failed spans');
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', shiftKey: true });
+
+    expect(openAssistant).not.toHaveBeenCalled();
+    // The prompt box stays visible instead of switching to the building skeleton.
+    expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeInTheDocument();
+  });
+
+  it('does not submit on Enter when the prompt is empty', () => {
+    const openAssistant = jest.fn();
+    setBridge({ openAssistant });
+    renderCustomView();
+
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+
+    expect(openAssistant).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeInTheDocument();
+  });
+
+  it('does not submit on Enter while an IME composition is being confirmed', async () => {
+    const openAssistant = jest.fn();
+    setBridge({ openAssistant });
+    renderCustomView();
+
+    await userEvent.type(screen.getByRole('textbox'), 'Show me the failed spans');
+    // isComposing marks the Enter that confirms an in-progress IME composition
+    // (e.g. CJK input), which must not submit the prompt.
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', isComposing: true });
+
+    expect(openAssistant).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /Build with Assistant/ })).toBeInTheDocument();
+  });
+
   it('keeps the building skeleton after streaming ends until a view is created', () => {
     const openAssistant = jest.fn();
     openAssistant.mockImplementation(() => setBridge({ openAssistant, isStreaming: true }));

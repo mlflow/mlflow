@@ -763,13 +763,18 @@ class FallbackProvider(BaseProvider):
             detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
         )
 
-    async def _execute_stream_with_fallback(self, method_name: str, *args, **kwargs):
+    async def _execute_stream_with_fallback(
+        self, method_name: str, *args, await_result: bool = False, **kwargs
+    ):
         """
         Execute a streaming method on providers with fallback logic.
 
         Args:
             method_name: Name of the streaming method to call on each provider
             *args: Positional arguments to pass to the method
+            await_result: When True, the method is a regular async function returning
+                an AsyncIterable rather than an async generator; the result is awaited
+                first and then iterated.
             **kwargs: Keyword arguments to pass to the method
 
         Yields:
@@ -779,19 +784,29 @@ class FallbackProvider(BaseProvider):
             AIGatewayException: If all fallback attempts fail, with status code
                 propagated from the last exception if it was an AIGatewayException
                 or HTTPException
+
+        Note:
+            Fallback is only attempted when an error occurs before any chunk has been
+            yielded. If an error surfaces mid-stream (after chunks have already been
+            sent to the caller), it is re-raised immediately because the caller has
+            already received partial data and a retry would produce a corrupt stream.
         """
         from fastapi import HTTPException
 
         last_error = None
 
         for attempt, provider in enumerate(self._providers[: self._max_attempts], 1):
+            yielded = False
             try:
                 method = getattr(provider, method_name)
-                async for chunk in method(*args, **kwargs):
+                stream = await method(*args, **kwargs) if await_result else method(*args, **kwargs)
+                async for chunk in stream:
+                    yielded = True
                     yield chunk
-                # Stream completed successfully
                 return
             except Exception as e:
+                if yielded:
+                    raise
                 last_error = e
                 if attempt < self._max_attempts:
                     continue
@@ -834,6 +849,10 @@ class FallbackProvider(BaseProvider):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
+        if payload.get("stream"):
+            return self._execute_stream_with_fallback(
+                "passthrough", action, payload, headers, await_result=True
+            )
         return await self._execute_with_fallback("passthrough", action, payload, headers)
 
     async def proxy(

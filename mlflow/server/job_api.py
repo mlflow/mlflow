@@ -5,7 +5,7 @@ Internal job APIs for UI invocation
 import json
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from mlflow.entities._job import Job as JobEntity
@@ -68,15 +68,18 @@ class SubmitJobPayload(BaseModel):
 
 
 @job_api_router.post("/", response_model=Job)
-def submit_job(payload: SubmitJobPayload) -> Job:
+def submit_job(payload: SubmitJobPayload, request: Request) -> Job:
     from mlflow.server.jobs import submit_job
     from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
 
     job_name = payload.job_name
+    # Record the caller (stamped on request.state by the middleware; flask.g isn't populated
+    # there) as the job creator, so ownership checks on get/cancel recognize the submitter.
+    creator = getattr(request.state, "username", None)
     try:
         function_fullname = get_job_fn_fullname(job_name)
         function = _load_function(function_fullname)
-        job = submit_job(function, payload.params, payload.timeout)
+        job = submit_job(function, payload.params, payload.timeout, creator=creator)
         return Job.from_job_entity(job)
     except MlflowException as e:
         raise HTTPException(
