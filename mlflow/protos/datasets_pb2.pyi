@@ -7,7 +7,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Optional as _Op
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Dataset(_message.Message):
-    __slots__ = ("dataset_id", "name", "tags", "schema", "profile", "digest", "created_time", "last_update_time", "created_by", "last_updated_by", "experiment_ids")
+    __slots__ = ("dataset_id", "name", "tags", "schema", "profile", "digest", "created_time", "last_update_time", "created_by", "last_updated_by", "experiment_ids", "version")
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
@@ -19,6 +19,7 @@ class Dataset(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
     dataset_id: str
     name: str
     tags: str
@@ -30,7 +31,20 @@ class Dataset(_message.Message):
     created_by: str
     last_updated_by: str
     experiment_ids: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, dataset_id: _Optional[str] = ..., name: _Optional[str] = ..., tags: _Optional[str] = ..., schema: _Optional[str] = ..., profile: _Optional[str] = ..., digest: _Optional[str] = ..., created_time: _Optional[int] = ..., last_update_time: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+    version: int
+    def __init__(self, dataset_id: _Optional[str] = ..., name: _Optional[str] = ..., tags: _Optional[str] = ..., schema: _Optional[str] = ..., profile: _Optional[str] = ..., digest: _Optional[str] = ..., created_time: _Optional[int] = ..., last_update_time: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ..., version: _Optional[int] = ...) -> None: ...
+
+class DatasetVersion(_message.Message):
+    __slots__ = ("version", "created_time", "created_by", "operation")
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    CREATED_TIME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_FIELD_NUMBER: _ClassVar[int]
+    version: int
+    created_time: int
+    created_by: str
+    operation: str
+    def __init__(self, version: _Optional[int] = ..., created_time: _Optional[int] = ..., created_by: _Optional[str] = ..., operation: _Optional[str] = ...) -> None: ...
 
 class DatasetRecord(_message.Message):
     __slots__ = ("dataset_record_id", "dataset_id", "inputs", "expectations", "tags", "source", "source_id", "source_type", "created_time", "last_update_time", "created_by", "last_updated_by", "outputs")

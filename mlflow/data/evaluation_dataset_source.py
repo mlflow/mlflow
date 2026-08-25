@@ -8,12 +8,14 @@ class EvaluationDatasetSource(DatasetSource):
     Represents the source of an evaluation dataset stored in MLflow's tracking store.
     """
 
-    def __init__(self, dataset_id: str):
+    def __init__(self, dataset_id: str, version: int | None = None):
         """
         Args:
             dataset_id: The ID of the evaluation dataset.
+            version: Immutable dataset revision. If omitted, resolves the current revision.
         """
         self._dataset_id = dataset_id
+        self._version = version
 
     @staticmethod
     def _get_source_type() -> str:
@@ -29,7 +31,7 @@ class EvaluationDatasetSource(DatasetSource):
         from mlflow.tracking._tracking_service.utils import _get_store
 
         store = _get_store()
-        return store.get_evaluation_dataset(self._dataset_id)
+        return store.get_dataset(self._dataset_id, version=self._version)
 
     @staticmethod
     def _can_resolve(raw_source: Any) -> bool:
@@ -51,12 +53,14 @@ class EvaluationDatasetSource(DatasetSource):
         return cls(dataset_id=raw_source)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "dataset_id": self._dataset_id,
-        }
+        source = {"dataset_id": self._dataset_id}
+        if self._version is not None:
+            source["version"] = self._version
+        return source
 
     @classmethod
     def from_dict(cls, source_dict: dict[Any, Any]) -> "EvaluationDatasetSource":
         return cls(
             dataset_id=source_dict["dataset_id"],
+            version=source_dict.get("version"),
         )

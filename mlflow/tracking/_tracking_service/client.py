@@ -976,7 +976,7 @@ class TrackingServiceClient:
             experiment_ids=experiment_ids,
         )
 
-    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
+    def get_dataset(self, dataset_id: str, version: int | None = None) -> "EvaluationDataset":
         """
         Get a dataset by ID.
 
@@ -986,7 +986,11 @@ class TrackingServiceClient:
         Returns:
             The EvaluationDataset object.
         """
-        return self.store.get_dataset(dataset_id)
+        return self.store.get_dataset(dataset_id, version=version)
+
+    def list_dataset_versions(self, dataset_id: str) -> list[dict[str, Any]]:
+        """List immutable revisions for a dataset."""
+        return self.store.list_dataset_versions(dataset_id)
 
     def delete_dataset(self, dataset_id: str) -> None:
         """

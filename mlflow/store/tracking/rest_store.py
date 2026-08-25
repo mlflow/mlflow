@@ -119,6 +119,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfoV3,
     LinkPromptsToTrace,
     LinkTracesToRun,
+    ListDatasetVersions,
     ListScorers,
     ListScorerVersions,
     LogBatch,
@@ -2107,23 +2108,38 @@ class RestStore(
         return EvaluationDataset.from_proto(response_proto.dataset)
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
-    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
-        """
-        Get an evaluation dataset by ID.
-
-        Args:
-            dataset_id: The ID of the dataset to retrieve.
-
-        Returns:
-            The EvaluationDataset object.
-        """
+    def get_dataset(self, dataset_id: str, version: int | None = None) -> "EvaluationDataset":
+        """Get an evaluation dataset by ID, optionally at an immutable revision."""
         from mlflow.entities import EvaluationDataset
 
-        # GetDataset uses path parameter, not request body
+        req = GetDataset(dataset_id=dataset_id)
+        if version is not None:
+            req.version = version
+        req_body = None if version is None else message_to_json(req)
         response_proto = self._call_endpoint(
-            GetDataset, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}"
+            GetDataset,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}",
         )
         return EvaluationDataset.from_proto(response_proto.dataset)
+
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def list_dataset_versions(self, dataset_id: str) -> list[dict[str, Any]]:
+        """List immutable revisions for an evaluation dataset."""
+        response_proto = self._call_endpoint(
+            ListDatasetVersions,
+            None,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/versions",
+        )
+        return [
+            {
+                "version": version.version,
+                "created_at": version.created_time if version.HasField("created_time") else None,
+                "created_by": version.created_by if version.HasField("created_by") else None,
+                "operation": version.operation if version.HasField("operation") else None,
+            }
+            for version in response_proto.versions
+        ]
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
     def delete_dataset(self, dataset_id: str) -> None:
@@ -2275,7 +2291,11 @@ class RestStore(
         return list(response_proto.experiment_ids)
 
     def _load_dataset_records(
-        self, dataset_id: str, max_results: int | None = None, page_token: str | None = None
+        self,
+        dataset_id: str,
+        max_results: int | None = None,
+        page_token: str | None = None,
+        version: int | None = None,
     ) -> tuple["list[DatasetRecord]", str | None]:
         """
         Load dataset records with pagination support.
@@ -2298,6 +2318,8 @@ class RestStore(
 
             while True:
                 req = GetDatasetRecords(max_results=1000)
+                if version is not None:
+                    req.version = version
                 if current_page_token:
                     req.page_token = current_page_token
 
@@ -2323,6 +2345,8 @@ class RestStore(
         else:
             # Paginated request - fetch only requested page
             req = GetDatasetRecords(max_results=max_results)
+            if version is not None:
+                req.version = version
             if page_token:
                 req.page_token = page_token
 

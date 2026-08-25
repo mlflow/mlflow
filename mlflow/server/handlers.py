@@ -252,6 +252,7 @@ from mlflow.protos.service_pb2 import (
     GetWorkspace,
     LinkPromptsToTrace,
     LinkTracesToRun,
+    ListDatasetVersions,
     ListArtifacts,
     ListEndpointGuardrailConfigs,
     ListGatewayBudgetPolicies,
@@ -3547,6 +3548,7 @@ def _list_webhooks():
         schema={
             "max_results": [_assert_intlike],
             "page_token": [_assert_string],
+            "version": [_assert_intlike],
         },
     )
     webhooks_page = _get_model_registry_store().list_webhooks(
@@ -7413,10 +7415,35 @@ def _create_dataset_handler():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_dataset_handler(dataset_id):
-    dataset = _get_tracking_store().get_dataset(dataset_id)
+    request_message = _get_request_message(
+        GetDataset(),
+        schema={"version": [_assert_intlike]},
+    )
+    version = request_message.version if request_message.HasField("version") else None
+    tracking_store = _get_tracking_store()
+    dataset = (
+        tracking_store.get_dataset(dataset_id)
+        if version is None
+        else tracking_store.get_dataset(dataset_id, version=version)
+    )
 
     response_message = GetDataset.Response()
     response_message.dataset.CopyFrom(dataset.to_proto())
+    return _wrap_response(response_message)
+
+
+def _list_dataset_versions_handler(dataset_id):
+    versions = _get_tracking_store().list_dataset_versions(dataset_id)
+    response_message = ListDatasetVersions.Response()
+    for value in versions:
+        version = response_message.versions.add()
+        version.version = value["version"]
+        if value.get("created_at") is not None:
+            version.created_time = value["created_at"]
+        if value.get("created_by") is not None:
+            version.created_by = value["created_by"]
+        if value.get("operation") is not None:
+            version.operation = value["operation"]
     return _wrap_response(response_message)
 
 
@@ -7581,11 +7608,21 @@ def _get_dataset_records_handler(dataset_id):
 
     max_results = request_message.max_results or 1000
     page_token = request_message.page_token or None
+    version = request_message.version if request_message.HasField("version") else None
 
     # Use the pagination-aware method
-    records, next_page_token = _get_tracking_store()._load_dataset_records(
-        dataset_id, max_results=max_results, page_token=page_token
-    )
+    tracking_store = _get_tracking_store()
+    if version is None:
+        records, next_page_token = tracking_store._load_dataset_records(
+            dataset_id, max_results=max_results, page_token=page_token
+        )
+    else:
+        records, next_page_token = tracking_store._load_dataset_records(
+            dataset_id,
+            max_results=max_results,
+            page_token=page_token,
+            version=version,
+        )
 
     response_message = GetDatasetRecords.Response()
 
@@ -8067,6 +8104,7 @@ HANDLERS = {
     # Evaluation Dataset APIs
     CreateDataset: _create_dataset_handler,
     GetDataset: _get_dataset_handler,
+    ListDatasetVersions: _list_dataset_versions_handler,
     DeleteDataset: _delete_dataset_handler,
     SearchEvaluationDatasets: _search_evaluation_datasets_handler,
     SetDatasetTags: _set_dataset_tags_handler,

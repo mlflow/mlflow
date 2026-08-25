@@ -135,6 +135,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlEvaluationDataset,
     SqlEvaluationDatasetRecord,
     SqlEvaluationDatasetTag,
+    SqlEvaluationDatasetVersion,
+    SqlEvaluationDatasetVersionRecord,
     SqlExperiment,
     SqlExperimentTag,
     SqlGatewayEndpoint,
@@ -7209,6 +7211,49 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         digest_input = f"{name}:{last_update_time}".encode()
         return hashlib.sha256(digest_input).hexdigest()[:8]
 
+    def _add_dataset_version_metadata(
+        self, session, dataset: SqlEvaluationDataset, operation: str
+    ) -> None:
+        session.add(
+            SqlEvaluationDatasetVersion(
+                dataset_id=dataset.dataset_id,
+                version=dataset.version,
+                schema=dataset.schema,
+                profile=dataset.profile,
+                digest=dataset.digest,
+                created_time=dataset.last_update_time,
+                created_by=dataset.last_updated_by,
+                operation=operation,
+            )
+        )
+
+    def _snapshot_current_dataset_records(self, session, dataset: SqlEvaluationDataset) -> None:
+        records = (
+            session.query(SqlEvaluationDatasetRecord)
+            .filter(SqlEvaluationDatasetRecord.dataset_id == dataset.dataset_id)
+            .all()
+        )
+        session.add_all(
+            [
+                SqlEvaluationDatasetVersionRecord.from_current_record(record, dataset.version)
+                for record in records
+            ]
+        )
+
+    def _get_locked_dataset(self, session, dataset_id: str) -> SqlEvaluationDataset:
+        dataset = (
+            self._dataset_query(session)
+            .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+            .with_for_update()
+            .one_or_none()
+        )
+        if dataset is None:
+            raise MlflowException(
+                f"Evaluation dataset with id '{dataset_id}' not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        return dataset
+
     def create_dataset(
         self,
         name: str,
@@ -7247,12 +7292,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 profile=None,  # Profile is computed when data is added
                 created_by=user_id,
                 last_updated_by=user_id,
+                version=1,
             )
 
             sql_dataset = self._with_workspace_field(
                 SqlEvaluationDataset.from_mlflow_entity(created_dataset)
             )
             session.add(sql_dataset)
+            session.flush()
+            self._add_dataset_version_metadata(session, sql_dataset, operation="create")
 
             if created_dataset.tags:
                 for key, value in created_dataset.tags.items():
@@ -7287,31 +7335,81 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             return created_dataset
 
-    def get_dataset(self, dataset_id: str) -> EvaluationDataset:
-        """
-        Get an evaluation dataset by ID.
+    def get_dataset(self, dataset_id: str, version: int | None = None) -> EvaluationDataset:
+        """Get an evaluation dataset by ID, optionally at an immutable revision."""
+        if version is not None and version < 1:
+            raise MlflowException.invalid_parameter_value("Dataset version must be a positive integer.")
 
-        Args:
-            dataset_id: The ID of the dataset to retrieve.
-
-        Returns:
-            The EvaluationDataset object (without records or experiment_ids - lazy loading).
-        """
         with self.ManagedSessionMaker() as session:
             sql_dataset = (
-                self
-                ._dataset_query(session)
+                self._dataset_query(session)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
                 .one_or_none()
             )
-
             if sql_dataset is None:
                 raise MlflowException(
                     f"Evaluation dataset with id '{dataset_id}' not found",
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-            return sql_dataset.to_mlflow_entity()
+            if version is None or version == sql_dataset.version:
+                dataset = sql_dataset.to_mlflow_entity()
+                dataset._tracking_store = self
+                return dataset
+
+            if version > sql_dataset.version:
+                raise MlflowException(
+                    f"Evaluation dataset '{dataset_id}' has no version {version}",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            version_row = (
+                session.query(SqlEvaluationDatasetVersion)
+                .filter_by(dataset_id=dataset_id, version=version)
+                .one_or_none()
+            )
+            if version_row is None:
+                raise MlflowException(
+                    f"Evaluation dataset '{dataset_id}' has no version {version}",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            current = sql_dataset.to_mlflow_entity()
+            dataset = EvaluationDataset(
+                dataset_id=dataset_id,
+                name=current.name,
+                digest=version_row.digest,
+                created_time=current.created_time,
+                last_update_time=version_row.created_time,
+                tags=current.tags,
+                schema=version_row.schema,
+                profile=version_row.profile,
+                created_by=current.created_by,
+                last_updated_by=version_row.created_by,
+                version=version,
+            )
+            dataset._tracking_store = self
+            return dataset
+
+    def list_dataset_versions(self, dataset_id: str) -> list[dict[str, Any]]:
+        """List immutable revisions for an evaluation dataset."""
+        with self.ManagedSessionMaker() as session:
+            self._validate_dataset_accessible(session, dataset_id)
+            rows = (
+                session.query(SqlEvaluationDatasetVersion)
+                .filter(SqlEvaluationDatasetVersion.dataset_id == dataset_id)
+                .order_by(SqlEvaluationDatasetVersion.version.desc())
+                .all()
+            )
+            return [
+                {
+                    "version": row.version,
+                    "created_at": row.created_time,
+                    "created_by": row.created_by,
+                    "operation": row.operation,
+                }
+                for row in rows
+            ]
 
     def delete_dataset(self, dataset_id: str) -> None:
         """
@@ -7511,6 +7609,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         dataset_id: str,
         max_results: int | None = None,
         page_token: str | None = None,
+        version: int | None = None,
     ) -> tuple[list[DatasetRecord], str | None]:
         """
         Load dataset records with cursor-based pagination support.
@@ -7538,17 +7637,34 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             effective_max_results = max_results or LOAD_DATASET_RECORDS_MAX_RESULTS
 
         with self.ManagedSessionMaker() as session:
-            self._validate_dataset_accessible(session, dataset_id)
-
-            query = (
-                session
-                .query(SqlEvaluationDatasetRecord)
-                .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
-                .order_by(
-                    SqlEvaluationDatasetRecord.created_time,
-                    SqlEvaluationDatasetRecord.dataset_record_id,
-                )
+            dataset = (
+                self._dataset_query(session)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .one_or_none()
             )
+            if dataset is None:
+                raise MlflowException(
+                    f"Evaluation dataset with id '{dataset_id}' not found", RESOURCE_DOES_NOT_EXIST
+                )
+            resolved_version = dataset.version if version is None else version
+            if resolved_version < 1 or resolved_version > dataset.version:
+                raise MlflowException(
+                    f"Evaluation dataset '{dataset_id}' has no version {resolved_version}",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            record_model = (
+                SqlEvaluationDatasetRecord
+                if resolved_version == dataset.version
+                else SqlEvaluationDatasetVersionRecord
+            )
+            query = (
+                session.query(record_model)
+                .filter(record_model.dataset_id == dataset_id)
+                .order_by(record_model.created_time, record_model.dataset_record_id)
+            )
+            if record_model is SqlEvaluationDatasetVersionRecord:
+                query = query.filter(record_model.version == resolved_version)
 
             if page_token:
                 try:
@@ -7557,10 +7673,10 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     last_created_time = int(last_created_time)
 
                     query = query.filter(
-                        (SqlEvaluationDatasetRecord.created_time > last_created_time)
+                        (record_model.created_time > last_created_time)
                         | (
-                            (SqlEvaluationDatasetRecord.created_time == last_created_time)
-                            & (SqlEvaluationDatasetRecord.dataset_record_id > last_record_id)
+                            (record_model.created_time == last_created_time)
+                            & (record_model.dataset_record_id > last_record_id)
                         )
                     )
                 except (ValueError, AttributeError):
@@ -7630,8 +7746,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             Dictionary with counts of inserted and updated records.
         """
 
+        if not records:
+            return {"inserted": 0, "updated": 0}
+
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._validate_dataset_accessible(session, dataset_id)
+            dataset = self._get_locked_dataset(session, dataset_id)
+            self._snapshot_current_dataset_records(session, dataset)
 
             inserted_count = 0
             updated_count = 0
@@ -7689,87 +7809,66 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     session.add(sql_record)
                     inserted_count += 1
 
-            dataset_info = (
-                self
-                ._dataset_query(session)
-                .with_entities(SqlEvaluationDataset.schema, SqlEvaluationDataset.name)
-                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .first()
-            )
-
-            if dataset_info:
-                existing_schema = dataset_info[0]
-                dataset_name = dataset_info[1]
-            else:
-                existing_schema = None
-                dataset_name = None
-
-            updated_schema = self._update_dataset_schema(existing_schema, records)
-
+            updated_schema = self._update_dataset_schema(dataset.schema, records)
             updated_profile = self._compute_dataset_profile(session, dataset_id)
+            current_time = max(current_time, (dataset.last_update_time or 0) + 1)
 
-            new_digest = self._compute_dataset_digest(dataset_name, current_time)
-
-            update_fields = {
-                "last_update_time": current_time,
-                "last_updated_by": updated_by,
-                "digest": new_digest,
-            }
-
+            dataset.last_update_time = current_time
+            dataset.last_updated_by = updated_by or dataset.last_updated_by
+            dataset.digest = self._compute_dataset_digest(dataset.name, current_time)
             if updated_schema:
-                update_fields["schema"] = json.dumps(updated_schema)
-
+                dataset.schema = json.dumps(updated_schema)
             if updated_profile:
-                update_fields["profile"] = json.dumps(updated_profile)
-
-            self._dataset_query(session).filter(
-                SqlEvaluationDataset.dataset_id == dataset_id
-            ).update(update_fields)
+                dataset.profile = json.dumps(updated_profile)
+            dataset.version += 1
+            session.flush()
+            self._add_dataset_version_metadata(session, dataset, operation="upsert")
 
             return {"inserted": inserted_count, "updated": updated_count}
 
     def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:
-        """
-        Delete records from an evaluation dataset.
+        """Delete records and advance the immutable dataset revision when anything changes."""
+        if not dataset_record_ids:
+            return 0
 
-        Args:
-            dataset_id: The ID of the dataset.
-            dataset_record_ids: List of record IDs to delete.
-
-        Returns:
-            The number of records deleted.
-        """
         with self.ManagedSessionMaker(read_only=False) as session:
-            self._validate_dataset_accessible(session, dataset_id)
-
-            deleted_count = (
-                session
-                .query(SqlEvaluationDatasetRecord)
-                .filter(
-                    SqlEvaluationDatasetRecord.dataset_id == dataset_id,
-                    SqlEvaluationDatasetRecord.dataset_record_id.in_(dataset_record_ids),
+            dataset = self._get_locked_dataset(session, dataset_id)
+            matching_ids = [
+                row[0]
+                for row in (
+                    session.query(SqlEvaluationDatasetRecord.dataset_record_id)
+                    .filter(
+                        SqlEvaluationDatasetRecord.dataset_id == dataset_id,
+                        SqlEvaluationDatasetRecord.dataset_record_id.in_(dataset_record_ids),
+                    )
+                    .all()
                 )
-                .delete(synchronize_session=False)
-            )
-
-            if deleted_count == 0:
+            ]
+            if not matching_ids:
                 _logger.warning(
                     f"No records found to delete for dataset {dataset_id}. "
                     "Records may have already been deleted or never existed."
                 )
                 return 0
 
-            dataset = (
-                self
-                ._get_query(session, SqlEvaluationDataset)
-                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
-                .first()
+            self._snapshot_current_dataset_records(session, dataset)
+            deleted_count = (
+                session.query(SqlEvaluationDatasetRecord)
+                .filter(
+                    SqlEvaluationDatasetRecord.dataset_id == dataset_id,
+                    SqlEvaluationDatasetRecord.dataset_record_id.in_(matching_ids),
+                )
+                .delete(synchronize_session=False)
             )
-            if dataset:
-                profile = json.loads(dataset.profile) if dataset.profile else {}
-                new_count = max(0, profile.get("num_records", 0) - deleted_count)
-                dataset.profile = json.dumps({"num_records": new_count} if new_count > 0 else None)
 
+            current_time = max(get_current_time_millis(), (dataset.last_update_time or 0) + 1)
+            updated_profile = self._compute_dataset_profile(session, dataset_id)
+            dataset.profile = json.dumps(updated_profile) if updated_profile else None
+            dataset.last_update_time = current_time
+            dataset.digest = self._compute_dataset_digest(dataset.name, current_time)
+            dataset.version += 1
+            session.flush()
+            self._add_dataset_version_metadata(session, dataset, operation="delete")
             return deleted_count
 
     def get_dataset_experiment_ids(self, dataset_id: str) -> list[str]:

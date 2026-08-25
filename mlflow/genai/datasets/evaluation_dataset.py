@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from mlflow.data import Dataset
@@ -21,6 +21,8 @@ def _parse_datetime(value: Any) -> datetime | None:
         return None
     if isinstance(value, datetime):
         return value
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
     try:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
@@ -250,9 +252,16 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def list_versions(self) -> list[EvaluationDatasetVersion]:
         """List immutable versions for this dataset."""
         if self._mlflow_dataset:
-            raise NotImplementedError(
-                "Dataset versions are only supported for Databricks datasets."
-            )
+            from mlflow.tracking.client import MlflowClient
+
+            return [
+                version
+                for version in (
+                    _to_evaluation_dataset_version(value)
+                    for value in MlflowClient().list_dataset_versions(self.dataset_id)
+                )
+                if version is not None
+            ]
 
         from mlflow.genai.datasets import _databricks_profile_env
 

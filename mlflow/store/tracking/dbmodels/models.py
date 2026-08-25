@@ -1665,6 +1665,9 @@ class SqlEvaluationDataset(Base):
     Last updater user ID: `String` (limit 255 characters).
     """
 
+    version = Column(Integer, nullable=False, default=1, server_default=sa.text("1"))
+    """Current immutable dataset revision."""
+
     records = relationship(
         "SqlEvaluationDatasetRecord", back_populates="dataset", cascade="all, delete-orphan"
     )
@@ -1713,6 +1716,7 @@ class SqlEvaluationDataset(Base):
             last_update_time=self.last_update_time,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            version=self.version,
             # experiment_ids will be loaded lazily when accessed
         )
 
@@ -1744,6 +1748,110 @@ class SqlEvaluationDataset(Base):
             last_update_time=dataset.last_update_time or get_current_time_millis(),
             created_by=dataset.created_by,
             last_updated_by=dataset.last_updated_by,
+            version=dataset.version or 1,
+        )
+
+
+class SqlEvaluationDatasetVersion(Base):
+    """Immutable metadata for one evaluation dataset revision."""
+
+    __tablename__ = "evaluation_dataset_versions"
+
+    dataset_id = Column(String(36), nullable=False)
+    version = Column(Integer, nullable=False)
+    schema = Column(Text, nullable=True)
+    profile = Column(Text, nullable=True)
+    digest = Column(String(64), nullable=True)
+    created_time = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    created_by = Column(String(255), nullable=True)
+    operation = Column(String(32), nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_id", "version", name="evaluation_dataset_versions_pk"),
+        ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_versions_dataset_id",
+            ondelete="CASCADE",
+        ),
+        Index("index_evaluation_dataset_versions_dataset_id", "dataset_id"),
+    )
+
+
+class SqlEvaluationDatasetVersionRecord(Base):
+    """Record snapshot belonging to an immutable evaluation dataset revision."""
+
+    __tablename__ = "evaluation_dataset_version_records"
+
+    dataset_id = Column(String(36), nullable=False)
+    version = Column(Integer, nullable=False)
+    dataset_record_id = Column(String(36), nullable=False)
+    inputs = Column(MutableJSON, nullable=False)
+    outputs = Column(MutableJSON, nullable=True)
+    expectations = Column(MutableJSON, nullable=True)
+    tags = Column(MutableJSON, nullable=True)
+    source = Column(MutableJSON, nullable=True)
+    source_id = Column(String(36), nullable=True)
+    source_type = Column(String(255), nullable=True)
+    created_time = Column(BigInteger, nullable=True)
+    last_update_time = Column(BigInteger, nullable=True)
+    created_by = Column(String(255), nullable=True)
+    last_updated_by = Column(String(255), nullable=True)
+    input_hash = Column(String(64), nullable=False)
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "dataset_id", "version", "dataset_record_id",
+            name="evaluation_dataset_version_records_pk",
+        ),
+        ForeignKeyConstraint(
+            ["dataset_id", "version"],
+            ["evaluation_dataset_versions.dataset_id", "evaluation_dataset_versions.version"],
+            name="fk_evaluation_dataset_version_records_version",
+            ondelete="CASCADE",
+        ),
+        Index(
+            "index_evaluation_dataset_version_records_dataset_version",
+            "dataset_id", "version",
+        ),
+    )
+
+    @classmethod
+    def from_current_record(cls, record, version: int):
+        return cls(
+            dataset_id=record.dataset_id,
+            version=version,
+            dataset_record_id=record.dataset_record_id,
+            inputs=record.inputs,
+            outputs=record.outputs,
+            expectations=record.expectations,
+            tags=record.tags,
+            source=record.source,
+            source_id=record.source_id,
+            source_type=record.source_type,
+            created_time=record.created_time,
+            last_update_time=record.last_update_time,
+            created_by=record.created_by,
+            last_updated_by=record.last_updated_by,
+            input_hash=record.input_hash,
+        )
+
+    def to_mlflow_entity(self):
+        outputs = self.outputs.get(DATASET_RECORD_WRAPPED_OUTPUT_KEY) if self.outputs else None
+        source = DatasetRecordSource.from_dict(self.source) if self.source else None
+        return DatasetRecord(
+            dataset_record_id=self.dataset_record_id,
+            dataset_id=self.dataset_id,
+            inputs=self.inputs,
+            outputs=outputs,
+            expectations=self.expectations,
+            tags=self.tags,
+            source=source,
+            source_id=self.source_id,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
         )
 
 

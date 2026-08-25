@@ -70,7 +70,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         self._experiment_ids = None
         self._records = None
 
-        source = EvaluationDatasetSource(dataset_id=self.dataset_id)
+        source = EvaluationDatasetSource(dataset_id=self.dataset_id, version=self.version)
         Dataset.__init__(self, source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -136,9 +136,14 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             tracking_store = _get_store()
             # For lazy loading, we want all records (no pagination)
-            self._records, _ = tracking_store._load_dataset_records(
-                self.dataset_id, max_results=None
-            )
+            if self.version is None:
+                self._records, _ = tracking_store._load_dataset_records(
+                    self.dataset_id, max_results=None
+                )
+            else:
+                self._records, _ = tracking_store._load_dataset_records(
+                    self.dataset_id, max_results=None, version=self.version
+                )
         return self._records or []
 
     def has_records(self) -> bool:
@@ -293,7 +298,20 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 if MLFLOW_USER not in record["tags"]:
                     record["tags"][MLFLOW_USER] = user_tag
 
+        if self.version is not None and self.version != existing_dataset.version:
+            raise MlflowException.invalid_parameter_value(
+                "Historical evaluation dataset versions are read-only."
+            )
         tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
+        if self.version is not None:
+            refreshed = tracking_store.get_dataset(self.dataset_id)
+            self.version = refreshed.version
+            self._digest = refreshed.digest
+            self.last_update_time = refreshed.last_update_time
+            self._schema = refreshed.schema
+            self._profile = refreshed.profile
+            self.last_updated_by = refreshed.last_updated_by
+            self._source = EvaluationDatasetSource(self.dataset_id, version=self.version)
         self._records = None
 
         return self
@@ -476,10 +494,25 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         from mlflow.tracking._tracking_service.utils import _get_store
 
         tracking_store = _get_store()
+        if self.version is not None:
+            current = tracking_store.get_dataset(self.dataset_id)
+            if self.version != current.version:
+                raise MlflowException.invalid_parameter_value(
+                    "Historical evaluation dataset versions are read-only."
+                )
         deleted_count = tracking_store.delete_dataset_records(
             dataset_id=self.dataset_id,
             dataset_record_ids=record_ids,
         )
+        if deleted_count and self.version is not None:
+            refreshed = tracking_store.get_dataset(self.dataset_id)
+            self.version = refreshed.version
+            self._digest = refreshed.digest
+            self.last_update_time = refreshed.last_update_time
+            self._schema = refreshed.schema
+            self._profile = refreshed.profile
+            self.last_updated_by = refreshed.last_updated_by
+            self._source = EvaluationDatasetSource(self.dataset_id, version=self.version)
         self._records = None  # Clear cached records
         return deleted_count
 
@@ -550,6 +583,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             proto.last_updated_by = self.last_updated_by
         if self._experiment_ids is not None:
             proto.experiment_ids.extend(self._experiment_ids)
+        if self.version is not None and isinstance(self.version, int):
+            proto.version = self.version
 
         return proto
 
@@ -571,6 +606,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             profile=proto.profile if proto.HasField("profile") else None,
             created_by=proto.created_by if proto.HasField("created_by") else None,
             last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
+            version=proto.version if proto.HasField("version") else None,
         )
         if proto.experiment_ids:
             dataset._experiment_ids = list(proto.experiment_ids)
