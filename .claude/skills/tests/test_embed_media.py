@@ -401,7 +401,8 @@ def test_check_rejects_a_cited_file_with_an_unsupported_extension(tmp_path: Path
 
 
 def test_check_rejects_a_cited_file_that_is_empty(tmp_path: Path) -> None:
-    media = make_media(tmp_path)
+    media = tmp_path / "media"
+    media.mkdir()
     (media / "shot.png").write_bytes(b"")
     report = embed_media.check_media(media, [f"![the bug]({media / 'shot.png'})"])
     assert report.errors == ["shot.png: empty, so the reference is dropped"]

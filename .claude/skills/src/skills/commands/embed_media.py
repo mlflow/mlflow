@@ -144,8 +144,9 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
                 )
 
     for name in sorted(cited):
-        cite = str(by_name[name])
-        size = by_name[name].stat().st_size
+        path = by_name[name]
+        cite = str(path)
+        size = path.stat().st_size
         if Path(name).suffix.lower() not in MIME_TYPES:
             report.errors.append(f"{name}: unsupported extension, so the reference is dropped")
         elif size == 0:
