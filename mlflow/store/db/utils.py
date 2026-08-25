@@ -343,7 +343,10 @@ def get_current_time_millis_expression(db_type: str) -> BinaryExpression:
         return func.floor(func.extract("epoch", func.now()) * 1000)
 
     if db_type == MYSQL:
-        return func.floor(func.unix_timestamp(func.now(3)) * 1000)
+        epoch = "1970-01-01 00:00:00"
+        utc_now = func.utc_timestamp(3)
+        microseconds_since_epoch = func.timestampdiff(literal_column("MICROSECOND"), epoch, utc_now)
+        return func.floor(microseconds_since_epoch / 1000)
 
     if db_type == SQLITE:
         milliseconds_per_day = 24 * 3600 * 1000

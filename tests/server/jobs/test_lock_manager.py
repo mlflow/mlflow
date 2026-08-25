@@ -1,17 +1,20 @@
 from logging import Logger
 from unittest import mock
+from unittest.mock import Mock
 
 import pytest
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Query
 from sqlalchemy.orm.session import Session
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, TEMPORARILY_UNAVAILABLE
 from mlflow.server.jobs.lock_manager import (
     JobLockManager,
     SchedulerLease,
     _check_time_drift_and_log,
 )
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.dbmodels.models import SqlSchedulerLease
 
@@ -58,6 +61,210 @@ def test_check_time_drift_and_log(app_now: int, db_now: int, drift: int | None) 
         )
     else:
         mock_logger_warning.assert_not_called()
+
+
+def test_is_unique_constraint_violation_sqlite(lock_mgr: JobLockManager) -> None:
+
+    base = BaseException("UNIQUE constraint failed")
+    integrity_error = IntegrityError(None, None, base)
+    assert lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = BaseException("other constraint failed")
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+
+def test_is_unique_constraint_violation_pgsql(lock_mgr: JobLockManager) -> None:
+
+    lock_mgr.db_type = POSTGRES
+
+    base = Mock()
+    base.sqlstate = "23505"
+    base.pgcode = None
+    integrity_error = IntegrityError(None, None, base)
+    assert lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = Mock()
+    base.sqlstate = "23503"
+    base.pgcode = None
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = Mock()
+    base.sqlstate = None
+    base.pgcode = "23505"
+    integrity_error = IntegrityError(None, None, base)
+    assert lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = Mock()
+    base.sqlstate = None
+    base.pgcode = "23503"
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = BaseException("UNIQUE constraint failed")
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+
+def test_is_unique_constraint_violation_mssql(lock_mgr: JobLockManager) -> None:
+
+    lock_mgr.db_type = MSSQL
+
+    base = Mock()
+    base.args = (2627, "other arg")
+    integrity_error = IntegrityError(None, None, base)
+    assert lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = Mock()
+    base.args = (2601, "other arg")
+    integrity_error = IntegrityError(None, None, base)
+    assert lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = Mock()
+    base.args = ("other arg", 2601)
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = Mock()
+    base.args = ("other arg", "(2601, error)")
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = Mock()
+    base.args = ("other arg", "(2627, error)")
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = Mock()
+    base.args = ("other arg", "(2600, error)")
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = BaseException("UNIQUE constraint failed")
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+
+def test_is_unique_constraint_violation_mysql(lock_mgr: JobLockManager) -> None:
+
+    lock_mgr.db_type = MYSQL
+
+    base = Mock()
+    base.args = (1062, "other arg")
+    integrity_error = IntegrityError(None, None, base)
+    assert lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = Mock()
+    base.args = (1060, "other arg")
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+    base = BaseException("UNIQUE constraint failed")
+    integrity_error = IntegrityError(None, None, base)
+    assert not lock_mgr._is_unique_constraint_violation(integrity_error)
+
+
+def test_is_unique_constraint_violation_raises(lock_mgr: JobLockManager) -> None:
+
+    lock_mgr.db_type = "not-supported"
+
+    base = BaseException("UNIQUE constraint failed")
+    integrity_error = IntegrityError(None, None, base)
+
+    with pytest.raises(MlflowException, match="Unsupported db type: not-supported"):
+        _ = lock_mgr._is_unique_constraint_violation(integrity_error)
+
+
+def test_guard_insert_race_success(lock_mgr: JobLockManager) -> None:
+
+    def fn(a: int) -> int:
+        return a**2
+
+    assert lock_mgr._guard_insert_race(fn, 2) == 4
+
+
+def test_guard_insert_race_integrity_error_returns_null(lock_mgr: JobLockManager) -> None:
+
+    def fn(a: int) -> int:
+        base = BaseException("unique constraint failed")
+        e = IntegrityError(None, None, base)
+        raise MlflowException(message=e, error_code=BAD_REQUEST) from e
+
+    assert lock_mgr._guard_insert_race(fn, 2) is None
+
+
+def test_guard_insert_race_value_error_raises(lock_mgr: JobLockManager) -> None:
+
+    def fn(a: int) -> int:
+        raise ValueError("value error")
+
+    with pytest.raises(ValueError, match="value error"):
+        _ = lock_mgr._guard_insert_race(fn, 2)
+
+
+def test_guard_insert_race_operational_error_non_deadlock_raises(lock_mgr: JobLockManager) -> None:
+
+    def fn(a: int) -> int:
+        e = OperationalError("mock operational error", None, None)
+        raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE) from e
+
+    with pytest.raises(MlflowException, match="mock operational error"):
+        _ = lock_mgr._guard_insert_race(fn, 2)
+
+
+def test_guard_insert_race_operational_error_raises_after_retries(lock_mgr: JobLockManager) -> None:
+
+    def fn(a: int) -> int:
+        e = OperationalError("mock deadlock error", None, None)
+        raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE) from e
+
+    with mock.patch("mlflow.server.jobs.lock_manager.time.sleep") as mock_sleep:
+        with pytest.raises(MlflowException, match="mock deadlock error"):
+            _ = lock_mgr._guard_insert_race(fn, 2)
+        mock_sleep.assert_called()
+
+
+def test_guard_insert_race_operational_error_retries_and_succeeds(lock_mgr: JobLockManager) -> None:
+
+    call_count = 0
+
+    def fn(a: int) -> int:
+        nonlocal call_count
+        call_count += 1
+
+        if call_count == 1:
+            e = OperationalError("mock deadlock error", None, None)
+            raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE) from e
+
+        return a**2
+
+    with mock.patch("mlflow.server.jobs.lock_manager.time.sleep") as mock_sleep:
+        assert lock_mgr._guard_insert_race(fn, 2) == 4
+        mock_sleep.assert_called()
+
+
+def test_guard_insert_race_operational_error_retries_only_deadlock(
+    lock_mgr: JobLockManager,
+) -> None:
+
+    call_count = 0
+
+    def fn(a: int) -> int:
+        nonlocal call_count
+        call_count += 1
+
+        if call_count == 1:
+            e = OperationalError("mock deadlock error", None, None)
+            raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE) from e
+
+        base = BaseException("unique constraint failed")
+        e = IntegrityError(None, None, base)
+        raise MlflowException(message=e, error_code=BAD_REQUEST) from e
+
+    with mock.patch("mlflow.server.jobs.lock_manager.time.sleep") as mock_sleep:
+        assert lock_mgr._guard_insert_race(fn, 2) is None
+        mock_sleep.assert_called_once()
 
 
 def test_renew_scheduler_lease_fails_when_no_lease_exists(lock_mgr: JobLockManager) -> None:
@@ -332,7 +539,8 @@ def test_acquire_scheduler_lease_returns_none_on_concurrent_insert_race(
     lock_mgr: JobLockManager,
 ) -> None:
 
-    integrity_error = IntegrityError(None, None, None)
+    base = BaseException("unique constraint failed")
+    integrity_error = IntegrityError(None, None, base)
     with mock.patch.object(Session, "execute", side_effect=integrity_error) as mock_add:
         assert lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60) is None
         mock_add.assert_called_once()

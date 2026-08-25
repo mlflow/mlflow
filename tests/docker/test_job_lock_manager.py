@@ -1,8 +1,10 @@
 import platform
 import time
+from unittest import mock
 
 import pytest
 from sqlalchemy import Engine, create_engine, select
+from sqlalchemy.orm import Query
 from testcontainers.mssql import SqlServerContainer
 from testcontainers.mysql import MySqlContainer
 from testcontainers.postgres import PostgresContainer
@@ -40,6 +42,33 @@ def postgres_engine() -> Engine:
 
     with PostgresContainer() as container:
         yield create_engine(container.get_connection_url())
+
+
+@pytest.mark.parametrize(
+    ("db_type", "db_engine_fixture"),
+    [
+        (MSSQL, mssql_engine.__name__),
+        (MYSQL, mysql_engine.__name__),
+        (POSTGRES, postgres_engine.__name__),
+    ],
+    ids=[MSSQL, MYSQL, POSTGRES],
+)
+def test_acquire_scheduler_lease_returns_none_on_concurrent_insert_race_mock(
+    request: pytest.FixtureRequest, db_type: str, db_engine_fixture: str
+) -> None:
+
+    db_engine: Engine = request.getfixturevalue(db_engine_fixture)
+    connection_url = db_engine.url.render_as_string(hide_password=False)
+    job_store = SqlAlchemyJobStore(connection_url)
+    lock_mgr = JobLockManager(job_store)
+
+    assert lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60) is not None
+
+    # Mock only one_or_none to return None, simulating the race gap where
+    # another replica committed after our SELECT but before our INSERT
+    with mock.patch.object(Query, "one_or_none", return_value=None) as mock_one_or_none:
+        assert lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60) is None
+        mock_one_or_none.assert_called_once()
 
 
 @pytest.mark.parametrize(
