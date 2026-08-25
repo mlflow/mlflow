@@ -329,6 +329,10 @@ def test_scheduler_forwards_cancellation_to_executor(registered_jobs, job_store)
 
     assert ex.canceled == [created.job_id]
     assert job_store.get_job(created.job_id).status == JobStatus.CANCELED
+    # The worker finished and cleaned up its bookkeeping, so nothing is orphaned in the
+    # cancel-tracking sets.
+    assert scheduler._canceled_forwarded == set()
+    assert scheduler._cancel_forward_failed == set()
 
 
 def test_scheduler_isolates_concurrent_workspaces(registered_jobs, tmp_path, monkeypatch):
@@ -379,6 +383,66 @@ def test_scheduler_fails_job_with_unresolvable_function(registered_jobs, job_sto
     assert scheduler.tick() == 0
     assert ex.submitted == []
     assert job_store.get_job(created.job_id).status == JobStatus.FAILED
+
+
+def test_scheduler_skips_pending_job_already_in_flight(registered_jobs, job_store):
+    # A job a prior worker re-pended (e.g. during a transient-retry backoff) is still in
+    # _in_flight. Even with a free slot (max_workers=2), the scheduler must not re-claim it, or
+    # the backoff would be bypassed by a concurrent re-run.
+    created = job_store.create_job("executor_engine_parallel", json.dumps({"x": 1}))
+    ex = _BlockingExecutor()
+    scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
+    with scheduler._in_flight_lock:
+        scheduler._in_flight[created.job_id] = (None, threading.current_thread())
+
+    assert scheduler._schedule_pending() == 0
+    assert ex.submitted == []
+    assert job_store.get_job(created.job_id).status == JobStatus.PENDING
+
+
+def test_scheduler_retries_cancel_forward_when_executor_raises(registered_jobs, job_store):
+    # If forwarding a cancellation to the executor raises, the job must not be marked as
+    # forwarded, so a later tick retries the cancel instead of letting the canceled job run on.
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    ex = _BlockingExecutor()
+    cancel_calls = []
+    forward_ok = ex.cancel_job
+
+    def flaky_cancel(job_id):
+        cancel_calls.append(job_id)
+        if len(cancel_calls) == 1:
+            raise RuntimeError("backend blip")
+        forward_ok(job_id)
+
+    ex.cancel_job = flaky_cancel
+    scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
+
+    assert scheduler.tick() == 1
+    ex.wait_until_submitted()
+    job_store.cancel_job(created.job_id)
+
+    scheduler.tick()  # first forward attempt raises and is not marked forwarded
+    assert cancel_calls == [created.job_id]
+    scheduler.tick()  # retried on the next tick
+    scheduler.join(timeout=30.0)
+
+    # The forward was attempted again after the first failure (the retry is the point here; the
+    # row was already CANCELED by the cancel_job call above, so its status alone proves nothing).
+    assert cancel_calls == [created.job_id, created.job_id]
+
+
+def test_record_result_canceled_result_finalizes_running_row(registered_jobs, job_store):
+    # An executor that reports CANCELED while the store row is still RUNNING (e.g. a backend
+    # self-cancel) must finalize the row to CANCELED, not leave it stuck RUNNING.
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(created.job_id, lease_duration=60.0)
+    assert job_store.get_job(created.job_id).status == JobStatus.RUNNING
+
+    runner._record_result(
+        job_store, created.job_id, "executor_engine_add", JobResult(status=JobStatus.CANCELED)
+    )
+
+    assert job_store.get_job(created.job_id).status == JobStatus.CANCELED
 
 
 @pytest.mark.parametrize(

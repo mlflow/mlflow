@@ -28,6 +28,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
     MLFLOW_TRACKING_URI,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutionContext, JobResult
 from mlflow.server.jobs.executor_registry import get_executor_registry
 from mlflow.store.jobs.abstract_store import AbstractJobStore, JobUpdateStatus
@@ -94,9 +95,15 @@ def _record_result(
     elif result.status == JobStatus.TIMEOUT:
         job_store.report_job_result(job_id, JobStatus.TIMEOUT, error_message=result.error_message)
     elif result.status == JobStatus.CANCELED:
-        # Defensive: cancellation moves the job to a terminal CANCELED state through
-        # cancel_job(), so there is nothing to record here.
-        return
+        # The executor reported the job as canceled while the store row is not CANCELED (a row
+        # canceled through the store is already handled by the early return above). Record the
+        # terminal CANCELED state so the claimed row is not left RUNNING forever. Tolerate a
+        # concurrent store cancel that finalized the row between the check above and here.
+        try:
+            job_store.report_job_result(job_id, JobStatus.CANCELED)
+        except MlflowException:
+            if job_store.get_job(job_id).status != JobStatus.CANCELED:
+                raise
     elif result.is_transient_error:
         # A transient error resets the job to PENDING (non-terminal) so a later poll can
         # re-claim it, so this cannot go through report_job_result.
@@ -181,6 +188,9 @@ class _JobScheduler:
         # called at most once per in-flight job (AbstractJobExecutor.cancel_job does not promise
         # idempotency for plugin backends). Guarded by _in_flight_lock.
         self._canceled_forwarded: set[str] = set()
+        # job_ids whose cancel forward has failed at least once, so the traceback is logged only
+        # once per job instead of on every retry. Guarded by _in_flight_lock.
+        self._cancel_forward_failed: set[str] = set()
         self._in_flight_lock = threading.Lock()
 
     def _slot_for(self, job_name: str) -> threading.Semaphore:
@@ -211,14 +221,30 @@ class _JobScheduler:
             with self._in_flight_lock:
                 if job_id in self._canceled_forwarded:
                     continue
-                self._canceled_forwarded.add(job_id)
             try:
                 # Stop the still-running job so it cannot keep performing side effects after the
                 # caller cancelled it. The worker's wait_for_job then returns and _record_result
                 # skips the already-CANCELED row.
                 self._executor.cancel_job(job_id)
             except Exception:
-                _logger.exception("Failed to forward cancellation to executor for %s", job_id)
+                # Leave it unmarked so the next tick retries the cancel rather than letting the
+                # canceled job run to normal completion. Log the traceback once; the per-tick
+                # retries then stay quiet.
+                with self._in_flight_lock:
+                    first_failure = job_id not in self._cancel_forward_failed
+                    self._cancel_forward_failed.add(job_id)
+                if first_failure:
+                    _logger.exception(
+                        "Failed to forward cancellation to executor for %s; retrying each tick",
+                        job_id,
+                    )
+                continue
+            with self._in_flight_lock:
+                # Only mark forwarded while the job is still in flight: cancel_job may already have
+                # unblocked the worker, whose finally pops _in_flight and discards these markers,
+                # and re-adding here would orphan the id in the set for the runner's lifetime.
+                if job_id in self._in_flight:
+                    self._canceled_forwarded.add(job_id)
 
     def _schedule_pending(self) -> int:
         from mlflow.server.jobs.utils import _workspace_contexts_for_recovery
@@ -230,6 +256,14 @@ class _JobScheduler:
                 # exclusive per experiment) is not enforced here; it builds on the job-lock work
                 # in #25200 and lands once that is available.
                 for job in list(self._job_store.list_jobs(statuses=[JobStatus.PENDING])):
+                    with self._in_flight_lock:
+                        already_in_flight = job.job_id in self._in_flight
+                    if already_in_flight:
+                        # A prior worker for this job is still finishing (e.g. backing off before
+                        # it re-pends a transient failure). Skip it so the job stays unclaimable
+                        # until that worker releases it, otherwise a free slot would re-claim it
+                        # mid-backoff and bypass the retry delay.
+                        continue
                     try:
                         sem = self._slot_for(job.job_name)
                     except Exception as exc:
@@ -333,6 +367,7 @@ class _JobScheduler:
             with self._in_flight_lock:
                 self._in_flight.pop(job.job_id, None)
                 self._canceled_forwarded.discard(job.job_id)
+                self._cancel_forward_failed.discard(job.job_id)
 
     def join(self, timeout: float | None = None) -> None:
         """Best-effort wait for in-flight workers to finish.

@@ -249,8 +249,8 @@ def submit_job(
     if engine == "executor":
         # Executor engine: the job is persisted as PENDING and the executor runner loop
         # (mlflow.server.jobs._executor_runner) claims and runs it. Nothing to enqueue here.
-        # NOTE: exclusive-job dedup and per-function max_workers/concurrency are not yet
-        # honored on this path (a follow-up). The default Huey path is unchanged.
+        # NOTE: exclusive-job dedup is not yet honored on this path (a follow-up). The default
+        # Huey path is unchanged.
         return job
 
     # Huey engine (default): enqueue to the per-job Huey execution pool.
