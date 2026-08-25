@@ -5415,6 +5415,10 @@
     "defaultMessage": "Not registered",
     "description": "Tag for not registered model on the logged model details page"
   },
+  "LKzZ/Y": {
+    "defaultMessage": "Unable to render Mermaid diagram. Showing source instead.",
+    "description": "Error shown when a Mermaid diagram in a Markdown artifact cannot be rendered"
+  },
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
