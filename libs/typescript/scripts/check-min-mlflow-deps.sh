@@ -89,14 +89,27 @@ pack_workspace_package() {
   tarball="$LOCAL_PACKAGE_CACHE/$cache_key-$version.tgz"
   if [[ ! -f "$tarball" ]]; then
     echo "        BUILD $dep@$version from workspace $workspace_path" >&2
-    npm run -C "$workspace_path" build >&2
-    pack_json="$(npm pack "./$workspace_path" --pack-destination "$LOCAL_PACKAGE_CACHE" --json)"
-    packed_filename="$(node -e '
+    if ! npm run -C "$workspace_path" build >&2; then
+      echo "        ERROR: failed to build workspace package $dep@$version" >&2
+      return 1
+    fi
+    if ! pack_json="$(npm pack "./$workspace_path" --pack-destination "$LOCAL_PACKAGE_CACHE" --json)"; then
+      echo "        ERROR: failed to pack workspace package $dep@$version" >&2
+      return 1
+    fi
+    if ! packed_filename="$(node -e '
       const fs = require("fs");
       const result = JSON.parse(fs.readFileSync(0, "utf8"));
+      if (typeof result[0]?.filename !== "string") process.exit(1);
       process.stdout.write(result[0].filename);
-    ' <<< "$pack_json")"
-    mv "$LOCAL_PACKAGE_CACHE/$packed_filename" "$tarball"
+    ' <<< "$pack_json")"; then
+      echo "        ERROR: failed to parse npm pack output for $dep@$version" >&2
+      return 1
+    fi
+    if ! mv "$LOCAL_PACKAGE_CACHE/$packed_filename" "$tarball"; then
+      echo "        ERROR: failed to cache packed workspace package $dep@$version" >&2
+      return 1
+    fi
   fi
 
   printf '%s' "$tarball"
@@ -196,7 +209,12 @@ for pkg_json in integrations/*/package.json; do
         exit 1
       fi
 
-      install_spec="$(pack_workspace_package "$dep" "$floor" "$workspace_path")"
+      if ! install_spec="$(pack_workspace_package "$dep" "$floor" "$workspace_path")"; then
+        echo "        ERROR: failed to prepare workspace package $dep@$floor" >&2
+        rm -rf "$shadow"
+        [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
+        exit 1
+      fi
       echo "        SOURCE workspace package ($workspace_path)"
     fi
 
