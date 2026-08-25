@@ -739,7 +739,6 @@ MAX_ORGANIZATION_NAME_LENGTH = 255
 # Names may not start with '@' (the URI organization marker) and may not contain
 # reserved URI characters ('/', '@', '#', '?'). Allowed: letters, digits, '.', '_', '-'.
 _SKILL_ENTITY_NAME_REGEX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-_ORGANIZATION_NAME_REGEX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def _validate_skill_name(name):
@@ -769,7 +768,7 @@ def _validate_agent_plugin_name(name):
 def _validate_organization_name(organization):
     if organization is None or organization == "":
         return
-    if _ORGANIZATION_NAME_REGEX.fullmatch(organization) is None:
+    if _SKILL_ENTITY_NAME_REGEX.fullmatch(organization) is None:
         raise MlflowException.invalid_parameter_value(
             f"Invalid organization name {organization!r}. Organizations may contain only "
             "letters, digits, '.', '_', and '-', and must not start with '@'."
@@ -794,18 +793,20 @@ def _validate_skill_tag(key, value):
 
 
 def _validate_skill_artifact_path(path):
-    if not path or not isinstance(path, str):
+    # Local import to avoid a circular import: mlflow.utils.uri imports from this module.
+    from mlflow.utils.uri import validate_path_is_safe
+
+    if not isinstance(path, str) or not path:
         raise MlflowException.invalid_parameter_value(
             f"Artifact path must be a non-empty string, got {path!r}."
         )
-    if path.startswith("/"):
-        raise MlflowException.invalid_parameter_value(
-            f"Artifact path must be relative, got {path!r}."
-        )
+    # Delegates the security-critical checks (absolute, '..', backslash, url-encoded,
+    # windows-absolute, control chars, '#') to the shared path-safety helper.
+    validate_path_is_safe(path)
     for segment in path.split("/"):
-        if segment in ("", ".", ".."):
+        if segment in ("", "."):
             raise MlflowException.invalid_parameter_value(
-                f"Invalid artifact path {path!r}: empty, '.', or '..' segments are not allowed."
+                f"Invalid artifact path {path!r}: empty or '.' segments are not allowed."
             )
 
 

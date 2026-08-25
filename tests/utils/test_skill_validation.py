@@ -73,7 +73,18 @@ def test_valid_artifact_paths(path):
     _validate_skill_artifact_path(path)
 
 
-@pytest.mark.parametrize("path", ["/abs", "../escape", "a/../b", "a//b", ""])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/abs",
+        "../escape",
+        "a/../b",
+        "a//b",
+        "",
+        "a/%2e%2e/b",
+        "C:\\evil",
+    ],
+)
 def test_invalid_artifact_paths(path):
     with pytest.raises(MlflowException, match="path"):
         _validate_skill_artifact_path(path)
