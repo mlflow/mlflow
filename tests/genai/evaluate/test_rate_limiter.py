@@ -478,8 +478,14 @@ def _run_scores_capturing_flags(num_scorers):
     scorer_objs = [make_probe(f"probe_{i}") for i in range(num_scorers)]
     item = EvalItem(request_id="r1", inputs={}, outputs="x", expectations={})
 
-    with eval_retry_context():
-        _compute_eval_scores(eval_item=item, scorers=scorer_objs, max_retries=0)
+    # Force both adapters active so the flags are set regardless of litellm being
+    # installed or the tracking URI, isolating the test to context propagation.
+    with patch(
+        "mlflow.genai.judges.adapters.rate_limit_retry_adapters._RETRY_ADAPTER_REGISTRY",
+        _BOTH_ADAPTERS_ACTIVE,
+    ):
+        with eval_retry_context():
+            _compute_eval_scores(eval_item=item, scorers=scorer_objs, max_retries=0)
     return captured
 
 
