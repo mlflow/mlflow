@@ -119,17 +119,59 @@ def http_error(code: int) -> urllib.error.HTTPError:
     return urllib.error.HTTPError(uploads.UPLOAD_URL, code, "nope", {}, None)  # type: ignore[arg-type]
 
 
-def test_upload_asset_flags_a_rejected_token_with_its_status(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        (401, r"the credential was rejected \(401\)"),
+        (403, r"403, most likely a credential that is not scoped"),
+        # A 404 is ambiguous, so the message has to offer both readings.
+        (404, r"repository_id=1 does not resolve or the endpoint refuses this credential"),
+    ],
+)
+def test_upload_asset_explains_a_credential_failure(
+    tmp_path: Path, code: int, expected: str
+) -> None:
     path = tmp_path / "shot.png"
     path.write_bytes(b"\x89PNG")
 
     with (
-        mock.patch("urllib.request.urlopen", side_effect=http_error(401)),
-        pytest.raises(uploads.UploadFailed, match="rejected \\(401\\)") as excinfo,
+        mock.patch("urllib.request.urlopen", side_effect=http_error(code)) as opener,
+        pytest.raises(uploads.UploadFailed, match=expected) as excinfo,
     ):
         uploads.upload_asset(path, "1", "t")
 
-    assert excinfo.value.status == 401
+    opener.assert_called_once()
+    assert excinfo.value.status == code
+
+
+def test_a_404_names_the_credential_kind_without_printing_it(tmp_path: Path) -> None:
+    path = tmp_path / "shot.png"
+    path.write_bytes(b"\x89PNG")
+
+    with (
+        mock.patch("urllib.request.urlopen", side_effect=http_error(404)) as opener,
+        pytest.raises(uploads.UploadFailed, match="a GitHub App or Actions token") as excinfo,
+    ):
+        uploads.upload_asset(path, "1", "ghs_secret")
+
+    opener.assert_called_once()
+    assert "ghs_secret" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("gho_x", "an OAuth user token"),
+        ("ghp_x", "a classic PAT"),
+        ("github_pat_x", "a fine-grained PAT"),
+        ("ghu_x", "a GitHub App user-to-server token"),
+        ("ghs_x", "a GitHub App or Actions token"),
+        ("ghr_x", "a refresh token"),
+        ("x", "a credential of unrecognized kind"),
+    ],
+)
+def test_describe_token_names_the_kind(token: str, expected: str) -> None:
+    assert uploads.describe_token(token) == expected
 
 
 def test_upload_asset_carries_the_status_of_other_http_errors(tmp_path: Path) -> None:

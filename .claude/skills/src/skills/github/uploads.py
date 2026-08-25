@@ -28,6 +28,27 @@ MIME_TYPES = {
 VIDEO_SUFFIXES = {".mp4", ".mov", ".webm"}
 
 
+# The endpoint serves only OAuth tokens, classic PATs, and fine-grained PATs bound to the
+# target repository. Actions and App installation tokens are refused whatever their
+# permissions, and the refusal is a bare 404, so name the kind rather than leave the
+# caller guessing.
+TOKEN_KINDS = {
+    "gho_": "an OAuth user token",
+    "ghp_": "a classic PAT",
+    "github_pat_": "a fine-grained PAT",
+    "ghu_": "a GitHub App user-to-server token",
+    "ghs_": "a GitHub App or Actions token",
+    "ghr_": "a refresh token",
+}
+
+
+def describe_token(token: str) -> str:
+    for prefix, kind in TOKEN_KINDS.items():
+        if token.startswith(prefix):
+            return kind
+    return "a credential of unrecognized kind"
+
+
 class UploadFailed(Exception):
     """Raised when one asset does not reach the store; the message says why.
 
@@ -83,7 +104,18 @@ def upload_asset(path: Path, repository_id: str, token: str) -> str:
     except urllib.error.HTTPError as e:
         if e.code == 401:
             # Callers resolve credentials differently, so name none of them here.
-            raise UploadFailed("the credential was rejected (401)", status=401) from e
+            raise UploadFailed(f"{path.name}: the credential was rejected (401)", status=401) from e
+        if e.code == 403:
+            raise UploadFailed(
+                f"{path.name}: 403, most likely a credential that is not scoped to this repository",
+                status=403,
+            ) from e
+        if e.code == 404:
+            raise UploadFailed(
+                f"{path.name}: 404, so either repository_id={repository_id} does not resolve or "
+                f"the endpoint refuses this credential, which is {describe_token(token)}",
+                status=404,
+            ) from e
         raise UploadFailed(f"{path.name}: {e}", status=e.code) from e
     except (OSError, http.client.HTTPException, ValueError) as e:
         raise UploadFailed(f"{path.name}: {e}") from e
