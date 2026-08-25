@@ -225,7 +225,13 @@ def test_get_current_time_millis_expression_sqlite_millisecond_precision() -> No
     ("db_type", "expected"),
     [
         (MSSQL, "datediff_big(MILLISECOND, '1970-01-01', sysutcdatetime())"),
-        (MYSQL, "floor(unix_timestamp(now(3)) * 1000)"),
+        (
+            MYSQL,
+            (
+                "floor(timestampdiff(MICROSECOND, '1970-01-01 00:00:00',"
+                " utc_timestamp(3)) / CAST(1000 AS NUMERIC))"
+            ),
+        ),
         (POSTGRES, "floor(EXTRACT(epoch FROM now()) * 1000)"),
         (SQLITE, "CAST((julianday('now') - julianday('1970-01-01')) * 86400000 AS BIGINT)"),
     ],
