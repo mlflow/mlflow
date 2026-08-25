@@ -400,6 +400,14 @@ def test_check_rejects_a_cited_file_with_an_unsupported_extension(tmp_path: Path
     assert report.errors == ["notes.txt: unsupported extension, so the reference is dropped"]
 
 
+def test_check_rejects_a_cited_file_that_is_empty(tmp_path: Path) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    (media / "shot.png").write_bytes(b"")
+    report = embed_media.check_media(media, [f"![the bug]({media / 'shot.png'})"])
+    assert report.errors == ["shot.png: empty, so the reference is dropped"]
+
+
 def test_check_rejects_a_cited_file_over_the_size_cap(tmp_path: Path) -> None:
     with mock.patch.object(uploads, "MAX_IMAGE_BYTES", 2):
         report = check(tmp_path, "![the bug]({p})")
