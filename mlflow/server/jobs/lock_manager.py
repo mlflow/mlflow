@@ -7,12 +7,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import ParamSpec, TypeVar
 
-from sqlalchemy import insert
+from sqlalchemy import Update, and_, insert, join, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.db.utils import get_current_time_millis_expression
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.dbmodels.models import SqlJob, SqlJobLock, SqlSchedulerLease
@@ -48,6 +49,13 @@ class SchedulerLease:
     ttl_seconds: int
 
 
+@dataclass(frozen=True)
+class JobLock:
+    lock_key: str
+    job_id: str
+    acquired_at: int
+
+
 class JobLockManager:
     """
     Manages scheduler lease and job lock coordination for multi-replica
@@ -73,7 +81,8 @@ class JobLockManager:
                 ...
 
         # Acquire exclusive lock
-        if lock_mgr.acquire_exclusive_lock("exp-123:hash", "job-456"):
+        exclusive_lock = lock_mgr.acquire_exclusive_lock("exp-123:hash", "job-456")
+        if exclusive_lock:
             try:
                 # ... do work ...
     """
@@ -112,7 +121,7 @@ class JobLockManager:
                 # existing row and race to insert the same lease key.
                 if isinstance(e.__cause__, IntegrityError):
                     _logger.debug(
-                        "Lease acquisition denied. A concurrent insert conflict occurred."
+                        "Lease/Lock acquisition denied. A concurrent insert conflict occurred."
                     )
                     return None
 
@@ -308,13 +317,155 @@ class JobLockManager:
             ttl_seconds=ttl_seconds,
         )
 
-    def acquire_exclusive_lock(self, lock_key: str, job_id: str) -> bool:
+    def _stale_lock_update_statement(self, lock_key: str, job_id: str) -> Update:
+        """
+        Build an UPDATE statement that replaces a stale lock with a new one.
+
+        The statement joins ``job_locks`` to ``jobs`` and updates the lock row only if the lock
+        matches ``lock_key`` AND one of these conditions is true:
+
+        - The job status is terminal or pending (not RUNNING or NEEDS_RECOVERY).
+        - The job has a timeout and the lock age exceeds 115% of that timeout.
+
+        If neither condition is true, the statement updates zero rows.
+
+        Each database dialect uses a different UPDATE syntax:
+
+        - PostgreSQL / MSSQL: ``UPDATE ... FROM`` (single atomic statement).
+        - MySQL: ``UPDATE ... JOIN`` (single atomic statement).
+        - SQLite: ``UPDATE ... WHERE IN (subquery)`` (not atomic; test use only).
+
+        Args:
+            lock_key: The lock row to target.
+            job_id: The new job ID to write into the lock row.
+
+        Returns:
+            A SQLAlchemy ``Update`` statement. The caller must execute it in a session and inspect
+            ``result.rowcount``.
+
+        Raises:
+            MlflowException: If ``self.db_type`` is not a supported dialect.
+        """
+
+        now = get_current_time_millis_expression(self.db_type)
+
+        job_has_timed_out = and_(
+            SqlJob.timeout.is_not(None),
+            SqlJobLock.acquired_at + (SqlJob.timeout * 1000 * 1.15) < now,
+        )
+        eligible_status = [
+            JobStatus.PENDING.to_int(),
+            JobStatus.SUCCEEDED.to_int(),
+            JobStatus.FAILED.to_int(),
+            JobStatus.TIMEOUT.to_int(),
+            JobStatus.CANCELED.to_int(),
+        ]
+        job_has_timed_out_or_status_is_eligible = or_(
+            job_has_timed_out, SqlJob.status.in_(eligible_status)
+        )
+
+        filter_args = (
+            SqlJobLock.lock_key == lock_key,
+            job_has_timed_out_or_status_is_eligible,
+        )
+
+        update_values = {
+            SqlJobLock.acquired_at: now,
+            SqlJobLock.job_id: job_id,
+        }
+
+        if self.db_type in {POSTGRES, MSSQL}:
+            return (
+                update(SqlJobLock)
+                .where(SqlJobLock.job_id == SqlJob.id)
+                .filter(*filter_args)
+                .values(update_values)
+            )
+
+        if self.db_type == MYSQL:
+            return (
+                update(join(SqlJobLock, SqlJob, SqlJobLock.job_id == SqlJob.id))
+                .filter(*filter_args)
+                .values(update_values)
+            )
+
+        if self.db_type == SQLITE:
+            # Use subquery for sqlite even though it is not atomic.
+            # This branch is used for unit tests and does not need to support
+            # atomic updates
+            eligible_lock_subquery = (
+                select(SqlJobLock.lock_key)
+                .join(SqlJob, SqlJobLock.job_id == SqlJob.id)
+                .filter(*filter_args)
+            ).scalar_subquery()
+
+            lock_key_matches_and_is_eligible = and_(
+                SqlJobLock.lock_key == lock_key, SqlJobLock.lock_key.in_(eligible_lock_subquery)
+            )
+
+            return update(SqlJobLock).filter(lock_key_matches_and_is_eligible).values(update_values)
+
+        raise MlflowException.invalid_parameter_value(f"Unsupported db type: {self.db_type}")
+
+    def _acquire_exclusive_lock(self, lock_key: str, job_id: str) -> JobLock | None:
+        app_now_millis = get_current_time_millis()
+
+        with self._session_maker(read_only=False) as session:
+            statement = self._stale_lock_update_statement(lock_key, job_id)
+            result = session.execute(statement)
+
+            if result.rowcount > 0:
+                reacquired_lock = (
+                    session.query(SqlJobLock).filter(SqlJobLock.lock_key == lock_key).one()
+                )
+                _check_time_drift_and_log(app_now_millis, reacquired_lock.acquired_at)
+
+                return JobLock(
+                    lock_key=reacquired_lock.lock_key,
+                    job_id=reacquired_lock.job_id,
+                    acquired_at=reacquired_lock.acquired_at,
+                )
+
+            existing_lock = (
+                session.query(SqlJobLock).filter(SqlJobLock.lock_key == lock_key).one_or_none()
+            )
+            if existing_lock is None:
+                insert_values = {
+                    SqlJobLock.lock_key: lock_key,
+                    SqlJobLock.acquired_at: get_current_time_millis_expression(self.db_type),
+                    SqlJobLock.job_id: job_id,
+                }
+                session.execute(insert(SqlJobLock).values(insert_values))
+
+                new_lock = session.query(SqlJobLock).filter(SqlJobLock.lock_key == lock_key).one()
+                _check_time_drift_and_log(app_now_millis, new_lock.acquired_at)
+
+                return JobLock(
+                    lock_key=new_lock.lock_key,
+                    job_id=new_lock.job_id,
+                    acquired_at=new_lock.acquired_at,
+                )
+
+            # If the provided job_id matches an existing valid lock, a simple refusal could
+            # cause the caller to mark a running job terminal. This scenario is unlikely as
+            # the job claim logic should prevent multi replica ownership. More likely is the
+            # single owner of the job may attempt to acquire the lock twice for the same job_id
+            # before it is expired or in an eligible state. This is unlikely but the check is cheap.
+            if existing_lock.job_id == job_id:
+                raise MlflowException.invalid_parameter_value(
+                    "A valid lock already exists for this job_id"
+                )
+
+            _logger.debug("Job lock acquisition denied. A valid lock exists.")
+            return None
+
+    def acquire_exclusive_lock(self, lock_key: str, job_id: str) -> JobLock | None:
         """
         Creates an exclusive job lock from ``lock_key`` and ``job_id``.
 
-        Returns True if no lock exists or the existing lock is stale.
+        Returns ``JobLock`` if no lock exists or the existing lock is stale.
 
-        Returns False if a valid lock already exists.
+        Returns ``None`` if a valid lock already exists.
 
         NOTE:
             This method cleans up stale locks only when a new acquisition
@@ -328,115 +479,14 @@ class JobLockManager:
                 to an existing ``SqlJob``
 
         Returns:
-            True if lock acquired, False if held by another live job.
+            JobLock if lock acquired, None if held by another live job.
 
         Raises:
             MlflowException: A valid lock already exists for the job_id.
         """
-        try:
-            with self._session_maker(read_only=False) as session:
-                existing_lock = (
-                    session
-                    .query(SqlJobLock)
-                    .filter(SqlJobLock.lock_key == lock_key)
-                    .with_for_update()
-                    .one_or_none()
-                )
 
-                if existing_lock is not None:
-                    holding_job = (
-                        session
-                        .query(SqlJob)
-                        .filter(SqlJob.id == existing_lock.job_id)
-                        .one_or_none()
-                    )
-
-                    job_lock_is_valid = self._is_job_lock_valid(existing_lock, holding_job)
-
-                    # Raise an exception when the requesting job_id already holds a valid lock.
-                    # A False return could cause the caller to mark the active job as CANCELED.
-                    # The job row claim logic prevents duplicate ownership, but a replica could
-                    # still retry a lock it already holds. A stale lock held by the same job_id
-                    # can still be evicted and re-acquired.
-                    if job_lock_is_valid and job_id == existing_lock.job_id:
-                        raise MlflowException.invalid_parameter_value(
-                            "A valid lock already exists for this job_id"
-                        )
-
-                    if job_lock_is_valid:
-                        _logger.debug("Job lock acquisition denied. A valid lock exists.")
-                        return False
-
-                    session.delete(existing_lock)
-                    session.flush()
-
-                session.add(
-                    SqlJobLock(
-                        lock_key=lock_key,
-                        job_id=job_id,
-                        acquired_at=get_current_time_millis(),
-                    )
-                )
-
-            return True
-
-        except MlflowException as e:
-            holding_job_id = None
-            with self._session_maker(read_only=True) as session:
-                existing_lock = (
-                    session.query(SqlJobLock).filter(SqlJobLock.lock_key == lock_key).one_or_none()
-                )
-
-                if existing_lock is not None:
-                    holding_job_id = existing_lock.job_id
-
-            # Check that the IntegrityError is from two different jobs that tried to
-            # acquire the same lock.
-            valid_integrity_error = (
-                isinstance(e.__cause__, IntegrityError)
-                and holding_job_id is not None
-                and holding_job_id != job_id
-            )
-            if valid_integrity_error:
-                _logger.debug("Job lock acquisition denied. A concurrent insert conflict occurred.")
-                return False
-
-            if isinstance(e.__cause__, IntegrityError):
-                _logger.error("An unexpected IntegrityError occurred during job lock acquisition")
-
-            raise
-
-    @staticmethod
-    def _is_job_lock_valid(lock: SqlJobLock, holding_job: SqlJob | None) -> bool:
-        """
-        Check if a lock is still valid.
-
-        Args:
-            lock: The ``SqlJobLock`` to validate
-            holding_job: The job currently holding the lock
-
-        Returns:
-            True if the job lock is still valid. False otherwise.
-
-        Raises:
-            MlflowException: ``lock.job_id`` must match ``holding_job.id``
-        """
-
-        if holding_job is None:
-            return False
-
-        if holding_job.id != lock.job_id:
-            raise MlflowException.invalid_parameter_value(
-                f"Lock is not held by SqlJob {lock.job_id=} != {holding_job.id=}"
-            )
-
-        if JobStatus.is_finalized(JobStatus.from_int(holding_job.status)):
-            return False
-
-        now = get_current_time_millis()
-        if holding_job.timeout is not None:
-            expiration_time = lock.acquired_at + int(holding_job.timeout * 1.15 * 1000)
-            if now > expiration_time:
-                return False
-
-        return True
+        return self._guard_insert_race(
+            fn=self._acquire_exclusive_lock,
+            lock_key=lock_key,
+            job_id=job_id,
+        )
