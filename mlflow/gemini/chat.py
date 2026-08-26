@@ -120,12 +120,16 @@ def _convert_gemini_function_param_to_mlflow_function_param(
 
 
 def _json_schema_prop_to_param_property(prop: dict[str, object]) -> ParamProperty:
-    return ParamProperty(
-        type=prop.get("type"),
-        description=prop.get("description"),
-        enum=prop.get("enum"),
-        items=_json_schema_prop_to_param_property(prop["items"]) if "items" in prop else None,
-    )
+    # ParamProperty has no `properties` field, so object-typed array items lose their
+    # sub-schema; this is acceptable for the current use case (tool definitions display).
+    kwargs: dict[str, object] = {
+        "type": prop.get("type"),
+        "description": prop.get("description"),
+        "enum": prop.get("enum"),
+    }
+    if "items" in prop:
+        kwargs["items"] = _json_schema_prop_to_param_property(prop["items"])
+    return ParamProperty(**kwargs)
 
 
 def _convert_json_schema_to_mlflow_function_param(json_schema: dict[str, object]) -> FunctionParams:
