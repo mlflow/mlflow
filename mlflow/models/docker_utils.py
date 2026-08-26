@@ -19,11 +19,9 @@ PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
 SETUP_PYENV = """# Install Python (system default for Ubuntu 24.04 is 3.12)
-RUN apt-get install -y --no-install-recommends python3 python3-venv \\
+RUN apt-get install -y --no-install-recommends python3 python3-venv python3-pip \\
     && rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED \\
-    && ln -sf /usr/bin/python3 /usr/bin/python \\
-    && python -m ensurepip --upgrade \\
-    && pip install --upgrade pip
+    && ln -sf /usr/bin/python3 /usr/bin/python
 """
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
