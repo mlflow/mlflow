@@ -369,20 +369,16 @@ export type ModelTraceExplorerView = 'detail' | 'prompts' | 'custom';
 
 export type SearchMatch = {
   span: ModelTraceSpanNode;
-  section: 'inputs' | 'outputs' | 'attributes' | 'events';
+  section: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links';
   key: string;
   isKeyMatch: boolean;
   matchIndex: number;
 };
 
-export type SpanFilterState = {
-  // always show parents regardless of filter state
-  showParents: boolean;
-  // always show exceptions regardless of filter state
-  showExceptions: boolean;
-  // record of span_type: whether to show it
-  spanTypeDisplayState: Record<string, boolean>;
-};
+// Re-export the shared SpanFilterState so v2 components stay structurally identical to what the
+// shared useModelTraceSearch hook produces (it includes minLogLevel, which v2's own filter UI does
+// not surface but must round-trip untouched).
+export type { SpanFilterState } from '../ModelTrace.types';
 
 export interface RetrieverDocument {
   metadata: {
