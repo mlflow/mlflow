@@ -1464,6 +1464,55 @@ describe('convertOtelAttributesToMap', () => {
       events: [{ attributes: { converted: 'value' } }],
     });
   });
+
+  // Regression: chat inputs/outputs (mlflow.spanInputs / mlflow.spanOutputs) arrive
+  // as nested array_value/kvlist_value AnyValue structures. A scalar-only unwrap left
+  // them raw, so normalizeConversation could not detect the {role, content} chat shape
+  // and the span rendered as a raw OTEL tree instead of pretty chat bubbles.
+  it('should recursively decode nested array_value / kvlist_value structures', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        {
+          key: 'messages',
+          value: {
+            array_value: {
+              values: [
+                {
+                  kvlist_value: {
+                    values: [
+                      { key: 'role', value: { string_value: 'user' } },
+                      { key: 'content', value: { string_value: 'What is MLflow Tracing?' } },
+                    ],
+                  },
+                },
+                {
+                  kvlist_value: {
+                    values: [
+                      { key: 'role', value: { string_value: 'assistant' } },
+                      { key: 'content', value: { string_value: 'It is an observability feature.' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        messages: [
+          { role: 'user', content: 'What is MLflow Tracing?' },
+          { role: 'assistant', content: 'It is an observability feature.' },
+        ],
+      },
+    });
+  });
 });
 
 describe('isSessionLevelAssessment', () => {
