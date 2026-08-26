@@ -19,15 +19,14 @@ PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
 SETUP_PYENV = """# Install Python 3.11 from Ubuntu universe repository
-RUN printf 'deb http://archive.ubuntu.com/ubuntu noble universe\\ndeb http://archive.ubuntu.com/ubuntu noble-updates universe\\n' \\
-        > /etc/apt/sources.list.d/universe.list \\
+RUN sed -i '/^Components:/s/$/ universe/' /etc/apt/sources.list.d/ubuntu.sources \\
     && apt-get update \\
     && apt-get install -y python3.11 python3.11-venv \\
     && rm -f /usr/lib/python3.11/EXTERNALLY-MANAGED \\
     && ln -sf /usr/bin/python3.11 /usr/bin/python \\
     && python -m ensurepip --upgrade \\
     && pip install --upgrade pip
-"""  # noqa: E501
+"""
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
 FROM {base_image}
