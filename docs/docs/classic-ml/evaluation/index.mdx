@@ -349,6 +349,58 @@ The function must:
 
 For classification tasks, the function should return class predictions. For regression tasks, it should return continuous values.
 
+### Error Handling
+
+<APILink fn="mlflow.models.evaluate" /> propagates any exception raised by the prediction function, which aborts the whole evaluation. When individual rows can fail (a malformed record, a rate-limited API call, a timeout), evaluate the rows that succeed and keep the failures for a later run.
+
+```python
+import mlflow
+import pandas as pd
+
+# Reuses predict_function and eval_data from the example above
+errors = {}
+succeeded = []
+
+for idx, row in eval_data.drop(columns=["target"]).iterrows():
+    try:
+        predict_function(pd.DataFrame([row]))
+        succeeded.append(idx)
+    except Exception as e:
+        errors[idx] = str(e)
+
+with mlflow.start_run():
+    mlflow.models.evaluate(
+        predict_function,
+        eval_data.loc[succeeded],
+        targets="target",
+        model_type="classifier",
+    )
+
+    # Keep the failures with the run so they can be inspected later
+    if errors:
+        mlflow.log_dict(errors, "evaluation_errors.json")
+```
+
+:::note
+Checking each row separately calls the prediction function twice per row. For expensive functions, return a sentinel value from the prediction function itself and filter those rows out before evaluating.
+:::
+
+Once the underlying cause is fixed, re-run the evaluation over the full dataset so the metrics reflect every row:
+
+```python
+with mlflow.start_run(run_name="retry_after_fix"):
+    mlflow.models.evaluate(
+        predict_function,
+        eval_data,
+        targets="target",
+        model_type="classifier",
+    )
+```
+
+:::note
+Evaluating only the previously failed rows works for regression, but classifier evaluation requires at least two distinct label values in the dataset, so a small subset of recovered rows raises `MlflowException`. Re-evaluate the full dataset, or merge the recovered rows back into it, rather than scoring them on their own.
+:::
+
 ## Custom Metrics & Visualizations
 
 Define custom evaluation metrics and create specialized visualizations.
