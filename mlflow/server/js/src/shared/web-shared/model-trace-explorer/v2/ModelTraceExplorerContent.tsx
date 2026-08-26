@@ -1,9 +1,7 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 
 import type { ModelTrace } from './ModelTrace.types';
 import { GenericSkeleton } from '@databricks/design-system';
-import { LoadingDescription } from '../../metrics/interaction_tracing/DatabricksLoadingDescriptions';
-import { Suspense } from '../../react/Suspense';
 import { ModelTraceExplorerDetailView } from './ModelTraceExplorerDetailView';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceExplorerLinkedPromptsView } from '../linked-prompts/ModelTraceExplorerLinkedPromptsView';
@@ -46,10 +44,7 @@ export const ModelTraceExplorerContent = ({
 
   if (isCustomViewEnabled && activeView === 'custom') {
     return (
-      <Suspense
-        fallback={<GenericSkeleton css={{ height: '100%', width: '100%' }} />}
-        description={LoadingDescription.MODEL_TRACE_RENDERER_LOADING_SUSPENSE}
-      >
+      <Suspense fallback={<GenericSkeleton css={{ height: '100%', width: '100%' }} />}>
         <LazyModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
       </Suspense>
     );
@@ -57,10 +52,7 @@ export const ModelTraceExplorerContent = ({
 
   if (isCustomViewEnabled && traceExplorerDisplayMode === 'custom') {
     return (
-      <Suspense
-        fallback={<GenericSkeleton css={{ height: '100%', width: '100%' }} />}
-        description={LoadingDescription.MODEL_TRACE_RENDERER_LOADING_SUSPENSE}
-      >
+      <Suspense fallback={<GenericSkeleton css={{ height: '100%', width: '100%' }} />}>
         <LazyModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
       </Suspense>
     );

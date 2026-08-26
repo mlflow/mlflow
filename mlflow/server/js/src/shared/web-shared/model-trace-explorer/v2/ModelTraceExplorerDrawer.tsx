@@ -42,10 +42,6 @@ import type { ModelTraceInfoV3 } from './ModelTrace.types';
 import { getTraceCost, getTraceTokenUsage } from './ModelTraceExplorer.utils';
 import { CostMetadataItem, TokenUsageMetadataItem } from './right-pane/ModelTraceExplorerRightPaneHeader';
 import { useCopyController } from '../../copy/useCopyController';
-import {
-  dispatchSingleAssistantEventRpc,
-  MFE_GLOBAL_CHAT_ACTION,
-} from '../../mfe-services/assistant/dispatchSingleAssistantEventRpc';
 import { useLocation } from '../RoutingUtils';
 
 const CUSTOM_VIEW_INITIAL_WIDTH = '50vw';
@@ -84,16 +80,6 @@ const resolveWidthToPixels = (width: number | string, viewportWidth = window.inn
     return parseFloat(width);
   }
   return MIN_DRAWER_WIDTH;
-};
-
-const openTraceAssistantInGlobalChat = ({ prompt }: OpenTraceAssistantParams): void => {
-  dispatchSingleAssistantEventRpc({
-    type: MFE_GLOBAL_CHAT_ACTION.PAGE_TRIGGERED_CHAT_EVENT,
-    payload: {
-      message: prompt,
-      messageTags: [],
-    },
-  });
 };
 
 const drawerSlideOutAnimation = keyframes({
@@ -339,11 +325,7 @@ export const ModelTraceExplorerDrawer = ({
   }, [handleKeyDown]);
 
   const showAddToDatasetButton = Boolean(
-    (onManagedAddTraceToEvaluationDatasetClick ||
-      renderManagedAddToDatasetDropdown ||
-      renderExportTracesToDatasetsModal) &&
-    experimentId &&
-    traceInfo,
+    (renderManagedAddToDatasetDropdown || renderExportTracesToDatasetsModal) && experimentId && traceInfo,
   );
   const addToDatasetLabel = intl.formatMessage({
     defaultMessage: 'Add to dataset',
@@ -371,12 +353,10 @@ export const ModelTraceExplorerDrawer = ({
     if (renderManagedAddToDatasetDropdown) {
       setIsAddToDatasetDropdownOpen(true);
       setIsAddToDatasetTooltipOpen(false);
-    } else if (onManagedAddTraceToEvaluationDatasetClick) {
-      onManagedAddTraceToEvaluationDatasetClick();
     } else {
       setShowDatasetModal(true);
     }
-  }, [onManagedAddTraceToEvaluationDatasetClick, renderManagedAddToDatasetDropdown]);
+  }, [renderManagedAddToDatasetDropdown]);
   const addToDatasetTrigger = (
     <Button
       componentId="mlflow.evaluations_review.modal.add_to_dataset"
@@ -447,7 +427,10 @@ export const ModelTraceExplorerDrawer = ({
     ) : null;
   const handleToggleFullscreen = useCallback(() => setIsFullscreen((value) => !value), []);
   const handleFindClick = useCallback(() => setSearchVisible((visible) => !visible), []);
-  const effectiveOpenTraceAssistant = openTraceAssistant ?? openTraceAssistantInGlobalChat;
+  // The assistant integration is host-provided (Databricks supplies openTraceAssistant via context).
+  // OSS has no global chat to fall back to, so the "Analyze trace" button only renders when a host
+  // wires up an assistant.
+  const effectiveOpenTraceAssistant = openTraceAssistant;
   const analyzeTraceLabel = intl.formatMessage({
     defaultMessage: 'Analyze trace',
     description: 'Button label for asking the assistant to analyze a trace',
@@ -474,7 +457,7 @@ export const ModelTraceExplorerDrawer = ({
             description: 'Prompt sent to the assistant for analyzing a trace when its ID is unavailable',
           });
   const handleAnalyzeTrace = useCallback(() => {
-    effectiveOpenTraceAssistant({ prompt: analyzeTracePrompt, traceInfo });
+    effectiveOpenTraceAssistant?.({ prompt: analyzeTracePrompt, traceInfo });
   }, [analyzeTracePrompt, effectiveOpenTraceAssistant, traceInfo]);
   const findInTraceLabel = intl.formatMessage({
     defaultMessage: 'Find in trace',
@@ -796,14 +779,16 @@ export const ModelTraceExplorerDrawer = ({
               canCreateCustomView={canCreateCustomView}
               compact={compactPrimaryActions}
             />
-            <ModelTraceExplorerGenieButton
-              componentId="mlflow.evaluations_review.modal.analyze-trace"
-              onClick={handleAnalyzeTrace}
-              disabled={isTraceAssistantStreaming}
-              ariaLabel={compactPrimaryActions ? analyzeTraceLabel : undefined}
-            >
-              {compactPrimaryActions ? undefined : analyzeTraceLabel}
-            </ModelTraceExplorerGenieButton>
+            {effectiveOpenTraceAssistant && (
+              <ModelTraceExplorerGenieButton
+                componentId="mlflow.evaluations_review.modal.analyze-trace"
+                onClick={handleAnalyzeTrace}
+                disabled={isTraceAssistantStreaming}
+                ariaLabel={compactPrimaryActions ? analyzeTraceLabel : undefined}
+              >
+                {compactPrimaryActions ? undefined : analyzeTraceLabel}
+              </ModelTraceExplorerGenieButton>
+            )}
             <div
               css={{
                 width: 1,

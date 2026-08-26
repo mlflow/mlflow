@@ -11,7 +11,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../../genai-markdown-renderer/GenAIMarkdownRenderer';
-import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
+import { DownloadLink, exceedsRenderSizeLimit } from '../../../media-rendering-utils';
 import {
   attachmentAwareUrlTransform,
   isAttachmentUri,

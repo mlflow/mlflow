@@ -11,7 +11,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { DownloadLink, exceedsRenderSizeLimit } from '../../media-rendering-utils';
+import { DownloadLink, exceedsRenderSizeLimit } from '../../../media-rendering-utils';
 import { useTraceAttachment } from '../../hooks/useTraceAttachment';
 
 export const ModelTraceExplorerAttachmentRenderer = ({
