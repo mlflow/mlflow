@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, and_, case, distinct, exists, func, literal_column, true
+from sqlalchemy import Column, and_, case, distinct, exists, false, func, literal_column, or_, true
 from sqlalchemy.orm.query import Query
 
 from mlflow.entities.entity_type import EntityAssociationType
@@ -150,6 +150,9 @@ VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
+_SQL_BIGINT_MIN = -(2**63)
+_SQL_BIGINT_MAX = 2**63 - 1
+_NANOSECONDS_PER_MILLISECOND = 1_000_000
 
 _TRACE_METRIC_COLUMNS = {
     TraceMetricKey.INPUT_TOKENS: SqlTraceInfo.input_tokens,
@@ -673,6 +676,7 @@ def query_metrics(
     filters: list[str] | None,
     time_interval_seconds: int | None,
     max_results: int,
+    time_ranges_ms: list[tuple[int | None, int | None]] | None = None,
 ) -> list[MetricDataPoint]:
     """Unified query metrics function for all view types.
 
@@ -686,6 +690,9 @@ def query_metrics(
         filters: List of filter strings (each parsed by SearchTraceUtils), combined with AND
         time_interval_seconds: Time interval in seconds for time bucketing
         max_results: Maximum number of results to return
+        time_ranges_ms: Optional inclusive timestamp ranges to query. Multiple ranges are combined
+            into one SQL predicate. Span ranges are applied to span start time; trace and
+            assessment ranges use their respective trace timestamps.
 
     Returns:
         List of MetricDataPoint objects
@@ -700,11 +707,57 @@ def query_metrics(
         query = _apply_view_initial_join(query, view_type)
         query = _apply_filters(query, filters, view_type)
 
+    if time_ranges_ms is not None:
+        match view_type:
+            case MetricViewType.TRACES:
+                timestamp_column = SqlTraceInfo.timestamp_ms
+            case MetricViewType.SPANS:
+                timestamp_column = SqlSpan.start_time_unix_nano
+            case MetricViewType.ASSESSMENTS:
+                timestamp_column = SqlAssessments.trace_timestamp_ms
+
+        range_predicates = []
+        for range_start_ms, range_end_ms in time_ranges_ms:
+            predicates = []
+            if view_type == MetricViewType.SPANS:
+                # Include every nanosecond in the caller's inclusive end millisecond while keeping
+                # the indexed span timestamp column bare. Bounds outside BIGINT become constant
+                # predicates instead of overflowing a DBAPI integer bind.
+                if range_start_ms is not None:
+                    start_ns = range_start_ms * _NANOSECONDS_PER_MILLISECOND
+                    if start_ns > _SQL_BIGINT_MAX:
+                        predicates.append(false())
+                    elif start_ns > _SQL_BIGINT_MIN:
+                        predicates.append(timestamp_column >= start_ns)
+                if range_end_ms is not None:
+                    end_ns_exclusive = (range_end_ms + 1) * _NANOSECONDS_PER_MILLISECOND
+                    if end_ns_exclusive <= _SQL_BIGINT_MIN:
+                        predicates.append(false())
+                    elif end_ns_exclusive <= _SQL_BIGINT_MAX:
+                        predicates.append(timestamp_column < end_ns_exclusive)
+            else:
+                if range_start_ms is not None:
+                    if range_start_ms > _SQL_BIGINT_MAX:
+                        predicates.append(false())
+                    elif range_start_ms > _SQL_BIGINT_MIN:
+                        predicates.append(timestamp_column >= range_start_ms)
+                if range_end_ms is not None:
+                    if range_end_ms < _SQL_BIGINT_MIN:
+                        predicates.append(false())
+                    elif range_end_ms < _SQL_BIGINT_MAX:
+                        predicates.append(timestamp_column <= range_end_ms)
+            range_predicates.append(and_(*predicates) if predicates else true())
+        query = query.filter(or_(*range_predicates) if range_predicates else false())
+
     if view_type == MetricViewType.TRACES and metric_name == TraceMetricKey.SESSION_COUNT:
         query = query.filter(SqlTraceInfo.session_id.isnot(None))
 
     agg_column = _get_column_to_aggregate(view_type, metric_name)
-    if view_type == MetricViewType.SPANS and metric_name in _SPAN_COST_COLUMNS:
+    # SQL aggregate functions ignore null inputs. Filtering them before grouping is equivalent for
+    # aggregate values, but prevents an all-null group from consuming SQL LIMIT and then being
+    # discarded by conversion. This keeps max_results semantics stable when raw and rollup rows
+    # are merged.
+    if not (view_type == MetricViewType.TRACES and metric_name == TraceMetricKey.SESSION_COUNT):
         query = query.filter(agg_column.isnot(None))
 
     # Group by dimension columns, labeled for SELECT

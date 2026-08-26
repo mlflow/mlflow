@@ -17,15 +17,15 @@ set and no rebuild is queued for that day and family; it also demotes a covered 
 path when the row is missing a column the request needs (a null aggregate value). The single-row
 ``global`` grouping set is self-verifying. Trace-status rows are served only when their distinct
 status counts add up to the corresponding global count, which proves the materialized breakdown is
-complete. Other multi-row grouping sets remain raw-only until they have an equivalent completeness
-proof.
+complete. Span model/provider grouping sets rely on the maintenance contract that replacement and
+rebuild-queue removal publish a complete partition atomically.
 
 The rollup tables carry no ``workspace`` column (the shipped analytics schema scopes purely on
-``experiment_id``, which is globally unique), so workspace isolation is preserved by the caller only
-routing experiment ids the requester may access.
+``experiment_id``), so workspace isolation is preserved by the caller only routing experiment ids
+the requester may access. Hard experiment deletion removes these non-FK rows before an integer id
+can be reused.
 """
 
-import math
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -57,6 +57,16 @@ from mlflow.tracing.constant import (
 
 MS_PER_DAY = 86_400_000
 DAILY_INTERVAL_SECONDS = 86_400
+
+# Keep every date ``IN`` predicate comfortably below MSSQL's 2,100-parameter statement limit and
+# bound planner memory for caller-controlled timestamp ranges. A larger request remains valid; it
+# simply uses the authoritative raw query.
+MAX_ROLLUP_DAYS = 1_000
+
+# Scattered missing or invalidated days can otherwise produce a very large OR expression even
+# though the raw portions are executed in one statement. Above this threshold the single full raw
+# query is both simpler and predictably cheaper.
+MAX_RAW_RANGES = 8
 
 # Daily percentiles are not composable into coarser buckets, so rollups only serve these three exact
 # daily percentile values, and only for single-experiment complete-UTC-day requests.
@@ -125,26 +135,35 @@ ROLLUP_METRICS: dict[RollupFamily, frozenset[str]] = {
 PERCENTILE_FAMILIES = frozenset({RollupFamily.TRACE_METRIC})
 PERCENTILE_BACKENDS = frozenset({db_types.POSTGRES})
 
-# Families the reader may serve from rollups. Span cost is intentionally excluded: the raw span
-# query filters by the parent trace's timestamp (``trace_info.timestamp_ms``) but buckets by span
-# start time (``spans.start_time_unix_nano``), so a span-day rollup cannot be guaranteed row-for-row
-# identical to raw when a span and its trace fall on different UTC days (e.g. delayed or
-# long-running OTLP spans). Serving it would violate the invariant that rollups never change
-# results, only speed.
-# Span-cost rollups are therefore neither built nor read until the span read path filters by span
-# time; trace-metric and assessment queries filter and bucket on the same timestamp, so they are
-# always exactly reproducible from daily rollups.
-SERVABLE_FAMILIES = frozenset({RollupFamily.TRACE_METRIC, RollupFamily.ASSESSMENT})
+# Raw span ranges and buckets use span start time, the same timestamp used to assign span-cost
+# rollup days. All three materialized families can therefore be reproduced exactly.
+SERVABLE_FAMILIES = frozenset(RollupFamily)
 
-# Trace-status rollups can be verified against their companion global count row: a day is served
-# only when the status rows' sample counts add up to that global count. Other multi-row grouping
-# sets have no equivalent completeness proof in the read schema and remain raw-only.
-SERVABLE_GROUPING_SETS = frozenset({GroupingSet.GLOBAL, GroupingSet.STATUS})
+# Publication is atomic with rebuild-queue removal, making every materialized grouping set
+# readable. Trace status additionally has a cheap global-count completeness check.
+SERVABLE_GROUPING_SETS = frozenset(GroupingSet)
+
+_ROLLUP_READ_ISOLATION_LEVEL = {
+    db_types.POSTGRES: "REPEATABLE READ",
+    db_types.MYSQL: "REPEATABLE READ",
+    db_types.MSSQL: "REPEATABLE READ",
+}
 
 
 def rollups_enabled() -> bool:
     """Whether opt-in SQL trace rollups are enabled for this deployment."""
     return MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get()
+
+
+def configure_rollup_read_snapshot(session: Session, db_type: str) -> None:
+    """Start eligible multi-statement reads at a stable backend isolation level.
+
+    PostgreSQL and MySQL use a repeatable snapshot. MSSQL repeatable-read locks stable rows; a
+    final rebuild-queue check catches queue-row phantoms. SQLite's managed session already starts
+    reads in its serializable transaction mode, so it needs no per-connection override.
+    """
+    if rollups_enabled() and (isolation_level := _ROLLUP_READ_ISOLATION_LEVEL.get(db_type)):
+        session.connection(execution_options={"isolation_level": isolation_level})
 
 
 @dataclass
@@ -176,10 +195,16 @@ def split_range_into_utc_days(start_time_ms: int | None, end_time_ms: int | None
         raw = [(start_time_ms, end_time_ms)] if has_range else []
         return UtcDaySplit(covered_day_starts_ms=[], raw_ranges=raw)
 
-    first_full_day_start = math.ceil(start_time_ms / MS_PER_DAY) * MS_PER_DAY
+    # Integer ceiling division avoids float overflow and precision loss for caller-controlled epoch
+    # values.
+    first_full_day_start = -(-start_time_ms // MS_PER_DAY) * MS_PER_DAY
     # Greatest UTC midnight D such that the whole day [D, D + MS_PER_DAY) fits inside the range,
     # i.e. D + MS_PER_DAY - 1 <= end_time_ms.
     last_full_day_start = ((end_time_ms + 1) // MS_PER_DAY) * MS_PER_DAY - MS_PER_DAY
+
+    full_day_count = max(0, (last_full_day_start - first_full_day_start) // MS_PER_DAY + 1)
+    if full_day_count > MAX_ROLLUP_DAYS:
+        return UtcDaySplit(covered_day_starts_ms=[], raw_ranges=[(start_time_ms, end_time_ms)])
 
     covered = list(range(first_full_day_start, last_full_day_start + MS_PER_DAY, MS_PER_DAY))
 
@@ -237,6 +262,7 @@ class RollupReadPlan:
         family: The rollup table family to read.
         metric_name: The metric whose rollup rows to read (matches the request metric name).
         grouping_set: The materialized grouping set to read.
+        dimensions: Requested grouping dimensions in API order.
         aggregations: The requested aggregations, all confirmed rollup-servable.
         bucketed: ``True`` for one data point per UTC day (daily interval); ``False`` for a single
             aggregate over the whole range.
@@ -249,6 +275,7 @@ class RollupReadPlan:
     family: RollupFamily
     metric_name: str
     grouping_set: GroupingSet
+    dimensions: list[str]
     aggregations: list[MetricAggregation]
     bucketed: bool
     experiment_id: int
@@ -307,6 +334,11 @@ def resolve_rollup_read(
     if metric_name not in ROLLUP_METRICS[family]:
         return None
 
+    # ``all([])`` is true, but an empty aggregation request produces no raw data points and must
+    # not be turned into rollup points with empty value maps.
+    if not aggregations:
+        return None
+
     # Rollups are unfiltered daily aggregates; any request-level filter must use the raw path.
     if filters:
         return None
@@ -335,10 +367,19 @@ def resolve_rollup_read(
     if not split.covered_day_starts_ms:
         return None
 
+    # Date columns cannot represent arbitrary integer epochs. Out-of-range requests remain valid
+    # raw SQL predicates, but must never fail while the optional planner converts day starts.
+    try:
+        _day_start_ms_to_date(split.covered_day_starts_ms[0])
+        _day_start_ms_to_date(split.covered_day_starts_ms[-1])
+    except (OverflowError, OSError, ValueError):
+        return None
+
     return RollupReadPlan(
         family=family,
         metric_name=metric_name,
         grouping_set=grouping_set,
+        dimensions=list(dimensions or []),
         aggregations=aggregations,
         bucketed=bucketed,
         experiment_id=experiment_ids[0],
@@ -375,10 +416,11 @@ def _rollup_row_dimensions(plan: RollupReadPlan, row) -> dict[str, str]:
         case GroupingSet.PROVIDER:
             return {SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: row.model_provider}
         case GroupingSet.MODEL_PROVIDER:
-            return {
+            values = {
                 SpanMetricDimensionKey.SPAN_MODEL_NAME: row.model_name,
                 SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: row.model_provider,
             }
+            return {dimension: values[dimension] for dimension in plan.dimensions}
         case _:
             return {}
 
@@ -406,6 +448,29 @@ def _rollup_row_value(aggregation: MetricAggregation, row) -> float | None:
                 case 99.0:
                     return row.p99_value
     return None
+
+
+def raw_aggregations_for_plan(plan: RollupReadPlan) -> list[MetricAggregation]:
+    """Return raw aggregations needed to merge an unbucketed result exactly.
+
+    Daily averages are not composable, so an unbucketed AVG is represented by SUM and COUNT
+    contributions from both rollup rows and the combined raw-range query.
+    """
+    if plan.bucketed:
+        return plan.aggregations
+
+    aggregation_types = []
+    for aggregation in plan.aggregations:
+        match aggregation.aggregation_type:
+            case AggregationType.AVG:
+                aggregation_types.extend([AggregationType.SUM, AggregationType.COUNT])
+            case aggregation_type:
+                aggregation_types.append(aggregation_type)
+
+    unique_types = dict.fromkeys(aggregation_types)
+    return [
+        MetricAggregation(aggregation_type=aggregation_type) for aggregation_type in unique_types
+    ]
 
 
 def compute_covered_day_starts(session: Session, plan: RollupReadPlan) -> list[int]:
@@ -477,6 +542,7 @@ def read_rollup_data_points(
         for row in global_rows:
             global_rows_by_day.setdefault(row.rollup_day, []).append(row)
 
+    contribution_aggregations = raw_aggregations_for_plan(plan)
     data_points = []
     served_day_starts: set[int] = set()
     for rollup_day, day_rows in rows_by_day.items():
@@ -499,6 +565,12 @@ def read_rollup_data_points(
             ):
                 continue
 
+        if plan.grouping_set != GroupingSet.GLOBAL:
+            dimension_keys = [tuple(_rollup_row_dimensions(plan, row).values()) for row in day_rows]
+            if len(set(dimension_keys)) != len(dimension_keys):
+                # Duplicate dimension rows mean publication is not a complete atomic replacement.
+                continue
+
         day_points = []
         for row in day_rows:
             group_dims = _rollup_row_dimensions(plan, row)
@@ -507,7 +579,7 @@ def read_rollup_data_points(
                 break
 
             values = {}
-            for agg in plan.aggregations:
+            for agg in contribution_aggregations:
                 value = _rollup_row_value(agg, row)
                 if value is None:
                     # A requested aggregation has no value for this day; demote the whole day to
@@ -516,7 +588,9 @@ def read_rollup_data_points(
                 values[str(agg)] = value
             else:
                 day_start_ms = date_to_ms[rollup_day]
-                dimensions = {TIME_BUCKET_LABEL: _day_start_ms_to_iso(day_start_ms)}
+                dimensions = (
+                    {TIME_BUCKET_LABEL: _day_start_ms_to_iso(day_start_ms)} if plan.bucketed else {}
+                )
                 dimensions.update(group_dims)
                 day_points.append(
                     MetricDataPoint(
@@ -552,28 +626,112 @@ def remaining_raw_ranges(
     return plan.raw_ranges + _coalesce_day_starts_to_ranges(uncovered_days)
 
 
-def serve_rollup_read(
-    session: Session, plan: RollupReadPlan
-) -> tuple[list[MetricDataPoint], list[tuple[int, int]]] | None:
+@dataclass
+class RollupReadResult:
+    """Rollup contributions plus the raw ranges needed to complete a response."""
+
+    data_points: list[MetricDataPoint]
+    raw_ranges: list[tuple[int, int]]
+    served_day_starts_ms: list[int]
+
+
+def serve_rollup_read(session: Session, plan: RollupReadPlan) -> RollupReadResult | None:
     """Serve the rollup-eligible portion of a query.
 
-    Returns ``(rollup_data_points, raw_ranges)`` where ``raw_ranges`` are the inclusive ms ranges
-    the caller must still query raw and concatenate, or ``None`` to signal a full raw fallback
-    (nothing is servable from rollups). Non-bucketed single-range aggregates currently fall back to
-    raw; only daily time-series buckets are accelerated.
+    Returns rollup contributions and inclusive raw ranges, or ``None`` to signal a full raw
+    fallback. Unbucketed contributions use composable backing aggregates (for example SUM and
+    COUNT for AVG), which the caller merges after querying all raw gaps in one statement.
 
     Days whose rollup row is missing a requested aggregation are demoted back into ``raw_ranges``,
     so a served response always matches the raw one.
     """
-    if not plan.bucketed:
-        return None
     covered = compute_covered_day_starts(session, plan)
     if not covered:
         return None
     data_points, served_day_starts = read_rollup_data_points(session, plan, covered)
     if not served_day_starts:
         return None
-    return data_points, remaining_raw_ranges(plan, served_day_starts)
+    raw_ranges = remaining_raw_ranges(plan, served_day_starts)
+    if len(raw_ranges) > MAX_RAW_RANGES:
+        return None
+    return RollupReadResult(data_points, raw_ranges, served_day_starts)
+
+
+def rollup_read_is_current(
+    session: Session, plan: RollupReadPlan, served_day_starts_ms: list[int]
+) -> bool:
+    """Recheck invalidation after raw-gap reads for backends without snapshot phantoms.
+
+    Repeatable snapshots make this a stable re-read on PostgreSQL/MySQL. On MSSQL, a rebuild row
+    inserted after the initial absence check is a permitted repeatable-read phantom; seeing it here
+    makes the caller abandon the mixed result and execute one authoritative raw query.
+    """
+    served_dates = [_day_start_ms_to_date(ms) for ms in served_day_starts_ms]
+    return (
+        session
+        .query(SqlTraceRollupRebuild.experiment_id)
+        .filter(
+            SqlTraceRollupRebuild.experiment_id == plan.experiment_id,
+            SqlTraceRollupRebuild.rollup_family == plan.family.value,
+            SqlTraceRollupRebuild.rollup_day.in_(served_dates),
+        )
+        .first()
+        is None
+    )
+
+
+def merge_unbucketed_data_points(
+    plan: RollupReadPlan,
+    rollup_points: list[MetricDataPoint],
+    raw_points: list[MetricDataPoint],
+    max_results: int,
+) -> list[MetricDataPoint]:
+    """Merge composable unbucketed rollup and raw contributions by grouping dimensions."""
+    support_aggregations = raw_aggregations_for_plan(plan)
+    grouped: dict[tuple[tuple[str, str], ...], dict[str, float]] = {}
+    dimensions_by_key: dict[tuple[tuple[str, str], ...], dict[str, str]] = {}
+
+    for point in [*rollup_points, *raw_points]:
+        dimensions = point.dimensions or {}
+        key = tuple(dimensions.items())
+        dimensions_by_key[key] = dimensions
+        accumulated = grouped.setdefault(key, {})
+        for aggregation in support_aggregations:
+            label = str(aggregation)
+            if label not in point.values:
+                continue
+            value = point.values[label]
+            match aggregation.aggregation_type:
+                case AggregationType.COUNT | AggregationType.SUM:
+                    accumulated[label] = accumulated.get(label, 0) + value
+                case AggregationType.MIN:
+                    accumulated[label] = min(accumulated.get(label, value), value)
+                case AggregationType.MAX:
+                    accumulated[label] = max(accumulated.get(label, value), value)
+
+    data_points = []
+    for key, support_values in grouped.items():
+        values = {}
+        for aggregation in plan.aggregations:
+            label = str(aggregation)
+            if aggregation.aggregation_type == AggregationType.AVG:
+                count_label = str(MetricAggregation(aggregation_type=AggregationType.COUNT))
+                sum_label = str(MetricAggregation(aggregation_type=AggregationType.SUM))
+                sample_count = support_values.get(count_label, 0)
+                sum_value = support_values.get(sum_label)
+                if sample_count and sum_value is not None:
+                    values[label] = sum_value / sample_count
+            elif label in support_values:
+                values[label] = support_values[label]
+        if values:
+            data_points.append(
+                MetricDataPoint(
+                    metric_name=plan.metric_name,
+                    dimensions=dimensions_by_key[key],
+                    values=values,
+                )
+            )
+    return order_and_limit_data_points(data_points, max_results)
 
 
 def _data_point_ordering(point: MetricDataPoint) -> tuple[str, tuple[str, ...]]:

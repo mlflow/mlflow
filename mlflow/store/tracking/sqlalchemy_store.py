@@ -129,6 +129,7 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessmentDailyRollup,
     SqlAssessments,
     SqlDataset,
     SqlEntityAssociation,
@@ -160,9 +161,12 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorer,
     SqlScorerVersion,
     SqlSpan,
+    SqlSpanCostDailyRollup,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
+    SqlTraceMetricDailyRollup,
+    SqlTraceRollupRebuild,
     SqlTraceTag,
     _input_to_dict,
 )
@@ -175,8 +179,12 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     validate_query_trace_metrics_params,
 )
 from mlflow.store.tracking.utils.sql_trace_rollups import (
+    configure_rollup_read_snapshot,
+    merge_unbucketed_data_points,
     order_and_limit_data_points,
+    raw_aggregations_for_plan,
     resolve_rollup_read,
+    rollup_read_is_current,
     serve_rollup_read,
 )
 from mlflow.store.tracking.utils.trace_analytics import (
@@ -914,6 +922,18 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session=session,
                 view_type=ViewType.DELETED_ONLY,
             )
+            # Rollup tables deliberately have no experiment foreign key. Remove their rows in the
+            # same transaction so backends that reuse integer experiment ids (notably SQLite)
+            # cannot expose aggregates or rebuild state from the deleted experiment.
+            for model in (
+                SqlTraceMetricDailyRollup,
+                SqlSpanCostDailyRollup,
+                SqlAssessmentDailyRollup,
+                SqlTraceRollupRebuild,
+            ):
+                session.query(model).filter(model.experiment_id == int(experiment_id)).delete(
+                    synchronize_session=False
+                )
             session.delete(experiment)
 
     def _mark_run_deleted(self, session, run):
@@ -4354,39 +4374,42 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
 
         with self.ManagedSessionMaker() as session:
+            # Rollup routing reads coverage, rebuild state, rollup rows, and raw gaps in separate
+            # statements. Establish their shared snapshot before the first database read.
+            configure_rollup_read_snapshot(session, self.db_type)
             experiment_ids_int = self._filter_experiment_ids(
                 session, [int(exp_id) for exp_id in experiment_ids]
             )
 
-            def raw_range_query(range_start_ms: int | None, range_end_ms: int | None):
+            def raw_query():
                 if view_type == MetricViewType.ASSESSMENTS:
-                    query = session.query(SqlAssessments).filter(
+                    return session.query(SqlAssessments).filter(
                         SqlAssessments.experiment_id.in_(experiment_ids_int)
                     )
-                    timestamp_column = SqlAssessments.trace_timestamp_ms
-                else:
-                    query = self._trace_query(session).filter(
-                        SqlTraceInfo.experiment_id.in_(experiment_ids_int)
-                    )
-                    timestamp_column = SqlTraceInfo.timestamp_ms
-                if range_start_ms is not None:
-                    query = query.filter(timestamp_column >= range_start_ms)
-                if range_end_ms is not None:
-                    query = query.filter(timestamp_column <= range_end_ms)
-                return query
+                return self._trace_query(session).filter(
+                    SqlTraceInfo.experiment_id.in_(experiment_ids_int)
+                )
 
-            def raw_range_points(range_start_ms: int | None, range_end_ms: int | None):
+            def raw_range_points(
+                ranges: list[tuple[int | None, int | None]],
+                range_aggregations: list[MetricAggregation] | None = None,
+            ):
                 return query_metrics(
                     view_type=view_type,
                     db_type=self.db_type,
-                    query=raw_range_query(range_start_ms, range_end_ms),
+                    query=raw_query(),
                     metric_name=metric_name,
-                    aggregations=aggregations,
+                    aggregations=(
+                        range_aggregations if range_aggregations is not None else aggregations
+                    ),
                     dimensions=dimensions,
                     filters=filters,
                     time_interval_seconds=time_interval_seconds,
                     max_results=max_results,
+                    time_ranges_ms=ranges,
                 )
+
+            full_raw_range = [(start_time_ms, end_time_ms)]
 
             # Opt-in fast path: serve whole covered UTC days from precomputed rollups and query only
             # the partial-day edges (and any not-yet-built days) raw. resolve_rollup_read returns
@@ -4407,15 +4430,27 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             served = serve_rollup_read(session, plan) if plan is not None else None
 
             if served is not None:
-                rollup_points, raw_ranges = served
-                data_points = list(rollup_points)
-                for range_start_ms, range_end_ms in raw_ranges:
-                    data_points.extend(raw_range_points(range_start_ms, range_end_ms))
-                # Match the single-query raw path: order by time bucket (then grouping dimensions)
-                # and apply the global max_results after merging rollup and raw sub-range results.
-                data_points = order_and_limit_data_points(data_points, max_results)
+                range_aggregations = raw_aggregations_for_plan(plan)
+                raw_points = (
+                    raw_range_points(served.raw_ranges, range_aggregations)
+                    if served.raw_ranges
+                    else []
+                )
+                if not rollup_read_is_current(session, plan, served.served_day_starts_ms):
+                    data_points = raw_range_points(full_raw_range)
+                elif plan.bucketed:
+                    # Match the single-query raw path: order by time bucket (then grouping
+                    # dimensions) and apply the global max_results after merging rollup and raw
+                    # contributions.
+                    data_points = order_and_limit_data_points(
+                        [*served.data_points, *raw_points], max_results
+                    )
+                else:
+                    data_points = merge_unbucketed_data_points(
+                        plan, served.data_points, raw_points, max_results
+                    )
             else:
-                data_points = raw_range_points(start_time_ms, end_time_ms)
+                data_points = raw_range_points(full_raw_range)
 
             # TODO: Implement pagination with page_token
             return PagedList(data_points, None)
