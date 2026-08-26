@@ -10,8 +10,8 @@ RUN apt-get install -y --no-install-recommends python3 python3-venv python3-pip 
 
 
 # Setup Java
-RUN apt-get install -y --no-install-recommends openjdk-11-jdk maven
-ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+RUN apt-get install -y --no-install-recommends openjdk-17-jdk maven
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 WORKDIR /opt/mlflow
 
