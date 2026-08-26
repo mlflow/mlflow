@@ -12,18 +12,11 @@ RUN git clone \
     --branch $(git ls-remote --tags --sort=v:refname https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
     https://github.com/pyenv/pyenv.git /root/.pyenv
 ENV PYENV_ROOT="/root/.pyenv"
-ENV PATH="$PYENV_ROOT/bin:$PATH"
-RUN apt install -y software-properties-common \
-    && apt update \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt update \
-    && apt install -y python3.11 python3.11-distutils \
-    # Remove apt-installed distributions that pip cannot uninstall (no RECORD file),
-    # since deadsnakes Python keeps Debian's dist-packages on sys.path
-    && apt remove -y python3-blinker python3-cryptography \
-    && ln -s -f $(which python3.11) /usr/bin/python \
-    && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
-    && python /tmp/get-pip.py
+ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
+RUN pyenv install 3.11 \
+    && pyenv global 3.11 \
+    && python -m ensurepip --upgrade \
+    && pip install --upgrade pip
 
 
 # Setup Java
