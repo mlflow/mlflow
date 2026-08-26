@@ -43,6 +43,22 @@ export namespace GetTraceInfoV3 {
 }
 
 /**
+ * Get TraceInfo for a Databricks Unity Catalog backed V4 trace.
+ *
+ * Endpoint: GET /api/4.0/mlflow/traces/{location}/{otel_trace_id}/info
+ */
+export namespace GetTraceInfoV4 {
+  export const getEndpoint = (host: string, location: string, otelTraceId: string) =>
+    `${host}/api/4.0/mlflow/traces/${encodeURIComponent(location)}/${otelTraceId}/info`;
+
+  export interface Response {
+    trace: {
+      trace_info: Parameters<typeof TraceInfo.fromJson>[0];
+    };
+  }
+}
+
+/**
  * Search trace metadata using the V3 traces API.
  */
 export namespace SearchTracesV3 {

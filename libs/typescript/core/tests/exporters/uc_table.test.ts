@@ -139,6 +139,56 @@ describe('MlflowClient UC methods', () => {
     expect(returned.traceLocation.ucTablePrefix?.otelSpansTableName).toBe('cat.sch.tbl_otel_spans');
   });
 
+  it('getTraceInfo routes a V4 trace ID to the UC endpoint', async () => {
+    const location = 'cat.sch.tbl';
+    const otelTraceId = 'abcdef1234567890abcdef1234567890';
+    const traceId = `trace:/${location}/${otelTraceId}`;
+    let capturedUrl: string | null = null;
+
+    server.use(
+      http.get(
+        `${testHost}/api/4.0/mlflow/traces/${encodeURIComponent(location)}/${otelTraceId}/info`,
+        ({ request }) => {
+          capturedUrl = request.url;
+          return HttpResponse.json({
+            trace: {
+              trace_info: {
+                trace_id: traceId,
+                trace_location: {
+                  type: TraceLocationType.UC_TABLE_PREFIX,
+                  uc_table_prefix: {
+                    catalog_name: 'cat',
+                    schema_name: 'sch',
+                    table_prefix: 'tbl',
+                  },
+                },
+                request_time: '2023-11-14T22:13:20Z',
+                execution_duration: '1.5s',
+                state: TraceState.OK,
+                trace_metadata: {
+                  [TraceMetadataKey.TOKEN_USAGE]: '{"input_tokens":3,"output_tokens":2}',
+                },
+                tags: {},
+                assessments: [],
+              },
+              spans: [],
+            },
+          });
+        },
+      ),
+    );
+
+    const returned = await client.getTraceInfo(traceId);
+
+    expect(capturedUrl).toBe(
+      `${testHost}/api/4.0/mlflow/traces/${encodeURIComponent(location)}/${otelTraceId}/info`,
+    );
+    expect(returned.traceId).toBe(traceId);
+    expect(returned.traceMetadata[TraceMetadataKey.TOKEN_USAGE]).toBe(
+      '{"input_tokens":3,"output_tokens":2}',
+    );
+  });
+
   it('exportOtlpSpansToUc constructs an OTLP proto exporter with the UC table header', async () => {
     exporterCtors.length = 0;
     mockExport.mockClear();

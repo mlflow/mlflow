@@ -31,6 +31,7 @@
   },
   "scripts": {
     "build": "tsc && node esbuild.config.mjs",
+    "sync:model-pricing": "node scripts/sync-model-pricing.mjs && prettier --write src/core/utils/model_pricing_catalog.ts",
     "test": "jest",
     "lint": "eslint . --ext .ts --max-warnings 0",
     "lint:fix": "eslint . --ext .ts --fix",

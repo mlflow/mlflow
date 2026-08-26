@@ -9,6 +9,7 @@ import {
   GetExperiment,
   GetExperimentByName,
   GetTraceInfoV3,
+  GetTraceInfoV4,
   SearchTracesV3,
   StartTraceV3,
 } from './spec';
@@ -21,6 +22,7 @@ import { serializeTraceLocation, type TraceLocation } from '../core/entities/tra
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import type { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
 import { ExportResultCode, type ExportResult } from '@opentelemetry/core';
+import { parseTraceIdV4 } from '../core/utils/trace_id';
 
 export interface SearchTracesOptions {
   /** Trace locations (e.g. MLflow experiments) to search over. */
@@ -215,11 +217,20 @@ export class MlflowClient {
     return new Trace(traceInfo, traceData);
   }
 
-  /**
-   * Get trace info using V3 API
-   * Endpoint: GET /api/3.0/mlflow/traces/{trace_id}
-   */
+  /** Get trace info using the V4 API for UC trace IDs, or the V3 API otherwise. */
   async getTraceInfo(traceId: string): Promise<TraceInfo> {
+    const [location, otelTraceId] = parseTraceIdV4(traceId);
+    if (location != null && otelTraceId != null) {
+      const url = GetTraceInfoV4.getEndpoint(this.hostUrl, location, otelTraceId);
+      const response = await makeRequest<GetTraceInfoV4.Response>('GET', url, this.headersProvider);
+
+      if (response.trace?.trace_info) {
+        return TraceInfo.fromJson(response.trace.trace_info);
+      }
+
+      throw new Error(`Invalid response format: missing trace_info: ${JSON.stringify(response)}`);
+    }
+
     const url = GetTraceInfoV3.getEndpoint(this.hostUrl, traceId);
     const response = await makeRequest<GetTraceInfoV3.Response>('GET', url, this.headersProvider);
 

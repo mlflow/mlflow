@@ -81,6 +81,11 @@ export const SpanAttributeKey = {
   // This attribute is used to store token usage information from LLM responses.
   // Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
   TOKEN_USAGE: 'mlflow.chat.tokenUsage',
+  // This attribute stores per-span LLM cost information in USD.
+  LLM_COST: 'mlflow.llm.cost',
+  // Model identifier and provider used for catalog-backed cost estimation.
+  MODEL: 'mlflow.llm.model',
+  MODEL_PROVIDER: 'mlflow.llm.provider',
   // This attribute indicates which flavor/format generated the LLM span. This is
   // used by downstream (e.g., UI) to determine the message format for parsing.
   MESSAGE_FORMAT: 'mlflow.message.format',
@@ -95,6 +100,7 @@ export const TraceMetadataKey = {
   SIZE_BYTES: 'mlflow.trace.sizeBytes',
   SCHEMA_VERSION: 'mlflow.trace_schema.version',
   TOKEN_USAGE: 'mlflow.trace.tokenUsage',
+  COST: 'mlflow.trace.cost',
   TRACE_SESSION: 'mlflow.trace.session',
   TRACE_USER: 'mlflow.trace.user',
   // Deprecated, do not use. These fields are used for storing trace request and response
