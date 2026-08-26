@@ -27,12 +27,13 @@ const getAttribute = (attributes: unknown, key: string): unknown => {
     return undefined;
   }
 
-  const attribute = attributes.find((candidate) => isRecord(candidate) && candidate.key === key);
-  if (!isRecord(attribute) || !isRecord(attribute.value)) {
+  const attribute = attributes.find((candidate) => isRecord(candidate) && candidate['key'] === key);
+  if (!isRecord(attribute) || !isRecord(attribute['value'])) {
     return undefined;
   }
 
-  return attribute.value.string_value ?? attribute.value.int_value ?? attribute.value.bool_value;
+  const value = attribute['value'];
+  return value['string_value'] ?? value['int_value'] ?? value['bool_value'];
 };
 
 const getFiniteNumber = (value: unknown): number | undefined => {

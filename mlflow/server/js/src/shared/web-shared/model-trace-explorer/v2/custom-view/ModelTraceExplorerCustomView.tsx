@@ -210,7 +210,7 @@ export const ModelTraceExplorerCustomView = ({
   // is read defensively rather than asserted via a cast.
   const handleStageFeedback = (action: A2uiClientAction) => {
     const context = action.context ?? {};
-    const name = typeof context.name === 'string' && context.name ? context.name : undefined;
+    const name = typeof context['name'] === 'string' && context['name'] ? context['name'] : undefined;
     if (!name) {
       return;
     }
@@ -219,8 +219,8 @@ export const ModelTraceExplorerCustomView = ({
       surfaceBuffer = new Map();
       pendingFeedbackRef.current.set(action.surfaceId, surfaceBuffer);
     }
-    const spanId = typeof context.spanId === 'string' && context.spanId ? context.spanId : undefined;
-    const formId = typeof context.formId === 'string' && context.formId ? context.formId : undefined;
+    const spanId = typeof context['spanId'] === 'string' && context['spanId'] ? context['spanId'] : undefined;
+    const formId = typeof context['formId'] === 'string' && context['formId'] ? context['formId'] : undefined;
     // Key by formId + name + spanId so the same dimension in different forms (or
     // on different spans) stays distinct. A radio and its rationale input share a
     // key only when they share BOTH formId and name — that pairing is intentional.
@@ -229,8 +229,8 @@ export const ModelTraceExplorerCustomView = ({
     surfaceBuffer.set(bufferKey, {
       ...previous,
       name,
-      ...(typeof context.value === 'string' ? { value: context.value } : {}),
-      ...(typeof context.rationale === 'string' ? { rationale: context.rationale } : {}),
+      ...(typeof context['value'] === 'string' ? { value: context['value'] } : {}),
+      ...(typeof context['rationale'] === 'string' ? { rationale: context['rationale'] } : {}),
       ...(spanId ? { spanId } : {}),
       ...(formId ? { formId } : {}),
     });
