@@ -36,6 +36,8 @@ const TracesV3Content = ({
   // single `atCap` source, instead of each button opening its own subscription.
   const savedViews = useTraceSavedViews({ experimentId: experimentId || '' });
   // The deprecated Sessions page links here with `?groupBy=session` to open the session-grouped view.
+  // TODO: Remove this V3 groupBy plumbing once the Traces tab mounts V4, which reads `?groupBy=session`
+  // natively via `useTracesV4UrlState`.
   const { search } = useLocation();
   const initialGroupBySession = new URLSearchParams(search).get('groupBy') === 'session';
   if (viewState === 'logs') {
