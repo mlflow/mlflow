@@ -4,7 +4,7 @@ import { compact, isUndefined } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
 
 import type { EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
-import { ModelTraceExplorerPreferencesProvider } from '../model-trace-explorer/ModelTraceExplorerPreferencesContext';
+import { ModelTraceExplorerPreferencesProvider } from '../model-trace-explorer/ModelTraceExplorerPreferencesContextEntrypoint';
 import {
   useModelTraceExplorerContext,
   type DrawerComponentType,
