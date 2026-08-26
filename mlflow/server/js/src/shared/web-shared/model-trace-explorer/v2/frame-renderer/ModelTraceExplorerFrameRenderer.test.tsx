@@ -11,23 +11,6 @@ import { MLFLOW_TRACE_SCHEMA_VERSION_KEY } from '../ModelTrace.types';
 import { MOCK_TRACE } from '../../ModelTraceExplorer.test-utils';
 import rendererVersions from '../../ml-model-trace-renderer/library-versions.json';
 
-// Mock the logging hooks
-const mockLogError = jest.fn();
-const mockRecordProto = jest.fn();
-
-jest.mock('../../../metrics/PanelBoundaryContext', () => ({
-  ...jest.requireActual<typeof import('../../../metrics/PanelBoundaryContext')>(
-    '../../../metrics/PanelBoundaryContext',
-  ),
-  useUnsafePanelBoundaryLoggingContext: jest.fn(() => ({
-    UNSAFE_logErrorInPanelBoundary: mockLogError,
-  })),
-}));
-jest.mock('../../../metrics/useRecordProto', () => ({
-  ...jest.requireActual<typeof import('../../../metrics/useRecordProto')>('../../../metrics/useRecordProto'),
-  useRecordProto: jest.fn(() => mockRecordProto),
-}));
-
 // backward compatibility tests for all possible trace versions
 const TRACE_V1_RUNS_METADATA: ModelTrace = {
   ...MOCK_TRACE,
@@ -133,8 +116,7 @@ describe('ModelTraceExplorerFrameRenderer', () => {
   });
 
   it('logs error when iframe posts LogError message', () => {
-    mockLogError.mockClear();
-    mockRecordProto.mockClear();
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const { container } = render(<ModelTraceExplorerFrameRenderer modelTrace={TRACE_V0} />);
     // eslint-disable-next-line testing-library/no-container, testing-library/no-node-access -- FEINF-5819: migrate render-container DOM queries to RTL queries; remove this disable when migrated
@@ -161,6 +143,7 @@ describe('ModelTraceExplorerFrameRenderer', () => {
       window.dispatchEvent(messageEvent);
     });
 
-    expect(mockLogError).toHaveBeenCalledWith(testError, mockRecordProto, undefined, false);
+    expect(consoleErrorSpy).toHaveBeenCalledWith('MLflow trace renderer error:', testError);
+    consoleErrorSpy.mockRestore();
   });
 });

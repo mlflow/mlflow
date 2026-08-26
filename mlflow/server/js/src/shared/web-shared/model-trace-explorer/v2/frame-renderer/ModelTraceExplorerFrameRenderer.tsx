@@ -1,10 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
 import { useDesignSystemTheme, Typography, ChevronDownIcon, ChevronRightIcon, Button } from '@databricks/design-system';
-import { FeedbackLink } from '../../../fastfeedback/components/FeedbackLink';
-import { Es } from '@databricks/es-components';
-import { useRecordProto } from '../../../metrics/useRecordProto';
-import { useUnsafePanelBoundaryLoggingContext } from '../../../metrics/PanelBoundaryContext';
 import type { ModelTrace } from '../ModelTrace.types';
 import type { ModelTraceChildToParentFrameMessageType } from '../../frame-renderer/types';
 import { ModelTraceExplorerSkeleton } from '../../ModelTraceExplorerSkeleton';
@@ -54,10 +50,7 @@ export const ModelTraceExplorerFrameRenderer = ({
   const rendererVersionSrc = (rendererVersions as any)[version]?.path ?? rendererVersions[FALLBACK_VERSION].path;
   const fullIframeSrc = sqlWarehouseId ? `${rendererVersionSrc}?sqlWarehouseId=${sqlWarehouseId}` : rendererVersionSrc;
 
-  const recordProto = useRecordProto();
   const { theme } = useDesignSystemTheme();
-
-  const { UNSAFE_logErrorInPanelBoundary } = useUnsafePanelBoundaryLoggingContext();
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent<ModelTraceChildToParentFrameMessageType>) => {
@@ -77,10 +70,11 @@ export const ModelTraceExplorerFrameRenderer = ({
           break;
         }
         case ModelTraceChildToParentFrameMessage.LogError: {
-          // Intercept error from the iFrame and imperatively send it to panel boundary using UNSAFE_logErrorInPanelBoundary()
-          // TODO(FEINF-4397): use regular PanelBoundary approach when it's fully capable of error filtering.
+          // Surface errors reported by the renderer iframe. Databricks routes these to its panel
+          // boundary telemetry; OSS has no such sink, so log to the console for debuggability.
           const { error } = event.data || {};
-          UNSAFE_logErrorInPanelBoundary(error, recordProto, undefined, false);
+          // eslint-disable-next-line no-console
+          console.error('MLflow trace renderer error:', error);
 
           break;
         }
@@ -93,7 +87,7 @@ export const ModelTraceExplorerFrameRenderer = ({
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [UNSAFE_logErrorInPanelBoundary, recordProto, modelTrace]);
+  }, [modelTrace]);
 
   useEffect(() => {
     const iframeWindow = iframeRef.current?.contentWindow;
@@ -141,7 +135,6 @@ export const ModelTraceExplorerFrameRenderer = ({
             Learn More
           </Typography.Link>
         </div>
-        <FeedbackLink parentUi={Es.MlFlowOSS} origin="mlflow-notebook-trace-ui" />
       </div>
       {isLoading && (
         <div
