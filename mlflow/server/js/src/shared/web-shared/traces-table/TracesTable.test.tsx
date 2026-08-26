@@ -438,4 +438,68 @@ describe('TracesTable', () => {
     expect(within(taggedRow).getByRole('button', { name: 'Open trace changing-tags — tags' })).toHaveTextContent('+2');
     expect(within(taggedRow).queryByRole('button', { name: 'Filter by tag b: 2' })).not.toBeInTheDocument();
   });
+
+  test.each([2, 6])('wraps input and output previews over %s lines', async (previewLineClamp) => {
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          traces: [
+            makeTrace('expanded', {
+              request_preview: 'a long request preview '.repeat(10),
+              response_preview: 'a long response preview '.repeat(10),
+            }),
+          ],
+          visibleColumns: ['input', 'output'],
+          previewLineClamp,
+        })}
+      />,
+    );
+
+    for (const previewText of [
+      within(screen.getByRole('button', { name: 'Open trace expanded — input' })).getByText(
+        /a long request preview a long request preview/,
+      ),
+      within(screen.getByRole('button', { name: 'Open trace expanded — output' })).getByText(
+        /a long response preview a long response preview/,
+      ),
+    ]) {
+      // A multi-line preview sets an inline `white-space: normal` (single-line previews set no inline
+      // style and stay `nowrap`). The clamp count lives in `-webkit-line-clamp`, which jsdom's CSSOM
+      // silently drops, so it can't be asserted here — the inline wrapping flag is the observable signal.
+      expect(previewText).toHaveStyle({ whiteSpace: 'normal' });
+    }
+  });
+
+  test('keeps compact expanded previews on the default table typography', async () => {
+    const renderPreviewTypographyClassName = async (size?: 'default' | 'small') => {
+      const { unmount } = await renderWithProviders(
+        <TracesTable
+          {...baseProps({
+            traces: [
+              makeTrace(`expanded-${size ?? 'default'}`, {
+                request_preview: 'a long request preview '.repeat(10),
+              }),
+            ],
+            visibleColumns: ['input'],
+            previewLineClamp: 2,
+            size,
+          })}
+        />,
+      );
+
+      const previewText = screen.getByText(/a long request preview a long request preview/);
+      // See the note above: assert the inline wrapping flag, not the jsdom-dropped clamp count.
+      expect(previewText).toHaveStyle({ whiteSpace: 'normal' });
+      const typography = previewText.closest('[class*="typography"]');
+      expect(typography).not.toBeNull();
+      const className = typography?.className;
+      unmount();
+      return className;
+    };
+
+    const defaultTypographyClassName = await renderPreviewTypographyClassName();
+    const compactTypographyClassName = await renderPreviewTypographyClassName('small');
+
+    expect(compactTypographyClassName).toBe(defaultTypographyClassName);
+  });
 });

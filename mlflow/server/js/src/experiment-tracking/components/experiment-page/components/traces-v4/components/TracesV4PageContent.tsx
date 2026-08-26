@@ -49,6 +49,12 @@ interface TracesV4PageContentProps {
   experimentId: string;
 }
 
+const PREVIEW_LINE_CLAMP_BY_DENSITY = {
+  small: 1,
+  standard: 2,
+  tall: 6,
+} as const;
+
 // Narrows a column id to a standard `TraceColumnId` (assessment columns are namespaced separately).
 const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_IDS as readonly string[]).includes(id);
 
@@ -355,7 +361,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             sort={url.sort}
             dir={url.dir}
             onSort={url.setSort}
-            size={density}
+            size={density === 'small' ? 'small' : 'default'}
+            previewLineClamp={PREVIEW_LINE_CLAMP_BY_DENSITY[density]}
             getTraceHref={getTraceHref}
             getSessionHref={getSessionHref}
             onSessionSelected={handleSessionSelected}
