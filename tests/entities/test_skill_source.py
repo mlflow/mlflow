@@ -47,3 +47,9 @@ def test_source_to_from_dict_helpers():
     assert source_from_dict({"url": "u", "ref": "r"}, SkillSourceType.GIT) == git
     assert source_from_dict("artifacts:/x", SkillSourceType.MLFLOW) == "artifacts:/x"
     assert source_from_dict(None, None) is None
+
+
+@pytest.mark.parametrize("source_type", [SkillSourceType.MLFLOW, SkillSourceType.ASSEMBLED, None])
+def test_source_from_dict_rejects_structured_source_for_non_typed_types(source_type):
+    with pytest.raises(MlflowException, match="structured source"):
+        source_from_dict({"url": "u"}, source_type)

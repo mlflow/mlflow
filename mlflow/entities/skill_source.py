@@ -110,5 +110,9 @@ def source_from_dict(source: Any, source_type: SkillSourceType | None) -> Source
         source_type = SkillSourceType(source_type)
     cls = _SOURCE_CLASSES.get(source_type)
     if cls is None:
-        return source
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot deserialize a structured source for source_type {source_type!r}; only "
+            "git, oci, and zip sources use structured payloads (mlflow and assembled sources "
+            "are represented as strings)."
+        )
     return cls.from_dict(source)
