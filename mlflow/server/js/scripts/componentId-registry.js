@@ -657,6 +657,7 @@ module.exports = {
   "mlflow.chat-sessions.actions-dropdown-tooltip": "",
   "mlflow.chat-sessions.copy-session-id": "",
   "mlflow.chat-sessions.delete-sessions": "",
+  "mlflow.chat-sessions.moved-to-grouped-traces": "",
   "mlflow.chat-sessions.session-header-label": "",
   "mlflow.chat-sessions.session-id-tag": "",
   "mlflow.chat-sessions.table-column-selector": "",
