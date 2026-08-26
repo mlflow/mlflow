@@ -594,7 +594,7 @@ export const TracesV4SavedViewsButton = ({
             </ToolbarCollapsibleLabel>
           </Button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
+        <DropdownMenu.Content align="start">
           <SavedViewsMenu
             componentId="mlflow.traces-v4.saved_views"
             testIdPrefix="trace-v4-saved-views"
@@ -660,8 +660,11 @@ export const TracesV4SavedViewsButton = ({
  * Discard reverts to the user's own view. Renders nothing when no shared view is active.
  */
 export const TracesV4SharedViewBanner = ({ savedViews }: { savedViews: TracesV4SavedViewsApi }) => {
-  const { sharedViewActive, override, discard } = savedViews;
-  if (!sharedViewActive) {
+  const { sharedViewActive, activeShareKey, override, discard } = savedViews;
+  // Dismiss hides the banner WITHOUT leaving the shared view (Override/Discard stay reachable in the
+  // Views menu). Keyed on the active share key so a *different* shared view re-shows it (mirrors V3).
+  const [dismissedShareKey, setDismissedShareKey] = useState<string | null>(null);
+  if (!sharedViewActive || dismissedShareKey === activeShareKey) {
     return null;
   }
   return (
@@ -682,6 +685,7 @@ export const TracesV4SharedViewBanner = ({ savedViews }: { savedViews: TracesV4S
           />
         }
         onDiscard={discard}
+        onDismiss={() => setDismissedShareKey(activeShareKey)}
       />
     </div>
   );
