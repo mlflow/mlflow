@@ -85,7 +85,11 @@ def test_version_and_alias_mutually_exclusive():
         ("models:/code-review", "expected it to start with"),  # wrong scheme
         ("skills:/", "missing name"),  # missing name
         ("skills:/@acme", "organization must be followed by a name"),  # org without name
-        ("skills:/code-review/abc", "must be an integer"),  # non-integer version
+        ("skills:/code-review/abc", "positive integer"),  # non-integer version
+        ("skills:/code-review/1_000", "positive integer"),  # underscore digit group
+        ("skills:/code-review/+5", "positive integer"),  # signed integer
+        ("skills:/code-review/01", "positive integer"),  # leading zero
+        ("skills:/code-review/٥", "positive integer"),  # Arabic-Indic digit
         ("skills:/@bad@org/code-review", "Invalid organization name"),  # invalid org
     ],
 )
