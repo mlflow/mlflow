@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { shouldEnableTracesTableStatePersistence } from '@databricks/web-shared/model-trace-explorer';
+import { useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { TracesV3Logs } from './TracesV3Logs';
 import {
   MonitoringConfigProvider,
@@ -34,6 +35,9 @@ const TracesV3Content = ({
   // One useTraceSavedViews instance for both toolbar buttons: a single Apollo subscription and a
   // single `atCap` source, instead of each button opening its own subscription.
   const savedViews = useTraceSavedViews({ experimentId: experimentId || '' });
+  // The deprecated Sessions page links here with `?groupBy=session` to open the session-grouped view.
+  const { search } = useLocation();
+  const initialGroupBySession = new URLSearchParams(search).get('groupBy') === 'session';
   if (viewState === 'logs') {
     return (
       <TracesV3Logs
@@ -42,6 +46,7 @@ const TracesV3Content = ({
         endpointName={endpointName || ''}
         timeRange={timeRange}
         drawerWidth="80vw"
+        initialGroupBySession={initialGroupBySession}
         enableSavedViews
         toolbarCornerAddons={
           experimentId && <TracesV3SavedViewsButton experimentId={experimentId} savedViews={savedViews} />

@@ -197,7 +197,7 @@ const ExperimentChatSessionsMovedPage = ({ experimentId }: { experimentId: strin
           </Typography.Text>
           <Typography.Text color="secondary">
             <FormattedMessage
-              defaultMessage='Click "Group traces by session" button to see the session-level view.'
+              defaultMessage='Click the "Group by session" button to see the session-level view.'
               description="Instruction explaining how to access the session-level view in the Traces tab"
             />
           </Typography.Text>

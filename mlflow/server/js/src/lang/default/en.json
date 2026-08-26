@@ -8215,6 +8215,10 @@
     "defaultMessage": "Duration",
     "description": "Trace filter field: execution time"
   },
+  "Wzhsx4": {
+    "defaultMessage": "Click the \"Group by session\" button to see the session-level view.",
+    "description": "Instruction explaining how to access the session-level view in the Traces tab"
+  },
   "X+boXI": {
     "defaultMessage": "Copied",
     "description": "Tooltip text shown when copy operation completes"
@@ -11814,10 +11818,6 @@
   "lA8QO2": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button in the registered prompts table"
-  },
-  "lCMO5m": {
-    "defaultMessage": "Click \"Group traces by session\" button to see the session-level view.",
-    "description": "Instruction explaining how to access the session-level view in the Traces tab"
   },
   "lCfyQO": {
     "defaultMessage": "Dataset",
