@@ -1907,6 +1907,10 @@
     "defaultMessage": "Key name",
     "description": "API key name column header"
   },
+  "6Hpgz8": {
+    "defaultMessage": "Failed to export traces to datasets.",
+    "description": "Error toast when exporting traces to evaluation datasets fails"
+  },
   "6I8pKa": {
     "defaultMessage": "Auth Type:",
     "description": "Auth type label"
