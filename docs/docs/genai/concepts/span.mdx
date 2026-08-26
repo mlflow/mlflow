@@ -40,7 +40,7 @@ MLflow's Span object is designed to be compatible with the [OpenTelemetry Span s
 | `outputs`       | `Optional[Any]`   | The output data that is passed out of the particular stage of your application. May contain [Attachment](/genai/tracing/observe-with-traces/multimodal#trace-attachments) objects for binary content, which are automatically replaced with reference URIs.   |
 | `attributes`    | `Dict[str, Any]`  | Attributes are metadata that are associated with a given step within your application. These are key-value pairs that provide insight into behavioral modifications for function and method calls.                                                            |
 | `events`        | `List[SpanEvent]` | Events are a system-level property that is optionally applied to a span only if there was an issue during the execution of the span. These events contain information about exceptions that were thrown in the instrumented call, as well as the stack trace. |
-| `links`         | `List[Link]`      | Links to related spans, within the same trace or across different traces. Links represent relationships beyond parent-child hierarchy. See [Span Links](#span-links). |
+| `links`         | `List[Link]`      | Links to related spans, within the same trace or across different traces. Links represent relationships beyond parent-child hierarchy. See [Span Links](#span-links).                                                                                         |
 
 ## Span Attributes
 
@@ -200,11 +200,11 @@ retrieved_docs = retrieve_relevant_documents(user_query)
 
 Each link references a related span, either in the same trace or a different one:
 
-| Field        | Type                        | Description                                                  |
-| ------------ | --------------------------- | ------------------------------------------------------------ |
-| `trace_id`   | `str`                       | The MLflow trace ID of the linked span (e.g. `tr-abc123...`) |
-| `span_id`    | `str`                       | The span ID within that trace (16-character hex string)       |
-| `attributes` | `Optional[Dict[str, Any]]`  | Optional metadata describing the relationship                |
+| Field        | Type                       | Description                                                  |
+| ------------ | -------------------------- | ------------------------------------------------------------ |
+| `trace_id`   | `str`                      | The MLflow trace ID of the linked span (e.g. `tr-abc123...`) |
+| `span_id`    | `str`                      | The span ID within that trace (16-character hex string)      |
+| `attributes` | `Optional[Dict[str, Any]]` | Optional metadata describing the relationship                |
 
 ### Example
 
