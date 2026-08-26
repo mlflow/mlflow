@@ -1,10 +1,8 @@
 /**
- * OSS shim for `@databricks/testing-library`, a thin wrapper around
- * `@testing-library/react` used by ported model-trace-explorer/v2 tests. It
- * re-exports RTL's pure API and a custom `render` that disables Emotion CSS by
- * default (for JSDOM performance) and peels `DesignSystemProvider`'s
- * layout-neutral scope wrapper off `container`. Ported verbatim from universe's
- * js/packages/testing-library so the tests run unchanged in OSS.
+ * A thin wrapper around `@testing-library/react` used by model-trace-explorer/v2
+ * tests. It re-exports RTL's pure API and a custom `render` that disables Emotion
+ * CSS by default (for JSDOM performance) and peels `DesignSystemProvider`'s
+ * layout-neutral scope wrapper off `container`.
  */
 import createCache from '@emotion/cache';
 import { CacheProvider } from '@emotion/react';

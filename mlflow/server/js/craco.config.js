@@ -342,7 +342,6 @@ module.exports = function () {
           // other aliases
           '@databricks/i18n': '<rootDir>/src/i18n/i18n',
           '@databricks/design-system/(.+)': '<rootDir>/node_modules/@databricks/design-system/dist/$1',
-          '@databricks/testing-library': '<rootDir>/src/shared/web-shared/testing-library',
           '@databricks/web-shared/(.*)': '<rootDir>/src/shared/web-shared/$1',
           '@mlflow/mlflow/(.*)': '<rootDir>/$1',
           // mock files for recharts components

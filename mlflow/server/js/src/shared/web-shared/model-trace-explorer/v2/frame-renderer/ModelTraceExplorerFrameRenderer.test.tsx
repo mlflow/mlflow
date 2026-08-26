@@ -1,6 +1,6 @@
 import { jest, describe, it, expect } from '@jest/globals';
 import { screen, act } from '@testing-library/react';
-import { render } from '@databricks/testing-library';
+import { render } from '@databricks/web-shared/test-utils/render';
 import React from 'react';
 
 import { ModelTraceChildToParentFrameMessage } from '../../frame-renderer/types';

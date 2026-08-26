@@ -4,7 +4,7 @@ import React from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { render } from '@databricks/testing-library';
+import { render } from '@databricks/web-shared/test-utils/render';
 
 import { AssessmentPaneToggle } from './AssessmentPaneToggle';
 

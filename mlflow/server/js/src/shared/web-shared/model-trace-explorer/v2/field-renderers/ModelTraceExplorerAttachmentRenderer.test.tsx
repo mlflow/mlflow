@@ -1,6 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { screen } from '@testing-library/react';
-import { render } from '@databricks/testing-library';
+import { render } from '@databricks/web-shared/test-utils/render';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';

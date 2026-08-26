@@ -14,9 +14,6 @@
       "@databricks/i18n": [
         "./src/i18n/i18n"
       ],
-      "@databricks/testing-library": [
-        "./src/shared/web-shared/testing-library"
-      ],
       "@databricks/web-shared/*": [
         "./src/shared/web-shared/*"
       ]

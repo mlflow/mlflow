@@ -1,6 +1,6 @@
 import { describe, test, expect } from '@jest/globals';
 import { screen } from '@testing-library/react';
-import { render } from '@databricks/testing-library';
+import { render } from '@databricks/web-shared/test-utils/render';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
