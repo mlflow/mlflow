@@ -819,7 +819,7 @@ describe('TracesV4PageContent', () => {
       expect(await findTraceRow('p1-000')).toBeInTheDocument();
       // Full-page renders + two paginations are slow under parallel jsdom load; per-test timeout
       // avoids the lint-forbidden global jest.setTimeout.
-    }, 20000);
+    }, 30000);
 
     test('shows the "{n} of {total}" count — current page rows out of the metrics total', async () => {
       // 3 rows on the page; the trace-metrics endpoint reports 42 total.
@@ -828,8 +828,11 @@ describe('TracesV4PageContent', () => {
       renderPage();
       await findTraceRow('tr-000');
 
-      expect(await screen.findByText('3 of 42')).toBeInTheDocument();
-    }, 20000);
+      // The count trails the table (it awaits the separate trace-metrics query, then re-renders the
+      // full page), so poll longer than findBy's 1s default — the whole page render is slow under
+      // parallel jsdom load (matches the explicit findBy timeouts in TracesV4TraceDrawer.test).
+      expect(await screen.findByText('3 of 42', {}, { timeout: 25000 })).toBeInTheDocument();
+    }, 30000);
   });
 
   describe('OSS data path', () => {
@@ -1151,7 +1154,7 @@ describe('TracesV4PageContent', () => {
       // The shared run-judges modal opens scoped to the single selected trace. (The menu item reads
       // "Run scorers"; the modal title uses the underlying "judge" terminology.)
       expect(await screen.findByRole('dialog', { name: /Run judge on trace/ })).toBeInTheDocument();
-    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+    }, 30000); // heavy full-page userEvent render + modal — bump off the flaky default under parallel jsdom load
 
     test('bulk actions run on the full cross-page selection (select on page 1, page to 2, Run scorers)', async () => {
       // The selection now stores each trace's full info keyed by id, so it spans pages. Selecting one
@@ -1224,9 +1227,9 @@ describe('TracesV4PageContent', () => {
 
   describe('toolbar order', () => {
     // Assert the always-present V4 control ordering. Views pins far left (before the date selector);
-    // column/sort/row-height controls consolidate into the Display popover; Detect Issues renders
-    // whenever issue detection is enabled (true in OSS) and sits just before Refresh.
-    test('renders Views → Date → Search → Filter → Display → Detect Issues → Refresh', async () => {
+    // column/sort/row-height controls consolidate into the Display popover; Refresh then Detect Issues
+    // pin far right (Detect Issues renders whenever issue detection is enabled, true in OSS).
+    test('renders Views → Date → Search → Filter → Display → Refresh → Detect Issues', async () => {
       renderPage();
       await findTraceRow('tr-000');
 
@@ -1244,8 +1247,8 @@ describe('TracesV4PageContent', () => {
       expect(date.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(search.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(filter.compareDocumentPosition(display) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(display.compareDocumentPosition(detectIssues) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(detectIssues.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(display.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(refresh.compareDocumentPosition(detectIssues) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       // The full page render (incl. the Detect Issues button's first-visit guidance popover) is slow
       // under parallel jsdom load; per-test timeout avoids the lint-forbidden global jest.setTimeout.
     }, 20000);
