@@ -626,8 +626,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 32000,
-        "max_tokens": 32000
+        "max_output": 8192,
+        "max_tokens": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.15001,
@@ -640,14 +640,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-26"
     },
     "databricks-glm-5-2": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 65536,
+        "max_tokens": 65536
       },
       "pricing": {
         "input_per_million_tokens": 1.4,
@@ -660,7 +660,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-05"
+      "last_updated_at": "2026-08-26"
     },
     "databricks-gpt-5": {
       "mode": "chat",
@@ -1016,8 +1016,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 25000,
+        "max_tokens": 25000
       },
       "pricing": {
         "input_per_million_tokens": 0.15001,
@@ -1030,14 +1030,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-26"
     },
     "databricks-gpt-oss-20b": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 25000,
+        "max_tokens": 25000
       },
       "pricing": {
         "input_per_million_tokens": 0.07,
@@ -1050,7 +1050,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-26"
     },
     "databricks-gte-large-en": {
       "mode": "embedding",
@@ -1075,8 +1075,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 65536,
+        "max_tokens": 65536
       },
       "pricing": {
         "input_per_million_tokens": 1.87502,
@@ -1089,7 +1089,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-05"
+      "last_updated_at": "2026-08-26"
     },
     "databricks-llama-2-70b-chat": {
       "mode": "chat",
@@ -1115,8 +1115,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 8192,
+        "max_tokens": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.50001,
@@ -1129,7 +1129,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-26"
     },
     "databricks-meta-llama-3-1-405b-instruct": {
       "mode": "chat",
@@ -1155,8 +1155,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 200000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 8192,
+        "max_tokens": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.15001,
@@ -1169,14 +1169,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-26"
     },
     "databricks-meta-llama-3-3-70b-instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 8192,
+        "max_tokens": 8192
       },
       "pricing": {
         "input_per_million_tokens": 0.50001,
@@ -1189,7 +1189,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-26"
     },
     "databricks-meta-llama-3-70b-instruct": {
       "mode": "chat",
@@ -1294,8 +1294,8 @@
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 10000,
+        "max_tokens": 10000
       },
       "pricing": {
         "input_per_million_tokens": 0.15001,
@@ -1308,14 +1308,14 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-20"
+      "last_updated_at": "2026-08-26"
     },
     "databricks-qwen35-122b-a10b": {
       "mode": "chat",
       "context_window": {
         "max_input": 256000,
-        "max_output": 8000,
-        "max_tokens": 8000
+        "max_output": 25000,
+        "max_tokens": 25000
       },
       "pricing": {
         "input_per_million_tokens": 0.15001,
@@ -1328,7 +1328,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-20"
+      "last_updated_at": "2026-08-26"
     }
   }
 }
