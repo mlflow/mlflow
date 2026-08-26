@@ -3,7 +3,16 @@ FROM ubuntu:24.04
 
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake git-core
 
-# Install Python (system default for Ubuntu 24.04 is 3.12)
+# Setup pyenv (required by virtualenv env_manager at runtime)
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata \
+    libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+    libncurses-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+RUN git clone \
+    --depth 1 \
+    --branch $(git ls-remote --tags --sort=v:refname https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
+    https://github.com/pyenv/pyenv.git /root/.pyenv
+ENV PYENV_ROOT="/root/.pyenv"
+ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
 RUN apt-get install -y --no-install-recommends python3 python3-venv python3-pip \
     && rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED \
     && ln -sf /usr/bin/python3 /usr/bin/python
