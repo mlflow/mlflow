@@ -14,7 +14,10 @@ import {
   MLFLOW_INTERNAL_PREFIX,
   shouldUseTraceInfoV3,
 } from '../utils/TraceUtils';
-import { KnownEvaluationResultAssessmentTargetLabel } from '../components/GenAiEvaluationTracesReview.utils';
+import {
+  EXPECTED_FACTS_FIELD_NAME,
+  KnownEvaluationResultAssessmentTargetLabel,
+} from '../components/GenAiEvaluationTracesReview.utils';
 
 export const USER_COLUMN_ID = 'user';
 export const SESSION_COLUMN_ID = 'session';
