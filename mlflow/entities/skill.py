@@ -79,7 +79,7 @@ class Skill:
             raise MlflowException.invalid_parameter_value(
                 f"Failed to parse Skill response: missing required field {e}"
             ) from None
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError, MlflowException) as e:
             raise MlflowException.invalid_parameter_value(
                 f"Failed to parse Skill response: {e}"
             ) from None

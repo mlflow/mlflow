@@ -69,7 +69,7 @@ class AgentPlugin:
             raise MlflowException.invalid_parameter_value(
                 f"Failed to parse AgentPlugin response: missing required field {e}"
             ) from None
-        except (ValueError, TypeError) as e:
+        except (ValueError, TypeError, MlflowException) as e:
             raise MlflowException.invalid_parameter_value(
                 f"Failed to parse AgentPlugin response: {e}"
             ) from None

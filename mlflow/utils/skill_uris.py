@@ -17,6 +17,7 @@ import re
 from dataclasses import dataclass
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import experimental
 from mlflow.utils.semver_utils import normalize_semver
 from mlflow.utils.validation import (
     _validate_agent_plugin_name,
@@ -31,6 +32,7 @@ _AGENT_PLUGIN_SCHEME = "agent-plugins:/"
 _SKILL_VERSION_RE = re.compile(r"^[1-9][0-9]*$")
 
 
+@experimental(version="3.16.0")
 @dataclass(frozen=True)
 class ParsedSkillUri:
     name: str
@@ -47,6 +49,7 @@ class ParsedSkillUri:
             )
 
 
+@experimental(version="3.16.0")
 @dataclass(frozen=True)
 class ParsedAgentPluginUri:
     name: str
@@ -109,6 +112,7 @@ def _format_uri(
     return result
 
 
+@experimental(version="3.16.0")
 def parse_skill_uri(uri: str) -> ParsedSkillUri:
     organization, name, version_str, alias = _split_uri(uri, _SKILL_SCHEME)
     _validate_organization_name(organization)
@@ -127,12 +131,14 @@ def parse_skill_uri(uri: str) -> ParsedSkillUri:
     return ParsedSkillUri(name=name, organization=organization, version=version, alias=alias)
 
 
+@experimental(version="3.16.0")
 def format_skill_uri(parsed: ParsedSkillUri) -> str:
     return _format_uri(
         _SKILL_SCHEME, parsed.organization, parsed.name, parsed.version, parsed.alias
     )
 
 
+@experimental(version="3.16.0")
 def parse_agent_plugin_uri(uri: str) -> ParsedAgentPluginUri:
     organization, name, version_str, alias = _split_uri(uri, _AGENT_PLUGIN_SCHEME)
     _validate_organization_name(organization)
@@ -143,6 +149,7 @@ def parse_agent_plugin_uri(uri: str) -> ParsedAgentPluginUri:
     return ParsedAgentPluginUri(name=name, organization=organization, version=version, alias=alias)
 
 
+@experimental(version="3.16.0")
 def format_agent_plugin_uri(parsed: ParsedAgentPluginUri) -> str:
     return _format_uri(
         _AGENT_PLUGIN_SCHEME, parsed.organization, parsed.name, parsed.version, parsed.alias
