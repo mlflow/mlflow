@@ -69,6 +69,14 @@ import { useCustomViewDefinition } from '../../custom-view/CustomViewDefinitionC
 // trace cycling (we rebuild the surface contents, not its identity).
 const surfaceIdForView = (view: CustomView): string => `cv-${view.id}`;
 
+// Buffer key for a staged feedback entry: formId + name + spanId, NUL-separated
+// so the same dimension in different forms (or on different spans) stays
+// distinct. A radio and its rationale input share a key only when they share
+// BOTH formId and name. Single source of truth so staging, reset-versioning, and
+// the value getters all key identically.
+const feedbackBufferKey = (entry: { name: string; spanId?: string; formId?: string }): string =>
+  `${entry.formId ?? ''}\u0000${entry.name}\u0000${entry.spanId ?? ''}`;
+
 let viewIdCounter = 0;
 const nextViewId = (): string => `${Date.now().toString(36)}-${(viewIdCounter++).toString(36)}`;
 
@@ -179,6 +187,12 @@ export const ModelTraceExplorerCustomView = ({
     Map<string, Map<string, { name: string; value?: string; rationale?: string; spanId?: string; formId?: string }>>
   >(new Map());
 
+  // Successful entries increment their own reset version (keyed identically to
+  // pendingFeedbackRef) so the matching radio / text controls clear their visible
+  // value after persistence, while failed or newly edited entries stay visible
+  // for retry. Mirrors the v1 wrapper's feedbackResetVersionsRef.
+  const feedbackResetVersionsRef = useRef<Map<string, Map<string, number>>>(new Map());
+
   // Ticks whenever the pending-feedback buffer changes (stage, submit, clear).
   // Lets React re-render the FeedbackStatusProvider so `hasStagedFeedback` can
   // reflect the current buffer state (the ref alone is not reactive).
@@ -257,7 +271,11 @@ export const ModelTraceExplorerCustomView = ({
     // owned by this button's form. Keeping the key lets us remove each entry from
     // the buffer only AFTER it succeeds, so a failed dimension stays staged and
     // the user can retry it.
-    const submittable: { key: string; payload: CreateAssessmentPayload }[] = [];
+    const submittable: {
+      key: string;
+      entry: { name: string; value?: string; rationale?: string; spanId?: string; formId?: string };
+      payload: CreateAssessmentPayload;
+    }[] = [];
     for (const [key, entry] of surfaceBuffer.entries()) {
       if (!doesFeedbackEntryMatchForm(entry, formId)) {
         continue;
@@ -270,6 +288,7 @@ export const ModelTraceExplorerCustomView = ({
       const feedbackValue: { feedback: Feedback } = { feedback: { value: entry.value } };
       submittable.push({
         key,
+        entry,
         payload: {
           assessment: {
             assessment_name: entry.name,
@@ -293,21 +312,40 @@ export const ModelTraceExplorerCustomView = ({
     // leave it staged (the hook already showed its global error toast) so the
     // user can retry only the dimensions that didn't land.
     let submitted = 0;
-    for (const { key, payload } of submittable) {
+    let failed = 0;
+    for (const { key, entry, payload } of submittable) {
       try {
         await createAssessmentAsync(payload);
-        surfaceBuffer.delete(key);
         submitted += 1;
+        // A trace/view transition can replace the surface's buffer while this
+        // request is in flight, and the user can edit the same control before it
+        // finishes. Clear the entry and bump its reset version only when both the
+        // buffer and the entry are still the exact versions captured for this
+        // request, so a newer edit or a different buffer is never clobbered.
+        if (pendingFeedbackRef.current.get(surfaceId) === surfaceBuffer && surfaceBuffer.get(key) === entry) {
+          surfaceBuffer.delete(key);
+          let resetVersions = feedbackResetVersionsRef.current.get(surfaceId);
+          if (!resetVersions) {
+            resetVersions = new Map();
+            feedbackResetVersionsRef.current.set(surfaceId, resetVersions);
+          }
+          resetVersions.set(key, (resetVersions.get(key) ?? 0) + 1);
+        }
       } catch {
         // Keep the entry staged for retry; continue with the remaining dimensions.
+        failed += 1;
       }
     }
-    if (surfaceBuffer.size === 0) {
+    if (pendingFeedbackRef.current.get(surfaceId) === surfaceBuffer && surfaceBuffer.size === 0) {
       pendingFeedbackRef.current.delete(surfaceId);
     }
     bumpPendingFeedbackVersion();
-    if (submitted === 0) {
-      throw new Error('Every staged feedback request failed.');
+    // Reject if ANY dimension failed so a partial failure is not presented as a
+    // fully successful submit; failed entries remain staged above for retry.
+    if (failed > 0) {
+      throw new Error(
+        submitted > 0 ? 'Some staged feedback requests failed.' : 'Every staged feedback request failed.',
+      );
     }
     return { submitted };
   };
@@ -562,8 +600,10 @@ export const ModelTraceExplorerCustomView = ({
   useEffect(() => {
     setInstruction('');
     // Staged-but-unsubmitted feedback is scoped to the trace it was entered on;
-    // drop it when cycling so it never leaks onto a different trace's surface.
+    // drop it (and the matching reset versions) when cycling so nothing leaks
+    // onto a different trace's surface.
     pendingFeedbackRef.current.clear();
+    feedbackResetVersionsRef.current.clear();
     bumpPendingFeedbackVersion();
   }, [traceId]);
 
@@ -587,6 +627,7 @@ export const ModelTraceExplorerCustomView = ({
         // staged-but-unsubmitted feedback for it — otherwise a later submit on
         // a rebuilt surface would log a stale value against a cleared UI.
         pendingFeedbackRef.current.delete(surfaceId);
+        feedbackResetVersionsRef.current.delete(surfaceId);
         bumpPendingFeedbackVersion();
       }
     }
@@ -775,6 +816,40 @@ export const ModelTraceExplorerCustomView = ({
         }
       }
       return false;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pendingFeedbackVersion is the reactive signal for the mutable ref.
+    [surfaceId, pendingFeedbackVersion],
+  );
+
+  // Returns the staged value/rationale for a feedback entry so a control can
+  // re-seed its in-progress input when the surface rebinds on a data-only refresh
+  // (which remounts the primitives). Keyed identically to handleStageFeedback.
+  // Reads pendingFeedbackVersion so it re-reads the mutable buffer ref reactively.
+  const getStagedFeedbackValue = useCallback(
+    (
+      entry: { name: string; spanId?: string; formId?: string },
+      field: 'value' | 'rationale' = 'value',
+    ): string | undefined => {
+      if (!surfaceId) {
+        return undefined;
+      }
+      const bufferKey = feedbackBufferKey(entry);
+      return pendingFeedbackRef.current.get(surfaceId)?.get(bufferKey)?.[field];
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pendingFeedbackVersion is the reactive signal for the mutable ref.
+    [surfaceId, pendingFeedbackVersion],
+  );
+
+  // Increments after a feedback entry is persisted, so its radio / text control
+  // clears its visible value together with the host buffer (without resetting
+  // another form or span's input). Keyed identically to handleStageFeedback.
+  const getFeedbackResetVersion = useCallback(
+    (entry: { name: string; spanId?: string; formId?: string }): number => {
+      if (!surfaceId) {
+        return 0;
+      }
+      const bufferKey = feedbackBufferKey(entry);
+      return feedbackResetVersionsRef.current.get(surfaceId)?.get(bufferKey) ?? 0;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pendingFeedbackVersion is the reactive signal for the mutable ref.
     [surfaceId, pendingFeedbackVersion],
@@ -1084,10 +1159,8 @@ export const ModelTraceExplorerCustomView = ({
                   traceId,
                   hasStagedFeedback,
                   submitStagedFeedback,
-                  // The redesigned view does not (yet) implement staged-value preservation or
-                  // reset-versioning, so fall back to the context's reflect-only defaults.
-                  getStagedFeedbackValue: () => undefined,
-                  getFeedbackResetVersion: () => 0,
+                  getStagedFeedbackValue,
+                  getFeedbackResetVersion,
                 }}
               >
                 <A2uiSurface key={`${surfaceId}-${traceId}`} surface={surface} />
