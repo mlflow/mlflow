@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import shutil
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal
 
 AgentName = Literal["claude", "codex", "opencode"]
@@ -28,12 +27,6 @@ class AgentTool:
 
     def is_installed(self) -> bool:
         return shutil.which(self.binary) is not None
-
-    def project_skill_dirs(self, repo_root: Path) -> tuple[Path, ...]:
-        """Project-level directories this agent loads skills from."""
-        # Two layouts: what the agent reads natively, and what `mlflow agent
-        # setup`'s assistant flow writes. They differ for Codex.
-        return (repo_root / self.skills_dir, repo_root / self.global_skills_dir)
 
 
 AGENTS: dict[AgentName, AgentTool] = {

@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from collections.abc import Iterator
 from importlib import resources
 from pathlib import Path
 
@@ -55,6 +56,12 @@ _AGENT_ENV_VALUES = {"CURSOR_EXTENSION_HOST_ROLE": "agent-exec"}
 # Kiro sets this in its own IDE terminal too, so it only means "agent" when
 # nothing is attached to stdout, as a human terminal always is.
 _AGENT_ENV_VALUES_WITHOUT_TTY = {"TERM_PROGRAM": "kiro"}
+
+# Skill directories, deduplicated across agents that share a layout.
+_HOME_SKILL_DIRS = tuple(sorted({a.global_skills_dir for a in AGENTS.values()}))
+_PROJECT_SKILL_DIRS = tuple(
+    sorted({d for a in AGENTS.values() for d in (a.skills_dir, a.global_skills_dir)})
+)
 
 # The skill that teaches supported autologging and span input/output recording.
 # Lives in https://github.com/mlflow/skills and is installed by `mlflow agent setup`.
@@ -121,28 +128,25 @@ def _custom_skill_dirs() -> tuple[Path, ...]:
     )
 
 
-def _is_skill_installed() -> bool:
-    """Whether the skill sits anywhere a coding agent would load it from.
+def _skill_dir_candidates() -> Iterator[Path]:
+    """Every directory a coding agent might load skills from, cheapest first.
 
-    Every known agent's directories are checked, not just the detected one: the
-    detected agent may not be in :data:`AGENTS` at all, and an already-installed
-    skill should silence the hint regardless of who installed it.
+    All known agents are covered, not just the detected one: the detected agent
+    may have no :data:`AGENTS` entry, and an installed skill should silence the
+    hint whoever installed it. Lazy so the config read is skipped once a
+    directory matches.
     """
-    if any(
-        (Path.home() / agent.global_skills_dir / TRACING_SKILL).is_dir()
-        for agent in AGENTS.values()
-    ):
-        return True
-    if any((d / TRACING_SKILL).is_dir() for d in _custom_skill_dirs()):
-        return True
-    # Walk upwards: agents often run from a subdirectory of the repo root.
+    home = Path.home()
+    yield from (home / rel for rel in _HOME_SKILL_DIRS)
+    # Agents often run from a subdirectory while the skill sits at the repo root.
     cwd = Path.cwd()
-    return any(
-        (d / TRACING_SKILL).is_dir()
-        for root in (cwd, *cwd.parents)
-        for agent in AGENTS.values()
-        for d in agent.project_skill_dirs(root)
-    )
+    yield from (root / rel for root in (cwd, *cwd.parents) for rel in _PROJECT_SKILL_DIRS)
+    # Last: this one reads and parses the assistant config off disk.
+    yield from _custom_skill_dirs()
+
+
+def _is_skill_installed() -> bool:
+    return any((d / TRACING_SKILL).is_dir() for d in _skill_dir_candidates())
 
 
 def maybe_hint_tracing_skill() -> None:
