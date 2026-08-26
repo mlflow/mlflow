@@ -18,21 +18,14 @@ UBUNTU_BASE_IMAGE = "ubuntu:24.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
-SETUP_PYENV = r"""# Setup pyenv
-RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata \
-    libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
-    libncurses-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-RUN git clone \
-    --depth 1 \
-    --branch $(git ls-remote --tags --sort=v:refname https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
-    https://github.com/pyenv/pyenv.git /root/.pyenv
-ENV PYENV_ROOT="/root/.pyenv"
-ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
-RUN pyenv install 3.11.9 \
-    && pyenv global 3.11.9 \
-    && python -m ensurepip --upgrade \
+SETUP_PYENV = """# Install Python 3.11 via uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
+RUN uv python install 3.11.9 \\
+    && ln -sf "$(uv python find 3.11.9)" /usr/bin/python \\
+    && python -m ensurepip --upgrade \\
     && pip install --upgrade pip
-"""  # noqa: E501
+"""
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
 FROM {base_image}
