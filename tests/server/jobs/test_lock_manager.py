@@ -1,20 +1,27 @@
+import uuid
 from logging import Logger
 from unittest import mock
 
 import pytest
+import sqlalchemy
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Query
 from sqlalchemy.orm.session import Session
 
+from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, TEMPORARILY_UNAVAILABLE
 from mlflow.server.jobs.lock_manager import (
+    JobLock,
     JobLockManager,
     SchedulerLease,
     _check_time_drift_and_log,
 )
+from mlflow.store.jobs.abstract_store import JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
-from mlflow.store.tracking.dbmodels.models import SqlSchedulerLease
+from mlflow.store.tracking.dbmodels.models import SqlJob, SqlJobLock, SqlSchedulerLease
+from mlflow.utils.time import get_current_time_millis
 
 
 @pytest.fixture
@@ -25,6 +32,26 @@ def job_store() -> SqlAlchemyJobStore:
 @pytest.fixture
 def lock_mgr(job_store: SqlAlchemyJobStore) -> JobLockManager:
     return JobLockManager(job_store)
+
+
+@pytest.fixture
+def sql_job() -> SqlJob:
+
+    job_id = str(uuid.uuid4())
+    creation_time = get_current_time_millis()
+    return SqlJob(
+        id=job_id,
+        creation_time=creation_time,
+        job_name="job-name",
+        params="params",
+        status=JobStatus.PENDING.to_int(),
+        last_update_time=creation_time,
+    )
+
+
+@pytest.fixture
+def sql_job_lock(sql_job: SqlJob) -> SqlJobLock:
+    return SqlJobLock(lock_key="lock-key", job_id=sql_job.id, acquired_at=get_current_time_millis())
 
 
 @pytest.mark.parametrize("invalid_ttl", [-1, 0], ids=["negative", "zero"])
@@ -459,3 +486,556 @@ def test_acquire_scheduler_lease_returns_none_on_concurrent_insert_race_mock(
     with mock.patch.object(Query, "one_or_none", return_value=None) as mock_one_or_none:
         assert lock_mgr.acquire_scheduler_lease("scheduler", ttl_seconds=60) is None
         mock_one_or_none.assert_called_once()
+
+
+def test_acquire_exclusive_lock_succeeds_when_no_lock_exists(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="test_job", params="{}", timeout=60.0)
+    update_status = job_store.claim_job(job.job_id)
+    assert update_status == JobUpdateStatus.APPLIED
+
+    assert isinstance(lock_mgr.acquire_exclusive_lock("test-lock-key", job.job_id), JobLock)
+
+
+def test_acquire_exclusive_lock_fails_when_live_job_holds_lock(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+    assert lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id) is None
+
+
+def test_acquire_exclusive_lock_evicts_stale_lock_terminal_job(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+    job_store.report_job_result(job1.job_id, status=JobStatus.SUCCEEDED, result="done")
+
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id), JobLock)
+
+
+def test_acquire_exclusive_lock_is_not_reentrant(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+    """A second attempt to acquire a valid exclusive lock raises an exception.
+    A simple refusal could cause the caller to mark the active job as CANCELED.
+    The same job_id can acquire the lock after the lock becomes stale.
+    See: test_acquire_exclusive_lock_evicts_stale_lock_terminal_job_for_same_job
+    """
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    job_store.claim_job(job.job_id)
+
+    assert isinstance(lock_mgr.acquire_exclusive_lock("test-key", job.job_id), JobLock)
+    with pytest.raises(MlflowException, match="A valid lock already exists for this job_id"):
+        _ = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+
+
+def test_acquire_exclusive_lock_evicts_stale_lock_terminal_job_for_same_job(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+    job_store.report_job_result(job1.job_id, status=JobStatus.TIMEOUT, result=None)
+
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+
+
+def test_multiple_unique_locks_can_coexist(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    assert isinstance(lock_mgr.acquire_exclusive_lock("key-1", job1.job_id), JobLock)
+    assert isinstance(lock_mgr.acquire_exclusive_lock("key-2", job2.job_id), JobLock)
+
+    assert lock_mgr.acquire_exclusive_lock("key-1", job2.job_id) is None
+    assert lock_mgr.acquire_exclusive_lock("key-2", job1.job_id) is None
+
+
+def test_acquire_exclusive_lock_not_evicted_for_needs_recovery_job(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+    job_store.mark_job_needs_recovery(job1.job_id)
+
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+    assert lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id) is None
+
+
+def test_acquire_exclusive_lock_held_by_deleted_job_cascade_failure_raises(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+    """The logic in the lock acquisition method assumes the job_id belongs to an existing
+    job and does not account for cascade failures. If the job_id for referenced by the lock
+    doesnt exist, the method will raise when the job is not found.
+    """
+
+    lock_key = "orphan-key"
+    job_id = "job-that-got-deleted"
+
+    # Insert an orphaned lock row with FK enforcement off to simulate a cascade failure
+    with job_store.engine.connect() as conn:
+        conn.execute(sqlalchemy.text("PRAGMA foreign_keys = OFF"))
+        conn.execute(
+            sqlalchemy.text(
+                "INSERT INTO job_locks (lock_key, job_id, acquired_at) VALUES (:key, :id, :at)"
+            ),
+            {"key": lock_key, "id": job_id, "at": get_current_time_millis()},
+        )
+        conn.commit()
+
+    # Call with same job_id
+    with pytest.raises(MlflowException, match="No row was found when one was required"):
+        _ = lock_mgr.acquire_exclusive_lock(lock_key, job_id)
+
+    # Call with different job_id
+    with pytest.raises(MlflowException, match="No row was found when one was required"):
+        _ = lock_mgr.acquire_exclusive_lock(lock_key, "different-job-id")
+
+
+def test_acquire_exclusive_lock_with_no_timeout_and_active_lease_fails(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=None)
+    assert job_store.claim_job(job1.job_id, lease_duration=3600.0) == JobUpdateStatus.APPLIED
+    with pytest.raises(MlflowException, match="Exclusive job locks require non-null timeout."):
+        _ = lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id)
+
+
+def test_acquire_exclusive_lock_fails_when_no_lease_and_non_terminal_job(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=1000)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=1000)
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+    assert lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id) is None
+
+
+def test_acquire_exclusive_lock_granted_when_no_lease_and_holding_job_terminal(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=1000)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+
+    job_store.finish_job(job1.job_id, "Job 1 finished")
+
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=1000)
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id), JobLock)
+
+
+def test_acquire_exclusive_lock_integrity_error_unique_job_ids_returns_false(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+    """
+    Two different jobs race to acquire the same lock. The loser receives
+    False so it can mark the job as CANCELED.
+    """
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=1000)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=1000)
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    original_one_or_none = Query.one_or_none
+    call_count = 0
+
+    def patched_one_or_none(self, *args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return None
+        return original_one_or_none(self, *args, **kwargs)
+
+    # Patch one_or_none so the first call returns None to simulate a race condition
+    with mock.patch.object(
+        Query, "one_or_none", side_effect=patched_one_or_none, autospec=True
+    ) as mock_one_or_none:
+        assert lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id) is None
+        mock_one_or_none.assert_called_once()
+
+
+def test_acquire_exclusive_lock_reraises_non_integrity_mlflow_exception(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=1000)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+
+    non_integrity_error = RuntimeError("not integrity")
+
+    with mock.patch.object(
+        Query, "one_or_none", side_effect=non_integrity_error
+    ) as mock_one_or_none:
+        with pytest.raises(MlflowException, match="not integrity"):
+            lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id)
+        mock_one_or_none.assert_called_once()
+
+
+def test_acquire_exclusive_lock_evicts_stale_lock_timeout_exceeded(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+    base_time = 1_000_000_000_000
+    patch_time_jobstore = "mlflow.store.jobs.sqlalchemy_store.get_current_time_millis"
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis_expression"
+    timeout = 60.0
+    shared_job_lock = "shared-key"
+
+    with mock.patch(patch_time_jobstore, return_value=base_time):
+        job1 = job_store.create_job(job_name="job1", params="{}", timeout=timeout)
+        assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+
+    with mock.patch(patch_time_lock_mgr, return_value=base_time):
+        assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+
+    # 115% of timeout + 1 ms
+    time_after_timeout = base_time + int(timeout * 1.15 * 1_000) + 1
+
+    with mock.patch(patch_time_jobstore, return_value=time_after_timeout):
+        job2 = job_store.create_job(job_name="job2", params="{}", timeout=timeout)
+        assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    with mock.patch(patch_time_lock_mgr, return_value=time_after_timeout):
+        assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id), JobLock)
+
+    with lock_mgr._session_maker() as session:
+        new_lock = (
+            session.query(SqlJobLock).filter(SqlJobLock.lock_key == shared_job_lock).one_or_none()
+        )
+
+        assert new_lock is not None
+        assert new_lock.lock_key == shared_job_lock
+        assert new_lock.job_id == job2.job_id
+
+
+def test_acquire_exclusive_lock_fails_when_job_not_timed_out_but_lease_has_expired(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+    base_time = 1_000_000_000_000
+    patch_time_jobstore = "mlflow.store.jobs.sqlalchemy_store.get_current_time_millis"
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis"
+
+    with mock.patch(patch_time_jobstore, return_value=base_time):
+        job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+        assert job_store.claim_job(job1.job_id, lease_duration=10.0) == JobUpdateStatus.APPLIED
+
+    with mock.patch(patch_time_lock_mgr, return_value=base_time):
+        assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+
+    # Advance past lease expiry but still within timeout
+    after_lease = base_time + 11_000
+
+    with mock.patch(patch_time_jobstore, return_value=after_lease):
+        job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+        assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    with mock.patch(patch_time_lock_mgr, return_value=after_lease):
+        assert lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id) is None
+
+
+@pytest.mark.parametrize(
+    ("lease_duration", "timeout", "time_delta", "acquisition_expected"),
+    [
+        (None, None, 0, False),
+        (11.5, None, 11_500, False),
+        (None, 10.0, 11_500, False),
+        (11.5, 10.0, 11_500, False),
+        (11.5, None, 12_000, False),
+        (None, 10.0, 12_000, True),
+        (11.5, 10.0, 12_000, True),
+        (11.5, 20.0, 12_000, False),
+        (20.0, 10.0, 12_000, True),
+    ],
+    ids=[
+        "no_lease_or_timeout_is_valid",
+        "valid_lease_no_timeout_is_valid",
+        "no_lease_valid_timeout_is_valid",
+        "valid_lease_valid_timeout_is_valid",
+        "expired_lease_no_timeout_is_valid",
+        "no_lease_expired_timeout_is_not_valid",
+        "expired_lease_expired_timeout_is_not_valid",
+        "expired_lease_valid_timeout_is_valid",
+        "valid_lease_expired_timeout_is_not_valid",
+    ],
+)
+def test_acquire_exclusive_lock_lease_and_timeout_interleaving(
+    job_store: SqlAlchemyJobStore,
+    lock_mgr: JobLockManager,
+    lease_duration: float | None,
+    timeout: float | None,
+    time_delta: int,
+    acquisition_expected: bool,
+) -> None:
+
+    base_time = 1_000_000_000_000
+    patch_time_lock_mgr = "mlflow.server.jobs.lock_manager.get_current_time_millis_expression"
+    patch_time_jobstore = "mlflow.store.jobs.sqlalchemy_store.get_current_time_millis"
+
+    job1_timeout = 1000
+    if timeout is not None:
+        job1_timeout = timeout
+
+    with mock.patch(patch_time_jobstore, return_value=base_time):
+        job1 = job_store.create_job(job_name="job-name-1", params="{}", timeout=job1_timeout)
+        assert job_store.claim_job(job1.job_id, lease_duration) == JobUpdateStatus.APPLIED
+
+    with mock.patch(patch_time_lock_mgr, return_value=base_time):
+        assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+
+    check_time = base_time + time_delta
+    with mock.patch(patch_time_jobstore, return_value=check_time):
+        job2 = job_store.create_job(job_name="job-name-2", params="{}", timeout=timeout)
+        assert job_store.claim_job(job2.job_id, lease_duration) == JobUpdateStatus.APPLIED
+
+    with mock.patch(patch_time_lock_mgr, return_value=check_time):
+        if timeout is None:
+            match = "Exclusive job locks require non-null timeout."
+            with pytest.raises(MlflowException, match=match):
+                _ = lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id)
+        elif acquisition_expected:
+            assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id), JobLock)
+        else:
+            assert lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id) is None
+
+
+@pytest.mark.parametrize(
+    ("job_status", "acquisition_expected"),
+    [
+        (JobStatus.PENDING, True),
+        (JobStatus.RUNNING, False),
+        (JobStatus.SUCCEEDED, True),
+        (JobStatus.FAILED, True),
+        (JobStatus.TIMEOUT, True),
+        (JobStatus.CANCELED, True),
+        (JobStatus.NEEDS_RECOVERY, False),
+    ],
+)
+def test_acquire_exclusive_lock_valid_status_values(
+    job_store: SqlAlchemyJobStore,
+    lock_mgr: JobLockManager,
+    job_status: JobStatus,
+    acquisition_expected: bool,
+) -> None:
+
+    job1 = job_store.create_job(job_name="job-name-1", params="{}", timeout=1000)
+    assert job_store.claim_job(job1.job_id, 1000) == JobUpdateStatus.APPLIED
+    assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id), JobLock)
+
+    job2 = job_store.create_job(job_name="job-name-2", params="{}", timeout=1000)
+    with lock_mgr._session_maker(read_only=False) as session:
+        result = session.execute(
+            update(SqlJob).filter(SqlJob.id == job1.job_id).values(status=job_status.to_int())
+        )
+        assert result.rowcount != 0
+
+    if acquisition_expected:
+        assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id), JobLock)
+    else:
+        assert lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id) is None
+
+
+def test_acquire_exclusive_lock_valid_null_timeout_raises(
+    job_store: SqlAlchemyJobStore,
+    lock_mgr: JobLockManager,
+) -> None:
+
+    job = job_store.create_job(job_name="job-name-1", params="{}", timeout=None)
+    assert job_store.claim_job(job.job_id, 1000) == JobUpdateStatus.APPLIED
+
+    with pytest.raises(MlflowException, match="Exclusive job locks require non-null timeout."):
+        _ = lock_mgr.acquire_exclusive_lock("shared-key", job.job_id)
+
+
+def test_release_exclusive_lock_deletes_lock_row(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    lock_mgr.release_exclusive_lock(job_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "test-key").one_or_none()
+        assert row is None
+
+
+def test_release_exclusive_lock_is_idempotent(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    lock_mgr.release_exclusive_lock(job_lock)
+    lock_mgr.release_exclusive_lock(job_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "test-key").one_or_none()
+        assert row is None
+
+
+def test_release_exclusive_lock_allows_reacquisition(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+
+    lock1 = lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id)
+    assert isinstance(lock1, JobLock)
+
+    lock_mgr.release_exclusive_lock(lock1)
+
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    lock2 = lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id)
+    assert isinstance(lock2, JobLock)
+    assert lock2.job_id == job2.job_id
+
+
+def test_release_exclusive_lock_does_not_delete_other_jobs_lock(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    lock1 = lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id)
+    assert isinstance(lock1, JobLock)
+
+    job_store.report_job_result(job1.job_id, status=JobStatus.SUCCEEDED, result="done")
+    lock2 = lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id)
+    assert isinstance(lock2, JobLock)
+
+    # Job1 tries to release with its stale JobLock — should not affect job2's lock
+    lock_mgr.release_exclusive_lock(lock1)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "shared-key").one()
+        assert row.job_id == job2.job_id
+
+
+def test_release_exclusive_lock_no_op_with_wrong_lock_key(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("real-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    fake_lock = JobLock(
+        lock_key="wrong-key", job_id=job_lock.job_id, acquired_at=job_lock.acquired_at
+    )
+    lock_mgr.release_exclusive_lock(fake_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "real-key").one_or_none()
+        assert row is not None
+
+
+def test_release_exclusive_lock_no_op_with_wrong_job_id(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    fake_lock = JobLock(
+        lock_key=job_lock.lock_key, job_id="wrong-id", acquired_at=job_lock.acquired_at
+    )
+    lock_mgr.release_exclusive_lock(fake_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "test-key").one_or_none()
+        assert row is not None
+
+
+def test_release_exclusive_lock_no_op_with_wrong_acquired_at(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    fake_lock = JobLock(lock_key=job_lock.lock_key, job_id=job_lock.job_id, acquired_at=0)
+    lock_mgr.release_exclusive_lock(fake_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "test-key").one_or_none()
+        assert row is not None
+
+
+def test_release_exclusive_lock_does_not_affect_other_lock_keys(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    lock1 = lock_mgr.acquire_exclusive_lock("key-1", job1.job_id)
+    lock2 = lock_mgr.acquire_exclusive_lock("key-2", job2.job_id)
+    assert isinstance(lock1, JobLock)
+    assert isinstance(lock2, JobLock)
+
+    lock_mgr.release_exclusive_lock(lock1)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row1 = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "key-1").one_or_none()
+        row2 = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "key-2").one_or_none()
+        assert row1 is None
+        assert row2 is not None
