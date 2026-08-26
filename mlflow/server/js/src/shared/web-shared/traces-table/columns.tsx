@@ -2,18 +2,23 @@ import { FormattedMessage, type IntlShape } from '@databricks/i18n';
 import type { CellContext, ColumnDef } from '@tanstack/react-table';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import { COLUMN_SIZES } from './constants';
-import type { SessionHrefGetter, TraceColumnId, TraceTableColumn } from './types';
+import { TRACE_COLUMN_LABELS } from './columnLabels';
+import type { SessionHrefGetter, TraceColumnId, TraceHrefGetter, TraceTableColumn } from './types';
 import {
   TraceCostCell,
   TraceDurationCell,
   TraceIdCell,
   TraceInputCell,
+  TraceNameCell,
   TraceOutputCell,
+  TraceRunNameCell,
   TraceSessionCell,
+  TraceSourceCell,
   TraceStartTimeCell,
   TraceStateCell,
   TraceTagsCell,
   TraceTokensCell,
+  TraceUserCell,
 } from './TraceCell';
 
 /**
@@ -23,10 +28,14 @@ import {
 export interface TracesTableMeta {
   intl: IntlShape;
   onTraceSelected: (trace: ModelTraceInfoV3) => void;
+  /** Resolves trace-cell link destinations; when absent cells retain button behavior. */
+  getTraceHref?: TraceHrefGetter;
   /** Resolves the session cell's link destination; when absent the session renders as plain text. */
   getSessionHref?: SessionHrefGetter;
   /** Toggle a tag filter — wired to the tag pills in the Tags cell; absent → non-clickable pills. */
   onFilterByTag?: (key: string, value: string) => void;
+  /** Product-owned renderer for resolving an experiment-scoped run name. */
+  renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
 }
 
 export const getTableMeta = (context: CellContext<ModelTraceInfoV3, unknown>): TracesTableMeta =>
@@ -57,40 +66,44 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
   {
     id: 'trace_id',
     ...COLUMN_SIZES.trace_id,
-    header: () => (
-      <FormattedMessage defaultMessage="Trace ID" description="Header for the traces table trace-id column" />
-    ),
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.trace_id} />,
     cell: (ctx) => {
-      const { intl, onTraceSelected } = getTableMeta(ctx);
+      const { intl, onTraceSelected, getTraceHref } = getTableMeta(ctx);
       const trace = ctx.row.original;
       return (
         <TraceIdCell
           trace={trace}
           onSelect={onTraceSelected}
+          to={getTraceHref?.(trace)}
           accessibleLabel={openLabel(intl, trace.trace_id, 'trace id')}
         />
       );
     },
   },
   {
+    id: 'trace_name',
+    ...COLUMN_SIZES.trace_name,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.trace_name} />,
+    cell: (ctx) => <TraceNameCell trace={ctx.row.original} />,
+  },
+  {
     id: 'start_time',
     ...COLUMN_SIZES.start_time,
-    header: () => (
-      <FormattedMessage defaultMessage="Time" description="Header for the traces table start-time column" />
-    ),
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.start_time} />,
     cell: (ctx) => <TraceStartTimeCell trace={ctx.row.original} />,
   },
   {
     id: 'input',
     ...COLUMN_SIZES.input,
-    header: () => <FormattedMessage defaultMessage="Input" description="Header for the traces table input column" />,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.input} />,
     cell: (ctx) => {
-      const { intl, onTraceSelected } = getTableMeta(ctx);
+      const { intl, onTraceSelected, getTraceHref } = getTableMeta(ctx);
       const trace = ctx.row.original;
       return (
         <TraceInputCell
           trace={trace}
           onSelect={onTraceSelected}
+          to={getTraceHref?.(trace)}
           accessibleLabel={openLabel(intl, trace.trace_id, 'input')}
         />
       );
@@ -99,57 +112,72 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
   {
     id: 'output',
     ...COLUMN_SIZES.output,
-    header: () => <FormattedMessage defaultMessage="Output" description="Header for the traces table output column" />,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.output} />,
     cell: (ctx) => {
-      const { intl, onTraceSelected } = getTableMeta(ctx);
+      const { intl, onTraceSelected, getTraceHref } = getTableMeta(ctx);
       const trace = ctx.row.original;
       return (
         <TraceOutputCell
           trace={trace}
           onSelect={onTraceSelected}
+          to={getTraceHref?.(trace)}
           accessibleLabel={openLabel(intl, trace.trace_id, 'output')}
         />
       );
     },
   },
   {
+    id: 'user',
+    ...COLUMN_SIZES.user,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.user} />,
+    cell: (ctx) => <TraceUserCell trace={ctx.row.original} />,
+  },
+  {
     id: 'session',
     ...COLUMN_SIZES.session,
-    header: () => (
-      <FormattedMessage defaultMessage="Session" description="Header for the traces table session column" />
-    ),
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.session} />,
     cell: (ctx) => <TraceSessionCell trace={ctx.row.original} getSessionHref={getTableMeta(ctx).getSessionHref} />,
   },
   {
     id: 'duration',
     ...COLUMN_SIZES.duration,
-    header: () => (
-      <FormattedMessage defaultMessage="Duration" description="Header for the traces table duration column" />
-    ),
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.duration} />,
     cell: (ctx) => <TraceDurationCell trace={ctx.row.original} />,
   },
   {
     id: 'state',
     ...COLUMN_SIZES.state,
-    header: () => <FormattedMessage defaultMessage="State" description="Header for the traces table state column" />,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.state} />,
     cell: (ctx) => <TraceStateCell trace={ctx.row.original} />,
+  },
+  {
+    id: 'source',
+    ...COLUMN_SIZES.source,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.source} />,
+    cell: (ctx) => <TraceSourceCell trace={ctx.row.original} />,
+  },
+  {
+    id: 'run_name',
+    ...COLUMN_SIZES.run_name,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.run_name} />,
+    cell: (ctx) => <TraceRunNameCell trace={ctx.row.original} renderRunName={getTableMeta(ctx).renderRunName} />,
   },
   {
     id: 'tokens',
     ...COLUMN_SIZES.tokens,
-    header: () => <FormattedMessage defaultMessage="Tokens" description="Header for the traces table tokens column" />,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.tokens} />,
     cell: (ctx) => <TraceTokensCell trace={ctx.row.original} />,
   },
   {
     id: 'cost',
     ...COLUMN_SIZES.cost,
-    header: () => <FormattedMessage defaultMessage="Cost" description="Header for the traces table cost column" />,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.cost} />,
     cell: (ctx) => <TraceCostCell trace={ctx.row.original} />,
   },
   {
     id: 'tags',
     ...COLUMN_SIZES.tags,
-    header: () => <FormattedMessage defaultMessage="Tags" description="Header for the traces table tags column" />,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.tags} />,
     cell: (ctx) => {
       const { intl, onTraceSelected, onFilterByTag } = getTableMeta(ctx);
       const trace = ctx.row.original;
