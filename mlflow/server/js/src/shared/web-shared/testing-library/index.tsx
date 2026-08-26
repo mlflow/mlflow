@@ -63,7 +63,7 @@ export function render(
   while (
     container.childNodes.length === 1 &&
     container.firstChild instanceof HTMLElement &&
-    container.firstChild.dataset.testid === DS_OVERRIDE_TOKENS_WRAPPER_TESTID
+    container.firstChild.dataset['testid'] === DS_OVERRIDE_TOKENS_WRAPPER_TESTID
   ) {
     container = container.firstChild;
   }

@@ -1,7 +1,7 @@
 /**
- * Gates the redesigned (v2) model trace explorer. Off by default in OSS; the
- * Databricks build flips it via the enableRedesignedTraceExplorer SAFE flag.
+ * Gates the redesigned (v2) model trace explorer. Enabled in OSS; the
+ * Databricks build gates it via the enableRedesignedTraceExplorer SAFE flag.
  */
 export const shouldEnableRedesignedTraceExplorer = (): boolean => {
-  return false;
+  return true;
 };

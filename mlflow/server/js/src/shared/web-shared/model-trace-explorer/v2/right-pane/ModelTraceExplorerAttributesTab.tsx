@@ -31,7 +31,7 @@ export function ModelTraceExplorerAttributesTab({
   const isActiveMatchSpan = !isNil(activeMatch) && activeMatch.span.key === activeSpan.key;
   if (!containsAttributes || isNil(attributes)) {
     return (
-      <div css={{ marginTop: theme.spacing.sm }}>
+      <div css={{ marginTop: theme.spacing.lg }}>
         <Empty
           description={
             <FormattedMessage
