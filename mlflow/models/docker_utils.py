@@ -28,8 +28,8 @@ RUN git clone \
     https://github.com/pyenv/pyenv.git /root/.pyenv
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
-RUN pyenv install 3.11 \
-    && pyenv global 3.11 \
+RUN pyenv install 3.11.9 \
+    && pyenv global 3.11.9 \
     && python -m ensurepip --upgrade \
     && pip install --upgrade pip
 """  # noqa: E501
