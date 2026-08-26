@@ -1162,9 +1162,11 @@ describe('TracesV4PageContent', () => {
       // action to BOTH selected traces — not just the page-2 subset (the reported "Run scorers (2)" runs
       // on 0/1 traces bug).
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      // Exactly pageSize (25) rows so Next enables (rowCount < pageSize marks the last page); a bigger
+      // page just slows the full render without changing the cross-page selection being asserted.
       state.pages = {
-        '': { traces: makeTraces(50, 'p1'), next_page_token: 'token-2' },
-        'token-2': { traces: makeTraces(50, 'p2'), next_page_token: undefined },
+        '': { traces: makeTraces(25, 'p1'), next_page_token: 'token-2' },
+        'token-2': { traces: makeTraces(25, 'p2'), next_page_token: undefined },
       };
       renderPage();
       expect(await findTraceRow('p1-000')).toBeInTheDocument();
