@@ -608,6 +608,7 @@ You can pass links when creating a span via the `links` parameter. When the link
 import mlflow
 from mlflow.entities import Link
 
+
 # Using the decorator
 @mlflow.trace(
     links=[
@@ -625,9 +626,7 @@ def handle_request(message: str):
 # Using the context manager
 with mlflow.start_span(
     name="process-task",
-    links=[
-        Link(trace_id="tr-abc123def456", span_id="aabbccddeeff0011")
-    ],
+    links=[Link(trace_id="tr-abc123def456", span_id="aabbccddeeff0011")],
 ) as span:
     span.set_inputs({"task": "summarize"})
     result = "summary"
