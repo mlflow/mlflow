@@ -156,7 +156,6 @@ describe('AssessmentCreateForm', () => {
 
       // Type a new assessment name that doesn't exist in schemas
       const nameInput = screen.getByPlaceholderText('Enter a feedback name');
-      // eslint-disable-next-line @databricks/no-userevent-type
       await user.type(nameInput, 'my_new_assessment');
 
       // Open the dropdown
@@ -200,7 +199,6 @@ describe('AssessmentCreateForm', () => {
 
       // Type a new name and press Enter
       const nameInput = screen.getByPlaceholderText('Enter a feedback name');
-      // eslint-disable-next-line @databricks/no-userevent-type
       await user.type(nameInput, 'another_new_name');
       await user.keyboard('{Enter}');
 
@@ -223,7 +221,6 @@ describe('AssessmentCreateForm', () => {
       );
 
       const nameInput = screen.getByPlaceholderText('Enter a feedback name');
-      // eslint-disable-next-line @databricks/no-userevent-type
       await user.type(nameInput, 'test_name');
 
       // Clear the input (simulating the clear button)
@@ -258,7 +255,6 @@ describe('AssessmentCreateForm', () => {
 
       // Type a name when there are no existing schemas
       const nameInput = screen.getByPlaceholderText('Enter a feedback name');
-      // eslint-disable-next-line @databricks/no-userevent-type
       await user.type(nameInput, 'first_assessment');
       await user.keyboard('{Enter}');
 
@@ -284,7 +280,6 @@ describe('AssessmentCreateForm', () => {
 
       // Type the exact name of an existing schema
       const nameInput = screen.getByPlaceholderText('Enter a feedback name');
-      // eslint-disable-next-line @databricks/no-userevent-type
       await user.type(nameInput, 'Relevance');
       await user.click(nameInput);
 

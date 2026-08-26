@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 
 import type { ModelTrace } from './ModelTrace.types';
 import { GenericSkeleton } from '@databricks/design-system';
@@ -44,17 +44,17 @@ export const ModelTraceExplorerContent = ({
 
   if (isCustomViewEnabled && activeView === 'custom') {
     return (
-      <Suspense fallback={<GenericSkeleton css={{ height: '100%', width: '100%' }} />}>
+      <React.Suspense fallback={<GenericSkeleton css={{ height: '100%', width: '100%' }} />}>
         <LazyModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
-      </Suspense>
+      </React.Suspense>
     );
   }
 
   if (isCustomViewEnabled && traceExplorerDisplayMode === 'custom') {
     return (
-      <Suspense fallback={<GenericSkeleton css={{ height: '100%', width: '100%' }} />}>
+      <React.Suspense fallback={<GenericSkeleton css={{ height: '100%', width: '100%' }} />}>
         <LazyModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
-      </Suspense>
+      </React.Suspense>
     );
   }
 

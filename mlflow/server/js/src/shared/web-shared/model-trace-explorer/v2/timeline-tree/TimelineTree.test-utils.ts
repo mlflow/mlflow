@@ -1,9 +1,11 @@
 import type { SpanFilterState } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
+import { SpanLogLevel } from '../../ModelTrace.types';
 
 export const TEST_SPAN_FILTER_STATE: SpanFilterState = {
   showParents: true,
   showExceptions: true,
+  minLogLevel: SpanLogLevel.DEBUG,
   spanTypeDisplayState: {
     [ModelSpanType.CHAIN]: true,
     [ModelSpanType.LLM]: true,

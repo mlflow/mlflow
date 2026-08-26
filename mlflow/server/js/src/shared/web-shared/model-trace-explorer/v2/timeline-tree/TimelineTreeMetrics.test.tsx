@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from '@jest/globals';
 
 import type { IntlShape } from '@databricks/i18n';
-import { I18nTestUtils } from '@databricks/i18n';
+import { I18nUtils } from '@databricks/i18n';
 
 import { ModelSpanType, type ModelTraceSpanNode } from '../ModelTrace.types';
 import type { TimelineTreeMetric } from '../ModelTraceExplorerPreferencesContext';
@@ -35,7 +35,7 @@ describe('getTimelineTreeMetricValue', () => {
   let intl: IntlShape;
 
   beforeAll(() => {
-    intl = I18nTestUtils.createIntl({ locale: 'en' });
+    intl = I18nUtils.createIntlWithLocale();
   });
 
   it.each<{ metric: TimelineTreeMetric; expected: string }>([
