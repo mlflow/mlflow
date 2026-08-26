@@ -245,7 +245,7 @@ def test_cli_annotates_once_and_degrades_when_the_token_is_rejected(
 
     # One annotation for the run, and the loop stops rather than retrying a dead token.
     out = capsys.readouterr().out
-    assert out.count("::warning::the GitHub token was rejected (401)") == 1
+    assert out.count("::warning::media upload stopped: the credential was rejected (401)") == 1
     assert uploader.call_count == 1
     assert target.read_text() == "evidence: the bug and more"
 
@@ -398,6 +398,14 @@ def test_check_warns_about_a_capture_nothing_cites(tmp_path: Path) -> None:
 def test_check_rejects_a_cited_file_with_an_unsupported_extension(tmp_path: Path) -> None:
     report = check(tmp_path, "[notes]({p})", "notes.txt")
     assert report.errors == ["notes.txt: unsupported extension, so the reference is dropped"]
+
+
+def test_check_rejects_a_cited_file_that_is_empty(tmp_path: Path) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    (media / "shot.png").write_bytes(b"")
+    report = embed_media.check_media(media, [f"![the bug]({media / 'shot.png'})"])
+    assert report.errors == ["shot.png: empty, so the reference is dropped"]
 
 
 def test_check_rejects_a_cited_file_over_the_size_cap(tmp_path: Path) -> None:

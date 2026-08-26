@@ -2,7 +2,7 @@ const ACTIVITY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_REPOS_TO_DISPLAY = 10;
 
 const UI_FILE = /^mlflow\/server\/js\/src\/.+\.(tsx|jsx|ts|js|css|scss|less)$/;
-const STACKED_PR_SECTION = /^(#{1,6}|>)\s.*\bStacked PRs?\b/m;
+const STACKED_PR_SECTION = /^(#{1,6}|>)\s.*\bStacked (?:PRs?|on)\b/m;
 const MEDIA =
   /!\[[^\]]*\]\([^)]+\)|<(img|video)\b|https:\/\/github\.com\/user-attachments\/|https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4|mov|webm)\b/i;
 
