@@ -32,7 +32,7 @@ RUN pyenv install 3.11 \
     && pyenv global 3.11 \
     && python -m ensurepip --upgrade \
     && pip install --upgrade pip
-"""
+"""  # noqa: E501
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
 FROM {base_image}
