@@ -20,17 +20,10 @@ from mlflow.environment_variables import MLFLOW_DISABLE_AGENT_HINT
 
 _logger = logging.getLogger(__name__)
 
-# Environment variables coding agents export into the processes they spawn.
-# Any one being set means an agent is driving, whatever `mlflow agent setup`
-# happens to support. `AI_AGENT` and `AGENT` are the emerging cross-agent
-# conventions; the rest are agent-specific and confirmed in each tool's source.
-# The marker set below tracks Vercel's cross-agent registry:
-# https://github.com/vercel/detect-agent/blob/3ab1df1e4eaae153cf66f4a5018e4c5854855212/agents.json
-#
-# Deliberately excluded: variables a human exports as configuration rather than
-# ones an agent injects (COPILOT_MODEL, COPILOT_GITHUB_TOKEN, AIDER_*,
-# GOOSE_PROVIDER), and variables set for every shell in an environment whether
-# or not an agent is driving (REPL_ID, CURSOR_TRACE_ID, CI, GITHUB_ACTIONS).
+# Variables agents export into the processes they spawn; any one means an agent
+# is driving. Tracks https://github.com/vercel/detect-agent/blob/3ab1df1e4eaae153cf66f4a5018e4c5854855212/agents.json
+# Excludes vars a human also sets: config (COPILOT_MODEL, AIDER_*) and
+# environment-wide ones (REPL_ID, CURSOR_TRACE_ID, CI).
 _AGENT_ENV_MARKERS = (
     "AGENT",  # Goose, Amp, and other adopters of the convention
     "AI_AGENT",
