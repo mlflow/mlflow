@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.15.2.dev0"
+version = "3.15.3.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -31,8 +31,8 @@ requires-python = ">=3.10"
 # installable within the existing ranges, and pinning them is the responsibility of the
 # application. See https://sethmlarson.dev/library-version-specifiers-not-for-vulnerabilities
 dependencies = [
-  "mlflow-skinny==3.15.2.dev0",
-  "mlflow-tracing==3.15.2.dev0",
+  "mlflow-skinny==3.15.3.dev0",
+  "mlflow-tracing==3.15.3.dev0",
   "Flask-CORS<7",
   "Flask<4",
   "aiohttp<4,>=3.7.0",
