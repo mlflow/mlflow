@@ -1,0 +1,68 @@
+# Opens a PR authored by mlflow-app[bot] from a branch that already exists in
+# this repository. Mechanical PRs filed this way stay exempt from the checks
+# that assume a human filled in the PR template.
+name: Create bot PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Head branch to open the PR from. Must already exist in this repository."
+        required: true
+      title:
+        description: "PR title"
+        required: true
+      body:
+        description: "PR body"
+        required: false
+        default: ""
+      base:
+        description: "Base branch"
+        required: false
+        default: master
+      labels:
+        description: "Comma-separated labels to apply (e.g. rn/none,area/build)"
+        required: false
+        default: ""
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ inputs.branch }}
+          TITLE: ${{ inputs.title }}
+          BODY: ${{ inputs.body }}
+          BASE: ${{ inputs.base }}
+          LABELS: ${{ inputs.labels }}
+        run: |
+          PR=$(gh api "repos/$REPO/pulls" \
+            -f "title=$TITLE" \
+            -f "head=$BRANCH" \
+            -f "base=$BASE" \
+            -f "body=$BODY" \
+            --jq '"\(.number) \(.html_url)"')
+          read -r PR_NUMBER PR_URL <<< "$PR"
+          echo "Created $PR_URL"
+          echo "Created $PR_URL" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -n "$LABELS" ]; then
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$LABELS"
+          fi
