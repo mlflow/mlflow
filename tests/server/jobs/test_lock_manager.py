@@ -863,3 +863,163 @@ def test_acquire_exclusive_lock_valid_status_values(
         assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id), JobLock)
     else:
         assert lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id) is None
+
+
+def test_release_exclusive_lock_deletes_lock_row(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    lock_mgr.release_exclusive_lock(job_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "test-key").one_or_none()
+        assert row is None
+
+
+def test_release_exclusive_lock_is_idempotent(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    lock_mgr.release_exclusive_lock(job_lock)
+    lock_mgr.release_exclusive_lock(job_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "test-key").one_or_none()
+        assert row is None
+
+
+def test_release_exclusive_lock_allows_reacquisition(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+
+    lock1 = lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id)
+    assert isinstance(lock1, JobLock)
+
+    lock_mgr.release_exclusive_lock(lock1)
+
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    lock2 = lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id)
+    assert isinstance(lock2, JobLock)
+    assert lock2.job_id == job2.job_id
+
+
+def test_release_exclusive_lock_does_not_delete_other_jobs_lock(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    lock1 = lock_mgr.acquire_exclusive_lock("shared-key", job1.job_id)
+    assert isinstance(lock1, JobLock)
+
+    job_store.report_job_result(job1.job_id, status=JobStatus.SUCCEEDED, result="done")
+    lock2 = lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id)
+    assert isinstance(lock2, JobLock)
+
+    # Job1 tries to release with its stale JobLock — should not affect job2's lock
+    lock_mgr.release_exclusive_lock(lock1)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "shared-key").one()
+        assert row.job_id == job2.job_id
+
+
+def test_release_exclusive_lock_no_op_with_wrong_lock_key(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("real-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    fake_lock = JobLock(
+        lock_key="wrong-key", job_id=job_lock.job_id, acquired_at=job_lock.acquired_at
+    )
+    lock_mgr.release_exclusive_lock(fake_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "real-key").one_or_none()
+        assert row is not None
+
+
+def test_release_exclusive_lock_no_op_with_wrong_job_id(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    fake_lock = JobLock(
+        lock_key=job_lock.lock_key, job_id="wrong-id", acquired_at=job_lock.acquired_at
+    )
+    lock_mgr.release_exclusive_lock(fake_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "test-key").one_or_none()
+        assert row is not None
+
+
+def test_release_exclusive_lock_no_op_with_wrong_acquired_at(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
+    assert job_store.claim_job(job.job_id) == JobUpdateStatus.APPLIED
+
+    job_lock = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(job_lock, JobLock)
+
+    fake_lock = JobLock(lock_key=job_lock.lock_key, job_id=job_lock.job_id, acquired_at=0)
+    lock_mgr.release_exclusive_lock(fake_lock)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "test-key").one_or_none()
+        assert row is not None
+
+
+def test_release_exclusive_lock_does_not_affect_other_lock_keys(
+    job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
+) -> None:
+
+    job1 = job_store.create_job(job_name="job1", params="{}", timeout=60.0)
+    job2 = job_store.create_job(job_name="job2", params="{}", timeout=60.0)
+    assert job_store.claim_job(job1.job_id) == JobUpdateStatus.APPLIED
+    assert job_store.claim_job(job2.job_id) == JobUpdateStatus.APPLIED
+
+    lock1 = lock_mgr.acquire_exclusive_lock("key-1", job1.job_id)
+    lock2 = lock_mgr.acquire_exclusive_lock("key-2", job2.job_id)
+    assert isinstance(lock1, JobLock)
+    assert isinstance(lock2, JobLock)
+
+    lock_mgr.release_exclusive_lock(lock1)
+
+    with lock_mgr._session_maker(read_only=True) as session:
+        row1 = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "key-1").one_or_none()
+        row2 = session.query(SqlJobLock).filter(SqlJobLock.lock_key == "key-2").one_or_none()
+        assert row1 is None
+        assert row2 is not None

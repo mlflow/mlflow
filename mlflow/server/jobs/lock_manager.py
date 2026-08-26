@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import ParamSpec, TypeVar
 
-from sqlalchemy import Update, and_, insert, join, or_, select, update
+from sqlalchemy import Update, and_, delete, insert, join, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from mlflow.entities._job_status import JobStatus
@@ -490,3 +490,35 @@ class JobLockManager:
             lock_key=lock_key,
             job_id=job_id,
         )
+
+    def release_exclusive_lock(self, job_lock: JobLock) -> None:
+        """
+        Delete the lock row that matches all fields of ``job_lock``.
+
+        The method matches ``lock_key``, ``job_id``, and ``acquired_at`` against the database row.
+        If all three fields match, the row is deleted. If any field does not match, or the row
+        does not exist, the method does nothing.
+
+        This makes the operation safe against concurrent re-acquisition: if another job acquired
+        the lock before this call, the DELETE does not affect the new lock.
+
+        Args:
+            job_lock: The lock to release. Must be a ``JobLock`` that was returned by
+            ``acquire_exclusive_lock``.
+        """
+
+        with self._session_maker(read_only=False) as session:
+            filter_args = (
+                SqlJobLock.lock_key == job_lock.lock_key,
+                SqlJobLock.job_id == job_lock.job_id,
+                SqlJobLock.acquired_at == job_lock.acquired_at,
+            )
+
+            statement = delete(SqlJobLock).filter(*filter_args)
+            result = session.execute(statement)
+
+            if result.rowcount == 0:
+                _logger.debug(
+                    "Lock release was a no-op. The lock may have been released "
+                    "or acquired by another job."
+                )
