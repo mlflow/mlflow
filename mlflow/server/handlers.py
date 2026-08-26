@@ -389,6 +389,7 @@ from mlflow.utils.providers import (
 from mlflow.utils.server_info import (
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
@@ -6987,6 +6988,8 @@ def _get_server_info():
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
+        # This advertises request-contract support; repository support is checked per resource.
+        SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: True,
     })
 
 

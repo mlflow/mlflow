@@ -282,6 +282,7 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.server_info import (
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
@@ -446,6 +447,7 @@ def test_server_info():
         assert data[SERVER_INFO_STORE_TYPE] == "SqlStore"
         assert data[SERVER_INFO_WORKSPACES_ENABLED] is False
         assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
+        assert data[SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED] is True
 
 
 def test_server_info_trace_archival_enabled(monkeypatch):
