@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787663451137,
+  "lastUpdate": 1787727797422,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -24299,6 +24299,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 15.483311800005595,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tomu.hirata@gmail.com",
+            "name": "Tomu Hirata",
+            "username": "TomeHirata"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68ef0511781cb47b8d7e9abe6ca96e1442c12a96",
+          "message": "Fix cross-version test failures: transformers 5.15, gemini 2.18, llama_index+nltk, pydantic_ai 2.31 (#25351)\n\nSigned-off-by: Tomu Hirata <tomu.hirata@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-26T07:01:50Z",
+          "tree_id": "43b91f1e8c33f6259ba6354772c6c82760455cff",
+          "url": "https://github.com/mlflow/mlflow/commit/68ef0511781cb47b8d7e9abe6ca96e1442c12a96"
+        },
+        "date": 1787727795040,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 48.35954234999846,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.595229244897991,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.445063577235201,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.631505369564883,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 8.045242037037045,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.009613799997851,
             "unit": "ms"
           }
         ]
