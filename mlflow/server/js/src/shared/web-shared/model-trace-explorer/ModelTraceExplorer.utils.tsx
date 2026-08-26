@@ -639,7 +639,11 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
 };
 
 export function isV3ModelTraceInfo(
-  info: Pick<ModelTraceInfoV3, 'trace_location' | 'trace_id'> | ModelTrace['info'],
+  info:
+    | Pick<ModelTraceInfoV3, 'trace_location' | 'trace_id'>
+    | ModelTrace['info']
+    | { trace?: { trace_info?: ModelTrace['info'] } }
+    | undefined,
 ): info is ModelTraceInfoV3 {
   if (!info) {
     return false;

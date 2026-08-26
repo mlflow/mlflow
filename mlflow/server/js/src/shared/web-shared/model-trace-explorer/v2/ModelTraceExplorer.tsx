@@ -44,6 +44,9 @@ export const ModelTraceExplorerImpl = ({
    * Defaults to `true` to preserve existing behavior for all consumers.
    */
   enableGraphView?: boolean;
+  // Accepted for prop-shape parity with the legacy explorer so the shared entrypoint can forward one
+  // prop set to either implementation; the redesigned explorer replaces the summary view and ignores it.
+  initialActiveView?: 'summary' | 'detail';
 }): JSX.Element => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [forceDisplay, setForceDisplay] = useState(false);
