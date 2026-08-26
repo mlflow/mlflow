@@ -12,7 +12,6 @@ import {
   has,
   compact,
   keyBy,
-  isObject,
   isEmpty,
 } from 'lodash';
 
@@ -59,6 +58,7 @@ import { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from '../chat
 import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from '../chat-utils/otel';
 import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from '../chat-utils/pydanticai';
 import { getSpanAttribute } from '../spanAttributeReader';
+import { decodeOtelAnyValue, isOtelAnyValue } from '../../genai-traces-table/utils/TraceUtils';
 import { normalizeMistralChatInput, normalizeMistralChatOutput } from '../chat-utils/mistral';
 import {
   normalizeVoltAgentChatInput,
@@ -1143,24 +1143,11 @@ export const getDefaultActiveTab = (
  * to a map format.
  */
 export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): ModelTraceSpan => {
-  const getValue = (value: any) => {
-    if (!isObject(value)) {
-      return value;
-    }
-    if ('string_value' in value) {
-      return value.string_value;
-    }
-    if ('bool_value' in value) {
-      return value.bool_value;
-    }
-    if ('int_value' in value) {
-      return value.int_value;
-    }
-    if ('double_value' in value) {
-      return value.double_value;
-    }
-    return value;
-  };
+  // Complex values (dicts/lists, e.g. `mlflow.spanInputs` / `mlflow.spanOutputs`)
+  // arrive as nested `kvlist_value` / `array_value` structures, so decode
+  // recursively. A scalar-only unwrap leaves them as raw OTEL AnyValue objects,
+  // which breaks chat-message normalization (the pretty conversation view).
+  const getValue = (value: any) => (isOtelAnyValue(value) ? decodeOtelAnyValue(value) : value);
 
   const convertAttributes = (attributes: any) => {
     if (!Array.isArray(attributes)) {
