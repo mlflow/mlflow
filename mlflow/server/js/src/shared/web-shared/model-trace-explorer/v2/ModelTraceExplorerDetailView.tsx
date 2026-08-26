@@ -140,11 +140,6 @@ export const ModelTraceExplorerDetailView = ({
     setSelectedNode: setViewStateSelectedNode,
   } = useModelTraceExplorerViewState();
 
-  const setSearchActiveTab = useCallback(
-    (tab: SharedModelTraceExplorerTab) => setActiveTab(tab === 'chat' ? 'content' : tab),
-    [setActiveTab],
-  );
-
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
   const workflowLayout = useMemo(
     () => computeWorkflowLayout(rootNode, activeLayoutConfig),
@@ -169,6 +164,18 @@ export const ModelTraceExplorerDetailView = ({
     setSelectedNode: setViewStateSelectedNode,
     topLevelNodes,
   });
+
+  // The shared useModelTraceSearch hook drives node selection and tab activation together via a
+  // single setSelectedNodeAndTab callback. v2's view state keeps these as separate setters, so
+  // bridge them here (mapping the 'chat' tab onto 'content', which v2 does not surface separately).
+  const setSearchSelectedNodeAndTab = useCallback(
+    (node: ModelTraceSpanNode, tab: SharedModelTraceExplorerTab) => {
+      setSelectedNode(node);
+      setActiveTab(tab === 'chat' ? 'content' : tab);
+    },
+    [setSelectedNode, setActiveTab],
+  );
+
   const graphAvailable = enableGraphView && Boolean(rootNode) && workflowLayout.nodes.length > 0;
   const hasGraph = showGraph && graphAvailable;
 
@@ -290,7 +297,7 @@ export const ModelTraceExplorerDetailView = ({
     treeNodes: topLevelNodes,
     selectedNode,
     setSelectedNode,
-    setActiveTab: setSearchActiveTab,
+    setSelectedNodeAndTab: setSearchSelectedNodeAndTab,
     setExpandedKeys,
     modelTraceInfo,
   });

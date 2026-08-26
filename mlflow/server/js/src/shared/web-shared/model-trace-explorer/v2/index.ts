@@ -49,7 +49,6 @@ export {
   shouldUseUnifiedModelTraceComparisonUI,
   isEvaluatingTracesInDetailsViewEnabled,
   shouldEnableTracesTableStatePersistence,
-  shouldEnableSavedTracesViews,
   shouldEnableModelTraceExplorerCustomTraceView,
 } from '../FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from '../contexts/AssessmentSchemaContext';
