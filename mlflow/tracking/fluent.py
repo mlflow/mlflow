@@ -3220,6 +3220,32 @@ def get_artifact_uri(artifact_path: str | None = None) -> str:
         run_id=_get_or_start_run().info.run_id, artifact_path=artifact_path
     )
 
+@overload
+def search_runs(
+    experiment_ids: list[str] | None = None,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: list[str] | None = None,
+    output_format: Literal["pandas"] = "pandas",
+    search_all_experiments: bool = False,
+    experiment_names: list[str] | None = None,
+) -> pandas.DataFrame:
+    ...
+
+@overload
+def search_runs(
+    experiment_ids: list[str] | None = None,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: list[str] | None = None,
+    output_format: Literal["list"] = "list",
+    search_all_experiments: bool = False,
+    experiment_names: list[str] | None = None,
+) -> list[Run]:
+    ...
+
 
 def search_runs(
     experiment_ids: list[str] | None = None,
@@ -3227,10 +3253,10 @@ def search_runs(
     run_view_type: int = ViewType.ACTIVE_ONLY,
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
     order_by: list[str] | None = None,
-    output_format: str = "pandas",
+    output_format: Literal["pandas", "list"] = "pandas",
     search_all_experiments: bool = False,
     experiment_names: list[str] | None = None,
-) -> Union[list[Run], "pandas.DataFrame"]:
+) -> list[Run] | pandas.DataFrame:
     """
     Search for Runs that fit the specified criteria.
 
