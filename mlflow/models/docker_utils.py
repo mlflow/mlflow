@@ -24,7 +24,8 @@ ENV PATH="/root/.local/bin:$PATH"
 RUN uv python install 3.11.9 \\
     && ln -sf "$(uv python find 3.11.9)" /usr/bin/python \\
     && python -m ensurepip --upgrade \\
-    && pip install --upgrade pip
+    && pip install --break-system-packages --upgrade pip \\
+    && printf '[global]\\nbreak-system-packages = true\\n' > /etc/pip.conf
 """
 
 _DOCKERFILE_TEMPLATE = """# Build an image that can serve mlflow models.
