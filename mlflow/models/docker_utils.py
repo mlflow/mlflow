@@ -18,12 +18,10 @@ UBUNTU_BASE_IMAGE = "ubuntu:24.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
-SETUP_PYENV = """# Install Python 3.11 from Ubuntu universe repository
-RUN sed -i '/^Components:/s/$/ universe/' /etc/apt/sources.list.d/ubuntu.sources \\
-    && apt-get update \\
-    && apt-get install -y python3.11 python3.11-venv \\
-    && rm -f /usr/lib/python3.11/EXTERNALLY-MANAGED \\
-    && ln -sf /usr/bin/python3.11 /usr/bin/python \\
+SETUP_PYENV = """# Install Python (system default for Ubuntu 24.04 is 3.12)
+RUN apt-get install -y --no-install-recommends python3 python3-venv \\
+    && rm -f /usr/lib/python3.12/EXTERNALLY-MANAGED \\
+    && ln -sf /usr/bin/python3 /usr/bin/python \\
     && python -m ensurepip --upgrade \\
     && pip install --upgrade pip
 """
