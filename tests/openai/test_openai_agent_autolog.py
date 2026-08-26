@@ -29,6 +29,7 @@ from openai.types.responses.response_text_delta_event import ResponseTextDeltaEv
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.openai._agent_tracer import MlflowOpenAgentTracingProcessor
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces, purge_traces
 
@@ -141,6 +142,12 @@ async def test_autolog_agent():
     spans = trace.data.spans
     assert len(spans) > 5
 
+    response_spans = [s for s in spans if s.name == "Response"]
+    assert len(response_spans) == 2
+    for r_span in response_spans:
+        assert r_span.attributes.get(SpanAttributeKey.MODEL) == "gpt-4o-mini"
+        assert r_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "openai"
+
 
 @pytest.mark.asyncio
 async def test_autolog_agent_tool_exception():
@@ -178,7 +185,9 @@ async def test_autolog_agent_tool_exception():
         ),
     ]
 
-    @function_tool(failure_error_function=None)  # Set error function None to avoid retry
+    @function_tool(
+        failure_error_function=None
+    )  # Set error function None to avoid retry
     def always_fail():
         raise Exception("This function always fails")
 
@@ -518,7 +527,9 @@ def test_autolog_disable_openai_agent_tracer():
         return get_trace_provider()._multi_processor._processors
 
     # Verify default processor exists before autolog
-    assert any(not isinstance(p, MlflowOpenAgentTracingProcessor) for p in _get_processors())
+    assert any(
+        not isinstance(p, MlflowOpenAgentTracingProcessor) for p in _get_processors()
+    )
 
     # When disable_openai_agent_tracer=False, the default OpenAI tracer should be preserved
     mlflow.openai.autolog(disable_openai_agent_tracer=False)
@@ -607,6 +618,22 @@ def test_generation_span_attributes_stored_under_span_attribute_keys():
                 "cache_read_input_tokens": 3,
             },
         ),
+        # prompt_tokens and completion_tokens aliases
+        (
+            {
+                "prompt_tokens": 20,
+                "completion_tokens": 10,
+                "total_tokens": 30,
+                "prompt_tokens_details": {"cached_tokens": 5, "cache_write_tokens": 3},
+            },
+            {
+                "input_tokens": 20,
+                "output_tokens": 10,
+                "total_tokens": 30,
+                "cache_read_input_tokens": 5,
+                "cache_creation_input_tokens": 3,
+            },
+        ),
         (None, None),
         ({}, None),
     ],
@@ -642,4 +669,140 @@ def test_calculate_span_cost_uses_generation_span_model_attribute():
         result = calculate_span_cost(mock_span)
 
     mock_cost.assert_called_once_with("some-model", usage, None)
+    assert result == expected_cost
+
+
+def test_parse_response_span_data_sets_model_and_usage():
+    import agents.tracing as oai
+    from mlflow.openai._agent_tracer import _parse_response_span_data
+    from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+
+    response = Response(
+        id="resp_123",
+        created_at=12345678.0,
+        error=None,
+        model="gpt-4o-mini",
+        object="response",
+        output=[
+            ResponseOutputMessage(
+                id="msg_123",
+                content=[
+                    ResponseOutputText(
+                        annotations=[],
+                        text="Hello!",
+                        type="output_text",
+                    )
+                ],
+                role="assistant",
+                status="completed",
+                type="message",
+            )
+        ],
+        tools=[],
+        tool_choice="auto",
+        temperature=1,
+        parallel_tool_calls=True,
+        usage={
+            "input_tokens": 12,
+            "output_tokens": 8,
+            "total_tokens": 20,
+            "input_tokens_details": {"cached_tokens": 4, "cache_write_tokens": 2},
+        },
+    )
+
+    span_data = oai.ResponseSpanData(
+        input=[{"role": "user", "content": "Hi"}],
+        response=response,
+    )
+
+    inputs, outputs, attributes = _parse_response_span_data(span_data)
+
+    assert inputs == [{"role": "user", "content": "Hi"}]
+    assert outputs == [
+        {
+            "id": "msg_123",
+            "content": [
+                {
+                    "annotations": [],
+                    "text": "Hello!",
+                    "type": "output_text",
+                }
+            ],
+            "role": "assistant",
+            "status": "completed",
+            "type": "message",
+        }
+    ]
+    assert attributes[SpanAttributeKey.MODEL] == "gpt-4o-mini"
+    assert attributes[SpanAttributeKey.MODEL_PROVIDER] == "openai"
+    assert attributes[SpanAttributeKey.CHAT_USAGE] == {
+        TokenUsageKey.INPUT_TOKENS: 12,
+        TokenUsageKey.OUTPUT_TOKENS: 8,
+        TokenUsageKey.TOTAL_TOKENS: 20,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 4,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 2,
+    }
+
+
+def test_parse_response_span_data_none_response():
+    import agents.tracing as oai
+    from mlflow.openai._agent_tracer import _parse_response_span_data
+
+    span_data = oai.ResponseSpanData(
+        input="test",
+        response=None,
+    )
+    inputs, outputs, attributes = _parse_response_span_data(span_data)
+    assert inputs == "test"
+    assert outputs is None
+    assert attributes == {}
+
+
+def test_calculate_span_cost_uses_response_span_attributes():
+    from mlflow.openai._agent_tracer import _parse_response_span_data
+    from mlflow.tracing.constant import SpanAttributeKey
+    from mlflow.tracing.utils import calculate_span_cost
+
+    response = Response(
+        id="resp_123",
+        created_at=12345678.0,
+        error=None,
+        model="gpt-4o-mini",
+        object="response",
+        output=[],
+        tools=[],
+        tool_choice="auto",
+        temperature=1,
+        parallel_tool_calls=True,
+        usage={
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        },
+    )
+    mock_span_data = mock.MagicMock()
+    mock_span_data.input = "Hi"
+    mock_span_data.response = response
+
+    _, _, attributes = _parse_response_span_data(mock_span_data)
+
+    mock_span = mock.MagicMock()
+    mock_span.get_attribute.side_effect = attributes.get
+
+    expected_cost = {
+        "input_cost": 0.00015,
+        "output_cost": 0.0003,
+        "total_cost": 0.00045,
+    }
+    with mock.patch(
+        "mlflow.tracing.utils.calculate_cost_by_model_and_token_usage",
+        return_value=expected_cost,
+    ) as mock_cost:
+        result = calculate_span_cost(mock_span)
+
+    mock_cost.assert_called_once_with(
+        "gpt-4o-mini",
+        attributes[SpanAttributeKey.CHAT_USAGE],
+        "openai",
+    )
     assert result == expected_cost

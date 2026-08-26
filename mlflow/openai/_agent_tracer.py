@@ -96,7 +96,9 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
         self._span_id_to_mlflow_span: dict[str, SpanWithToken] = {}
 
     def on_trace_start(self, trace: oai.Trace) -> None:
-        if (active_span := get_current_active_span()) and _is_agent_run_root(active_span):
+        if (active_span := get_current_active_span()) and _is_agent_run_root(
+            active_span
+        ):
             # The root span is already started by _patched_agent_run / _patched_agent_run_streamed
             mlflow_span = active_span
             token = None
@@ -131,7 +133,9 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
 
     def on_span_start(self, span: oai.Span[Any]) -> None:
         try:
-            parent_st: SpanWithToken | None = self._span_id_to_mlflow_span.get(span.parent_id, None)
+            parent_st: SpanWithToken | None = self._span_id_to_mlflow_span.get(
+                span.parent_id, None
+            )
 
             # Parent might be a trace
             if not parent_st:
@@ -150,16 +154,22 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
             token = set_span_in_context(mlflow_span)
 
             if span_type == SpanType.CHAT_MODEL:
-                mlflow_span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai-agent")
+                mlflow_span.set_attribute(
+                    SpanAttributeKey.MESSAGE_FORMAT, "openai-agent"
+                )
 
-            self._span_id_to_mlflow_span[span.span_id] = SpanWithToken(mlflow_span, token)
+            self._span_id_to_mlflow_span[span.span_id] = SpanWithToken(
+                mlflow_span, token
+            )
         except Exception:
             _logger.debug("Failed to start MLflow span", exc_info=True)
 
     def on_span_end(self, span: oai.Span[Any]) -> None:
         try:
             # parsed_span_data = parse_spandata(span.span_data)
-            st: SpanWithToken | None = self._span_id_to_mlflow_span.pop(span.span_id, None)
+            st: SpanWithToken | None = self._span_id_to_mlflow_span.pop(
+                span.span_id, None
+            )
             detach_span_from_context(st.token)
             mlflow_span = st.span
 
@@ -237,6 +247,7 @@ def _parse_span_data(span_data: oai.SpanData) -> tuple[Any, Any, dict[str, Any]]
         outputs = span_data.output
         attributes = {
             SpanAttributeKey.MODEL: span_data.model,
+            SpanAttributeKey.MODEL_PROVIDER: "openai",
             "model_config": span_data.model_config,
         }
         if usage := _parse_generation_usage(span_data.usage):
@@ -258,19 +269,31 @@ def _parse_span_data(span_data: oai.SpanData) -> tuple[Any, Any, dict[str, Any]]
     return inputs, outputs, attributes
 
 
-def _parse_generation_usage(usage: dict[str, int] | None) -> dict[str, int] | None:
+def _parse_generation_usage(usage: dict[str, Any] | None) -> dict[str, int] | None:
     if not usage:
         return None
     try:
         result = {}
-        for key in [
-            TokenUsageKey.INPUT_TOKENS,
-            TokenUsageKey.OUTPUT_TOKENS,
-            TokenUsageKey.TOTAL_TOKENS,
-        ]:
-            if (v := usage.get(key)) is not None:
-                result[key] = v
-        if details := usage.get("input_tokens_details"):
+        input_tokens = usage.get(TokenUsageKey.INPUT_TOKENS)
+        if input_tokens is None:
+            input_tokens = usage.get("prompt_tokens")
+        if input_tokens is not None:
+            result[TokenUsageKey.INPUT_TOKENS] = input_tokens
+
+        output_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS)
+        if output_tokens is None:
+            output_tokens = usage.get("completion_tokens")
+        if output_tokens is not None:
+            result[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+
+        total_tokens = usage.get(TokenUsageKey.TOTAL_TOKENS)
+        if total_tokens is not None:
+            result[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+        details = usage.get("input_tokens_details") or usage.get(
+            "prompt_tokens_details"
+        )
+        if details and isinstance(details, dict):
             if (v := details.get("cached_tokens")) is not None:
                 result[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = v
             if (v := details.get("cache_write_tokens")) is not None:
@@ -281,12 +304,21 @@ def _parse_generation_usage(usage: dict[str, int] | None) -> dict[str, int] | No
         return None
 
 
-def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any, dict[str, Any]]:
+def _parse_response_span_data(
+    span_data: oai.ResponseSpanData,
+) -> tuple[Any, Any, dict[str, Any]]:
     inputs = span_data.input
     response = span_data.response
     response_dict = response.model_dump() if response else {}
     outputs = response_dict.get("output")
     attributes = {k: v for k, v in response_dict.items() if k != "output"}
+
+    if model := response_dict.get("model"):
+        attributes[SpanAttributeKey.MODEL] = model
+        attributes[SpanAttributeKey.MODEL_PROVIDER] = "openai"
+
+    if usage := _parse_generation_usage(response_dict.get("usage")):
+        attributes[SpanAttributeKey.CHAT_USAGE] = usage
 
     # Extract chat tools
     chat_tools = []
@@ -326,7 +358,9 @@ def _build_agent_run_span_args(original, self_, args, kwargs):
     """
     inputs = construct_full_inputs(original, self_, *args, **kwargs)
     attributes = {
-        k: v for k, v in inputs.items() if k not in ("starting_agent", "input", "run_config")
+        k: v
+        for k, v in inputs.items()
+        if k not in ("starting_agent", "input", "run_config")
     }
     return inputs, attributes
 
@@ -393,12 +427,16 @@ def _patched_agent_run_streamed(original, self, *args, **kwargs):
         live_result = result_ref()
         if not finalizer.alive:
             # Re-iteration after finalize: pass through without touching span.
-            async for event in original_stream_events_func(live_result, *args, **kwargs):
+            async for event in original_stream_events_func(
+                live_result, *args, **kwargs
+            ):
                 yield event
             return
         error: Exception | None = None
         try:
-            async for event in original_stream_events_func(live_result, *args, **kwargs):
+            async for event in original_stream_events_func(
+                live_result, *args, **kwargs
+            ):
                 yield event
         except Exception as e:
             error = e
