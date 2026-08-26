@@ -27,6 +27,7 @@ export const ModelTraceExplorerAssistantButton = ({
         <span
           css={{
             display: 'inline-flex',
+            marginRight: children ? theme.spacing.xs : 0,
             transition: 'transform 0.25s',
             transform: isHovered ? 'rotate(90deg)' : undefined,
           }}

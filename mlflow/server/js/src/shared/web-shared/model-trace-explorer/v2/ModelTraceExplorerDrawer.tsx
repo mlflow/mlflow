@@ -149,7 +149,12 @@ export const ModelTraceExplorerDrawer = ({
     drawerWidth = '90vw',
     isAssistantPanelOpen,
   } = useModelTraceExplorerContext();
-  const { canUseAssistant, openPanel, prefillPrompt } = useAssistant();
+  const { canUseAssistant, isPanelOpen, openPanel, prefillPrompt, requestComposerFocus } = useAssistant();
+  // The drawer must go non-modal while the assistant panel is open so its focus
+  // trap doesn't yank focus back from the chat composer (e.g. right after
+  // "Analyze trace" prefills a prompt). Hosts that inject panel state via context
+  // (isAssistantPanelOpen) win; otherwise fall back to the live assistant state.
+  const assistantPanelOpen = isAssistantPanelOpen ?? isPanelOpen;
 
   const enableCustomTraceView = shouldEnableModelTraceExplorerCustomTraceView();
   const isCustomViewEnabled = enableCustomTraceView && Boolean(openCustomViewAssistant);
@@ -164,6 +169,10 @@ export const ModelTraceExplorerDrawer = ({
     setTraceExplorerDisplayMode('custom');
   }, [canCreateCustomView, customViewDefinition]);
   const snapDrawerLeft = enableCustomTraceView && Boolean(isAssistantPanelOpen) && !isFullscreen;
+  // Non-modal whenever the drawer snaps beside a host-repositioned assistant, OR
+  // whenever the live assistant panel is open (OSS: AssistantAwareDrawer flips the
+  // drawer to the left itself). Either way the modal focus trap must be off.
+  const isDrawerModal = !snapDrawerLeft && !assistantPanelOpen;
   const notificationClassName = getPrefixedClassName('notification');
   const baseDrawerWidth = snapDrawerLeft ? CUSTOM_VIEW_INITIAL_WIDTH : drawerWidth;
   const [resizedWidth, setResizedWidth] = useState<number | string>(baseDrawerWidth);
@@ -455,7 +464,8 @@ export const ModelTraceExplorerDrawer = ({
   const handleAnalyzeTrace = useCallback(() => {
     openPanel();
     prefillPrompt(analyzeTracePrompt);
-  }, [openPanel, prefillPrompt, analyzeTracePrompt]);
+    requestComposerFocus();
+  }, [openPanel, prefillPrompt, requestComposerFocus, analyzeTracePrompt]);
   const findInTraceLabel = intl.formatMessage({
     defaultMessage: 'Find in trace',
     description: 'Accessible label and tooltip for opening the trace search row',
@@ -529,7 +539,7 @@ export const ModelTraceExplorerDrawer = ({
   return (
     <DrawerComponent.Root
       open={isDrawerOpen}
-      modal={!snapDrawerLeft}
+      modal={isDrawerModal}
       onOpenChange={(open) => {
         if (!open) {
           beginClose();
@@ -555,7 +565,7 @@ export const ModelTraceExplorerDrawer = ({
           }}
         />
       )}
-      {!snapDrawerLeft && (
+      {isDrawerModal && (
         <Global
           styles={{
             [`.${notificationClassName}`]: {
