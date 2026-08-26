@@ -400,8 +400,8 @@ def test_download_artifacts(ftp_mock):
     assert ftp_mock.nlst.call_count == 3
     # Downloads run in a thread pool, so the call order is non-deterministic.
     assert {arg_entry[0][0] for arg_entry in ftp_mock.retrbinary.call_args_list} == {
-        "RETR " + model_file_path_full,
-        "RETR " + subfile_path_full,
+        f"RETR {model_file_path_full}",
+        f"RETR {subfile_path_full}",
     }
 
 
