@@ -167,11 +167,12 @@ export const ModelTraceExplorerDetailView = ({
 
   // The shared useModelTraceSearch hook drives node selection and tab activation together via a
   // single setSelectedNodeAndTab callback. v2's view state keeps these as separate setters, so
-  // bridge them here (mapping the 'chat' tab onto 'content', which v2 does not surface separately).
+  // bridge them here. The shared tab union carries 'chat' and 'links' tabs that v2 does not
+  // surface separately, so fold those onto 'content'.
   const setSearchSelectedNodeAndTab = useCallback(
     (node: ModelTraceSpanNode, tab: SharedModelTraceExplorerTab) => {
       setSelectedNode(node);
-      setActiveTab(tab === 'chat' ? 'content' : tab);
+      setActiveTab(tab === 'chat' || tab === 'links' ? 'content' : tab);
     },
     [setSelectedNode, setActiveTab],
   );

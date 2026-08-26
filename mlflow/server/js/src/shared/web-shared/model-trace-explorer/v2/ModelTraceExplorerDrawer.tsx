@@ -179,7 +179,8 @@ export const ModelTraceExplorerDrawer = ({
   );
   const isResizingRef = useRef(false);
 
-  const locationPath = useLocation((loc) => `${loc.pathname}${loc.search}${loc.hash}`);
+  const location = useLocation();
+  const locationPath = `${location.pathname}${location.search}${location.hash}`;
   const shareUrl = `${window.location.origin}${locationPath}`;
   const {
     copy: copyShareLink,

@@ -24,7 +24,6 @@ export const ModelTraceHeaderSessionIdTag = ({
   hideLabel?: boolean;
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
-  // @ts-expect-error TODO(FEINF-4578) - migrate to selector
   const location = useLocation();
   const truncatedSessionId = sessionId.length > ID_MAX_LENGTH ? `${sessionId.slice(0, ID_MAX_LENGTH)}...` : sessionId;
   const getTruncatedLabel = useCallback(

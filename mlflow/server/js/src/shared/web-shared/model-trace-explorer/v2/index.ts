@@ -52,10 +52,6 @@ export {
   shouldEnableModelTraceExplorerCustomTraceView,
 } from '../FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from '../contexts/AssessmentSchemaContext';
-export {
-  ExperimentPermissionsContextProvider,
-  useExperimentPermissions,
-} from '../contexts/ExperimentPermissionsContext';
 export * from './ModelTrace.types';
 export * from '../TraceMetrics.types';
 export * from '../oss-notebook-renderer/mlflow-fetch-utils';
@@ -93,7 +89,6 @@ export {
 } from './ModelTraceExplorer.utils';
 export { CompareModelTraceExplorer } from './CompareModelTraceExplorer';
 export { useGetTracesById } from '../hooks/useGetTracesById';
-export { useGetBatchTracesByLocation } from '../hooks/useGetBatchTracesByLocation';
 export {
   ModelTraceExplorerContextProvider,
   useModelTraceExplorerContext,

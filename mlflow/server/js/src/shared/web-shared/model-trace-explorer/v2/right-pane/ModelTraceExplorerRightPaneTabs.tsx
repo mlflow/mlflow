@@ -158,6 +158,15 @@ function ModelTraceExplorerRightPaneTabsImpl({
     </Tabs.Root>
   );
 
+  const AssessmentsPaneComponent = (
+    <AssessmentsPane
+      key={activeSpan.key}
+      assessments={displayedAssessments}
+      traceId={activeSpan.traceId}
+      activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
+    />
+  );
+
   return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={getPaneSizeRatios().detailsSidebar}

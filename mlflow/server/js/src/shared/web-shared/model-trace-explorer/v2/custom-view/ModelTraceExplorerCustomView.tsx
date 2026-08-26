@@ -1078,7 +1078,18 @@ export const ModelTraceExplorerCustomView = ({
               {activeView.label || untitledLabel}
             </Typography.Title>
             {surface && (
-              <FeedbackStatusProvider value={{ enabled: true, traceId, hasStagedFeedback, submitStagedFeedback }}>
+              <FeedbackStatusProvider
+                value={{
+                  enabled: true,
+                  traceId,
+                  hasStagedFeedback,
+                  submitStagedFeedback,
+                  // The redesigned view does not (yet) implement staged-value preservation or
+                  // reset-versioning, so fall back to the context's reflect-only defaults.
+                  getStagedFeedbackValue: () => undefined,
+                  getFeedbackResetVersion: () => 0,
+                }}
+              >
                 <A2uiSurface key={`${surfaceId}-${traceId}`} surface={surface} />
               </FeedbackStatusProvider>
             )}
