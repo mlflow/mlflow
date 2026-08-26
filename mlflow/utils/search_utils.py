@@ -63,8 +63,10 @@ def _like(string, pattern):
 def _ilike(string, pattern):
     return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
 
+
 def _is_identifier_like(token):
     return isinstance(token, Identifier) or token.ttype == TokenType.Keyword
+
 
 def _join_in_comparison_tokens(tokens, search_traces=False):
     """
@@ -2836,7 +2838,8 @@ class SearchMCPAccessEndpointUtils(SearchUtils):
     def validate_list_supported(cls, key: str) -> None:
         if key not in ("status", "server_name", "transport_type"):
             raise MlflowException(
-                f"Only 'status', 'server_name', 'transport_type' support IN comparisons for MCP access endpoints, got '{key}'.",
+                "Only 'status', 'server_name', 'transport_type' support IN comparisons for "
+                f"MCP access endpoints, got '{key}'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

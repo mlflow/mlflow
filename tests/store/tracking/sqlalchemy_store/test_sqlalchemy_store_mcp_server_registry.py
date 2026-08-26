@@ -1807,10 +1807,16 @@ def test_search_mcp_access_endpoints_filter_by_transport_type(store):
 def test_search_mcp_access_endpoints_filter_by_server_name(store):
     store.create_mcp_server_version(_server_json("io.github.test/server1", "1.0.0"))
     store.create_mcp_server_version(_server_json("io.github.test/server2", "1.0.0"))
-    store.create_mcp_access_endpoint("io.github.test/server1", "https://a.com", server_version="1.0.0")
-    store.create_mcp_access_endpoint("io.github.test/server2", "https://b.com", server_version="1.0.0")
+    store.create_mcp_access_endpoint(
+        "io.github.test/server1", "https://a.com", server_version="1.0.0"
+    )
+    store.create_mcp_access_endpoint(
+        "io.github.test/server2", "https://b.com", server_version="1.0.0"
+    )
 
-    result = store.search_mcp_access_endpoints(filter_string="server_name = 'io.github.test/server1'")
+    result = store.search_mcp_access_endpoints(
+        filter_string="server_name = 'io.github.test/server1'"
+    )
     assert len(result) == 1
     assert result[0].url == "https://a.com"
 
@@ -1818,7 +1824,6 @@ def test_search_mcp_access_endpoints_filter_by_server_name(store):
         filter_string="server_name IN ('io.github.test/server1', 'io.github.test/server2')"
     )
     assert len(result_in) == 2
-
 
 
 def test_search_mcp_servers_filter_by_status_in(store):

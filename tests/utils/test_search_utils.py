@@ -897,11 +897,16 @@ def test_search_mcp_access_endpoint_filter_by_keyword_attribute():
     from mlflow.utils.search_utils import SearchMCPAccessEndpointUtils
 
     res = SearchMCPAccessEndpointUtils.parse_search_filter("server_name = 'my-server'")
-    assert res == [{"type": "attribute", "key": "server_name", "comparator": "=", "value": "my-server"}]
+    assert res == [
+        {"type": "attribute", "key": "server_name", "comparator": "=", "value": "my-server"}
+    ]
 
     res = SearchMCPAccessEndpointUtils.parse_search_filter("server_name != 'my-server'")
-    assert res == [{"type": "attribute", "key": "server_name", "comparator": "!=", "value": "my-server"}]
+    assert res == [
+        {"type": "attribute", "key": "server_name", "comparator": "!=", "value": "my-server"}
+    ]
 
     res = SearchMCPAccessEndpointUtils.parse_search_filter("server_name IN ('s1', 's2')")
-    assert res == [{"type": "attribute", "key": "server_name", "comparator": "IN", "value": ["s1", "s2"]}]
-
+    assert res == [
+        {"type": "attribute", "key": "server_name", "comparator": "IN", "value": ["s1", "s2"]}
+    ]
