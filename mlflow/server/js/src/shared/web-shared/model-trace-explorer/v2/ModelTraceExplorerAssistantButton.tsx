@@ -2,7 +2,7 @@ import { type ReactNode, useState } from 'react';
 
 import { Button, SparkleFillIcon, SparkleIcon, useDesignSystemTheme } from '@databricks/design-system';
 
-export interface ModelTraceExplorerGenieButtonProps {
+export interface ModelTraceExplorerAssistantButtonProps {
   componentId: string;
   onClick: () => void;
   disabled?: boolean;
@@ -10,13 +10,13 @@ export interface ModelTraceExplorerGenieButtonProps {
   children?: ReactNode;
 }
 
-export const ModelTraceExplorerGenieButton = ({
+export const ModelTraceExplorerAssistantButton = ({
   componentId,
   onClick,
   disabled,
   ariaLabel,
   children,
-}: ModelTraceExplorerGenieButtonProps): JSX.Element => {
+}: ModelTraceExplorerAssistantButtonProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const [isHovered, setIsHovered] = useState(false);
 

@@ -27,7 +27,7 @@ import type { Feedback, ModelTrace } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import { isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
-import { ModelTraceExplorerGenieButton } from '../ModelTraceExplorerGenieButton';
+import { ModelTraceExplorerAssistantButton } from '../ModelTraceExplorerAssistantButton';
 import type { CreateAssessmentPayload } from '../../api';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { getUser } from '../../../global-settings/getUser';
@@ -119,8 +119,8 @@ const CustomViewGeneratingSkeleton = () => {
 
 /**
  * Custom View tab: renders the active view's A2UI surface for the open trace and
- * routes all authoring through Genie. The empty-state box builds the first view;
- * "Edit with Genie" reopens the assistant to change it. The agent authors a
+ * routes all authoring through the assistant. The empty-state box builds the first view;
+ * "Edit with Assistant" reopens the assistant to change it. The agent authors a
  * trace-agnostic BOUND TEMPLATE once (via render_custom_view -> onSpec); cycling
  * traces re-binds it host-side with no further LLM call.
  */
@@ -436,7 +436,7 @@ export const ModelTraceExplorerCustomView = ({
   const [renameInput, setRenameInput] = useState('');
   // The view the open rename modal targets, captured when it opens. The confirm
   // handler renames THIS id, not whatever is active at confirm time, so a
-  // background selection change (e.g. a Genie apply) can't retarget the rename.
+  // background selection change (e.g. an assistant apply) can't retarget the rename.
   const [renameTargetId, setRenameTargetId] = useState<string | undefined>(undefined);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
@@ -499,7 +499,7 @@ export const ModelTraceExplorerCustomView = ({
           surfaceId,
           intl.formatMessage({
             defaultMessage:
-              "This view's definition couldn't be read and can't be displayed. Edit it with Genie to rebuild it.",
+              "This view's definition couldn't be read and can't be displayed. Edit it with the assistant to rebuild it.",
             description:
               'Placeholder shown when a custom view has an invalid or unreadable definition and cannot be rendered',
           }),
@@ -564,8 +564,8 @@ export const ModelTraceExplorerCustomView = ({
           ? spec.title.trim()
           : priorView?.label || priorView?.name || name || 'Custom view';
       const createdAtMs = priorView?.createdAtMs ?? Date.now();
-      // The prompt that launched a build (or the prior instruction for a Genie
-      // -panel edit, whose prompt we never see) — also captured at launch.
+      // The prompt that launched a build (or the prior instruction for an
+      // assistant-panel edit, whose prompt we never see) — also captured at launch.
       const instructionText = priorView?.instruction ?? '';
       const applied = cv.upsertViewContent({ id, name, label, instruction: instructionText, template, createdAtMs });
       // Released whether or not the write landed, so a refused apply can't leave
@@ -644,7 +644,7 @@ export const ModelTraceExplorerCustomView = ({
             surfaceId,
             intl.formatMessage({
               defaultMessage:
-                "This view's definition couldn't be read and can't be displayed. Edit it with Genie to rebuild it.",
+                "This view's definition couldn't be read and can't be displayed. Edit it with the assistant to rebuild it.",
               description:
                 'Placeholder shown when a custom view has an invalid or unreadable definition and cannot be rendered',
             }),
@@ -654,7 +654,7 @@ export const ModelTraceExplorerCustomView = ({
           : placeholderMessages(
               surfaceId,
               intl.formatMessage({
-                defaultMessage: 'This view has no content yet. Edit it with Genie.',
+                defaultMessage: 'This view has no content yet. Edit it with the assistant.',
                 description: 'Placeholder shown for a custom view that has no rendered content yet',
               }),
             );
@@ -674,7 +674,7 @@ export const ModelTraceExplorerCustomView = ({
       return;
     }
     try {
-      // A brand-new view build starts a FRESH Genie session; edits (handleEditWithGenie)
+      // A brand-new view build starts a FRESH assistant session; edits (handleEditWithAssistant)
       // reuse the current session so the conversation continues.
       assistant.openAssistant(prompt, { newSession: true });
     } catch {
@@ -719,9 +719,9 @@ export const ModelTraceExplorerCustomView = ({
   // Opens the assistant to edit the active view, binding the edit to that view's
   // identity NOW so a spec that lands after a mid-edit selection change still
   // applies to the view that launched the edit. The prompt is typed inside
-  // Genie's own panel (we never see it), so we carry the view's prior
+  // the assistant's own panel (we never see it), so we carry the view's prior
   // instruction forward rather than wiping it.
-  const handleEditWithGenie = () => {
+  const handleEditWithAssistant = () => {
     if (!cv.canPersist || !activeView || !assistant.openAssistant) {
       return;
     }
@@ -890,16 +890,16 @@ export const ModelTraceExplorerCustomView = ({
             </Button>
           )}
           {cv.canPersist && activeView && assistant.isAvailable && (
-            <ModelTraceExplorerGenieButton
+            <ModelTraceExplorerAssistantButton
               componentId="shared.model-trace-explorer.custom-view.edit-existing-view-button"
-              onClick={handleEditWithGenie}
+              onClick={handleEditWithAssistant}
               disabled={cv.isSaving}
             >
               <FormattedMessage
-                defaultMessage="Edit with Genie"
-                description="Button label to edit the current custom trace view with the Genie assistant"
+                defaultMessage="Edit with Assistant"
+                description="Button label to edit the current custom trace view with the MLflow assistant"
               />
-            </ModelTraceExplorerGenieButton>
+            </ModelTraceExplorerAssistantButton>
           )}
           {activeView && cv.isActivePersisted && cv.canPersist && (
             <DropdownMenu.Root>
@@ -932,7 +932,7 @@ export const ModelTraceExplorerCustomView = ({
                       componentId="shared.model-trace-explorer.custom-view.rename-disabled-reason"
                       side="right"
                       content={intl.formatMessage({
-                        defaultMessage: 'Rebuild this invalid view with Genie and save it to enable renaming.',
+                        defaultMessage: 'Rebuild this invalid view with the assistant and save it to enable renaming.',
                         description:
                           'Tooltip explaining why renaming is disabled for a custom view whose saved definition is unreadable',
                       })}
@@ -1106,16 +1106,16 @@ export const ModelTraceExplorerCustomView = ({
                   onChange={(event) => setInstruction(event.target.value)}
                 />
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                  <ModelTraceExplorerGenieButton
+                  <ModelTraceExplorerAssistantButton
                     componentId="shared.model-trace-explorer.custom-view.build-new-custom-view-button"
                     disabled={!instruction.trim()}
                     onClick={handleSubmitPrompt}
                   >
                     <FormattedMessage
-                      defaultMessage="Build with Genie"
-                      description="Button label to start building the custom trace view with the Genie assistant"
+                      defaultMessage="Build with Assistant"
+                      description="Button label to start building the custom trace view with the MLflow assistant"
                     />
-                  </ModelTraceExplorerGenieButton>
+                  </ModelTraceExplorerAssistantButton>
                   <Button
                     componentId="shared.model-trace-explorer.custom-view.cancel-new-custom-view-button"
                     type="tertiary"

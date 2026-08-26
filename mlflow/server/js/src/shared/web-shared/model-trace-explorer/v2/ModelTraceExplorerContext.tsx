@@ -44,11 +44,6 @@ export interface AddToDatasetAction {
 
 export type ModelTraceExplorerDisplayMode = 'default' | 'custom';
 
-export interface OpenTraceAssistantParams {
-  prompt: string;
-  traceInfo?: ModelTraceInfoV3;
-}
-
 export interface ModelTraceExplorerContextValue {
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
   /** Renders the review-queue trigger as a Popover that routes traces into a review queue. */
@@ -63,12 +58,11 @@ export interface ModelTraceExplorerContextValue {
   traceExplorerDisplayMode?: ModelTraceExplorerDisplayMode;
   setTraceExplorerDisplayMode?: (mode: ModelTraceExplorerDisplayMode) => void;
   /**
-   * Whether the Genie assistant panel is currently open. The shared drawer cannot
-   * depend on product-specific assistant hooks, so MLflow injects this state.
+   * Whether the MLflow Assistant panel is currently open. When set, the custom-view
+   * drawer snaps to the left to sit beside the panel. Optional: hosts that dock the
+   * drawer around the assistant themselves (e.g. AssistantAwareDrawer) can omit it.
    */
-  isGeniePanelOpen?: boolean;
-  openTraceAssistant?: (params: OpenTraceAssistantParams) => void;
-  isTraceAssistantStreaming?: boolean;
+  isAssistantPanelOpen?: boolean;
 }
 
 const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>({
@@ -85,10 +79,8 @@ interface ModelTraceExplorerContextProviderProps {
   renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent?: DrawerComponentType;
   drawerWidth?: string | number;
-  isGeniePanelOpen?: boolean;
+  isAssistantPanelOpen?: boolean;
   isSearchVisible?: boolean;
-  openTraceAssistant?: (params: OpenTraceAssistantParams) => void;
-  isTraceAssistantStreaming?: boolean;
 }
 
 export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerContextProviderProps> = ({
@@ -97,10 +89,8 @@ export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerConte
   renderAddToReviewQueueDropdown,
   DrawerComponent = Drawer,
   drawerWidth,
-  isGeniePanelOpen,
+  isAssistantPanelOpen,
   isSearchVisible,
-  openTraceAssistant,
-  isTraceAssistantStreaming,
 }) => {
   const value = useMemo(
     () => ({
@@ -108,20 +98,16 @@ export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerConte
       renderAddToReviewQueueDropdown,
       DrawerComponent,
       drawerWidth,
-      isGeniePanelOpen,
+      isAssistantPanelOpen,
       isSearchVisible,
-      openTraceAssistant,
-      isTraceAssistantStreaming,
     }),
     [
       renderExportTracesToDatasetsModal,
       renderAddToReviewQueueDropdown,
       DrawerComponent,
       drawerWidth,
-      isGeniePanelOpen,
+      isAssistantPanelOpen,
       isSearchVisible,
-      openTraceAssistant,
-      isTraceAssistantStreaming,
     ],
   );
 

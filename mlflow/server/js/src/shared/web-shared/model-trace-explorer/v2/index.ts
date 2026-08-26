@@ -93,7 +93,6 @@ export {
   ModelTraceExplorerContextProvider,
   useModelTraceExplorerContext,
   type ModelTraceExplorerContextValue,
-  type OpenTraceAssistantParams,
   type RenderExportTracesToDatasetsModalParams,
   type RenderAddToReviewQueueDropdownParams,
   type DrawerComponentType,

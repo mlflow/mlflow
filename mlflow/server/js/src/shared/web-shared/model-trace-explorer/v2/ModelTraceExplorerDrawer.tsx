@@ -24,16 +24,16 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { Global, keyframes } from '@emotion/react';
+import { useAssistant } from '@mlflow/mlflow/src/assistant';
 
 import { shouldEnableModelTraceExplorerCustomTraceView } from '../FeatureUtils';
 import { ModelTraceExplorerCustomViewSelector } from './ModelTraceExplorerCustomViewSelector';
 import { isTraceCostType } from '../ModelTraceExplorerCostHoverCard';
-import { ModelTraceExplorerGenieButton } from './ModelTraceExplorerGenieButton';
+import { ModelTraceExplorerAssistantButton } from './ModelTraceExplorerAssistantButton';
 import { ModelTraceExplorerSkeleton } from '../ModelTraceExplorerSkeleton';
 import {
   type ModelTraceExplorerDisplayMode,
   ModelTraceExplorerRightPaneHeaderActionsProvider,
-  type OpenTraceAssistantParams,
   useModelTraceExplorerContext,
 } from './ModelTraceExplorerContext';
 import { useCustomViewAssistantConnector } from '../custom-view/assistant/CustomViewAssistantConnector';
@@ -147,10 +147,9 @@ export const ModelTraceExplorerDrawer = ({
     renderAddToReviewQueueDropdown,
     DrawerComponent,
     drawerWidth = '90vw',
-    isGeniePanelOpen,
-    openTraceAssistant,
-    isTraceAssistantStreaming,
+    isAssistantPanelOpen,
   } = useModelTraceExplorerContext();
+  const { canUseAssistant, openPanel, prefillPrompt } = useAssistant();
 
   const enableCustomTraceView = shouldEnableModelTraceExplorerCustomTraceView();
   const isCustomViewEnabled = enableCustomTraceView && Boolean(openCustomViewAssistant);
@@ -164,7 +163,7 @@ export const ModelTraceExplorerDrawer = ({
     customViewDefinition?.startNewView('');
     setTraceExplorerDisplayMode('custom');
   }, [canCreateCustomView, customViewDefinition]);
-  const snapDrawerLeft = enableCustomTraceView && Boolean(isGeniePanelOpen) && !isFullscreen;
+  const snapDrawerLeft = enableCustomTraceView && Boolean(isAssistantPanelOpen) && !isFullscreen;
   const notificationClassName = getPrefixedClassName('notification');
   const baseDrawerWidth = snapDrawerLeft ? CUSTOM_VIEW_INITIAL_WIDTH : drawerWidth;
   const [resizedWidth, setResizedWidth] = useState<number | string>(baseDrawerWidth);
@@ -428,10 +427,6 @@ export const ModelTraceExplorerDrawer = ({
     ) : null;
   const handleToggleFullscreen = useCallback(() => setIsFullscreen((value) => !value), []);
   const handleFindClick = useCallback(() => setSearchVisible((visible) => !visible), []);
-  // The assistant integration is host-provided (Databricks supplies openTraceAssistant via context).
-  // OSS has no global chat to fall back to, so the "Analyze trace" button only renders when a host
-  // wires up an assistant.
-  const effectiveOpenTraceAssistant = openTraceAssistant;
   const analyzeTraceLabel = intl.formatMessage({
     defaultMessage: 'Analyze trace',
     description: 'Button label for asking the assistant to analyze a trace',
@@ -458,8 +453,9 @@ export const ModelTraceExplorerDrawer = ({
             description: 'Prompt sent to the assistant for analyzing a trace when its ID is unavailable',
           });
   const handleAnalyzeTrace = useCallback(() => {
-    effectiveOpenTraceAssistant?.({ prompt: analyzeTracePrompt, traceInfo });
-  }, [analyzeTracePrompt, effectiveOpenTraceAssistant, traceInfo]);
+    openPanel();
+    prefillPrompt(analyzeTracePrompt);
+  }, [openPanel, prefillPrompt, analyzeTracePrompt]);
   const findInTraceLabel = intl.formatMessage({
     defaultMessage: 'Find in trace',
     description: 'Accessible label and tooltip for opening the trace search row',
@@ -780,15 +776,14 @@ export const ModelTraceExplorerDrawer = ({
               canCreateCustomView={canCreateCustomView}
               compact={compactPrimaryActions}
             />
-            {effectiveOpenTraceAssistant && (
-              <ModelTraceExplorerGenieButton
+            {canUseAssistant && (
+              <ModelTraceExplorerAssistantButton
                 componentId="mlflow.evaluations_review.modal.analyze-trace"
                 onClick={handleAnalyzeTrace}
-                disabled={isTraceAssistantStreaming}
                 ariaLabel={compactPrimaryActions ? analyzeTraceLabel : undefined}
               >
                 {compactPrimaryActions ? undefined : analyzeTraceLabel}
-              </ModelTraceExplorerGenieButton>
+              </ModelTraceExplorerAssistantButton>
             )}
             <div
               css={{
