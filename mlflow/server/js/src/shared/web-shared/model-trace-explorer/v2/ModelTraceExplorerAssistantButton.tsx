@@ -2,6 +2,8 @@ import { type ReactNode, useState } from 'react';
 
 import { Button, SparkleFillIcon, SparkleIcon, useDesignSystemTheme } from '@databricks/design-system';
 
+import { getAiGradientBorderStyle } from '../../design-system/aiGradientBorderStyle';
+
 export interface ModelTraceExplorerAssistantButtonProps {
   componentId: string;
   onClick: () => void;
@@ -44,11 +46,7 @@ export const ModelTraceExplorerAssistantButton = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
       aria-label={ariaLabel}
-      css={{
-        '&&, &&:hover, &&:active': {
-          borderColor: `${theme.colors.borderDecorative} !important`,
-        },
-      }}
+      css={getAiGradientBorderStyle(theme)}
     >
       {children}
     </Button>
