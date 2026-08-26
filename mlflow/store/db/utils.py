@@ -12,7 +12,7 @@ import sqlalchemy
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from packaging.version import Version
-from sqlalchemy import event, sql
+from sqlalchemy import BigInteger, event, func, literal_column, sql
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
 from sqlalchemy.pool import (
@@ -23,6 +23,7 @@ from sqlalchemy.pool import (
     SingletonThreadPool,
     StaticPool,
 )
+from sqlalchemy.sql.elements import BinaryExpression
 
 # CRITICAL: Import ORM modules to register all table metadata with Base.metadata.
 # _all_tables_exist() depends on Base.metadata.tables being fully populated.
@@ -49,7 +50,7 @@ from mlflow.protos.databricks_pb2 import (
     TEMPORARILY_UNAVAILABLE,
 )
 from mlflow.store.db.base_sql_model import Base
-from mlflow.store.db.db_types import SQLITE
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 
 _logger = logging.getLogger(__name__)
@@ -321,6 +322,41 @@ def _make_parent_dirs_if_sqlite(db_uri: str) -> None:
     db_path = db_uri.removeprefix("sqlite:///")
     if db_path and db_path != ":memory:":
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+
+def get_current_time_millis_expression(db_type: str) -> BinaryExpression:
+    """
+    Make a SQL expression that gets the current time from the database clock in milliseconds since
+    the Unix epoch
+
+    Args:
+        db_type: The database dialect string (``postgresql``, ``mysql``, ``sqlite``, ``mssql``).
+
+    Returns:
+        A SQLAlchemy binary expression. Use it in a query the same way you use a literal value.
+
+    Raises:
+        MlflowException: If ``db_type`` is not a supported dialect.
+    """
+
+    if db_type == POSTGRES:
+        return func.floor(func.extract("epoch", func.now()) * 1000)
+
+    if db_type == MYSQL:
+        epoch = "1970-01-01 00:00:00"
+        utc_now = func.utc_timestamp(3)
+        microseconds_since_epoch = func.timestampdiff(literal_column("MICROSECOND"), epoch, utc_now)
+        return func.floor(microseconds_since_epoch / 1000)
+
+    if db_type == SQLITE:
+        milliseconds_per_day = 24 * 3600 * 1000
+        fractional_days_since_unix_epoch = func.julianday("now") - func.julianday("1970-01-01")
+        return func.cast(fractional_days_since_unix_epoch * milliseconds_per_day, BigInteger)
+
+    if db_type == MSSQL:
+        return func.datediff_big(literal_column("MILLISECOND"), "1970-01-01", func.sysutcdatetime())
+
+    raise MlflowException.invalid_parameter_value(f"Unsupported db type: {db_type}")
 
 
 def create_sqlalchemy_engine_with_retry(db_uri):
