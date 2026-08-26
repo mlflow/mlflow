@@ -1,8 +1,15 @@
-import { useEffect } from 'react';
-import { Button, CloseIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useEffect, useState } from 'react';
+import {
+  Button,
+  CloseIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { DatasetRecord } from '../hooks/useDatasetsQueries';
-import { LazyJsonRecordEditor } from './LazyJsonRecordEditor';
+import { DatasetRecordFormatEditor, type DatasetRecordFormat } from './DatasetRecordFormatEditor';
 import { DatasetRecordDetailFooter } from './DatasetRecordDetailFooter';
 import { DatasetRecordCollapsibleSection } from './DatasetRecordCollapsibleSection';
 import { DatasetRecordDetailHeader } from './DatasetRecordDetailHeader';
@@ -115,6 +122,7 @@ export const DatasetRecordSidePanel = ({
 }: DatasetRecordSidePanelProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const [recordFormat, setRecordFormat] = useState<DatasetRecordFormat>('json');
 
   const editFallback = intl.formatMessage({
     defaultMessage: 'Failed to save record',
@@ -193,11 +201,16 @@ export const DatasetRecordSidePanel = ({
     return () => document.removeEventListener('keydown', handler);
   }, [open, onClose]);
 
-  const invalidJsonMessage = intl.formatMessage({
-    defaultMessage: 'Invalid JSON',
-    description:
-      'Inline error shown under a dataset record JSON editor when the contents do not parse as a JSON object',
-  });
+  const invalidRecordMessage =
+    recordFormat === 'json'
+      ? intl.formatMessage({
+          defaultMessage: 'Invalid JSON',
+          description: 'Inline error shown when a dataset record editor does not contain a valid JSON object',
+        })
+      : intl.formatMessage({
+          defaultMessage: 'Invalid YAML',
+          description: 'Inline error shown when a dataset record editor does not contain a valid YAML object',
+        });
 
   const closeLabel = intl.formatMessage({
     defaultMessage: 'Close',
@@ -268,12 +281,27 @@ export const DatasetRecordSidePanel = ({
             // Keeps the close button right-aligned while the record query resolves.
             <span />
           )}
-          <Button
-            componentId="mlflow.eval-datasets-v2.side-panel.close"
-            icon={<CloseIcon />}
-            aria-label={closeLabel}
-            onClick={onClose}
-          />
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <SegmentedControlGroup
+              name="mlflow.eval-datasets-v2.record-format"
+              componentId="mlflow.eval-datasets-v2.side-panel.record-format"
+              value={recordFormat}
+              onChange={(event) => setRecordFormat(event.target.value as DatasetRecordFormat)}
+            >
+              <SegmentedControlButton value="json">
+                <FormattedMessage defaultMessage="JSON" description="JSON dataset record editor format option" />
+              </SegmentedControlButton>
+              <SegmentedControlButton value="yaml">
+                <FormattedMessage defaultMessage="YAML" description="YAML dataset record editor format option" />
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
+            <Button
+              componentId="mlflow.eval-datasets-v2.side-panel.close"
+              icon={<CloseIcon />}
+              aria-label={closeLabel}
+              onClick={onClose}
+            />
+          </div>
         </div>
       </div>
       <div
@@ -294,14 +322,15 @@ export const DatasetRecordSidePanel = ({
             />
           }
         >
-          <LazyJsonRecordEditor
+          <DatasetRecordFormatEditor
+            format={recordFormat}
             value={active.inputs.text}
             onChange={active.inputs.setText}
             ariaLabel={intl.formatMessage({
               defaultMessage: 'Dataset record inputs',
-              description: 'Aria label for the dataset record inputs JSON editor',
+              description: 'Aria label for the dataset record inputs structured-data editor',
             })}
-            errorMessage={active.inputs.isValid ? undefined : invalidJsonMessage}
+            errorMessage={active.inputs.isValid ? undefined : invalidRecordMessage}
             onSaveShortcut={active.save}
           />
         </DatasetRecordCollapsibleSection>
@@ -314,14 +343,15 @@ export const DatasetRecordSidePanel = ({
             />
           }
         >
-          <LazyJsonRecordEditor
+          <DatasetRecordFormatEditor
+            format={recordFormat}
             value={active.expectations.text}
             onChange={active.expectations.setText}
             ariaLabel={intl.formatMessage({
               defaultMessage: 'Dataset record expectations',
-              description: 'Aria label for the dataset record expectations JSON editor',
+              description: 'Aria label for the dataset record expectations structured-data editor',
             })}
-            errorMessage={active.expectations.isValid ? undefined : invalidJsonMessage}
+            errorMessage={active.expectations.isValid ? undefined : invalidRecordMessage}
             onSaveShortcut={active.save}
           />
         </DatasetRecordCollapsibleSection>
