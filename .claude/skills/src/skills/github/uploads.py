@@ -13,8 +13,9 @@ from pathlib import Path
 UPLOAD_URL = "https://uploads.github.com/user-attachments/assets"
 
 # The name's extension must agree with content_type or the endpoint returns 422. The
-# allowlist is narrower than the formats GitHub documents for attachments: svg and audio
-# are both refused, so extend this map only against a live 201.
+# allowlist is narrower than the formats GitHub documents for attachments: audio is
+# refused, so extend this map only against a live 201. svg does upload, but is left out
+# until something confirms GitHub renders an svg attachment in markdown.
 MIME_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
