@@ -32,9 +32,10 @@ describe('TraceColumnSelector', () => {
     jest.clearAllMocks();
   });
 
-  test('trigger shows the visible/total count', () => {
+  test('trigger surfaces the visible/total count via its tooltip', async () => {
     renderSelector();
-    expect(screen.getByRole('button', { name: 'Select visible columns' })).toHaveTextContent('Columns (2/3)');
+    await userEvent.hover(screen.getByRole('button', { name: 'Select visible columns' }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Columns (2/3)');
   });
 
   test('renders a checkbox per column reflecting visibility', async () => {

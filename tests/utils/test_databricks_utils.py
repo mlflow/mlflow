@@ -420,6 +420,7 @@ def test_dynamic_token_config_provider_get_config_when_logger_unavailable(
             is_client_image=False, major=15, minor=0, is_gpu_image=False
         ),
     )
+    monkeypatch.setattr(databricks_utils, "_dynamic_token_config_provider", None)
     entry_point = _make_dynamic_token_entry_point(get_logger_raises)
     databricks_utils._init_databricks_dynamic_token_config_provider(entry_point)
     config = databricks_utils._dynamic_token_config_provider.get_config()

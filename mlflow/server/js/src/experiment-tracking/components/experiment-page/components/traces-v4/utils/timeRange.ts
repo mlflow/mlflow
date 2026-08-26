@@ -16,8 +16,8 @@ export type TracesV4TimeLabel =
   | 'ALL'
   | 'CUSTOM';
 
-/** V4 defaults to a short window — traces are high-volume and users want the latest first. */
-export const DEFAULT_TRACES_V4_TIME_LABEL: TracesV4TimeLabel = 'LAST_15_MINUTES';
+/** V4 defaults to a week so users can see recent activity without first widening the time range. */
+export const DEFAULT_TRACES_V4_TIME_LABEL: TracesV4TimeLabel = 'LAST_7_DAYS';
 
 const VALID_TRACES_V4_TIME_LABELS = new Set<TracesV4TimeLabel>([
   'LAST_5_MINUTES',

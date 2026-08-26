@@ -6,7 +6,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
 from mlflow.entities import Trace
-from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS
+from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_MAX_RETRIES,
+    MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT,
+    MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS,
+)
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.constants import EXCLUDE_EVAL_RUN_TRACES_FILTER, MAX_TRACES_PER_JOB
 from mlflow.genai.scorers.online.entities import OnlineScorer
@@ -269,7 +273,34 @@ class OnlineTraceScoringProcessor:
         # Import evaluation modules lazily to avoid pulling in pandas at module load
         # time, which would break the skinny client.
         from mlflow.genai.evaluation.entities import EvalItem
-        from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
+        from mlflow.genai.evaluation.harness import (
+            _compute_eval_scores,
+            _get_scorer_rate_config,
+            _log_assessments,
+            _make_rate_limiter,
+            _parse_rate_limit,
+        )
+        from mlflow.genai.evaluation.rate_limiter import eval_retry_context
+
+        # No predict step here, so gate scorer calls via _get_scorer_rate_config (same as the
+        # programmatic path): it honors MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT, else scales by the
+        # count of distinct scorers running this tick.
+        predict_rps, predict_adaptive = _parse_rate_limit(
+            MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT.get()
+        )
+        num_scorers = len({scorer.name for task in tasks.values() for scorer in task.scorers}) or 1
+        scorer_rps, adaptive = _get_scorer_rate_config(predict_rps, predict_adaptive, num_scorers)
+        rate_limiter = _make_rate_limiter(scorer_rps, adaptive=adaptive)
+        max_retries = MLFLOW_GENAI_EVAL_MAX_RETRIES.get()
+
+        def _score_with_rate_limiting(eval_item, scorers):
+            with eval_retry_context():
+                return _compute_eval_scores(
+                    eval_item=eval_item,
+                    scorers=scorers,
+                    rate_limiter=rate_limiter,
+                    max_retries=max_retries,
+                )
 
         with ThreadPoolExecutor(
             max_workers=MLFLOW_ONLINE_SCORING_MAX_WORKER_THREADS.get(),
@@ -282,7 +313,9 @@ class OnlineTraceScoringProcessor:
                     continue
                 eval_item = EvalItem.from_trace(task.trace)
                 future = executor.submit(
-                    _compute_eval_scores, eval_item=eval_item, scorers=task.scorers
+                    _score_with_rate_limiting,
+                    eval_item=eval_item,
+                    scorers=task.scorers,
                 )
                 futures[future] = task
 

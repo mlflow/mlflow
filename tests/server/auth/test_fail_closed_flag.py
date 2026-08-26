@@ -11,13 +11,21 @@ class _Req:
         self.method = method
 
 
-def test_flag_defaults_off():
-    assert MLFLOW_BASIC_AUTH_FAIL_CLOSED.get() is False
+def test_flag_defaults_on():
+    assert MLFLOW_BASIC_AUTH_FAIL_CLOSED.get() is True
 
 
 def test_flag_reads_env(monkeypatch):
     monkeypatch.setenv("MLFLOW_BASIC_AUTH_FAIL_CLOSED", "true")
     assert MLFLOW_BASIC_AUTH_FAIL_CLOSED.get() is True
+    # The opt-out direction matters now that the default is True.
+    monkeypatch.setenv("MLFLOW_BASIC_AUTH_FAIL_CLOSED", "false")
+    assert MLFLOW_BASIC_AUTH_FAIL_CLOSED.get() is False
+
+
+def test_debt_list_is_empty():
+    # All families gated -> the flag can be flipped on safely.
+    assert a._KNOWN_UNGATED_ROUTE_MARKERS == ()
 
 
 def test_unlisted_route_is_denied_when_fail_closed():

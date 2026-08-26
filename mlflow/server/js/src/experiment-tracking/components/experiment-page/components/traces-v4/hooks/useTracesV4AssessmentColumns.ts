@@ -2,8 +2,15 @@ import { useCallback, useMemo } from 'react';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useArrayMemo, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import type { GenericColumnOption, TraceTableColumn } from '@databricks/web-shared/traces-table';
-import { assessmentColumnId, assessmentNameFromColumnId, computeAssessmentColumns } from '../utils/assessmentColumns';
-import { buildAssessmentColumnDefs } from '../utils/buildAssessmentColumnDefs';
+import {
+  assessmentColumnId,
+  assessmentNameFromColumnId,
+  computeAssessmentColumns,
+  extractTraceIssues,
+  getAssessmentColumnType,
+} from '../utils/assessmentColumns';
+import { buildAssessmentColumnDefs, type AssessmentColumn } from '../utils/buildAssessmentColumnDefs';
+import { buildIssuesColumnDef } from '../utils/buildIssuesColumnDef';
 import { TRACE_ASSESSMENT_COLUMN_STORAGE_KEY_PREFIX } from '../utils/constants';
 
 // Bump when the stored schema changes so stale entries reset.
@@ -25,6 +32,8 @@ export interface TracesV4AssessmentColumns {
   visibleIds: string[];
   /** Toggle an assessment column's visibility by its namespaced id. */
   toggle: (id: string) => void;
+  /** Show or hide every candidate assessment column at once (the "all assessments" toggle). */
+  setAllVisible: (visible: boolean) => void;
   /** Clear all assessment overrides (return every column to its default visibility). */
   reset: () => void;
 }
@@ -50,7 +59,17 @@ export const useTracesV4AssessmentColumns = (
   const candidateNames = useArrayMemo(selection.candidateNames);
   const visibleNames = useArrayMemo(selection.visibleNames);
 
-  const columnDefs = useMemo(() => buildAssessmentColumnDefs(visibleNames), [visibleNames]);
+  // The dedicated Issues column shows only when the current page carries detected issues (data-driven,
+  // like the Session column) and renders ahead of the assessment columns, matching the prior tab.
+  const hasIssuesOnPage = useMemo(() => traces.some((trace) => extractTraceIssues(trace).length > 0), [traces]);
+  const assessmentColumns = useMemo<AssessmentColumn[]>(
+    () => visibleNames.map((name) => ({ name, type: getAssessmentColumnType(traces, name) })),
+    [visibleNames, traces],
+  );
+  const columnDefs = useMemo(
+    () => [...(hasIssuesOnPage ? [buildIssuesColumnDef()] : []), ...buildAssessmentColumnDefs(assessmentColumns)],
+    [hasIssuesOnPage, assessmentColumns],
+  );
   const visibleIds = useMemo(() => visibleNames.map(assessmentColumnId), [visibleNames]);
   const selectorOptions = useMemo<GenericColumnOption[]>(
     () =>
@@ -70,7 +89,21 @@ export const useTracesV4AssessmentColumns = (
     [setOverrides],
   );
 
+  const setAllVisible = useCallback(
+    (visible: boolean) => {
+      // Explicit override per candidate so the choice sticks on pages missing that assessment.
+      setOverrides((prev) => {
+        const next = { ...prev };
+        for (const name of candidateNames) {
+          next[name] = visible;
+        }
+        return next;
+      });
+    },
+    [setOverrides, candidateNames],
+  );
+
   const reset = useCallback(() => setOverrides({}), [setOverrides]);
 
-  return { columnDefs, candidateNames, selectorOptions, visibleIds, toggle, reset };
+  return { columnDefs, candidateNames, selectorOptions, visibleIds, toggle, setAllVisible, reset };
 };
