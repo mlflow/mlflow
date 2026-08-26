@@ -154,7 +154,9 @@ describe('useNavigateToExperimentPageTab', () => {
     renderTestHook(createMLflowRoutePath('/experiments/123'));
 
     expect(await screen.findByText('experiment page displaying overview tab')).toBeInTheDocument();
-    expect(locationSpyFn).toHaveBeenCalledWith(expect.stringContaining('workflowType=genai'));
+    await waitFor(() => {
+      expect(locationSpyFn).toHaveBeenCalledWith(expect.stringContaining('workflowType=genai'));
+    });
   });
 
   test('should redirect to the traces tab on custom development experiment kind', async () => {
@@ -166,7 +168,9 @@ describe('useNavigateToExperimentPageTab', () => {
     renderTestHook(createMLflowRoutePath('/experiments/123'));
 
     expect(await screen.findByText('experiment page displaying runs tab')).toBeInTheDocument();
-    expect(locationSpyFn).toHaveBeenCalledWith(expect.stringContaining('workflowType=machine_learning'));
+    await waitFor(() => {
+      expect(locationSpyFn).toHaveBeenCalledWith(expect.stringContaining('workflowType=machine_learning'));
+    });
   });
 
   test('should redirect to the traces tab on GenAI experiment kind when using FileStore', async () => {
@@ -182,6 +186,8 @@ describe('useNavigateToExperimentPageTab', () => {
     renderTestHook(createMLflowRoutePath('/experiments/123'));
 
     expect(await screen.findByText('experiment page displaying traces tab')).toBeInTheDocument();
-    expect(locationSpyFn).toHaveBeenCalledWith(expect.stringContaining('workflowType=genai'));
+    await waitFor(() => {
+      expect(locationSpyFn).toHaveBeenCalledWith(expect.stringContaining('workflowType=genai'));
+    });
   });
 });
