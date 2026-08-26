@@ -16,6 +16,8 @@ import {
   isEmpty,
 } from 'lodash';
 
+import Utils from '../../../../common/utils/Utils';
+
 import type {
   SearchMatch,
   ModelTrace,
@@ -96,13 +98,11 @@ export {
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string): void => {
-  // TODO: display error notification in OSS
-  return;
+  Utils.displayGlobalErrorNotification(errorMessage);
 };
 
 export const displaySuccessNotification = (successMessage: string): void => {
-  // TODO: display success notification in OSS
-  return;
+  Utils.displayGlobalInfoNotification(successMessage);
 };
 
 export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconType {
