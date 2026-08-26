@@ -26,7 +26,9 @@ def convert_gemini_func_to_mlflow_chat_tool(
 
     Args:
         function_def: A genai.types.FunctionDeclaration or genai.protos.FunctionDeclaration object
-                      representing a function definition.
+                      representing a function definition. google-genai >= 2.18 may expose
+                      parameters via ``parameters_json_schema`` (a plain dict) instead of the
+                      ``parameters`` Schema object; both representations are handled.
 
     Returns:
         ChatTool: MLflow's standard tool definition object.
@@ -117,6 +119,15 @@ def _convert_gemini_function_param_to_mlflow_function_param(
     )
 
 
+def _json_schema_prop_to_param_property(prop: dict[str, object]) -> ParamProperty:
+    return ParamProperty(
+        type=prop.get("type"),
+        description=prop.get("description"),
+        enum=prop.get("enum"),
+        items=_json_schema_prop_to_param_property(prop["items"]) if "items" in prop else None,
+    )
+
+
 def _convert_json_schema_to_mlflow_function_param(json_schema: dict[str, object]) -> FunctionParams:
     """
     Convert a JSON Schema dict (FunctionDeclaration.parameters_json_schema in google-genai >= 2.18)
@@ -124,11 +135,7 @@ def _convert_json_schema_to_mlflow_function_param(json_schema: dict[str, object]
     """
     return FunctionParams(
         properties={
-            name: ParamProperty(
-                type=prop.get("type"),
-                description=prop.get("description"),
-                enum=prop.get("enum"),
-            )
+            name: _json_schema_prop_to_param_property(prop)
             for name, prop in json_schema.get("properties", {}).items()
         },
         required=json_schema.get("required"),
