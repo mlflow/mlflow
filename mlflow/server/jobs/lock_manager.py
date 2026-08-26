@@ -411,6 +411,12 @@ class JobLockManager:
         app_now_millis = get_current_time_millis()
 
         with self._session_maker(read_only=False) as session:
+            calling_job: SqlJob = session.query(SqlJob).filter(SqlJob.id == job_id).one()
+            if calling_job.timeout is None:
+                raise MlflowException.invalid_parameter_value(
+                    "Exclusive job locks require non-null timeout."
+                )
+
             statement = self._stale_lock_update_statement(lock_key, job_id)
             result = session.execute(statement)
 
@@ -483,6 +489,7 @@ class JobLockManager:
 
         Raises:
             MlflowException: A valid lock already exists for the job_id.
+            MlflowException: Calling job has null timeout.
         """
 
         return self._guard_insert_race(
