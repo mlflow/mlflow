@@ -619,9 +619,11 @@ def set_signature(
         # set the signature for the logged model
         set_signature(model_uri, signature)
     """
-    assert isinstance(signature, ModelSignature), (
-        "The signature argument must be a ModelSignature object"
-    )
+    if not isinstance(signature, ModelSignature):
+        raise MlflowException.invalid_parameter_value(
+            "The signature argument must be a ModelSignature object, "
+            f"got {type(signature).__name__}."
+        )
     resolved_uri = model_uri
     if RunsArtifactRepository.is_runs_uri(model_uri):
         resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
