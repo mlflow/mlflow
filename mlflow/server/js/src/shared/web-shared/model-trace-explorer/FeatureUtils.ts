@@ -64,5 +64,5 @@ export const isEvaluatingTracesInDetailsViewEnabled = () => {
  * enabled in the model trace explorer.
  */
 export const shouldEnableModelTraceExplorerCustomTraceView = () => {
-  return false;
+  return true;
 };

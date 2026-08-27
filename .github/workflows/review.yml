@@ -90,6 +90,9 @@ jobs:
     # fails closed.
     permissions: {}
     timeout-minutes: 45
+    env:
+      REVIEW_PAYLOAD: /tmp/review-payload.json
+      REVIEW_MEDIA: /tmp/review-media
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -132,21 +135,20 @@ jobs:
           # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
           # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
           fetch-depth: 2
-      - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
-      - uses: ./.github/actions/setup-node
-      - name: Install Claude CLI
-        run: |
-          .claude/scripts/install-claude.sh
-      - name: Verify Claude CLI
+      - parallel:
+          - uses: ./.github/actions/setup-python
+            with:
+              pin-micro-version: false
+          - uses: ./.github/actions/setup-node
+          - name: Install Claude CLI
+            run: |
+              .claude/scripts/install-claude.sh
+          - name: Install agent-browser
+            run: |
+              .claude/scripts/install-agent-browser.sh
+      - name: Verify tools
         run: |
           claude --version
-      - name: Install agent-browser
-        run: |
-          .claude/scripts/install-agent-browser.sh
-      - name: Verify agent-browser
-        run: |
           agent-browser --version
 
       - name: Parse review arguments
@@ -197,6 +199,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
         run: |
           CLIENT_KEY=$(openssl rand -hex 32)
+          echo "::add-mask::$CLIENT_KEY"
           echo "client-key=$CLIENT_KEY" >> "$GITHUB_OUTPUT"
           printf '%s\n%s' "$ANTHROPIC_API_KEY" "$CLIENT_KEY" \
             | env -u ANTHROPIC_API_KEY node --disable-sigusr1 .claude/scripts/anthropic-proxy.mjs \
@@ -214,10 +217,10 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
-          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/review-shots
+          AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.REVIEW_MEDIA }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
-          mkdir -p /tmp/review-media
+          mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
@@ -231,7 +234,7 @@ jobs:
             --print \
             --verbose \
             --output-format stream-json \
-            "/pr-review $PR_URL" \
+            "/pr-review $PR_URL $REVIEW_PAYLOAD $REVIEW_MEDIA" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 30 minutes"
@@ -259,20 +262,20 @@ jobs:
           GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
           REPO_ID: ${{ github.event.repository.id }}
         run: |
-          uv run --frozen --package skills skills embed-media \
-            --dir /tmp/review-media \
-            --target /tmp/review-payload.json \
+          uv run --package skills skills embed-media \
+            --dir "$REVIEW_MEDIA" \
+            --target "$REVIEW_PAYLOAD" \
             --repository-id "$REPO_ID"
 
       - name: Validate review payload
         run: |
-          if [ ! -f /tmp/review-payload.json ]; then
-            echo "::error::Claude did not produce /tmp/review-payload.json"
+          if [ ! -f "$REVIEW_PAYLOAD" ]; then
+            echo "::error::Claude did not produce $REVIEW_PAYLOAD"
             exit 1
           fi
-          uv run --frozen --package skills skills validate-review /tmp/review-payload.json
+          uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
           echo "::group::Review payload"
-          jq . /tmp/review-payload.json
+          jq . "$REVIEW_PAYLOAD"
           echo "::endgroup::"
 
       - name: Post review
@@ -282,7 +285,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
-          gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input /tmp/review-payload.json
+          gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input "$REVIEW_PAYLOAD"
 
       - name: Redact secrets from transcript
         if: always()
