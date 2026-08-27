@@ -85,7 +85,9 @@ def _is_empty_database(engine):
 
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
-    InitialBase.metadata.create_all(engine)
+    # Only create tables that don't already exist to avoid errors like "Table 'secrets' already exists"
+    # when upgrading from a prior version where the table was introduced without a proper Alembic migration.
+    InitialBase.metadata.create_all(engine, checkfirst=True)
     _upgrade_db(engine)
 
 
