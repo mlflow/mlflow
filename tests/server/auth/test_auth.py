@@ -471,10 +471,8 @@ def test_after_request_handlers_contains_only_declared_handlers():
 @pytest.mark.parametrize(
     ("path", "method"),
     [
-        ("/ajax-api/3.0/mlflow/issues/invoke", "POST"),
-        ("/ajax-api/3.0/mlflow/genai/evaluate/invoke", "POST"),
-        ("/ajax-api/3.0/mlflow/demo/generate", "POST"),
-        ("/ajax-api/3.0/mlflow/demo/delete", "POST"),
+        # invoke + demo gate via the exact-match table, so they leave this list. Jobs
+        # stay: they gate via the regex JOB_BEFORE_REQUEST_VALIDATORS map, not the table.
         ("/ajax-api/3.0/mlflow/jobs/<job_id>", "GET"),
         ("/ajax-api/3.0/mlflow/jobs/cancel/<job_id>", "PATCH"),
         ("/graphql", "GET"),
@@ -2511,13 +2509,26 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         )
         response.raise_for_status()
 
+    # Non-admin reads the config (UI needs secrets_available) but the using_default_passphrase
+    # server-posture signal is redacted for them.
     with User(user1, password1, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
             auth=(user1, password1),
         )
         response.raise_for_status()
-        assert "secrets_available" in response.json()
+        body = response.json()
+        assert "secrets_available" in body
+        assert "using_default_passphrase" not in body
+
+    # Admin sees the full config, including using_default_passphrase.
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        )
+        response.raise_for_status()
+        assert "using_default_passphrase" in response.json()
 
     with User(user1, password1, monkeypatch):
         response = requests.delete(
@@ -6211,3 +6222,207 @@ def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch
             assert len(page) == 2
 
     assert {s["name"] for s in all_readable} == set(readable)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_evaluation_dataset_and_issue_apis_require_experiment_permission(client):
+    # A NO_PERMISSIONS user must not read/tamper/enumerate/delete another user's
+    # datasets or issues; both are gated on the associated experiment's permission.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+    owner_auth = (owner, owner_pw)
+    attacker_auth = (attacker, attacker_pw)
+
+    def post(path, auth, body):
+        return requests.post(f"{base}{path}", json=body, auth=auth)
+
+    # Owner creates an experiment (gaining MANAGE), a dataset with a record, and an issue.
+    exp_id = post("/api/2.0/mlflow/experiments/create", owner_auth, {"name": "owner-exp"}).json()[
+        "experiment_id"
+    ]
+    dataset_id = post(
+        "/api/3.0/mlflow/datasets/create",
+        owner_auth,
+        {"name": "owner-ds", "experiment_ids": [exp_id]},
+    ).json()["dataset"]["dataset_id"]
+    seed = post(
+        f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        owner_auth,
+        {"records": json.dumps([{"inputs": {"q": "secret"}, "expectations": {"a": "truth"}}])},
+    )
+    assert seed.status_code == 200
+    issue_id = post(
+        "/api/3.0/mlflow/issues",
+        owner_auth,
+        {"experiment_id": exp_id, "name": "sec", "description": "confidential"},
+    ).json()["issue"]["issue_id"]
+
+    # Control: the attacker genuinely lacks access to the experiment.
+    assert (
+        requests.get(
+            f"{base}/api/2.0/mlflow/experiments/get",
+            params={"experiment_id": exp_id},
+            auth=attacker_auth,
+        ).status_code
+        == 403
+    )
+
+    # Dataset reads and unscoped enumeration are denied.
+    assert (
+        requests.get(f"{base}/api/3.0/mlflow/datasets/{dataset_id}", auth=attacker_auth).status_code
+        == 403
+    )
+    assert (
+        requests.get(
+            f"{base}/api/3.0/mlflow/datasets/{dataset_id}/records", auth=attacker_auth
+        ).status_code
+        == 403
+    )
+    assert post("/api/3.0/mlflow/datasets/search", attacker_auth, {}).status_code == 403
+
+    # Dataset writes and deletes are denied.
+    assert (
+        post(
+            f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+            attacker_auth,
+            {"records": json.dumps([{"inputs": {"q": "x"}, "expectations": {"a": "poison"}}])},
+        ).status_code
+        == 403
+    )
+    assert (
+        requests.delete(
+            f"{base}/api/3.0/mlflow/datasets/{dataset_id}", auth=attacker_auth
+        ).status_code
+        == 403
+    )
+
+    # Issue create, read, update, and search are denied.
+    assert (
+        post(
+            "/api/3.0/mlflow/issues",
+            attacker_auth,
+            {"experiment_id": exp_id, "name": "injected", "description": "injected"},
+        ).status_code
+        == 403
+    )
+    assert (
+        requests.get(f"{base}/api/3.0/mlflow/issues/{issue_id}", auth=attacker_auth).status_code
+        == 403
+    )
+    assert (
+        requests.patch(
+            f"{base}/api/3.0/mlflow/issues/{issue_id}",
+            json={"issue_id": issue_id, "description": "tampered"},
+            auth=attacker_auth,
+        ).status_code
+        == 403
+    )
+    assert (
+        post("/api/3.0/mlflow/issues/search", attacker_auth, {"experiment_id": exp_id}).status_code
+        == 403
+    )
+
+    # The legitimate owner still has full access — the record survived the attempted delete.
+    assert (
+        requests.get(f"{base}/api/3.0/mlflow/datasets/{dataset_id}", auth=owner_auth).status_code
+        == 200
+    )
+    assert (
+        requests.get(f"{base}/api/3.0/mlflow/issues/{issue_id}", auth=owner_auth).status_code == 200
+    )
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_invoke_endpoints_require_experiment_update_permission(client):
+    # invoke routes create runs in an experiment -> a user without update on it is denied.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "invoke-owner-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+
+    for path in (
+        "/ajax-api/3.0/mlflow/issues/invoke",
+        "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+    ):
+        resp = requests.post(
+            f"{base}{path}",
+            json={
+                "experiment_id": exp_id,
+                "trace_ids": ["tr-1"],
+                "categories": ["x"],
+                "provider": "p",
+                "serialized_scorers": ["s"],
+            },
+            auth=(attacker, attacker_pw),
+        )
+        assert resp.status_code == 403, f"{path} -> {resp.status_code}"
+
+        # The owner (MANAGE on the experiment) passes the auth gate — non-403 confirms the
+        # validator is keyed to experiment update, not blanket-denying. The handler may still
+        # error (e.g. the invoke backend isn't wired in this test env).
+        resp = requests.post(
+            f"{base}{path}",
+            json={
+                "experiment_id": exp_id,
+                "trace_ids": ["tr-1"],
+                "categories": ["x"],
+                "provider": "p",
+                "serialized_scorers": ["s"],
+            },
+            auth=(owner, owner_pw),
+        )
+        assert resp.status_code != 403, f"{path} -> {resp.status_code}"
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_presigned_upload_url_requires_run_update_permission(client):
+    # Presigned upload URL grants direct artifact write -> denied without run update.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "presigned-owner-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    run_id = requests.post(
+        f"{base}/api/2.0/mlflow/runs/create",
+        json={"experiment_id": exp_id},
+        auth=(owner, owner_pw),
+    ).json()["run"]["info"]["run_id"]
+
+    resp = requests.post(
+        f"{base}/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(attacker, attacker_pw),
+    )
+    assert resp.status_code == 403
+
+    # The run owner (MANAGE) passes the auth gate; non-403 confirms the validator is keyed to
+    # run update, not blanket-denying (the local artifact repo handler then errors, as in the
+    # presigned-download twin).
+    resp = requests.post(
+        f"{base}/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(owner, owner_pw),
+    )
+    assert resp.status_code != 403

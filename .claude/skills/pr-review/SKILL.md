@@ -2,14 +2,14 @@
 name: pr-review
 description: Review a pull request and emit a validated review payload.
 disable-model-invocation: true
-argument-hint: "<pr_url>"
-arguments: [pr_url]
+argument-hint: "<pr_url> <payload_path> <media_dir>"
+arguments: [pr_url, payload_path, media_dir]
 ---
 
 # Review Pull Request
 
-Review $pr_url and write a JSON review payload to `/tmp/review-payload.json`. Do not post anything:
-writing that payload is the whole job.
+Review $pr_url and write a JSON review payload to $payload_path. Do not post anything: writing
+that payload is the whole job.
 
 ## Instructions
 
@@ -83,7 +83,13 @@ errors, so don't trust them for pre-change history.
 
 Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, or a
 quick search and fetch of the upstream docs will settle most questions in seconds, and an unverified
-finding should be dropped rather than hedged.
+finding should be dropped rather than hedged. When the cheap checks don't settle it, escalate to the
+expensive ones: build the docs site, build and boot the UI, start the backend, run the affected
+tests.
+
+Node and `agent-browser` are on PATH for docs and UI changes. Capture to an absolute path named for
+what it shows: `agent-browser screenshot --full $media_dir/example.png`, and cite that same
+path in a finding.
 
 Evaluate the changed code across these dimensions:
 
@@ -120,7 +126,7 @@ Classify each finding that survives those exclusions:
 ### 4. Write and validate the review payload
 
 Read [`review-payload.schema.json`](./review-payload.schema.json), then write
-`/tmp/review-payload.json` matching it. It defines the severity prefix each comment body carries
+`$payload_path` matching it. It defines the severity prefix each comment body carries
 and derives `event` from those prefixes.
 
 Authoring rules not captured by the schema:
@@ -135,13 +141,23 @@ Authoring rules not captured by the schema:
   suggestion block already shows.
 - Use suggestion blocks for simple fixes: fence with ` ```suggestion ` and preserve original
   indentation.
-- If you have no findings, emit an empty `comments` array.
+- To attach an image or video (a diagram, a chart, a captured repro), write the file into
+  `$media_dir` and cite it by the absolute path you wrote it to:
+  `![desc]($media_dir/name.png)` to embed, or `[desc]($media_dir/name.png)`
+  to link. A later workflow step uploads it and rewrites the reference to a URL. Do not
+  upload anything yourself. Skip this unless a visual genuinely beats prose; most reviews
+  need none.
+- Put a video reference (`.mp4`, `.mov`, `.webm`) on a line of its own. GitHub renders a
+  player only for a bare URL in its own paragraph, so a video cited mid-sentence falls back
+  to a plain link.
 
-Validate before finishing, then fix any errors and re-emit until this passes:
+Validate before finishing, then fix any errors and re-emit until both of these pass:
 
 ```bash
-uv run --package skills skills validate-review /tmp/review-payload.json
+uv run --package skills skills validate-review $payload_path
+# only when you wrote a file into $media_dir
+uv run --package skills skills embed-media --check --dir $media_dir --target $payload_path
 ```
 
 Do not post the review: no `gh pr review`, no review/comment APIs, no other skills. Stop
-after writing and validating `/tmp/review-payload.json`.
+after writing and validating `$payload_path`.

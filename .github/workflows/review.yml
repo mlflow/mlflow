@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/review.yml"
-      - ".claude/scripts/anthropic-proxy.mjs"
+      - ".claude/scripts/**"
       - ".claude/skills/pr-review/**"
 
 concurrency:
@@ -89,7 +89,10 @@ jobs:
     # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
     # fails closed.
     permissions: {}
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      REVIEW_PAYLOAD: /tmp/review-payload.json
+      REVIEW_MEDIA: /tmp/review-media
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -132,15 +135,21 @@ jobs:
           # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
           # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
           fetch-depth: 2
-      - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
-      - name: Install Claude CLI
-        run: |
-          .claude/scripts/install-claude.sh
-      - name: Verify Claude CLI
+      - parallel:
+          - uses: ./.github/actions/setup-python
+            with:
+              pin-micro-version: false
+          - uses: ./.github/actions/setup-node
+          - name: Install Claude CLI
+            run: |
+              .claude/scripts/install-claude.sh
+          - name: Install agent-browser
+            run: |
+              .claude/scripts/install-agent-browser.sh
+      - name: Verify tools
         run: |
           claude --version
+          agent-browser --version
 
       - name: Parse review arguments
         id: prompt
@@ -190,6 +199,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
         run: |
           CLIENT_KEY=$(openssl rand -hex 32)
+          echo "::add-mask::$CLIENT_KEY"
           echo "client-key=$CLIENT_KEY" >> "$GITHUB_OUTPUT"
           printf '%s\n%s' "$ANTHROPIC_API_KEY" "$CLIENT_KEY" \
             | env -u ANTHROPIC_API_KEY node --disable-sigusr1 .claude/scripts/anthropic-proxy.mjs \
@@ -207,25 +217,27 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
+          AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.REVIEW_MEDIA }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
+          mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
           EXIT_CODE=0
-          timeout 20m claude \
+          timeout 30m claude \
             --model "$MODEL" \
             --effort "$EFFORT" \
-            --max-budget-usd 5 \
+            --max-budget-usd 8 \
             --permission-mode auto \
             --allowed-tools "Bash(uv run --package skills skills:*)" \
             --print \
             --verbose \
             --output-format stream-json \
-            "/pr-review $PR_URL" \
+            "/pr-review $PR_URL $REVIEW_PAYLOAD $REVIEW_MEDIA" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
-            echo "Warning: Claude command timed out after 20 minutes"
+            echo "Warning: Claude command timed out after 30 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
             echo "Error: Claude command failed with exit code $EXIT_CODE"
             cat "$OUTPUT_FILE"
@@ -238,15 +250,32 @@ jobs:
         if: always()
         run: cat /tmp/anthropic-proxy.log || true
 
+      # Kept out of the Claude step, which holds only the read-only app token, so a
+      # poisoned diff can't reach this PAT. Gated like Post so the pull_request
+      # smoke path stays non-mutating.
+      - name: Upload review media
+        if: github.event_name == 'issue_comment'
+        # Attaching media is a nicety; losing the whole review over it is not. Any
+        # fault here must not take the job down before Post review.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          REPO_ID: ${{ github.event.repository.id }}
+        run: |
+          uv run --package skills skills embed-media \
+            --dir "$REVIEW_MEDIA" \
+            --target "$REVIEW_PAYLOAD" \
+            --repository-id "$REPO_ID"
+
       - name: Validate review payload
         run: |
-          if [ ! -f /tmp/review-payload.json ]; then
-            echo "::error::Claude did not produce /tmp/review-payload.json"
+          if [ ! -f "$REVIEW_PAYLOAD" ]; then
+            echo "::error::Claude did not produce $REVIEW_PAYLOAD"
             exit 1
           fi
-          uv run --frozen --package skills skills validate-review /tmp/review-payload.json
+          uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
           echo "::group::Review payload"
-          jq . /tmp/review-payload.json
+          jq . "$REVIEW_PAYLOAD"
           echo "::endgroup::"
 
       - name: Post review
@@ -256,7 +285,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
-          gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input /tmp/review-payload.json
+          gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input "$REVIEW_PAYLOAD"
 
       - name: Redact secrets from transcript
         if: always()

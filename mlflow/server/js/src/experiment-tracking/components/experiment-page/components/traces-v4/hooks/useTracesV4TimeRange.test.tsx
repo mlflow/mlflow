@@ -65,15 +65,15 @@ describe('useTracesV4TimeRange', () => {
     expect(param('endTime')).toBeNull();
   });
 
-  test('defaults to LAST_15_MINUTES when the URL has no label, without writing it to the URL', async () => {
+  test('defaults to LAST_7_DAYS when the URL has no label, without writing it to the URL', async () => {
     const { result } = await mountHook('/p');
-    expect(result.current.timeLabel).toBe('LAST_15_MINUTES');
+    expect(result.current.timeLabel).toBe('LAST_7_DAYS');
     expect(param('startTimeLabel')).toBeNull();
   });
 
   test('an invalid startTimeLabel falls back to the default', async () => {
     const { result } = await mountHook('/p?startTimeLabel=NOT_A_LABEL');
-    expect(result.current.timeLabel).toBe('LAST_15_MINUTES');
+    expect(result.current.timeLabel).toBe('LAST_7_DAYS');
   });
 
   test('CUSTOM reads explicit start/end bounds from the URL', async () => {
@@ -125,6 +125,6 @@ describe('useTracesV4TimeRange', () => {
     );
     const { result } = await mountHook('/p');
     // Still the v4 default, not the v3-persisted LAST_30_DAYS.
-    expect(result.current.timeLabel).toBe('LAST_15_MINUTES');
+    expect(result.current.timeLabel).toBe('LAST_7_DAYS');
   });
 });

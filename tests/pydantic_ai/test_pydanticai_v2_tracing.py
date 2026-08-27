@@ -1,4 +1,5 @@
 import importlib.metadata
+from unittest.mock import MagicMock
 
 import pytest
 from packaging.version import Version
@@ -96,9 +97,10 @@ async def test_disabled_tracing_bypasses_tool_execute_hook():
         handler_call_count += 1
         return args["left"] + args["right"]
 
+    ctx = MagicMock(realtime=False)
     with mlflow.utils.autologging_utils.disable_autologging():
         result = await instrumentation.wrap_tool_execute(
-            None,
+            ctx,
             call=call,
             tool_def=tool_def,
             args=call.args,
@@ -330,8 +332,9 @@ async def test_disabled_tracing_bypasses_async_hook_instrumentation():
         handler_call_count += 1
         return args["left"] + args["right"]
 
+    ctx = MagicMock(realtime=False)
     result = await instrumentation.wrap_tool_execute(
-        None,
+        ctx,
         call=call,
         tool_def=tool_def,
         args=call.args,
@@ -373,8 +376,9 @@ async def test_tool_autologging_failure_does_not_affect_tool_result(
             raise_instrumentation_error,
         )
 
+    ctx = MagicMock(realtime=False)
     result = await instrumentation.wrap_tool_execute(
-        None,
+        ctx,
         call=call,
         tool_def=tool_def,
         args=call.args,
