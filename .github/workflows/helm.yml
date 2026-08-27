@@ -43,13 +43,19 @@ jobs:
       - name: Render templates
         run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
 
-      - name: Render optional templates
+      - name: Render ServiceMonitor
         run: |
-          helm template mlflow charts/ \
-            --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
-            --set metrics.enabled=true \
-            --set serviceMonitor.enabled=true \
-            | grep -q '^      path: /metrics$'
+          render() {
+            helm template mlflow charts/ \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
+              --set metrics.enabled=true \
+              --set serviceMonitor.enabled=true "$@"
+          }
+          render | grep -q '^      path: /metrics$'
+          render --set metrics.path=/custom | grep -q '^      path: /custom$'
+          # An unset path must not render as an empty value, which strict schema
+          # validation rejects as null.
+          render --set metrics.path= | grep -q '^      path: /metrics$'
 
   e2e:
     runs-on: ubuntu-latest
