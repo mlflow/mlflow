@@ -89,6 +89,9 @@ jobs:
     # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
     # fails closed.
     permissions: {}
+    # Scopes the gateway configuration below; no protection rules, so it gates
+    # nothing.
+    environment: ai-gateway
     timeout-minutes: 45
     env:
       REVIEW_PAYLOAD: /tmp/review-payload.json
@@ -170,7 +173,8 @@ jobs:
           import sys
 
           MODEL_ALIASES = {
-              "fable": "claude-fable-5",
+              # Uncomment once the workspace serves a fable endpoint.
+              # "fable": "claude-fable-5",
               "opus": "claude-opus-5",
               "sonnet": "claude-sonnet-5",
           }
@@ -189,29 +193,39 @@ jobs:
           args = parser.parse_args(body.split())
           model = MODEL_ALIASES.get(args.model, args.model)
 
-          sys.stdout.write(f"model={model}\neffort={args.effort}\n")
+          # The gateway names each Foundation Model API endpoint `databricks-<model>`.
+          sys.stdout.write(f"model=databricks-{model}\neffort={args.effort}\n")
           EOF
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
-      # The Claude step never sees the real API key: the proxy holds it and the
-      # CLI talks to the proxy with a random per-run client key. The real key
-      # is passed via stdin (printf is a bash builtin) so it appears in no
-      # process's env or argv, and --disable-sigusr1 blocks same-UID processes
-      # from recovering it through a signal-triggered inspector session.
-      - name: Start Anthropic proxy
+      # The Claude step never sees a model credential: the proxy holds the
+      # client secret and the CLI talks to it with a random per-run client key.
+      # The secret is passed via stdin (printf is a bash builtin) so it appears
+      # in no process's env or argv, and --disable-sigusr1 blocks same-UID
+      # processes from recovering it through a signal-triggered inspector
+      # session.
+      - name: Start Databricks gateway proxy
         id: proxy
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+          # Not `DATABRICKS_CLIENT_SECRET`: a repository secret of that name
+          # holds a different principal's credential for `ui-preview.yml`.
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
         run: |
+          : "${DATABRICKS_HOST:?Set the DATABRICKS_HOST variable on the ai-gateway environment}"
+          : "${DATABRICKS_CLIENT_ID:?Set the DATABRICKS_CLIENT_ID variable on the ai-gateway environment}"
+          : "${DATABRICKS_CLIENT_SECRET:?Set the DATABRICKS_GATEWAY_CLIENT_SECRET secret on the ai-gateway environment}"
+
           CLIENT_KEY=$(openssl rand -hex 32)
           echo "::add-mask::$CLIENT_KEY"
           echo "client-key=$CLIENT_KEY" >> "$GITHUB_OUTPUT"
-          printf '%s\n%s' "$ANTHROPIC_API_KEY" "$CLIENT_KEY" \
-            | env -u ANTHROPIC_API_KEY node --disable-sigusr1 .claude/scripts/anthropic-proxy.mjs \
-              > /tmp/anthropic-proxy.log 2>&1 &
+          printf '%s\n%s\n%s' "$DATABRICKS_CLIENT_ID" "$DATABRICKS_CLIENT_SECRET" "$CLIENT_KEY" \
+            | env -u DATABRICKS_CLIENT_SECRET node --disable-sigusr1 .claude/scripts/databricks-gateway-proxy.mjs \
+              > /tmp/gateway-proxy.log 2>&1 &
           timeout 10 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8082/healthz; do sleep 0.5; done' \
-            || { echo "::error::Anthropic proxy failed to start"; cat /tmp/anthropic-proxy.log; exit 1; }
+            || { echo "::error::Databricks gateway proxy failed to start"; cat /tmp/gateway-proxy.log; exit 1; }
 
       - name: Review
         id: review
@@ -220,6 +234,9 @@ jobs:
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
           ANTHROPIC_BASE_URL: http://127.0.0.1:8082
           ANTHROPIC_API_KEY: ${{ steps.proxy.outputs.client-key }}
+          # The gateway's beta allowlist rejects several of the CLI's
+          # experimental betas with HTTP 400.
+          CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
@@ -254,7 +271,7 @@ jobs:
       # the proxy writes to a file and we dump it here for diagnosability.
       - name: Show proxy log
         if: always()
-        run: cat /tmp/anthropic-proxy.log || true
+        run: cat /tmp/gateway-proxy.log || true
 
       # Kept out of the Claude step, which holds only the read-only app token, so a
       # poisoned diff can't reach this PAT. Gated like Post so the pull_request
