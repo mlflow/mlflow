@@ -10,6 +10,7 @@ import {
   assessmentFromJson,
   assessmentToJson,
   isFeedback,
+  isExpectation,
   type Assessment,
   type SerializedAssessment,
 } from './assessment';
@@ -188,10 +189,10 @@ export class TraceInfo {
 }
 
 function normalizeAssessment(assessment: Assessment | SerializedAssessment): Assessment {
-  if (isFeedback(assessment)) {
+  if (isFeedback(assessment) || isExpectation(assessment)) {
     return assessment;
   }
-  return assessmentFromJson(assessment);
+  return assessmentFromJson(assessment as SerializedAssessment);
 }
 
 export interface SerializedTraceInfo {

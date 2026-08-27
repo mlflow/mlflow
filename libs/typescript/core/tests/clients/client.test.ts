@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import * as mlflow from '../../src';
 import { MlflowClient, type SearchTracesOptions } from '../../src/clients/client';
 import type { ArtifactsClient } from '../../src/clients/artifacts';
-import { Feedback } from '../../src/core/entities/assessment';
+import { Expectation, Feedback } from '../../src/core/entities/assessment';
 import { Trace } from '../../src/core/entities/trace';
 import { TraceData } from '../../src/core/entities/trace_data';
 import { TraceInfo } from '../../src/core/entities/trace_info';
@@ -184,6 +184,139 @@ describe('MlflowClient', () => {
           source: { sourceType: 'ROBOT' as 'HUMAN', sourceId: 'bot' },
         }),
       ).rejects.toThrow(/Invalid assessment source type/);
+    });
+  });
+
+  describe('logExpectation', () => {
+    const experimentLocation = () => ({
+      type: TraceLocationType.MLFLOW_EXPERIMENT,
+      mlflowExperiment: { experimentId: experimentId },
+    });
+
+    it('logs an expectation and reads it back from getTraceInfo', async () => {
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId,
+          traceLocation: experimentLocation(),
+          state: TraceState.OK,
+          requestTime: 1000,
+        }),
+      );
+
+      const created = await client.logExpectation({
+        traceId,
+        name: 'expected_answer',
+        value: 'Paris',
+        source: { sourceType: 'HUMAN', sourceId: 'annotator@example.com' },
+        rationale: 'Verified against atlas',
+        metadata: { dataset: 'geography-v1' },
+      });
+
+      expect(created).toBeInstanceOf(Expectation);
+      expect(created.name).toBe('expected_answer');
+      expect(created.value).toBe('Paris');
+      expect(created.assessmentId).toBeDefined();
+
+      const retrieved = await client.getTraceInfo(traceId);
+      expect(retrieved.assessments.length).toBeGreaterThanOrEqual(1);
+
+      const expectation = retrieved.assessments.find(
+        (a) => a instanceof Expectation && a.name === 'expected_answer',
+      ) as Expectation | undefined;
+
+      expect(expectation).toBeDefined();
+      expect(expectation?.value).toBe('Paris');
+      expect(expectation?.source.sourceType).toBe('HUMAN');
+    });
+
+    it('logs an expectation with a complex object value', async () => {
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId,
+          traceLocation: experimentLocation(),
+          state: TraceState.OK,
+          requestTime: 1000,
+        }),
+      );
+
+      const complexValue = { role: 'assistant', content: 'The answer is 42.' };
+      const created = await client.logExpectation({
+        traceId,
+        name: 'expected_message',
+        value: complexValue,
+      });
+
+      expect(created).toBeInstanceOf(Expectation);
+      expect(created.value).toEqual(complexValue);
+    });
+
+    it('rejects an invalid source type', async () => {
+      await expect(
+        client.logExpectation({
+          traceId: randomUUID(),
+          name: 'bad-source',
+          value: 'hello',
+          source: { sourceType: 'ROBOT' as 'HUMAN', sourceId: 'bot' },
+        }),
+      ).rejects.toThrow(/Invalid assessment source type/);
+    });
+  });
+
+  describe('logAssessment', () => {
+    const experimentLocation = () => ({
+      type: TraceLocationType.MLFLOW_EXPERIMENT,
+      mlflowExperiment: { experimentId: experimentId },
+    });
+
+    async function makeTrace() {
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId,
+          traceLocation: experimentLocation(),
+          state: TraceState.OK,
+          requestTime: 1000,
+        }),
+      );
+      return traceId;
+    }
+
+    it('dispatches a Feedback instance to logFeedback', async () => {
+      const traceId = await makeTrace();
+      const feedback = new Feedback({ name: 'correctness', value: true });
+
+      const result = await client.logAssessment({ traceId, assessment: feedback });
+
+      expect(result).toBeInstanceOf(Feedback);
+      expect((result as Feedback).value).toBe(true);
+    });
+
+    it('dispatches an Expectation instance to logExpectation', async () => {
+      const traceId = await makeTrace();
+      const expectation = new Expectation({ name: 'expected_answer', value: 'Paris' });
+
+      const result = await client.logAssessment({ traceId, assessment: expectation });
+
+      expect(result).toBeInstanceOf(Expectation);
+      expect((result as Expectation).value).toBe('Paris');
+    });
+
+    it('preserves source, rationale and metadata when dispatching via logAssessment', async () => {
+      const traceId = await makeTrace();
+      const expectation = new Expectation({
+        name: 'expected_answer',
+        value: 42,
+        source: { sourceType: 'HUMAN', sourceId: 'alice' },
+        rationale: 'ground truth',
+        metadata: { suite: 'typescript' },
+      });
+
+      const result = await client.logAssessment({ traceId, assessment: expectation });
+
+      expect((result as Expectation).source.sourceId).toBe('alice');
+      expect((result as Expectation).rationale).toBe('ground truth');
     });
   });
 

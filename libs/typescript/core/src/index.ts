@@ -36,9 +36,11 @@ export type { Trace } from './core/entities/trace';
 export type { TraceInfo, TokenUsage } from './core/entities/trace_info';
 export {
   AssessmentSourceType,
+  Expectation,
   Feedback,
   assessmentFromJson,
   assessmentToJson,
+  isExpectation,
   isFeedback,
 } from './core/entities/assessment';
 export type {
@@ -46,8 +48,10 @@ export type {
   AssessmentError,
   AssessmentSource,
   AssessmentSourceTypeName,
+  ExpectationValueType,
   FeedbackValueType,
   SerializedAssessment,
+  SerializedExpectationValue,
 } from './core/entities/assessment';
 export type { TraceData } from './core/entities/trace_data';
 export type { TraceLocation, UnityCatalogLocation } from './core/entities/trace_location';

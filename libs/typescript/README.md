@@ -165,6 +165,64 @@ console.log(info.assessments);
 
 Databricks Unity Catalog V4 assessment posting is not included in this first slice.
 
+Log a ground-truth expectation on a persisted trace (Python `mlflow.log_expectation` parity):
+
+```typescript
+import { AssessmentSourceType, MlflowClient, createAuthProvider } from '@mlflow/core';
+
+const trackingUri = 'http://localhost:5000';
+const client = new MlflowClient({
+  trackingUri,
+  authProvider: createAuthProvider({ trackingUri }),
+});
+
+await client.logExpectation({
+  traceId: '<trace-id>',
+  name: 'expected_answer',
+  value: 'Paris',
+  source: { sourceType: AssessmentSourceType.HUMAN, sourceId: 'annotator@example.com' },
+  rationale: 'Verified against authoritative source.',
+});
+
+// The expectation value can be any JSON-serializable type:
+await client.logExpectation({
+  traceId: '<trace-id>',
+  name: 'expected_message',
+  value: {
+    role: 'assistant',
+    content: 'The answer is 42.',
+    tool_calls: [{ id: '1234', type: 'function' }],
+  },
+});
+
+const info = await client.getTraceInfo('<trace-id>');
+console.log(info.assessments); // contains typed Expectation instances
+```
+
+Use `logAssessment` as a generic dispatcher when holding a `Feedback` or `Expectation`
+instance (Python `mlflow.log_assessment` parity):
+
+```typescript
+import { Expectation, Feedback, MlflowClient, createAuthProvider } from '@mlflow/core';
+
+const client = new MlflowClient({
+  trackingUri: 'http://localhost:5000',
+  authProvider: createAuthProvider({ trackingUri: 'http://localhost:5000' }),
+});
+
+// Dispatches to logExpectation internally
+await client.logAssessment({
+  traceId: '<trace-id>',
+  assessment: new Expectation({ name: 'expected_answer', value: 'Paris' }),
+});
+
+// Dispatches to logFeedback internally
+await client.logAssessment({
+  traceId: '<trace-id>',
+  assessment: new Feedback({ name: 'correctness', value: 0.9 }),
+});
+```
+
 Tag spans with a severity level so users (or you) can filter by **Minimum log level** in the trace UI:
 
 ```typescript

@@ -17,10 +17,14 @@ import {
   AssessmentSourceType,
   assertFeedbackPayload,
   assertMetadataStringMap,
+  Expectation,
   Feedback,
+  isFeedback,
+  isExpectation,
   standardizeSourceType,
   type AssessmentError,
   type AssessmentSource,
+  type ExpectationValueType,
   type FeedbackValueType,
 } from '../core/entities/assessment';
 import { makeRawRequest, makeRequest, MlflowHttpError } from './utils';
@@ -379,6 +383,116 @@ export class MlflowClient {
       payload,
     );
     return Feedback.fromJson(response.assessment);
+  }
+
+  /**
+   * Log a ground-truth expectation on a persisted trace via the V3 assessments API.
+   * Corresponds to Python `mlflow.log_expectation`.
+   *
+   * Unlike `logFeedback`, expectations always require a `value` and do not accept
+   * an `error` field — they represent known-correct labels, not scored quality signals.
+   *
+   * Databricks Unity Catalog V4 assessment posting is not included in this method.
+   *
+   * @example
+   * ```typescript
+   * await client.logExpectation({
+   *   traceId: '<trace-id>',
+   *   name: 'expected_answer',
+   *   value: 'Paris',
+   *   source: { sourceType: AssessmentSourceType.HUMAN, sourceId: 'annotator@example.com' },
+   *   rationale: 'Verified against authoritative source.',
+   * });
+   * ```
+   */
+  async logExpectation(params: {
+    traceId: string;
+    name?: string;
+    value: ExpectationValueType;
+    source?: AssessmentSource;
+    rationale?: string;
+    metadata?: Record<string, string>;
+    spanId?: string;
+  }): Promise<Expectation> {
+    const metadata = assertMetadataStringMap(params.metadata);
+    const source = params.source
+      ? {
+          sourceType: standardizeSourceType(params.source.sourceType),
+          sourceId: params.source.sourceId || 'default',
+        }
+      : { sourceType: AssessmentSourceType.HUMAN, sourceId: 'default' };
+
+    const expectation = new Expectation({
+      name: params.name,
+      value: params.value,
+      source,
+      rationale: params.rationale,
+      metadata,
+      spanId: params.spanId,
+      traceId: params.traceId,
+    });
+
+    const url = CreateAssessment.getEndpoint(this.hostUrl, params.traceId);
+    const payload: CreateAssessment.Request = { assessment: expectation.toJson() };
+    const response = await makeRequest<CreateAssessment.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload,
+    );
+    return Expectation.fromJson(response.assessment);
+  }
+
+  /**
+   * Log any assessment (Feedback or Expectation) on a persisted trace.
+   * Thin dispatcher for Python `mlflow.log_assessment` parity.
+   *
+   * - Pass a `Feedback` instance   → internally calls `logFeedback`
+   * - Pass an `Expectation` instance → internally calls `logExpectation`
+   *
+   * @example
+   * ```typescript
+   * import { Expectation, Feedback } from '@mlflow/core';
+   *
+   * await client.logAssessment({
+   *   traceId: '<trace-id>',
+   *   assessment: new Expectation({ name: 'expected_answer', value: 'Paris' }),
+   * });
+   * ```
+   */
+  async logAssessment(params: {
+    traceId: string;
+    assessment: Feedback | Expectation;
+  }): Promise<Feedback | Expectation> {
+    const { traceId, assessment } = params;
+
+    if (isFeedback(assessment)) {
+      return this.logFeedback({
+        traceId,
+        name: assessment.name,
+        value: assessment.value,
+        error: assessment.error,
+        source: assessment.source,
+        rationale: assessment.rationale,
+        metadata: assessment.metadata,
+        spanId: assessment.spanId,
+      });
+    }
+
+    if (isExpectation(assessment)) {
+      return this.logExpectation({
+        traceId,
+        name: assessment.name,
+        value: assessment.value,
+        source: assessment.source,
+        rationale: assessment.rationale,
+        metadata: assessment.metadata,
+        spanId: assessment.spanId,
+      });
+    }
+
+    // TypeScript exhaustiveness guard — should never reach here at runtime
+    throw new Error('logAssessment: assessment must be a Feedback or Expectation instance.');
   }
 
   // === EXPERIMENT METHODS  ===

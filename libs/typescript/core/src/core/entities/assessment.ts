@@ -21,6 +21,9 @@ export type FeedbackValueType =
   | FeedbackPrimitive[]
   | { [key: string]: FeedbackPrimitive | FeedbackValueType };
 
+/** Expectation values use the same primitive types as Feedback (Python parity). */
+export type ExpectationValueType = FeedbackValueType;
+
 /** Matches Python `mlflow.entities.assessment_error` truncation. */
 export const STACK_TRACE_TRUNCATION_PREFIX = '[Stack trace is truncated]\n...\n';
 export const STACK_TRACE_TRUNCATION_LENGTH = 10000;
@@ -52,6 +55,10 @@ export interface SerializedFeedbackValue {
   error?: SerializedAssessmentError;
 }
 
+export interface SerializedExpectationValue {
+  value?: unknown;
+}
+
 export interface SerializedAssessment {
   assessment_id?: string;
   assessment_name: string;
@@ -61,7 +68,7 @@ export interface SerializedAssessment {
   create_time?: string;
   last_update_time?: string;
   feedback?: SerializedFeedbackValue;
-  expectation?: unknown;
+  expectation?: SerializedExpectationValue;
   issue?: unknown;
   rationale?: string;
   error?: SerializedAssessmentError;
@@ -201,10 +208,136 @@ export class Feedback {
   }
 }
 
-export type Assessment = Feedback | SerializedAssessment;
+export type Assessment = Feedback | Expectation | SerializedAssessment;
 
 export function isFeedback(assessment: Assessment): assessment is Feedback {
   return assessment instanceof Feedback;
+}
+
+export function isExpectation(assessment: Assessment): assessment is Expectation {
+  return assessment instanceof Expectation;
+}
+
+// ─── Expectation ──────────────────────────────────────────────────────────────
+
+/**
+ * Represents a ground-truth label attached to a trace.
+ * Corresponds to Python `mlflow.entities.Expectation`.
+ *
+ * Wire format places the value under the `expectation` key:
+ *   { "expectation": { "value": <any JSON-serializable value> } }
+ *
+ * Unlike Feedback, Expectation always requires a `value` (no `error` field).
+ */
+export class Expectation {
+  name: string;
+  source: AssessmentSource;
+  value: ExpectationValueType;
+  traceId?: string;
+  spanId?: string;
+  rationale?: string;
+  metadata?: Record<string, string>;
+  assessmentId?: string;
+  createTime?: string;
+  lastUpdateTime?: string;
+  overrides?: string;
+  valid?: boolean;
+
+  constructor(params: {
+    name?: string;
+    source?: AssessmentSource;
+    value: ExpectationValueType;
+    traceId?: string;
+    spanId?: string;
+    rationale?: string;
+    metadata?: Record<string, string>;
+    assessmentId?: string;
+    createTime?: string;
+    lastUpdateTime?: string;
+    overrides?: string;
+    valid?: boolean;
+  }) {
+    this.name = params.name ?? 'expectation';
+    // Expectations default to HUMAN source — ground-truth annotations are human-authored
+    this.source = params.source
+      ? {
+          sourceType: standardizeSourceType(params.source.sourceType),
+          sourceId: params.source.sourceId || 'default',
+        }
+      : { sourceType: AssessmentSourceType.HUMAN, sourceId: 'default' };
+    this.value = params.value;
+    this.traceId = params.traceId;
+    this.spanId = params.spanId;
+    this.rationale = params.rationale;
+    this.metadata = params.metadata;
+    this.assessmentId = params.assessmentId;
+    this.createTime = params.createTime;
+    this.lastUpdateTime = params.lastUpdateTime;
+    this.overrides = params.overrides;
+    this.valid = params.valid;
+  }
+
+  toJson(): SerializedAssessment {
+    const json: SerializedAssessment = {
+      assessment_name: this.name,
+      source: {
+        source_type: this.source.sourceType,
+        source_id: this.source.sourceId,
+      },
+      expectation: { value: this.value },
+    };
+    if (this.assessmentId != null) {
+      json.assessment_id = this.assessmentId;
+    }
+    if (this.traceId != null) {
+      json.trace_id = this.traceId;
+    }
+    if (this.spanId != null) {
+      json.span_id = this.spanId;
+    }
+    if (this.createTime != null) {
+      json.create_time = this.createTime;
+    }
+    if (this.lastUpdateTime != null) {
+      json.last_update_time = this.lastUpdateTime;
+    }
+    if (this.rationale != null) {
+      json.rationale = this.rationale;
+    }
+    if (this.metadata != null) {
+      json.metadata = this.metadata;
+    }
+    if (this.overrides != null) {
+      json.overrides = this.overrides;
+    }
+    if (this.valid != null) {
+      json.valid = this.valid;
+    }
+    return json;
+  }
+
+  static fromJson(json: SerializedAssessment): Expectation {
+    const expectationValue = json.expectation as SerializedExpectationValue | undefined;
+    return new Expectation({
+      name: json.assessment_name,
+      source: json.source
+        ? {
+            sourceType: standardizeSourceType(json.source.source_type),
+            sourceId: json.source.source_id || 'default',
+          }
+        : undefined,
+      value: expectationValue?.value as ExpectationValueType,
+      traceId: json.trace_id,
+      spanId: json.span_id,
+      rationale: json.rationale,
+      metadata: json.metadata,
+      assessmentId: json.assessment_id,
+      createTime: json.create_time,
+      lastUpdateTime: json.last_update_time,
+      overrides: json.overrides,
+      valid: json.valid,
+    });
+  }
 }
 
 /** Truncate stack traces the same way as Python `AssessmentError.to_proto`. */
@@ -234,11 +367,14 @@ export function assessmentFromJson(json: SerializedAssessment): Assessment {
   if (json.feedback) {
     return Feedback.fromJson(json);
   }
+  if (json.expectation) {
+    return Expectation.fromJson(json);
+  }
   return json;
 }
 
 export function assessmentToJson(assessment: Assessment): SerializedAssessment {
-  if (assessment instanceof Feedback) {
+  if (assessment instanceof Feedback || assessment instanceof Expectation) {
     return assessment.toJson();
   }
   return assessment;

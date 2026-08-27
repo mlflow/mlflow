@@ -1,5 +1,6 @@
 import {
   AssessmentSourceType,
+  Expectation,
   Feedback,
   STACK_TRACE_TRUNCATION_LENGTH,
   STACK_TRACE_TRUNCATION_PREFIX,
@@ -65,14 +66,14 @@ describe('assessment entities', () => {
     expect(() => assertFeedbackPayload({ error: 'failed' })).not.toThrow();
   });
 
-  it('leaves expectation assessments opaque so TraceInfo does not drop them', () => {
+  it('parses expectation assessments to Expectation instances', () => {
     const raw = {
       assessment_name: 'expected_response',
       expectation: { value: 'Paris' },
     };
     const parsed = assessmentFromJson(raw);
-    expect(parsed).toEqual(raw);
-    expect(assessmentToJson(parsed)).toEqual(raw);
+    expect(parsed).toBeInstanceOf(Expectation);
+    expect((parsed as Expectation).value).toBe('Paris');
   });
 
   it('exports isFeedback for public Assessment narrowing', () => {
