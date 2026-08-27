@@ -57,6 +57,12 @@ _DEFAULT_STREAM_IDLE_TIMEOUT = 120.0
 # emits faster than a slow SSE client drains: the drain thread blocks (applying backpressure to
 # the container) instead of the queue growing without limit.
 _MAX_BUFFERED_LINES = 1000
+# Max bytes for a single stdout line. The buffered-line count above bounds memory only if each
+# line is itself bounded; without this, output that never emits a newline would grow the drain
+# buffer without limit and could OOM the server. A stream-json line (e.g. a large tool result)
+# can legitimately be tens of MB, so this is set well above that; exceeding it is treated as
+# malformed output and aborts the stream.
+_MAX_LINE_BYTES = 128 * 1024 * 1024
 
 
 def sandbox_input_path(name: str) -> str:
@@ -156,6 +162,14 @@ class SandboxProcess:
                         if not _put_line(bytes(buffer[:newline])):
                             return
                         del buffer[: newline + 1]
+                    if len(buffer) > _MAX_LINE_BYTES:
+                        # An unterminated line past the cap would grow without bound. Stop the
+                        # container so logs() ends, and surface it rather than risking an OOM.
+                        self.kill()
+                        raise SandboxUnavailableError(
+                            f"Sandbox emitted a single stdout line over {_MAX_LINE_BYTES} bytes "
+                            "with no newline; aborting the stream to bound server memory."
+                        )
                 if buffer and not _put_line(bytes(buffer)):
                     return
             except Exception as e:
@@ -321,7 +335,7 @@ def start_sandbox_process(
         shutil.rmtree(io_dir, ignore_errors=True)
         if ephemeral_home is not None:
             shutil.rmtree(ephemeral_home, ignore_errors=True)
-        raise SandboxUnavailableError(f"Failed to start sandbox container: {e}")
+        raise SandboxUnavailableError(f"Failed to start sandbox container: {e}") from e
 
     return SandboxProcess(
         container, io_dir, ephemeral_home=ephemeral_home, idle_timeout=idle_timeout
@@ -337,10 +351,10 @@ def _require_image(client, image: str) -> None:
 
     try:
         client.images.get(image)
-    except docker.errors.ImageNotFound:
+    except docker.errors.ImageNotFound as e:
         raise SandboxUnavailableError(
             f"Assistant sandbox image {image!r} was not found. Build or pull an image that "
             "contains the provider CLI, or set MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE."
-        )
+        ) from e
     except Exception as e:
-        raise SandboxUnavailableError(f"Could not check sandbox image {image!r}: {e}")
+        raise SandboxUnavailableError(f"Could not check sandbox image {image!r}: {e}") from e

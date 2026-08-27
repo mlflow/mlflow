@@ -1085,3 +1085,61 @@ async def test_astream_in_sandbox_mounts_google_credentials(monkeypatch, tmp_pat
     mounted = kwargs["input_files"]["google-application-credentials.json"]
     assert mounted == '{"type": "service_account"}'
     assert kwargs["environment"]["GOOGLE_APPLICATION_CREDENTIALS"].startswith("/sandbox-io/")
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_does_not_forward_non_allowlisted_secret(monkeypatch):
+    # Only allowlisted vars reach the CLI sandbox env; an arbitrary host secret must not leak in.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-super-secret")
+    fake = _FakeSandboxProcess(lines=[], returncode=0)
+    captured = {}
+
+    def _capture(*args, **kwargs):
+        captured["environment"] = kwargs.get("environment")
+        return fake
+
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", side_effect=_capture),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider_astream_once()]
+
+    env = captured["environment"]
+    assert env["ANTHROPIC_API_KEY"] == "sk-test"
+    assert "DATABRICKS_TOKEN" not in env
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_forwards_registry_uri(monkeypatch):
+    # A credential-free registry URI is forwarded (loopback-rewritten); one with embedded
+    # credentials is dropped rather than leaked into the container.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setenv("MLFLOW_REGISTRY_URI", "http://localhost:5000")
+    fake = _FakeSandboxProcess(lines=[], returncode=0)
+    captured = {}
+
+    def _capture(*args, **kwargs):
+        captured["environment"] = kwargs.get("environment")
+        return fake
+
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", side_effect=_capture),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider_astream_once()]
+    assert captured["environment"]["MLFLOW_REGISTRY_URI"] == "http://host.docker.internal:5000"
+
+    # Userinfo assembled from parts so no literal credential URI is committed to source.
+    creds = "u:p"
+    monkeypatch.setenv("MLFLOW_REGISTRY_URI", f"postgresql://{creds}@db.internal/registry")
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", side_effect=_capture),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider_astream_once()]
+    assert "MLFLOW_REGISTRY_URI" not in captured["environment"]

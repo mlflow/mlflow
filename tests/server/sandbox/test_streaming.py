@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from mlflow.server.sandbox import SandboxUnavailableError, start_sandbox_process
+from mlflow.server.sandbox import container as container_mod
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="Sandbox relies on POSIX uid/gid and Docker Linux containers"
@@ -63,6 +64,12 @@ def test_start_sandbox_process_builds_command_and_mounts(tmp_path):
     # but it still runs as the server user so bind-mounted files are not left root-owned.
     assert "read_only" not in kwargs
     assert kwargs["user"] == f"{os.getuid()}:{os.getgid()}"
+    # The streaming container (writable rootfs, running the untrusted CLI) must keep the same
+    # resource caps as the run-to-completion sandbox; a regression dropping them should fail here.
+    assert kwargs["mem_limit"] == container_mod._MEMORY_LIMIT
+    assert kwargs["memswap_limit"] == container_mod._MEMORY_LIMIT
+    assert kwargs["nano_cpus"] == container_mod._NANO_CPUS
+    assert kwargs["pids_limit"] == container_mod._PIDS_LIMIT
     assert kwargs["working_dir"] == "/workspace"
     assert kwargs["environment"]["HOME"] == "/home/sandbox"
 

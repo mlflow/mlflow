@@ -217,7 +217,12 @@ def get_process_pid(session_id: str) -> int | None:
         return None
     if not process_file.exists():
         return None
-    data = json.loads(process_file.read_text())
+    try:
+        data = json.loads(process_file.read_text())
+    except (OSError, ValueError):
+        # A truncated/corrupt file (writes are not atomic) or one that vanished after the
+        # exists() check must not turn a cancel lookup into an error; treat it as absent.
+        return None
     return data.get("pid")
 
 
@@ -268,7 +273,12 @@ def get_container_id(session_id: str) -> str | None:
         return None
     if not container_file.exists():
         return None
-    return json.loads(container_file.read_text()).get("container_id")
+    try:
+        return json.loads(container_file.read_text()).get("container_id")
+    except (OSError, ValueError):
+        # A truncated/corrupt file (writes are not atomic) or one that vanished after the
+        # exists() check must not turn a cancel lookup into an error; treat it as absent.
+        return None
 
 
 def clear_container_id(session_id: str) -> None:

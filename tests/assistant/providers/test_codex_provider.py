@@ -1003,3 +1003,57 @@ async def test_astream_in_sandbox_uses_external_uri_in_prompt(monkeypatch):
     # ...but the prompt keeps the external URI, since UI links it builds open in the user's browser.
     assert b"localhost:5000" in kwargs["stdin_data"]
     assert b"host.docker.internal" not in kwargs["stdin_data"]
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_does_not_forward_non_allowlisted_secret(monkeypatch):
+    # Only allowlisted vars reach the CLI sandbox env; an arbitrary host secret must not leak in.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-super-secret")
+    fake = _FakeSandboxProcess(
+        lines=_make_stdout_lines({"type": "thread.started", "thread_id": "t1"})
+    )
+    provider = CodexProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake) as start,
+        patch("mlflow.assistant.providers.codex.save_container_id"),
+        patch("mlflow.assistant.providers.codex.clear_container_id"),
+    ):
+        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    env = start.call_args.kwargs["environment"]
+    assert env["OPENAI_API_KEY"] == "sk-test"
+    assert "DATABRICKS_TOKEN" not in env
+
+
+async def _capture_sandbox_env(provider):
+    """Run one sandboxed turn and return the environment passed to start_sandbox_process."""
+    fake = _FakeSandboxProcess(
+        lines=_make_stdout_lines({"type": "thread.started", "thread_id": "t1"})
+    )
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake) as start,
+        patch("mlflow.assistant.providers.codex.save_container_id"),
+        patch("mlflow.assistant.providers.codex.clear_container_id"),
+    ):
+        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+    return start.call_args.kwargs["environment"]
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_forwards_registry_uri(monkeypatch):
+    # A credential-free registry URI is forwarded (loopback-rewritten); one with embedded
+    # credentials is dropped rather than leaked into the container.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    provider = CodexProvider()
+
+    monkeypatch.setenv("MLFLOW_REGISTRY_URI", "http://localhost:5000")
+    env = await _capture_sandbox_env(provider)
+    assert env["MLFLOW_REGISTRY_URI"] == "http://host.docker.internal:5000"
+
+    # Userinfo assembled from parts so no literal credential URI is committed to source.
+    creds = "u:p"
+    monkeypatch.setenv("MLFLOW_REGISTRY_URI", f"postgresql://{creds}@db.internal/registry")
+    env = await _capture_sandbox_env(provider)
+    assert "MLFLOW_REGISTRY_URI" not in env

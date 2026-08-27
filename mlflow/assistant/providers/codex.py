@@ -363,6 +363,7 @@ class CodexProvider(AssistantProvider):
         set. Runtime behavior (image contents, credentials, volume permissions) is validated
         against a live Docker daemon rather than in unit tests.
         """
+        from mlflow.assistant.providers.tool_executor import _uri_without_credentials
         from mlflow.server.sandbox import (
             SandboxUnavailableError,
             sandbox_input_path,
@@ -414,6 +415,11 @@ class CodexProvider(AssistantProvider):
         cmd.append("-")
 
         env = {"MLFLOW_TRACKING_URI": container_tracking_uri}
+        # Mirror the Bash sandbox: forward the registry URI too so `mlflow` registry commands in
+        # the container reach the same registry, credential-stripped and loopback-rewritten.
+        registry_uri = os.environ.get("MLFLOW_REGISTRY_URI")
+        if registry_uri and (safe := _uri_without_credentials("MLFLOW_REGISTRY_URI", registry_uri)):
+            env["MLFLOW_REGISTRY_URI"] = to_container_host_uri(safe)
         for var in _SANDBOX_AUTH_ENV_PASSTHROUGH:
             if value := os.environ.get(var):
                 # OPENAI_BASE_URL is an endpoint the CLI connects to from inside the container, so
@@ -444,6 +450,12 @@ class CodexProvider(AssistantProvider):
         codex_error: str | None = None
         try:
             # Recorded inside this try so a failure here still runs proc.cleanup() below.
+            #
+            # A cancel that arrives while the container is still starting (before this line, and
+            # sandbox mode records no PID) finds nothing to kill, so that turn keeps running until
+            # the idle timeout reaps it; the container is not leaked (cleanup() still runs). Closing
+            # that startup window would take a per-session cancel flag checked here and is left as a
+            # follow-up.
             if mlflow_session_id:
                 save_container_id(mlflow_session_id, proc.container_id)
             last_progress = time.monotonic()
@@ -467,7 +479,8 @@ class CodexProvider(AssistantProvider):
                                 "stopping.",
                                 _CODEX_NO_PROGRESS_TIMEOUT,
                             )
-                            proc.kill()
+                            # kill() is a blocking docker-py call; keep it off the event loop.
+                            await asyncio.to_thread(proc.kill)
                             yield Event.from_error(
                                 "Codex could not connect and kept retrying without progress; "
                                 f"stopped after {int(_CODEX_NO_PROGRESS_TIMEOUT)}s. "
@@ -545,7 +558,9 @@ class CodexProvider(AssistantProvider):
             _logger.exception("Error running Codex CLI in sandbox")
             yield Event.from_exception(e)
         finally:
-            proc.cleanup()
+            # cleanup() force-removes the container (a blocking docker-py socket call); keep it off
+            # the event loop so a slow daemon during teardown cannot stall other requests.
+            await asyncio.to_thread(proc.cleanup)
 
     @staticmethod
     def _unwrap_error_message(message: Any) -> str | None:
