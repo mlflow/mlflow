@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787809234201,
+  "lastUpdate": 1787811292574,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -24947,6 +24947,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.079694199994037,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tanxinyu@apache.org",
+            "name": "Potato",
+            "username": "OneSizeFitsQuorum"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "19ea186d46d4a1515f02e46160130e078c8300c8",
+          "message": "fix: use chunked I/O in HdfsArtifactRepository to prevent OOM (#21941)\n\nSigned-off-by: Potato <tanxinyu@apache.org>\nCo-authored-by: Tomu Hirata <tomu.hirata@gmail.com>",
+          "timestamp": "2026-08-27T06:13:28Z",
+          "tree_id": "58b919d27f91c0a9b77180e9e4bc26117ccf1bf3",
+          "url": "https://github.com/mlflow/mlflow/commit/19ea186d46d4a1515f02e46160130e078c8300c8"
+        },
+        "date": 1787811291233,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.6625394999989,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.382973370364198,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.5044229256733725,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.3846650603469,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.872254164065893,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 23.231369999996332,
             "unit": "ms"
           }
         ]
