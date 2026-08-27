@@ -53,6 +53,10 @@ _STDIN_FILE = "stdin"
 # model endpoint) otherwise streams nothing and the turn would hang indefinitely. This is an
 # idle timeout, not a total-runtime cap, so a turn that keeps streaming output is never cut.
 _DEFAULT_STREAM_IDLE_TIMEOUT = 120.0
+# Max stdout lines buffered between the drain thread and the consumer. Bounds memory if the CLI
+# emits faster than a slow SSE client drains: the drain thread blocks (applying backpressure to
+# the container) instead of the queue growing without limit.
+_MAX_BUFFERED_LINES = 1000
 
 
 def sandbox_input_path(name: str) -> str:
@@ -100,13 +104,17 @@ class SandboxProcess:
         """Yield stdout lines (bytes, newline-stripped) as the container produces them.
 
         ``container.logs(stream=True, follow=True)`` is a blocking generator, so it is drained
-        on a worker thread that hands items to this coroutine through a queue. The queue is
-        unbounded: a single turn's output is bounded by the CLI, and the SSE consumer drains it
-        promptly, so back-pressure is not enforced here (a limitation, not a leak).
+        on a worker thread that hands items to this coroutine through a queue. Buffering is
+        bounded to ``_MAX_BUFFERED_LINES`` via a semaphore: the drain thread blocks before
+        enqueuing once that many lines are unconsumed, so a slow SSE client applies backpressure
+        to the container rather than letting the queue grow until the server is OOM-killed.
         """
         loop = asyncio.get_running_loop()
         # Items are bytes lines, a terminal sentinel, or an Exception raised while draining.
         queue: asyncio.Queue[bytes | object | Exception] = asyncio.Queue()
+        # Bounds in-flight data lines: the drain thread acquires a permit before enqueuing a line
+        # (blocking when the consumer is behind) and the consumer releases one after taking a line.
+        capacity = threading.Semaphore(_MAX_BUFFERED_LINES)
         sentinel = object()
         last_activity = time.monotonic()
         stop_watchdog = threading.Event()
@@ -124,6 +132,16 @@ class SandboxProcess:
             except RuntimeError:
                 pass
 
+        def _put_line(line: bytes) -> bool:
+            # Backpressure: wait for the consumer to free a slot before enqueuing, so a slow
+            # reader can't grow the queue without bound. Give up if the consumer has torn down
+            # (its finally sets stop_watchdog) so this daemon thread does not park forever.
+            while not capacity.acquire(timeout=1.0):
+                if stop_watchdog.is_set():
+                    return False
+            _safe_put(line)
+            return True
+
         def _drain() -> None:
             # bytearray append is amortized O(1); a plain bytes `+=` is O(n^2) for a single very
             # large stream-json line (tool results can be tens of MB).
@@ -135,10 +153,11 @@ class SandboxProcess:
                     _bump()
                     buffer.extend(chunk)
                     while (newline := buffer.find(b"\n")) != -1:
-                        _safe_put(bytes(buffer[:newline]))
+                        if not _put_line(bytes(buffer[:newline])):
+                            return
                         del buffer[: newline + 1]
-                if buffer:
-                    _safe_put(bytes(buffer))
+                if buffer and not _put_line(bytes(buffer)):
+                    return
             except Exception as e:
                 _safe_put(e)
             finally:
@@ -167,8 +186,12 @@ class SandboxProcess:
                     break
                 if isinstance(item, Exception):
                     raise SandboxUnavailableError(f"Sandbox output stream failed: {item}")
+                # Free the slot this line held so the drain thread may enqueue the next one.
+                capacity.release()
                 yield item
         finally:
+            # The drain thread's acquire() times out every second and re-checks this, so it
+            # observes the teardown and exits without needing an extra release here.
             stop_watchdog.set()
 
     async def wait(self) -> int:
@@ -286,7 +309,9 @@ def start_sandbox_process(
             security_opt=["no-new-privileges:true"],
             # Run as the server's user so files created in the bind-mounted workspace/HOME are
             # owned by the server, not root. The rootfs stays writable (unlike run_in_sandbox):
-            # the CLI and its language runtime write caches outside $HOME.
+            # the CLI and its language runtime write caches outside $HOME. NOTE: if the MLflow
+            # server itself runs as root (uid 0), this is 0:gid and the sandbox is root too — the
+            # non-root posture holds only when the server runs as a non-root user.
             user=f"{os.getuid()}:{os.getgid()}",
             working_dir=working_dir,
             environment=env,

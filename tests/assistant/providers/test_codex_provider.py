@@ -968,7 +968,38 @@ async def test_astream_in_sandbox_aborts_on_persistent_connection_errors(monkeyp
         events = [e async for e in provider.astream("hi", "http://host.docker.internal:5000")]
 
     errs = [e for e in events if e.type == EventType.ERROR]
-    assert errs and any("stopped after" in e.to_sse_event() for e in errs)
+    assert errs
+    assert any("stopped after" in e.to_sse_event() for e in errs)
     assert fake.killed is True
     # Aborted before consuming the later agent message.
     assert "SANDBOX_OK" not in "".join(e.to_sse_event() for e in events)
+
+
+def test_is_available_true_in_sandbox_mode(monkeypatch):
+    # With the sandbox enabled the CLI runs in the operator image, not on the host, so the
+    # provider is available even when the host binary is absent.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    with patch("mlflow.assistant.providers.codex.shutil.which", return_value=None):
+        assert CodexProvider().is_available() is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_uses_external_uri_in_prompt(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    fake = _FakeSandboxProcess(
+        lines=_make_stdout_lines({"type": "thread.started", "thread_id": "t1"})
+    )
+    provider = CodexProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake) as start,
+        patch("mlflow.assistant.providers.codex.save_container_id"),
+        patch("mlflow.assistant.providers.codex.clear_container_id"),
+    ):
+        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    kwargs = start.call_args.kwargs
+    # The CLI's env is the container-routable host...
+    assert kwargs["environment"]["MLFLOW_TRACKING_URI"] == "http://host.docker.internal:5000"
+    # ...but the prompt keeps the external URI, since UI links it builds open in the user's browser.
+    assert b"localhost:5000" in kwargs["stdin_data"]
+    assert b"host.docker.internal" not in kwargs["stdin_data"]

@@ -291,6 +291,10 @@ def get_session_sandbox_home(session_id: str) -> Path:
     SessionManager.validate_session_id(session_id)
     home = SESSION_DIR / "sandbox-home" / session_id
     home.mkdir(parents=True, exist_ok=True)
+    # This HOME holds the CLI's login credentials and session state, so keep it private to the
+    # server user (0700). mkdir() above is subject to the process umask, and a pre-existing dir
+    # may have looser modes, so enforce it explicitly.
+    home.chmod(0o700)
     return home
 
 

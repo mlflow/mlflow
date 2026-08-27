@@ -79,6 +79,11 @@ class CodexProvider(AssistantProvider):
         return "structured"
 
     def is_available(self) -> bool:
+        # In sandbox mode the CLI runs inside the operator-provided image, not on the host, so
+        # availability follows the sandbox being enabled rather than a host binary the operator
+        # is not expected to install.
+        if MLFLOW_ENABLE_ASSISTANT_SANDBOX.get():
+            return True
         return shutil.which(_CODEX_BINARY) is not None
 
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
@@ -381,7 +386,10 @@ class CodexProvider(AssistantProvider):
         if session_id:
             user_message = user_text
         else:
-            sys_prompt = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=container_tracking_uri)
+            # Use the external tracking URI in the prompt, not the container-only one: the prompt
+            # asks the agent to build UI links the user opens in their browser, where
+            # host.docker.internal would not resolve. Only the env below uses the container URI.
+            sys_prompt = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
             user_message = (
                 f"<system_instructions>\n{sys_prompt}\n</system_instructions>\n\n{user_text}"
             )

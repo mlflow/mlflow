@@ -386,6 +386,11 @@ class ClaudeCodeProvider(AssistantProvider):
         return "structured"
 
     def is_available(self) -> bool:
+        # In sandbox mode the CLI runs inside the operator-provided image, not on the host, so
+        # availability follows the sandbox being enabled rather than a host binary the operator
+        # is not expected to install.
+        if MLFLOW_ENABLE_ASSISTANT_SANDBOX.get():
+            return True
         return shutil.which("claude") is not None
 
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
@@ -742,14 +747,33 @@ class ClaudeCodeProvider(AssistantProvider):
             cmd.extend(["--resume", session_id])
         cmd.extend(["--append-system-prompt-file", sandbox_input_path("system_prompt.txt")])
 
+        input_files = {"system_prompt.txt": _build_system_prompt(tracking_uri)}
         env = {"MLFLOW_TRACKING_URI": to_container_host_uri(tracking_uri)}
         for var in _SANDBOX_AUTH_ENV_PASSTHROUGH:
-            if value := os.environ.get(var):
-                # ANTHROPIC_BASE_URL is a URL the CLI connects to from *inside* the container, so
-                # a loopback value must be rewritten to reach the host. A non-loopback endpoint
-                # (e.g. a host-only gateway) is forwarded as-is and must be reachable from the
-                # sandbox; if it is not, the idle timeout surfaces a failure instead of hanging.
-                env[var] = to_container_host_uri(value) if var == "ANTHROPIC_BASE_URL" else value
+            value = os.environ.get(var)
+            if not value:
+                continue
+            if var == "GOOGLE_APPLICATION_CREDENTIALS":
+                # This is a host file path the container cannot see. Copy the credentials file's
+                # contents into the read-only input mount and point the CLI at that in-container
+                # path, so Vertex auth via a service-account file actually works in the sandbox.
+                try:
+                    input_files["google-application-credentials.json"] = Path(value).read_text()
+                except OSError:
+                    _logger.warning(
+                        "GOOGLE_APPLICATION_CREDENTIALS points to an unreadable file; "
+                        "not forwarding it to the sandbox."
+                    )
+                    continue
+                env[var] = sandbox_input_path("google-application-credentials.json")
+            elif var == "ANTHROPIC_BASE_URL":
+                # A URL the CLI connects to from *inside* the container, so a loopback value must
+                # be rewritten to reach the host. A non-loopback endpoint (e.g. a host-only
+                # gateway) is forwarded as-is and must be reachable from the sandbox; if it is
+                # not, the idle timeout surfaces a failure instead of hanging.
+                env[var] = to_container_host_uri(value)
+            else:
+                env[var] = value
 
         # Persist the CLI's HOME (its --resume session store and caches) across turns of the
         # same session so multi-turn conversations resume correctly.
@@ -763,7 +787,7 @@ class ClaudeCodeProvider(AssistantProvider):
                 workdir=cwd,
                 environment=env,
                 stdin_data=user_message.encode("utf-8"),
-                input_files={"system_prompt.txt": _build_system_prompt(tracking_uri)},
+                input_files=input_files,
                 home_dir=home_dir,
             )
         except SandboxUnavailableError as e:

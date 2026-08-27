@@ -511,7 +511,9 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
         # A turn runs either as a host subprocess or (with the sandbox enabled) in a container.
         # Attempt both (do not short-circuit) and report if either was actually terminated.
         proc_terminated = terminate_session_process(session_id)
-        container_terminated = terminate_session_container(session_id)
+        # terminate_session_container makes blocking Docker-socket calls; run it off the event
+        # loop so a slow/unhealthy Docker daemon can't stall unrelated requests.
+        container_terminated = await asyncio.to_thread(terminate_session_container, session_id)
         terminated = proc_terminated or container_terminated
         msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
         return SessionPatchResponse(message=msg)

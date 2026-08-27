@@ -1055,3 +1055,33 @@ async def provider_astream_once():
     provider = ClaudeCodeProvider()
     async for event in provider.astream("hi", "http://localhost:5000"):
         yield event
+
+
+def test_is_available_true_in_sandbox_mode(monkeypatch):
+    # With the sandbox enabled the CLI runs in the operator image, not on the host.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    with patch("mlflow.assistant.providers.claude_code.shutil.which", return_value=None):
+        assert ClaudeCodeProvider().is_available() is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_mounts_google_credentials(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    creds = tmp_path / "gcp.json"
+    creds.write_text('{"type": "service_account"}')
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(creds))
+    fake = _FakeSandboxProcess(lines=[b'{"type":"result","session_id":"s1"}'])
+    provider = ClaudeCodeProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake) as start,
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    kwargs = start.call_args.kwargs
+    # The host cred file's contents are copied into the read-only input mount, and the env points
+    # at the in-container path rather than the (unmounted) host path.
+    mounted = kwargs["input_files"]["google-application-credentials.json"]
+    assert mounted == '{"type": "service_account"}'
+    assert kwargs["environment"]["GOOGLE_APPLICATION_CREDENTIALS"].startswith("/sandbox-io/")

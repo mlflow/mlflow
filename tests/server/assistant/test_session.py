@@ -231,3 +231,28 @@ def test_terminate_session_container_no_container_is_noop(monkeypatch, tmp_path)
 
     monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
     assert session_module.terminate_session_container(_VALID_SID) is False
+
+
+def test_get_session_sandbox_home_is_private(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    home = session_module.get_session_sandbox_home("11111111-1111-1111-1111-111111111111")
+
+    assert home.exists()
+    # The sandbox HOME holds the CLI's login credentials, so it must be private to the server user.
+    assert (home.stat().st_mode & 0o777) == 0o700
+
+
+def test_get_session_sandbox_home_tightens_preexisting_dir(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    sid = "22222222-2222-2222-2222-222222222222"
+    preexisting = tmp_path / "sandbox-home" / sid
+    preexisting.mkdir(parents=True)
+    preexisting.chmod(0o755)  # a looser mode from a prior run
+
+    home = session_module.get_session_sandbox_home(sid)
+
+    assert (home.stat().st_mode & 0o777) == 0o700
