@@ -28,6 +28,9 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      pull-requests: read
+    outputs:
+      head-sha: ${{ steps.head-sha.outputs.sha }}
     # Cheap author_association prefilter so random users can't spawn workflow
     # runs. The gate step below does the authoritative admin/maintain role
     # check.
@@ -82,6 +85,28 @@ jobs:
             check_user "$COMMENTER" "User"
           fi
 
+      # Pin the commit the trigger asked about. The PR can be pushed to between
+      # the trigger and the checkout below, so resolve the head here and verify
+      # it after checkout: the run then reviews exactly what was requested, or
+      # fails loudly, instead of silently reviewing something newer.
+      - name: Resolve head SHA
+        id: head-sha
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          # Present on pull_request, empty on issue_comment. Prefer it: it is the
+          # head that triggered this run, where the API could already be newer.
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          SHA=$EVENT_HEAD_SHA
+          if [ -z "$SHA" ]; then
+            SHA=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha) \
+              || { echo "::error::Failed to resolve head SHA for PR #$PR_NUMBER"; exit 1; }
+          fi
+          echo "Reviewing $SHA"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
   review:
     needs: gate
     runs-on: ubuntu-latest
@@ -93,6 +118,7 @@ jobs:
     env:
       REVIEW_PAYLOAD: /tmp/review-payload.json
       REVIEW_MEDIA: /tmp/review-media
+      HEAD_SHA: ${{ needs.gate.outputs.head-sha }}
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -135,6 +161,16 @@ jobs:
           # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
           # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
           fetch-depth: 2
+      # The merge ref is recomputed on every push, so it can already point at a
+      # newer head. Bail before installing anything or running a line of the
+      # checkout rather than review a commit nobody asked about.
+      - name: Verify head SHA
+        run: |
+          ACTUAL=$(git rev-parse HEAD^2)
+          if [ "$ACTUAL" != "$HEAD_SHA" ]; then
+            echo "::error::PR head moved after the review was requested ($HEAD_SHA -> $ACTUAL). Re-run /review."
+            exit 1
+          fi
       - parallel:
           - uses: ./.github/actions/setup-python
             with:
@@ -273,6 +309,11 @@ jobs:
             echo "::error::Claude did not produce $REVIEW_PAYLOAD"
             exit 1
           fi
+          # Anchor the review to the commit that was reviewed. Without commit_id,
+          # GitHub attaches the comments to whatever the head is at POST time, so
+          # a push mid-run lands them on lines the review never saw.
+          jq --arg sha "$HEAD_SHA" '.commit_id = $sha' "$REVIEW_PAYLOAD" > "$REVIEW_PAYLOAD.tmp"
+          mv "$REVIEW_PAYLOAD.tmp" "$REVIEW_PAYLOAD"
           uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
           echo "::group::Review payload"
           jq . "$REVIEW_PAYLOAD"
