@@ -2,14 +2,17 @@
 name: pr-review
 description: Review a pull request and emit a validated review payload.
 disable-model-invocation: true
-argument-hint: "<pr_url> <payload_path> <media_dir>"
-arguments: [pr_url, payload_path, media_dir]
+argument-hint: "<pr_url> <payload_path> <media_dir> <repo_dir>"
+arguments: [pr_url, payload_path, media_dir, repo_dir]
 ---
 
 # Review Pull Request
 
 Review $pr_url and write a JSON review payload to $payload_path. Do not post anything: writing
 that payload is the whole job.
+
+The tree under review is $repo_dir, not the directory you are running from. That one holds the
+review tooling and is not what you are reviewing, so read and run git against $repo_dir throughout.
 
 ## Instructions
 
@@ -26,11 +29,11 @@ These reads are independent. Issue them as parallel tool calls in a single turn,
 gh pr view <pr_url> --json title,body
 ```
 
-**PR diff hunks**. The working tree is the merge ref (see step 3), so `HEAD^1 HEAD` is exactly the
+**PR diff hunks**. $repo_dir is the merge ref (see step 3), so `HEAD^1 HEAD` there is exactly the
 PR diff:
 
 ```bash
-git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff
+git -C $repo_dir diff HEAD^1 HEAD | uv run --package skills skills annotate-diff
 ```
 
 Each line comes back as `old_line new_line | <marker> content`, which gives you the `line` and
@@ -68,21 +71,22 @@ gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> \
 Load the repository style rules applicable to the changed files:
 
 ```bash
-git diff --name-only HEAD^1 | uv run --package skills skills load-rules
+git -C $repo_dir diff --name-only HEAD^1 | uv run --package skills skills load-rules
 ```
 
 ### 3. Analyze the change
 
-The working tree holds the PR merged into the base (`refs/pull/<pr_number>/merge`), so file contents
+$repo_dir holds the PR merged into the base (`refs/pull/<pr_number>/merge`), so file contents there
 reflect the post-merge state. Explore it for context beyond the diff (existing patterns, call sites
-of changed symbols, file conventions).
+of changed symbols, file conventions), and read paths under $repo_dir rather than the same path
+relative to your working directory, which resolves to the tooling checkout instead.
 
 The merge ref's base parent is reachable as `HEAD^1`. When the diff doesn't show enough (verifying
 a refactor preserved behavior, reading a masked deleted file, or seeing the pre-change version of a
-heavily modified one), use `git show HEAD^1:<path>` rather than re-fetching the file over the API.
-The checkout is shallow, so nothing older than `HEAD^1` exists: `git log` and `git blame` stop at
-the shallow boundary rather than reaching the commit that actually introduced a line. Neither
-errors, so don't trust them for pre-change history.
+heavily modified one), use `git -C $repo_dir show HEAD^1:<path>` rather than re-fetching the file
+over the API. That checkout is shallow, so nothing older than `HEAD^1` exists: `git log` and
+`git blame` stop at the shallow boundary rather than reaching the commit that actually introduced a
+line. Neither errors, so don't trust them for pre-change history.
 
 Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, or a
 quick search and fetch of the upstream docs will settle most questions in seconds, and an unverified

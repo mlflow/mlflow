@@ -93,6 +93,12 @@ jobs:
     env:
       REVIEW_PAYLOAD: /tmp/review-payload.json
       REVIEW_MEDIA: /tmp/review-media
+      # The tree under review. Claude runs from the workspace root so it loads the
+      # skill from the tooling checkout, and reads the PR through this path.
+      REVIEW_REPO_DIR: ${{ github.workspace }}/pr
+      # `uv run` picks its project from the working directory, so a `cd` into the
+      # PR would silently run that PR's copy of the skills package. Pin it.
+      UV_PROJECT: ${{ github.workspace }}
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -127,17 +133,37 @@ jobs:
         run: |
           printf '%s\n\n---\n\n🚀 [Review running...](%s)' "$COMMENT_BODY" "$JOB_RUN_URL" \
             | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Everything that runs while the secrets below are in scope comes from this
+      # checkout: the composite actions, the install scripts, the proxy, and the
+      # skills package. The PR is checked out separately and only ever read.
+      #
+      # The smoke path is gated to same-repo PRs (see the gate's
+      # `head.repo.full_name` check), so it points here at the PR to keep testing
+      # its own tooling. On `issue_comment` GitHub already resolves the workflow
+      # file from the default branch, so taking the tooling from there too makes
+      # the two agree instead of running PR scripts from a base-branch workflow.
+      - name: Check out tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          token: ${{ steps.app-token-read.outputs.token }}
+          ref: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/merge', github.event.pull_request.number) || '' }}
+
+      - name: Check out the PR under review
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           token: ${{ steps.app-token-read.outputs.token }}
           ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
-          # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
-          # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
+          # Depth 2 so both parents of the merge ref are reachable: HEAD^1 is the
+          # base, which the skill reads pre-change content from, and HEAD^2 is the
+          # head the pin below takes.
           fetch-depth: 2
+          path: pr
       # HEAD^2 of the merge ref is the PR head. Resolved before the review step,
       # which runs with Bash in this tree.
       - name: Pin reviewed head commit
+        working-directory: pr
         run: |
           PR_HEAD_SHA=$(git rev-parse HEAD^2)
           echo "PR_HEAD_SHA=$PR_HEAD_SHA" >> "$GITHUB_ENV"
@@ -240,7 +266,7 @@ jobs:
             --print \
             --verbose \
             --output-format stream-json \
-            "/pr-review $PR_URL $REVIEW_PAYLOAD $REVIEW_MEDIA" \
+            "/pr-review $PR_URL $REVIEW_PAYLOAD $REVIEW_MEDIA $REVIEW_REPO_DIR" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 30 minutes"
