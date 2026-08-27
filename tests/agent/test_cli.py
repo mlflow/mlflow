@@ -129,6 +129,10 @@ def test_setup_outside_git_falls_back_to_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reason: str
 ):
     monkeypatch.chdir(tmp_path)
+    # This test skips `tmp_git_repo`, so clear the tracking URI the same way the
+    # fixture does: a configured URI removes the backend prompt and misaligns
+    # the scripted input.
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
     with (
         mock.patch(
             "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
@@ -136,13 +140,19 @@ def test_setup_outside_git_falls_back_to_cwd(
         mock.patch(
             "mlflow.agent.setup.cli._git_root", return_value=(None, reason)
         ) as mock_git_root,
+        # Stubbed so the test does not depend on the `mlflow/assistant/skills`
+        # submodule being initialized in the checkout.
+        mock.patch(
+            "mlflow.agent.setup.cli.install_skills", return_value=["tracing"]
+        ) as mock_install,
     ):
         result = CliRunner().invoke(
             setup, ["--agent", "claude", "--print"], input="3\nhttp://localhost:5001\nn\n1\n"
         )
     assert result.exit_code == 0, result.stderr
     assert f"{reason} The agent's edits cannot be reviewed or reverted with git." in result.stderr
-    assert (tmp_path / ".claude" / "skills").is_dir()
+    # Without a git root, skills land under the current directory.
+    mock_install.assert_called_once_with(tmp_path / ".claude" / "skills")
     mock_which.assert_called()
     mock_git_root.assert_called_once()
 
