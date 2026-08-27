@@ -8,7 +8,7 @@ from skills.github.types import (
     ReviewComment,
     ReviewThread,
 )
-from skills.github.utils import get_github_token, parse_pr_url
+from skills.github.utils import get_github_token
 
 __all__ = [
     "GitHubClient",
@@ -20,5 +20,4 @@ __all__ = [
     "ReviewComment",
     "ReviewThread",
     "get_github_token",
-    "parse_pr_url",
 ]

@@ -15,7 +15,7 @@ import {
 import type { ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 import { useSearchEvaluationDatasets } from '../hooks/useSearchEvaluationDatasets';
 import type { EvaluationDataset } from '../types';
@@ -28,6 +28,7 @@ import { useUpsertDatasetRecordsMutation } from '../hooks/useUpsertDatasetRecord
 import { CreateEvaluationDatasetButton } from './CreateEvaluationDatasetButton';
 import { useFetchTraces } from '../hooks/useFetchTraces';
 import { useCheckMultiturnDatasets } from '../hooks/useCheckMultiturnDatasets';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 
 const columns: ColumnDef<EvaluationDataset, string>[] = [
   {
@@ -49,6 +50,7 @@ export const ExportTracesToDatasetModal = ({
   selectedTraceInfos: ModelTrace['info'][];
 }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [searchFilter, setSearchFilter] = useState('');
   const [internalSearchFilter, setInternalSearchFilter] = useState(searchFilter);
 
@@ -57,8 +59,10 @@ export const ExportTracesToDatasetModal = ({
     // the full trace, which is not available in the trace table
     getModelTraceId({ info: traceInfo, data: { spans: [] } }),
   );
-  const { data: traces, isLoading: isLoadingTraces } = useFetchTraces({ traceIds });
-  const datasetRowsToExport = extractDatasetInfoFromTraces(compact(traces));
+  const { isLoading: isLoadingTraces, refetch: refetchTraces } = useFetchTraces({
+    traceIds,
+  });
+  const [isExporting, setIsExporting] = useState(false);
 
   const {
     data: datasets,
@@ -93,22 +97,47 @@ export const ExportTracesToDatasetModal = ({
     datasetIds: selectedDatasetIds,
   });
 
-  const { upsertDatasetRecordsMutation, isLoading: isUpsertingDatasetRecords } = useUpsertDatasetRecordsMutation({
-    onSuccess: () => {
-      setVisible(false);
-    },
-  });
+  const {
+    upsertDatasetRecordsMutationAsync,
+    invalidateAfterUpsert,
+    isLoading: isUpsertingDatasetRecords,
+  } = useUpsertDatasetRecordsMutation();
 
-  const handleExport = useCallback(() => {
-    Promise.all(
-      selectedDatasets.map((dataset) =>
-        upsertDatasetRecordsMutation({
-          datasetId: dataset.dataset_id,
-          records: JSON.stringify(datasetRowsToExport),
+  const handleExport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      // This modal stays mounted, so FETCH_TRACES can be from before the user
+      // added expectations. Refetch at export time so the dataset snapshot
+      // includes current assessments.
+      const { data: freshTraces } = await refetchTraces({ throwOnError: true });
+      const datasetRowsToExport = extractDatasetInfoFromTraces(compact(freshTraces));
+      const results = await Promise.allSettled(
+        selectedDatasets.map((dataset) =>
+          upsertDatasetRecordsMutationAsync({
+            datasetId: dataset.dataset_id,
+            records: JSON.stringify(datasetRowsToExport),
+          }),
+        ),
+      );
+      const succeededDatasetIds = selectedDatasets.flatMap((dataset, index) =>
+        results[index].status === 'fulfilled' ? [dataset.dataset_id] : [],
+      );
+      invalidateAfterUpsert(succeededDatasetIds);
+      if (results.some((result) => result.status === 'rejected')) {
+        throw new Error('Failed to export traces to datasets.');
+      }
+      setVisible(false);
+    } catch {
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage({
+          defaultMessage: 'Failed to export traces to datasets.',
+          description: 'Error toast when exporting traces to evaluation datasets fails',
         }),
-      ),
-    );
-  }, [selectedDatasets, upsertDatasetRecordsMutation, datasetRowsToExport]);
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }, [selectedDatasets, upsertDatasetRecordsMutationAsync, invalidateAfterUpsert, refetchTraces, intl, setVisible]);
 
   return (
     <Modal
@@ -117,8 +146,9 @@ export const ExportTracesToDatasetModal = ({
       onCancel={() => setVisible(false)}
       okText={<FormattedMessage defaultMessage="Export" description="Export traces to dataset modal action button" />}
       okButtonProps={{
-        disabled: isLoadingTraces || selectedDatasets.length === 0 || hasMultiturnDataset || isCheckingMultiturn,
-        loading: isUpsertingDatasetRecords,
+        disabled:
+          isLoadingTraces || isExporting || selectedDatasets.length === 0 || hasMultiturnDataset || isCheckingMultiturn,
+        loading: isUpsertingDatasetRecords || isExporting,
       }}
       onOk={handleExport}
       title={

@@ -76,7 +76,6 @@ def collect_files(directory: Path) -> tuple[list[Path], list[str]]:
 def rewrite_payload(
     payload: dict[str, Any], urls: dict[str, str], unavailable: Iterable[str] = ()
 ) -> dict[str, Any]:
-    # The schema pins body to end with the Claude footer, so only substitute, never append.
     match payload:
         case {"body": str(body)}:
             payload["body"] = substitute(body, urls, unavailable)

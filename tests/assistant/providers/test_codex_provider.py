@@ -409,7 +409,7 @@ async def test_astream_cleans_up_custom_view_schema_when_fdopen_fails(tmp_path):
         ]
 
     assert schema_fd is not None
-    with pytest.raises(OSError, match="Bad file descriptor"):
+    with pytest.raises(OSError, match="Bad file descriptor|The handle is invalid"):
         os.fstat(schema_fd)
     assert not schema_path.exists()
     assert len(events) == 1
@@ -445,7 +445,7 @@ async def test_astream_cleans_up_custom_view_schema_when_serialization_fails(tmp
         ]
 
     assert schema_fd is not None
-    with pytest.raises(OSError, match="Bad file descriptor"):
+    with pytest.raises(OSError, match="Bad file descriptor|The handle is invalid"):
         os.fstat(schema_fd)
     assert not schema_path.exists()
     assert len(events) == 1
