@@ -20,8 +20,6 @@ class AgentTool:
     binary: str
     # Repo-relative directory where this agent reads SKILL.md from.
     skills_dir: str
-    # Home-relative directory where this agent reads user-global SKILL.md from.
-    global_skills_dir: str
     # Args inserted between the binary and the prompt at launch.
     interactive_args: tuple[str, ...] = ()
 
@@ -35,21 +33,18 @@ AGENTS: dict[AgentName, AgentTool] = {
         display_name="Claude Code",
         binary="claude",
         skills_dir=".claude/skills",
-        global_skills_dir=".claude/skills",
     ),
     "codex": AgentTool(
         name="codex",
         display_name="OpenAI Codex",
         binary="codex",
         skills_dir=".agents/skills",
-        global_skills_dir=".codex/skills",
     ),
     "opencode": AgentTool(
         name="opencode",
         display_name="OpenCode",
         binary="opencode",
         skills_dir=".agents/skills",
-        global_skills_dir=".config/opencode/skills",
         interactive_args=("--prompt",),
     ),
 }
