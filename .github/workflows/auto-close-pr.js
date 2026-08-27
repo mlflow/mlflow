@@ -18,7 +18,14 @@ const LOC_THRESHOLD = 100;
 // Paths only maintainers may change. Agent instruction files are listed here because a
 // coding agent silently obeys them, but any path that outside contributions shouldn't
 // touch can be added.
-const PROTECTED_PATHS = [/(^|\/)AGENTS\.md$/, /(^|\/)CLAUDE\.md$/, /^\.agents\//, /^\.claude\//];
+const PROTECTED_PATHS = [
+  /(^|\/)AGENTS\.md$/,
+  /(^|\/)CLAUDE\.md$/,
+  /^\.agents\//,
+  /^\.claude\//,
+  /^\.claude-plugin\//,
+  /^\.github\/instructions\//,
+];
 
 const QUERY = `
   query($owner: String!, $repo: String!, $number: Int!) {
