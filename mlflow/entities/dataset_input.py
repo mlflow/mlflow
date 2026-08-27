@@ -1,3 +1,5 @@
+from typing import Any
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.input_tag import InputTag
@@ -9,9 +11,9 @@ class DatasetInput(_MlflowObject):
 
     def __init__(self, dataset: Dataset, tags: list[InputTag] | None = None) -> None:
         self._dataset = dataset
-        self._tags = tags or []
+        self._tags: list[InputTag] = tags or []
 
-    def __eq__(self, other: _MlflowObject) -> bool:
+    def __eq__(self, other: object) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False
@@ -29,20 +31,20 @@ class DatasetInput(_MlflowObject):
         """Dataset."""
         return self._dataset
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoDatasetInput:
         dataset_input = ProtoDatasetInput()
         dataset_input.tags.extend([tag.to_proto() for tag in self.tags])
         dataset_input.dataset.MergeFrom(self.dataset.to_proto())
         return dataset_input
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoDatasetInput) -> "DatasetInput":
         dataset_input = cls(Dataset.from_proto(proto.dataset))
         for input_tag in proto.tags:
             dataset_input._add_tag(InputTag.from_proto(input_tag))
         return dataset_input
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> dict[str, Any]:
         return {
             "dataset": self.dataset.to_dictionary(),
             "tags": {tag.key: tag.value for tag in self.tags},
