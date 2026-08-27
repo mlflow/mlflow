@@ -71,7 +71,17 @@ describe('AssistantFloatingButton', () => {
     expect(screen.queryByRole('button', { name: 'MLflow Assistant' })).not.toBeInTheDocument();
   });
 
+  test('does not render when canUseAssistant is false even if isLocalServer is true', () => {
+    // Verifies the render guard uses canUseAssistant, not isLocalServer.
+    mockAssistant = { isLocalServer: true, canUseAssistant: false, isPanelOpen: false, openPanel: mockOpenPanel };
+    renderFab();
+    expect(screen.queryByRole('button', { name: 'MLflow Assistant' })).not.toBeInTheDocument();
+  });
+
   test('renders but does not auto-open on a remote server with remote access enabled', () => {
+    // The button renders because canUseAssistant=true.
+    // Auto-open stays local-only (gated on isLocalServer in the useEffect) — remote users should
+    // not get a surprise panel pop-up on first load; they click the FAB themselves.
     mockAssistant = { isLocalServer: false, canUseAssistant: true, isPanelOpen: false, openPanel: mockOpenPanel };
     renderFab();
     expect(mockOpenPanel).not.toHaveBeenCalled();
