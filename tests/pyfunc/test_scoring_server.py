@@ -4,8 +4,8 @@ import os
 import random
 import signal
 from io import BytesIO, StringIO
-from unittest import mock
 from typing import Any, NamedTuple
+from unittest import mock
 
 import keras
 import numpy as np
@@ -23,12 +23,11 @@ from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import _get_jsonable_obj, get_cmd
-from mlflow.utils.proto_json_utils import MlflowInvalidInputException
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.types.schema import Array, Object, Property
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.proto_json_utils import MlflowInvalidInputException, NumpyEncoder
 from mlflow.version import VERSION
 
 from tests.helper_functions import (
@@ -1151,7 +1150,6 @@ def test_decode_json_input_still_rejects_malformed_json():
 
 
 def test_invocations_rejects_non_utf8_csv_body():
-    """The CSV branch decoded the request body with no guard at all."""
     with pytest.raises(MlflowInvalidInputException, match="valid UTF-8 encoded string"):
         pyfunc_scoring_server.invocations(
             b"\x80\x81",
