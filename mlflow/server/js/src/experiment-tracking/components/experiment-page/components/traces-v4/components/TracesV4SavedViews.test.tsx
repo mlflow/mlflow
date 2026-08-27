@@ -749,4 +749,14 @@ describe('TracesV4SavedViewsButton dirty affordances', () => {
     await waitFor(() => expect(mockSetExperimentTagApi).toHaveBeenCalled());
     expect(mockSetExperimentTagApi.mock.calls[0][1]).toBe('mlflow.tracesV4ViewState.v1');
   });
+
+  test('the dirty dot renders outside the collapsible label so it survives icon-only collapse', async () => {
+    // ToolbarCollapsibleLabel sets `display:none` under a container query when the toolbar is narrow.
+    // jsdom can't evaluate the query, so assert structurally: the dot must not be a descendant of the
+    // label span (its `maxWidth:200` name span identifies it), i.e. it collapses independently.
+    renderButtonAt(`/?q=changed&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`);
+    const dot = await screen.findByTestId('trace-v4-saved-views-dirty-dot');
+    const label = screen.getByText('Latency triage');
+    expect(label).not.toContainElement(dot);
+  });
 });

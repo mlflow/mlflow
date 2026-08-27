@@ -15,6 +15,7 @@ import {
 import {
   EMPTY_FILTER_MODEL,
   TRACE_COLUMN_IDS,
+  TRACES_TOOLBAR_COLLAPSE_QUERY,
   ToolbarCollapsibleLabel,
   type TraceColumnId,
   type TraceFilterModel,
@@ -662,6 +663,16 @@ export const TracesV4SavedViewsButton = ({
   const [pendingDelete, setPendingDelete] = useState<SavedViewMenuItem | null>(null);
   const activeView = activeViewId ? views.find((view) => view.id === activeViewId) : undefined;
   const isDirty = dirtyStatus === 'dirty';
+  // Shared style for the unsaved-edits dot, rendered twice (inline + a collapsed-only twin).
+  const dirtyDotStyles = {
+    display: 'inline-block',
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    backgroundColor: theme.colors.blue500,
+    marginLeft: theme.spacing.xs,
+    flexShrink: 0,
+  } as const;
 
   const handleCopyLink = async (view: SavedViewMenuItem) => {
     const url = await buildShareUrl(view.id);
@@ -732,20 +743,9 @@ export const TracesV4SavedViewsButton = ({
                   >
                     {activeView.name}
                   </span>
-                  {isDirty && (
-                    <span
-                      data-testid="trace-v4-saved-views-dirty-dot"
-                      css={{
-                        display: 'inline-block',
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        backgroundColor: theme.colors.blue500,
-                        marginLeft: theme.spacing.xs,
-                        flexShrink: 0,
-                      }}
-                    />
-                  )}
+                  {/* Inline dot after the name while expanded. A twin (below) covers the collapsed,
+                      icon-only state; only one is visible at a time, so only the twin carries the testid. */}
+                  {isDirty && <span aria-hidden css={dirtyDotStyles} />}
                 </span>
               ) : (
                 <FormattedMessage
@@ -754,6 +754,18 @@ export const TracesV4SavedViewsButton = ({
                 />
               )}
             </ToolbarCollapsibleLabel>
+            {/* The inline dot lives inside the collapsible label, so it vanishes with the name when the
+                toolbar collapses to icon-only. This twin sits OUTSIDE the label and shows ONLY while
+                collapsed (inverse of the label's own container query), keeping the dirty signal visible. */}
+            {isDirty && (
+              <span
+                data-testid="trace-v4-saved-views-dirty-dot"
+                css={{
+                  display: 'none',
+                  [TRACES_TOOLBAR_COLLAPSE_QUERY]: { ...dirtyDotStyles, marginLeft: 0 },
+                }}
+              />
+            )}
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="start">

@@ -115,7 +115,7 @@ export const SavedViewsMenu = ({
       >
         <FormattedMessage defaultMessage="Saved views" description="Header at the top of the saved views dropdown" />
       </DropdownMenu.Label>
-      <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px ${theme.spacing.xs}px`, width: 320 }}>
+      <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px`, width: 320 }}>
         <Input
           componentId={`${componentId}.search`}
           data-testid={`${testIdPrefix}-search`}
