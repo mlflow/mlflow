@@ -2171,7 +2171,6 @@ module.exports = {
   "mlflow.traces-v4.saved_views": "",
   "mlflow.traces-v4.saved_views.delete_confirm": "",
   "mlflow.traces-v4.saved_views.trigger": "",
-  "mlflow.traces-v4.shared_view": "",
 
   // -- mlflow.usage --
   "mlflow.usage.metrics_filter": "",

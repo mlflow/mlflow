@@ -49,6 +49,10 @@ export const SavedViewsMenu = ({
   onOverrideActive,
   onDiscardActive,
   overrideLabel,
+  dirtyViewActive,
+  activeViewName,
+  onOverwriteActive,
+  onResetActive,
 }: {
   componentId: string;
   testIdPrefix: string;
@@ -73,11 +77,20 @@ export const SavedViewsMenu = ({
   // Per-tab wording for the override entry ("Override my view" on traces, "Override saved view" on
   // runs). Falls back to a generic label when omitted.
   overrideLabel?: ReactNode;
+  // Dirty-mode actions (traces V4): when the active view has unsaved edits, the menu hosts Overwrite
+  // (persist the edits into the view) and Reset (discard them). Rendered only when `dirtyViewActive`
+  // is true AND both handlers are provided; the shared-view (preview) props above are a separate,
+  // mutually-exclusive mode used by the runs / V3 tabs.
+  dirtyViewActive?: boolean;
+  activeViewName?: string;
+  onOverwriteActive?: () => void;
+  onResetActive?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
   const showSharedViewActions = Boolean(sharedViewActive && onOverrideActive && onDiscardActive);
+  const showDirtyViewActions = Boolean(dirtyViewActive && onOverwriteActive && onResetActive);
 
   const copyLinkLabel = intl.formatMessage({
     defaultMessage: 'Copy share link',
@@ -233,7 +246,47 @@ export const SavedViewsMenu = ({
           ))
         )}
       </div>
-      {(canModify || showSharedViewActions) && <DropdownMenu.Separator />}
+      {(canModify || showSharedViewActions || showDirtyViewActions) && <DropdownMenu.Separator />}
+      {showDirtyViewActions && (
+        <>
+          <DropdownMenu.Item
+            componentId={`${componentId}.overwrite_active`}
+            data-testid={`${testIdPrefix}-overwrite-active`}
+            onClick={onOverwriteActive}
+            css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}
+          >
+            <span css={{ width: theme.general.iconFontSize, flexShrink: 0 }} aria-hidden>
+              <PencilIcon />
+            </span>
+            {activeViewName ? (
+              <FormattedMessage
+                defaultMessage={`Overwrite "{name}"`}
+                description="Menu item that overwrites the active saved view with the current, edited state"
+                values={{ name: activeViewName }}
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Overwrite view"
+                description="Menu item that overwrites the active saved view with the current state (no name available)"
+              />
+            )}
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            componentId={`${componentId}.reset_active`}
+            data-testid={`${testIdPrefix}-reset-active`}
+            onClick={onResetActive}
+            css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}
+          >
+            <span css={{ width: theme.general.iconFontSize, flexShrink: 0 }} aria-hidden>
+              <RefreshIcon />
+            </span>
+            <FormattedMessage
+              defaultMessage="Reset to saved"
+              description="Menu item that discards unsaved edits and re-applies the active saved view's stored state"
+            />
+          </DropdownMenu.Item>
+        </>
+      )}
       {showSharedViewActions && (
         <>
           <DropdownMenu.Item
@@ -262,8 +315,8 @@ export const SavedViewsMenu = ({
               <RefreshIcon />
             </span>
             <FormattedMessage
-              defaultMessage="Discard shared view"
-              description="Menu item that discards the currently-applied shared view and restores the user's own view"
+              defaultMessage="Exit shared view"
+              description="Menu item that stops previewing the currently-applied shared view and restores the user's own view"
             />
           </DropdownMenu.Item>
         </>

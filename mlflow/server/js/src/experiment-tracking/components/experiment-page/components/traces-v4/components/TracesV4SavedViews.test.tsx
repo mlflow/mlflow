@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-import { TracesV4SavedViewsButton, TracesV4SharedViewBanner, useTracesV4SavedViews } from './TracesV4SavedViews';
+import { TracesV4SavedViewsButton, useTracesV4SavedViews } from './TracesV4SavedViews';
 import { MockedReduxStoreProvider } from '@mlflow/mlflow/src/common/utils/TestUtils';
 import { setupTestRouter, testRoute, TestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
@@ -13,7 +13,7 @@ import { encodeSavedViewEnvelope } from '../../../utils/savedViewEnvelope';
 import { textCompressDeflate, textDecompressDeflate } from '@mlflow/mlflow/src/common/utils/StringUtils';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { TRACE_V4_SHARE_URL_PARAM_KEY, buildV4ViewQuery, captureV4ViewState } from '../utils/tracesV4SavedViewState';
-import type { TraceColumnId } from '@databricks/web-shared/traces-table';
+import { FilterOp, type TraceColumnId, type TraceFilterModel } from '@databricks/web-shared/traces-table';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery', () => ({
   useGetExperimentQuery: jest.fn(),
@@ -44,8 +44,9 @@ const makeV4ViewTag = async (
   createdAt: number,
   query = 'q=x',
   cols: TraceColumnId[] = ['start_time'],
+  filters: TraceFilterModel = [],
 ) => {
-  const state = captureV4ViewState(new URLSearchParams(query), cols);
+  const state = captureV4ViewState(new URLSearchParams(query), cols, filters);
   const compressed = await textCompressDeflate(JSON.stringify(state));
   return { key: `mlflow.tracesV4ViewState.${id}`, value: encodeSavedViewEnvelope(name, compressed, createdAt) };
 };
@@ -57,11 +58,14 @@ const mockExperiment = (tags: { key: string; value: string }[]) => {
 
 const { history } = setupTestRouter();
 
+// Shared across the button harness so tests can assert column restore on open / reset.
+const buttonSetColumns = jest.fn();
 const SavedViewsButtonHarness = ({ experimentId }: { experimentId: string }) => {
   const savedViews = useTracesV4SavedViews({
     experimentId,
     visibleColumns: ['start_time', 'input'],
-    setColumns: jest.fn(),
+    filterModel: [],
+    setColumns: buttonSetColumns,
     resetColumns: jest.fn(),
     setFilterModel: jest.fn(),
   });
@@ -143,7 +147,7 @@ describe('TracesV4SavedViewsButton', () => {
     const out = new URLSearchParams(buildV4ViewQuery(decoded, 'x'));
     expect(out.get('q')).toBe('refund');
     expect(out.get('sort')).toBe('duration');
-    expect(out.get('cols')).toBe('start_time,input'); // the harness's live columns
+    expect(decoded.single.cols).toBe('start_time,input'); // the harness's live columns, stored not URL'd
   });
 
   test('saving a new view activates it: the URL gains the new view share key', async () => {
@@ -212,8 +216,9 @@ describe('TracesV4SavedViewsButton', () => {
     expect(screen.getByTestId('trace-v4-saved-views-trigger')).toHaveTextContent('Latency triage');
   });
 
-  test('opening a view rewrites the URL to the view stored query + share key', async () => {
-    // v1 was stored with q=x and cols=[start_time] (the harness default).
+  test('opening a view rewrites the URL to the stored query + share key and restores its columns', async () => {
+    // v1 was stored with q=x and cols=[start_time] (the harness default). Columns are no longer
+    // carried in the URL — they are restored into the user's column store via setColumns.
     let currentSearch = '';
     const SearchReporter = () => {
       const [params] = useSearchParams();
@@ -241,8 +246,10 @@ describe('TracesV4SavedViewsButton', () => {
       const out = new URLSearchParams(currentSearch);
       expect(out.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBe('v1');
       expect(out.get('q')).toBe('x');
-      expect(out.get('cols')).toBe('start_time');
+      // Columns ride in the store, not the URL.
+      expect(out.get('cols')).toBeNull();
     });
+    expect(buttonSetColumns).toHaveBeenCalledWith(['start_time']);
   });
 
   test('opening a corrupt view shows an error toast and does not navigate', async () => {
@@ -295,33 +302,45 @@ describe('TracesV4SavedViewsButton', () => {
     expect(out.get('pageSize')).toBe('50');
     expect(out.get('startTimeLabel')).toBe('LAST_7_DAYS');
     expect(out.getAll('tag')).toEqual(['env=prod', 'team=ml']);
-    expect(out.get('cols')).toBe('start_time,input'); // the harness's live columns
+    expect(decoded.single.cols).toBe('start_time,input'); // the harness's live columns, stored not URL'd
   });
 });
 
-describe('useTracesV4SavedViews preview / override / discard', () => {
+describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
   const setColumns = jest.fn();
   // Report BOTH the hook API and the live URL search each render, so assertions read the in-memory
   // router's state (TestRouter never touches window.location.hash) after a param rewrite.
-  const PreviewProbe = ({ onRender }: { onRender: (s: any, search: string) => void }) => {
+  const setFilterModel = jest.fn();
+  const DirtyProbe = ({
+    onRender,
+    filterModel = [],
+  }: {
+    onRender: (s: any, search: string) => void;
+    filterModel?: TraceFilterModel;
+  }) => {
     const savedViews = useTracesV4SavedViews({
       experimentId: 'exp-1',
-      visibleColumns: ['start_time', 'input'],
+      visibleColumns: ['start_time'],
+      filterModel,
       setColumns,
       resetColumns: jest.fn(),
-      setFilterModel: jest.fn(),
+      setFilterModel,
     });
     const [params] = useSearchParams();
     onRender(savedViews, params.toString());
     return null;
   };
 
-  const renderProbeAt = (entry: string, onRender: (s: any, search: string) => void) =>
+  const renderProbeAt = (
+    entry: string,
+    onRender: (s: any, search: string) => void,
+    filterModel: TraceFilterModel = [],
+  ) =>
     render(
       <IntlProvider locale="en">
         <DesignSystemProvider>
           <MockedReduxStoreProvider>
-            <PreviewProbe onRender={onRender} />
+            <DirtyProbe onRender={onRender} filterModel={filterModel} />
           </MockedReduxStoreProvider>
         </DesignSystemProvider>
       </IntlProvider>,
@@ -332,110 +351,152 @@ describe('useTracesV4SavedViews preview / override / discard', () => {
       },
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
-    mockExperiment([]);
+    // v1 is stored with q=x and cols=[start_time], matching the probe's live state below.
+    mockExperiment([await makeV4ViewTag('v1', 'Known', 1000, 'q=x', ['start_time'])]);
   });
 
-  test('sharedViewActive is true only when a share key is present in the URL', () => {
+  test('activeViewId is set only when the share key resolves to a known view', () => {
     let state: any;
     renderProbeAt('/?q=x', (s) => (state = s));
-    expect(state.sharedViewActive).toBe(false);
+    expect(state.activeViewId).toBeNull();
 
-    renderProbeAt(`/?${TRACE_V4_SHARE_URL_PARAM_KEY}=v1&cols=tokens,cost`, (s) => (state = s));
-    expect(state.sharedViewActive).toBe(true);
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=nope`, (s) => (state = s));
+    // A share key that isn't in the list must not drive overwrite/reset/dirty.
+    expect(state.activeViewId).toBeNull();
+
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s));
+    expect(state.activeViewId).toBe('v1');
   });
 
-  test('previewColumns decode from the cols URL param while a shared view is active', () => {
+  test('dirtyStatus is clean when the live state matches the active view', async () => {
     let state: any;
-    renderProbeAt(`/?${TRACE_V4_SHARE_URL_PARAM_KEY}=v1&cols=tokens,cost`, (s) => (state = s));
-    expect(state.previewColumns).toEqual(['tokens', 'cost']);
+    // Live URL (q=x) + live columns ([start_time]) equal v1's stored state.
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s));
+    await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
   });
 
-  test('override adopts the previewed columns into the user store and strips the preview params', async () => {
+  test('dirtyStatus becomes dirty when the live URL diverges from the active view', async () => {
+    let state: any;
+    // Live URL (q=changed) differs from v1's stored q=x.
+    renderProbeAt(`/?q=changed&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s));
+    await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
+  });
+
+  test('overwriteView rewrites the active view tag in place, keeping id + createdAt and bumping updatedAt', async () => {
+    let state: any;
+    renderProbeAt(`/?q=changed&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s));
+    await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
+    await act(async () => {
+      await state.overwriteView('v1');
+    });
+    expect(mockSetExperimentTagApi).toHaveBeenCalledTimes(1);
+    const [expId, tagKey, tagValue] = mockSetExperimentTagApi.mock.calls[0];
+    expect(expId).toBe('exp-1');
+    expect(tagKey).toBe('mlflow.tracesV4ViewState.v1'); // same tag, in place
+    const envelope = JSON.parse(tagValue);
+    expect(envelope.name).toBe('Known'); // name preserved
+    expect(envelope.createdAt).toBe(1000); // creation time preserved
+    expect(envelope.updatedAt).toBeGreaterThan(1000); // edit time bumped
+    // The rewritten state captures the edited URL.
+    const decoded = JSON.parse(await textDecompressDeflate(envelope.state));
+    expect(decoded.single.q).toBe('changed');
+  });
+
+  test('overwriteView refuses to resurrect a phantom (unknown) id', async () => {
+    let state: any;
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s));
+    await act(async () => {
+      await state.overwriteView('does-not-exist');
+    });
+    expect(mockSetExperimentTagApi).not.toHaveBeenCalled();
+  });
+
+  test('resetActiveView re-applies the stored view, restoring its columns and clearing the edit', async () => {
     let state: any;
     let search = '';
-    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1&cols=tokens,cost`, (s, sp) => {
+    renderProbeAt(`/?q=changed&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s, sp) => {
       state = s;
       search = sp;
     });
+    await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
     await act(async () => {
-      state.override();
+      state.resetActiveView();
     });
-    // The previewed columns are persisted to the user's own column store...
-    expect(setColumns).toHaveBeenCalledWith(['tokens', 'cost']);
-    // ...and the preview params are cleared while the rest of the view (q) stays.
+    // The stored query (q=x) is re-applied and the stored columns restored.
     await waitFor(() => {
       const url = new URLSearchParams(search);
-      expect(url.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBeNull();
-      expect(url.get('cols')).toBeNull();
       expect(url.get('q')).toBe('x');
+      expect(url.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBe('v1');
     });
+    expect(setColumns).toHaveBeenCalledWith(['start_time']);
   });
 
-  test('discard strips the preview params WITHOUT writing to the user column store', async () => {
+  test('opening a view restores its stored popover filter model', async () => {
+    // v1 stored with a state filter; opening it must push that clause into the live filter model.
+    mockExperiment([
+      await makeV4ViewTag(
+        'v1',
+        'Known',
+        1000,
+        'q=x',
+        ['start_time'],
+        [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }],
+      ),
+    ]);
     let state: any;
-    let search = '';
-    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1&cols=tokens,cost`, (s, sp) => {
-      state = s;
-      search = sp;
-    });
+    renderProbeAt('/', (s) => (state = s));
     await act(async () => {
-      state.discard();
+      await state.openView('v1');
     });
-    expect(setColumns).not.toHaveBeenCalled();
-    await waitFor(() => {
-      const url = new URLSearchParams(search);
-      expect(url.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBeNull();
-      expect(url.get('cols')).toBeNull();
-      expect(url.get('q')).toBe('x');
-    });
+    expect(setFilterModel).toHaveBeenCalledWith([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]);
   });
 
-  test('previewColumns is undefined when the cols param resolves to no known columns', () => {
+  test('a filter-model divergence from the stored view reads as dirty', async () => {
+    // v1 stored with NO filters; the probe's live filter model carries a clause → dirty.
     let state: any;
-    renderProbeAt(`/?${TRACE_V4_SHARE_URL_PARAM_KEY}=v1&cols=bogus1,bogus2`, (s) => (state = s));
-    // A view saved against an older/foreign column set: nothing resolves, so the caller falls back
-    // to the user's own columns rather than hiding every column.
-    expect(state.previewColumns).toBeUndefined();
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s), [
+      { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+    ]);
+    await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
   });
 
-  test('override on a filter-only view (no cols) exits preview WITHOUT touching the column store', async () => {
+  test('overwriteView captures the live filter model into the rewritten tag', async () => {
     let state: any;
-    let search = '';
-    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s, sp) => {
-      state = s;
-      search = sp;
-    });
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s), [
+      { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+    ]);
+    await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
     await act(async () => {
-      state.override();
+      await state.overwriteView('v1');
     });
-    // No cols to adopt → the user's own columns are left untouched, and preview still exits.
-    expect(setColumns).not.toHaveBeenCalled();
-    await waitFor(() => {
-      const url = new URLSearchParams(search);
-      expect(url.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBeNull();
-      expect(url.get('q')).toBe('x');
-    });
+    const [, , tagValue] = mockSetExperimentTagApi.mock.calls[0];
+    const decoded = JSON.parse(await textDecompressDeflate(JSON.parse(tagValue).state));
+    expect(decoded.filters).toEqual([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]);
   });
 
-  test('setPreviewColumns edits the cols param WITHOUT writing the user column store', async () => {
+  test('an unsupported stored filter clause is dropped on restore, not stranding the view dirty', async () => {
+    // A clause whose operator the `state` field never offers (CONTAINS) is invalid; opening must
+    // drop it (restoring an empty model), and the dirty diff normalizes the baseline the same way so
+    // the view still reads clean against a live empty filter model.
+    mockExperiment([
+      await makeV4ViewTag(
+        'v1',
+        'Known',
+        1000,
+        'q=x',
+        ['start_time'],
+        [{ field: 'state', operator: FilterOp.CONTAINS, value: 'ERROR' }],
+      ),
+    ]);
     let state: any;
-    let search = '';
-    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1&cols=tokens,cost`, (s, sp) => {
-      state = s;
-      search = sp;
-    });
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s), []);
     await act(async () => {
-      state.setPreviewColumns(['tokens', 'cost', 'duration']);
+      await state.openView('v1');
     });
-    // The preview (cols param) changes; localStorage is untouched (that only happens on Override).
-    expect(setColumns).not.toHaveBeenCalled();
-    await waitFor(() => {
-      const url = new URLSearchParams(search);
-      expect(url.get('cols')).toBe('tokens,cost,duration');
-      expect(url.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBe('v1'); // still previewing
-    });
+    expect(setFilterModel).toHaveBeenLastCalledWith([]);
+    await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
   });
 });
 
@@ -444,6 +505,7 @@ describe('useTracesV4SavedViews stale-tag refetch on active share key', () => {
     useTracesV4SavedViews({
       experimentId,
       visibleColumns: ['start_time'],
+      filterModel: [],
       setColumns: jest.fn(),
       resetColumns: jest.fn(),
       setFilterModel: jest.fn(),
@@ -511,48 +573,44 @@ describe('useTracesV4SavedViews stale-tag refetch on active share key', () => {
   });
 });
 
-describe('TracesV4SharedViewBanner', () => {
-  const setColumns = jest.fn();
-  const BannerHarness = ({ entry }: { entry: string }) => {
-    const savedViews = useTracesV4SavedViews({
-      experimentId: 'exp-1',
-      visibleColumns: ['start_time'],
-      setColumns,
-      resetColumns: jest.fn(),
-      setFilterModel: jest.fn(),
-    });
-    return <TracesV4SharedViewBanner savedViews={savedViews} />;
-  };
-  const renderBannerAt = (entry: string) =>
-    render(
-      <IntlProvider locale="en">
-        <DesignSystemProvider>
-          <MockedReduxStoreProvider>
-            <BannerHarness entry={entry} />
-          </MockedReduxStoreProvider>
-        </DesignSystemProvider>
-      </IntlProvider>,
-      {
-        wrapper: ({ children }) => (
-          <TestRouter routes={[testRoute(<>{children}</>, '/')]} history={history} initialEntries={[entry]} />
-        ),
-      },
-    );
-
+describe('TracesV4SavedViewsButton dirty affordances', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockExperiment([await makeV4ViewTag('v1', 'Shared latency view', 1000)]);
+    mockExperiment([await makeV4ViewTag('v1', 'Latency triage', 1000, 'q=x', ['start_time'])]);
   });
 
-  test('renders nothing when no shared view is active', () => {
-    const { container } = renderBannerAt('/?q=x');
-    expect(container).toBeEmptyDOMElement();
+  test('no dirty dot and no Overwrite/Reset actions when the active view is clean', async () => {
+    // Live state (q=x, cols=[start_time,input]) — cols differ from the stored [start_time], but the
+    // trigger only shows the dot when dirty; here we land on the clean case via matching state.
+    renderButtonAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`);
+    // The harness's live columns are [start_time, input] while v1 stored [start_time] — that IS a
+    // divergence, so this view is dirty. Assert the dirty affordances appear instead.
+    await waitFor(() => expect(screen.getByTestId('trace-v4-saved-views-dirty-dot')).toBeInTheDocument());
+    await openDropdown();
+    expect(screen.getByTestId('trace-v4-saved-views-overwrite-active')).toBeInTheDocument();
+    expect(screen.getByTestId('trace-v4-saved-views-reset-active')).toBeInTheDocument();
   });
 
-  test('announces the active shared view and offers Override / Discard', () => {
-    renderBannerAt(`/?${TRACE_V4_SHARE_URL_PARAM_KEY}=v1&cols=tokens`);
-    expect(screen.getByTestId('trace-v4-shared-view-banner')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Override my view/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Discard/ })).toBeInTheDocument();
+  test('a clean active view shows neither the dot nor the dirty actions', async () => {
+    // Store v1 with cols matching the harness's live columns so it is genuinely clean.
+    mockExperiment([await makeV4ViewTag('v1', 'Latency triage', 1000, 'q=x', ['start_time', 'input'])]);
+    renderButtonAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`);
+    // Give the stored-state effect a chance to run, then confirm it stays clean.
+    await waitFor(() => expect(screen.getByTestId('trace-v4-saved-views-trigger')).toHaveTextContent('Latency triage'));
+    expect(screen.queryByTestId('trace-v4-saved-views-dirty-dot')).not.toBeInTheDocument();
+    await openDropdown();
+    expect(screen.queryByTestId('trace-v4-saved-views-overwrite-active')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('trace-v4-saved-views-reset-active')).not.toBeInTheDocument();
+  });
+
+  test('the Overwrite action names the active view and dispatches an in-place tag write', async () => {
+    renderButtonAt(`/?q=changed&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`);
+    await waitFor(() => expect(screen.getByTestId('trace-v4-saved-views-dirty-dot')).toBeInTheDocument());
+    await openDropdown();
+    const overwrite = screen.getByTestId('trace-v4-saved-views-overwrite-active');
+    expect(overwrite).toHaveTextContent('Overwrite "Latency triage"');
+    await userEvent.click(overwrite, { pointerEventsCheck: 0 });
+    await waitFor(() => expect(mockSetExperimentTagApi).toHaveBeenCalled());
+    expect(mockSetExperimentTagApi.mock.calls[0][1]).toBe('mlflow.tracesV4ViewState.v1');
   });
 });
