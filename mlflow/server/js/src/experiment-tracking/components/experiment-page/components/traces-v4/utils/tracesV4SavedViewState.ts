@@ -27,8 +27,18 @@ export const TRACE_V4_COLS_PARAM_KEY = 'cols';
 const COLUMNS_SEPARATOR = ',';
 
 // The URL view params that make up a V4 saved view. `tag` is repeatable (one param per filter).
-// Deliberately EXCLUDES the transient params `page`, `traceId`, and the share key itself.
-const SINGLE_VALUE_KEYS = ['q', 'pageSize', 'sort', 'dir', 'startTimeLabel', 'startTime', 'endTime'] as const;
+// `groupBy` carries the session-grouping toggle (`groupBy=session`). Deliberately EXCLUDES the
+// transient params `page`, `traceId`, and the share key itself.
+const SINGLE_VALUE_KEYS = [
+  'q',
+  'pageSize',
+  'sort',
+  'dir',
+  'startTimeLabel',
+  'startTime',
+  'endTime',
+  'groupBy',
+] as const;
 const MULTI_VALUE_KEYS = ['tag'] as const;
 
 export interface CapturedV4ViewState {

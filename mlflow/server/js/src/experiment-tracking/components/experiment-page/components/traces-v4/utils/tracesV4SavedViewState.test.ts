@@ -37,7 +37,9 @@ describe('tracesV4SavedViewState tag-key helpers', () => {
 describe('captureV4ViewState', () => {
   test('captures the whitelisted URL view params and drops the transient ones', () => {
     const state = captureV4ViewState(
-      params('q=refund&sort=duration&dir=asc&pageSize=50&page=3&traceId=abc123&startTimeLabel=LAST_7_DAYS'),
+      params(
+        'q=refund&sort=duration&dir=asc&pageSize=50&page=3&traceId=abc123&startTimeLabel=LAST_7_DAYS&groupBy=session',
+      ),
       ['start_time', 'input', 'duration'],
     );
     const query = buildV4ViewQuery(state, 'view-1');
@@ -48,6 +50,8 @@ describe('captureV4ViewState', () => {
     expect(out.get('dir')).toBe('asc');
     expect(out.get('pageSize')).toBe('50');
     expect(out.get('startTimeLabel')).toBe('LAST_7_DAYS');
+    // Session grouping is a URL-backed view param, so it round-trips like the rest.
+    expect(out.get('groupBy')).toBe('session');
     // Transient state is never part of a saved view.
     expect(out.get('page')).toBeNull();
     expect(out.get('traceId')).toBeNull();

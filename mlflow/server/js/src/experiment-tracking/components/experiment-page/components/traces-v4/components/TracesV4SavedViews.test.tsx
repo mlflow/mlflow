@@ -281,6 +281,20 @@ describe('TracesV4SavedViewsButton', () => {
     errorSpy.mockRestore();
   });
 
+  test('landing on a direct link to a corrupt view degrades gracefully (no crash, view not marked active)', async () => {
+    // A share link opened cold: the view tag exists but its state blob is undecodable. The URL params
+    // still drive the table, so the cold-load hydration just no-ops — no crash, and the button shows
+    // the view name from the (readable) envelope without hydrating columns or flagging a dirty view.
+    mockExperiment([
+      { key: 'mlflow.tracesV4ViewState.bad', value: encodeSavedViewEnvelope('Broken', 'not-base64', 5) },
+    ]);
+    renderButtonAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=bad`);
+    await waitFor(() => expect(screen.getByTestId('trace-v4-saved-views-trigger')).toHaveTextContent('Broken'));
+    // Undecodable state → no columns restored and no dirty dot (stays clean rather than half-applied).
+    expect(buttonSetColumns).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('trace-v4-saved-views-dirty-dot')).not.toBeInTheDocument();
+  });
+
   test('copy-link copies the view own stored share URL and shows a success toast', async () => {
     const infoSpy = jest.spyOn(Utils, 'displayGlobalInfoNotification').mockImplementation(() => {});
     renderButtonAt();

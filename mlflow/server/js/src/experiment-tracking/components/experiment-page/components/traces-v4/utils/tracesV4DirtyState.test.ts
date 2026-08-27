@@ -54,6 +54,13 @@ describe('capturedV4StatesMatch', () => {
     const c = capture('q=x', ['start_time'], [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]);
     expect(capturedV4StatesMatch(a, c)).toBe(true);
   });
+
+  test('toggling session grouping is dirty', () => {
+    const grouped = capture('q=x&groupBy=session', ['start_time']);
+    const flat = capture('q=x', ['start_time']);
+    expect(capturedV4StatesMatch(grouped, flat)).toBe(false);
+    expect(capturedV4StatesMatch(grouped, capture('q=x&groupBy=session', ['start_time']))).toBe(true);
+  });
 });
 
 describe('canonicalViewQuery', () => {
