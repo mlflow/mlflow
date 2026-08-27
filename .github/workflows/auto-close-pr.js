@@ -111,8 +111,12 @@ async function getCloseReason({ github, context }) {
   if (["OWNER", "MEMBER", "COLLABORATOR"].includes(association)) return undefined;
   if (context.payload.pull_request.user.type === "Bot") return undefined;
 
-  // Checked before the Databricks-affiliation skip: these paths are off-limits to
-  // anyone who isn't a repository collaborator.
+  if (await isDatabricksAuthor({ github, context })) {
+    const prAuthor = context.payload.pull_request.user.login;
+    console.log(`PR author @${prAuthor} has Databricks affiliation. Skipping.`);
+    return undefined;
+  }
+
   const protectedHits = await getProtectedPathHits({ github, context });
   if (protectedHits.length > 0) {
     console.log(`PR modifies protected paths: ${protectedHits.join(", ")}. Closing.`);
@@ -121,12 +125,6 @@ async function getCloseReason({ github, context }) {
       protectedHits.map((f) => `- \`${f}\``).join("\n"),
       "Please open an issue if you'd like to propose a change.",
     ].join("\n\n");
-  }
-
-  if (await isDatabricksAuthor({ github, context })) {
-    const prAuthor = context.payload.pull_request.user.login;
-    console.log(`PR author @${prAuthor} has Databricks affiliation. Skipping.`);
-    return undefined;
   }
 
   const prNumber = context.payload.pull_request.number;
