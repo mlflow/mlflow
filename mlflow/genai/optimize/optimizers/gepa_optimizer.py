@@ -326,7 +326,6 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
                         component_data.append({
                             "component_name": component_name,
-                            "current_text": candidate.get(component_name, ""),
                             "trace": spans,
                             "score": score,
                             "inputs": trajectory.inputs,
