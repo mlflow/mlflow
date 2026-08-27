@@ -101,9 +101,17 @@ async function getProtectedPathHits({ github, context }) {
     pull_number: context.payload.pull_request.number,
     per_page: 100,
   });
-  return files
-    .map(({ filename }) => filename)
-    .filter((filename) => PROTECTED_PATHS.some((re) => re.test(filename)));
+  // A rename reports the destination in `filename` and the source in `previous_filename`,
+  // so both must be checked to catch files moved out of a protected location.
+  const hits = new Set();
+  for (const { filename, previous_filename } of files) {
+    for (const name of [filename, previous_filename]) {
+      if (name && PROTECTED_PATHS.some((re) => re.test(name))) {
+        hits.add(name);
+      }
+    }
+  }
+  return [...hits];
 }
 
 async function getCloseReason({ github, context }) {
