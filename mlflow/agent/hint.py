@@ -1,8 +1,10 @@
 """An agent-directed pointer to the MLflow tracing skill.
 
-Emitted on ``import mlflow`` when a coding agent is driving and the skill is not
-installed where that agent would find it. Without it, agents design tracing from
-scratch and produce traces with blank tool inputs and outputs.
+Emitted on ``import mlflow`` when a coding agent is driving. Whether the skill
+is already installed is deliberately not probed: skills end up in too many
+places for the check to be accurate, and the pointer stays useful either way.
+Without it, agents design tracing from scratch and produce traces with blank
+tool inputs and outputs.
 
 Fires once per process; ``MLFLOW_DISABLE_AGENT_HINT=1`` silences it for good.
 """
@@ -12,11 +14,9 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from collections.abc import Iterator
 from importlib import resources
 from pathlib import Path
 
-from mlflow.agent.agents import AGENTS
 from mlflow.environment_variables import MLFLOW_DISABLE_AGENT_HINT
 
 _logger = logging.getLogger(__name__)
@@ -56,12 +56,6 @@ _AGENT_ENV_VALUES = {"CURSOR_EXTENSION_HOST_ROLE": "agent-exec"}
 # Kiro sets this in its own IDE terminal too, so it only means "agent" when
 # nothing is attached to stdout, as a human terminal always is.
 _AGENT_ENV_VALUES_WITHOUT_TTY = {"TERM_PROGRAM": "kiro"}
-
-# Skill directories, deduplicated across agents that share a layout.
-_HOME_SKILL_DIRS = tuple(sorted({a.global_skills_dir for a in AGENTS.values()}))
-_PROJECT_SKILL_DIRS = tuple(
-    sorted({d for a in AGENTS.values() for d in (a.skills_dir, a.global_skills_dir)})
-)
 
 # The skill that teaches supported autologging and span input/output recording.
 # Lives in https://github.com/mlflow/skills and is installed by `mlflow agent setup`.
@@ -112,50 +106,11 @@ def _is_agent_driving() -> bool:
     )
 
 
-def _custom_skill_dirs() -> tuple[Path, ...]:
-    """Directories `mlflow agent setup` was pointed at via its custom location."""
-    # Lazy for the same reason as the bundled lookup: only a detected agent needs it.
-    from mlflow.assistant.config import AssistantConfig
-
-    try:
-        config = AssistantConfig.load()
-    except Exception:
-        return ()
-    return tuple(
-        Path(provider.skills.custom_path).expanduser()
-        for provider in config.providers.values()
-        if provider.skills.type == "custom" and provider.skills.custom_path
-    )
-
-
-def _skill_dir_candidates() -> Iterator[Path]:
-    """Every directory a coding agent might load skills from, cheapest first.
-
-    All known agents are covered, not just the detected one: the detected agent
-    may have no :data:`AGENTS` entry, and an installed skill should silence the
-    hint whoever installed it. Lazy so the config read is skipped once a
-    directory matches.
-    """
-    home = Path.home()
-    yield from (home / rel for rel in _HOME_SKILL_DIRS)
-    # Agents often run from a subdirectory while the skill sits at the repo root.
-    cwd = Path.cwd()
-    yield from (root / rel for root in (cwd, *cwd.parents) for rel in _PROJECT_SKILL_DIRS)
-    # Last: this one reads and parses the assistant config off disk.
-    yield from _custom_skill_dirs()
-
-
-def _is_skill_installed() -> bool:
-    return any((d / TRACING_SKILL).is_dir() for d in _skill_dir_candidates())
-
-
 def maybe_hint_tracing_skill() -> None:
-    """Log the tracing-skill hint when a coding agent is driving without it."""
+    """Log the tracing-skill hint when a coding agent is driving."""
     if MLFLOW_DISABLE_AGENT_HINT.get():
         return
     if not _is_agent_driving():
-        return
-    if _is_skill_installed():
         return
     if (path := _bundled_skill_manifest()) is None:
         return

@@ -14,7 +14,7 @@ _REAL_BUNDLED_LOOKUP = hint._bundled_skill_manifest
 
 @pytest.fixture
 def clean_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A directory with no agent markers, no skills, and an isolated home."""
+    """A directory with no agent markers and an isolated home."""
     for marker in (
         *hint._AGENT_ENV_MARKERS,
         *hint._AGENT_ENV_VALUES,
@@ -83,61 +83,11 @@ def test_disable_env_var_silences_the_hint(clean_env: Path, monkeypatch: pytest.
     assert hint_message() is None
 
 
-@pytest.mark.parametrize("scope", ["project", "global"])
-def test_silent_once_the_skill_is_installed(
-    clean_env: Path, monkeypatch: pytest.MonkeyPatch, scope: str
-):
-    monkeypatch.setenv("CLAUDECODE", "1")
-    root = clean_env if scope == "project" else Path.home()
-    (root / ".claude" / "skills" / hint.TRACING_SKILL).mkdir(parents=True)
-    assert hint_message() is None
-
-
-def test_silent_from_a_subdirectory_of_the_project(
-    clean_env: Path, monkeypatch: pytest.MonkeyPatch
-):
+def test_hints_even_when_the_skill_is_installed(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
+    # Installation is deliberately not probed: skills end up in too many places
+    # for the check to be accurate, and the pointer stays useful either way.
     monkeypatch.setenv("CLAUDECODE", "1")
     (clean_env / ".claude" / "skills" / hint.TRACING_SKILL).mkdir(parents=True)
-    # Agents often run from a subdirectory while the skill sits at the repo root.
-    nested = clean_env / "services" / "api"
-    nested.mkdir(parents=True)
-    monkeypatch.chdir(nested)
-    assert hint_message() is None
-
-
-def test_silent_for_codex_project_skills_from_the_assistant_flow(
-    clean_env: Path, monkeypatch: pytest.MonkeyPatch
-):
-    monkeypatch.setenv("CODEX_SANDBOX", "seatbelt")
-    # `mlflow agent setup`'s assistant flow writes Codex project skills under
-    # `.codex/skills`, not the `.agents/skills` Codex reads natively.
-    (clean_env / ".codex" / "skills" / hint.TRACING_SKILL).mkdir(parents=True)
-    assert hint_message() is None
-
-
-def test_silent_for_a_custom_skills_location(
-    clean_env: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-):
-    monkeypatch.setenv("CLAUDECODE", "1")
-    # `mlflow agent setup` can install to an arbitrary path recorded in the config.
-    custom = tmp_path / "somewhere" / "else"
-    (custom / hint.TRACING_SKILL).mkdir(parents=True)
-    monkeypatch.setattr(hint, "_custom_skill_dirs", lambda: (custom,))
-    assert hint_message() is None
-
-
-def test_custom_skill_dirs_survives_an_unreadable_config(monkeypatch: pytest.MonkeyPatch):
-    from mlflow.assistant.config import AssistantConfig
-
-    monkeypatch.setattr(AssistantConfig, "load", mock.Mock(side_effect=OSError("boom")))
-    assert hint._custom_skill_dirs() == ()
-
-
-def test_a_different_skill_does_not_suppress_the_hint(
-    clean_env: Path, monkeypatch: pytest.MonkeyPatch
-):
-    monkeypatch.setenv("CLAUDECODE", "1")
-    (clean_env / ".claude" / "skills" / "some-other-skill").mkdir(parents=True)
     assert hint_message() is not None
 
 
