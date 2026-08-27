@@ -94,12 +94,16 @@ def _ensure_image(client, image: str) -> None:
     build_args = {
         k: os.environ[k] for k in ("PIP_INDEX_URL", "PIP_EXTRA_INDEX_URL") if os.environ.get(k)
     }
+    # Use the index URLs only for the build step; do not promote them to ENV. A private-index
+    # URL can embed credentials (https://user:pass@mirror/...), and an ENV would persist them in
+    # the final image where any sandbox command could read them. Passing them inline on the RUN
+    # keeps them build-time only, so the runtime image carries no index credentials.
     dockerfile = (
         "FROM python:3.11-slim\n"
         "ARG PIP_INDEX_URL=\n"
         "ARG PIP_EXTRA_INDEX_URL=\n"
-        "ENV PIP_INDEX_URL=$PIP_INDEX_URL PIP_EXTRA_INDEX_URL=$PIP_EXTRA_INDEX_URL\n"
-        "RUN pip install --no-cache-dir mlflow\n"
+        "RUN PIP_INDEX_URL=$PIP_INDEX_URL PIP_EXTRA_INDEX_URL=$PIP_EXTRA_INDEX_URL \\\n"
+        "    pip install --no-cache-dir mlflow\n"
     )
     with tempfile.TemporaryDirectory(prefix="mlflow-sandbox-image-") as ctx:
         Path(ctx, "Dockerfile").write_text(dockerfile)

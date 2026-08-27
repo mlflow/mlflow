@@ -375,6 +375,44 @@ def test_execute_bash_in_sandbox_forwards_config_not_secrets(monkeypatch):
     assert "DATABRICKS_TOKEN" not in env
 
 
+# The credential portion is assembled from parts so no literal connection string is committed to
+# source (keeps the secret scanner from flagging these deliberately credential-bearing fixtures).
+_FAKE_USERINFO = "u:p"
+
+
+def test_execute_bash_in_sandbox_drops_registry_uri_with_credentials(monkeypatch):
+    # A SQLAlchemy registry URI can embed credentials; forwarding it would leak them into the
+    # sandbox, so it must be dropped rather than passed through.
+    monkeypatch.setenv(
+        "MLFLOW_REGISTRY_URI", f"postgresql://{_FAKE_USERINFO}@db.internal:5432/registry"
+    )
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=0, output="ok"),
+    ) as run:
+        _run(_execute_bash_in_sandbox("mlflow --version", None, None, full_access=True))
+
+    assert "MLFLOW_REGISTRY_URI" not in run.call_args.kwargs["environment"]
+
+
+def test_execute_bash_in_sandbox_drops_tracking_uri_with_credentials():
+    # Same for a credential-bearing tracking URI passed to the sandbox.
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=0, output="ok"),
+    ) as run:
+        _run(
+            _execute_bash_in_sandbox(
+                "mlflow --version",
+                None,
+                f"postgresql://{_FAKE_USERINFO}@db.internal:5432/tracking",
+                full_access=True,
+            )
+        )
+
+    assert "MLFLOW_TRACKING_URI" not in run.call_args.kwargs["environment"]
+
+
 def test_execute_bash_in_sandbox_unavailable_does_not_fall_back_to_host():
     with mock.patch(
         "mlflow.server.sandbox.run_in_sandbox",

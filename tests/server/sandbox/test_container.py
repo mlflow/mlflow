@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -157,6 +158,31 @@ def test_run_in_sandbox_builds_image_when_missing():
         run_in_sandbox(["echo", "hi"])
 
     client.images.build.assert_called_once()
+
+
+def test_run_in_sandbox_build_does_not_persist_index_credentials(monkeypatch):
+    import docker.errors
+
+    # A private-index URL can embed credentials; they must be used at build time only and never
+    # baked into the image (an ENV would let any sandbox command read them).
+    monkeypatch.setenv("PIP_INDEX_URL", "https://user:pass@mirror.internal/simple")
+    client, _ = _mock_client()
+    client.images.get.side_effect = docker.errors.ImageNotFound("missing")
+    captured = {}
+
+    def _build(path, **kwargs):
+        captured["dockerfile"] = Path(path, "Dockerfile").read_text()
+        captured["buildargs"] = kwargs.get("buildargs")
+        return (mock.MagicMock(), [])
+
+    client.images.build.side_effect = _build
+    with mock.patch("docker.from_env", return_value=client):
+        run_in_sandbox(["echo", "hi"])
+
+    # The URL is available to the build as a build arg, but is not persisted as an image ENV.
+    assert captured["buildargs"]["PIP_INDEX_URL"] == "https://user:pass@mirror.internal/simple"
+    assert "ENV PIP_INDEX_URL" not in captured["dockerfile"]
+    assert "user:pass" not in captured["dockerfile"]
 
 
 def test_run_in_sandbox_image_build_failure_raises_unavailable():

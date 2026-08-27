@@ -4,12 +4,34 @@ import os
 import shlex
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
 from mlflow.environment_variables import MLFLOW_ENABLE_ASSISTANT_SANDBOX
 
 _logger = logging.getLogger(__name__)
+
+
+def _uri_without_credentials(name: str, uri: str) -> str | None:
+    """Return ``uri`` only when it carries no embedded credentials, else ``None``.
+
+    ``MLFLOW_TRACKING_URI`` / ``MLFLOW_REGISTRY_URI`` can be SQLAlchemy database URIs that embed
+    credentials in the netloc (``user:password@host``). Forwarding one with userinfo into the
+    sandbox would leak host credentials to sandboxed commands, defeating the isolation the sandbox
+    exists for, so a URI with credentials (or one that cannot be parsed to confirm it has none) is
+    dropped and logged rather than passed through.
+    """
+    try:
+        parts = urlsplit(uri)
+    except ValueError:
+        _logger.warning("Not forwarding %s to the sandbox: its URI could not be parsed.", name)
+        return None
+    if parts.username or parts.password:
+        _logger.warning("Not forwarding %s to the sandbox: it contains embedded credentials.", name)
+        return None
+    return uri
+
 
 _FILE_TOOLS = {"Read", "Write", "Edit"}
 # Restricted mode only permits MLflow CLI and Python; anything else needs Full Access.
@@ -247,11 +269,11 @@ async def _execute_bash_in_sandbox(
     # configuration a restricted `mlflow` command needs is passed through, loopback-rewritten
     # so it resolves from inside the container.
     env = {}
-    if tracking_uri:
-        env["MLFLOW_TRACKING_URI"] = to_container_host_uri(tracking_uri)
+    if tracking_uri and (safe := _uri_without_credentials("MLFLOW_TRACKING_URI", tracking_uri)):
+        env["MLFLOW_TRACKING_URI"] = to_container_host_uri(safe)
     for var in ("MLFLOW_REGISTRY_URI",):
-        if value := os.environ.get(var):
-            env[var] = to_container_host_uri(value)
+        if (value := os.environ.get(var)) and (safe := _uri_without_credentials(var, value)):
+            env[var] = to_container_host_uri(safe)
 
     if full_access:
         sandbox_command = [command]

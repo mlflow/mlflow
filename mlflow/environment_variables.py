@@ -127,9 +127,10 @@ MLFLOW_ENABLE_REMOTE_ASSISTANT = _BooleanEnvironmentVariable(
 #: **Experimental** — subject to change or removal in a future release.
 #: When true, the MLflow Assistant runs shell commands it issues (the ``Bash`` tool) inside a
 #: locked-down Docker container instead of directly on the server host. The container is
-#: network-restricted, non-root, read-only-rootfs, and resource-capped. Requires a POSIX host
-#: with a reachable Docker daemon. When false (the default) the assistant behaves exactly as
-#: before, running those commands on the host.
+#: non-root, read-only-rootfs, and resource-capped. It runs on Docker's default bridge network,
+#: so it still has outbound network access — this flag is not an egress boundary (restricting
+#: egress is handled separately). Requires a POSIX host with a reachable Docker daemon. When
+#: false (the default) the assistant behaves exactly as before, running those commands on the host.
 #: (default: ``False``)
 MLFLOW_ENABLE_ASSISTANT_SANDBOX = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_ASSISTANT_SANDBOX", False
