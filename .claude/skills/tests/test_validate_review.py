@@ -6,7 +6,7 @@ import pytest
 from skills.cli import build_parser
 from skills.commands.validate_review import format_path
 
-BODY = "Overall the change looks good.\n\n🤖 Generated with Claude"
+BODY = "Overall the change looks good."
 CRITICAL = {"path": "a.py", "body": "🔴 **CRITICAL:** unhandled None", "line": 1, "side": "RIGHT"}
 
 
@@ -30,7 +30,7 @@ def test_cli_exits_nonzero_and_reports_each_error(
 ) -> None:
     payload = {
         "event": "APPROVE",
-        "body": "missing the footer",
+        "body": "",
         "comments": [{"path": "a.py", "body": "missing the prefix", "line": 0, "side": "MIDDLE"}],
     }
     with pytest.raises(SystemExit, match="^1$"):
