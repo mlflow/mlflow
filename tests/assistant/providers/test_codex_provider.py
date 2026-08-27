@@ -838,7 +838,7 @@ class _FakeSandboxProcess:
 
 @pytest.mark.asyncio
 async def test_astream_uses_sandbox_when_flag_enabled(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     provider = CodexProvider()
     sentinel = MagicMock(name="sandbox-event")
 
@@ -853,7 +853,7 @@ async def test_astream_uses_sandbox_when_flag_enabled(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_does_not_use_sandbox_when_flag_off(monkeypatch):
-    monkeypatch.delenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", raising=False)
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: False)
     provider = CodexProvider()
     with (
         patch.object(CodexProvider, "_astream_in_sandbox") as sandbox,
@@ -868,7 +868,7 @@ async def test_astream_does_not_use_sandbox_when_flag_off(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     fake = _FakeSandboxProcess(
         lines=_make_stdout_lines(
             {"type": "thread.started", "thread_id": "t1"},
@@ -899,7 +899,7 @@ async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypat
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_reports_nonzero_exit(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     fake = _FakeSandboxProcess(lines=[], returncode=2, stderr=b"kaboom")
     provider = CodexProvider()
     with (
@@ -915,7 +915,7 @@ async def test_astream_in_sandbox_reports_nonzero_exit(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_137_is_interrupted_not_error(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     # A killed container exits 137 (128 + SIGKILL); it must surface as interrupted, not error.
     fake = _FakeSandboxProcess(lines=[], returncode=137)
     provider = CodexProvider()
@@ -932,7 +932,7 @@ async def test_astream_in_sandbox_137_is_interrupted_not_error(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_unavailable_surfaces_error(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     from mlflow.server.sandbox import SandboxUnavailableError
 
     provider = CodexProvider()
@@ -947,7 +947,7 @@ async def test_astream_in_sandbox_unavailable_surfaces_error(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_aborts_on_persistent_connection_errors(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     # codex streams "Reconnecting..." errors forever when it can't reach the API, so the container
     # idle-timeout never fires. Negative no-progress timeout makes the first such error trip the
     # guard deterministically. It must abort with an error rather than hang or reach later output.
@@ -978,14 +978,24 @@ async def test_astream_in_sandbox_aborts_on_persistent_connection_errors(monkeyp
 def test_is_available_true_in_sandbox_mode(monkeypatch):
     # With the sandbox enabled the CLI runs in the operator image, not on the host, so the
     # provider is available even when the host binary is absent.
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     with patch("mlflow.assistant.providers.codex.shutil.which", return_value=None):
         assert CodexProvider().is_available() is True
 
 
+def test_allows_remote_access_follows_sandbox_mode(monkeypatch):
+    # The CLI provider serves remote clients only when sandboxed (isolated in a container);
+    # in local mode it runs on the host and must stay localhost-only.
+    provider = CodexProvider()
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: False)
+    assert provider.allows_remote_access is False
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
+    assert provider.allows_remote_access is True
+
+
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_uses_external_uri_in_prompt(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     fake = _FakeSandboxProcess(
         lines=_make_stdout_lines({"type": "thread.started", "thread_id": "t1"})
     )
@@ -1008,7 +1018,7 @@ async def test_astream_in_sandbox_uses_external_uri_in_prompt(monkeypatch):
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_does_not_forward_non_allowlisted_secret(monkeypatch):
     # Only allowlisted vars reach the CLI sandbox env; an arbitrary host secret must not leak in.
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-super-secret")
     fake = _FakeSandboxProcess(
@@ -1045,7 +1055,7 @@ async def _capture_sandbox_env(provider):
 async def test_astream_in_sandbox_forwards_registry_uri(monkeypatch):
     # A credential-free registry URI is forwarded (loopback-rewritten); one with embedded
     # credentials is dropped rather than leaked into the container.
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
     provider = CodexProvider()
 
     monkeypatch.setenv("MLFLOW_REGISTRY_URI", "http://localhost:5000")

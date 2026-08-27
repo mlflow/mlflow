@@ -20,11 +20,11 @@ from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
+    assistant_sandbox_enabled,
     load_config_or_default,
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.types import Event, Message, TextBlock
-from mlflow.environment_variables import MLFLOW_ENABLE_ASSISTANT_SANDBOX
 from mlflow.server.assistant.session import (
     clear_container_id,
     clear_process_pid,
@@ -78,13 +78,17 @@ class CodexProvider(AssistantProvider):
     def client_tool_delivery(self) -> Literal["structured"]:
         return "structured"
 
+    @property
+    def allows_remote_access(self) -> bool:
+        # In local mode the CLI runs on the host, so it must stay localhost-only. In sandbox mode
+        # it runs isolated in a container, so it can safely serve remote clients.
+        return assistant_sandbox_enabled()
+
     def is_available(self) -> bool:
         # In sandbox mode the CLI runs inside the operator-provided image, not on the host, so
-        # availability follows the sandbox being enabled rather than a host binary the operator
-        # is not expected to install.
-        if MLFLOW_ENABLE_ASSISTANT_SANDBOX.get():
-            return True
-        return shutil.which(_CODEX_BINARY) is not None
+        # availability follows the sandbox being active rather than a host binary the operator is
+        # not expected to install.
+        return assistant_sandbox_enabled() or shutil.which(_CODEX_BINARY) is not None
 
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         codex_path = shutil.which(_CODEX_BINARY)
@@ -159,7 +163,7 @@ class CodexProvider(AssistantProvider):
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
-        if MLFLOW_ENABLE_ASSISTANT_SANDBOX.get():
+        if assistant_sandbox_enabled():
             async for event in self._astream_in_sandbox(
                 prompt, tracking_uri, session_id, mlflow_session_id, cwd, context
             ):
@@ -359,8 +363,9 @@ class CodexProvider(AssistantProvider):
 
         Mirrors ``astream``'s command construction and event parsing, but the CLI, the working
         directory, and Codex's session/login state (its HOME) all live inside the container. The
-        host path is left unchanged; this runs only when ``MLFLOW_ENABLE_ASSISTANT_SANDBOX`` is
-        set. Runtime behavior (image contents, credentials, volume permissions) is validated
+        host path is left unchanged; this runs only when the assistant sandbox is active (see
+        ``assistant_sandbox_enabled``). Runtime behavior (image contents, credentials, volume
+        permissions) is validated
         against a live Docker daemon rather than in unit tests.
         """
         from mlflow.assistant.providers.tool_executor import _uri_without_credentials

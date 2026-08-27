@@ -887,7 +887,9 @@ class _FakeSandboxProcess:
 
 @pytest.mark.asyncio
 async def test_astream_uses_sandbox_when_flag_enabled(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     provider = ClaudeCodeProvider()
     sentinel = MagicMock(name="sandbox-event")
 
@@ -902,7 +904,9 @@ async def test_astream_uses_sandbox_when_flag_enabled(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_does_not_use_sandbox_when_flag_off(monkeypatch):
-    monkeypatch.delenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", raising=False)
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: False
+    )
     provider = ClaudeCodeProvider()
     with (
         patch.object(ClaudeCodeProvider, "_astream_in_sandbox") as sandbox,
@@ -917,7 +921,9 @@ async def test_astream_does_not_use_sandbox_when_flag_off(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     fake = _FakeSandboxProcess(
         lines=[
             b'{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}]}}',
@@ -945,7 +951,9 @@ async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypat
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_reports_nonzero_exit(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     fake = _FakeSandboxProcess(lines=[], returncode=2, stderr=b"kaboom")
     provider = ClaudeCodeProvider()
     with (
@@ -961,7 +969,9 @@ async def test_astream_in_sandbox_reports_nonzero_exit(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_unavailable_surfaces_error(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     from mlflow.server.sandbox import SandboxUnavailableError
 
     provider = ClaudeCodeProvider()
@@ -976,7 +986,9 @@ async def test_astream_in_sandbox_unavailable_surfaces_error(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_137_is_interrupted_not_error(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     # A killed container exits 137 (128 + SIGKILL); it must surface as interrupted, not error.
     fake = _FakeSandboxProcess(lines=[], returncode=137)
     provider = ClaudeCodeProvider()
@@ -993,7 +1005,9 @@ async def test_astream_in_sandbox_137_is_interrupted_not_error(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_non_json_line_becomes_message(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     fake = _FakeSandboxProcess(lines=[b"this is not json"], returncode=0)
     provider = ClaudeCodeProvider()
     with (
@@ -1010,7 +1024,9 @@ async def test_astream_in_sandbox_non_json_line_becomes_message(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_timeout_surfaces_error(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     fake = _FakeSandboxProcess(lines=[], returncode=137, timed_out=True)
     provider = ClaudeCodeProvider()
     with (
@@ -1028,7 +1044,9 @@ async def test_astream_in_sandbox_timeout_surfaces_error(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_rewrites_loopback_base_url(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://localhost:4000/v1")
     fake = _FakeSandboxProcess(lines=[], returncode=0)
@@ -1059,14 +1077,32 @@ async def provider_astream_once():
 
 def test_is_available_true_in_sandbox_mode(monkeypatch):
     # With the sandbox enabled the CLI runs in the operator image, not on the host.
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     with patch("mlflow.assistant.providers.claude_code.shutil.which", return_value=None):
         assert ClaudeCodeProvider().is_available() is True
 
 
+def test_allows_remote_access_follows_sandbox_mode(monkeypatch):
+    # The CLI provider serves remote clients only when sandboxed (isolated in a container);
+    # in local mode it runs on the host and must stay localhost-only.
+    provider = ClaudeCodeProvider()
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: False
+    )
+    assert provider.allows_remote_access is False
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    assert provider.allows_remote_access is True
+
+
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_mounts_google_credentials(monkeypatch, tmp_path):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     creds = tmp_path / "gcp.json"
     creds.write_text('{"type": "service_account"}')
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(creds))
@@ -1090,7 +1126,9 @@ async def test_astream_in_sandbox_mounts_google_credentials(monkeypatch, tmp_pat
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_does_not_forward_non_allowlisted_secret(monkeypatch):
     # Only allowlisted vars reach the CLI sandbox env; an arbitrary host secret must not leak in.
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-super-secret")
     fake = _FakeSandboxProcess(lines=[], returncode=0)
@@ -1116,7 +1154,9 @@ async def test_astream_in_sandbox_does_not_forward_non_allowlisted_secret(monkey
 async def test_astream_in_sandbox_forwards_registry_uri(monkeypatch):
     # A credential-free registry URI is forwarded (loopback-rewritten); one with embedded
     # credentials is dropped rather than leaked into the container.
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
     monkeypatch.setenv("MLFLOW_REGISTRY_URI", "http://localhost:5000")
     fake = _FakeSandboxProcess(lines=[], returncode=0)
     captured = {}
