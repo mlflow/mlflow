@@ -119,7 +119,7 @@ def to_container_host_uri(uri: str | None) -> str | None:
     ``host.docker.internal``, which is routed to the host via the ``extra_hosts`` entry set on
     the container. Only the URI's host component is rewritten, and only when it is exactly a
     loopback name, so hosts that merely contain "localhost" (e.g. ``localhost.example.com``)
-    and any path/query text are left untouched. A non-loopback or unparseable URI is returned
+    and any path/query text are left untouched. A non-loopback or unparsable URI is returned
     unchanged.
     """
     if not uri:
