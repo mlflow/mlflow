@@ -135,6 +135,12 @@ jobs:
           # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
           # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
           fetch-depth: 2
+      # HEAD^2 of the merge ref is the PR head. Resolved before the review runs so
+      # it stays tied to the tree that was actually reviewed.
+      - name: Pin reviewed head commit
+        run: |
+          PR_HEAD_SHA=$(git rev-parse HEAD^2)
+          echo "PR_HEAD_SHA=$PR_HEAD_SHA" >> "$GITHUB_ENV"
       - parallel:
           - uses: ./.github/actions/setup-python
             with:
@@ -267,12 +273,17 @@ jobs:
             --target "$REVIEW_PAYLOAD" \
             --repository-id "$REPO_ID"
 
-      - name: Validate review payload
+      - name: Pin and validate review payload
         run: |
           if [ ! -f "$REVIEW_PAYLOAD" ]; then
             echo "::error::Claude did not produce $REVIEW_PAYLOAD"
             exit 1
           fi
+          # Without commit_id, GitHub resolves each comment's line and side against
+          # whatever head is current when the review is posted, so a push during the
+          # review lands comments on the wrong lines or gets them rejected.
+          jq --arg sha "$PR_HEAD_SHA" '.commit_id = $sha' "$REVIEW_PAYLOAD" > /tmp/pinned-payload.json
+          mv /tmp/pinned-payload.json "$REVIEW_PAYLOAD"
           uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
           echo "::group::Review payload"
           jq . "$REVIEW_PAYLOAD"
