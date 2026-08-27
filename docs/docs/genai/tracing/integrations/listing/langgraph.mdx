@@ -77,15 +77,15 @@ mlflow.set_tracking_uri("http://localhost:5000")
 ### 4. Define the LangGraph agent and invoke it
 
 ```python
-from typing import Literal
-
 import mlflow
-
-from langchain_core.messages import AIMessage, ToolCall
-from langchain_core.outputs import ChatGeneration, ChatResult
-from langchain_core.tools import tool
+from typing import Literal
+from typing_extensions import TypedDict, Annotated
+import operator
+from langchain.tools import tool
 from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
+from langchain.messages import AnyMessage, SystemMessage, ToolMessage, HumanMessage
+from langgraph.graph import StateGraph, START, END
+
 
 # Enabling tracing for LangGraph (LangChain)
 mlflow.langchain.autolog()
@@ -104,12 +104,86 @@ def get_weather(city: Literal["nyc", "sf"]):
         return "It's always sunny in sf"
 
 
-llm = ChatOpenAI(model="gpt-4o-mini")
-tools = [get_weather]
-graph = create_react_agent(llm, tools)
+class MessagesState(TypedDict):
+    messages: Annotated[list[AnyMessage], operator.add]
 
+
+def llm_call(state: dict):
+    """LLM decides whether to call a tool or not"""
+
+    return {
+        "messages": [
+            model_with_tools.invoke(
+                [
+                    SystemMessage(
+                        content="You are a helpful weather assistant."
+                    )
+                ]
+                + state["messages"]
+            )
+        ],
+    }
+
+
+def tool_node(state: dict):
+    """Performs the tool call"""
+
+    result = []
+    for tool_call in state["messages"][-1].tool_calls:
+        tool = tools_by_name[tool_call["name"]]
+        observation = tool.invoke(tool_call["args"])
+        result.append(ToolMessage(content=observation, tool_call_id=tool_call["id"]))
+    return {"messages": result}
+
+
+def should_continue(state: MessagesState) -> Literal["tool_node", END]:
+    """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
+
+    messages = state["messages"]
+    last_message = messages[-1]
+
+    # If the LLM makes a tool call, then perform an action
+    if last_message.tool_calls:
+        return "tool_node"
+
+    # Otherwise, we stop (reply to the user)
+    return END
+
+
+def create_graph() -> StateGraph:
+    """Create graph for agent"""
+    # Build graph
+    graph = StateGraph(MessagesState)
+
+    # Add nodes
+    graph.add_node("llm_call", llm_call)
+    graph.add_node("tool_node", tool_node)
+
+    # Add edges to connect nodes
+    graph.add_edge(START, "llm_call")
+    graph.add_conditional_edges(
+        "llm_call",
+        should_continue,
+        ["tool_node", END]
+    )
+    graph.add_edge("tool_node", "llm_call")
+
+    return graph
+
+
+# Augment the model with tools
+model = ChatOpenAI(model="gpt-4o-mini")
+tools = [get_weather]
+tools_by_name = {tool.name: tool for tool in tools}
+model_with_tools = model.bind_tools(tools)
+
+# Create graph
+graph = create_graph()
+# Compile the graph
+graph = graph.compile()
 # Invoke the graph
-result = graph.invoke({"messages": [{"role": "user", "content": "what is the weather in sf?"}]})
+messages = [HumanMessage(content="what is the weather in sf?")]
+messages = graph.invoke({"messages": messages})
 ```
 
 ### 5. View the trace in the MLflow UI
