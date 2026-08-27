@@ -3,6 +3,7 @@ import { Button, CloseIcon, Popover, SparkleIcon, useDesignSystemTheme } from '@
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { getAiGradientBorderStyle } from '../../design-system/aiGradientBorderStyle';
+import { ToolbarCollapsibleLabel } from '../../traces-table/TracesToolbarResponsive';
 
 // Default storage key for tracking first-time user guidance
 export const DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY = 'mlflow.detectIssues.guidanceShown';
@@ -43,7 +44,9 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componen
       icon={<SparkleIcon color="ai" />}
       css={getAiGradientBorderStyle(theme)}
     >
-      <FormattedMessage defaultMessage="Detect Issues" description="Label for the detect issues button" />
+      <ToolbarCollapsibleLabel>
+        <FormattedMessage defaultMessage="Detect Issues" description="Label for the detect issues button" />
+      </ToolbarCollapsibleLabel>
     </Button>
   );
 

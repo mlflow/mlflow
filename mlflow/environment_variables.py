@@ -1421,6 +1421,11 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
 
+#: Disable the hint that points a coding agent at the MLflow tracing skill on
+#: ``import mlflow``. The hint is only ever emitted when a coding agent is detected.
+#: (default: ``False``)
+MLFLOW_DISABLE_AGENT_HINT = _BooleanEnvironmentVariable("MLFLOW_DISABLE_AGENT_HINT", False)
+
 
 def _split_strip(s: str) -> list[str]:
     return [s.strip() for s in s.split(",")]
