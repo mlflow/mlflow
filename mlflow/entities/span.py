@@ -1291,16 +1291,41 @@ class LazySpan(Span):
     from the store avoids an eager ``json.loads`` → ``Span.from_dict`` →
     ``to_dict``/``to_otel_proto`` round-trip when the consumer only needs the
     dict (for example ``get-trace-artifact`` or ``TraceData.to_dict``).
+
+    When ``raw_json`` is provided and load-time translation did not modify the
+    payload, artifact responses can emit that string directly and skip
+    ``json.dumps``.
     """
 
-    def __init__(self, span_dict: dict[str, Any]):
+    def __init__(self, span_dict: dict[str, Any], *, raw_json: str | None = None):
         # Skip Span.__init__: we intentionally avoid constructing an OTel span
         # until a caller needs property access or OTLP conversion.
         self.__dict__["_span_dict"] = span_dict
+        self.__dict__["_raw_json"] = raw_json
         self.__dict__["_materialized"] = False
 
+    @classmethod
+    def from_stored_content(cls, content: str) -> "LazySpan":
+        """Build a ``LazySpan`` from a TRACKING_STORE ``spans.content`` value."""
+        # Deferred to avoid a circular import with mlflow.tracing.otel.translation.
+        from mlflow.tracing.otel.translation import translate_loaded_span_with_status
+
+        span_dict = json.loads(content)
+        modified = translate_loaded_span_with_status(span_dict)
+        return cls(span_dict, raw_json=None if modified else content)
+
     def to_dict(self) -> dict[str, Any]:
+        # to_dict() returns the live mutable dict. Once a caller can mutate it,
+        # raw JSON passthrough is no longer safe for subsequent exports.
+        self.__dict__["_raw_json"] = None
         return self.__dict__["_span_dict"]
+
+    def json_for_export(self) -> str:
+        """Return JSON text for artifact export without an unnecessary re-dump."""
+        raw_json = self.__dict__["_raw_json"]
+        if raw_json is not None:
+            return raw_json
+        return json.dumps(self.__dict__["_span_dict"], separators=(",", ":"))
 
     def _ensure_materialized(self) -> None:
         if self.__dict__["_materialized"]:

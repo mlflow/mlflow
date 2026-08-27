@@ -1,8 +1,9 @@
+import json
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from mlflow.entities import Span
+from mlflow.entities.span import LazySpan, Span
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.annotations import deprecated
 
@@ -30,6 +31,26 @@ class TraceData:
 
     def to_dict(self) -> dict[str, Any]:
         return {"spans": [span.to_dict() for span in self.spans]}
+
+    def to_json_bytes(self) -> bytes:
+        """
+        Serialize span payloads to ``{"spans": [...]}`` JSON bytes.
+
+        For ``LazySpan`` instances that still have unmodified stored JSON, the
+        raw DB string is emitted directly to avoid a ``json.dumps`` round-trip.
+        When no ``LazySpan``s are present, falls back to a single dump of
+        ``to_dict()`` so archived / eager-span traces avoid N separate dumps.
+        """
+        if not any(isinstance(span, LazySpan) for span in self.spans):
+            return json.dumps(self.to_dict(), separators=(",", ":")).encode("utf-8")
+
+        parts: list[bytes] = []
+        for span in self.spans:
+            if isinstance(span, LazySpan):
+                parts.append(span.json_for_export().encode("utf-8"))
+            else:
+                parts.append(json.dumps(span.to_dict(), separators=(",", ":")).encode("utf-8"))
+        return b'{"spans":[' + b",".join(parts) + b"]}"
 
     # TODO: remove this property in 3.7.0
     @property
