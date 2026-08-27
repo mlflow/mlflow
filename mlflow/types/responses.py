@@ -409,7 +409,10 @@ def output_to_responses_items_stream(
     Handles an iterator of ChatCompletion chunks or LangChain BaseMessage objects.
     """
     peeking_iter, chunks = tee(chunks)
-    first_chunk = next(peeking_iter)
+    try:
+        first_chunk = next(peeking_iter)
+    except StopIteration:
+        return
     if _HAS_LANGCHAIN_BASE_MESSAGE and isinstance(first_chunk, BaseMessage):
         yield from _langchain_message_stream_to_responses_stream(chunks, aggregator)
     else:
