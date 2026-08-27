@@ -273,17 +273,21 @@ jobs:
             --target "$REVIEW_PAYLOAD" \
             --repository-id "$REPO_ID"
 
-      - name: Pin and validate review payload
+      # Without commit_id, GitHub resolves each comment's line and side against
+      # whatever head is current when the review is posted, so a push during the
+      # review lands comments on the wrong lines or gets them rejected. Injected
+      # before the validation below so the schema's SHA pattern covers it.
+      - name: Pin review to the reviewed commit
         run: |
           if [ ! -f "$REVIEW_PAYLOAD" ]; then
             echo "::error::Claude did not produce $REVIEW_PAYLOAD"
             exit 1
           fi
-          # Without commit_id, GitHub resolves each comment's line and side against
-          # whatever head is current when the review is posted, so a push during the
-          # review lands comments on the wrong lines or gets them rejected.
           jq --arg sha "$PR_HEAD_SHA" '.commit_id = $sha' "$REVIEW_PAYLOAD" > /tmp/pinned-payload.json
           mv /tmp/pinned-payload.json "$REVIEW_PAYLOAD"
+
+      - name: Validate review payload
+        run: |
           uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
           echo "::group::Review payload"
           jq . "$REVIEW_PAYLOAD"
