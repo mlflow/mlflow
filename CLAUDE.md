@@ -188,6 +188,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 git push origin <your-branch>
 ```
 
+### Keep Pull Requests to One Concern
+
+One PR = one concern. NEVER EVER bundle unrelated changes. They multiply
+review cost rather than adding to it, none of them can be reverted piece by
+piece, and the resulting commit is hard to reason about later. When in doubt,
+split.
+
 ### Creating Pull Requests
 
 - Follow the instructions at the top of [the PR template](./.github/pull_request_template.md) carefully.
