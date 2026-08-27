@@ -56,28 +56,34 @@ export interface BuildFilterParams {
  * Siloed from the shared `createMlflowSearchFilter` so the V4 tab owns exactly the clauses it
  * emits, but it mirrors the shared behavior for the pieces it shares: a trace-id search uses the
  * indexed `attributes.request_id` equality lookup (see mlflow discussion #21193) instead of a
- * full content scan, and time bounds compare `attributes.timestamp_ms`.
+ * full content scan, and time bounds compare `attributes.timestamp_ms`. A trace-id search returns
+ * that lone clause (no time/other clauses) so the exact trace is found regardless of the range.
  *
  * Returns `undefined` (not an empty string) when there are no clauses, matching what the search
  * API expects for "no filter".
  */
 export const buildFilter = ({ searchQuery, timeRange, extraClauses }: BuildFilterParams): string | undefined => {
+  const trimmedQuery = searchQuery?.trim();
+
+  // A recognized trace-id (any of the three formats) resolves via the indexed `request_id` equality
+  // lookup, and — like v3's direct-fetch path — it deliberately ignores the time range and every
+  // other filter clause: pasting a trace id should surface that exact trace regardless of the
+  // selected window (otherwise the default short window hides older ids). Return early with just the
+  // id clause so no `timestamp_ms`/popover clause narrows it away.
+  if (trimmedQuery) {
+    const normalizedTraceId = normalizeTraceIdQuery(trimmedQuery);
+    if (normalizedTraceId) {
+      return `attributes.request_id = '${normalizedTraceId}'`;
+    }
+  }
+
   const clauses: string[] = [];
 
-  const trimmedQuery = searchQuery?.trim();
   if (trimmedQuery) {
-    // A recognized trace-id (any of the three formats) uses the indexed `request_id` equality lookup;
-    // everything else is a content substring scan. OSS's search parser exposes trace content under
+    // Free-text search is a content substring scan. OSS's search parser exposes trace content under
     // the `text` search key (aliased to span content), NOT `request` — `trace.request` is rejected as
     // an invalid attribute key. This matches V3's `createMlflowSearchFilter` (`trace.text ILIKE …`).
-    // The time-range clauses below still AND in, so a trace id outside the selected range won't be
-    // found (v3's direct-fetch path isn't ported).
-    const normalizedTraceId = normalizeTraceIdQuery(trimmedQuery);
-    clauses.push(
-      normalizedTraceId
-        ? `attributes.request_id = '${normalizedTraceId}'`
-        : `trace.text ILIKE '%${escapeFilterValue(trimmedQuery)}%'`,
-    );
+    clauses.push(`trace.text ILIKE '%${escapeFilterValue(trimmedQuery)}%'`);
   }
 
   if (timeRange?.startTime) {

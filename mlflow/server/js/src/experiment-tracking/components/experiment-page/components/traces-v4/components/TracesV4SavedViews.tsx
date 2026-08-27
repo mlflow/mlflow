@@ -12,7 +12,13 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { TRACE_COLUMN_IDS, type TraceColumnId } from '@databricks/web-shared/traces-table';
+import {
+  EMPTY_FILTER_MODEL,
+  TRACE_COLUMN_IDS,
+  ToolbarCollapsibleLabel,
+  type TraceColumnId,
+  type TraceFilterModel,
+} from '@databricks/web-shared/traces-table';
 
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
@@ -41,6 +47,7 @@ import {
   TRACE_V4_COLS_PARAM_KEY,
   TRACE_V4_SHARE_URL_PARAM_KEY,
 } from '../utils/tracesV4SavedViewState';
+import { DEFAULT_TRACES_V4_TIME_LABEL } from '../utils/timeRange';
 
 /**
  * Saved views for the V4 traces tab. Reuses the shared tag-envelope codec, the {@link SavedViewsMenu}
@@ -72,6 +79,10 @@ interface UseTracesV4SavedViewsParams {
   visibleColumns: TraceColumnId[];
   /** Adopts an explicit column set into the user's persisted store (used by Override). */
   setColumns: (columns: TraceColumnId[]) => void;
+  /** Clears column overrides (standard + assessment) back to defaults; used by "Default view". */
+  resetColumns: () => void;
+  /** Clears the popover filter clauses (React state, not URL-backed); used by "Default view". */
+  setFilterModel: (next: TraceFilterModel) => void;
 }
 
 /**
@@ -79,7 +90,13 @@ interface UseTracesV4SavedViewsParams {
  * Tags are read from the Apollo experiment query (the traces route's source of truth) and written
  * via the redux tag thunks; after a write we refetch Apollo so the new view shows up in the list.
  */
-export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns }: UseTracesV4SavedViewsParams) => {
+export const useTracesV4SavedViews = ({
+  experimentId,
+  visibleColumns,
+  setColumns,
+  resetColumns,
+  setFilterModel,
+}: UseTracesV4SavedViewsParams) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -192,8 +209,24 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
     [experiment?.tags],
   );
 
-  // Apply a saved view by rewriting the URL query to its stored state (+ the share key). The V4
-  // hooks read their params on the next render, so this IS the applied view — no overlay to mount.
+  // Activate a view by rewriting the URL query to its state (+ the share key). The V4 hooks read
+  // their params on the next render, so this IS the applied view — no overlay to mount.
+  const applyView = useCallback(
+    (state: CapturedV4ViewState, id: string) => {
+      setSearchParams(new URLSearchParams(buildV4ViewQuery(state, id)));
+    },
+    [setSearchParams],
+  );
+
+  // Return to the default state: drop every view param, clear the non-URL surfaces (columns +
+  // popover filters). Time-range label is kept (not dropped) so the default has a window, not empty.
+  const resetToDefaultView = useCallback(() => {
+    setSearchParams(new URLSearchParams({ startTimeLabel: DEFAULT_TRACES_V4_TIME_LABEL }));
+    resetColumns();
+    setFilterModel(EMPTY_FILTER_MODEL);
+  }, [setSearchParams, resetColumns, setFilterModel]);
+
+  // Apply a saved view by decoding its stored state, then activating it.
   const openView = useCallback(
     async (id: string) => {
       const state = await decodeViewState(id);
@@ -207,9 +240,9 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
         );
         return;
       }
-      setSearchParams(new URLSearchParams(buildV4ViewQuery(state, id)));
+      applyView(state, id);
     },
-    [decodeViewState, setSearchParams, intl],
+    [decodeViewState, applyView, intl],
   );
 
   // Build a shareable link from a view's STORED state, so the link carries the view's own
@@ -307,6 +340,8 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
     saveView,
     deleteView,
     openView,
+    applyView,
+    resetToDefaultView,
     buildShareUrl,
     activeShareKey,
     sharedViewActive,
@@ -325,12 +360,15 @@ const SaveTraceV4ViewModal = ({
   saveView,
   atCap,
   onCancel,
+  onSaved,
 }: {
   experimentId: string;
   visible: boolean;
   saveView: (name: string) => Promise<{ id: string; state: CapturedV4ViewState } | null>;
   atCap: boolean;
   onCancel: () => void;
+  /** Called with the new view's id + state after a successful save, so the caller can make it active. */
+  onSaved: (id: string, state: CapturedV4ViewState) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -358,6 +396,8 @@ const SaveTraceV4ViewModal = ({
       if (!result) {
         return;
       }
+      // Activate from the captured state directly — the refetched tags aren't in cache yet this render.
+      onSaved(result.id, result.state);
       setSavedUrl(getTraceV4SavedViewShareUrl(experimentId, result.state, result.id));
       Utils.displayGlobalInfoNotification(
         intl.formatMessage(
@@ -380,7 +420,7 @@ const SaveTraceV4ViewModal = ({
     } finally {
       setSaving(false);
     }
-  }, [name, saving, atCap, saveView, experimentId, intl]);
+  }, [name, saving, atCap, saveView, onSaved, experimentId, intl]);
 
   return (
     <Modal
@@ -468,7 +508,18 @@ export const TracesV4SavedViewsButton = ({
   savedViews: TracesV4SavedViewsApi;
 }) => {
   const intl = useIntl();
-  const { views, canModify, atCap, saveView, deleteView, openView, buildShareUrl, activeShareKey } = savedViews;
+  const {
+    views,
+    canModify,
+    atCap,
+    saveView,
+    deleteView,
+    openView,
+    applyView,
+    resetToDefaultView,
+    buildShareUrl,
+    activeShareKey,
+  } = savedViews;
   const { sharedViewActive, override, discard } = savedViews;
   const [showSaveModal, setShowSaveModal] = useState(false);
   // Held above the dropdown so the confirm dialog survives the dropdown closing on outside-click.
@@ -519,17 +570,28 @@ export const TracesV4SavedViewsButton = ({
             icon={<LayerIcon />}
             endIcon={<ChevronDownIcon />}
             data-testid="trace-v4-saved-views-trigger"
+            // Names the button when its label collapses to icon-only.
+            aria-label={
+              activeView?.name ??
+              intl.formatMessage({
+                defaultMessage: 'Default view',
+                description:
+                  'Label for the saved views dropdown in the traces toolbar when no saved view is active (the default, unfiltered state)',
+              })
+            }
           >
-            {activeView ? (
-              <span css={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {activeView.name}
-              </span>
-            ) : (
-              <FormattedMessage
-                defaultMessage="Views"
-                description="Label for the saved views dropdown in the traces toolbar"
-              />
-            )}
+            <ToolbarCollapsibleLabel>
+              {activeView ? (
+                <span css={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {activeView.name}
+                </span>
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Default view"
+                  description="Label for the saved views dropdown in the traces toolbar when no saved view is active (the default, unfiltered state)"
+                />
+              )}
+            </ToolbarCollapsibleLabel>
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end">
@@ -543,6 +605,7 @@ export const TracesV4SavedViewsButton = ({
             onCopyLink={handleCopyLink}
             onRequestDelete={setPendingDelete}
             onSaveCurrent={() => setShowSaveModal(true)}
+            onSelectDefault={resetToDefaultView}
             sharedViewActive={sharedViewActive}
             onOverrideActive={override}
             onDiscardActive={discard}
@@ -585,6 +648,7 @@ export const TracesV4SavedViewsButton = ({
         saveView={saveView}
         atCap={atCap}
         onCancel={() => setShowSaveModal(false)}
+        onSaved={(id, state) => applyView(state, id)}
       />
     </>
   );
