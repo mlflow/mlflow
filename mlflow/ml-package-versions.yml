@@ -649,7 +649,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "1.0.0"
-    maximum: "1.3.14"
+    maximum: "1.3.15"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -680,6 +680,9 @@ langchain:
           "databricks-vectorsearch<0.74",
           # Required for testing uc tools
           "unitycatalog-langchain",
+          # mcp 2.0 removed RequestContext from mcp.shared.context, breaking
+          # langchain_mcp_adapters at import time.
+          "mcp<2",
         ]
       ">= 1.0.0": [
           # required for testing legacy modules
@@ -702,7 +705,7 @@ langchain:
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
     minimum: "1.0.0"
-    maximum: "1.3.14"
+    maximum: "1.3.15"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -716,6 +719,9 @@ langchain:
           # Need to bump FasAPI version to support pydantic v2
           "fastapi>=0.100.0",
           "langchain-openai>=0.2.0",
+          # mcp 2.0 removed RequestContext from mcp.shared.context, breaking
+          # langchain_mcp_adapters at import time.
+          "mcp<2",
         ]
       ">= 1.0.0": ["langchain-classic"]
       # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from

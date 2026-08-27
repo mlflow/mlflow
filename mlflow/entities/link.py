@@ -2,6 +2,8 @@ import base64
 from dataclasses import dataclass
 from typing import Any
 
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
+
 from mlflow.entities._mlflow_object import _MlflowObject
 
 
@@ -43,7 +45,7 @@ class Link(_MlflowObject):
         )
 
     @classmethod
-    def from_otel_proto(cls, proto_link) -> "Link":
+    def from_otel_proto(cls, proto_link: OTelProtoSpan.Link) -> "Link":
         from mlflow.tracing.utils import encode_span_id, generate_mlflow_trace_id_from_otel_trace_id
         from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue, _otel_proto_bytes_to_id
 
