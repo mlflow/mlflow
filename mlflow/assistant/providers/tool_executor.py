@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 
 from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
-from mlflow.environment_variables import MLFLOW_ENABLE_ASSISTANT_SANDBOX
+from mlflow.assistant.providers.base import assistant_sandbox_enabled
 
 _logger = logging.getLogger(__name__)
 
@@ -183,7 +183,7 @@ async def _execute_bash(
     if not command:
         return "No command provided", True
 
-    if MLFLOW_ENABLE_ASSISTANT_SANDBOX.get():
+    if assistant_sandbox_enabled():
         return await _execute_bash_in_sandbox(command, cwd, tracking_uri, full_access)
     return await _execute_bash_on_host(command, cwd, tracking_uri, full_access)
 

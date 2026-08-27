@@ -116,24 +116,30 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
 #: **Experimental** — subject to change or removal in a future release.
-#: Controls whether the MLflow Assistant API is reachable from non-localhost clients.
-#: Remote access is still limited to providers that don't require local execution
-#: (e.g. the MLflow Gateway); this only opts into that check.
+#: Controls whether the MLflow Assistant API is reachable from non-localhost clients. When true,
+#: the server runs the work the assistant would otherwise run on the host — the ``Bash`` tool and
+#: the coding-agent CLI providers — inside a hardened Docker container instead (automatically,
+#: when a ``docker`` executable is available), so those providers can serve remote clients without
+#: executing on the host. When false (the default) the assistant is localhost-only and runs that
+#: work in a host subprocess, exactly as before.
 #: (default: ``False``)
 MLFLOW_ENABLE_REMOTE_ASSISTANT = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_REMOTE_ASSISTANT", False
 )
 
 #: **Experimental** — subject to change or removal in a future release.
-#: When true, the MLflow Assistant runs shell commands it issues (the ``Bash`` tool) inside a
-#: locked-down Docker container instead of directly on the server host. The container is
-#: non-root, read-only-rootfs, and resource-capped. It runs on Docker's default bridge network,
-#: so it still has outbound network access — this flag is not an egress boundary (restricting
-#: egress is handled separately). Requires a POSIX host with a reachable Docker daemon. When
-#: false (the default) the assistant behaves exactly as before, running those commands on the host.
-#: (default: ``False``)
+#: Override for whether the assistant runs its work (the ``Bash`` tool and the coding-agent CLI
+#: providers) inside a Docker sandbox. Tri-state:
+#:
+#: - unset (the default): derive it from the deployment — sandbox when the assistant is in remote
+#:   mode (``MLFLOW_ENABLE_REMOTE_ASSISTANT``) and a ``docker`` executable is available.
+#: - ``true``: force the sandbox on (a turn fails at container start if Docker is unavailable).
+#: - ``false``: force it off — run that work in a host subprocess even in remote mode, letting an
+#:   operator opt out of sandboxing.
+#:
+#: (default: unset)
 MLFLOW_ENABLE_ASSISTANT_SANDBOX = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_ASSISTANT_SANDBOX", False
+    "MLFLOW_ENABLE_ASSISTANT_SANDBOX", None
 )
 
 #: **Experimental** — subject to change or removal in a future release.

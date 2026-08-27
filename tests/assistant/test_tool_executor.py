@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from mlflow.assistant.config import PermissionsConfig
+from mlflow.assistant.providers.base import assistant_sandbox_enabled
 from mlflow.assistant.providers.tool_executor import _execute_bash_in_sandbox, execute_tool
 from mlflow.server.sandbox import SandboxResult, SandboxUnavailableError
 
@@ -273,11 +274,52 @@ def test_full_access_bypasses_permission_checks(workspace):
     assert "Permission denied" not in result
 
 
+@pytest.mark.parametrize(
+    ("remote", "docker_path", "expected"),
+    [
+        (False, "/usr/bin/docker", False),  # local server: never sandbox
+        (True, None, False),  # remote but no docker executable: fall back to host
+        (True, "/usr/bin/docker", True),  # remote + docker: sandbox
+    ],
+)
+def test_assistant_sandbox_enabled(monkeypatch, remote, docker_path, expected):
+    monkeypatch.delenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", raising=False)
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true" if remote else "false")
+    with mock.patch(
+        "mlflow.assistant.providers.base.shutil.which", return_value=docker_path
+    ) as which:
+        assert assistant_sandbox_enabled() is expected
+    # docker is only probed once the remote flag has already passed.
+    assert which.called is remote
+
+
+@pytest.mark.parametrize(
+    ("override", "remote", "docker_path"),
+    [
+        ("true", False, None),  # force on even locally and without a docker executable
+        ("false", True, "/usr/bin/docker"),  # opt out even in remote + docker
+    ],
+)
+def test_assistant_sandbox_override_beats_derived(monkeypatch, override, remote, docker_path):
+    # The explicit flag overrides the derived (remote + docker) default in both directions, and
+    # short-circuits the docker probe entirely.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", override)
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true" if remote else "false")
+    with mock.patch(
+        "mlflow.assistant.providers.base.shutil.which", return_value=docker_path
+    ) as which:
+        assert assistant_sandbox_enabled() is (override == "true")
+    which.assert_not_called()
+
+
 @pytest.mark.parametrize("enabled", [True, False])
-def test_bash_routes_between_sandbox_and_host(monkeypatch, enabled):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true" if enabled else "false")
+def test_bash_routes_between_sandbox_and_host(enabled):
     perms = PermissionsConfig(full_access=True)
     with (
+        mock.patch(
+            "mlflow.assistant.providers.tool_executor.assistant_sandbox_enabled",
+            return_value=enabled,
+        ),
         mock.patch(
             "mlflow.assistant.providers.tool_executor._execute_bash_in_sandbox",
             new=AsyncMock(return_value=("sandbox", False)),
