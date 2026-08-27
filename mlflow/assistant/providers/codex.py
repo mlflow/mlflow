@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Literal
 
@@ -37,6 +38,11 @@ from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 _logger = logging.getLogger(__name__)
 
 _CODEX_BINARY = "codex"
+
+# In the sandbox, if codex cannot reach the API it streams "Reconnecting..." error events
+# continuously (it never gives up on its own), so the container's no-output idle-timeout never
+# fires. Bail if only connection errors arrive, with no progress, for this long.
+_CODEX_NO_PROGRESS_TIMEOUT = 60.0
 
 # Environment variables forwarded into the sandbox so the Codex CLI can authenticate. Host secrets
 # outside this allowlist are intentionally NOT passed through. Codex authenticates via
@@ -432,6 +438,7 @@ class CodexProvider(AssistantProvider):
             # Recorded inside this try so a failure here still runs proc.cleanup() below.
             if mlflow_session_id:
                 save_container_id(mlflow_session_id, proc.container_id)
+            last_progress = time.monotonic()
             try:
                 async for raw_line in proc.iter_stdout_lines():
                     line_str = raw_line.decode("utf-8", errors="replace").strip()
@@ -443,7 +450,25 @@ class CodexProvider(AssistantProvider):
                         continue
                     if data.get("type") == "error":
                         codex_error = self._unwrap_error_message(data.get("message"))
+                        # codex retries a failed connection forever, streaming these errors the
+                        # whole time (so the idle-timeout never fires). If only errors arrive for
+                        # too long, stop it rather than hang the turn.
+                        if time.monotonic() - last_progress > _CODEX_NO_PROGRESS_TIMEOUT:
+                            _logger.warning(
+                                "Codex made no progress for %ss (repeated connection errors); "
+                                "stopping.",
+                                _CODEX_NO_PROGRESS_TIMEOUT,
+                            )
+                            proc.kill()
+                            yield Event.from_error(
+                                "Codex could not connect and kept retrying without progress; "
+                                f"stopped after {int(_CODEX_NO_PROGRESS_TIMEOUT)}s. "
+                                f"Last error: {codex_error}"
+                            )
+                            return
                         continue
+                    # Any non-error line is progress; reset the no-progress deadline.
+                    last_progress = time.monotonic()
                     if data.get("type") == "turn.failed":
                         codex_error = self._unwrap_error_message(
                             (data.get("error") or {}).get("message")

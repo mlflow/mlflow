@@ -817,6 +817,7 @@ class _FakeSandboxProcess:
         self.timed_out = timed_out
         self.container_id = "container-abc"
         self.cleaned_up = False
+        self.killed = False
 
     async def iter_stdout_lines(self):
         for line in self._lines:
@@ -827,6 +828,9 @@ class _FakeSandboxProcess:
 
     async def read_stderr(self):
         return self._stderr
+
+    def kill(self):
+        self.killed = True
 
     def cleanup(self):
         self.cleaned_up = True
@@ -939,3 +943,32 @@ async def test_astream_in_sandbox_unavailable_surfaces_error(monkeypatch):
         events = [e async for e in provider.astream("hi", "http://localhost:5000")]
 
     assert any(e.type == EventType.ERROR for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_aborts_on_persistent_connection_errors(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    # codex streams "Reconnecting..." errors forever when it can't reach the API, so the container
+    # idle-timeout never fires. Negative no-progress timeout makes the first such error trip the
+    # guard deterministically. It must abort with an error rather than hang or reach later output.
+    monkeypatch.setattr("mlflow.assistant.providers.codex._CODEX_NO_PROGRESS_TIMEOUT", -1.0)
+    fake = _FakeSandboxProcess(
+        lines=_make_stdout_lines(
+            {"type": "error", "message": "Reconnecting... waiting for network"},
+            {"type": "error", "message": "Reconnecting... waiting for network"},
+            {"type": "item.completed", "item": {"type": "agent_message", "text": "SANDBOX_OK"}},
+        )
+    )
+    provider = CodexProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake),
+        patch("mlflow.assistant.providers.codex.save_container_id"),
+        patch("mlflow.assistant.providers.codex.clear_container_id"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://host.docker.internal:5000")]
+
+    errs = [e for e in events if e.type == EventType.ERROR]
+    assert errs and any("stopped after" in e.to_sse_event() for e in errs)
+    assert fake.killed is True
+    # Aborted before consuming the later agent message.
+    assert "SANDBOX_OK" not in "".join(e.to_sse_event() for e in events)
