@@ -69,12 +69,12 @@ def _get_client():
     try:
         import docker
     except ImportError as e:
-        raise SandboxUnavailableError(f"The docker package is required for sandboxing: {e}")
+        raise SandboxUnavailableError(f"The docker package is required for sandboxing: {e}") from e
     try:
         client = docker.from_env()
         client.ping()
     except Exception as e:
-        raise SandboxUnavailableError(f"Docker daemon is not reachable: {e}")
+        raise SandboxUnavailableError(f"Docker daemon is not reachable: {e}") from e
     return client
 
 
@@ -89,25 +89,15 @@ def _ensure_image(client, image: str) -> None:
         pass
 
     _logger.info("Sandbox image %s not found locally; building a minimal one.", image)
-    # Forward the operator's package index configuration so the build works behind a
-    # private mirror or an air-gapped index.
-    build_args = {
-        k: os.environ[k] for k in ("PIP_INDEX_URL", "PIP_EXTRA_INDEX_URL") if os.environ.get(k)
-    }
-    # Use the index URLs only for the build step; do not promote them to ENV. A private-index
-    # URL can embed credentials (https://user:pass@mirror/...), and an ENV would persist them in
-    # the final image where any sandbox command could read them. Passing them inline on the RUN
-    # keeps them build-time only, so the runtime image carries no index credentials.
-    dockerfile = (
-        "FROM python:3.11-slim\n"
-        "ARG PIP_INDEX_URL=\n"
-        "ARG PIP_EXTRA_INDEX_URL=\n"
-        "RUN PIP_INDEX_URL=$PIP_INDEX_URL PIP_EXTRA_INDEX_URL=$PIP_EXTRA_INDEX_URL \\\n"
-        "    pip install --no-cache-dir mlflow\n"
-    )
+    # This fallback build installs from the default package index only. It does not forward the
+    # operator's PIP_INDEX_URL/PIP_EXTRA_INDEX_URL: a private-index URL can embed credentials
+    # (https://user:pass@mirror/...) and Docker records build args in the image history, so
+    # forwarding them would persist those credentials in the built image. Operators behind a
+    # private mirror or an air-gapped index should build and provide their own image instead.
+    dockerfile = "FROM python:3.11-slim\nRUN pip install --no-cache-dir mlflow\n"
     with tempfile.TemporaryDirectory(prefix="mlflow-sandbox-image-") as ctx:
         Path(ctx, "Dockerfile").write_text(dockerfile)
-        client.images.build(path=ctx, tag=image, buildargs=build_args, rm=True)
+        client.images.build(path=ctx, tag=image, rm=True)
 
 
 def to_container_host_uri(uri: str | None) -> str | None:
@@ -136,7 +126,12 @@ def to_container_host_uri(uri: str | None) -> str | None:
     # (split on the last '@') and reuse the parsed port, which is bracket-aware so IPv6 loopbacks
     # like ``[::1]`` are handled. The original loopback host is discarded — it is what we replace.
     userinfo, sep, _ = parts.netloc.rpartition("@")
-    port = f":{parts.port}" if parts.port else ""
+    # parts.port raises ValueError on an invalid port (e.g. "localhost:bad"); honor the
+    # "unparsable URI returned unchanged" contract rather than letting it propagate.
+    try:
+        port = f":{parts.port}" if parts.port else ""
+    except ValueError:
+        return uri
     new_netloc = f"{userinfo}{sep}host.docker.internal{port}"
     return urllib.parse.urlunsplit(parts._replace(netloc=new_netloc))
 
@@ -184,7 +179,7 @@ def run_in_sandbox(
     try:
         _ensure_image(client, image)
     except Exception as e:
-        raise SandboxUnavailableError(f"Failed to prepare sandbox image {image!r}: {e}")
+        raise SandboxUnavailableError(f"Failed to prepare sandbox image {image!r}: {e}") from e
 
     env = dict(environment or {})
     # Read-only rootfs plus a writable /tmp: give the command a HOME it can write to
@@ -218,13 +213,17 @@ def run_in_sandbox(
             cap_drop=["ALL"],
             security_opt=["no-new-privileges:true"],
             tmpfs={"/tmp": ""},
+            # Run as the server's user so anything written to the bind-mounted workspace is owned
+            # by the server, not root. NOTE: if the MLflow server itself runs as root (uid 0) this
+            # is 0:gid and the container is root too — the non-root posture holds only when the
+            # server runs as a non-root user.
             user=f"{os.getuid()}:{os.getgid()}",
             working_dir=working_dir,
             environment=env,
             volumes=volumes,
         )
     except Exception as e:
-        raise SandboxUnavailableError(f"Failed to start sandbox container: {e}")
+        raise SandboxUnavailableError(f"Failed to start sandbox container: {e}") from e
 
     # Always remove the container and reap its output, even if wait() raises: a container
     # left behind would leak both a process slot and disk.
@@ -243,7 +242,7 @@ def run_in_sandbox(
             # timeout; kill the container and surface it as a sandbox failure rather than
             # mislabeling it.
             _kill_quietly(container)
-            raise SandboxUnavailableError(f"Sandbox execution failed while waiting: {e}")
+            raise SandboxUnavailableError(f"Sandbox execution failed while waiting: {e}") from e
         return SandboxResult(exit_code=outcome.get("StatusCode", 0), output=_logs(container))
     finally:
         _remove_quietly(container)

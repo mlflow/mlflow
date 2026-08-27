@@ -42,6 +42,8 @@ def _mock_client(status_code=0, logs=b"hello\n"):
         # A host that merely contains "localhost" is not a loopback host and must be left alone.
         ("http://localhost.example.com:5000", "http://localhost.example.com:5000"),
         ("https://tracking.example.com", "https://tracking.example.com"),
+        # A loopback host with an invalid port must be returned unchanged, not raise ValueError.
+        ("http://localhost:notaport/api", "http://localhost:notaport/api"),
         (None, None),
         ("", ""),
     ],
@@ -170,11 +172,12 @@ def test_run_in_sandbox_builds_image_when_missing():
     client.images.build.assert_called_once()
 
 
-def test_run_in_sandbox_build_does_not_persist_index_credentials(monkeypatch):
+def test_run_in_sandbox_fallback_build_does_not_forward_index_credentials(monkeypatch):
     import docker.errors
 
-    # A private-index URL can embed credentials; they must be used at build time only and never
-    # baked into the image (an ENV would let any sandbox command read them).
+    # A private-index URL can embed credentials, and Docker records build args in image history,
+    # so the fallback build must not forward PIP_INDEX_URL at all — neither as a build arg nor in
+    # the Dockerfile. Operators behind a private mirror provide their own image instead.
     monkeypatch.setenv("PIP_INDEX_URL", "https://user:pass@mirror.internal/simple")
     client, _ = _mock_client()
     client.images.get.side_effect = docker.errors.ImageNotFound("missing")
@@ -189,9 +192,8 @@ def test_run_in_sandbox_build_does_not_persist_index_credentials(monkeypatch):
     with mock.patch("docker.from_env", return_value=client):
         run_in_sandbox(["echo", "hi"])
 
-    # The URL is available to the build as a build arg, but is not persisted as an image ENV.
-    assert captured["buildargs"]["PIP_INDEX_URL"] == "https://user:pass@mirror.internal/simple"
-    assert "ENV PIP_INDEX_URL" not in captured["dockerfile"]
+    assert not captured["buildargs"]
+    assert "PIP_INDEX_URL" not in captured["dockerfile"]
     assert "user:pass" not in captured["dockerfile"]
 
 
