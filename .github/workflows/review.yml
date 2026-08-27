@@ -161,16 +161,30 @@ jobs:
           # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
           # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
           fetch-depth: 2
-      # The merge ref is recomputed on every push, so it can already point at a
-      # newer head. Bail before installing anything or running a line of the
-      # checkout rather than review a commit nobody asked about.
+      # The merge ref is recomputed on every push, so it can carry a head other
+      # than the one the trigger asked about. Check before installing anything
+      # or running a line of the checkout.
+      #
+      # GitHub recomputes it asynchronously, so a `pull_request` run firing the
+      # instant a push lands can legitimately still see the previous head
+      # (actions/checkout instruments this as STALE_MERGE, and only reports
+      # telemetry for it). That path posts no review and has no comment to
+      # re-run, so warn and review what we got; only `issue_comment`, where the
+      # review is real and the lag has long since settled, fails.
       - name: Verify head SHA
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           ACTUAL=$(git rev-parse HEAD^2)
-          if [ "$ACTUAL" != "$HEAD_SHA" ]; then
+          if [ "$ACTUAL" = "$HEAD_SHA" ]; then
+            exit 0
+          fi
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
             echo "::error::PR head moved after the review was requested ($HEAD_SHA -> $ACTUAL). Re-run /review."
             exit 1
           fi
+          echo "::warning::Merge ref carries $ACTUAL, expected $HEAD_SHA (stale merge ref or a new push). Reviewing $ACTUAL."
+          echo "HEAD_SHA=$ACTUAL" >> "$GITHUB_ENV"
       - parallel:
           - uses: ./.github/actions/setup-python
             with:
@@ -285,6 +299,25 @@ jobs:
       - name: Show proxy log
         if: always()
         run: cat /tmp/anthropic-proxy.log || true
+
+      # `skills fetch-diff` reads the live PR diff rather than the checkout, so a
+      # push during the 30-minute review above gives the agent line numbers from
+      # a diff the pinned commit never had. GitHub accepts such a comment
+      # whenever the line still exists there, silently attaching it to unrelated
+      # code, so drop the review rather than post it against the wrong lines.
+      - name: Verify head SHA is unchanged
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          CURRENT=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha) \
+            || { echo "::error::Failed to re-resolve head SHA for PR #$PR_NUMBER"; exit 1; }
+          if [ "$CURRENT" != "$HEAD_SHA" ]; then
+            echo "::error::PR was pushed to during the review ($HEAD_SHA -> $CURRENT). Re-run /review."
+            exit 1
+          fi
 
       # Kept out of the Claude step, which holds only the read-only app token, so a
       # poisoned diff can't reach this PAT. Gated like Post so the pull_request
