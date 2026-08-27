@@ -80,6 +80,20 @@ const rowWidthStyle = { width: `var(${ROW_WIDTH_VARIABLE})`, minWidth: '100%' } 
 const stopPropagationProps = {
   onClick: (event: React.MouseEvent) => event.stopPropagation(),
 };
+// Whether a checkbox change originated from a shift-modified click (range selection). The change
+// event's `nativeEvent` carries `shiftKey`; guard structurally since the handler receives `unknown`.
+const isShiftModifiedEvent = (event: unknown): boolean => {
+  if (typeof event !== 'object' || event === null) {
+    return false;
+  }
+  const nativeEvent = 'nativeEvent' in event ? event.nativeEvent : event;
+  return (
+    typeof nativeEvent === 'object' &&
+    nativeEvent !== null &&
+    'shiftKey' in nativeEvent &&
+    nativeEvent.shiftKey === true
+  );
+};
 const dataSelectCellAlign = {
   '.table-row-select-cell': { alignItems: 'flex-start' },
   '.table-row-select-cell > *': { transform: 'translateY(2px)' },
@@ -108,7 +122,7 @@ export interface TracesTableProps {
   selectedForBulk: ReadonlyMap<string, ModelTraceInfoV3>;
   isAllOnPageSelected: boolean;
   isSomeOnPageSelected: boolean;
-  onToggleBulkRow: (trace: ModelTraceInfoV3) => void;
+  onToggleBulkRow: (trace: ModelTraceInfoV3, selectRange?: boolean) => void;
   /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
   onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
@@ -494,7 +508,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           <TableRowSelectCell
             componentId={`${COMPONENT_ID}.row-select`}
             checked={isBulkChecked}
-            onChange={() => onToggleBulkRow(row.original)}
+            onChange={(event) => onToggleBulkRow(row.original, isShiftModifiedEvent(event))}
             checkboxLabel={intl.formatMessage(
               {
                 defaultMessage: 'Select trace {traceId}',

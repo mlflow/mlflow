@@ -51,7 +51,7 @@ export interface TracesTableViewProps {
   selectedForBulk: ReadonlyMap<string, ModelTraceInfoV3>;
   isAllOnPageSelected: boolean;
   isSomeOnPageSelected: boolean;
-  onToggleBulkRow: (trace: ModelTraceInfoV3) => void;
+  onToggleBulkRow: (trace: ModelTraceInfoV3, selectRange?: boolean) => void;
   /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
   onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
