@@ -60,12 +60,6 @@ class GitHubClient:
             accept="application/vnd.github.v3.diff",
         )
 
-    async def get_compare_diff(self, owner: str, repo: str, base: str, head: str) -> str:
-        return await self._get_text(
-            f"/repos/{owner}/{repo}/compare/{base}...{head}",
-            accept="application/vnd.github.v3.diff",
-        )
-
     async def graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         if self._session is None:
             raise RuntimeError("GitHubClient must be used as async context manager")
