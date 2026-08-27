@@ -6,9 +6,9 @@ from mlflow.server import fastapi_app
 
 
 @pytest.mark.asyncio
-async def test_lifespan_reaps_sandbox_artifacts_when_flag_on(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+async def test_lifespan_reaps_sandbox_artifacts_when_sandbox_active():
     with (
+        mock.patch("mlflow.server.fastapi_app.assistant_sandbox_enabled", return_value=True),
         mock.patch("mlflow.server.sandbox.reap_orphaned_sandbox_containers") as reap_containers,
         mock.patch("mlflow.server.assistant.session.reap_stale_sandbox_homes") as reap_homes,
     ):
@@ -20,9 +20,9 @@ async def test_lifespan_reaps_sandbox_artifacts_when_flag_on(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_lifespan_is_noop_when_flag_off(monkeypatch):
-    monkeypatch.delenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", raising=False)
+async def test_lifespan_is_noop_when_sandbox_inactive():
     with (
+        mock.patch("mlflow.server.fastapi_app.assistant_sandbox_enabled", return_value=False),
         mock.patch("mlflow.server.sandbox.reap_orphaned_sandbox_containers") as reap_containers,
         mock.patch("mlflow.server.assistant.session.reap_stale_sandbox_homes") as reap_homes,
     ):
@@ -34,9 +34,9 @@ async def test_lifespan_is_noop_when_flag_off(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_lifespan_swallows_reap_errors(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+async def test_lifespan_swallows_reap_errors():
     with (
+        mock.patch("mlflow.server.fastapi_app.assistant_sandbox_enabled", return_value=True),
         mock.patch(
             "mlflow.server.sandbox.reap_orphaned_sandbox_containers",
             side_effect=Exception("boom"),

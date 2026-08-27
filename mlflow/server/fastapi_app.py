@@ -22,7 +22,7 @@ from flask import Flask
 from starlette.middleware.wsgi import WSGIResponder, build_environ
 from starlette.types import Receive, Scope, Send
 
-from mlflow.environment_variables import MLFLOW_ENABLE_ASSISTANT_SANDBOX
+from mlflow.assistant.providers.base import assistant_sandbox_enabled
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.utils import provider_call_duration_ms
@@ -208,10 +208,9 @@ async def _lifespan(app: FastAPI):
     # On startup, clean up assistant sandbox artifacts orphaned by a previous server generation:
     # containers whose in-process stream is gone, and stale per-session $HOME directories. Runs
     # in every uvicorn worker but only removes containers from a *previous* boot id, so it is
-    # safe across workers. Guarded by the flag so a default install does nothing here. Note: this
-    # only runs under uvicorn (the default SGI); gunicorn/waitress use the Flask app, which has
-    # no lifespan.
-    if MLFLOW_ENABLE_ASSISTANT_SANDBOX.get():
+    # safe across workers. Guarded so a default install does nothing here. Note: this only runs
+    # under uvicorn (the default SGI); gunicorn/waitress use the Flask app, which has no lifespan.
+    if assistant_sandbox_enabled():
         try:
             from mlflow.server.assistant.session import reap_stale_sandbox_homes
             from mlflow.server.sandbox import reap_orphaned_sandbox_containers
