@@ -26,14 +26,16 @@ These reads are independent. Issue them as parallel tool calls in a single turn,
 gh pr view <pr_url> --json title,body
 ```
 
-**PR diff hunks** via the [`annotate-diff`](../annotate-diff/SKILL.md) skill. The working tree is
-the merge ref (see step 3), so `HEAD^1 HEAD` is exactly the PR diff:
+**PR diff hunks**. The working tree is the merge ref (see step 3), so `HEAD^1 HEAD` is exactly the
+PR diff:
 
 ```bash
 git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff
 ```
 
-Its annotated output gives you the `line` and `side` to anchor each comment on.
+Each line comes back as `old_line new_line | <marker> content`, which gives you the `line` and
+`side` to anchor each comment on: `-` is `side=LEFT` at `old_line`, `+` is `side=RIGHT` at
+`new_line`, and an unmarked context line is `side=RIGHT` at `new_line`. Pass `--help` for the rest.
 
 **Existing review threads**, so you can avoid duplicating prior feedback. Up to 100 threads (open,
 resolved, and outdated) with up to 20 comments each:

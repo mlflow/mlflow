@@ -9,7 +9,7 @@ Adds a review comment to a specific line in a GitHub pull request.
 
 ## Step 1: Locate the line to comment on
 
-Use the `annotate-diff` skill (optionally piped through `grep`) to locate the line to comment on.
+Locate the line to comment on with `git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff` (optionally piped through `grep`).
 
 ## Step 2: Post the comment
 

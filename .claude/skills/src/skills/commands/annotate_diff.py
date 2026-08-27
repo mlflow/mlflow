@@ -119,8 +119,28 @@ def filter_diff(full_diff: str, file_patterns: list[str] | None = None) -> str:
     return "\n".join(result_lines)
 
 
+_EPILOG = """\
+Each line is annotated as `old_line new_line | <marker> content`:
+
+  `-` marker (left number only)   deleted line,   side=LEFT,  line=old_line
+  `+` marker (right number only)  added line,     side=RIGHT, line=new_line
+  no marker (both numbers)        unchanged line, side=RIGHT, line=new_line
+
+Auto-generated and deleted files keep their headers but have their hunks masked.
+
+Example:
+
+  git diff HEAD^1 HEAD | skills annotate-diff --files '*.py'
+"""
+
+
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = subparsers.add_parser("annotate-diff", help="Annotate a diff from stdin")
+    parser = subparsers.add_parser(
+        "annotate-diff",
+        help="Annotate a diff from stdin",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--files",
         nargs="+",
