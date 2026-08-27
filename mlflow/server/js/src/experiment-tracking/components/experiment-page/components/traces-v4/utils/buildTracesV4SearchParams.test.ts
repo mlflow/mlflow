@@ -30,16 +30,14 @@ describe('buildFilter', () => {
     );
   });
 
-  test('a trace-id lookup still ANDs the time-range clauses', () => {
+  test('a trace-id lookup ignores the time range and other clauses (found regardless of window)', () => {
     expect(
       buildFilter({
         searchQuery: '0123456789abcdef0123456789abcdef',
         timeRange: { startTime: '1000', endTime: '2000' },
+        extraClauses: ["attributes.status = 'ERROR'"],
       }),
-    ).toBe(
-      "attributes.request_id = 'tr-0123456789abcdef0123456789abcdef' AND " +
-        'attributes.timestamp_ms > 1000 AND attributes.timestamp_ms < 2000',
-    );
+    ).toBe("attributes.request_id = 'tr-0123456789abcdef0123456789abcdef'");
   });
 
   test('a non-trace-id search uses ILIKE on trace.text (span content)', () => {

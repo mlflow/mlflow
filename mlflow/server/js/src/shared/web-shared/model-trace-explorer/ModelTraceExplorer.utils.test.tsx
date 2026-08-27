@@ -43,6 +43,7 @@ import {
   getTotalTokens,
   getTraceCost,
   convertOtelAttributesToMap,
+  decodeLinkTraceId,
   isSessionLevelAssessment,
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
@@ -1368,6 +1369,77 @@ describe('convertOtelAttributesToMap', () => {
       span_id: '1',
       events: [{ attributes: { converted: 'value' } }],
     });
+  });
+
+  it('should normalize OTLP-format links (base64 ids, key-value array attributes)', () => {
+    // shape returned by OTLP-based endpoints (V3 traces/get): base64-encoded
+    // ids and K/V-list attributes that the links UI expects as tr-<hex> + map
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'r/bfSxmZcIKSljvv1ZuvFA==',
+          span_id: 'OMvyqZzI1C0=',
+          attributes: [
+            { key: 'relationship', value: { string_value: 'triggered_by' } },
+            { key: 'handoff', value: { string_value: 'research' } },
+          ],
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'tr-aff6df4b1999708292963befd59baf14',
+          span_id: '38cbf2a99cc8d42d',
+          attributes: {
+            relationship: 'triggered_by',
+            handoff: 'research',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should leave already-normalized links (tr- id, map attributes) unchanged', () => {
+    // shape returned by the artifact route: already tr-<hex> + hex span id + map
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'tr-aff6df4b1999708292963befd59baf14',
+          span_id: '38cbf2a99cc8d42d',
+          attributes: { relationship: 'triggered_by' },
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual(modelTraceSpan);
+  });
+});
+
+describe('decodeLinkTraceId', () => {
+  it('should decode a base64-encoded trace id to tr-<hex>', () => {
+    expect(decodeLinkTraceId('r/bfSxmZcIKSljvv1ZuvFA==')).toBe('tr-aff6df4b1999708292963befd59baf14');
+  });
+
+  it('should leave a tr- prefixed id unchanged', () => {
+    expect(decodeLinkTraceId('tr-aff6df4b1999708292963befd59baf14')).toBe('tr-aff6df4b1999708292963befd59baf14');
+  });
+
+  it('should leave a V4 trace:/ id unchanged', () => {
+    expect(decodeLinkTraceId('trace:/catalog.schema/abc123')).toBe('trace:/catalog.schema/abc123');
+  });
+
+  it('should return an empty string for nullish input', () => {
+    expect(decodeLinkTraceId(undefined)).toBe('');
+    expect(decodeLinkTraceId(null)).toBe('');
   });
 });
 
