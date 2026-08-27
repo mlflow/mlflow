@@ -190,10 +190,10 @@ git push origin <your-branch>
 
 ### Keep Pull Requests to One Concern
 
-One PR = one concern. NEVER EVER bundle unrelated changes. They multiply
-review cost rather than adding to it, none of them can be reverted piece by
-piece, and the resulting commit is hard to reason about later. When in doubt,
-split.
+One PR = one concern. NEVER EVER bundle unrelated changes. They multiply review
+cost rather than adding to it, and since this repo squash-merges, they land as
+one commit that can't be reverted piece by piece and is hard to reason about
+later. When in doubt, split.
 
 ### Creating Pull Requests
 
