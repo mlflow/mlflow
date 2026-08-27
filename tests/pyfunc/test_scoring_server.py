@@ -1134,12 +1134,6 @@ def test_split_data_and_params_for_llm_input(dict_input, param_schema, expected)
 
 
 def test_decode_json_input_rejects_non_utf8_body():
-    """A body that is not valid UTF-8 is bad input, not a server error.
-
-    json.loads() decodes bytes before parsing them, so an invalid byte sequence
-    raises UnicodeDecodeError rather than JSONDecodeError. That escaped the
-    handler and surfaced as an unhandled exception instead of a 400.
-    """
     with pytest.raises(MlflowInvalidInputException, match="valid JSON formatted string"):
         pyfunc_scoring_server._decode_json_input(b"\x80\x81")
 
