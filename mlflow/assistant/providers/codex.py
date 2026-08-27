@@ -23,13 +23,36 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.types import Event, Message, TextBlock
-from mlflow.server.assistant.session import clear_process_pid, save_process_pid
+from mlflow.environment_variables import MLFLOW_ENABLE_ASSISTANT_SANDBOX
+from mlflow.server.assistant.session import (
+    clear_container_id,
+    clear_process_pid,
+    get_session_sandbox_home,
+    save_container_id,
+    save_process_pid,
+)
 from mlflow.tracing.constant import CostKey, TokenUsageKey
 from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 
 _logger = logging.getLogger(__name__)
 
 _CODEX_BINARY = "codex"
+
+# Environment variables forwarded into the sandbox so the Codex CLI can authenticate. Host secrets
+# outside this allowlist are intentionally NOT passed through. Codex authenticates via
+# OPENAI_API_KEY or an interactive ``codex login`` whose credentials live in the per-session HOME;
+# OPENAI_BASE_URL lets an operator point at a custom endpoint, and the proxy vars cover outbound
+# proxy configuration.
+_SANDBOX_AUTH_ENV_PASSTHROUGH = (
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+)
 
 
 class CodexProvider(AssistantProvider):
@@ -125,6 +148,13 @@ class CodexProvider(AssistantProvider):
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
+        if MLFLOW_ENABLE_ASSISTANT_SANDBOX.get():
+            async for event in self._astream_in_sandbox(
+                prompt, tracking_uri, session_id, mlflow_session_id, cwd, context
+            ):
+                yield event
+            return
+
         codex_path = shutil.which(_CODEX_BINARY)
         if not codex_path:
             yield Event.from_error(
@@ -304,6 +334,185 @@ class CodexProvider(AssistantProvider):
                     schema_path.unlink(missing_ok=True)
                 except OSError:
                     _logger.warning("Failed to remove temp Custom View schema file %s", schema_path)
+
+    async def _astream_in_sandbox(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        session_id: str | None,
+        mlflow_session_id: str | None,
+        cwd: Path | None,
+        context: dict[str, Any] | None,
+    ) -> AsyncGenerator[Event, None]:
+        """Run the Codex CLI inside a hardened Docker container instead of on the host.
+
+        Mirrors ``astream``'s command construction and event parsing, but the CLI, the working
+        directory, and Codex's session/login state (its HOME) all live inside the container. The
+        host path is left unchanged; this runs only when ``MLFLOW_ENABLE_ASSISTANT_SANDBOX`` is
+        set. Runtime behavior (image contents, credentials, volume permissions) is validated
+        against a live Docker daemon rather than in unit tests.
+        """
+        from mlflow.server.sandbox import (
+            SandboxUnavailableError,
+            sandbox_input_path,
+            start_sandbox_process,
+            to_container_host_uri,
+        )
+
+        config = load_config_or_default(self.name)
+        # Everything the CLI does runs inside the container, so it must reach the tracking server
+        # by the container-routable host (a loopback URI is rewritten to host.docker.internal).
+        container_tracking_uri = to_container_host_uri(tracking_uri)
+
+        if context:
+            user_text = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
+        else:
+            user_text = prompt
+        structured_custom_view = is_custom_view_request(context)
+        if structured_custom_view:
+            user_text = f"{user_text}\n\n{STRINGIFIED_CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS}"
+
+        if session_id:
+            user_message = user_text
+        else:
+            sys_prompt = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=container_tracking_uri)
+            user_message = (
+                f"<system_instructions>\n{sys_prompt}\n</system_instructions>\n\n{user_text}"
+            )
+
+        cmd = [
+            "codex",
+            "exec",
+            "--json",
+            "--sandbox",
+            "danger-full-access",
+            "--skip-git-repo-check",
+        ]
+        input_files: dict[str, str] = {}
+        if structured_custom_view:
+            # Codex reads the schema by path; write it into the container's input mount.
+            input_files["schema.json"] = json.dumps(STRINGIFIED_CUSTOM_VIEW_RESPONSE_SCHEMA)
+            cmd.extend(["--output-schema", sandbox_input_path("schema.json")])
+        if config.model and config.model != "default":
+            cmd.extend(["-m", config.model])
+        if session_id:
+            cmd.extend(["resume", session_id])
+        cmd.append("-")
+
+        env = {"MLFLOW_TRACKING_URI": container_tracking_uri}
+        for var in _SANDBOX_AUTH_ENV_PASSTHROUGH:
+            if value := os.environ.get(var):
+                # OPENAI_BASE_URL is an endpoint the CLI connects to from inside the container, so
+                # a loopback value must be rewritten to reach the host; other vars pass through.
+                env[var] = to_container_host_uri(value) if var == "OPENAI_BASE_URL" else value
+
+        # Persist Codex's HOME (login credentials and session/thread state) across turns of the
+        # same session so multi-turn conversations resume correctly.
+        home_dir = get_session_sandbox_home(mlflow_session_id) if mlflow_session_id else None
+
+        try:
+            # start_sandbox_process uses the blocking docker-py client; keep it off the loop.
+            proc = await asyncio.to_thread(
+                start_sandbox_process,
+                cmd,
+                workdir=cwd,
+                environment=env,
+                stdin_data=user_message.encode("utf-8"),
+                input_files=input_files or None,
+                home_dir=home_dir,
+            )
+        except SandboxUnavailableError as e:
+            yield Event.from_error(f"Assistant sandbox is enabled but could not start: {e}")
+            return
+
+        thread_id = ""
+        structured_response_text: str | None = None
+        codex_error: str | None = None
+        try:
+            # Recorded inside this try so a failure here still runs proc.cleanup() below.
+            if mlflow_session_id:
+                save_container_id(mlflow_session_id, proc.container_id)
+            try:
+                async for raw_line in proc.iter_stdout_lines():
+                    line_str = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line_str:
+                        continue
+                    try:
+                        data = json.loads(line_str)
+                    except json.JSONDecodeError:
+                        continue
+                    if data.get("type") == "error":
+                        codex_error = self._unwrap_error_message(data.get("message"))
+                        continue
+                    if data.get("type") == "turn.failed":
+                        codex_error = self._unwrap_error_message(
+                            (data.get("error") or {}).get("message")
+                        )
+                        continue
+                    if data.get("type") == "thread.started":
+                        thread_id = data.get("thread_id", "")
+                        continue
+                    item = data.get("item") or {}
+                    if (
+                        structured_custom_view
+                        and data.get("type") == "item.completed"
+                        and item.get("type") == "agent_message"
+                    ):
+                        structured_response_text = item.get("text")
+                        continue
+                    if data.get("type") == "turn.completed" and (usage := data.get("usage")):
+                        model = config.model if config.model and config.model != "default" else None
+                        yield self._build_usage_event(usage, model)
+                        continue
+                    event = self._parse_event(data)
+                    if event is not None:
+                        yield event
+            finally:
+                if mlflow_session_id:
+                    clear_container_id(mlflow_session_id)
+
+            returncode = await proc.wait()
+            # The idle-timeout watchdog kills a stuck CLI; surface that clearly. It exits 137 like
+            # a cancellation kill, so this must be checked first.
+            if proc.timed_out:
+                yield Event.from_error(
+                    "Codex produced no output for too long and was stopped. If a custom "
+                    "OPENAI_BASE_URL is set, it may not be reachable from the sandbox."
+                )
+                return
+            # A killed container exits 137 (128 + SIGKILL), which is how cancellation surfaces.
+            if returncode == 137:
+                yield Event.from_interrupted()
+                return
+            if returncode != 0:
+                stderr = (await proc.read_stderr()).decode("utf-8", errors="replace").strip()
+                yield Event.from_error(
+                    codex_error or stderr or f"Process exited with code {returncode}"
+                )
+            else:
+                if structured_custom_view:
+                    if structured_response_text is None:
+                        yield Event.from_error(
+                            "Codex did not return a structured Custom View response",
+                            session_id=thread_id or session_id,
+                        )
+                        return
+                    try:
+                        response = parse_custom_view_response(structured_response_text)
+                    except Exception as e:
+                        yield Event.from_error(
+                            f"Codex returned invalid Custom View output: {e}",
+                            session_id=thread_id or session_id,
+                        )
+                        return
+                    for event in custom_view_response_events(response):
+                        yield event
+                yield Event.from_result(result=None, session_id=thread_id)
+        except Exception as e:
+            _logger.exception("Error running Codex CLI in sandbox")
+            yield Event.from_exception(e)
+        finally:
+            proc.cleanup()
 
     @staticmethod
     def _unwrap_error_message(message: Any) -> str | None:

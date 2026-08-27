@@ -805,3 +805,137 @@ async def test_astream_ignores_invalid_json_lines():
     message_events = [e for e in events if e.type == EventType.MESSAGE]
     assert len(message_events) == 1
     assert message_events[0].data["message"]["content"][0]["text"] == "valid"
+
+
+class _FakeSandboxProcess:
+    """Stand-in for mlflow.server.sandbox.SandboxProcess used to drive the sandbox path."""
+
+    def __init__(self, lines, returncode=0, stderr=b"", timed_out=False):
+        self._lines = lines
+        self._returncode = returncode
+        self._stderr = stderr
+        self.timed_out = timed_out
+        self.container_id = "container-abc"
+        self.cleaned_up = False
+
+    async def iter_stdout_lines(self):
+        for line in self._lines:
+            yield line
+
+    async def wait(self):
+        return self._returncode
+
+    async def read_stderr(self):
+        return self._stderr
+
+    def cleanup(self):
+        self.cleaned_up = True
+
+
+@pytest.mark.asyncio
+async def test_astream_uses_sandbox_when_flag_enabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    provider = CodexProvider()
+    sentinel = MagicMock(name="sandbox-event")
+
+    async def fake_sandbox(self, *args, **kwargs):
+        yield sentinel
+
+    with patch.object(CodexProvider, "_astream_in_sandbox", fake_sandbox):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert events == [sentinel]
+
+
+@pytest.mark.asyncio
+async def test_astream_does_not_use_sandbox_when_flag_off(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", raising=False)
+    provider = CodexProvider()
+    with (
+        patch.object(CodexProvider, "_astream_in_sandbox") as sandbox,
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value=None),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    sandbox.assert_not_called()
+    # Host path with no CLI installed yields the not-found error.
+    assert any(e.type == EventType.ERROR for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    fake = _FakeSandboxProcess(
+        lines=_make_stdout_lines(
+            {"type": "thread.started", "thread_id": "t1"},
+            {"type": "item.completed", "item": {"type": "agent_message", "text": "hi"}},
+            {"type": "turn.completed", "usage": {"input_tokens": 3, "output_tokens": 5}},
+        )
+    )
+    provider = CodexProvider()
+    sid = "11111111-1111-1111-1111-111111111111"
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake) as start,
+        patch("mlflow.assistant.providers.codex.save_container_id") as save_cid,
+        patch("mlflow.assistant.providers.codex.clear_container_id") as clear_cid,
+    ):
+        events = [
+            e async for e in provider.astream("hi", "http://localhost:5000", mlflow_session_id=sid)
+        ]
+
+    start.assert_called_once()
+    save_cid.assert_called_once_with(sid, "container-abc")
+    clear_cid.assert_called_once_with(sid)
+    assert fake.cleaned_up is True
+    assert events
+    assert not any(e.type == EventType.ERROR for e in events)
+    # The result event carries the codex thread id as the session id.
+    assert any(e.type == EventType.DONE for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_reports_nonzero_exit(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    fake = _FakeSandboxProcess(lines=[], returncode=2, stderr=b"kaboom")
+    provider = CodexProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake),
+        patch("mlflow.assistant.providers.codex.save_container_id"),
+        patch("mlflow.assistant.providers.codex.clear_container_id"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert any(e.type == EventType.ERROR for e in events)
+    assert fake.cleaned_up is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_137_is_interrupted_not_error(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    # A killed container exits 137 (128 + SIGKILL); it must surface as interrupted, not error.
+    fake = _FakeSandboxProcess(lines=[], returncode=137)
+    provider = CodexProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake),
+        patch("mlflow.assistant.providers.codex.save_container_id"),
+        patch("mlflow.assistant.providers.codex.clear_container_id"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert not any(e.type == EventType.ERROR for e in events)
+    assert fake.cleaned_up is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_unavailable_surfaces_error(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", "true")
+    from mlflow.server.sandbox import SandboxUnavailableError
+
+    provider = CodexProvider()
+    with patch(
+        "mlflow.server.sandbox.start_sandbox_process",
+        side_effect=SandboxUnavailableError("no daemon"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert any(e.type == EventType.ERROR for e in events)
