@@ -43,11 +43,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.0",
-            "maximum": "1.3.14"
+            "maximum": "1.3.15"
         },
         "autologging": {
             "minimum": "1.0.0",
-            "maximum": "1.3.14"
+            "maximum": "1.3.15"
         }
     },
     "langgraph": {
