@@ -1,15 +1,13 @@
 # ruff: noqa: T201
-"""Fetch PR diff with filtering and line numbers for code review."""
+"""Annotate a diff with line numbers for code review."""
 
 from __future__ import annotations
 
 import argparse
-import asyncio
 import fnmatch
 import re
+import sys
 from pathlib import Path
-
-from skills.github import GitHubClient, parse_pr_url
 
 _MASKED_DIFF_MESSAGE = "[Auto-generated file - diff masked]"
 _DELETED_DIFF_MESSAGE = "[Deleted file - diff masked]"
@@ -121,18 +119,28 @@ def filter_diff(full_diff: str, file_patterns: list[str] | None = None) -> str:
     return "\n".join(result_lines)
 
 
-async def fetch_diff(pr_url: str, file_patterns: list[str] | None = None) -> str:
-    owner, repo, pr_number = parse_pr_url(pr_url)
+_EPILOG = """\
+Each line is annotated as `old_line new_line | <marker> content`:
 
-    async with GitHubClient() as client:
-        diff = await client.get_pr_diff(owner, repo, pr_number)
+  `-` marker (left number only)   deleted line,   side=LEFT,  line=old_line
+  `+` marker (right number only)  added line,     side=RIGHT, line=new_line
+  no marker (both numbers)        unchanged line, side=RIGHT, line=new_line
 
-    return filter_diff(diff, file_patterns)
+Auto-generated and deleted files keep their headers but have their hunks masked.
+
+Example:
+
+  git diff HEAD^1 HEAD | skills annotate-diff --files '*.py'
+"""
 
 
 def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    parser = subparsers.add_parser("fetch-diff", help="Fetch PR diff with line numbers")
-    parser.add_argument("pr_url", help="GitHub PR URL")
+    parser = subparsers.add_parser(
+        "annotate-diff",
+        help="Annotate a diff from stdin",
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--files",
         nargs="+",
@@ -142,5 +150,8 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
 
 
 def run(args: argparse.Namespace) -> None:
-    result = asyncio.run(fetch_diff(args.pr_url, args.files))
-    print(result)
+    if sys.stdin.isatty():
+        raise SystemExit(
+            "No diff on stdin. Pipe one in, e.g. `git diff HEAD^1 HEAD | skills annotate-diff`."
+        )
+    print(filter_diff(sys.stdin.read(), args.files))

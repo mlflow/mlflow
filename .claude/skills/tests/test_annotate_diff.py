@@ -1,7 +1,9 @@
+import argparse
+import io
 import re
 
 import pytest
-from skills.commands.fetch_diff import filter_diff
+from skills.commands.annotate_diff import filter_diff, run
 
 DIFF = """diff --git a/a.py b/a.py
 index 1111111..2222222 100644
@@ -34,3 +36,21 @@ def test_context_and_added_lines_keep_their_numbers() -> None:
     assert "  268   268 |      first" in rendered
     assert "        269 | +    added" in rendered
     assert "  269   270 |      second" in rendered
+
+
+def test_run_annotates_the_diff_piped_to_stdin(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO(DIFF))
+    run(argparse.Namespace(files=None))
+    assert "        269 | +    added" in capsys.readouterr().out
+
+
+def test_run_reports_a_missing_pipe_instead_of_blocking_on_a_tty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stdin = io.StringIO(DIFF)
+    monkeypatch.setattr(stdin, "isatty", lambda: True)
+    monkeypatch.setattr("sys.stdin", stdin)
+    with pytest.raises(SystemExit, match="No diff on stdin"):
+        run(argparse.Namespace(files=None))
