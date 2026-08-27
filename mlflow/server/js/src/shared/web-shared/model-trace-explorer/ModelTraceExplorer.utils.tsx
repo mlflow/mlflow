@@ -683,7 +683,11 @@ export const getTraceHref = (traceId: string, traceInfo: ModelTrace['info'] | un
   }
 
   if (!experimentId) return undefined;
-  return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${traceId}`;
+  const params = new URLSearchParams({
+    selectedEvaluationId: traceId,
+    traceId,
+  });
+  return `${getExperimentPageTracesTabRoute(experimentId)}?${params.toString()}`;
 };
 
 export function isV4ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV4 {
