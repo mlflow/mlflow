@@ -1,10 +1,19 @@
 import { describe, expect, test } from '@jest/globals';
 import {
   getTraceV3SavedViewIdFromTagKey,
+  getTraceV3SavedViewTagKey,
   translateV3ViewState,
   TRACE_V3_SAVED_VIEW_TAG_PREFIX,
 } from './tracesV3ViewCompat';
 import { buildV4ViewQuery } from './tracesV4SavedViewState';
+
+describe('getTraceV3SavedViewTagKey', () => {
+  test('builds a legacy V3 tag key from an id, round-tripping with the id extractor', () => {
+    const key = getTraceV3SavedViewTagKey('abc');
+    expect(key).toBe(`${TRACE_V3_SAVED_VIEW_TAG_PREFIX}abc`);
+    expect(getTraceV3SavedViewIdFromTagKey(key)).toBe('abc');
+  });
+});
 
 describe('getTraceV3SavedViewIdFromTagKey', () => {
   test('extracts the id from a legacy V3 tag key', () => {

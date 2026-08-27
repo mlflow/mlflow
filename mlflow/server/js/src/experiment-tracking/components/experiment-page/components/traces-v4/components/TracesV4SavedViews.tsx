@@ -48,6 +48,12 @@ import {
 } from '../utils/tracesV4SavedViewState';
 import { capturedV4StatesMatch } from '../utils/tracesV4DirtyState';
 import { isSupportedFilterClause, useMlflowTraceFilterFields } from '../utils/filterModel';
+import {
+  getTraceV3SavedViewIdFromTagKey,
+  getTraceV3SavedViewTagKey,
+  translateV3ViewState,
+  type V3SavedViewState,
+} from '../utils/tracesV3ViewCompat';
 import { DEFAULT_TRACES_V4_TIME_LABEL } from '../utils/timeRange';
 
 /**
@@ -74,6 +80,9 @@ interface TraceV4SavedViewSummary {
   name: string;
   createdAt: number;
   updatedAt: number;
+  // Which tag prefix the view is stored under. A legacy V3 view (`v3`) opens (translated to V4
+  // state) and deletes in place; overwriting one migrates it to a V4 tag (see `overwriteView`).
+  origin: 'v4' | 'v3';
 }
 
 /** `dirty` = live table diverges from the active view; `clean` = matches or no view active. */
@@ -136,27 +145,35 @@ export const useTracesV4SavedViews = ({
 
   const views: TraceV4SavedViewSummary[] = useMemo(() => {
     const tags = experiment?.tags ?? [];
-    return (
-      tags
-        .reduce<TraceV4SavedViewSummary[]>((acc, { key, value }) => {
-          if (key == null || value == null) {
-            return acc;
-          }
-          const id = getTraceV4SavedViewIdFromTagKey(key);
-          if (id === null) {
-            return acc;
-          }
-          try {
-            const { name, createdAt, updatedAt } = decodeSavedViewEnvelope(value);
-            acc.push({ id, name, createdAt, updatedAt });
-          } catch {
-            // Skip a corrupt tag rather than breaking the list.
-          }
-          return acc;
-        }, [])
-        // Most-recently-edited first: overwriting a view floats it to the top.
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-    );
+    // Collect V4 and legacy V3 views into one list, keyed by id so a view that has been migrated
+    // (a V4 tag written over a V3 one, both sharing the id) is de-duped — V4 always wins.
+    const byId = new Map<string, TraceV4SavedViewSummary>();
+    for (const { key, value } of tags) {
+      if (key == null || value == null) {
+        continue;
+      }
+      const v4Id = getTraceV4SavedViewIdFromTagKey(key);
+      const v3Id = v4Id === null ? getTraceV3SavedViewIdFromTagKey(key) : null;
+      const id = v4Id ?? v3Id;
+      if (id === null) {
+        continue;
+      }
+      const origin: 'v4' | 'v3' = v4Id !== null ? 'v4' : 'v3';
+      // A V3 tag must never shadow a migrated V4 tag of the same id.
+      if (origin === 'v3' && byId.get(id)?.origin === 'v4') {
+        continue;
+      }
+      try {
+        // Both V4 and V3 use the same envelope codec (name/createdAt/updatedAt + compressed state);
+        // only the inner `state` shape differs, which matters at open time, not for the summary.
+        const { name, createdAt, updatedAt } = decodeSavedViewEnvelope(value);
+        byId.set(id, { id, name, createdAt, updatedAt, origin });
+      } catch {
+        // Skip a corrupt tag rather than breaking the list.
+      }
+    }
+    // Most-recently-edited first: overwriting a view floats it to the top.
+    return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
   }, [experiment?.tags]);
 
   const atCap = views.length >= MAX_SAVED_VIEWS;
@@ -217,24 +234,49 @@ export const useTracesV4SavedViews = ({
 
   const deleteView = useCallback(
     async (id: string) => {
-      await dispatch(deleteExperimentTagApi(experimentId, getTraceV4SavedViewTagKey(id)));
+      // Delete the tag under whichever prefix the view actually lives (legacy V3 views included).
+      const origin = views.find((view) => view.id === id)?.origin ?? 'v4';
+      const tagKey = origin === 'v3' ? getTraceV3SavedViewTagKey(id) : getTraceV4SavedViewTagKey(id);
+      await dispatch(deleteExperimentTagApi(experimentId, tagKey));
       await refetch();
     },
-    [dispatch, experimentId, refetch],
+    [dispatch, experimentId, refetch, views],
   );
 
-  // Decode a stored view's tag value into its captured state, or null if it's missing/corrupt.
+  // Decode a stored view's tag value into V4 captured state, or null if it's missing/corrupt. Reads
+  // a native V4 tag when present; otherwise falls back to the legacy V3 tag of the same id and
+  // translates its frozen state shape into V4's (so a V3 view opens through the normal apply path).
   const decodeViewState = useCallback(
     async (id: string): Promise<CapturedV4ViewState | null> => {
-      const tag = (experiment?.tags ?? []).find(({ key }) => key === getTraceV4SavedViewTagKey(id));
-      if (!tag || tag.value == null) {
-        return null;
+      const tags = experiment?.tags ?? [];
+      const v4Tag = tags.find(({ key }) => key === getTraceV4SavedViewTagKey(id));
+      if (v4Tag?.value != null) {
+        try {
+          return (await deserializePersistedState(decodeSavedViewEnvelope(v4Tag.value))) as CapturedV4ViewState;
+        } catch {
+          return null;
+        }
       }
-      try {
-        return (await deserializePersistedState(decodeSavedViewEnvelope(tag.value))) as CapturedV4ViewState;
-      } catch {
-        return null;
+      const v3Tag = tags.find(({ key }) => key === getTraceV3SavedViewTagKey(id));
+      if (v3Tag?.value != null) {
+        try {
+          const v3State = (await deserializePersistedState(decodeSavedViewEnvelope(v3Tag.value))) as V3SavedViewState;
+          const translated = translateV3ViewState(v3State);
+          // V3 column ids don't necessarily all resolve as V4 columns. Normalize `cols` to the
+          // resolvable V4 subset (what applyView will actually restore) so an opened V3 view reads
+          // clean, not spuriously dirty against ids V4 dropped. Absent when nothing resolves.
+          const resolvedCols = decodeViewColumns(translated, TRACE_COLUMN_IDS);
+          if (resolvedCols) {
+            translated.single.cols = resolvedCols.join(',');
+          } else {
+            delete translated.single.cols;
+          }
+          return translated;
+        } catch {
+          return null;
+        }
       }
+      return null;
     },
     [experiment?.tags],
   );
@@ -306,6 +348,8 @@ export const useTracesV4SavedViews = ({
   // Overwrite an existing view in place with the current live state, keeping its id, name and
   // creation time and bumping `updatedAt` (which floats it to the top of the list). Phantom-guarded:
   // `setExperimentTag` is create-or-update, so a deleted/unknown id would silently resurrect the tag.
+  // For a legacy V3 view this MIGRATES it: the state is written under the V4 prefix (same id) and the
+  // old V3 tag is deleted, so the view is native V4 afterwards and future overwrites are plain writes.
   const overwriteView = useCallback(
     async (id: string) => {
       const existing = views.find((view) => view.id === id);
@@ -326,6 +370,10 @@ export const useTracesV4SavedViews = ({
         return;
       }
       await dispatch(setExperimentTagApi(experimentId, getTraceV4SavedViewTagKey(id), envelope));
+      // Migrate: drop the legacy V3 tag now that the V4 one holds the (edited) state under the same id.
+      if (existing.origin === 'v3') {
+        await dispatch(deleteExperimentTagApi(experimentId, getTraceV3SavedViewTagKey(id)));
+      }
       await refetch();
       // The stored view now matches live; update the baseline so the dirty dot clears immediately.
       setActiveStoredState(state);

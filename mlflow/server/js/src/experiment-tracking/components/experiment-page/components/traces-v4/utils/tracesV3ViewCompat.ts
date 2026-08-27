@@ -1,13 +1,15 @@
 import { type CapturedV4ViewState } from './tracesV4SavedViewState';
 
 /**
- * Read-only compatibility shim for legacy V3 saved views.
+ * Compatibility shim for legacy V3 saved views.
  *
  * V3 is being removed, so nothing writes the V3 format anymore — but views authored while V3 shipped
- * are stored as experiment tags under the V3 prefix and must stay openable after V4 replaces V3. This
- * module lets the V4 tab DISCOVER those tags (via {@link TRACE_V3_SAVED_VIEW_TAG_PREFIX}) and READ
- * them (via {@link translateV3ViewState}), translating the frozen V3 state shape into V4's captured
- * view state. It never writes V3 — the only supported mutations on a legacy view are open and delete.
+ * are stored as experiment tags under the V3 prefix and must stay usable after V4 replaces V3. This
+ * module lets the V4 tab DISCOVER those tags (via {@link TRACE_V3_SAVED_VIEW_TAG_PREFIX} /
+ * {@link getTraceV3SavedViewTagKey}) and READ them (via {@link translateV3ViewState}), translating
+ * the frozen V3 state shape into V4's captured view state. It never WRITES the V3 format: a legacy
+ * view opens and can be deleted in place, and overwriting one migrates it forward — the edited state
+ * is written under the V4 prefix (same id) and the old V3 tag is deleted (see `overwriteView`).
  *
  * The translation is intentionally lossy in the ways that don't matter to the user: it maps the parts
  * a saved view is actually judged by (columns, sort, time range) and best-effort maps filters, while
@@ -20,6 +22,8 @@ import { type CapturedV4ViewState } from './tracesV4SavedViewState';
 export const TRACE_V3_SAVED_VIEW_TAG_PREFIX = 'mlflow.traceViewState.';
 
 const V3_SORT_SEPARATOR = '::';
+
+export const getTraceV3SavedViewTagKey = (id: string): string => `${TRACE_V3_SAVED_VIEW_TAG_PREFIX}${id}`;
 
 export const getTraceV3SavedViewIdFromTagKey = (key: string): string | null => {
   if (!key.startsWith(TRACE_V3_SAVED_VIEW_TAG_PREFIX)) {
@@ -37,7 +41,7 @@ export const getTraceV3SavedViewIdFromTagKey = (key: string): string | null => {
  * columns are a comma-joined id list, and `filter` is repeatable. Every field is optional — a view
  * may omit any of them — and unknown extra fields are ignored.
  */
-interface V3SavedViewState {
+export interface V3SavedViewState {
   single?: {
     selectedColumns?: string;
     sort?: string;

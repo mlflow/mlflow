@@ -51,6 +51,21 @@ const makeV4ViewTag = async (
   return { key: `mlflow.tracesV4ViewState.${id}`, value: encodeSavedViewEnvelope(name, compressed, createdAt) };
 };
 
+// Build a LEGACY V3 saved-view tag (prefix `mlflow.traceViewState.`) whose compressed state is the
+// frozen V3 shape: `single.selectedColumns` (comma-joined), `single.sort` (`key::type::asc`), time
+// range, and `multi.filter` (`key=value`). Same envelope codec as V4; only the inner state differs.
+const makeV3ViewTag = async (
+  id: string,
+  name: string,
+  createdAt: number,
+  single: Record<string, string> = { selectedColumns: 'start_time', sort: 'timestamp::date::false' },
+  filter: string[] = [],
+) => {
+  const state = { single, multi: filter.length > 0 ? { filter } : {} };
+  const compressed = await textCompressDeflate(JSON.stringify(state));
+  return { key: `mlflow.traceViewState.${id}`, value: encodeSavedViewEnvelope(name, compressed, createdAt) };
+};
+
 const stableRefetch = jest.fn(() => Promise.resolve({}));
 const mockExperiment = (tags: { key: string; value: string }[]) => {
   jest.mocked(useGetExperimentQuery).mockReturnValue({ data: { tags }, refetch: stableRefetch } as never);
@@ -497,6 +512,127 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
     });
     expect(setFilterModel).toHaveBeenLastCalledWith([]);
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
+  });
+});
+
+describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
+  const setColumns = jest.fn();
+  const setFilterModel = jest.fn();
+  const V3Probe = ({ onRender }: { onRender: (s: any, search: string) => void }) => {
+    const savedViews = useTracesV4SavedViews({
+      experimentId: 'exp-1',
+      visibleColumns: ['start_time'],
+      filterModel: [],
+      setColumns,
+      resetColumns: jest.fn(),
+      setFilterModel,
+    });
+    const [params] = useSearchParams();
+    onRender(savedViews, params.toString());
+    return null;
+  };
+  const renderV3ProbeAt = (entry: string, onRender: (s: any, search: string) => void) =>
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <MockedReduxStoreProvider>
+            <V3Probe onRender={onRender} />
+          </MockedReduxStoreProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+      {
+        wrapper: ({ children }) => (
+          <TestRouter routes={[testRoute(<>{children}</>, '/')]} history={history} initialEntries={[entry]} />
+        ),
+      },
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('lists a legacy V3 view alongside V4 views', async () => {
+    mockExperiment([await makeV4ViewTag('v4a', 'Native V4', 2000), await makeV3ViewTag('v3a', 'Legacy V3', 1000)]);
+    let state: any;
+    renderV3ProbeAt('/', (s) => (state = s));
+    await waitFor(() => expect(state.views).toHaveLength(2));
+    expect(state.views.find((v: any) => v.id === 'v3a')).toMatchObject({ name: 'Legacy V3', origin: 'v3' });
+    expect(state.views.find((v: any) => v.id === 'v4a')).toMatchObject({ name: 'Native V4', origin: 'v4' });
+  });
+
+  test('opening a V3 view translates its state onto the URL + restores columns/filters', async () => {
+    mockExperiment([
+      await makeV3ViewTag(
+        'v3a',
+        'Legacy V3',
+        1000,
+        { selectedColumns: 'start_time,input', sort: 'timestamp::date::false', startTimeLabel: 'LAST_7_DAYS' },
+        ['env=prod'],
+      ),
+    ]);
+    let state: any;
+    let search = '';
+    renderV3ProbeAt('/', (s, sp) => {
+      state = s;
+      search = sp;
+    });
+    await act(async () => {
+      await state.openView('v3a');
+    });
+    await waitFor(() => {
+      const url = new URLSearchParams(search);
+      expect(url.get('sort')).toBe('timestamp'); // V3 `key::type::asc` → V4 sort (type dropped)
+      expect(url.get('dir')).toBe('desc');
+      expect(url.get('startTimeLabel')).toBe('LAST_7_DAYS');
+      expect(url.getAll('tag')).toEqual(['env=prod']); // V3 filter[] → V4 tag[]
+      expect(url.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBe('v3a');
+    });
+    // Columns restored into the user's store (V3 `selectedColumns` → V4 cols).
+    expect(setColumns).toHaveBeenCalledWith(['start_time', 'input']);
+  });
+
+  test('overwriting a V3 view migrates it: writes a V4 tag (same id) and deletes the V3 tag', async () => {
+    mockExperiment([await makeV3ViewTag('v3a', 'Legacy V3', 1000, { selectedColumns: 'start_time' })]);
+    let state: any;
+    renderV3ProbeAt(`/?q=edited&${TRACE_V4_SHARE_URL_PARAM_KEY}=v3a`, (s) => (state = s));
+    await waitFor(() => expect(state.activeViewId).toBe('v3a'));
+    await act(async () => {
+      await state.overwriteView('v3a');
+    });
+    // V4 tag written under the same id, name + createdAt preserved, with the edited live state.
+    expect(mockSetExperimentTagApi).toHaveBeenCalledTimes(1);
+    const [, setKey, setValue] = mockSetExperimentTagApi.mock.calls[0];
+    expect(setKey).toBe('mlflow.tracesV4ViewState.v3a');
+    const envelope = JSON.parse(setValue);
+    expect(envelope.name).toBe('Legacy V3');
+    expect(envelope.createdAt).toBe(1000);
+    const decoded = JSON.parse(await textDecompressDeflate(envelope.state));
+    expect(decoded.single.q).toBe('edited');
+    // Legacy V3 tag deleted so the view is native V4 afterwards.
+    expect(mockDeleteExperimentTagApi).toHaveBeenCalledWith('exp-1', 'mlflow.traceViewState.v3a');
+  });
+
+  test('deleting a V3 view targets the V3 tag prefix', async () => {
+    mockExperiment([await makeV3ViewTag('v3a', 'Legacy V3', 1000)]);
+    let state: any;
+    renderV3ProbeAt('/', (s) => (state = s));
+    await waitFor(() => expect(state.views).toHaveLength(1));
+    await act(async () => {
+      await state.deleteView('v3a');
+    });
+    expect(mockDeleteExperimentTagApi).toHaveBeenCalledWith('exp-1', 'mlflow.traceViewState.v3a');
+  });
+
+  test('a migrated V4 tag shadows a leftover V3 tag of the same id (V4 wins, listed once)', async () => {
+    // Both prefixes hold the id (e.g. a refetch race mid-migration); the list must show one V4 entry.
+    mockExperiment([
+      await makeV3ViewTag('dup', 'Legacy name', 1000),
+      await makeV4ViewTag('dup', 'Migrated name', 3000),
+    ]);
+    let state: any;
+    renderV3ProbeAt('/', (s) => (state = s));
+    await waitFor(() => expect(state.views).toHaveLength(1));
+    expect(state.views[0]).toMatchObject({ id: 'dup', name: 'Migrated name', origin: 'v4' });
   });
 });
 
