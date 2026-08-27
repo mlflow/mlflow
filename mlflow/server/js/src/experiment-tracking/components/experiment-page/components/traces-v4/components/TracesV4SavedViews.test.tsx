@@ -52,13 +52,15 @@ const makeV4ViewTag = async (
 };
 
 // Build a LEGACY V3 saved-view tag (prefix `mlflow.traceViewState.`) whose compressed state is the
-// frozen V3 shape: `single.selectedColumns` (comma-joined), `single.sort` (`key::type::asc`), time
-// range, and `multi.filter` (`key=value`). Same envelope codec as V4; only the inner state differs.
+// frozen V3 shape, in V3's OWN vocabulary: `single.selectedColumns` is a comma-joined list of V3
+// column ids (`request_time`, `request`, `execution_duration`, …), `single.sort` is `key::type::asc`
+// with a V3 column key, time range, and `multi.filter` holds `column::operator::value::key` entries.
+// Same envelope codec as V4; only the inner state differs.
 const makeV3ViewTag = async (
   id: string,
   name: string,
   createdAt: number,
-  single: Record<string, string> = { selectedColumns: 'start_time', sort: 'timestamp::date::false' },
+  single: Record<string, string> = { selectedColumns: 'request_time', sort: 'request_time::date::false' },
   filter: string[] = [],
 ) => {
   const state = { single, multi: filter.length > 0 ? { filter } : {} };
@@ -580,8 +582,14 @@ describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
         'v3a',
         'Legacy V3',
         1000,
-        { selectedColumns: 'start_time,input', sort: 'timestamp::date::false', startTimeLabel: 'LAST_7_DAYS' },
-        ['env=prod'],
+        // V3 vocabulary: request_time→start_time, request→input columns; execution_duration sort key;
+        // a `column::operator::value::key` filter that maps onto V4's `state` popover field.
+        {
+          selectedColumns: 'request_time,request',
+          sort: 'execution_duration::number::false',
+          startTimeLabel: 'LAST_7_DAYS',
+        },
+        ['state::=::ERROR::'],
       ),
     ]);
     let state: any;
@@ -595,14 +603,15 @@ describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
     });
     await waitFor(() => {
       const url = new URLSearchParams(search);
-      expect(url.get('sort')).toBe('timestamp'); // V3 `key::type::asc` → V4 sort (type dropped)
+      expect(url.get('sort')).toBe('duration'); // execution_duration → duration, `type` segment dropped
       expect(url.get('dir')).toBe('desc');
       expect(url.get('startTimeLabel')).toBe('LAST_7_DAYS');
-      expect(url.getAll('tag')).toEqual(['env=prod']); // V3 filter[] → V4 tag[]
       expect(url.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBe('v3a');
     });
-    // Columns restored into the user's store (V3 `selectedColumns` → V4 cols).
+    // Columns restored into the user's store (V3 ids → V4 ids: request_time→start_time, request→input).
     expect(setColumns).toHaveBeenCalledWith(['start_time', 'input']);
+    // V3 filter[] → V4's in-memory popover model (not the URL-backed tag[]).
+    expect(setFilterModel).toHaveBeenCalledWith([{ field: 'state', operator: '=', value: 'ERROR' }]);
   });
 
   test('overwriting a V3 view migrates it: writes a V4 tag (same id) and deletes the V3 tag', async () => {
@@ -634,7 +643,26 @@ describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
     await act(async () => {
       await state.deleteView('v3a');
     });
+    expect(mockDeleteExperimentTagApi).toHaveBeenCalledTimes(1);
     expect(mockDeleteExperimentTagApi).toHaveBeenCalledWith('exp-1', 'mlflow.traceViewState.v3a');
+  });
+
+  test('deleting a half-migrated view removes BOTH the V4 and leftover V3 tags (no resurrection)', async () => {
+    // A migration whose V3-delete never landed leaves both prefixes for the id; the list de-dupes to
+    // one V4 entry, so deleting only the V4 tag would let the V3 twin come back on the next refetch.
+    mockExperiment([
+      await makeV3ViewTag('dup', 'Legacy name', 1000),
+      await makeV4ViewTag('dup', 'Migrated name', 3000),
+    ]);
+    let state: any;
+    renderV3ProbeAt('/', (s) => (state = s));
+    await waitFor(() => expect(state.views).toHaveLength(1));
+    await act(async () => {
+      await state.deleteView('dup');
+    });
+    expect(mockDeleteExperimentTagApi).toHaveBeenCalledWith('exp-1', 'mlflow.tracesV4ViewState.dup');
+    expect(mockDeleteExperimentTagApi).toHaveBeenCalledWith('exp-1', 'mlflow.traceViewState.dup');
+    expect(mockDeleteExperimentTagApi).toHaveBeenCalledTimes(2);
   });
 
   test('a migrated V4 tag shadows a leftover V3 tag of the same id (V4 wins, listed once)', async () => {

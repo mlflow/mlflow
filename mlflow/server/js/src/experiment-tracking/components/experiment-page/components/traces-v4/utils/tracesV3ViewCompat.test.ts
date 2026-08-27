@@ -1,4 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
+import { FilterOp } from '@databricks/web-shared/traces-table';
 import {
   getTraceV3SavedViewIdFromTagKey,
   getTraceV3SavedViewTagKey,
@@ -32,43 +33,50 @@ describe('getTraceV3SavedViewIdFromTagKey', () => {
 });
 
 describe('translateV3ViewState — columns', () => {
-  test('maps V3 selectedColumns onto V4 cols verbatim', () => {
-    const out = translateV3ViewState({ single: { selectedColumns: 'start_time,input,duration' } });
-    expect(out.single.cols).toBe('start_time,input,duration');
+  test('maps V3 column ids onto their V4 counterparts, preserving order', () => {
+    // V3 named these columns differently: request→input, response→output, request_time→start_time,
+    // execution_duration→duration; the rest share the same id.
+    const out = translateV3ViewState({
+      single: { selectedColumns: 'request_time,request,response,execution_duration,state' },
+    });
+    expect(out.single.cols).toBe('start_time,input,output,duration,state');
   });
 
-  test('preserves an empty selectedColumns string (every column deselected) rather than dropping it', () => {
-    const out = translateV3ViewState({ single: { selectedColumns: '' } });
-    expect(out.single.cols).toBe('');
+  test('drops V3 column ids with no V4 column (e.g. logged_model, span.*)', () => {
+    const out = translateV3ViewState({ single: { selectedColumns: 'request,logged_model,span.name,tokens' } });
+    expect(out.single.cols).toBe('input,tokens');
   });
 
-  test('omits cols when V3 had no selectedColumns', () => {
-    const out = translateV3ViewState({ single: {} });
-    expect(out.single.cols).toBeUndefined();
+  test('omits cols when nothing maps or V3 had no selectedColumns', () => {
+    expect(translateV3ViewState({ single: { selectedColumns: 'logged_model,prompt' } }).single.cols).toBeUndefined();
+    expect(translateV3ViewState({ single: { selectedColumns: '' } }).single.cols).toBeUndefined();
+    expect(translateV3ViewState({ single: {} }).single.cols).toBeUndefined();
   });
 });
 
 describe('translateV3ViewState — sort', () => {
-  test('splits an ascending key::type::asc string into sort + dir, dropping the type segment', () => {
-    const out = translateV3ViewState({ single: { sort: 'duration::numeric::true' } });
+  test('maps a V3 sort key to its V4 column and splits key::type::asc into sort + dir', () => {
+    // execution_duration → duration; the middle `type` segment is dropped.
+    const out = translateV3ViewState({ single: { sort: 'execution_duration::number::true' } });
     expect(out.single.sort).toBe('duration');
     expect(out.single.dir).toBe('asc');
   });
 
-  test('maps asc=false to descending', () => {
-    const out = translateV3ViewState({ single: { sort: 'timestamp::date::false' } });
-    expect(out.single.sort).toBe('timestamp');
+  test('maps request_time → start_time and asc=false to descending', () => {
+    const out = translateV3ViewState({ single: { sort: 'request_time::date::false' } });
+    expect(out.single.sort).toBe('start_time');
     expect(out.single.dir).toBe('desc');
   });
 
-  test('drops a malformed sort (wrong segment count) so the view still opens unsorted', () => {
-    const out = translateV3ViewState({ single: { sort: 'duration::numeric' } });
+  test('drops a sort whose V3 key has no V4-sortable column', () => {
+    // `session` is client-sortable in V3 but not a V4-sortable column, so the sort is dropped.
+    const out = translateV3ViewState({ single: { sort: 'session::string::true' } });
     expect(out.single.sort).toBeUndefined();
     expect(out.single.dir).toBeUndefined();
   });
 
-  test('drops a sort with an empty key', () => {
-    const out = translateV3ViewState({ single: { sort: '::numeric::true' } });
+  test('drops a malformed sort (wrong segment count) so the view still opens unsorted', () => {
+    const out = translateV3ViewState({ single: { sort: 'execution_duration::number' } });
     expect(out.single.sort).toBeUndefined();
     expect(out.single.dir).toBeUndefined();
   });
@@ -92,26 +100,51 @@ describe('translateV3ViewState — time range', () => {
 });
 
 describe('translateV3ViewState — filters', () => {
-  test('maps key=value V3 filters onto V4 tags, preserving order', () => {
-    const out = translateV3ViewState({ multi: { filter: ['env=prod', 'team=search'] } });
-    expect(out.multi.tag).toEqual(['env=prod', 'team=search']);
-  });
-
-  test('drops filter entries that are not key=value', () => {
+  test('translates V3 column::operator::value::key entries into the V4 popover model, in order', () => {
+    // V3 serializes each filter as `column::operator::value::key` (the key segment is empty for
+    // non-key fields). state→state, execution_duration→duration.
     const out = translateV3ViewState({
-      multi: { filter: ['env=prod', 'status:error', 'plainword', '=novalue', 'nokey='] },
+      multi: { filter: ['state::=::ERROR::', 'execution_duration::>=::1000::'] },
     });
-    expect(out.multi.tag).toEqual(['env=prod']);
+    expect(out.filters).toEqual([
+      { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+      { field: 'duration', operator: FilterOp.GREATER_THAN_OR_EQUALS, value: '1000' },
+    ]);
   });
 
-  test('omits tag entirely when no filter maps', () => {
-    const out = translateV3ViewState({ multi: { filter: ['plainword'] } });
+  test('carries the key segment for a key-requiring field (TAG) and maps the column group', () => {
+    const out = translateV3ViewState({ multi: { filter: ['TAG::=::prod::env'] } });
+    expect(out.filters).toEqual([{ field: 'tag', operator: FilterOp.EQUALS, value: 'prod', key: 'env' }]);
+  });
+
+  test('maps the ASSESSMENT group to the assessment field, keeping its key', () => {
+    const out = translateV3ViewState({ multi: { filter: ['ASSESSMENT::=::yes::correctness'] } });
+    expect(out.filters).toEqual([{ field: 'assessment', operator: FilterOp.EQUALS, value: 'yes', key: 'correctness' }]);
+  });
+
+  test('drops entries whose column has no V4 field, whose operator V4 rejects, or that lack a value/key', () => {
+    const out = translateV3ViewState({
+      multi: {
+        filter: [
+          'logged_model::=::m1::', // column has no V4 filter field
+          'state::IS NULL::::', // operator V4 doesn't support
+          'user::=::::', // missing value
+          'TAG::=::prod::', // key-requiring field with no key
+          'session::=::sess-1::', // valid — kept
+        ],
+      },
+    });
+    expect(out.filters).toEqual([{ field: 'session', operator: FilterOp.EQUALS, value: 'sess-1' }]);
+  });
+
+  test('omits filters entirely when nothing maps, and never sets the URL-backed tag[]', () => {
+    const out = translateV3ViewState({ multi: { filter: ['logged_model::=::m1::'] } });
+    expect(out.filters).toBeUndefined();
     expect(out.multi.tag).toBeUndefined();
   });
 
-  test('omits tag when V3 had no filters', () => {
-    const out = translateV3ViewState({ single: {} });
-    expect(out.multi.tag).toBeUndefined();
+  test('omits filters when V3 had no filters', () => {
+    expect(translateV3ViewState({ single: {} }).filters).toBeUndefined();
   });
 
   test('drops V3-internal fields with no V4 equivalent (viewState)', () => {
@@ -121,15 +154,15 @@ describe('translateV3ViewState — filters', () => {
 });
 
 describe('translateV3ViewState — end to end', () => {
-  test('a full V3 view translates into a valid, applyable V4 query', () => {
+  test('a full V3 view translates into a valid, applyable V4 query + popover filter model', () => {
     const v3State = {
       single: {
-        selectedColumns: 'start_time,input,duration',
-        sort: 'duration::numeric::false',
+        selectedColumns: 'request_time,request,execution_duration',
+        sort: 'execution_duration::number::false',
         viewState: 'internal-v3-only',
         startTimeLabel: 'LAST_7_DAYS',
       },
-      multi: { filter: ['env=prod'] },
+      multi: { filter: ['state::=::ERROR::', 'TAG::=::prod::env'] },
     };
 
     const out = translateV3ViewState(v3State);
@@ -142,10 +175,12 @@ describe('translateV3ViewState — end to end', () => {
     expect(params.get('sort')).toBe('duration');
     expect(params.get('dir')).toBe('desc');
     expect(params.get('startTimeLabel')).toBe('LAST_7_DAYS');
-    expect(params.getAll('tag')).toEqual(['env=prod']);
-    // V3's key=value filters map to V4's URL-backed tag[], NOT the in-memory popover filter model
-    // (which V3 had no equivalent of) — so a translated view carries no popover `filters`.
-    expect(out.filters).toBeUndefined();
+    // V3 filters translate into V4's in-memory popover model, NOT the URL-backed tag[].
+    expect(out.filters).toEqual([
+      { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+      { field: 'tag', operator: FilterOp.EQUALS, value: 'prod', key: 'env' },
+    ]);
+    expect(params.getAll('tag')).toEqual([]);
     // The share key is set so the applied view is recognized as a preview.
     expect(params.get('traceViewShareKey')).toBe('legacy-view-1');
     // V3-internal state never leaks into the V4 URL.
@@ -156,5 +191,6 @@ describe('translateV3ViewState — end to end', () => {
     const out = translateV3ViewState({});
     expect(out.single).toEqual({});
     expect(out.multi).toEqual({});
+    expect(out.filters).toBeUndefined();
   });
 });

@@ -235,13 +235,23 @@ export const useTracesV4SavedViews = ({
 
   const deleteView = useCallback(
     async (id: string) => {
-      // Delete the tag under whichever prefix the view actually lives (legacy V3 views included).
-      const origin = views.find((view) => view.id === id)?.origin ?? 'v4';
-      const tagKey = origin === 'v3' ? getTraceV3SavedViewTagKey(id) : getTraceV4SavedViewTagKey(id);
-      await dispatch(deleteExperimentTagApi(experimentId, tagKey));
+      // Delete every tag stored under this id, across both prefixes. Usually there's just one, but a
+      // half-migrated view (a V4 tag written over a V3 one whose delete never landed) leaves both —
+      // the list de-dupes them (V4 wins), so deleting only the V4 tag would let the V3 twin resurrect
+      // the view on the next refetch. Delete whichever of the two actually exists.
+      const tags = experiment?.tags ?? [];
+      const v4Key = getTraceV4SavedViewTagKey(id);
+      const v3Key = getTraceV3SavedViewTagKey(id);
+      const keysToDelete = [v4Key, v3Key].filter((key) => tags.some((tag) => tag.key === key));
+      // Fall back to the V4 key if the cache somehow lists neither (best-effort; the delete no-ops).
+      await Promise.all(
+        (keysToDelete.length > 0 ? keysToDelete : [v4Key]).map((key) =>
+          dispatch(deleteExperimentTagApi(experimentId, key)),
+        ),
+      );
       await refetch();
     },
-    [dispatch, experimentId, refetch, views],
+    [dispatch, experimentId, refetch, experiment?.tags],
   );
 
   // Decode a stored view's tag value into V4 captured state, or null if it's missing/corrupt. Reads
