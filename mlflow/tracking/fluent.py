@@ -3220,6 +3220,7 @@ def get_artifact_uri(artifact_path: str | None = None) -> str:
         run_id=_get_or_start_run().info.run_id, artifact_path=artifact_path
     )
 
+
 @overload
 def search_runs(
     experiment_ids: list[str] | None = None,
@@ -3230,8 +3231,8 @@ def search_runs(
     output_format: Literal["pandas"] = "pandas",
     search_all_experiments: bool = False,
     experiment_names: list[str] | None = None,
-) -> pandas.DataFrame:
-    ...
+) -> "pandas.DataFrame": ...
+
 
 @overload
 def search_runs(
@@ -3243,8 +3244,7 @@ def search_runs(
     output_format: Literal["list"] = "list",
     search_all_experiments: bool = False,
     experiment_names: list[str] | None = None,
-) -> list[Run]:
-    ...
+) -> list[Run]: ...
 
 
 def search_runs(
@@ -3256,7 +3256,7 @@ def search_runs(
     output_format: Literal["pandas", "list"] = "pandas",
     search_all_experiments: bool = False,
     experiment_names: list[str] | None = None,
-) -> list[Run] | pandas.DataFrame:
+) -> "list[Run] | pandas.DataFrame":
     """
     Search for Runs that fit the specified criteria.
 
