@@ -98,11 +98,11 @@ def test_substitute_strips_markup_for_media_that_never_uploaded(text: str, expec
 def test_rewrite_payload_covers_body_and_inline_comments() -> None:
     payload = {
         "event": "COMMENT",
-        "body": f"Race shown in [the trace]({SHOT})\n\n🤖 Generated with Claude",
+        "body": f"Race shown in [the trace]({SHOT})\n\nNothing else stood out.",
         "comments": [{"path": "a.py", "body": f"🔴 **CRITICAL:** ![x]({SHOT})", "line": 1}],
     }
     result = rewrite_payload(payload, URLS)
-    assert result["body"] == f"Race shown in [the trace]({URL})\n\n🤖 Generated with Claude"
+    assert result["body"] == f"Race shown in [the trace]({URL})\n\nNothing else stood out."
     assert result["comments"][0]["body"] == f"🔴 **CRITICAL:** ![x]({URL})"
 
 
@@ -111,9 +111,9 @@ def test_rewrite_payload_neutralizes_unavailable_media_in_comments() -> None:
     assert rewrite_payload(payload, {}, [SHOT])["comments"][0]["body"] == "the bug"
 
 
-def test_rewrite_payload_preserves_the_trailing_footer() -> None:
-    payload = {"body": f"![x]({SHOT})\n\n🤖 Generated with Claude", "comments": []}
-    assert rewrite_payload(payload, URLS)["body"].endswith("🤖 Generated with Claude")
+def test_rewrite_payload_preserves_trailing_text() -> None:
+    payload = {"body": f"![x]({SHOT})\n\nNothing else stood out.", "comments": []}
+    assert rewrite_payload(payload, URLS)["body"].endswith("Nothing else stood out.")
 
 
 def test_rewrite_payload_tolerates_missing_and_malformed_fields() -> None:

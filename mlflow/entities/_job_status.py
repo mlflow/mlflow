@@ -50,7 +50,7 @@ class JobStatus(str, Enum):
         }
         return mapping.get(self, ProtoJobStatus.JOB_STATUS_UNSPECIFIED)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
     @staticmethod
