@@ -43,6 +43,14 @@ jobs:
       - name: Render templates
         run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
 
+      - name: Render optional templates
+        run: |
+          helm template mlflow charts/ \
+            --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
+            --set metrics.enabled=true \
+            --set serviceMonitor.enabled=true \
+            | grep -q '^      path: /metrics$'
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20

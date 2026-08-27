@@ -178,7 +178,6 @@ ingress:
 ```yaml
 metrics:
   enabled: true
-  path: /metrics
 
 serviceMonitor:
   enabled: true
