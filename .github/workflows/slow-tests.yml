@@ -8,7 +8,6 @@ on:
       - ".github/workflows/slow-tests.yml"
       - "tests/docker/**"
       - "tests/pyfunc/docker/**"
-      - "mlflow/utils/uri.py"
       - "tests/artifacts/**"
       - "tests/assistant/**"
   workflow_dispatch:
