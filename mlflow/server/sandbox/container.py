@@ -132,21 +132,13 @@ def to_container_host_uri(uri: str | None) -> str | None:
     if host is None or host.lower() not in _LOOPBACK_HOSTS:
         return uri
 
-    userinfo = ""
-    if parts.username:
-        userinfo = parts.username
-        if parts.password:
-            userinfo += f":{parts.password}"
-        userinfo += "@"
+    # Swap only the host token in the netloc. Keep any userinfo bytes exactly as they were
+    # (split on the last '@') and reuse the parsed port, which is bracket-aware so IPv6 loopbacks
+    # like ``[::1]`` are handled. The original loopback host is discarded — it is what we replace.
+    userinfo, sep, _ = parts.netloc.rpartition("@")
     port = f":{parts.port}" if parts.port else ""
-    new_netloc = f"{userinfo}host.docker.internal{port}"
-    return urllib.parse.urlunsplit((
-        parts.scheme,
-        new_netloc,
-        parts.path,
-        parts.query,
-        parts.fragment,
-    ))
+    new_netloc = f"{userinfo}{sep}host.docker.internal{port}"
+    return urllib.parse.urlunsplit(parts._replace(netloc=new_netloc))
 
 
 def run_in_sandbox(

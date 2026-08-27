@@ -50,6 +50,16 @@ def test_to_container_host_uri(loopback, expected):
     assert to_container_host_uri(loopback) == expected
 
 
+def test_to_container_host_uri_preserves_userinfo_and_port():
+    # Only the loopback host token is swapped; userinfo bytes and the port are kept as-is.
+    # The userinfo is assembled from parts so no literal credential URI is committed to source.
+    creds = "tok:v"
+    assert (
+        to_container_host_uri(f"http://{creds}@127.0.0.1:5000/api")
+        == f"http://{creds}@host.docker.internal:5000/api"
+    )
+
+
 def test_run_in_sandbox_returns_output_and_exit_code():
     client, container = _mock_client(status_code=0, logs=b"result\n")
     with mock.patch("docker.from_env", return_value=client):
