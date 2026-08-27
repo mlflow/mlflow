@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787808287579,
+  "lastUpdate": 1787809234201,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -24893,6 +24893,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.098545000005099,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "93098657+IgorShishkin12@users.noreply.github.com",
+            "name": "IgorShishkin12",
+            "username": "IgorShishkin12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "948322ac3f7ed6983ebd37d5c2e65875ea98810e",
+          "message": "Add incremental mypy strict harness and type small mlflow.entities (#25309)\n\nSigned-off-by: IgorShishkin12 <qwertyshishkin@yandex.ru>",
+          "timestamp": "2026-08-27T05:39:06Z",
+          "tree_id": "6949fcbc60b29cb659122aa67abed2d41503704d",
+          "url": "https://github.com/mlflow/mlflow/commit/948322ac3f7ed6983ebd37d5c2e65875ea98810e"
+        },
+        "date": 1787809231298,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.47983640000115,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.243689981820146,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.386648291389535,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.205736474999431,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.718747537313585,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.079694199994037,
             "unit": "ms"
           }
         ]
