@@ -26,10 +26,11 @@ These reads are independent. Issue them as parallel tool calls in a single turn,
 gh pr view <pr_url> --json title,body
 ```
 
-**PR diff hunks** via the [`fetch-diff`](../fetch-diff/SKILL.md) skill:
+**PR diff hunks** via the [`annotate-diff`](../annotate-diff/SKILL.md) skill. The working tree is
+the merge ref (see step 3), so `HEAD^1 HEAD` is exactly the PR diff:
 
 ```bash
-uv run --package skills skills fetch-diff <pr_url>
+git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff
 ```
 
 Its annotated output gives you the `line` and `side` to anchor each comment on.

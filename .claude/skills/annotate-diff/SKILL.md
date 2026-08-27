@@ -1,35 +1,39 @@
 ---
-name: fetch-diff
-description: Fetch PR diff with filtering and line numbers for code review.
+name: annotate-diff
+description: Annotate a diff read from stdin with line numbers for code review.
 ---
 
-# Fetch PR Diff
+# Annotate Diff
 
-Fetches a pull request diff and adds line numbers for easier review comment placement. Auto-generated files are shown with masked diffs.
+Reads a diff on stdin and adds line numbers for easier review comment placement. Auto-generated files are shown with masked diffs.
 
 ## Usage
 
 ```bash
-uv run --package skills skills fetch-diff <pr_url> [--files <pattern> ...]
+<diff source> | uv run --package skills skills annotate-diff [--files <pattern> ...]
 ```
 
-Examples:
+In a `refs/pull/<pr_number>/merge` checkout, which is what the review workflows set up, `HEAD^1 HEAD` is exactly the PR diff:
 
 ```bash
-# Fetch the full diff
-uv run --package skills skills fetch-diff https://github.com/mlflow/mlflow/pull/123
+# Annotate the full diff
+git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff
 
-# Fetch only Python files
-uv run --package skills skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py'
+# Only Python files
+git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff --files '*.py'
 
-# Fetch only frontend files
-uv run --package skills skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files 'mlflow/server/js/*'
+# Only frontend files
+git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff --files 'mlflow/server/js/*'
 
 # Multiple patterns
-uv run --package skills skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py' '*.ts'
+git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff --files '*.py' '*.ts'
 ```
 
-Token is auto-detected from `GH_TOKEN` env var or `gh auth token`.
+Outside such a checkout, pipe the PR diff in instead:
+
+```bash
+gh pr diff https://github.com/mlflow/mlflow/pull/123 | uv run --package skills skills annotate-diff
+```
 
 ## Output Example
 
