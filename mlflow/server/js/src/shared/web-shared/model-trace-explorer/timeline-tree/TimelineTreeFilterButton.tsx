@@ -8,7 +8,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import type { SpanFilterState } from '../ModelTrace.types';
 import { SpanLogLevel } from '../ModelTrace.types';
@@ -64,6 +64,7 @@ export const TimelineTreeFilterButton = ({
   setSpanFilterState: (state: SpanFilterState) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const sliderIndex = indexFromLogLevel(spanFilterState.minLogLevel);
   const currentLevel = LOG_LEVEL_ORDER[sliderIndex];
   const description = LEVEL_DESCRIPTIONS[currentLevel];
@@ -124,7 +125,7 @@ export const TimelineTreeFilterButton = ({
               >
                 {icon}
                 <Typography.Text css={{ marginLeft: theme.spacing.xs }}>
-                  {getDisplayNameForSpanType(spanType)}
+                  {getDisplayNameForSpanType(spanType, intl)}
                 </Typography.Text>
               </Checkbox>
             );

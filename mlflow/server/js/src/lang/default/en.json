@@ -2555,6 +2555,10 @@
     "defaultMessage": "Created by:",
     "description": "MCP compare metadata created by label"
   },
+  "8e7obo": {
+    "defaultMessage": "Task",
+    "description": "Display name for a task span in the model trace explorer"
+  },
   "8eVxXM": {
     "defaultMessage": "Cancel",
     "description": "Cancel delete webhook button"
@@ -10055,6 +10059,10 @@
     "defaultMessage": "Disable grouped runs to compare parameters, tag, or attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > disable group runs tooltip message"
   },
+  "ct0u/N": {
+    "defaultMessage": "Workflow",
+    "description": "Display name for a workflow span in the model trace explorer"
+  },
   "cto1kL": {
     "defaultMessage": "About tool definitions",
     "description": "Aria label for the info popover next to the Tools section header"
@@ -14179,6 +14187,10 @@
     "defaultMessage": "Use workspace settings",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for using global workspace settings."
   },
+  "srmY5V": {
+    "defaultMessage": "Guardrail",
+    "description": "Display name for a guardrail span in the model trace explorer"
+  },
   "ss//L4": {
     "defaultMessage": "{subMessage}, go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
@@ -14766,6 +14778,10 @@
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",
     "description": "Placeholder for API key combobox input"
+  },
+  "vf4FHp": {
+    "defaultMessage": "Evaluator",
+    "description": "Display name for an evaluator span in the model trace explorer"
   },
   "vfJdto": {
     "defaultMessage": "This experiment has reached the limit of {maxViews} custom views. Delete a view before creating a new one.",

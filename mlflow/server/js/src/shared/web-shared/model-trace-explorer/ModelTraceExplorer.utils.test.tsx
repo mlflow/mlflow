@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
+import type { IntlShape } from '@databricks/i18n';
 
 import type {
   Assessment,
@@ -174,18 +175,22 @@ describe('parseTraceToTree', () => {
 });
 
 describe('span type presentation', () => {
+  const intl = {
+    formatMessage: ({ defaultMessage }: { defaultMessage?: string }) => defaultMessage,
+  } as IntlShape;
+
   it.each([
     [ModelSpanType.WORKFLOW, 'Workflow', ModelIconType.WORKFLOW],
     [ModelSpanType.TASK, 'Task', ModelIconType.TASK],
     [ModelSpanType.GUARDRAIL, 'Guardrail', ModelIconType.GUARDRAIL],
     [ModelSpanType.EVALUATOR, 'Evaluator', ModelIconType.EVALUATOR],
   ])('renders %s with an explicit display name and icon', (spanType, displayName, iconType) => {
-    expect(getDisplayNameForSpanType(spanType)).toBe(displayName);
+    expect(getDisplayNameForSpanType(spanType, intl)).toBe(displayName);
     expect(getIconTypeForSpan(spanType)).toBe(iconType);
   });
 
   it('retains generic fallbacks for custom span types', () => {
-    expect(getDisplayNameForSpanType('ROUTER')).toBe('ROUTER');
+    expect(getDisplayNameForSpanType('ROUTER', intl)).toBe('ROUTER');
     expect(getIconTypeForSpan('ROUTER')).toBe(ModelIconType.FUNCTION);
   });
 

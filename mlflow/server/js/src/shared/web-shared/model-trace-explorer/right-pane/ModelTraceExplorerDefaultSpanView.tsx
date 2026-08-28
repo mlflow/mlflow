@@ -42,7 +42,7 @@ export function ModelTraceExplorerDefaultSpanView({
 
   return (
     <div data-testid="model-trace-explorer-default-span-view">
-      {renderMode === 'default' && activeSpan.type === ModelSpanType.GUARDRAIL && activeSpan.guardrailStatus && (
+      {activeSpan.type === ModelSpanType.GUARDRAIL && activeSpan.guardrailStatus && (
         <ModelTraceExplorerGuardrailSpanView status={activeSpan.guardrailStatus} />
       )}
       {containsInputs && (

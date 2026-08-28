@@ -9,7 +9,7 @@ import { IntlProvider } from '@databricks/i18n';
 import { TEST_SPAN_FILTER_STATE } from './TimelineTree.test-utils';
 import { TimelineTreeFilterButton } from './TimelineTreeFilterButton';
 import type { SpanFilterState } from '../ModelTrace.types';
-import { SpanLogLevel } from '../ModelTrace.types';
+import { ModelSpanType, SpanLogLevel } from '../ModelTrace.types';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
@@ -26,6 +26,26 @@ const TestWrapper = () => {
         <span>{'Show exceptions ' + String(spanFilterState.showExceptions)}</span>
         <span>{'Show chain spans ' + String(spanFilterState.spanTypeDisplayState['CHAIN'])}</span>
         <span>{'Min log level ' + String(spanFilterState.minLogLevel)}</span>
+      </DesignSystemProvider>
+    </IntlProvider>
+  );
+};
+
+const NewSpanTypesWrapper = () => {
+  const [spanFilterState, setSpanFilterState] = useState<SpanFilterState>({
+    ...TEST_SPAN_FILTER_STATE,
+    spanTypeDisplayState: {
+      [ModelSpanType.WORKFLOW]: true,
+      [ModelSpanType.TASK]: true,
+      [ModelSpanType.GUARDRAIL]: true,
+      [ModelSpanType.EVALUATOR]: true,
+    },
+  });
+
+  return (
+    <IntlProvider locale="en">
+      <DesignSystemProvider>
+        <TimelineTreeFilterButton spanFilterState={spanFilterState} setSpanFilterState={setSpanFilterState} />
       </DesignSystemProvider>
     </IntlProvider>
   );
@@ -77,5 +97,15 @@ describe('TimelineTreeFilterButton', () => {
     // (Hover assertions are covered by InfoTooltip's own tests; here we just
     // verify the trigger is rendered so we don't accidentally drop it again.)
     expect(await screen.findByText('Minimum log level')).toBeInTheDocument();
+  });
+
+  it('renders localized names for agent span types', async () => {
+    render(<NewSpanTypesWrapper />);
+    await userEvent.click(screen.getByRole('button', { name: 'Filter' }));
+
+    expect(screen.getByRole('checkbox', { name: 'Workflow' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Task' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Guardrail' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Evaluator' })).toBeInTheDocument();
   });
 });

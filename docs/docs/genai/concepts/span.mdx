@@ -197,6 +197,8 @@ retrieved_docs = retrieve_relevant_documents(user_query)
 The `GUARDRAIL` span type represents a policy or safety check. Set the span's inputs to the value
 being checked and its outputs to the guardrail response or explanation. To show the result in the
 MLflow UI, set the `mlflow.guardrail.status` attribute to `"passed"` or `"blocked"`.
+A successful sanitization is `"passed"` because the guardrail allows the rewritten payload. Use
+`"blocked"` when the operation does not proceed, including when sanitization fails.
 
 ```python
 import mlflow

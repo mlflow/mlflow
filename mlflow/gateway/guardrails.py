@@ -32,6 +32,7 @@ ScorerResult = bool | str | Feedback | list[Feedback]
 # Header added to internal sanitization requests so the gateway can skip guardrails
 # on the call, preventing recursive guardrail execution loops.
 _SANITIZE_BYPASS_HEADER = "X-MLflow-Guardrail-Bypass"
+_GUARDRAIL_STATUS_ATTRIBUTE = "mlflow.guardrail.status"
 _MAX_RATIONALE_LEN = 500
 
 # Only forward these headers to internal sanitization calls — forwarding all
@@ -351,6 +352,7 @@ class JudgeGuardrail(Guardrail):
                 result = await asyncio.to_thread(self._invoke_judge, inputs=request)
                 passed = self._is_passing(result)
                 jspan.set_outputs({"passed": passed, "rationale": self._get_rationale(result)})
+            gspan.set_attribute(_GUARDRAIL_STATUS_ATTRIBUTE, "passed" if passed else "blocked")
             output = await self._enforce(
                 request,
                 result,
@@ -358,6 +360,8 @@ class JudgeGuardrail(Guardrail):
                 usage_tracking=usage_tracking,
                 payload_schema=payload_schema,
             )
+            if not passed:
+                gspan.set_attribute(_GUARDRAIL_STATUS_ATTRIBUTE, "passed")
             gspan.set_outputs(output)
             return output
 
@@ -388,6 +392,7 @@ class JudgeGuardrail(Guardrail):
                 )
                 passed = self._is_passing(result)
                 jspan.set_outputs({"passed": passed, "rationale": self._get_rationale(result)})
+            gspan.set_attribute(_GUARDRAIL_STATUS_ATTRIBUTE, "passed" if passed else "blocked")
             output = await self._enforce(
                 response,
                 result,
@@ -395,6 +400,8 @@ class JudgeGuardrail(Guardrail):
                 usage_tracking=usage_tracking,
                 payload_schema=payload_schema,
             )
+            if not passed:
+                gspan.set_attribute(_GUARDRAIL_STATUS_ATTRIBUTE, "passed")
             gspan.set_outputs(output)
             return output
 

@@ -149,4 +149,25 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(screen.getByText('Check this request')).toBeInTheDocument();
     expect(screen.getByText('No recognized result')).toBeInTheDocument();
   });
+
+  it.each(['json', 'table'] as const)('keeps the guardrail result visible in %s mode', async (renderMode) => {
+    const user = userEvent.setup();
+    render(
+      <ModelTraceExplorerContentTab
+        activeSpan={{
+          ...MOCK_CHAT_SPAN,
+          type: ModelSpanType.GUARDRAIL,
+          guardrailStatus: 'blocked',
+        }}
+        searchFilter=""
+        activeMatch={null}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    await user.click(screen.getByRole('radio', { name: renderMode === 'json' ? 'JSON' : 'Table' }));
+
+    expect(screen.getByTestId('model-trace-explorer-guardrail-span-view')).toBeInTheDocument();
+    expect(screen.getByText('Blocked')).toBeInTheDocument();
+  });
 });

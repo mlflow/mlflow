@@ -595,6 +595,7 @@ async def test_process_request_creates_guardrail_and_judge_spans(tracing_experim
     gspan = spans["guardrail/safety"]
     jspan = spans["judge"]
     assert gspan.span_type == SpanType.GUARDRAIL
+    assert gspan.attributes["mlflow.guardrail.status"] == "passed"
     assert jspan.span_type == SpanType.EVALUATOR
     assert jspan.outputs == {"passed": True, "rationale": "some rationale"}
     assert jspan.parent_id == gspan.span_id
@@ -629,6 +630,7 @@ async def test_process_response_creates_guardrail_and_judge_spans(tracing_experi
     gspan = spans["guardrail/pii"]
     jspan = spans["judge"]
     assert gspan.span_type == SpanType.GUARDRAIL
+    assert gspan.attributes["mlflow.guardrail.status"] == "passed"
     assert jspan.span_type == SpanType.EVALUATOR
     assert jspan.parent_id == gspan.span_id
 
@@ -667,6 +669,53 @@ async def test_sanitization_creates_span_when_usage_tracking_on(tracing_experime
     jspan = spans["judge"]
     san_span = spans["sanitization"]
     assert san_span.span_type == SpanType.LLM
+    assert gspan.attributes["mlflow.guardrail.status"] == "passed"
+    assert gspan.outputs == sanitized
     assert jspan.outputs == {"passed": False, "rationale": "contains PII"}
     assert jspan.parent_id == gspan.span_id
     assert san_span.parent_id == gspan.span_id
+
+
+@pytest.mark.asyncio
+async def test_validation_block_records_blocked_status(tracing_experiment):
+    scorer = _SimpleScorer(_feedback(value=False, rationale="unsafe"))
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "safety")
+
+    @mlflow.trace
+    async def _run():
+        return await guard.process_request(_make_request(), usage_tracking=True)
+
+    with pytest.raises(GuardrailViolation, match="unsafe"):
+        await _run()
+
+    spans = _get_span_map(tracing_experiment)
+    gspan = spans["guardrail/safety"]
+    assert gspan.attributes["mlflow.guardrail.status"] == "blocked"
+
+
+@pytest.mark.asyncio
+async def test_sanitization_failure_records_blocked_status(tracing_experiment):
+    scorer = _SimpleScorer(_feedback(value=False, rationale="contains PII"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        "pii-guard",
+        action_llm_url="http://localhost:5000",
+        action_endpoint_name="ep-sanitizer",
+    )
+
+    @mlflow.trace
+    async def _run():
+        with mock.patch(
+            "mlflow.gateway.guardrails.send_request",
+            mock.AsyncMock(return_value={"choices": [{"message": {"content": "not json"}}]}),
+        ):
+            return await guard.process_request(_make_request(), usage_tracking=True)
+
+    with pytest.raises(GuardrailViolation, match="invalid JSON"):
+        await _run()
+
+    spans = _get_span_map(tracing_experiment)
+    gspan = spans["guardrail/pii-guard"]
+    assert gspan.attributes["mlflow.guardrail.status"] == "blocked"

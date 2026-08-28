@@ -16,6 +16,7 @@ import {
   isEmpty,
 } from 'lodash';
 import { useMemo } from 'react';
+import type { IntlShape } from '@databricks/i18n';
 
 import type {
   SearchMatch,
@@ -141,7 +142,7 @@ export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconT
   }
 }
 
-export function getDisplayNameForSpanType(spanType: ModelSpanType | string): string {
+export function getDisplayNameForSpanType(spanType: ModelSpanType | string, intl: IntlShape): string {
   switch (spanType) {
     case ModelSpanType.LLM:
       return 'LLM';
@@ -164,13 +165,25 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
     case ModelSpanType.MEMORY:
       return 'Memory';
     case ModelSpanType.WORKFLOW:
-      return 'Workflow';
+      return intl.formatMessage({
+        defaultMessage: 'Workflow',
+        description: 'Display name for a workflow span in the model trace explorer',
+      });
     case ModelSpanType.TASK:
-      return 'Task';
+      return intl.formatMessage({
+        defaultMessage: 'Task',
+        description: 'Display name for a task span in the model trace explorer',
+      });
     case ModelSpanType.GUARDRAIL:
-      return 'Guardrail';
+      return intl.formatMessage({
+        defaultMessage: 'Guardrail',
+        description: 'Display name for a guardrail span in the model trace explorer',
+      });
     case ModelSpanType.EVALUATOR:
-      return 'Evaluator';
+      return intl.formatMessage({
+        defaultMessage: 'Evaluator',
+        description: 'Display name for an evaluator span in the model trace explorer',
+      });
     case ModelSpanType.FUNCTION:
       return 'Function';
     case ModelSpanType.UNKNOWN:
