@@ -117,6 +117,16 @@ jobs:
             --repo "$REPO" \
             --add-label nailaopus-reviewed || true
 
+      - name: Checkout base repo
+        # Needed so `./.github/actions/setup-python` below resolves: GitHub only
+        # finds local actions under the workspace root. This is the base repo at
+        # the default branch, never PR head, so the composite action we execute
+        # is never PR-author-controlled. Must run before the checkouts below,
+        # which land in subdirectories that a root checkout would clean away.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Checkout PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -150,10 +160,8 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
           persist-credentials: false
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          enable-cache: false
+      - name: Set up Python and uv
+        uses: ./.github/actions/setup-python
 
       - name: Install ripgrep
         run: |
