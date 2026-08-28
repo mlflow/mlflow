@@ -2047,6 +2047,10 @@
     "defaultMessage": "Automatically log traces for Bedrock conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for the Bedrock package using MLflow autologging. This message is followed by a code example."
   },
+  "6tR8R9": {
+    "defaultMessage": "View Sessions in Traces tab →",
+    "description": "Link from the legacy Sessions page to the equivalent view in the Traces tab"
+  },
   "6vII7y": {
     "defaultMessage": "Cancel",
     "description": "A cancel label for the modal used for deleting logged models"
@@ -4734,6 +4738,10 @@
   "IARcQx": {
     "defaultMessage": "Manage workspace {name}",
     "description": "Aria label on the gear icon for managing a workspace"
+  },
+  "IAuo/5": {
+    "defaultMessage": "Display",
+    "description": "Display control in session migration illustration"
   },
   "IAyAgH": {
     "defaultMessage": "Move up",
@@ -8311,6 +8319,10 @@
     "defaultMessage": "Duration",
     "description": "Trace filter field: execution time"
   },
+  "Wzhsx4": {
+    "defaultMessage": "Click the \"Group by session\" button to see the session-level view.",
+    "description": "Instruction explaining how to access the session-level view in the Traces tab"
+  },
   "X+boXI": {
     "defaultMessage": "Copied",
     "description": "Tooltip text shown when copy operation completes"
@@ -8862,6 +8874,10 @@
   "ZH4G1j": {
     "defaultMessage": "Column options",
     "description": "Accessible label for the per-column options menu button in the traces table header"
+  },
+  "ZJK1e+": {
+    "defaultMessage": "The Sessions view has moved to the Traces tab.",
+    "description": "Explanation that the Sessions view has moved to the Traces tab"
   },
   "ZKtBkW": {
     "defaultMessage": "Edit the request body below and click Send request to call the provider API.",
