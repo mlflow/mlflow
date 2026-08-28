@@ -5,6 +5,7 @@
 import * as mlflow from '@mlflow/core';
 import { tracedOpenAI } from '../src';
 import { OpenAI } from 'openai';
+import { Stream } from 'openai/streaming';
 import { http, HttpResponse } from 'msw';
 import { openAIMswServer, useMockOpenAIServer } from '../../helpers/openaiTestHelper';
 import { createAuthProvider } from '@mlflow/core/src/auth';
@@ -195,17 +196,100 @@ describe('tracedOpenAI', () => {
       expect(span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE]).toBeUndefined();
     });
 
+    it('should end spans when a stream is consumed through tee()', async () => {
+      const wrappedOpenAI = tracedOpenAI(new OpenAI({ apiKey: 'test-key' }));
+
+      const stream = await wrappedOpenAI.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: 'Hello tee!' }],
+        stream: true,
+        stream_options: { include_usage: true },
+      });
+
+      const [left] = stream.tee();
+      const chunks = [];
+      for await (const chunk of left) {
+        chunks.push(chunk);
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.inputs.messages).toEqual([{ role: 'user', content: 'Hello tee!' }]);
+      expect(chunks).toHaveLength(4);
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(span.outputs).toBeDefined();
+      expect(span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE]).toEqual({
+        [mlflow.TokenUsageKey.INPUT_TOKENS]: 10,
+        [mlflow.TokenUsageKey.OUTPUT_TOKENS]: 20,
+        [mlflow.TokenUsageKey.TOTAL_TOKENS]: 30,
+      });
+    });
+
+    it('should end spans when a stream is consumed through toReadableStream()', async () => {
+      const wrappedOpenAI = tracedOpenAI(new OpenAI({ apiKey: 'test-key' }));
+
+      const stream = await wrappedOpenAI.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: 'Hello readable!' }],
+        stream: true,
+      });
+
+      const reader = stream.toReadableStream().getReader();
+      while (!(await reader.read()).done) {
+        // Drain the stream
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.inputs.messages).toEqual([{ role: 'user', content: 'Hello readable!' }]);
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(span.outputs).toBeDefined();
+    });
+
+    it('should end spans when a stream is abandoned without being consumed', async () => {
+      const wrappedOpenAI = tracedOpenAI(new OpenAI({ apiKey: 'test-key' }));
+
+      const stream = await wrappedOpenAI.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: 'Hello abandoned!' }],
+        stream: true,
+      });
+
+      stream.controller.abort();
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.inputs.messages).toEqual([{ role: 'user', content: 'Hello abandoned!' }]);
+      expect(span.endTime).toBeDefined();
+      expect(span.outputs).toEqual({ choices: [] });
+    });
+
+    it('should preserve the identity of the returned stream', async () => {
+      const wrappedOpenAI = tracedOpenAI(new OpenAI({ apiKey: 'test-key' }));
+
+      const stream = await wrappedOpenAI.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: 'Hello!' }],
+        stream: true,
+      });
+
+      expect(stream).toBeInstanceOf(Stream);
+      expect(stream.constructor).toBe(Stream);
+
+      stream.controller.abort();
+    });
+
     it('should mark spans as errors when streaming chat completions fail', async () => {
       class Completions {
-        async create(_params: unknown) {
-          return {
+        create(_params: unknown) {
+          return Promise.resolve({
             async *[Symbol.asyncIterator]() {
-              yield {
+              yield await Promise.resolve({
                 choices: [{ index: 0, delta: { content: 'Test ' }, finish_reason: null }],
-              };
+              });
               throw new Error('Stream failed');
             },
-          };
+          });
         }
       }
 
