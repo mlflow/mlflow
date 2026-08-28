@@ -194,14 +194,11 @@ jobs:
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
-      # The Claude step never sees a model credential: the proxy holds the
-      # client secret and the CLI talks to it with a random per-run client key.
-      # The secret is passed via stdin (printf is a bash builtin) so it appears
-      # in no process's env or argv, and --disable-sigusr1 blocks same-UID
-      # processes from recovering it through a signal-triggered inspector
-      # session.
-      - name: Start Databricks gateway proxy
-        id: proxy
+      # Only the short-lived bearer reaches the Claude step; the client secret
+      # stays in this step. Credentials go to curl over stdin rather than `-u`
+      # so they never appear in argv.
+      - name: Mint gateway token
+        id: gateway
         env:
           # `DATABRICKS_*` without the `GATEWAY` infix are a different
           # principal's credentials for `ui-preview.yml`.
@@ -209,24 +206,28 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
         run: |
-          CLIENT_KEY=$(openssl rand -hex 32)
-          echo "::add-mask::$CLIENT_KEY"
-          echo "client-key=$CLIENT_KEY" >> "$GITHUB_OUTPUT"
-          printf '%s\n%s' "$DATABRICKS_CLIENT_SECRET" "$CLIENT_KEY" \
-            | env -u DATABRICKS_CLIENT_SECRET node --disable-sigusr1 .claude/scripts/databricks-gateway-proxy.mjs \
-              > /tmp/gateway-proxy.log 2>&1 &
-          # Above the proxy's own 15s token-exchange timeout, so a slow OAuth
-          # endpoint surfaces as an OAuth error rather than a bare start failure.
-          timeout 20 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8082/healthz; do sleep 0.5; done' \
-            || { echo "::error::Databricks gateway proxy failed to start"; cat /tmp/gateway-proxy.log; exit 1; }
+          RESPONSE=$(printf 'user = "%s:%s"\n' "$DATABRICKS_CLIENT_ID" "$DATABRICKS_CLIENT_SECRET" \
+            | curl -sS --max-time 15 --config - \
+                -d grant_type=client_credentials -d scope=ai-gateway \
+                "$DATABRICKS_HOST/oidc/v1/token")
+          TOKEN=$(jq -r '.access_token // empty' <<< "$RESPONSE")
+          if [ -z "$TOKEN" ]; then
+            # The body carries the OAuth error code, the only way to tell a bad
+            # secret from a missing workspace assignment.
+            echo "::error::Gateway token exchange failed: $(jq -r '.error_description // .error // "no access_token"' <<< "$RESPONSE")"
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
       - name: Review
         id: review
         env:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
-          ANTHROPIC_BASE_URL: http://127.0.0.1:8082
-          ANTHROPIC_API_KEY: ${{ steps.proxy.outputs.client-key }}
+          ANTHROPIC_BASE_URL: ${{ secrets.DATABRICKS_GATEWAY_HOST }}/ai-gateway/anthropic
+          # Sent as `Authorization: Bearer`, which is what the gateway expects.
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
           # The gateway's beta allowlist rejects several of the CLI's
           # experimental betas with HTTP 400.
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
@@ -259,12 +260,6 @@ jobs:
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
           fi
-
-      # The runner stops reading the proxy's stdout once its own step ends, so
-      # the proxy writes to a file and we dump it here for diagnosability.
-      - name: Show proxy log
-        if: always()
-        run: cat /tmp/gateway-proxy.log || true
 
       # Kept out of the Claude step, which holds only the read-only app token, so a
       # poisoned diff can't reach this PAT. Gated like Post so the pull_request
@@ -316,7 +311,7 @@ jobs:
         env:
           GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
           GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
-          PROXY_CLIENT_KEY: ${{ steps.proxy.outputs.client-key }}
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
         run: |
           python <<'PY'
           import os
@@ -327,7 +322,7 @@ jobs:
           if not path.exists():
               sys.exit(0)
           data = path.read_text()
-          for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE", "PROXY_CLIENT_KEY"):
+          for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE", "GATEWAY_TOKEN"):
               if val := os.environ.get(name):
                   data = data.replace(val, "***")
           path.write_text(data)
