@@ -549,18 +549,23 @@ export const ModelTraceExplorerDrawer = ({
         }
       }}
     >
-      {/* The header row's height/border live on the design system Drawer.Content's own
-          content node, which the drawer's `css` prop cannot reliably reach through the OSS
-          AssistantAwareDrawer path. Scope the rule to the content node via its stable
-          data attribute so the header keeps its divider from the body below. */}
+      {/* The header row's layout lives on the design system Drawer.Content's own content
+          node, which the drawer's `css` prop cannot reliably reach through the OSS
+          AssistantAwareDrawer path. Scope these rules to the content node via its stable
+          data attribute so it matches managed: drop the default 16px content padding-top,
+          and give the header a divider from the body below with no trailing margin. */}
       <Global
         styles={{
+          '[data-component-type="drawer_content"][data-component-id="mlflow.evaluations_review.modal"]': {
+            paddingTop: 0,
+          },
           '[data-component-type="drawer_content"][data-component-id="mlflow.evaluations_review.modal"] > div:first-of-type':
             {
               boxSizing: 'border-box',
               height: 48,
               minHeight: 48,
               borderBottom: `1px solid ${theme.colors.border}`,
+              marginBottom: 0,
             },
         }}
       />
