@@ -28,7 +28,9 @@ runs:
       run: |
         python_version="$PYTHON_VERSION_INPUT"
         if [ -z "$python_version" ]; then
-          python_version=$(cat .python-version)
+          # Relative to the action, so callers that check out into a
+          # subdirectory still resolve it.
+          python_version=$(cat "$GITHUB_ACTION_PATH/../../../.python-version")
         fi
         if [[ "$PIN_MICRO_VERSION" == "true" ]]; then
           if [[ "$python_version" == "3.10" ]]; then
