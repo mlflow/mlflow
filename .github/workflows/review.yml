@@ -93,6 +93,7 @@ jobs:
     env:
       REVIEW_PAYLOAD: /tmp/review-payload.json
       REVIEW_MEDIA: /tmp/review-media
+      PR_CHECKOUT: ${{ github.workspace }}/pr
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -127,31 +128,49 @@ jobs:
         run: |
           printf '%s\n\n---\n\n🚀 [Review running...](%s)' "$COMMENT_BODY" "$JOB_RUN_URL" \
             | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          token: ${{ steps.app-token-read.outputs.token }}
-          ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
-          # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
-          # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
-          fetch-depth: 2
+      # Each checkout owns a subdirectory, so neither cleans the other and the
+      # two can run together.
+      - parallel:
+          # Everything this job runs comes from here: the setup actions, the
+          # install scripts, the `.claude` config Claude loads (settings, hooks,
+          # skills), and the `skills` CLI. No `ref`, so this is `github.ref` at
+          # `github.sha`, the commit the workflow file itself was read from:
+          # the default branch on `issue_comment`, and the PR's merge ref on
+          # `pull_request`, where the two checkouts are the same tree and
+          # changes to this tooling get smoke-tested.
+          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              persist-credentials: false
+              token: ${{ steps.app-token-read.outputs.token }}
+              path: base
+          # The reviewed tree, passed to the review as a path. Nothing the job
+          # itself runs comes from here.
+          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              persist-credentials: false
+              token: ${{ steps.app-token-read.outputs.token }}
+              ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
+              path: pr
+              # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
+              # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
+              fetch-depth: 2
       # HEAD^2 of the merge ref is the PR head. Resolved before the review step,
-      # which runs with Bash in this tree.
+      # which runs Bash against that tree.
       - name: Pin reviewed head commit
         run: |
-          PR_HEAD_SHA=$(git rev-parse HEAD^2)
+          PR_HEAD_SHA=$(git -C "$PR_CHECKOUT" rev-parse HEAD^2)
           echo "PR_HEAD_SHA=$PR_HEAD_SHA" >> "$GITHUB_ENV"
       - parallel:
-          - uses: ./.github/actions/setup-python
+          - uses: ./base/.github/actions/setup-python
             with:
               pin-micro-version: false
-          - uses: ./.github/actions/setup-node
+          - uses: ./base/.github/actions/setup-node
           - name: Install Claude CLI
             run: |
-              .claude/scripts/install-claude.sh
+              base/.claude/scripts/install-claude.sh
           - name: Install agent-browser
             run: |
-              .claude/scripts/install-agent-browser.sh
+              base/.claude/scripts/install-agent-browser.sh
       - name: Verify tools
         run: |
           claude --version
@@ -223,6 +242,7 @@ jobs:
 
       - name: Review
         id: review
+        working-directory: base
         env:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
@@ -248,11 +268,12 @@ jobs:
             --effort "$EFFORT" \
             --max-budget-usd 8 \
             --permission-mode auto \
+            --add-dir "$PR_CHECKOUT" \
             --allowed-tools "Bash(uv run --package skills skills:*)" \
             --print \
             --verbose \
             --output-format stream-json \
-            "/pr-review $PR_URL $REVIEW_PAYLOAD $REVIEW_MEDIA" \
+            "/pr-review $PR_URL $PR_CHECKOUT $REVIEW_PAYLOAD $REVIEW_MEDIA" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 30 minutes"
@@ -267,6 +288,7 @@ jobs:
       # smoke path stays non-mutating.
       - name: Upload review media
         if: github.event_name == 'issue_comment'
+        working-directory: base
         # Attaching media is a nicety; losing the whole review over it is not. Any
         # fault here must not take the job down before Post review.
         continue-on-error: true
@@ -292,6 +314,7 @@ jobs:
           mv /tmp/pinned-payload.json "$REVIEW_PAYLOAD"
 
       - name: Validate review payload
+        working-directory: base
         run: |
           uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
           echo "::group::Review payload"
