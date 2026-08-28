@@ -219,13 +219,15 @@ jobs:
           fi
           echo "::add-mask::$TOKEN"
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+          # `%/` so a trailing slash on the secret can't produce a `//` path.
+          echo "base-url=${DATABRICKS_HOST%/}/ai-gateway/anthropic" >> "$GITHUB_OUTPUT"
 
       - name: Review
         id: review
         env:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
-          ANTHROPIC_BASE_URL: ${{ secrets.DATABRICKS_GATEWAY_HOST }}/ai-gateway/anthropic
+          ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}
           # Sent as `Authorization: Bearer`, which is what the gateway expects.
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
           # The gateway's beta allowlist rejects several of the CLI's
