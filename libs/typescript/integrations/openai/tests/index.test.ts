@@ -126,6 +126,105 @@ describe('tracedOpenAI', () => {
       expect(span.endTime).toBeDefined();
     });
 
+    it('should keep spans open while streaming chat completions', async () => {
+      const openai = new OpenAI({ apiKey: 'test-key' });
+      const wrappedOpenAI = tracedOpenAI(openai);
+
+      const stream = await wrappedOpenAI.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: 'Hello!' }],
+        stream: true,
+        stream_options: { include_usage: true },
+      });
+
+      const chunks = [];
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(chunks).toHaveLength(4);
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(span.outputs).toEqual({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Test response',
+              tool_calls: [
+                {
+                  id: 'call_123',
+                  type: 'function',
+                  function: { name: 'get_weather', arguments: '{"city":"Paris"}' },
+                },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      });
+      expect(span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE]).toEqual({
+        [mlflow.TokenUsageKey.INPUT_TOKENS]: 10,
+        [mlflow.TokenUsageKey.OUTPUT_TOKENS]: 20,
+        [mlflow.TokenUsageKey.TOTAL_TOKENS]: 30,
+      });
+    });
+
+    it('should end spans when streaming chat completions are terminated early', async () => {
+      const openai = new OpenAI({ apiKey: 'test-key' });
+      const wrappedOpenAI = tracedOpenAI(openai);
+
+      const stream = await wrappedOpenAI.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: 'Hello!' }],
+        stream: true,
+      });
+
+      for await (const _chunk of stream) {
+        break;
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(span.outputs).toEqual({
+        choices: [{ index: 0, message: { role: 'assistant', content: 'Test ' } }],
+      });
+      expect(span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE]).toBeUndefined();
+    });
+
+    it('should mark spans as errors when streaming chat completions fail', async () => {
+      class Completions {
+        async create(_params: unknown) {
+          return {
+            async *[Symbol.asyncIterator]() {
+              yield {
+                choices: [{ index: 0, delta: { content: 'Test ' }, finish_reason: null }],
+              };
+              throw new Error('Stream failed');
+            },
+          };
+        }
+      }
+
+      const wrappedOpenAI = tracedOpenAI({ chat: { completions: new Completions() } });
+      const stream = await wrappedOpenAI.chat.completions.create({ stream: true });
+
+      await expect(
+        (async () => {
+          for await (const _chunk of stream) {
+            expect(_chunk).toBeDefined();
+          }
+        })(),
+      ).rejects.toThrow('Stream failed');
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('ERROR');
+      expect(trace.data.spans[0].status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
+    });
+
     it('should trace OpenAI request wrapped in a parent span', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
       const wrappedOpenAI = tracedOpenAI(openai);
