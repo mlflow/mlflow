@@ -2,11 +2,14 @@ import { describe, expect, it } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { useState } from 'react';
+import { IntlProvider } from 'react-intl';
 
 import { useTracesV4CustomColumns } from './useTracesV4CustomColumns';
 
 const trace = (over: Partial<ModelTraceInfoV3>): ModelTraceInfoV3 =>
   ({ tags: {}, trace_metadata: {}, ...over }) as ModelTraceInfoV3;
+
+const wrapper = ({ children }: { children: React.ReactNode }) => <IntlProvider locale="en">{children}</IntlProvider>;
 
 const useCustomColumns = (traces: ModelTraceInfoV3[]) => {
   const [visibility, setVisibility] = useState<Record<string, boolean>>({});
@@ -15,16 +18,18 @@ const useCustomColumns = (traces: ModelTraceInfoV3[]) => {
 
 describe('useTracesV4CustomColumns', () => {
   it('offers user tags and metadata in separate opt-in groups', () => {
-    const { result } = renderHook(() =>
-      useCustomColumns([
-        trace({
-          tags: { environment: 'prod', 'mlflow.internal': 'hidden' },
-          trace_metadata: {
-            region: 'us-west',
-            'mlflow.trace.tokenUsage': '{}',
-          },
-        }),
-      ]),
+    const { result } = renderHook(
+      () =>
+        useCustomColumns([
+          trace({
+            tags: { environment: 'prod', 'mlflow.internal': 'hidden' },
+            trace_metadata: {
+              region: 'us-west',
+              'mlflow.trace.tokenUsage': '{}',
+            },
+          }),
+        ]),
+      { wrapper },
     );
 
     expect(result.current.tags.selectorOptions.map((opt) => opt.id)).toEqual(['tag:environment']);
@@ -39,7 +44,7 @@ describe('useTracesV4CustomColumns', () => {
         trace_metadata: { region: 'us-west' },
       }),
     ];
-    const { result } = renderHook(() => useCustomColumns(traces));
+    const { result } = renderHook(() => useCustomColumns(traces), { wrapper });
 
     act(() => {
       result.current.tags.toggle('tag:environment');
@@ -54,6 +59,7 @@ describe('useTracesV4CustomColumns', () => {
   it('keeps an opted-in field available when it is absent from a later page', () => {
     const { result, rerender } = renderHook(({ traces }: { traces: ModelTraceInfoV3[] }) => useCustomColumns(traces), {
       initialProps: { traces: [trace({ tags: { environment: 'prod' } })] },
+      wrapper,
     });
     act(() => result.current.tags.toggle('tag:environment'));
 

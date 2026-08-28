@@ -161,6 +161,14 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // gets its expected input regardless of which page a trace was selected on.
   const selectedTraceInfos = useMemo(() => Array.from(bulk.selected.values()), [bulk.selected]);
 
+  // Combine custom (tag/metadata) and assessment column defs into one stable array — the table's
+  // `extraColumns` prop expects a stable reference, so building it inline would rebuild the columns
+  // every render.
+  const extraColumns = useMemo(
+    () => [...customColumns.columnDefs, ...assessments.columnDefs],
+    [customColumns.columnDefs, assessments.columnDefs],
+  );
+
   const deleteTracesMutation = useDeleteTracesMutation();
   const [deleteOpen, setDeleteOpen] = useState(false);
   // Snapshot ids when the modal opens so a refetch/clear mid-prompt can't zero the count or
@@ -384,7 +392,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             // Table
             traces={page.traces}
             visibleColumns={columns.visibleColumns}
-            extraColumns={[...customColumns.columnDefs, ...assessments.columnDefs]}
+            extraColumns={extraColumns}
             columnHeaderActions={columnHeaderActions}
             initialColumnSizing={columnSizing.columnSizing}
             onColumnSizingSettled={columnSizing.setColumnSizing}

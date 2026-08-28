@@ -1,4 +1,5 @@
 import { useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
+import { useIntl } from 'react-intl';
 import { CodeIcon, TagIcon } from '@databricks/design-system';
 import { type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -95,6 +96,7 @@ export const useTracesV4CustomColumns = (
   visibility: Record<string, boolean>,
   setVisibility: Dispatch<SetStateAction<Record<string, boolean>>>,
 ): TracesV4CustomColumns => {
+  const intl = useIntl();
   const discovered = useMemo(() => discoverCandidates(traces), [traces]);
   const candidates = useMemo(() => {
     const byId = new Map(discovered.map((candidate) => [candidate.id, candidate]));
@@ -119,7 +121,24 @@ export const useTracesV4CustomColumns = (
           id: candidate.id,
           ...COLUMN_SIZE,
           maxSize: getTextColumnMaxSize([candidate.key, ...values], COLUMN_SIZE.size),
-          labelText: candidate.key,
+          // Qualify the menu's accessible label with the field kind so a tag and a metadata field
+          // that share a key (e.g. `environment`) don't produce identical labels for screen readers.
+          labelText:
+            candidate.kind === 'tag'
+              ? intl.formatMessage(
+                  {
+                    defaultMessage: 'Tag: {name}',
+                    description: 'Accessible label qualifier for a custom trace tag column header',
+                  },
+                  { name: candidate.key },
+                )
+              : intl.formatMessage(
+                  {
+                    defaultMessage: 'Metadata: {name}',
+                    description: 'Accessible label qualifier for a custom trace metadata column header',
+                  },
+                  { name: candidate.key },
+                ),
           header: () => <CustomColumnHeader kind={candidate.kind} name={candidate.key} />,
           cell: ({ row }: { row: { original: ModelTraceInfoV3 } }) =>
             valueFor(row.original, candidate)?.toString() ?? '',
@@ -129,7 +148,7 @@ export const useTracesV4CustomColumns = (
             ),
         };
       }),
-    [visibleCandidates, traces],
+    [visibleCandidates, traces, intl],
   );
 
   const toggle = useCallback(
