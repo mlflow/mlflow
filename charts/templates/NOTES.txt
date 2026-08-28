@@ -5,6 +5,11 @@ Access the UI:
 {{- range .Values.ingress.hosts }}
   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
 {{- end }}
+{{- else if and .Values.httpRoute.enabled .Values.httpRoute.hostnames }}
+  Through the parent Gateway (scheme depends on its listener):
+{{- range .Values.httpRoute.hostnames }}
+  {{ . }}
+{{- end }}
 {{- else if eq .Values.service.type "NodePort" }}
   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "mlflow.fullname" . }})
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")

@@ -111,6 +111,38 @@ ingress:
           pathType: Prefix
   tls: []
 
+# Gateway API HTTPRoute for external access to the MLflow server, as an
+# alternative to `ingress` on clusters that route with the Gateway API
+# (https://gateway-api.sigs.k8s.io/). The chart only creates the HTTPRoute --
+# the Gateway API CRDs, a controller implementing them, and the parent Gateway
+# itself must already exist in the cluster.
+httpRoute:
+  enabled: false
+  # apiVersion of the rendered HTTPRoute. Override with
+  # "gateway.networking.k8s.io/v1beta1" on clusters running older CRDs.
+  apiVersion: gateway.networking.k8s.io/v1
+  annotations: {}
+  # Gateways this route attaches to. Required when enabled.
+  # Example:
+  #   parentRefs:
+  #     - name: my-gateway
+  #       namespace: gateway-system
+  #       sectionName: https
+  parentRefs: []
+  # Hostnames this route matches. Leave empty to match every hostname the
+  # parent Gateway listens on.
+  hostnames: []
+  # Path matches for the generated rule. Defaults to a PathPrefix match on "/".
+  # Example:
+  #   matches:
+  #     - path:
+  #         type: PathPrefix
+  #         value: /mlflow
+  matches: []
+  # Filters applied to the generated rule, passed through as
+  # HTTPRoute.spec.rules[0].filters (e.g. RequestHeaderModifier, URLRewrite).
+  filters: []
+
 mlflow:
   # URI of the database or file store used to record runs and metadata.
   # Examples: "sqlite:////mlflow/mlflow.db", "postgresql://user:pass@host/db"
