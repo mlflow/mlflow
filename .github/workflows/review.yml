@@ -232,7 +232,7 @@ jobs:
           # Lands in `system.ai_gateway.usage.request_tags`, so gateway spend can
           # be split by workflow. A literal rather than `github.workflow`, which
           # a rename would silently repoint.
-          ANTHROPIC_CUSTOM_HEADERS: 'Databricks-Ai-Gateway-Request-Tags: {"workflow":"pr-review","event":"${{ github.event_name }}"}'
+          ANTHROPIC_CUSTOM_HEADERS: 'Databricks-Ai-Gateway-Request-Tags: {"workflow":"pr-review"}'
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
