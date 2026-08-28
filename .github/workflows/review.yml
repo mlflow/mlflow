@@ -232,6 +232,12 @@ jobs:
           ANTHROPIC_BASE_URL: ${{ steps.anthropic.outputs.base-url }}
           ANTHROPIC_AUTH_TOKEN: ${{ steps.anthropic.outputs.token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.anthropic.outputs.custom-headers }}
+          # The auto mode permission classifier picks its model from the sonnet
+          # and opus aliases rather than `--model`, so without these it requests
+          # a bare `claude-sonnet-5` that the gateway does not serve and every
+          # ambiguous Bash command gets denied.
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
+          ANTHROPIC_DEFAULT_OPUS_MODEL: databricks-claude-opus-5
           # The gateway's beta allowlist rejects several of the CLI's
           # experimental betas with HTTP 400.
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
