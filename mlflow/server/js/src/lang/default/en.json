@@ -651,10 +651,6 @@
     "defaultMessage": "No tags found.",
     "description": "Text for no tags found in editable form table in MLflow"
   },
-  "0jvNkS": {
-    "defaultMessage": "+ Save current view...",
-    "description": "Menu item that opens the modal to save the current view"
-  },
   "0ktvTS": {
     "defaultMessage": "Trace archival retention unit",
     "description": "Label for trace archival retention unit selector"
@@ -2054,6 +2050,10 @@
   "6vII7y": {
     "defaultMessage": "Cancel",
     "description": "A cancel label for the modal used for deleting logged models"
+  },
+  "6wOiP1": {
+    "defaultMessage": "This view is too large to save.",
+    "description": "Error toast shown when overwriting a saved traces view exceeds the experiment-tag size limit"
   },
   "6x1oqv": {
     "defaultMessage": "Safety",
@@ -3715,10 +3715,6 @@
     "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
     "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
   },
-  "DSBiYz": {
-    "defaultMessage": "Discard",
-    "description": "Experiment page > shared view banner > button that discards the shared view and restores the user's own view"
-  },
   "DSu+/R": {
     "defaultMessage": "Select reviewers",
     "description": "Review queue: reviewers dropdown label"
@@ -3822,6 +3818,10 @@
   "E/HEEL": {
     "defaultMessage": "Title",
     "description": "MCP compare title heading"
+  },
+  "E1nBWS": {
+    "defaultMessage": "Overwrite \"{name}\"",
+    "description": "Menu item that overwrites the active saved view with the current, edited state"
   },
   "E2V1sV": {
     "defaultMessage": "Light",
@@ -4483,6 +4483,10 @@
     "defaultMessage": "URL Variables",
     "description": "MCP server remote URL variables heading"
   },
+  "H6aarx": {
+    "defaultMessage": "Reset to saved",
+    "description": "Menu item that discards unsaved edits and re-applies the active saved view's stored state"
+  },
   "H7JwOl": {
     "defaultMessage": "Delete version",
     "description": "A label for a button to delete prompt version on the prompt details page"
@@ -4778,10 +4782,6 @@
   "IFJQom": {
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Create review queue: questions dropdown selected-count summary"
-  },
-  "IHcFdC": {
-    "defaultMessage": "This view is now your default.",
-    "description": "Traces page > shared view > confirmation toast after adopting a shared view as the own view"
   },
   "IHyeUr": {
     "defaultMessage": "Stage",
@@ -6423,6 +6423,10 @@
     "defaultMessage": "New run",
     "description": "Button used to pop up a modal to create a new run"
   },
+  "PEZbvU": {
+    "defaultMessage": "Overwrite view",
+    "description": "Menu item that overwrites the active saved view with the current state (no name available)"
+  },
   "PGbCZD": {
     "defaultMessage": "Production",
     "description": "Column title for production phase version in the registered model page"
@@ -6838,10 +6842,6 @@
   "QybNk9": {
     "defaultMessage": "Next unreviewed",
     "description": "Review focused view: jump to the next pending trace"
-  },
-  "QzRwbK": {
-    "defaultMessage": "Discard shared view",
-    "description": "Menu item that discards the currently-applied shared view and restores the user's own view"
   },
   "R+r9jY": {
     "defaultMessage": "Cancel issue detection?",
@@ -8015,6 +8015,10 @@
     "defaultMessage": "— model returns valid JSON.",
     "description": "Description of the JSON mode in the response_format info popover"
   },
+  "VrWPeb": {
+    "defaultMessage": "View \"{name}\" updated.",
+    "description": "Success toast shown after overwriting a saved traces view with the current state"
+  },
   "VrxfuC": {
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
@@ -8054,6 +8058,10 @@
   "W2PfF7": {
     "defaultMessage": "Stop sequences",
     "description": "Label for the stop-sequences input on the playground parameters panel"
+  },
+  "W5o4+R": {
+    "defaultMessage": "Exit shared view",
+    "description": "Experiment page > shared view banner > button that stops previewing the shared view and restores the user's own view"
   },
   "W60/kq": {
     "defaultMessage": "regression",
@@ -9247,6 +9255,10 @@
     "defaultMessage": "{count} {count, plural, one {minute} other {minutes}}",
     "description": "Formatted trace archival retention in minutes"
   },
+  "aiIzz9": {
+    "defaultMessage": "Save as new view",
+    "description": "Menu item that opens the modal to save the current view"
+  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -10003,10 +10015,6 @@
     "defaultMessage": "You cannot select rows when comparing runs",
     "description": "Tooltip message for the select button when comparing runs"
   },
-  "ds98nh": {
-    "defaultMessage": "You're viewing a shared view. Changes you make won't be saved unless you override your view.",
-    "description": "Traces page > shared view banner > message shown while a shared view is applied"
-  },
   "dsPent": {
     "defaultMessage": "Headers ({count})",
     "description": "MCP server remote headers heading with count"
@@ -10138,10 +10146,6 @@
   "eIdMWq": {
     "defaultMessage": "Reset example",
     "description": "Reset example button"
-  },
-  "eIk7yy": {
-    "defaultMessage": "You're viewing a shared view",
-    "description": "Heading above the override/discard actions in the saved views menu, shown while a shared view is applied"
   },
   "eLgTRT": {
     "defaultMessage": "Key",
@@ -11055,6 +11059,10 @@
     "defaultMessage": "Create",
     "description": "Confirm button text for create workspace modal"
   },
+  "hZ9EVM": {
+    "defaultMessage": "Saved views",
+    "description": "Header at the top of the saved views dropdown"
+  },
   "hZFbZl": {
     "defaultMessage": "Issue detection canceled",
     "description": "Issue detection progress > Step label when canceled"
@@ -11622,6 +11630,10 @@
   "jemjRR": {
     "defaultMessage": "Input",
     "description": "Header for the traces table input column"
+  },
+  "jgkxSk": {
+    "defaultMessage": "Exit shared view",
+    "description": "Menu item that stops previewing the currently-applied shared view and restores the user's own view"
   },
   "jhgu6C": {
     "defaultMessage": "A unique identifier for the session or conversation for grouping traces",
@@ -12582,10 +12594,6 @@
   "nYSJgH": {
     "defaultMessage": "Show all parent spans",
     "description": "Checkbox label for a setting that enables showing all parent spans in the trace explorer regardless of filter conditions."
-  },
-  "nZAOFL": {
-    "defaultMessage": "Override my view",
-    "description": "Traces page > shared view banner > button that adopts the shared view into the user's own view"
   },
   "naivho": {
     "defaultMessage": "of",

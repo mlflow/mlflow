@@ -614,7 +614,7 @@ export const TracesV3SavedViewsButton = ({
             )}
           </Button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
+        <DropdownMenu.Content align="start">
           <SavedViewsMenu
             componentId="mlflow.traces.saved_views"
             testIdPrefix="trace-saved-views"
