@@ -361,7 +361,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             sort={url.sort}
             dir={url.dir}
             onSort={url.setSort}
-            size={density === 'small' ? 'small' : 'default'}
             previewLineClamp={PREVIEW_LINE_CLAMP_BY_DENSITY[density]}
             getTraceHref={getTraceHref}
             getSessionHref={getSessionHref}

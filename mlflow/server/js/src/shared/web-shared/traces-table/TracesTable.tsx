@@ -49,17 +49,6 @@ const noop = () => {};
 // requires `componentId` values to be static, so a runtime-injected prefix isn't possible).
 const COMPONENT_ID = 'web-shared.traces-table';
 
-// TableSkeleton and TableRow both reduce their vertical spacing in small tables. Compact loading
-// rows are therefore 25px tall versus 33px at the default size, so rendering the same count leaves
-// the bottom of the table blank. Scale the compact count to preserve the default skeleton height.
-const STANDARD_SKELETON_ROW_HEIGHT = 33;
-const COMPACT_SKELETON_ROW_HEIGHT = 25;
-
-const getRenderedSkeletonRowCount = (skeletonRowCount: number, size: 'default' | 'small') =>
-  size === 'small'
-    ? Math.ceil((skeletonRowCount * STANDARD_SKELETON_ROW_HEIGHT) / COMPACT_SKELETON_ROW_HEIGHT)
-    : skeletonRowCount;
-
 // Input/Output are the fill columns: each takes grow factor 1 so any leftover container width is
 // split equally between them (no dead whitespace on the right), with `maxWidth: unset` so the cap
 // can't block that growth. Every other column stays fixed-width — it occupies exactly its (possibly
@@ -143,8 +132,6 @@ export interface TracesTableProps {
   onHideColumn: (columnId: string) => void;
   /** Groups traces with a session id into collapsible session rows. Standalone traces remain rows. */
   isGroupedBySession?: boolean;
-  /** Row-height density for traces rows (`'small'` = compact padding). Defaults to `'default'`. */
-  size?: 'default' | 'small';
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
   previewLineClamp?: number;
 }
@@ -201,7 +188,6 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     renderRunName,
     onHideColumn,
     isGroupedBySession = false,
-    size = 'default',
     previewLineClamp = 1,
   }: TracesTableProps) {
     const { theme } = useDesignSystemTheme();
@@ -368,7 +354,19 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     }, [table, isResizingColumn, onColumnSizingSettled]);
 
     const leafHeaders = table.getLeafHeaders();
-    const renderedSkeletonRowCount = getRenderedSkeletonRowCount(skeletonRowCount, size);
+
+    // A density floor matching the preview clamp keeps Standard/Tall rows uniform and lets the loading
+    // skeleton reserve the height real rows will take (no layout shift on swap). Gate it on a visible
+    // preview column: with both hidden, the floor would force tall, empty rows, so those size to content.
+    const isPreviewColumnVisible = leafHeaders.some(
+      (header) => header.column.id === 'input' || header.column.id === 'output',
+    );
+    const previewLineHeight = Number.parseInt(theme.typography.lineHeightBase, 10);
+    const rowMinHeight =
+      previewLineClamp > 1 && isPreviewColumnVisible
+        ? theme.general.heightSm + theme.spacing.md + (previewLineClamp - 2) * previewLineHeight
+        : undefined;
+    const dataRowStyle: CSSProperties = rowMinHeight ? { ...rowWidthStyle, minHeight: rowMinHeight } : rowWidthStyle;
 
     // Pin every row to the summed width of the visible columns so its hover/selected background spans
     // the full horizontal extent, not just the visible viewport. A DuBois `scrollable` Table makes the
@@ -395,18 +393,10 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       [ROW_WIDTH_VARIABLE]: `${rowWidth}px`,
       ...Object.fromEntries(leafHeaders.map((header, index) => [columnSizeVariable(index), `${header.getSize()}px`])),
     } as CSSProperties;
-    const multiLinePreview = previewLineClamp > 1;
-    const previewLineHeight = Number.parseInt(theme.typography.lineHeightBase, 10);
-    const dataRowStyle = multiLinePreview
-      ? {
-          ...rowWidthStyle,
-          minHeight: theme.general.heightSm + theme.spacing.md + (previewLineClamp - 2) * previewLineHeight,
-        }
-      : rowWidthStyle;
     const rowPaddingCss: CSSObject = {
       '&& > *': {
-        paddingTop: 6,
-        paddingBottom: 6,
+        paddingTop: theme.spacing.xs + 2,
+        paddingBottom: theme.spacing.xs + 2,
       },
     };
     const columnStyles = useMemo(
@@ -508,7 +498,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           <TableRowSelectCell
             componentId={`${COMPONENT_ID}.row-select`}
             checked={isBulkChecked}
-            onChange={(event) => onToggleBulkRow(row.original, isShiftModifiedEvent(event))}
+            onChange={(event) => onToggleBulkRow(row.original, !isGroupedBySession && isShiftModifiedEvent(event))}
             checkboxLabel={intl.formatMessage(
               {
                 defaultMessage: 'Select trace {traceId}',
@@ -554,12 +544,9 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           flexDirection: 'column',
           flex: 1,
           minHeight: 0,
-          // Row-height density (`size='small'`) should change ONLY the row height, not the text size.
-          // DuBois's `TableCell` wraps its content in a `Typography.Text` sized `sm` (12px) when the
-          // table is `small`, which would shrink the cell font. The DS typography class carries a
-          // theme-specific prefix (`du-bois-light-`/`du-bois-dark-`), so pin the whole cell subtree
-          // back to the base size instead — density then affects row height alone. (Cell icons set
-          // their own 13px `fontSize`, which equals the base, so this doesn't disturb them.)
+          // Keep every cell at the base font size so density affects row height alone: the DS
+          // typography class carries a theme-specific prefix (`du-bois-light-`/`du-bois-dark-`), so
+          // pin the whole cell subtree rather than fighting individual styles.
           '[role="cell"], [role="cell"] *': { fontSize: `${theme.typography.fontSizeBase}px !important` },
         }}
       >
@@ -618,7 +605,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           </TableRow>
 
           {isLoading
-            ? Array.from({ length: renderedSkeletonRowCount }, (_, i) => (
+            ? Array.from({ length: skeletonRowCount }, (_, i) => (
                 <TableRow key={`skeleton-${i}`} css={{ ...rowPaddingCss, ...dataSelectCellAlign }} style={dataRowStyle}>
                   <TableRowSelectCell componentId={`${COMPONENT_ID}.row-select.skeleton`} noCheckbox />
                   {isGroupedBySession && renderSessionToggleSpacer()}
@@ -647,7 +634,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                     <Fragment key={sessionId}>
                       <TableRow
                         isHeader
-                        style={dataRowStyle}
+                        style={rowWidthStyle}
                         css={{
                           cursor: onSessionSelected ? 'pointer' : undefined,
                           ...rowPaddingCss,

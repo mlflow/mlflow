@@ -3,7 +3,7 @@ import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { TRACE_DENSITY_STORAGE_KEY_PREFIX } from '../utils/constants';
 
 // Bump when the density options or default change so stale entries reset.
-export const DENSITY_STORAGE_VERSION = 4;
+export const DENSITY_STORAGE_VERSION = 3;
 
 /**
  * Row-height density for the V4 traces table. The design-system table supplies the compact and
@@ -12,8 +12,8 @@ export const DENSITY_STORAGE_VERSION = 4;
  */
 export type TracesV4Density = 'small' | 'standard' | 'tall';
 
-/** Compact rows by default — the trace table is dense and most users scan many rows at once. OSS intentionally defaults to Standard (not Compact like the managed app). */
-const DEFAULT_DENSITY: TracesV4Density = 'standard';
+/** Compact rows by default — the trace table is dense and most users scan many rows at once. */
+const DEFAULT_DENSITY: TracesV4Density = 'small';
 
 export interface TracesV4DensityControl {
   density: TracesV4Density;

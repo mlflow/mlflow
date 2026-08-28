@@ -68,8 +68,6 @@ export interface TracesTableViewProps {
   onHideColumn: (columnId: string) => void;
   /** Groups traces with a session id into collapsible session rows — forwarded to the table. */
   isGroupedBySession?: boolean;
-  /** Row-height density forwarded to the table (`'small'` = compact rows). Defaults to `'default'`. */
-  size?: 'default' | 'small';
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
   previewLineClamp?: number;
 
@@ -207,7 +205,6 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       renderRunName={props.renderRunName}
       onHideColumn={props.onHideColumn}
       isGroupedBySession={props.isGroupedBySession}
-      size={props.size}
       previewLineClamp={props.previewLineClamp}
     />
   );

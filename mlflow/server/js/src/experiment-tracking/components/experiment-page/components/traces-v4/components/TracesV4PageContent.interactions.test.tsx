@@ -490,26 +490,24 @@ describe('TracesV4PageContent (interactions)', () => {
   });
 
   describe('Display popover: row height', () => {
-    // Compact rows keep the DS Table at its default typography size and apply compact padding in the
-    // traces table itself. Standard and Tall therefore both keep the DS row padding variable at the
-    // default value; their row height differs by minHeight and preview line clamp.
+    // Standard and Tall keep the same row padding; their row height differs by the density minHeight
+    // floor and preview line clamp.
     const STANDARD_ROW_PADDING = '6px';
     const STANDARD_ROW_MIN_HEIGHT = '48px';
     const TALL_ROW_MIN_HEIGHT = '128px';
     const firstTraceRow = () => screen.getByRole('row', { name: /Open trace tr-000 — input/ });
 
-    test('defaults to Standard when the stored preference uses the previous version', async () => {
+    test('defaults to Compact when the stored preference uses the previous version', async () => {
       const user = userEvent.setup();
       const densityKey = `${TRACE_DENSITY_STORAGE_KEY_PREFIX}.${EXPERIMENT_ID}`;
-      // A stale (previous-version) entry is ignored, so density falls back to the OSS default of
-      // Standard — unlike the managed app, which defaults to Compact.
+      // A stale (previous-version) entry is ignored, so density falls back to the Compact default.
       setLocalStorageItem(densityKey, DENSITY_STORAGE_VERSION - 1, true, 'tall');
 
       renderPage();
       await findTraceRow('tr-000');
 
       await openDisplaySubmenu(user, /^Row height/);
-      expect(await screen.findByRole('menuitemradio', { name: 'Standard', checked: true })).toBeInTheDocument();
+      expect(await screen.findByRole('menuitemradio', { name: 'Compact', checked: true })).toBeInTheDocument();
     });
 
     test('switching to Standard makes the table use standard-height rows with a larger minimum height', async () => {
