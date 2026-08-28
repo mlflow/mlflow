@@ -112,12 +112,23 @@ export const useTracesV4AssessmentColumns = (
 
   const reset = useCallback(() => setOverrides({}), [setOverrides]);
 
-  // Union candidate names with the override keys: candidates alone miss a hidden name that has since
-  // dropped off the page (no traces carry it), which must still be recorded as hidden in a saved view.
+  // Effective visibility for the page's candidate assessments, plus any off-page name that is
+  // explicitly hidden. A hidden name that has dropped off the page (no traces carry it) must still be
+  // recorded so a saved view keeps hiding it; but an off-page name that's visible is left out — absent
+  // already means default-visible, and carrying it would let the stored map accumulate stale `true`
+  // entries across save/restore cycles.
   const visibilityByName = useMemo(() => {
     const visible = new Set(visibleNames);
-    const names = new Set([...candidateNames, ...Object.keys(overrides)]);
-    return Object.fromEntries([...names].map((name) => [name, overrides[name] ?? visible.has(name)]));
+    const result: Record<string, boolean> = {};
+    for (const name of candidateNames) {
+      result[name] = overrides[name] ?? visible.has(name);
+    }
+    for (const [name, isVisible] of Object.entries(overrides)) {
+      if (!(name in result) && isVisible === false) {
+        result[name] = false;
+      }
+    }
+    return result;
   }, [candidateNames, visibleNames, overrides]);
 
   const setVisibility = useCallback(
