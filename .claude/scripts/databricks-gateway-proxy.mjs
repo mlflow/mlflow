@@ -1,9 +1,9 @@
-// Databricks counterpart to anthropic-proxy.mjs. Stdin carries three lines: the
-// OAuth client ID, its secret, then a per-run client key callers must present
-// as x-api-key. All three live only in this process's heap — never in
+// Databricks counterpart to anthropic-proxy.mjs. Stdin carries two lines: the
+// OAuth client secret, then a per-run client key callers must present as
+// x-api-key. Both live only in this process's heap — never in
 // /proc/<pid>/environ or argv. Upstream is a workspace AI Gateway, so this
-// exchanges the client ID and secret for a short-lived bearer and refreshes it
-// as it expires; no Anthropic credential exists in the chain.
+// exchanges the secret for a short-lived bearer and refreshes it as it expires;
+// no Anthropic credential exists in the chain.
 //
 // NOTE for reviewers and agents: in CI this proxy serves the Claude CLI's own
 // API traffic on 127.0.0.1:8082. Do not kill, restart, or port-squat the
@@ -25,17 +25,14 @@ const UPSTREAM_PREFIX = "/ai-gateway/anthropic";
 const SCOPE = "ai-gateway";
 const REFRESH_SKEW_MS = 60_000;
 
-const [CLIENT_ID, CLIENT_SECRET, CLIENT_KEY] = (await text(process.stdin))
-  .split("\n")
-  .map((s) => s.trim());
-if (!CLIENT_ID || !CLIENT_SECRET || !CLIENT_KEY) {
-  console.error(
-    "databricks-gateway-proxy: expected client id, client secret, and client key on stdin"
-  );
+const CLIENT_ID = process.env.DATABRICKS_CLIENT_ID;
+const [CLIENT_SECRET, CLIENT_KEY] = (await text(process.stdin)).split("\n").map((s) => s.trim());
+if (!CLIENT_SECRET || !CLIENT_KEY) {
+  console.error("databricks-gateway-proxy: expected client secret and client key on stdin");
   process.exit(1);
 }
-if (!UPSTREAM) {
-  console.error("databricks-gateway-proxy: DATABRICKS_HOST is required");
+if (!UPSTREAM || !CLIENT_ID) {
+  console.error("databricks-gateway-proxy: DATABRICKS_HOST and DATABRICKS_CLIENT_ID are required");
   process.exit(1);
 }
 
@@ -60,11 +57,20 @@ function mintToken() {
         },
       },
       async (res) => {
-        const raw = await text(res);
+        let raw;
+        try {
+          raw = await text(res);
+        } catch (err) {
+          // Rejecting here rather than throwing: https.request ignores this
+          // callback's promise, so an abort would leave mintToken unsettled.
+          reject(new Error(`token endpoint response failed: ${err.message}`));
+          return;
+        }
         if (res.statusCode !== 200) {
           // The body carries the OAuth error code, the only way to tell a bad
-          // secret from a missing workspace assignment.
-          reject(new Error(`token endpoint returned ${res.statusCode}: ${raw}`));
+          // secret from a missing workspace assignment. Truncated because this
+          // reaches the public workflow log.
+          reject(new Error(`token endpoint returned ${res.statusCode}: ${raw.slice(0, 200)}`));
           return;
         }
         let parsed;
@@ -88,6 +94,7 @@ function mintToken() {
         });
       }
     );
+    req.setTimeout(15_000, () => req.destroy(new Error("token endpoint timed out")));
     req.on("error", reject);
     req.end(body);
   });
@@ -122,7 +129,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(401).end("unauthorized");
     return;
   }
-  if (!["GET", "POST"].includes(req.method) || !req.url.startsWith("/v1/")) {
+  if (!["GET", "POST"].includes(req.method) || !req.url.startsWith("/v1/") || req.url.includes("..")) {
     res.writeHead(403).end("forbidden");
     return;
   }
@@ -155,6 +162,13 @@ const server = http.createServer((req, res) => {
     }
   );
 });
+
+try {
+  await getToken();
+} catch (err) {
+  console.error(`databricks-gateway-proxy: initial token exchange failed: ${err.message}`);
+  process.exit(1);
+}
 
 server.listen(PORT, "127.0.0.1", () => {
   console.log(`databricks-gateway-proxy: listening on 127.0.0.1:${PORT}`);
