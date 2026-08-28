@@ -6,6 +6,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import {
   CodeSnippetRenderMode,
+  ModelSpanType,
   type ModelTraceChatMessage,
   type ModelTraceExplorerRenderMode,
   type ModelTraceSpanNode,
@@ -18,6 +19,7 @@ import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceEx
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
+import { ModelTraceExplorerGuardrailSpanView } from '../../right-pane/ModelTraceExplorerGuardrailSpanView';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
 
@@ -301,6 +303,9 @@ export function ModelTraceExplorerDefaultSpanView({
       }}
       data-testid="model-trace-explorer-default-span-view"
     >
+      {activeSpan.type === ModelSpanType.GUARDRAIL && activeSpan.guardrailStatus && (
+        <ModelTraceExplorerGuardrailSpanView status={activeSpan.guardrailStatus} />
+      )}
       {containsTools && (
         <ModelTraceExplorerCollapsibleSection
           withBorder

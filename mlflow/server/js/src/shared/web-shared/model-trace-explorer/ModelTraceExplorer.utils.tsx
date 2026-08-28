@@ -42,7 +42,6 @@ import type {
   ModelTraceLocation,
   ModelTraceInputAudio,
   ModelTraceSpanLink,
-  ModelTraceGuardrailStatus,
 } from './ModelTrace.types';
 import {
   ModelSpanType,
@@ -92,6 +91,7 @@ import {
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
 import { getExperimentPageTracesTabRoute } from './routes';
+import { getGuardrailStatus, MLFLOW_GUARDRAIL_STATUS_ATTRIBUTE_KEY } from './spanAttributeReader';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -201,12 +201,7 @@ export function tryDeserializeAttribute(value: string): any {
   }
 }
 
-export const MLFLOW_GUARDRAIL_STATUS_ATTRIBUTE_KEY = 'mlflow.guardrail.status';
-
-export const getGuardrailStatus = (value: unknown): ModelTraceGuardrailStatus | undefined => {
-  const status = tryDeserializeAttribute(String(value));
-  return status === 'passed' || status === 'blocked' ? status : undefined;
-};
+export { getGuardrailStatus } from './spanAttributeReader';
 
 export const SPAN_LOG_LEVEL_ATTRIBUTE_KEY = 'mlflow.spanLogLevel';
 

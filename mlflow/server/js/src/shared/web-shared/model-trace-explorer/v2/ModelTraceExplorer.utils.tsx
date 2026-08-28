@@ -16,6 +16,7 @@ import {
 } from 'lodash';
 
 import Utils from '../../../../common/utils/Utils';
+import type { IntlShape } from '@databricks/i18n';
 
 import type {
   SearchMatch,
@@ -57,7 +58,7 @@ import { normalizeDspyChatInput, normalizeDspyChatOutput } from '../chat-utils/d
 import { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from '../chat-utils/vercelai';
 import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from '../chat-utils/otel';
 import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from '../chat-utils/pydanticai';
-import { getSpanAttribute } from '../spanAttributeReader';
+import { getGuardrailStatus, getSpanAttribute, MLFLOW_GUARDRAIL_STATUS_ATTRIBUTE_KEY } from '../spanAttributeReader';
 import { decodeOtelAnyValue, isOtelAnyValue } from '../../genai-traces-table/utils/TraceUtils';
 import { normalizeMistralChatInput, normalizeMistralChatOutput } from '../chat-utils/mistral';
 import {
@@ -127,6 +128,14 @@ export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconT
       return ModelIconType.SORT;
     case ModelSpanType.MEMORY:
       return ModelIconType.SAVE;
+    case ModelSpanType.WORKFLOW:
+      return ModelIconType.WORKFLOW;
+    case ModelSpanType.TASK:
+      return ModelIconType.TASK;
+    case ModelSpanType.GUARDRAIL:
+      return ModelIconType.GUARDRAIL;
+    case ModelSpanType.EVALUATOR:
+      return ModelIconType.EVALUATOR;
     case ModelSpanType.FUNCTION:
       return ModelIconType.FUNCTION;
     case ModelSpanType.UNKNOWN:
@@ -136,7 +145,7 @@ export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconT
   }
 }
 
-export function getDisplayNameForSpanType(spanType: ModelSpanType | string): string {
+export function getDisplayNameForSpanType(spanType: ModelSpanType | string, intl: IntlShape): string {
   switch (spanType) {
     case ModelSpanType.LLM:
       return 'LLM';
@@ -158,6 +167,26 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
       return 'Reranker';
     case ModelSpanType.MEMORY:
       return 'Memory';
+    case ModelSpanType.WORKFLOW:
+      return intl.formatMessage({
+        defaultMessage: 'Workflow',
+        description: 'Display name for a workflow span in the model trace explorer',
+      });
+    case ModelSpanType.TASK:
+      return intl.formatMessage({
+        defaultMessage: 'Task',
+        description: 'Display name for a task span in the model trace explorer',
+      });
+    case ModelSpanType.GUARDRAIL:
+      return intl.formatMessage({
+        defaultMessage: 'Guardrail',
+        description: 'Display name for a guardrail span in the model trace explorer',
+      });
+    case ModelSpanType.EVALUATOR:
+      return intl.formatMessage({
+        defaultMessage: 'Evaluator',
+        description: 'Display name for an evaluator span in the model trace explorer',
+      });
     case ModelSpanType.FUNCTION:
       return 'Function';
     case ModelSpanType.UNKNOWN:
@@ -518,6 +547,7 @@ export const normalizeNewSpanData = (
   const linkedGatewayTraceId = tryDeserializeAttribute(
     getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
   );
+  const guardrailStatus = getGuardrailStatus(getSpanAttribute(span.attributes, MLFLOW_GUARDRAIL_STATUS_ATTRIBUTE_KEY));
 
   // remove other private mlflow attributes
   const attributes = mapValues(
@@ -555,6 +585,7 @@ export const normalizeNewSpanData = (
     modelName,
     cost,
     linkedGatewayTraceId,
+    guardrailStatus,
     tokenUsage: getSpanTokenUsage({ attributes: span.attributes }),
   };
 };
@@ -722,6 +753,9 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
 
     // v1 spans
     const spanType = span.span_type ?? ModelSpanType.UNKNOWN;
+    const guardrailStatus = getGuardrailStatus(
+      getSpanAttribute(span.attributes, MLFLOW_GUARDRAIL_STATUS_ATTRIBUTE_KEY),
+    );
     return {
       title: span.name,
       icon: <ModelTraceExplorerIcon type={getIconTypeForSpan(spanType)} />,
@@ -739,6 +773,7 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
       parentId: span.parent_id ?? span.parent_span_id,
       assessments: [],
       traceId,
+      guardrailStatus,
       tokenUsage: getSpanTokenUsage({ attributes: span.attributes }),
     };
   }

@@ -15,6 +15,10 @@ import {
   UserIcon,
   GearIcon,
   SaveIcon,
+  WorkflowsIcon,
+  ClipboardIcon,
+  ShieldIcon,
+  SparkleDoubleIcon,
 } from '@databricks/design-system';
 
 import { ModelIconType } from './ModelTrace.types';
@@ -60,6 +64,10 @@ export const ModelTraceExplorerIcon = ({
     [ModelIconType.USER]: <UserIcon color={iconColor} />,
     [ModelIconType.SYSTEM]: <GearIcon color={iconColor} />,
     [ModelIconType.SAVE]: <SaveIcon color={iconColor} />,
+    [ModelIconType.WORKFLOW]: <WorkflowsIcon color={iconColor} />,
+    [ModelIconType.TASK]: <ClipboardIcon color={iconColor} />,
+    [ModelIconType.GUARDRAIL]: <ShieldIcon color={iconColor} />,
+    [ModelIconType.EVALUATOR]: <SparkleDoubleIcon color={iconColor} />,
   };
 
   // custom colors depending on span type

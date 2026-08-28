@@ -8,6 +8,7 @@ import { IntlProvider } from '@databricks/i18n';
 
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import type { ModelTraceSpan } from '../ModelTrace.types';
+import { ModelSpanType } from '../ModelTrace.types';
 import { mockSpans, MOCK_RETRIEVER_SPAN, MOCK_CHAT_SPAN } from '../../ModelTraceExplorer.test-utils';
 import { ModelTraceExplorerPreferencesProvider } from '../ModelTraceExplorerPreferencesContext';
 
@@ -106,5 +107,51 @@ describe('ModelTraceExplorerRightPane', () => {
 
     expect(screen.getByRole('button', { name: 'YAML' })).toBeInTheDocument();
     expect(screen.getByTestId('model-trace-explorer-content-tab')).toHaveTextContent('generations:');
+  });
+
+  it.each([
+    ['passed', 'Passed'],
+    ['blocked', 'Blocked'],
+  ] as const)('shows a structured %s guardrail result with its input and output', (status, label) => {
+    render(
+      <ModelTraceExplorerContentTab
+        activeSpan={{
+          ...MOCK_CHAT_SPAN,
+          type: ModelSpanType.GUARDRAIL,
+          inputs: { request: 'Delete all records' },
+          outputs: { explanation: 'Destructive operation policy' },
+          guardrailStatus: status,
+        }}
+        searchFilter=""
+        activeMatch={null}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByTestId('model-trace-explorer-guardrail-span-view')).toBeInTheDocument();
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.getByText('Delete all records')).toBeInTheDocument();
+    expect(screen.getByText('Destructive operation policy')).toBeInTheDocument();
+  });
+
+  it.each(['JSON', 'YAML'] as const)('keeps the guardrail result visible in %s mode', async (renderMode) => {
+    render(
+      <ModelTraceExplorerContentTab
+        activeSpan={{
+          ...MOCK_CHAT_SPAN,
+          type: ModelSpanType.GUARDRAIL,
+          guardrailStatus: 'blocked',
+        }}
+        searchFilter=""
+        activeMatch={null}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    await userEvent.click(screen.getAllByText('Pretty')[0]);
+    await userEvent.click(screen.getByText(renderMode));
+
+    expect(screen.getByTestId('model-trace-explorer-guardrail-span-view')).toBeInTheDocument();
+    expect(screen.getByText('Blocked')).toBeInTheDocument();
   });
 });

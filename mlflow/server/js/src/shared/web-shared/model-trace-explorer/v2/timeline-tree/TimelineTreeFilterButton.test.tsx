@@ -10,12 +10,22 @@ import { IntlProvider } from '@databricks/i18n';
 import { TEST_SPAN_FILTER_STATE } from './TimelineTree.test-utils';
 import { TimelineTreeFilterButton } from './TimelineTreeFilterButton';
 import type { SpanFilterState } from '../ModelTrace.types';
+import { ModelSpanType } from '../ModelTrace.types';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 
 const TestWrapper = () => {
-  const [spanFilterState, setSpanFilterState] = useState<SpanFilterState>(TEST_SPAN_FILTER_STATE);
+  const [spanFilterState, setSpanFilterState] = useState<SpanFilterState>({
+    ...TEST_SPAN_FILTER_STATE,
+    spanTypeDisplayState: {
+      ...TEST_SPAN_FILTER_STATE.spanTypeDisplayState,
+      [ModelSpanType.WORKFLOW]: true,
+      [ModelSpanType.TASK]: true,
+      [ModelSpanType.GUARDRAIL]: true,
+      [ModelSpanType.EVALUATOR]: true,
+    },
+  });
 
   return (
     <IntlProvider locale="en">
@@ -39,6 +49,10 @@ describe('TimelineTreeFilterButton', () => {
 
     // assert that the filter submenu is open
     expect(await screen.findByRole('menuitemcheckbox', { name: 'Chain' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Workflow' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Task' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Guardrail' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Evaluator' })).toBeInTheDocument();
 
     // Check that the show parents checkbox toggles the state
     expect(screen.getByText('Show parents true')).toBeInTheDocument();

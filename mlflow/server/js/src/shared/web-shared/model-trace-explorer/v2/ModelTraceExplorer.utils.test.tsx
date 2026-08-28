@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
+import type { IntlShape } from '@databricks/i18n';
 
 import type {
   Assessment,
@@ -6,7 +7,7 @@ import type {
   ModelTraceSpanNode,
   RawModelTraceChatMessage,
 } from './ModelTrace.types';
-import { ModelSpanType, type ModelTraceSpanV3 } from './ModelTrace.types';
+import { ModelIconType, ModelSpanType, type ModelTraceSpanV3 } from './ModelTrace.types';
 import {
   MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
@@ -45,6 +46,8 @@ import {
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
   getRootSpanTimeToFirstTokenMs,
+  getDisplayNameForSpanType,
+  getIconTypeForSpan,
 } from './ModelTraceExplorer.utils';
 import { SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY } from '../constants';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
@@ -165,6 +168,27 @@ describe('parseTraceToTree', () => {
     expect(rootNode?.children?.[0].key).toBe('child1');
     expect(rootNode?.children?.[1].key).toBe('child2');
     expect(rootNode?.children?.[2].key).toBe('child3');
+  });
+});
+
+describe('span type presentation', () => {
+  const intl = {
+    formatMessage: ({ defaultMessage }: { defaultMessage?: string }) => defaultMessage,
+  } as IntlShape;
+
+  it.each([
+    [ModelSpanType.WORKFLOW, 'Workflow', ModelIconType.WORKFLOW],
+    [ModelSpanType.TASK, 'Task', ModelIconType.TASK],
+    [ModelSpanType.GUARDRAIL, 'Guardrail', ModelIconType.GUARDRAIL],
+    [ModelSpanType.EVALUATOR, 'Evaluator', ModelIconType.EVALUATOR],
+  ])('renders %s with an explicit display name and icon', (spanType, displayName, iconType) => {
+    expect(getDisplayNameForSpanType(spanType, intl)).toBe(displayName);
+    expect(getIconTypeForSpan(spanType)).toBe(iconType);
+  });
+
+  it('retains generic fallbacks for custom span types', () => {
+    expect(getDisplayNameForSpanType('ROUTER', intl)).toBe('ROUTER');
+    expect(getIconTypeForSpan('ROUTER')).toBe(ModelIconType.FUNCTION);
   });
 });
 
@@ -888,6 +912,19 @@ describe('normalizeNewSpanData', () => {
 
     const normalized = normalizeNewSpanData(spanWithModel, 0, 0, [], {}, '');
     expect(normalized.modelName).toBe('gpt-4o-mini');
+  });
+
+  it('should extract guardrail status from mlflow.guardrail.status attribute', () => {
+    const guardrailSpan: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.guardrail.status': JSON.stringify('blocked'),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(guardrailSpan, 0, 0, [], {}, '');
+    expect(normalized.guardrailStatus).toBe('blocked');
   });
 
   it('should extract cost from mlflow.llm.cost attribute', () => {

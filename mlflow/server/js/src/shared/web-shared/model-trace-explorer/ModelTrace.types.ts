@@ -1,4 +1,5 @@
 import type { TimelineTreeNode } from './timeline-tree/TimelineTree.types';
+import type { ModelTraceGuardrailStatus } from './spanAttributeReader';
 
 export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 
@@ -59,7 +60,7 @@ export enum ModelIconType {
   EVALUATOR = 'evaluator',
 }
 
-export type ModelTraceGuardrailStatus = 'passed' | 'blocked';
+export type { ModelTraceGuardrailStatus };
 
 /**
  * Represents a single model trace span.

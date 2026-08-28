@@ -3,6 +3,7 @@ import type { SpanTokenUsage } from './ModelTraceTokenUsage.utils';
 // Reuse the shared OTLP value shape so a v1-typed ModelTrace (what OSS consumers hold) is
 // structurally assignable to v2's ModelTrace at the entrypoint boundary.
 import type { ModelTraceOtelAnyValue } from '../ModelTrace.types';
+import type { ModelTraceGuardrailStatus } from '../spanAttributeReader';
 
 export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 
@@ -24,6 +25,10 @@ export enum ModelSpanType {
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
   MEMORY = 'MEMORY',
+  WORKFLOW = 'WORKFLOW',
+  TASK = 'TASK',
+  GUARDRAIL = 'GUARDRAIL',
+  EVALUATOR = 'EVALUATOR',
   UNKNOWN = 'UNKNOWN',
 }
 
@@ -43,7 +48,13 @@ export enum ModelIconType {
   USER = 'user',
   SYSTEM = 'system',
   SAVE = 'save',
+  WORKFLOW = 'workflow',
+  TASK = 'task',
+  GUARDRAIL = 'guardrail',
+  EVALUATOR = 'evaluator',
 }
+
+export type { ModelTraceGuardrailStatus };
 
 /**
  * Represents a single model trace span.
@@ -358,6 +369,7 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   modelName?: string;
   cost?: SpanCostInfo;
   linkedGatewayTraceId?: string;
+  guardrailStatus?: ModelTraceGuardrailStatus;
   tokenUsage?: SpanTokenUsage;
 }
 

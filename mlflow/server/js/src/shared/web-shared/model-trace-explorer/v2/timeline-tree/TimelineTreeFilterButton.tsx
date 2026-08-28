@@ -133,7 +133,7 @@ export const TimelineTreeFilterButton = ({
                   }
                 >
                   <DropdownMenu.ItemIndicator />
-                  {getDisplayNameForSpanType(spanType)}
+                  {getDisplayNameForSpanType(spanType, intl)}
                 </DropdownMenu.CheckboxItem>
               ))}
               <DropdownMenu.Separator />

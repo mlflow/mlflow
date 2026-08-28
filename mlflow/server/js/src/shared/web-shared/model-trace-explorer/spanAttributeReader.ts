@@ -1,5 +1,9 @@
 import type { ModelTraceSpan } from './ModelTrace.types';
 
+export type ModelTraceGuardrailStatus = 'passed' | 'blocked';
+
+export const MLFLOW_GUARDRAIL_STATUS_ATTRIBUTE_KEY = 'mlflow.guardrail.status';
+
 /**
  * Extract an attribute value from span attributes.
  * V3 traces have flat objects: { 'mlflow.spanInputs': '{"x": 10}' }
@@ -26,4 +30,18 @@ export const getSpanAttribute = (
 
   // V4 values are typed - return whichever type is present
   return attribute.value.string_value ?? attribute.value.int_value ?? attribute.value.bool_value;
+};
+
+export const getGuardrailStatus = (value: unknown): ModelTraceGuardrailStatus | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  let status = value;
+  try {
+    status = JSON.parse(value);
+  } catch {
+    // Unquoted span attribute values are valid here.
+  }
+  return status === 'passed' || status === 'blocked' ? status : undefined;
 };
