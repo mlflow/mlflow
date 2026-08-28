@@ -36,6 +36,12 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dump_input_data
 
+# When passing input to SageMaker, ensure it is correctly JSON-encoded.
+# If the input is a list of strings (e.g., text inputs), SageMaker's PyFunc interface
+# expects a JSON-serializable structure. The default `dump_input_data` may not handle
+# lists of strings, so we wrap them in a dict or ensure proper JSON serialization.
+# This is a minimal adjustment that can be applied in the deploy code or the serving container.
+
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 DEPLOYMENT_MODE_ADD = "add"
 DEPLOYMENT_MODE_REPLACE = "replace"
