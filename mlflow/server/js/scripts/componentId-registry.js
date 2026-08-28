@@ -895,10 +895,6 @@ module.exports = {
   "mlflow.evaluations_review.modal.close": "",
   "mlflow.evaluations_review.modal.close-tooltip": "",
   "mlflow.evaluations_review.modal.copy-link-tooltip": "",
-  "mlflow.evaluations_review.modal.custom_view_selector": "",
-  "mlflow.evaluations_review.modal.custom_view_selector.create": "",
-  "mlflow.evaluations_review.modal.custom_view_selector.radio": "",
-  "mlflow.evaluations_review.modal.custom_view_selector.tooltip": "",
   "mlflow.evaluations_review.modal.find-button": "",
   "mlflow.evaluations_review.modal.find-tooltip": "",
   "mlflow.evaluations_review.modal.flag_for_review": "",
@@ -1791,6 +1787,7 @@ module.exports = {
   "mlflow.model_registry.version_view.source_run_link": "",
 
   // -- mlflow.model_trace_explorer --
+  "mlflow.model_trace_explorer.drawer.custom_view_selector": "",
   "mlflow.model_trace_explorer.feedback_item.judge_trace_link": "",
   "mlflow.model_trace_explorer.header.session_id_link": "",
   "mlflow.model_trace_explorer.header_details.tag-session-id": "",

@@ -24,6 +24,10 @@ export const ModelTraceExplorerCustomViewSelector = ({
   canCreateCustomView,
   size,
   compact = false,
+  // The selector is mounted on multiple surfaces (the review modal and the trace
+  // drawer). Each mount passes its own componentId so their interaction telemetry
+  // stays distinguishable. Defaults to the review-modal id for backwards compatibility.
+  componentId = 'mlflow.evaluations_review.modal.custom_view_selector',
 }: {
   value: ModelTraceExplorerDisplayMode;
   onValueChange: (value: ModelTraceExplorerDisplayMode) => void;
@@ -32,6 +36,7 @@ export const ModelTraceExplorerCustomViewSelector = ({
   canCreateCustomView: boolean;
   size?: 'small';
   compact?: boolean;
+  componentId?: string;
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -80,10 +85,10 @@ export const ModelTraceExplorerCustomViewSelector = ({
   return (
     <ApplyDesignSystemContextOverrides getPopupContainer={() => document.body}>
       <DropdownMenu.Root>
-        <Tooltip componentId="mlflow.evaluations_review.modal.custom_view_selector.tooltip" content={selectViewLabel}>
+        <Tooltip componentId={`${componentId}.tooltip`} content={selectViewLabel}>
           <DropdownMenu.Trigger asChild>
             <Button
-              componentId="mlflow.evaluations_review.modal.custom_view_selector"
+              componentId={componentId}
               icon={
                 <GridIcon
                   css={{
@@ -107,7 +112,7 @@ export const ModelTraceExplorerCustomViewSelector = ({
         </Tooltip>
         <DropdownMenu.Content align="start" onCloseAutoFocus={(event) => event.preventDefault()}>
           <DropdownMenu.RadioGroup
-            componentId="mlflow.evaluations_review.modal.custom_view_selector.radio"
+            componentId={`${componentId}.radio`}
             value={selectedMenuValue}
             onValueChange={handleValueChange}
           >
@@ -126,10 +131,7 @@ export const ModelTraceExplorerCustomViewSelector = ({
           {canCreateCustomView && (
             <>
               <DropdownMenu.Separator />
-              <DropdownMenu.Item
-                componentId="mlflow.evaluations_review.modal.custom_view_selector.create"
-                onClick={onCreateCustomView}
-              >
+              <DropdownMenu.Item componentId={`${componentId}.create`} onClick={onCreateCustomView}>
                 <PlusIcon css={{ marginRight: theme.spacing.sm }} />
                 <FormattedMessage
                   defaultMessage="Create custom view"

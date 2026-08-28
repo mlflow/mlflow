@@ -149,7 +149,7 @@ export const ModelTraceExplorerDrawer = ({
     drawerWidth = '90vw',
     isAssistantPanelOpen,
   } = useModelTraceExplorerContext();
-  const { canUseAssistant, isPanelOpen, openPanel, prefillPrompt, requestComposerFocus } = useAssistant();
+  const { canUseAssistant, isPanelOpen, openPanel, sendMessageWhenReady } = useAssistant();
   // The drawer must go non-modal while the assistant panel is open so its focus
   // trap doesn't yank focus back from the chat composer (e.g. right after
   // "Analyze trace" prefills a prompt). Hosts that inject panel state via context
@@ -463,9 +463,10 @@ export const ModelTraceExplorerDrawer = ({
           });
   const handleAnalyzeTrace = useCallback(() => {
     openPanel();
-    prefillPrompt(analyzeTracePrompt);
-    requestComposerFocus();
-  }, [openPanel, prefillPrompt, requestComposerFocus, analyzeTracePrompt]);
+    // Send the analyze prompt immediately rather than only prefilling it, so the
+    // assistant starts working on the trace without a second click.
+    sendMessageWhenReady(analyzeTracePrompt);
+  }, [openPanel, sendMessageWhenReady, analyzeTracePrompt]);
   const findInTraceLabel = intl.formatMessage({
     defaultMessage: 'Find in trace',
     description: 'Accessible label and tooltip for opening the trace search row',
@@ -548,6 +549,21 @@ export const ModelTraceExplorerDrawer = ({
         }
       }}
     >
+      {/* The header row's height/border live on the design system Drawer.Content's own
+          content node, which the drawer's `css` prop cannot reliably reach through the OSS
+          AssistantAwareDrawer path. Scope the rule to the content node via its stable
+          data attribute so the header keeps its divider from the body below. */}
+      <Global
+        styles={{
+          '[data-component-type="drawer_content"][data-component-id="mlflow.evaluations_review.modal"] > div:first-of-type':
+            {
+              boxSizing: 'border-box',
+              height: 48,
+              minHeight: 48,
+              borderBottom: `1px solid ${theme.colors.border}`,
+            },
+        }}
+      />
       {isFullscreen && (
         <Global
           styles={{
@@ -785,6 +801,7 @@ export const ModelTraceExplorerDrawer = ({
               isCustomViewEnabled={isCustomViewEnabled}
               canCreateCustomView={canCreateCustomView}
               compact={compactPrimaryActions}
+              componentId="mlflow.model_trace_explorer.drawer.custom_view_selector"
             />
             {canUseAssistant && (
               <ModelTraceExplorerAssistantButton
