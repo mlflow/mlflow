@@ -200,8 +200,6 @@ jobs:
       - name: Mint gateway token
         id: gateway
         env:
-          # `DATABRICKS_*` without the `GATEWAY` infix are a different
-          # principal's credentials for `ui-preview.yml`.
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
