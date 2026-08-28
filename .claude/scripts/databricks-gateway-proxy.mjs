@@ -129,7 +129,11 @@ const server = http.createServer((req, res) => {
     res.writeHead(401).end("unauthorized");
     return;
   }
-  if (!["GET", "POST"].includes(req.method) || !req.url.startsWith("/v1/") || req.url.includes("..")) {
+  // Both checks are needed: `req.url` is forwarded raw and the upstream edge
+  // resolves percent-encoded dot segments (`%2e%2e`, `.%2e`) that a raw-string
+  // test misses, while `..%2f` normalizes only after the edge decodes `%2f`.
+  const path = new URL(req.url, "http://proxy").pathname;
+  if (!["GET", "POST"].includes(req.method) || !path.startsWith("/v1/") || req.url.includes("..")) {
     res.writeHead(403).end("forbidden");
     return;
   }

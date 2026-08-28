@@ -215,7 +215,9 @@ jobs:
           printf '%s\n%s' "$DATABRICKS_CLIENT_SECRET" "$CLIENT_KEY" \
             | env -u DATABRICKS_CLIENT_SECRET node --disable-sigusr1 .claude/scripts/databricks-gateway-proxy.mjs \
               > /tmp/gateway-proxy.log 2>&1 &
-          timeout 10 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8082/healthz; do sleep 0.5; done' \
+          # Above the proxy's own 15s token-exchange timeout, so a slow OAuth
+          # endpoint surfaces as an OAuth error rather than a bare start failure.
+          timeout 20 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8082/healthz; do sleep 0.5; done' \
             || { echo "::error::Databricks gateway proxy failed to start"; cat /tmp/gateway-proxy.log; exit 1; }
 
       - name: Review
