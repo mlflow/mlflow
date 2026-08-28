@@ -228,7 +228,6 @@ jobs:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
           ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}
-          # Sent as `Authorization: Bearer`, which is what the gateway expects.
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
           # The gateway's beta allowlist rejects several of the CLI's
           # experimental betas with HTTP 400.
