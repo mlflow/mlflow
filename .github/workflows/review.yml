@@ -196,7 +196,7 @@ jobs:
 
       # Only the short-lived bearer reaches the Claude step; the client secret
       # stays in this step.
-      - name: Mint gateway token
+      - name: Configure gateway
         id: gateway
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
@@ -218,6 +218,8 @@ jobs:
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
           # `%/` so a trailing slash on the secret can't produce a `//` path.
           echo "base-url=${DATABRICKS_HOST%/}/ai-gateway/anthropic" >> "$GITHUB_OUTPUT"
+          TAGS=$(jq -cn --arg repository "$GITHUB_REPOSITORY" '{$repository, task: "pr-review"}')
+          echo "custom-headers=Databricks-Ai-Gateway-Request-Tags: $TAGS" >> "$GITHUB_OUTPUT"
 
       - name: Review
         id: review
@@ -226,6 +228,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
           ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           # The gateway's beta allowlist rejects several of the CLI's
           # experimental betas with HTTP 400.
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
