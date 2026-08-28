@@ -195,8 +195,7 @@ jobs:
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
       # Only the short-lived bearer reaches the Claude step; the client secret
-      # stays in this step. Credentials go to curl over stdin rather than `-u`
-      # so they never appear in argv.
+      # stays in this step.
       - name: Mint gateway token
         id: gateway
         env:
@@ -204,10 +203,10 @@ jobs:
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
         run: |
-          RESPONSE=$(printf 'user = "%s:%s"\n' "$DATABRICKS_CLIENT_ID" "$DATABRICKS_CLIENT_SECRET" \
-            | curl -sS --max-time 15 --config - \
-                -d grant_type=client_credentials -d scope=ai-gateway \
-                "$DATABRICKS_HOST/oidc/v1/token")
+          RESPONSE=$(curl -sS --max-time 15 \
+            -u "$DATABRICKS_CLIENT_ID:$DATABRICKS_CLIENT_SECRET" \
+            -d grant_type=client_credentials -d scope=ai-gateway \
+            "$DATABRICKS_HOST/oidc/v1/token")
           TOKEN=$(jq -r '.access_token // empty' <<< "$RESPONSE")
           if [ -z "$TOKEN" ]; then
             # The body carries the OAuth error code, the only way to tell a bad
