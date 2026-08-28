@@ -230,11 +230,11 @@ jobs:
           # experimental betas with HTTP 400.
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           # Lands in `system.ai_gateway.usage.request_tags`, so gateway spend can
-          # be split by caller. `workflow` is a literal rather than
-          # `github.workflow`, which a rename would silently repoint; `repo` is
-          # the expression because there the current name is the identity we
-          # want, and it keeps `workflow` from colliding across repositories.
-          ANTHROPIC_CUSTOM_HEADERS: 'Databricks-Ai-Gateway-Request-Tags: {"repo":"${{ github.repository }}","workflow":"pr-review"}'
+          # be split by caller. `task` names the automation doing the spending,
+          # not this workflow file, and is a literal so a rename cannot silently
+          # repoint it. `repo` is an expression because there the current name is
+          # the identity we want, and it keeps `task` unique across repositories.
+          ANTHROPIC_CUSTOM_HEADERS: 'Databricks-Ai-Gateway-Request-Tags: {"repo":"${{ github.repository }}","task":"pr-review"}'
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
