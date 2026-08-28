@@ -1180,8 +1180,9 @@ MLFLOW_SERVER_X_FRAME_OPTIONS = _EnvironmentVariable(
 )
 
 #: Deny (403) authenticated requests to routes with no authorization decision in the
-#: built-in basic-auth app (fail-closed). Off by default. (default: ``False``)
-MLFLOW_BASIC_AUTH_FAIL_CLOSED = _BooleanEnvironmentVariable("MLFLOW_BASIC_AUTH_FAIL_CLOSED", False)
+#: built-in basic-auth app (fail-closed). On by default; set to ``False`` to restore the
+#: previous fail-open behavior. (default: ``True``)
+MLFLOW_BASIC_AUTH_FAIL_CLOSED = _BooleanEnvironmentVariable("MLFLOW_BASIC_AUTH_FAIL_CLOSED", True)
 
 #: Specifies the max length (in chars) of an experiment's artifact location.
 #: The default is 2048.
@@ -1419,6 +1420,11 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: Whether to disable schema details in error messages for MLflow schema enforcement.
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
+
+#: Disable the hint that points a coding agent at the MLflow tracing skill on
+#: ``import mlflow``. The hint is only ever emitted when a coding agent is detected.
+#: (default: ``False``)
+MLFLOW_DISABLE_AGENT_HINT = _BooleanEnvironmentVariable("MLFLOW_DISABLE_AGENT_HINT", False)
 
 
 def _split_strip(s: str) -> list[str]:

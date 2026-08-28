@@ -1011,6 +1011,7 @@ def flush_trace_async_logging(terminate=False) -> None:
     # When set_destination() is called multiple times, each call creates a new
     # tracer provider, processor, and exporter. The registry tracks all of them
     # so we drain both layers: span queue → exporter → async DB write queue.
+    from mlflow.tracing.export.utils import flush_exporter
     from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
 
     try:
@@ -1019,11 +1020,10 @@ def flush_trace_async_logging(terminate=False) -> None:
         _logger.debug(f"Failed to flush batch processors: {e}", exc_info=True)
 
     # When batch processor is disabled (no registry entries), the current exporter
-    # may still have an _async_queue that needs draining (SimpleSpanProcessor path).
+    # may still have buffered spans that need draining (SimpleSpanProcessor path).
     try:
         if trace_exporter := _get_trace_exporter():
-            if hasattr(trace_exporter, "_async_queue"):
-                trace_exporter._async_queue.flush(terminate=terminate)
+            flush_exporter(trace_exporter, terminate=terminate)
     except Exception as e:
         _logger.debug(f"Failed to flush trace exporter async queue: {e}", exc_info=True)
 
@@ -3221,16 +3221,42 @@ def get_artifact_uri(artifact_path: str | None = None) -> str:
     )
 
 
+@overload
 def search_runs(
     experiment_ids: list[str] | None = None,
     filter_string: str = "",
     run_view_type: int = ViewType.ACTIVE_ONLY,
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
     order_by: list[str] | None = None,
-    output_format: str = "pandas",
+    output_format: Literal["pandas"] = "pandas",
     search_all_experiments: bool = False,
     experiment_names: list[str] | None = None,
-) -> Union[list[Run], "pandas.DataFrame"]:
+) -> "pandas.DataFrame": ...
+
+
+@overload
+def search_runs(
+    experiment_ids: list[str] | None = None,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: list[str] | None = None,
+    output_format: Literal["list"] = "list",
+    search_all_experiments: bool = False,
+    experiment_names: list[str] | None = None,
+) -> list[Run]: ...
+
+
+def search_runs(
+    experiment_ids: list[str] | None = None,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: list[str] | None = None,
+    output_format: Literal["pandas", "list"] = "pandas",
+    search_all_experiments: bool = False,
+    experiment_names: list[str] | None = None,
+) -> "list[Run] | pandas.DataFrame":
     """
     Search for Runs that fit the specified criteria.
 
