@@ -50,6 +50,10 @@ const MAX_DRAWER_WIDTH_RATIO = 0.9;
 const DRAWER_CLOSE_ANIMATION_MS = 180;
 const TRACE_METADATA_MIN_WIDTH = 960;
 const LABELED_PRIMARY_ACTIONS_MIN_WIDTH = 800;
+// Targets the design system Drawer.Content node (it renders these data attributes from the
+// Content componentId below), used by the Global rules that reproduce managed's header layout.
+const DRAWER_CONTENT_SELECTOR =
+  '[data-component-type="drawer_content"][data-component-id="mlflow.evaluations_review.modal"]';
 const headerIconCss = { svg: { width: 15, height: 15 } };
 const statusIconCss = { svg: { width: 12, height: 12 } };
 
@@ -549,24 +553,28 @@ export const ModelTraceExplorerDrawer = ({
         }
       }}
     >
-      {/* The header row's layout lives on the design system Drawer.Content's own content
-          node, which the drawer's `css` prop cannot reliably reach through the OSS
-          AssistantAwareDrawer path. Scope these rules to the content node via its stable
-          data attribute so it matches managed: drop the default 16px content padding-top,
-          and give the header a divider from the body below with no trailing margin. */}
+      {/* The drawer's content-node layout lives on the design system Drawer.Content, which
+          the drawer's `css` prop cannot reliably reach through the OSS AssistantAwareDrawer
+          path. Scope these rules to the content node via its stable data attribute so it
+          matches managed: drop the default 16px content padding-top, clip direct children
+          so nested panes own their own scrolling, and give the header a fixed height, its
+          own horizontal padding, and a divider from the body below with no trailing margin. */}
       <Global
         styles={{
-          '[data-component-type="drawer_content"][data-component-id="mlflow.evaluations_review.modal"]': {
+          [`${DRAWER_CONTENT_SELECTOR}`]: {
             paddingTop: 0,
           },
-          '[data-component-type="drawer_content"][data-component-id="mlflow.evaluations_review.modal"] > div:first-of-type':
-            {
-              boxSizing: 'border-box',
-              height: 48,
-              minHeight: 48,
-              borderBottom: `1px solid ${theme.colors.border}`,
-              marginBottom: 0,
-            },
+          [`${DRAWER_CONTENT_SELECTOR} > div`]: {
+            overflow: 'hidden',
+          },
+          [`${DRAWER_CONTENT_SELECTOR} > div:first-of-type`]: {
+            boxSizing: 'border-box',
+            height: 48,
+            minHeight: 48,
+            padding: `0 ${theme.spacing.md}px`,
+            borderBottom: `1px solid ${theme.colors.border}`,
+            marginBottom: 0,
+          },
         }}
       />
       {isFullscreen && (
