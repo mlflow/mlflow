@@ -5,11 +5,12 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
-import { CodeSnippetRenderMode } from '../ModelTrace.types';
+import { CodeSnippetRenderMode, ModelSpanType } from '../ModelTrace.types';
 import { createListFromObject, buildAggregatedJsonFromKeyValueList } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import { ModelTraceExplorerGuardrailSpanView } from './ModelTraceExplorerGuardrailSpanView';
 
 export function ModelTraceExplorerDefaultSpanView({
   activeSpan,
@@ -41,6 +42,9 @@ export function ModelTraceExplorerDefaultSpanView({
 
   return (
     <div data-testid="model-trace-explorer-default-span-view">
+      {renderMode === 'default' && activeSpan.type === ModelSpanType.GUARDRAIL && activeSpan.guardrailStatus && (
+        <ModelTraceExplorerGuardrailSpanView status={activeSpan.guardrailStatus} />
+      )}
       {containsInputs && (
         <ModelTraceExplorerCollapsibleSection
           withBorder

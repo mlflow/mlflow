@@ -20,6 +20,10 @@ export enum ModelSpanType {
   EMBEDDING = 'EMBEDDING',
   RERANKER = 'RERANKER',
   MEMORY = 'MEMORY',
+  WORKFLOW = 'WORKFLOW',
+  TASK = 'TASK',
+  GUARDRAIL = 'GUARDRAIL',
+  EVALUATOR = 'EVALUATOR',
   UNKNOWN = 'UNKNOWN',
 }
 
@@ -49,7 +53,13 @@ export enum ModelIconType {
   USER = 'user',
   SYSTEM = 'system',
   SAVE = 'save',
+  WORKFLOW = 'workflow',
+  TASK = 'task',
+  GUARDRAIL = 'guardrail',
+  EVALUATOR = 'evaluator',
 }
+
+export type ModelTraceGuardrailStatus = 'passed' | 'blocked';
 
 /**
  * Represents a single model trace span.
@@ -347,6 +357,7 @@ export interface ModelTraceSpanNode
   modelName?: string;
   cost?: SpanCostInfo;
   linkedGatewayTraceId?: string;
+  guardrailStatus?: ModelTraceGuardrailStatus;
   // Severity classification, sourced from `mlflow.spanLogLevel`. Spans without
   // an explicit level have this undefined; the trace-explorer filter treats
   // missing as DEBUG so old/unclassified spans stay visible by default.

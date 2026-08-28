@@ -41,6 +41,7 @@ import type {
   ModelTraceLocation,
   ModelTraceInputAudio,
   ModelTraceSpanLink,
+  ModelTraceGuardrailStatus,
 } from './ModelTrace.types';
 import {
   ModelSpanType,
@@ -123,6 +124,14 @@ export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconT
       return ModelIconType.SORT;
     case ModelSpanType.MEMORY:
       return ModelIconType.SAVE;
+    case ModelSpanType.WORKFLOW:
+      return ModelIconType.WORKFLOW;
+    case ModelSpanType.TASK:
+      return ModelIconType.TASK;
+    case ModelSpanType.GUARDRAIL:
+      return ModelIconType.GUARDRAIL;
+    case ModelSpanType.EVALUATOR:
+      return ModelIconType.EVALUATOR;
     case ModelSpanType.FUNCTION:
       return ModelIconType.FUNCTION;
     case ModelSpanType.UNKNOWN:
@@ -154,6 +163,14 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
       return 'Reranker';
     case ModelSpanType.MEMORY:
       return 'Memory';
+    case ModelSpanType.WORKFLOW:
+      return 'Workflow';
+    case ModelSpanType.TASK:
+      return 'Task';
+    case ModelSpanType.GUARDRAIL:
+      return 'Guardrail';
+    case ModelSpanType.EVALUATOR:
+      return 'Evaluator';
     case ModelSpanType.FUNCTION:
       return 'Function';
     case ModelSpanType.UNKNOWN:
@@ -170,6 +187,13 @@ export function tryDeserializeAttribute(value: string): any {
     return value;
   }
 }
+
+export const MLFLOW_GUARDRAIL_STATUS_ATTRIBUTE_KEY = 'mlflow.guardrail.status';
+
+export const getGuardrailStatus = (value: unknown): ModelTraceGuardrailStatus | undefined => {
+  const status = tryDeserializeAttribute(String(value));
+  return status === 'passed' || status === 'blocked' ? status : undefined;
+};
 
 export const SPAN_LOG_LEVEL_ATTRIBUTE_KEY = 'mlflow.spanLogLevel';
 
@@ -559,6 +583,7 @@ export const normalizeNewSpanData = (
     getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
   );
   const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
+  const guardrailStatus = getGuardrailStatus(getSpanAttribute(span.attributes, MLFLOW_GUARDRAIL_STATUS_ATTRIBUTE_KEY));
 
   // remove other private mlflow attributes
   const attributes = mapValues(
@@ -599,6 +624,7 @@ export const normalizeNewSpanData = (
     cost,
     linkedGatewayTraceId,
     logLevel,
+    guardrailStatus,
   };
 };
 
@@ -807,6 +833,9 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
     // v1 spans
     const spanType = span.span_type ?? ModelSpanType.UNKNOWN;
     const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
+    const guardrailStatus = getGuardrailStatus(
+      getSpanAttribute(span.attributes, MLFLOW_GUARDRAIL_STATUS_ATTRIBUTE_KEY),
+    );
     return {
       title: span.name,
       icon: <ModelTraceExplorerIcon type={getIconTypeForSpan(spanType)} />,
@@ -825,6 +854,7 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
       assessments: [],
       traceId,
       logLevel,
+      guardrailStatus,
     };
   }
 

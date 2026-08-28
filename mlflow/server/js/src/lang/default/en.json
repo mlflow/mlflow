@@ -3571,6 +3571,10 @@
     "defaultMessage": "Cancel",
     "description": "Experiment page > new run modal > \"cancel\" button label"
   },
+  "CU5zyF": {
+    "defaultMessage": "Passed",
+    "description": "Status label for a guardrail span that allowed an operation"
+  },
   "CUKIO0": {
     "defaultMessage": "The \"{alias}\" alias is also being used on version {otherVersion}. Adding it to this version will remove it from version {otherVersion}.",
     "description": "Alias editor > Warning about reusing alias from the other version"
@@ -14235,6 +14239,10 @@
     "defaultMessage": "Last updated by",
     "description": "Column selector label for the last-updated-by column"
   },
+  "t3kDZq": {
+    "defaultMessage": "Blocked",
+    "description": "Status label for a guardrail span that blocked an operation"
+  },
   "t3mHNt": {
     "defaultMessage": "Errors",
     "description": "Title for the errors chart"
@@ -15322,6 +15330,10 @@
   "xiiaIF": {
     "defaultMessage": "Run on all future traces",
     "description": "Label for toggle to enable automatic evaluation"
+  },
+  "xkKQ/b": {
+    "defaultMessage": "Guardrail result",
+    "description": "Label for the result of a guardrail span in the model trace explorer"
   },
   "xmPKKq": {
     "defaultMessage": "Model Version:",

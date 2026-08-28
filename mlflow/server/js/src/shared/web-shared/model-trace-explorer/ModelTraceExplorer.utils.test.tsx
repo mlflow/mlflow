@@ -47,7 +47,11 @@ import {
   isSessionLevelAssessment,
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
+  getDisplayNameForSpanType,
+  getIconTypeForSpan,
+  getGuardrailStatus,
 } from './ModelTraceExplorer.utils';
+import { ModelIconType } from './ModelTrace.types';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
 describe('parseTraceToTree', () => {
@@ -166,6 +170,32 @@ describe('parseTraceToTree', () => {
     expect(rootNode?.children?.[0].key).toBe('child1');
     expect(rootNode?.children?.[1].key).toBe('child2');
     expect(rootNode?.children?.[2].key).toBe('child3');
+  });
+});
+
+describe('span type presentation', () => {
+  it.each([
+    [ModelSpanType.WORKFLOW, 'Workflow', ModelIconType.WORKFLOW],
+    [ModelSpanType.TASK, 'Task', ModelIconType.TASK],
+    [ModelSpanType.GUARDRAIL, 'Guardrail', ModelIconType.GUARDRAIL],
+    [ModelSpanType.EVALUATOR, 'Evaluator', ModelIconType.EVALUATOR],
+  ])('renders %s with an explicit display name and icon', (spanType, displayName, iconType) => {
+    expect(getDisplayNameForSpanType(spanType)).toBe(displayName);
+    expect(getIconTypeForSpan(spanType)).toBe(iconType);
+  });
+
+  it('retains generic fallbacks for custom span types', () => {
+    expect(getDisplayNameForSpanType('ROUTER')).toBe('ROUTER');
+    expect(getIconTypeForSpan('ROUTER')).toBe(ModelIconType.FUNCTION);
+  });
+
+  it.each([
+    ['passed', 'passed'],
+    ['blocked', 'blocked'],
+    ['warning', undefined],
+    [undefined, undefined],
+  ] as const)('parses guardrail status %s', (value, expected) => {
+    expect(getGuardrailStatus(value)).toBe(expected);
   });
 });
 
@@ -836,6 +866,30 @@ describe('normalizeNewSpanData', () => {
     const normalized = normalizeNewSpanData(MOCK_V3_SPANS[0], 0, 0, [], {}, '');
     expect(normalized.modelName).toBeUndefined();
     expect(normalized.cost).toBeUndefined();
+  });
+
+  it.each(['passed', 'blocked'] as const)('extracts a valid %s guardrail status', (status) => {
+    const guardrailSpan: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.guardrail.status': status,
+      },
+    };
+
+    expect(normalizeNewSpanData(guardrailSpan, 0, 0, [], {}, '').guardrailStatus).toBe(status);
+  });
+
+  it('ignores an invalid guardrail status', () => {
+    const guardrailSpan: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.guardrail.status': 'warning',
+      },
+    };
+
+    expect(normalizeNewSpanData(guardrailSpan, 0, 0, [], {}, '').guardrailStatus).toBeUndefined();
   });
 });
 

@@ -8,6 +8,7 @@ import { IntlProvider } from '@databricks/i18n';
 import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import type { ModelTraceSpan, ModelTraceSpanNode } from '../ModelTrace.types';
+import { ModelSpanType } from '../ModelTrace.types';
 import {
   mockSpans,
   MOCK_RETRIEVER_SPAN,
@@ -102,5 +103,50 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(screen.queryByText('generations')).toBeInTheDocument();
     expect(screen.queryByText('llm_output')).toBeInTheDocument();
     expect(screen.queryAllByText('See more').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it.each([
+    ['passed', 'Passed'],
+    ['blocked', 'Blocked'],
+  ] as const)('shows a structured %s guardrail result with its input and output', (status, label) => {
+    render(
+      <ModelTraceExplorerContentTab
+        activeSpan={{
+          ...MOCK_CHAT_SPAN,
+          type: ModelSpanType.GUARDRAIL,
+          inputs: { request: 'Delete all records' },
+          outputs: { explanation: 'Destructive operation policy' },
+          guardrailStatus: status,
+        }}
+        searchFilter=""
+        activeMatch={null}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByTestId('model-trace-explorer-guardrail-span-view')).toBeInTheDocument();
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.getByText('Delete all records')).toBeInTheDocument();
+    expect(screen.getByText('Destructive operation policy')).toBeInTheDocument();
+  });
+
+  it('uses the generic input and output view when a guardrail status is unavailable', () => {
+    render(
+      <ModelTraceExplorerContentTab
+        activeSpan={{
+          ...MOCK_CHAT_SPAN,
+          type: ModelSpanType.GUARDRAIL,
+          inputs: { request: 'Check this request' },
+          outputs: { explanation: 'No recognized result' },
+        }}
+        searchFilter=""
+        activeMatch={null}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.queryByTestId('model-trace-explorer-guardrail-span-view')).not.toBeInTheDocument();
+    expect(screen.getByText('Check this request')).toBeInTheDocument();
+    expect(screen.getByText('No recognized result')).toBeInTheDocument();
   });
 });
