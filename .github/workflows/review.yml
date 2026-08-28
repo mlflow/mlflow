@@ -214,8 +214,8 @@ jobs:
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
-      - name: Set up Anthropic
-        id: anthropic
+      - name: Set up gateway
+        id: gateway
         uses: ./base/.github/actions/setup-gateway
         with:
           task: pr-review
@@ -229,9 +229,9 @@ jobs:
         env:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
-          ANTHROPIC_BASE_URL: ${{ steps.anthropic.outputs.base-url }}
-          ANTHROPIC_AUTH_TOKEN: ${{ steps.anthropic.outputs.token }}
-          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.anthropic.outputs.custom-headers }}
+          ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           # The auto mode permission classifier picks its model from the sonnet
           # and opus aliases rather than `--model`, so without these it requests
           # a bare `claude-sonnet-5` that the gateway does not serve and every
@@ -324,7 +324,7 @@ jobs:
         env:
           GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
           GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
-          GATEWAY_TOKEN: ${{ steps.anthropic.outputs.token }}
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
         run: |
           python <<'PY'
           import os
