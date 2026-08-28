@@ -89,9 +89,6 @@ jobs:
     # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
     # fails closed.
     permissions: {}
-    # Scopes the gateway configuration below; no protection rules, so it gates
-    # nothing.
-    environment: ai-gateway
     timeout-minutes: 45
     env:
       REVIEW_PAYLOAD: /tmp/review-payload.json
@@ -173,8 +170,6 @@ jobs:
           import sys
 
           MODEL_ALIASES = {
-              # Uncomment once the workspace serves a fable endpoint.
-              # "fable": "claude-fable-5",
               "opus": "claude-opus-5",
               "sonnet": "claude-sonnet-5",
           }
@@ -208,16 +203,12 @@ jobs:
       - name: Start Databricks gateway proxy
         id: proxy
         env:
-          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-          DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
-          # Not `DATABRICKS_CLIENT_SECRET`: a repository secret of that name
-          # holds a different principal's credential for `ui-preview.yml`.
+          # `DATABRICKS_*` without the `GATEWAY` infix are a different
+          # principal's credentials for `ui-preview.yml`.
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_GATEWAY_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_GATEWAY_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
         run: |
-          : "${DATABRICKS_HOST:?Set the DATABRICKS_HOST variable on the ai-gateway environment}"
-          : "${DATABRICKS_CLIENT_ID:?Set the DATABRICKS_CLIENT_ID variable on the ai-gateway environment}"
-          : "${DATABRICKS_CLIENT_SECRET:?Set the DATABRICKS_GATEWAY_CLIENT_SECRET secret on the ai-gateway environment}"
-
           CLIENT_KEY=$(openssl rand -hex 32)
           echo "::add-mask::$CLIENT_KEY"
           echo "client-key=$CLIENT_KEY" >> "$GITHUB_OUTPUT"
