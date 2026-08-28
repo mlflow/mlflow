@@ -1,4 +1,4 @@
-name: "setup-anthropic"
+name: "setup-gateway"
 description: "Mint a Databricks AI Gateway bearer and emit the Claude CLI env values as outputs"
 inputs:
   task:
