@@ -1,0 +1,162 @@
+---
+title: Tracing GitHub Copilot SDK
+description: Trace GitHub Copilot SDK applications with MLflow through OpenTelemetry for observability into agent runs, tool calls, token usage, and latency.
+sidebar_position: 10
+sidebar_label: GitHub Copilot SDK
+keywords: [github copilot sdk, copilot, tracing, mlflow, ai agent, opentelemetry, otlp]
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing GitHub Copilot SDK
+
+[MLflow Tracing](/genai/tracing) can capture traces from applications built with the [GitHub Copilot SDK](https://github.com/github/copilot-sdk) by ingesting the SDK's built-in OpenTelemetry output. The SDK exposes Copilot's agent runtime for TypeScript, Python, Go, .NET, Java, and Rust applications, and can emit OTLP traces from the Copilot CLI process.
+
+Once configured, traces in MLflow can include:
+
+- Agent sessions and turns
+- LLM calls and model metadata
+- Tool calls and their inputs and outputs
+- Latency and token usage emitted by the SDK
+
+## Setup
+
+This guide routes Copilot SDK telemetry through the OpenTelemetry Collector. The collector receives the SDK's OTLP/HTTP telemetry and exports traces to MLflow's OTLP endpoint using protobuf encoding.
+
+### Requirements
+
+- MLflow 3.6.0 or newer
+- An MLflow tracking server with a SQL-backed store
+- [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)
+- A GitHub Copilot SDK application
+
+### Step 1: Start the MLflow Tracking Server
+
+Start MLflow with a SQL-backed store so the OTLP trace endpoint is available:
+
+```bash
+mlflow server --port 5000
+```
+
+Create or identify the experiment that should receive Copilot SDK traces. The default experiment ID is `0`.
+
+### Step 2: Start an OpenTelemetry Collector
+
+Create an OpenTelemetry Collector config that accepts OTLP/HTTP on port `4318` and forwards traces to MLflow:
+
+```yaml title="otel-collector-config.yaml"
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  otlphttp:
+    endpoint: http://localhost:5000
+    headers:
+      x-mlflow-experiment-id: "0"
+    encoding: proto
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlphttp]
+```
+
+Run the collector:
+
+```bash
+docker run --rm -p 4318:4318 \
+  -v $(pwd)/otel-collector-config.yaml:/etc/otelcol/config.yaml \
+  otel/opentelemetry-collector:latest \
+  --config=/etc/otelcol/config.yaml
+```
+
+### Step 3: Configure the Copilot SDK
+
+Point the SDK telemetry configuration at the collector:
+
+<Tabs>
+  <TabItem value="typescript" label="TypeScript" default>
+
+```ts
+import { CopilotClient } from "@github/copilot-sdk";
+
+const client = new CopilotClient({
+  telemetry: {
+    otlpEndpoint: "http://localhost:4318",
+    otlpProtocol: "http/json",
+  },
+});
+```
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+
+```python
+from copilot import CopilotClient
+
+client = CopilotClient(
+    telemetry={
+        "otlp_endpoint": "http://localhost:4318",
+        "otlp_protocol": "http/json",
+    },
+)
+```
+
+  </TabItem>
+</Tabs>
+
+### Step 4: Run Your Copilot SDK Application
+
+Run your application normally. The Copilot SDK will export OpenTelemetry traces to the local collector, and the collector will forward them to MLflow.
+
+After running an agent session, open the MLflow UI at `http://localhost:5000`, navigate to the configured experiment, and open the **Traces** tab.
+
+## Configuration Reference
+
+| Setting         | TypeScript       | Python            | Description                                                                                   |
+| --------------- | ---------------- | ----------------- | --------------------------------------------------------------------------------------------- |
+| OTLP endpoint   | `otlpEndpoint`   | `otlp_endpoint`   | OTLP/HTTP collector endpoint, for example `http://localhost:4318`                             |
+| OTLP protocol   | `otlpProtocol`   | `otlp_protocol`   | Use `http/json` or `http/protobuf`; the collector config above forwards to MLflow as protobuf |
+| Capture content | `captureContent` | `capture_content` | Captures message content when enabled                                                         |
+| Source name     | `sourceName`     | `source_name`     | Sets the instrumentation source name                                                          |
+
+:::warning
+Enabling content capture may export prompts, responses, tool inputs, and tool outputs. Review your data handling policy before enabling it in production.
+:::
+
+## How It Works
+
+1. Your application creates a Copilot SDK client with telemetry enabled.
+2. The SDK starts the Copilot CLI process with OpenTelemetry export configured.
+3. The Copilot CLI sends OTLP/HTTP traces to the local collector.
+4. The collector forwards trace payloads to MLflow's `/v1/traces` endpoint with the `x-mlflow-experiment-id` header.
+
+The collector bridge is useful because it can normalize OTLP encoding and centralize additional processors before traces reach MLflow.
+
+## Troubleshooting
+
+**No traces appear in MLflow**
+
+- Confirm the MLflow server is reachable at `http://localhost:5000`.
+- Confirm the collector is running and listening on `http://localhost:4318`.
+- Confirm `x-mlflow-experiment-id` is set to an existing MLflow experiment ID.
+- Check the collector logs for export errors.
+
+**MLflow returns 501 for `/v1/traces`**
+
+- Start MLflow with a SQL-backed store. File-based stores do not support the OTLP trace endpoint.
+
+**Trace payloads are rejected**
+
+- Keep the collector's MLflow exporter configured with `encoding: proto`.
+- If you send telemetry directly to MLflow without a collector, configure the Copilot SDK to use OTLP/HTTP protobuf.
+
+## References
+
+- [GitHub Copilot SDK OpenTelemetry instrumentation](https://github.com/github/copilot-sdk/blob/main/docs/observability/opentelemetry.md)
+- [Collect OpenTelemetry Traces into MLflow](/genai/tracing/opentelemetry/ingest)

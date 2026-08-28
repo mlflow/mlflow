@@ -389,6 +389,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/github_copilot_sdk',
+                  label: 'GitHub Copilot SDK',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/hermes_agent',
                   label: 'Hermes Agent',
                 },
