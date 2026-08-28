@@ -117,6 +117,8 @@ interface UseTracesV4SavedViewsParams {
   customVisibility?: Record<string, boolean>;
   /** Restores a view's custom-column visibility (overwrites the override map); used by open / reset. */
   setCustomVisibility?: (visibility: Record<string, boolean> | undefined) => void;
+  /** Adopts a saved/previewed column order into the persisted mixed order (used by open / reset). */
+  setColumnOrder?: (columnOrder: string[] | undefined) => void;
 }
 
 /**
@@ -137,6 +139,7 @@ export const useTracesV4SavedViews = ({
   setAssessmentVisibility,
   customVisibility = {},
   setCustomVisibility,
+  setColumnOrder,
 }: UseTracesV4SavedViewsParams) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const intl = useIntl();

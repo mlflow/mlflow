@@ -20,8 +20,11 @@ import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/co
 export const TRACE_V4_SAVED_VIEW_TAG_PREFIX = 'mlflow.tracesV4ViewState.';
 export const TRACE_V4_SHARE_URL_PARAM_KEY = 'traceViewShareKey';
 
-// The key under which column visibility is stored inside the envelope's captured state. It is NOT a
-// URL param: columns are restored into the user's column store on open, not carried in the query.
+// The `cols` param carries column visibility AND order (the only view state not otherwise in the URL)
+// and, by its presence, marks a live preview of a shared view. The captured list is the visible
+// columns in display order, so `decodePreviewColumns` (which preserves list order) round-trips a
+// saved view's column order too. A legacy view whose `cols` was saved in a different order simply
+// opens in that stored order — no migration needed.
 export const TRACE_V4_COLS_PARAM_KEY = 'cols';
 
 const COLUMNS_SEPARATOR = ',';

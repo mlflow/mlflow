@@ -11,10 +11,11 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import {
+  ReorderableTraceColumnList,
   SORTABLE_TRACE_COLUMNS,
   ToolbarCollapsibleLabel,
-  type ColumnSelectorOption,
   type ColumnSelectorGroup,
+  type ReorderableTraceColumnOption,
   type SortDirection,
   type TraceColumnId,
 } from '@databricks/web-shared/traces-table';
@@ -36,13 +37,7 @@ const COMPONENT_ID = 'mlflow.traces-v4.display';
 const SORT_VALUE_SEPARATOR = ':';
 
 export interface TracesV4DisplayButtonProps {
-  /** The standard columns offered, in menu order (with per-column static componentIds + labels). */
-  columns: ColumnSelectorOption[];
-  visibleColumns: TraceColumnId[];
-  onToggleColumn: (column: TraceColumnId) => void;
   onResetColumns: () => void;
-  /** Optional labeled sections of dynamic-id columns (e.g. assessments), each under its own header. */
-  columnGroups?: TracesV4ColumnGroup[];
   /** Human-readable label per sortable column id, for the Sort submenu options + the trigger hint. */
   sortColumnLabels: Record<TraceColumnId, React.ReactNode>;
   sort: TraceColumnId;
@@ -50,6 +45,18 @@ export interface TracesV4DisplayButtonProps {
   onSort: (column: TraceColumnId, direction: SortDirection) => void;
   density: TracesV4Density;
   onDensityChange: (density: TracesV4Density) => void;
+  /** Column reordering (drag or Ctrl+Arrow): reorderable columns + visibility + handlers. */
+  reorder: {
+    columns: ReorderableTraceColumnOption[];
+    visibleColumns: string[];
+    onToggleColumn: (id: string) => void;
+    onReorderColumn: (activeColumn: string, targetColumn: string) => void;
+  };
+  /**
+   * Optional labeled sections of dynamic-id columns (tags / metadata) rendered as checkbox groups
+   * beneath the reorderable list. These columns are toggle-only (not yet drag-reorderable).
+   */
+  columnGroups?: TracesV4ColumnGroup[];
 }
 
 /**
@@ -59,21 +66,18 @@ export interface TracesV4DisplayButtonProps {
  * the submenu trigger. All state is owned by the consumer and passed in — this component only renders.
  */
 export const TracesV4DisplayButton = ({
-  columns,
-  visibleColumns,
-  onToggleColumn,
   onResetColumns,
-  columnGroups,
   sortColumnLabels,
   sort,
   dir,
   onSort,
   density,
   onDensityChange,
+  reorder,
+  columnGroups,
 }: TracesV4DisplayButtonProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const visible = new Set(visibleColumns);
 
   const sortValue = `${sort}${SORT_VALUE_SEPARATOR}${dir}`;
   const rowHeightLabel =
@@ -127,28 +131,12 @@ export const TracesV4DisplayButton = ({
             />
           </DropdownMenu.SubTrigger>
           <DropdownMenu.SubContent>
-            {columns.map(({ id, label, componentId, disabled }) => (
-              <DropdownMenu.CheckboxItem
-                key={id}
-                componentId={componentId}
-                checked={visible.has(id)}
-                // A disabled option (e.g. the session column while grouping is on) stays checked but
-                // can't be toggled off.
-                disabled={disabled}
-                // Toggle in onSelect + preventDefault so the menu stays open across changes (several
-                // columns can be toggled in one visit); preventDefault also suppresses onCheckedChange
-                // in this Radix version, so the explicit onToggleColumn call is what fires.
-                onSelect={(event) => {
-                  event.preventDefault();
-                  if (!disabled) {
-                    onToggleColumn(id);
-                  }
-                }}
-              >
-                <DropdownMenu.ItemIndicator />
-                {label}
-              </DropdownMenu.CheckboxItem>
-            ))}
+            {/* One drag/keyboard-reorderable list built by the consumer from the merged standard +
+                assessment columns (in persisted order); toggles are routed by id. This replaces the
+                plain per-column checkboxes + assessment group so visibility and ordering share one UI. */}
+            <ReorderableTraceColumnList {...reorder} />
+            {/* Dynamic tag/metadata columns render as checkbox groups beneath the reorderable list.
+                They are toggle-only for now (not yet part of the drag-reorderable order). */}
             {columnGroups?.map((group, groupIndex) => {
               const groupVisible = new Set(group.visibleIds);
               const allVisible = group.options.length > 0 && group.options.every(({ id }) => groupVisible.has(id));

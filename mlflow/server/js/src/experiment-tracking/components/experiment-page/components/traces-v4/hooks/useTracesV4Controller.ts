@@ -23,8 +23,10 @@ import { useTracesV4AssessmentColumns } from './useTracesV4AssessmentColumns';
 import { useTracesV4ColumnSizing } from './useTracesV4ColumnSizing';
 import { useTracesV4TraceCount } from './useTracesV4TraceCount';
 import { useTracesV4CustomColumns } from './useTracesV4CustomColumns';
+import { useTracesV4ColumnOrder } from './useTracesV4ColumnOrder';
 import { buildFilter, buildOrderBy, isExactTraceIdSearch } from '../utils/buildTracesV4SearchParams';
 import { compileFilterModel, compileTagFilters } from '../utils/filterModel';
+import { assessmentColumnId } from '../utils/assessmentColumns';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 
 // Grouped mode fetches sessions in one page so a session isn't split across page boundaries.
@@ -45,6 +47,8 @@ export interface UseTracesV4ControllerResult {
   /** "{n} of {total}" footer count — current page rows out of the experiment total. */
   traceCount: ReturnType<typeof useTracesV4TraceCount>;
   customColumns: TracesV4CustomColumns;
+  /** Mixed display order across standard + assessment columns (drag/keyboard reorder + persistence). */
+  columnOrder: ReturnType<typeof useTracesV4ColumnOrder>;
   bulk: ReturnType<typeof useBulkTraceSelection>;
   searchInput: ReturnType<typeof useDebouncedSearchInput>;
   filterModel: TraceFilterModel;
@@ -193,6 +197,14 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     columns.setDynamicVisibility,
   );
 
+  // The reorderable order spans the standard columns (their persisted order) and the page's known
+  // assessment columns. Kept separate from visibility so reordering never resets a column's on/off.
+  const assessmentColumnIds = useMemo(
+    () => assessments.candidateNames.map(assessmentColumnId),
+    [assessments.candidateNames],
+  );
+  const columnOrder = useTracesV4ColumnOrder(experimentId, columns.columnOrder, assessmentColumnIds);
+
   const bulk = useBulkTraceSelection(page.traces);
 
   // Clear selection when the filter set changes (search / time / filter model / sort). Selected
@@ -226,6 +238,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     columnSizing,
     traceCount,
     customColumns,
+    columnOrder,
     bulk,
     searchInput,
     filterModel,

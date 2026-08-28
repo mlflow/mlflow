@@ -311,6 +311,10 @@
     "defaultMessage": "Git commit",
     "description": "Column label for the git commit hash the trace was produced on"
   },
+  "/H+bu1": {
+    "defaultMessage": "Time",
+    "description": "Traces table start-time column name"
+  },
   "/HeTx7": {
     "defaultMessage": "Create",
     "description": "Create webhook confirm button"
@@ -2075,6 +2079,10 @@
     "defaultMessage": "Comparing {numVersions} Versions",
     "description": "Text for main title for the model comparison page"
   },
+  "6ljc5f": {
+    "defaultMessage": "Run name",
+    "description": "Traces table run-name column name"
+  },
   "6nzd2s": {
     "defaultMessage": "Test",
     "description": "Test webhook button"
@@ -3110,6 +3118,10 @@
   "AeSuAy": {
     "defaultMessage": "Resize side panel",
     "description": "Aria label for the drag handle on the V2 dataset record side panel"
+  },
+  "Af/Gri": {
+    "defaultMessage": "Tokens",
+    "description": "Traces table tokens column name"
   },
   "AfYWI/": {
     "defaultMessage": "Tool call: {name}",
@@ -4907,6 +4919,10 @@
     "defaultMessage": "Save prompt",
     "description": "Aria label for the playground top-bar button that opens the save-prompt-version modal"
   },
+  "IDyvje": {
+    "defaultMessage": "Duration",
+    "description": "Traces table duration column name"
+  },
   "IE+Vu1": {
     "defaultMessage": "Gateway endpoints",
     "description": "Provider picker section label for custom MLflow AI Gateway endpoints"
@@ -5194,6 +5210,10 @@
   "JQPGzx": {
     "defaultMessage": "Copy trace ID",
     "description": "Tooltip for copying the trace ID from the trace drawer header"
+  },
+  "JQuKlR": {
+    "defaultMessage": "Trace deletion is not supported for traces located in Unity Catalog schema. You can delete traces from corresponding Delta table.",
+    "description": "Trace deletion disabled reason. Displayed in a tooltip when a user attempts to delete a trace housed in the UC delta table."
   },
   "JUTcIz": {
     "defaultMessage": "Time created",
@@ -8723,6 +8743,10 @@
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
   },
+  "XQMnec": {
+    "defaultMessage": "Columns ({visible}/{total})",
+    "description": "Column-selector trigger label showing visible columns out of total available"
+  },
   "XR45oU": {
     "defaultMessage": "Inherited by {count, plural, one {# user queue} other {# user queues}}.",
     "description": "Manage review questions: note shown when no custom queue uses the question but user queues (which inherit every question) do"
@@ -8766,6 +8790,10 @@
   "XfsPd4": {
     "defaultMessage": "Save prompt",
     "description": "Label for the playground top-bar button that opens the save-prompt-version modal"
+  },
+  "XgQHZ4": {
+    "defaultMessage": "Cost",
+    "description": "Traces table cost column name"
   },
   "XiGiE1": {
     "defaultMessage": "Workspace",
@@ -10331,6 +10359,10 @@
     "defaultMessage": "Updated:",
     "description": "Endpoint expanded updated label"
   },
+  "dyC9k5": {
+    "defaultMessage": "User",
+    "description": "Traces table user column name"
+  },
   "dyvGJw": {
     "defaultMessage": "MLflow Assistant needs to be configured on the MLflow server host before remote clients can use it. Ask your server administrator to open MLflow locally and complete Assistant setup.",
     "description": "Message explaining that Assistant setup must be completed locally by a server admin"
@@ -11191,6 +11223,10 @@
     "defaultMessage": "Instructions",
     "description": "Guardrail instructions label"
   },
+  "gupgRi": {
+    "defaultMessage": "State",
+    "description": "Traces table state column name"
+  },
   "gy4ziK": {
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
     "description": "Create review queue: reviewers field hint"
@@ -11718,6 +11754,10 @@
   "icBP3T": {
     "defaultMessage": "TRUE",
     "description": "Header label for boolean assessment type for the true rate"
+  },
+  "id3BVx": {
+    "defaultMessage": "Input",
+    "description": "Traces table input column name"
   },
   "ieY8lf": {
     "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
@@ -12278,6 +12318,10 @@
   "knJfuf": {
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
+  },
+  "krNsnQ": {
+    "defaultMessage": "Trace name",
+    "description": "Traces table trace-name column name"
   },
   "ktiuki": {
     "defaultMessage": "Get Link",
@@ -13555,6 +13599,10 @@
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
   },
+  "qFo+/P": {
+    "defaultMessage": "Session",
+    "description": "Traces table session column name"
+  },
   "qGL2Jy": {
     "defaultMessage": "Settings",
     "description": "Title of the playground settings drawer"
@@ -13974,6 +14022,10 @@
   "rt9clc": {
     "defaultMessage": "Return a 400 error with the guardrail name and reason. The original request or response is not passed through.",
     "description": "Block action description"
+  },
+  "ruFdDg": {
+    "defaultMessage": "Output",
+    "description": "Traces table output column name"
   },
   "rvRhzv": {
     "defaultMessage": "Masked Key:",
@@ -14719,6 +14771,10 @@
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the evaluation runs table"
   },
+  "vGJdix": {
+    "defaultMessage": "Tags",
+    "description": "Traces table tags column name"
+  },
   "vGf4dg": {
     "defaultMessage": "No custom LLM-as-a-judge scorers found",
     "description": "Hint indicating that no custom LLM-as-a-judge scorers were found"
@@ -15371,6 +15427,10 @@
     "defaultMessage": "Run on all future traces",
     "description": "Label for toggle to enable automatic evaluation"
   },
+  "xjKcWt": {
+    "defaultMessage": "Trace ID",
+    "description": "Traces table trace-id column name"
+  },
   "xmPKKq": {
     "defaultMessage": "Model Version:",
     "description": "Text for model version row header in the main table in the model\n                comparison page"
@@ -15382,6 +15442,10 @@
   "xnBJe0": {
     "defaultMessage": "Remove icon",
     "description": "Tooltip for remove icon button in MCP server icon editor"
+  },
+  "xnJX7N": {
+    "defaultMessage": "Source",
+    "description": "Traces table source column name"
   },
   "xnr5KT": {
     "defaultMessage": "No events found",
@@ -15446,6 +15510,10 @@
   "y7+wS+": {
     "defaultMessage": "Relevance",
     "description": "Issue category title for relevance"
+  },
+  "y87tnU": {
+    "defaultMessage": "Reorder {column} column",
+    "description": "Aria label for the drag handle that reorders a traces table column"
   },
   "y8O4PM": {
     "defaultMessage": "Retrieval Groundedness",
