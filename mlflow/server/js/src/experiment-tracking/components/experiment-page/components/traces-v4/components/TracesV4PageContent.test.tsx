@@ -350,15 +350,16 @@ describe('TracesV4PageContent', () => {
       expect(new URLSearchParams(env.lastSearch).get('traceId')).toBe(longId);
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
-    test('the drawer header shows the trace input preview, not the raw id (matches v3)', async () => {
+    test('the drawer header shows the trace id as a copyable tag, not the raw long id', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       await user.click(await findTraceRow('tr-000'));
 
-      // v3-faithful: the header title heading is the input preview ("request for tr-000"), not the
-      // long id `trace:/cat.sch/tr-000` that the drawer previously showed.
+      // The redesigned (v2) header titles the drawer "Trace" and shows the id as a copyable tag (the
+      // `tr-` prefix stripped, truncated to 8 chars) — not the long id `trace:/cat.sch/tr-000`.
       const drawer = await screen.findByRole('dialog');
-      expect(await within(drawer).findByRole('heading', { name: 'request for tr-000' })).toBeInTheDocument();
+      expect(await within(drawer).findByRole('button', { name: '000' })).toBeInTheDocument();
+      expect(within(drawer).queryByText('trace:/cat.sch/tr-000')).not.toBeInTheDocument();
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
   });
 
