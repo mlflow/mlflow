@@ -323,6 +323,13 @@ def reap_orphaned_sandbox_containers() -> int:
     for container in containers:
         if (container.labels or {}).get(SANDBOX_BOOT_LABEL) == current_boot:
             continue  # belongs to this server generation; may be actively serving a turn
+        # A different boot id alone does not prove the container is orphaned: two servers can share
+        # one Docker daemon, and a rolling restart overlaps generations. So never force-remove a
+        # *running* container (it may be a live turn owned by a concurrent server) — reap only ones
+        # that have already stopped. A truly orphaned container that is still running is left for a
+        # later startup to reap once it exits, rather than risk killing another server's live turn.
+        if getattr(container, "status", None) == "running":
+            continue
         if _remove_quietly(container):
             removed += 1
     if removed:

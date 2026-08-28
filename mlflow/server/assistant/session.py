@@ -347,8 +347,15 @@ def reap_stale_sandbox_homes(max_age_seconds: float = _SANDBOX_HOME_MAX_AGE_SECO
         shutil.rmtree(entry, ignore_errors=True)
         if not entry.exists():
             removed += 1
+            # The reaped HOME held the CLI's --resume state; drop the stored provider session id
+            # so the next turn starts a fresh CLI session instead of resuming deleted state. The
+            # directory name is the session id (see get_session_sandbox_home).
+            session = SessionManager.load(entry.name)
+            if session and session.provider_session_id is not None:
+                session.provider_session_id = None
+                SessionManager.save(entry.name, session)
     if removed:
-        _logger.info("Reaped %d stale sandbox home director(ies).", removed)
+        _logger.info("Reaped %d stale sandbox home directories.", removed)
     return removed
 
 

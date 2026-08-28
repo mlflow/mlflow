@@ -297,6 +297,26 @@ def test_reap_stale_sandbox_homes(monkeypatch, tmp_path):
     assert fresh.exists()
 
 
+def test_reap_stale_sandbox_homes_clears_provider_session_id(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    # A session whose CLI HOME is about to be reaped still has a persisted provider session id.
+    session = session_module.SessionManager.create()
+    session.provider_session_id = "cli-thread-123"
+    session_module.SessionManager.save(_VALID_SID, session)
+
+    old = tmp_path / "sandbox-home" / _VALID_SID
+    old.mkdir(parents=True)
+    old_time = time.time() - 48 * 60 * 60
+    os.utime(old, (old_time, old_time))
+
+    assert session_module.reap_stale_sandbox_homes(max_age_seconds=24 * 60 * 60) == 1
+    # The stored provider session id is cleared so the next turn starts a fresh CLI session
+    # instead of --resume-ing state whose HOME was deleted.
+    assert session_module.SessionManager.load(_VALID_SID).provider_session_id is None
+
+
 def test_reap_stale_sandbox_homes_no_base_dir(monkeypatch, tmp_path):
     import mlflow.server.assistant.session as session_module
 

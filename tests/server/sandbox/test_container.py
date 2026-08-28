@@ -241,19 +241,37 @@ def test_reap_removes_previous_generation_only(monkeypatch):
     monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
     old = mock.MagicMock()
     old.labels = {container_mod.SANDBOX_BOOT_LABEL: "old-boot"}
+    old.status = "exited"
     mine = mock.MagicMock()
     mine.labels = {container_mod.SANDBOX_BOOT_LABEL: "current-boot"}
+    mine.status = "running"
     client = mock.MagicMock()
     client.containers.list.return_value = [old, mine]
     with mock.patch("docker.from_env", return_value=client):
         removed = reap_orphaned_sandbox_containers()
 
-    # Only the previous generation's container is removed; the current one is left running.
+    # Only the previous generation's stopped container is removed; the current one is left running.
     assert removed == 1
     old.remove.assert_called_once_with(force=True)
     mine.remove.assert_not_called()
     _, kwargs = client.containers.list.call_args
     assert kwargs["filters"] == {"label": container_mod.SANDBOX_CONTAINER_LABEL}
+
+
+def test_reap_skips_running_container_from_other_generation(monkeypatch):
+    from mlflow.server.sandbox import reap_orphaned_sandbox_containers
+
+    # A different boot id does not prove a container is orphaned (a concurrent server sharing the
+    # daemon), so a still-running one is left alone rather than force-killed mid-turn.
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
+    other_running = mock.MagicMock()
+    other_running.labels = {container_mod.SANDBOX_BOOT_LABEL: "other-boot"}
+    other_running.status = "running"
+    client = mock.MagicMock()
+    client.containers.list.return_value = [other_running]
+    with mock.patch("docker.from_env", return_value=client):
+        assert reap_orphaned_sandbox_containers() == 0
+    other_running.remove.assert_not_called()
 
 
 def test_reap_skips_when_no_boot_id(monkeypatch):
