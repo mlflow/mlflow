@@ -1,8 +1,13 @@
+import os
 import shutil
 import uuid
 from unittest import mock
 
 import pytest
+
+_POSIX_ONLY = pytest.mark.skipif(
+    os.name == "nt", reason="POSIX file modes; Windows does not honor chmod(0o700)"
+)
 
 from mlflow.assistant.types import Message
 from mlflow.server.assistant.session import Session, SessionManager
@@ -244,6 +249,7 @@ def test_terminate_session_container_no_container_is_noop(monkeypatch, tmp_path)
     assert session_module.terminate_session_container(_VALID_SID) is False
 
 
+@_POSIX_ONLY
 def test_get_session_sandbox_home_is_private(monkeypatch, tmp_path):
     import mlflow.server.assistant.session as session_module
 
@@ -255,6 +261,7 @@ def test_get_session_sandbox_home_is_private(monkeypatch, tmp_path):
     assert (home.stat().st_mode & 0o777) == 0o700
 
 
+@_POSIX_ONLY
 def test_get_session_sandbox_home_tightens_preexisting_dir(monkeypatch, tmp_path):
     import mlflow.server.assistant.session as session_module
 
