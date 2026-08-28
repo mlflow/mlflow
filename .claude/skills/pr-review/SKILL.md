@@ -2,14 +2,31 @@
 name: pr-review
 description: Review a pull request and emit a validated review payload.
 disable-model-invocation: true
-argument-hint: "<pr_url> <payload_path> <media_dir>"
-arguments: [pr_url, payload_path, media_dir]
+argument-hint: "<pr_url> <pr_checkout> <payload_path> <media_dir>"
+arguments: [pr_url, pr_checkout, payload_path, media_dir]
 ---
 
 # Review Pull Request
 
 Review $pr_url and write a JSON review payload to $payload_path. Do not post anything: writing
 that payload is the whole job.
+
+## The reviewed tree
+
+The PR is checked out at `$pr_checkout`, not in the working directory:
+
+```text
+$GITHUB_WORKSPACE/
+├── base/   # the working directory: this skill and the `skills` CLI come from
+│           # here, and nothing you review does
+└── pr/     # $pr_checkout, the reviewed tree: the PR merged into its base
+```
+
+The working directory holds a checkout of the same repository, so it looks like the code under
+review and is not guaranteed to match it. Everything aimed at the PR needs the prefix:
+`git -C $pr_checkout ...`, `$pr_checkout/<path>` to open or grep a file, and
+`cd $pr_checkout && ...` for anything that builds or runs repository code. The
+`uv run --package skills` commands below are the exception, and run unprefixed.
 
 ## Instructions
 
@@ -26,11 +43,11 @@ These reads are independent. Issue them as parallel tool calls in a single turn,
 gh pr view <pr_url> --json title,body
 ```
 
-**PR diff hunks**. The working tree is the merge ref (see step 3), so `HEAD^1 HEAD` is exactly the
-PR diff:
+**PR diff hunks**. `$pr_checkout` holds the merge ref (see step 3), so `HEAD^1 HEAD` is exactly
+the PR diff:
 
 ```bash
-git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff
+git -C $pr_checkout diff HEAD^1 HEAD | uv run --package skills skills annotate-diff
 ```
 
 Each line comes back as `old_line new_line | <marker> content`, which gives you the `line` and
@@ -68,18 +85,19 @@ gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> \
 Load the repository style rules applicable to the changed files:
 
 ```bash
-git diff --name-only HEAD^1 | uv run --package skills skills load-rules
+git -C $pr_checkout diff --name-only HEAD^1 | uv run --package skills skills load-rules
 ```
 
 ### 3. Analyze the change
 
-The working tree holds the PR merged into the base (`refs/pull/<pr_number>/merge`), so file contents
-reflect the post-merge state. Explore it for context beyond the diff (existing patterns, call sites
-of changed symbols, file conventions).
+`$pr_checkout` holds the PR merged into the base (`refs/pull/<pr_number>/merge`), so its file
+contents reflect the post-merge state. Explore it for context beyond the diff (existing patterns,
+call sites of changed symbols, file conventions), scoping every search to that directory.
 
 The merge ref's base parent is reachable as `HEAD^1`. When the diff doesn't show enough (verifying
 a refactor preserved behavior, reading a masked deleted file, or seeing the pre-change version of a
-heavily modified one), use `git show HEAD^1:<path>` rather than re-fetching the file over the API.
+heavily modified one), use `git -C $pr_checkout show HEAD^1:<path>` rather than re-fetching the file
+over the API.
 The checkout is shallow, so nothing older than `HEAD^1` exists: `git log` and `git blame` stop at
 the shallow boundary rather than reaching the commit that actually introduced a line. Neither
 errors, so don't trust them for pre-change history.
