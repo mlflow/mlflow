@@ -1,0 +1,54 @@
+name: "setup-anthropic"
+description: "Mint a Databricks AI Gateway bearer and emit the Claude CLI env values as outputs"
+inputs:
+  task:
+    description: "Names the automation spending the tokens, e.g. pr-review. Tags the requests for cost attribution."
+    required: true
+  host:
+    description: "Databricks workspace URL"
+    required: true
+  client-id:
+    description: "OAuth client ID of the service principal"
+    required: true
+  client-secret:
+    description: "OAuth client secret of the service principal"
+    required: true
+outputs:
+  base-url:
+    description: "Value for ANTHROPIC_BASE_URL"
+    value: ${{ steps.gateway.outputs.base-url }}
+  token:
+    description: "Value for ANTHROPIC_AUTH_TOKEN. Short-lived, and masked in logs."
+    value: ${{ steps.gateway.outputs.token }}
+  custom-headers:
+    description: "Value for ANTHROPIC_CUSTOM_HEADERS, carrying the request tags"
+    value: ${{ steps.gateway.outputs.custom-headers }}
+runs:
+  using: "composite"
+  steps:
+    # Only the short-lived bearer leaves this action; the client secret stays here.
+    - id: gateway
+      shell: bash
+      env:
+        DATABRICKS_HOST: ${{ inputs.host }}
+        DATABRICKS_CLIENT_ID: ${{ inputs.client-id }}
+        DATABRICKS_CLIENT_SECRET: ${{ inputs.client-secret }}
+        TASK: ${{ inputs.task }}
+      run: |
+        RESPONSE=$(curl -sS --max-time 15 \
+          -u "$DATABRICKS_CLIENT_ID:$DATABRICKS_CLIENT_SECRET" \
+          -d grant_type=client_credentials -d scope=ai-gateway \
+          "$DATABRICKS_HOST/oidc/v1/token")
+        TOKEN=$(jq -r '.access_token // empty' <<< "$RESPONSE")
+        if [ -z "$TOKEN" ]; then
+          # The body carries the OAuth error code, the only way to tell a bad
+          # secret from a missing workspace assignment.
+          echo "::error::Gateway token exchange failed: $(jq -r '.error_description // .error // "no access_token"' <<< "$RESPONSE")"
+          exit 1
+        fi
+        echo "::add-mask::$TOKEN"
+        echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+        # `%/` so a trailing slash on the input can't produce a `//` path.
+        echo "base-url=${DATABRICKS_HOST%/}/ai-gateway/anthropic" >> "$GITHUB_OUTPUT"
+        TAGS=$(jq -cn --arg repository "$GITHUB_REPOSITORY" --arg task "$TASK" '{$repository, $task}')
+        echo "custom-headers=Databricks-Ai-Gateway-Request-Tags: $TAGS" >> "$GITHUB_OUTPUT"
