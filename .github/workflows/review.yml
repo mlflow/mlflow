@@ -229,11 +229,6 @@ jobs:
           # The gateway's beta allowlist rejects several of the CLI's
           # experimental betas with HTTP 400.
           CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
-          # Lands in `system.ai_gateway.usage.request_tags`, so gateway spend can
-          # be split by caller. `task` names the automation doing the spending,
-          # not this workflow file, and is a literal so a rename cannot silently
-          # repoint it. `repository` is an expression because there the current
-          # name is the identity we want, and it keeps `task` unique across repos.
           ANTHROPIC_CUSTOM_HEADERS: 'Databricks-Ai-Gateway-Request-Tags: {"repository":"${{ github.repository }}","task":"pr-review"}'
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
