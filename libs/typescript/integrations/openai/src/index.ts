@@ -125,7 +125,8 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
       span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return Promise.resolve(fn.apply(this, args))
+      return Promise.resolve()
+        .then(() => fn.apply(this, args) as unknown)
         .then((stream) => wrapChatCompletionStream(stream, span))
         .catch((error: unknown) => {
           span.setStatus(

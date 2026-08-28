@@ -225,6 +225,24 @@ describe('tracedOpenAI', () => {
       expect(trace.data.spans[0].status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
     });
 
+    it('should mark spans as errors when creating a stream throws synchronously', async () => {
+      class Completions {
+        create(_params: unknown) {
+          throw new Error('Stream creation failed');
+        }
+      }
+
+      const wrappedOpenAI = tracedOpenAI({ chat: { completions: new Completions() } });
+
+      await expect(wrappedOpenAI.chat.completions.create({ stream: true })).rejects.toThrow(
+        'Stream creation failed',
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('ERROR');
+      expect(trace.data.spans[0].status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
+    });
+
     it('should trace OpenAI request wrapped in a parent span', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
       const wrappedOpenAI = tracedOpenAI(openai);
