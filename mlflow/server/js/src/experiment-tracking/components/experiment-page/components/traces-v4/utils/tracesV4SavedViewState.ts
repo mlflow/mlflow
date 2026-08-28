@@ -1,17 +1,17 @@
-import { type TraceColumnId } from '@databricks/web-shared/traces-table';
+import { type TraceColumnId, type TraceFilterModel } from '@databricks/web-shared/traces-table';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 
 /**
  * Pure serialization for V4 saved views.
  *
- * Unlike the V3 tab (whose columns/sort live in localStorage, forcing a live-state bridge + a
- * React-state preview overlay), the V4 tab is URL-first: search, sort, page size, tag filters and
- * the time range all already live in the URL. So a V4 "view" is essentially a snapshot of the URL
- * search string (minus the transient page/traceId/share-key params), plus the one piece of view
- * state that ISN'T in the URL — column visibility — carried as a `cols` param. Applying a view is
- * then just a navigation to the rebuilt query; the URL itself is the applied view, and the `cols`
- * param doubles as the preview overlay (present only while a shared view is applied).
+ * Most V4 view state is URL-first: search, sort, page size, tag filters and the time range all live
+ * in the URL, so a view is largely a snapshot of the URL search string (minus the transient
+ * page/traceId/share-key params). The one piece that ISN'T in the URL — column visibility — is
+ * stored in the envelope under the `cols` key and, on open, restored into the user's column store
+ * (localStorage) rather than the URL. Applying a view is a navigation to the rebuilt query plus that
+ * column restore; the live table then diverges from the stored view as the user edits ("dirty"),
+ * and Overwrite / Reset act on the active view.
  */
 
 // Distinct from the V3 prefix (`mlflow.traceViewState.`) and the runs prefix
@@ -20,20 +20,35 @@ import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/co
 export const TRACE_V4_SAVED_VIEW_TAG_PREFIX = 'mlflow.tracesV4ViewState.';
 export const TRACE_V4_SHARE_URL_PARAM_KEY = 'traceViewShareKey';
 
-// The `cols` param carries column visibility (the only view state not otherwise in the URL) and, by
-// its presence, marks a live preview of a shared view.
+// The key under which column visibility is stored inside the envelope's captured state. It is NOT a
+// URL param: columns are restored into the user's column store on open, not carried in the query.
 export const TRACE_V4_COLS_PARAM_KEY = 'cols';
 
 const COLUMNS_SEPARATOR = ',';
 
 // The URL view params that make up a V4 saved view. `tag` is repeatable (one param per filter).
-// Deliberately EXCLUDES the transient params `page`, `traceId`, and the share key itself.
-const SINGLE_VALUE_KEYS = ['q', 'pageSize', 'sort', 'dir', 'startTimeLabel', 'startTime', 'endTime'] as const;
+// `groupBy` carries the session-grouping toggle (`groupBy=session`). Deliberately EXCLUDES the
+// transient params `page`, `traceId`, and the share key itself.
+const SINGLE_VALUE_KEYS = [
+  'q',
+  'pageSize',
+  'sort',
+  'dir',
+  'startTimeLabel',
+  'startTime',
+  'endTime',
+  'groupBy',
+] as const;
 const MULTI_VALUE_KEYS = ['tag'] as const;
 
 export interface CapturedV4ViewState {
   single: Partial<Record<(typeof SINGLE_VALUE_KEYS)[number] | typeof TRACE_V4_COLS_PARAM_KEY, string>>;
   multi: Partial<Record<(typeof MULTI_VALUE_KEYS)[number], string[]>>;
+  // The popover filter clauses (React state, not URL-backed), captured so a saved view restores the
+  // exact filter model the user had applied. Absent in older stored views; restored through a
+  // validation pass (see `isSupportedFilterClause`) so a clause referencing a since-removed
+  // field/operator is dropped rather than silently producing wrong results.
+  filters?: TraceFilterModel;
 }
 
 export const getTraceV4SavedViewTagKey = (id: string): string => `${TRACE_V4_SAVED_VIEW_TAG_PREFIX}${id}`;
@@ -57,18 +72,20 @@ export const getTraceV4SavedViewIdFromTagKey = (key: string): string | null => {
  */
 export const urlHasCapturedV4ViewState = (params: URLSearchParams): boolean =>
   SINGLE_VALUE_KEYS.some((key) => params.get(key) !== null) ||
-  MULTI_VALUE_KEYS.some((key) => params.getAll(key).length > 0) ||
-  params.get(TRACE_V4_COLS_PARAM_KEY) !== null;
+  MULTI_VALUE_KEYS.some((key) => params.getAll(key).length > 0);
 
 /**
- * Capture the current view: the whitelisted URL params plus the live visible columns (which live in
- * localStorage, not the URL, so they're passed in rather than read from `params`). The incoming
- * URL's own `cols` / share key are intentionally ignored so opening view A then saving view B never
- * leaks A's columns or id into B.
+ * Capture the current view: the whitelisted URL params, the live visible columns (which live in
+ * localStorage, not the URL, so they're passed in rather than read from `params`), and the live
+ * popover filter model (also React state, not URL-backed). The incoming URL's own `cols` / share
+ * key are intentionally ignored so opening view A then saving view B never leaks A's columns or id
+ * into B. An empty filter model is omitted so a filter-less view stays byte-identical to a legacy
+ * one (and never spuriously reads as dirty against `filters ?? []`).
  */
 export const captureV4ViewState = (
   params: URLSearchParams,
   visibleColumns: readonly TraceColumnId[],
+  filterModel: TraceFilterModel = [],
 ): CapturedV4ViewState => {
   const single: CapturedV4ViewState['single'] = {};
   SINGLE_VALUE_KEYS.forEach((key) => {
@@ -87,14 +104,22 @@ export const captureV4ViewState = (
       multi[key] = values;
     }
   });
-  return { single, multi };
+  const state: CapturedV4ViewState = { single, multi };
+  if (filterModel.length > 0) {
+    state.filters = filterModel;
+  }
+  return state;
 };
 
-/** Rebuild a URL query string from a captured view + the view's id (as the share key). */
+/**
+ * Rebuild a URL query string from a captured view + the view's id (as the share key). Columns are
+ * intentionally excluded — they live in the envelope's `cols` key and are restored into the user's
+ * column store on open, not carried in the URL (decode them with {@link decodeViewColumns}).
+ */
 export const buildV4ViewQuery = (state: CapturedV4ViewState, viewId: string): string => {
   const params = new URLSearchParams();
   Object.entries(state.single ?? {}).forEach(([key, value]) => {
-    if (typeof value === 'string') {
+    if (typeof value === 'string' && key !== TRACE_V4_COLS_PARAM_KEY) {
       params.set(key, value);
     }
   });
@@ -115,15 +140,16 @@ export const getTraceV4SavedViewShareUrl = (
 };
 
 /**
- * Decode the comma-joined `cols` value into known column ids in the given order. Ids that no longer
- * resolve to a known column are dropped (a view saved against an older column set still opens);
- * returns undefined when the value is absent or nothing resolves, so the caller falls back to the
- * user's own columns rather than hiding every column.
+ * Decode a view's stored column set (the envelope's comma-joined `cols` value) into known column ids
+ * in stored order. Ids that no longer resolve to a known column are dropped (a view saved against an
+ * older column set still opens); returns undefined when the value is absent or nothing resolves, so
+ * the caller can leave the user's columns untouched rather than hiding every column.
  */
-export const decodePreviewColumns = (
-  raw: string | undefined | null,
+export const decodeViewColumns = (
+  state: CapturedV4ViewState,
   allColumns: readonly TraceColumnId[],
 ): TraceColumnId[] | undefined => {
+  const raw = state.single?.[TRACE_V4_COLS_PARAM_KEY];
   if (!raw) {
     return undefined;
   }

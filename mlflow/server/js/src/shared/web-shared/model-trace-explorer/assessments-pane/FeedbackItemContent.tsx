@@ -210,5 +210,9 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
 };
 
 const getJudgeTraceHref = (experimentId: string, judgeTraceId: string) => {
-  return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${judgeTraceId}`;
+  const params = new URLSearchParams({
+    selectedEvaluationId: judgeTraceId,
+    traceId: judgeTraceId,
+  });
+  return `${getExperimentPageTracesTabRoute(experimentId)}?${params.toString()}`;
 };

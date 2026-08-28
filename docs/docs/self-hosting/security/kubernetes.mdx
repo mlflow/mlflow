@@ -1,3 +1,7 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+
 # Kubernetes Authentication
 
 MLflow includes built-in request auth providers for Kubernetes environments. These providers automatically add authorization headers to outgoing MLflow client requests using Kubernetes credentials.
@@ -23,11 +27,26 @@ The `kubernetes` provider adds only a bearer token. The `kubernetes-namespaced` 
 
 ## Prerequisites
 
-Install the `kubernetes` Python package:
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
 
 ```bash
 pip install mlflow[kubernetes]
 ```
+
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```bash
+npm install @mlflow/core
+```
+
+`@kubernetes/client-node` is automatically installed alongside `@mlflow/core` for kubeconfig-based credential resolution.
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Configuration
 
@@ -63,11 +82,15 @@ This is the default path for pods with a service account mounted (which is the s
 When service account files are not available, the provider falls back to kubeconfig:
 
 - **Namespace**: Extracted from the active context
-- **Token**: Resolved via the Kubernetes Python client's `ApiClient`, which handles exec-based auth flows (EKS, GKE, AKS, OpenShift, OIDC)
+- **Token**: Resolved via the Kubernetes client library, which handles exec-based auth flows (EKS, GKE, AKS, OpenShift, OIDC)
 
 ## Usage
 
 Once configured, no code changes are needed. All MLflow client calls will automatically include the authorization headers with values sourced from Kubernetes:
+
+<TabsWrapper>
+<Tabs groupId="programming-language">
+<TabItem value="python" label="Python" default>
 
 ```python
 import mlflow
@@ -79,4 +102,35 @@ with mlflow.start_run():
     mlflow.log_metric("accuracy", 0.95)
 ```
 
-If a workspace is explicitly set (e.g., via `mlflow.set_workspace()`), it takes priority over the Kubernetes namespace. The namespace from Kubernetes credentials is used as a default when no workspace is specified.
+</TabItem>
+<TabItem value="typescript" label="TypeScript">
+
+```typescript
+import * as mlflow from "@mlflow/core";
+
+mlflow.init({
+  trackingUri: "http://mlflow-server:5000",
+  experimentId: "0",
+});
+
+const processRequest = mlflow.trace(
+  async (prompt: string) => {
+    return `Processed: ${prompt}`;
+  },
+  { name: "process-request" }
+);
+
+await processRequest("Hello from Kubernetes!");
+```
+
+:::note
+The TypeScript SDK supports [tracing](/genai/tracing) for GenAI applications. [Experiment tracking](/ml/tracking/quickstart) APIs (`start_run`, `log_param`, `log_metric`) are available in the Python SDK only.
+:::
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+If a workspace is explicitly set (via `MLFLOW_WORKSPACE`, or additionally `mlflow.set_workspace()` in Python), it takes priority over the Kubernetes namespace. The namespace from Kubernetes credentials is used as a default when no workspace is specified.
+
+Similarly, if `MLFLOW_TRACKING_TOKEN` is set, it is used as the bearer token instead of resolving one from Kubernetes credentials.

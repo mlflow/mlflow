@@ -12,7 +12,14 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { TRACE_COLUMN_IDS, type TraceColumnId } from '@databricks/web-shared/traces-table';
+import {
+  EMPTY_FILTER_MODEL,
+  TRACE_COLUMN_IDS,
+  TRACES_TOOLBAR_COLLAPSE_QUERY,
+  ToolbarCollapsibleLabel,
+  type TraceColumnId,
+  type TraceFilterModel,
+} from '@databricks/web-shared/traces-table';
 
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
@@ -22,6 +29,7 @@ import { textCompressDeflate } from '@mlflow/mlflow/src/common/utils/StringUtils
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import type { ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
 import { deleteExperimentTagApi, setExperimentTagApi } from '@mlflow/mlflow/src/experiment-tracking/actions';
+import { useArrayMemo } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
 import {
   decodeSavedViewEnvelope,
@@ -29,27 +37,35 @@ import {
   encodeSavedViewEnvelope,
 } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/savedViewEnvelope';
 import { SavedViewsMenu, type SavedViewMenuItem } from '../../saved-views/SavedViewsMenu';
-import { SharedViewBanner } from '../../saved-views/SharedViewBanner';
 import {
   buildV4ViewQuery,
   captureV4ViewState,
-  decodePreviewColumns,
+  decodeViewColumns,
   getTraceV4SavedViewIdFromTagKey,
   getTraceV4SavedViewShareUrl,
   getTraceV4SavedViewTagKey,
   type CapturedV4ViewState,
-  TRACE_V4_COLS_PARAM_KEY,
   TRACE_V4_SHARE_URL_PARAM_KEY,
 } from '../utils/tracesV4SavedViewState';
+import { capturedV4StatesMatch } from '../utils/tracesV4DirtyState';
+import { isSupportedFilterClause, useMlflowTraceFilterFields } from '../utils/filterModel';
+import {
+  getTraceV3SavedViewIdFromTagKey,
+  getTraceV3SavedViewTagKey,
+  translateV3ViewState,
+  type V3SavedViewState,
+} from '../utils/tracesV3ViewCompat';
+import { DEFAULT_TRACES_V4_TIME_LABEL } from '../utils/timeRange';
 
 /**
- * Saved views for the V4 traces tab. Reuses the shared tag-envelope codec, the {@link SavedViewsMenu}
- * dropdown body, and the {@link SharedViewBanner}. Because the V4 tab is URL-first (search, sort,
- * page size, tag filters and time range all live in the URL), applying a view is just a navigation
- * to the stored query — there is no live-state bridge or React-state preview overlay like V3 needs.
- * The one piece of view state that isn't in the URL — column visibility — rides in a `cols` param
- * that doubles as the preview overlay; Override adopts it into the user's own column store, Discard
- * drops it.
+ * Saved views for the V4 traces tab. Reuses the shared tag-envelope codec and the
+ * {@link SavedViewsMenu} dropdown body. Most view state is URL-first (search, sort, page size, tag
+ * filters and time range all live in the URL), so applying a view is largely a navigation to the
+ * stored query; the one piece that isn't in the URL — column visibility — is restored into the
+ * user's own column store on open. Once a view is applied, the live table can diverge from it as the
+ * user edits ("dirty"); the Views menu then offers Overwrite (persist the edits into the view) and
+ * Reset (discard the edits, re-applying the stored view). Opening from the menu and opening from a
+ * shared link behave identically — there is no read-only preview.
  */
 
 // Experiment-tag values are capped server-side (MAX_EXPERIMENT_TAG_VAL_LENGTH, 20000 chars); a write
@@ -64,26 +80,64 @@ interface TraceV4SavedViewSummary {
   id: string;
   name: string;
   createdAt: number;
+  updatedAt: number;
+  // Which tag prefix the view is stored under. A legacy V3 view (`v3`) opens (translated to V4
+  // state) and deletes in place; overwriting one migrates it to a V4 tag (see `overwriteView`).
+  origin: 'v4' | 'v3';
 }
+
+/** `dirty` = live table diverges from the active view; `clean` = matches or no view active. */
+export type TracesV4ViewDirtyStatus = 'clean' | 'dirty';
 
 interface UseTracesV4SavedViewsParams {
   experimentId: string;
-  /** The user's live visible columns — captured into a view and snapshotted for Override's Undo. */
+  /** The user's live visible columns — captured into a view on save, and diffed against it for dirty. */
   visibleColumns: TraceColumnId[];
-  /** Adopts an explicit column set into the user's persisted store (used by Override). */
+  /** The live popover filter model — captured into a view on save, restored on open, diffed for dirty. */
+  filterModel: TraceFilterModel;
+  /** Writes an explicit column set into the user's persisted store (used by open / reset). */
   setColumns: (columns: TraceColumnId[]) => void;
+  /** Clears column overrides (standard + assessment) back to defaults; used by "Default view". */
+  resetColumns: () => void;
+  /** Sets the popover filter clauses (React state, not URL-backed); used by open / reset / default. */
+  setFilterModel: (next: TraceFilterModel) => void;
+  /** Candidate assessment names, so restored assessment-filter clauses validate against live fields. */
+  assessmentNames?: string[];
 }
 
 /**
- * Reads / saves / deletes / opens named V4 traces views, and drives the URL-param preview overlay.
- * Tags are read from the Apollo experiment query (the traces route's source of truth) and written
- * via the redux tag thunks; after a write we refetch Apollo so the new view shows up in the list.
+ * Reads / saves / overwrites / deletes / opens named V4 traces views, and reports whether the live
+ * table has diverged from the active view (dirty). Tags are read from the Apollo experiment query
+ * (the traces route's source of truth) and written via the redux tag thunks; after a write we
+ * refetch Apollo so the new view shows up in the list.
  */
-export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns }: UseTracesV4SavedViewsParams) => {
+export const useTracesV4SavedViews = ({
+  experimentId,
+  visibleColumns,
+  filterModel,
+  setColumns,
+  resetColumns,
+  setFilterModel,
+  assessmentNames = [],
+}: UseTracesV4SavedViewsParams) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: experiment, refetch } = useGetExperimentQuery({ experimentId });
+
+  // Validate a stored filter model against the live field set: drop clauses whose field/operator no
+  // longer exists (a since-removed field, or an assessment name not on this page) so a restored view
+  // can't silently produce wrong results. Applied both on restore and when normalizing the dirty
+  // baseline, so an unsupported clause reads as "already dropped" rather than stranding the view dirty.
+  // Stabilize the names by content so a fresh `[]`/array identity doesn't churn `filterFields` →
+  // `supportedFilters` → the effects that depend on it every render.
+  const stableAssessmentNames = useArrayMemo(assessmentNames);
+  const filterFields = useMlflowTraceFilterFields(stableAssessmentNames);
+  const supportedFilters = useCallback(
+    (filters: TraceFilterModel | undefined): TraceFilterModel =>
+      (filters ?? EMPTY_FILTER_MODEL).filter((clause) => isSupportedFilterClause(filterFields, clause)),
+    [filterFields],
+  );
 
   // KNOWN LIMITATION (mirrors V3): read-only enforcement is deferred — the traces Apollo query does
   // not fetch `allowedActions`, so Save/Delete default to unrestricted (the write fails server-side
@@ -92,24 +146,35 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
 
   const views: TraceV4SavedViewSummary[] = useMemo(() => {
     const tags = experiment?.tags ?? [];
-    return tags
-      .reduce<TraceV4SavedViewSummary[]>((acc, { key, value }) => {
-        if (key == null || value == null) {
-          return acc;
-        }
-        const id = getTraceV4SavedViewIdFromTagKey(key);
-        if (id === null) {
-          return acc;
-        }
-        try {
-          const { name, createdAt } = decodeSavedViewEnvelope(value);
-          acc.push({ id, name, createdAt });
-        } catch {
-          // Skip a corrupt tag rather than breaking the list.
-        }
-        return acc;
-      }, [])
-      .sort((a, b) => b.createdAt - a.createdAt);
+    // Collect V4 and legacy V3 views into one list, keyed by id so a view that has been migrated
+    // (a V4 tag written over a V3 one, both sharing the id) is de-duped — V4 always wins.
+    const byId = new Map<string, TraceV4SavedViewSummary>();
+    for (const { key, value } of tags) {
+      if (key == null || value == null) {
+        continue;
+      }
+      const v4Id = getTraceV4SavedViewIdFromTagKey(key);
+      const v3Id = v4Id === null ? getTraceV3SavedViewIdFromTagKey(key) : null;
+      const id = v4Id ?? v3Id;
+      if (id === null) {
+        continue;
+      }
+      const origin: 'v4' | 'v3' = v4Id !== null ? 'v4' : 'v3';
+      // A V3 tag must never shadow a migrated V4 tag of the same id.
+      if (origin === 'v3' && byId.get(id)?.origin === 'v4') {
+        continue;
+      }
+      try {
+        // Both V4 and V3 use the same envelope codec (name/createdAt/updatedAt + compressed state);
+        // only the inner `state` shape differs, which matters at open time, not for the summary.
+        const { name, createdAt, updatedAt } = decodeSavedViewEnvelope(value);
+        byId.set(id, { id, name, createdAt, updatedAt, origin });
+      } catch {
+        // Skip a corrupt tag rather than breaking the list.
+      }
+    }
+    // Most-recently-edited first: overwriting a view floats it to the top.
+    return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);
   }, [experiment?.tags]);
 
   const atCap = views.length >= MAX_SAVED_VIEWS;
@@ -146,8 +211,8 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
         );
         return null;
       }
-      // Capture the current URL view params + the live columns (which aren't in the URL).
-      const state = captureV4ViewState(searchParams, visibleColumns);
+      // Capture the current URL view params + the live columns and filter model (neither in the URL).
+      const state = captureV4ViewState(searchParams, visibleColumns, filterModel);
       const compressedState = await textCompressDeflate(JSON.stringify(state));
       const id = getUUID();
       const envelope = encodeSavedViewEnvelope(name.trim(), compressedState, Date.now());
@@ -165,35 +230,94 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
       await refetch();
       return { id, state };
     },
-    [dispatch, experimentId, refetch, searchParams, visibleColumns, views, atCap, intl],
+    [dispatch, experimentId, refetch, searchParams, visibleColumns, filterModel, views, atCap, intl],
   );
 
   const deleteView = useCallback(
     async (id: string) => {
-      await dispatch(deleteExperimentTagApi(experimentId, getTraceV4SavedViewTagKey(id)));
+      // Delete every tag stored under this id, across both prefixes. Usually there's just one, but a
+      // half-migrated view (a V4 tag written over a V3 one whose delete never landed) leaves both —
+      // the list de-dupes them (V4 wins), so deleting only the V4 tag would let the V3 twin resurrect
+      // the view on the next refetch. Delete whichever of the two actually exists.
+      const tags = experiment?.tags ?? [];
+      const v4Key = getTraceV4SavedViewTagKey(id);
+      const v3Key = getTraceV3SavedViewTagKey(id);
+      const keysToDelete = [v4Key, v3Key].filter((key) => tags.some((tag) => tag.key === key));
+      // Fall back to the V4 key if the cache somehow lists neither (best-effort; the delete no-ops).
+      await Promise.all(
+        (keysToDelete.length > 0 ? keysToDelete : [v4Key]).map((key) =>
+          dispatch(deleteExperimentTagApi(experimentId, key)),
+        ),
+      );
       await refetch();
     },
-    [dispatch, experimentId, refetch],
+    [dispatch, experimentId, refetch, experiment?.tags],
   );
 
-  // Decode a stored view's tag value into its captured state, or null if it's missing/corrupt.
+  // Decode a stored view's tag value into V4 captured state, or null if it's missing/corrupt. Reads
+  // a native V4 tag when present; otherwise falls back to the legacy V3 tag of the same id and
+  // translates its frozen state shape into V4's (so a V3 view opens through the normal apply path).
   const decodeViewState = useCallback(
     async (id: string): Promise<CapturedV4ViewState | null> => {
-      const tag = (experiment?.tags ?? []).find(({ key }) => key === getTraceV4SavedViewTagKey(id));
-      if (!tag || tag.value == null) {
-        return null;
+      const tags = experiment?.tags ?? [];
+      const v4Tag = tags.find(({ key }) => key === getTraceV4SavedViewTagKey(id));
+      if (v4Tag?.value != null) {
+        try {
+          return (await deserializePersistedState(decodeSavedViewEnvelope(v4Tag.value))) as CapturedV4ViewState;
+        } catch {
+          return null;
+        }
       }
-      try {
-        return (await deserializePersistedState(decodeSavedViewEnvelope(tag.value))) as CapturedV4ViewState;
-      } catch {
-        return null;
+      const v3Tag = tags.find(({ key }) => key === getTraceV3SavedViewTagKey(id));
+      if (v3Tag?.value != null) {
+        try {
+          const v3State = (await deserializePersistedState(decodeSavedViewEnvelope(v3Tag.value))) as V3SavedViewState;
+          const translated = translateV3ViewState(v3State);
+          // V3 column ids don't necessarily all resolve as V4 columns. Normalize `cols` to the
+          // resolvable V4 subset (what applyView will actually restore) so an opened V3 view reads
+          // clean, not spuriously dirty against ids V4 dropped. Absent when nothing resolves.
+          const resolvedCols = decodeViewColumns(translated, TRACE_COLUMN_IDS);
+          if (resolvedCols) {
+            translated.single.cols = resolvedCols.join(',');
+          } else {
+            delete translated.single.cols;
+          }
+          return translated;
+        } catch {
+          return null;
+        }
       }
+      return null;
     },
     [experiment?.tags],
   );
 
-  // Apply a saved view by rewriting the URL query to its stored state (+ the share key). The V4
-  // hooks read their params on the next render, so this IS the applied view — no overlay to mount.
+  // Activate a view: rewrite the URL query to its state (+ the share key), and restore the two
+  // non-URL surfaces — its columns into the user's own column store, and its popover filter model
+  // into React state (validated so a clause referencing a since-removed field/operator is dropped).
+  // The V4 hooks read the params on the next render, so this IS the applied view. A view with no
+  // resolvable columns leaves the user's columns untouched rather than hiding everything.
+  const applyView = useCallback(
+    (state: CapturedV4ViewState, id: string) => {
+      setSearchParams(new URLSearchParams(buildV4ViewQuery(state, id)));
+      const columns = decodeViewColumns(state, TRACE_COLUMN_IDS);
+      if (columns) {
+        setColumns(columns);
+      }
+      setFilterModel(supportedFilters(state.filters));
+    },
+    [setSearchParams, setColumns, setFilterModel, supportedFilters],
+  );
+
+  // Return to the default state: drop every view param, clear the non-URL surfaces (columns +
+  // popover filters). Time-range label is kept (not dropped) so the default has a window, not empty.
+  const resetToDefaultView = useCallback(() => {
+    setSearchParams(new URLSearchParams({ startTimeLabel: DEFAULT_TRACES_V4_TIME_LABEL }));
+    resetColumns();
+    setFilterModel(EMPTY_FILTER_MODEL);
+  }, [setSearchParams, resetColumns, setFilterModel]);
+
+  // Apply a saved view by decoding its stored state, then activating it.
   const openView = useCallback(
     async (id: string) => {
       const state = await decodeViewState(id);
@@ -207,9 +331,9 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
         );
         return;
       }
-      setSearchParams(new URLSearchParams(buildV4ViewQuery(state, id)));
+      applyView(state, id);
     },
-    [decodeViewState, setSearchParams, intl],
+    [decodeViewState, applyView, intl],
   );
 
   // Build a shareable link from a view's STORED state, so the link carries the view's own
@@ -223,69 +347,122 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
   );
 
   const activeShareKey = searchParams.get(TRACE_V4_SHARE_URL_PARAM_KEY);
-  const sharedViewActive = activeShareKey !== null;
+  // The active view id is the share key ONLY when it resolves to a view we actually have — so a
+  // stale/garbage share key never drives overwrite/reset/dirty against a phantom view.
+  const activeViewId = activeShareKey && views.some((view) => view.id === activeShareKey) ? activeShareKey : null;
 
-  // The columns the shared link carries (the preview overlay). Undefined when no `cols` param or
-  // nothing resolves → the caller falls back to the user's own columns.
-  const rawCols = searchParams.get(TRACE_V4_COLS_PARAM_KEY);
-  const previewColumns = useMemo(
-    () => (sharedViewActive ? decodePreviewColumns(rawCols, TRACE_COLUMN_IDS) : undefined),
-    [sharedViewActive, rawCols],
-  );
+  // Stored state of the active view, used both to diff for dirty and to restore columns on a
+  // cold-loaded link. Null until decoded (or when no view is active). Declared before the callbacks
+  // that close over its setter.
+  const [activeStoredState, setActiveStoredState] = useState<CapturedV4ViewState | null>(null);
 
-  // Drop the preview params (share key + cols) while KEEPING the rest of the applied view (search,
-  // sort, tag filters, time range) — the user stays where they navigated, just no longer "previewing".
-  const clearPreviewParams = useCallback(() => {
-    setSearchParams((params) => {
-      params.delete(TRACE_V4_SHARE_URL_PARAM_KEY);
-      params.delete(TRACE_V4_COLS_PARAM_KEY);
-      return params;
-    });
-  }, [setSearchParams]);
-
-  // Edit the previewed columns WITHOUT persisting: rewrite the `cols` URL param (the preview state),
-  // leaving localStorage untouched until Override. Passing null/empty drops the column override
-  // (the table then shows the user's own columns) while staying in preview. This backs the "changes
-  // aren't saved unless you override" promise for column toggles during a shared-view preview.
-  const setPreviewColumns = useCallback(
-    (cols: TraceColumnId[] | null) => {
-      setSearchParams((params) => {
-        if (cols && cols.length > 0) {
-          params.set(TRACE_V4_COLS_PARAM_KEY, cols.join(','));
-        } else {
-          params.delete(TRACE_V4_COLS_PARAM_KEY);
-        }
-        return params;
-      });
+  // Overwrite an existing view in place with the current live state, keeping its id, name and
+  // creation time and bumping `updatedAt` (which floats it to the top of the list). Phantom-guarded:
+  // `setExperimentTag` is create-or-update, so a deleted/unknown id would silently resurrect the tag.
+  // For a legacy V3 view this MIGRATES it: the state is written under the V4 prefix (same id) and the
+  // old V3 tag is deleted, so the view is native V4 afterwards and future overwrites are plain writes.
+  const overwriteView = useCallback(
+    async (id: string) => {
+      const existing = views.find((view) => view.id === id);
+      if (!existing) {
+        return;
+      }
+      const state = captureV4ViewState(searchParams, visibleColumns, filterModel);
+      const compressedState = await textCompressDeflate(JSON.stringify(state));
+      const envelope = encodeSavedViewEnvelope(existing.name, compressedState, existing.createdAt, Date.now());
+      if (envelope.length > MAX_TAG_VALUE_LENGTH) {
+        Utils.displayGlobalErrorNotification(
+          intl.formatMessage({
+            defaultMessage: 'This view is too large to save.',
+            description: 'Error toast shown when overwriting a saved traces view exceeds the experiment-tag size limit',
+          }),
+          3,
+        );
+        return;
+      }
+      await dispatch(setExperimentTagApi(experimentId, getTraceV4SavedViewTagKey(id), envelope));
+      // Migrate: drop the legacy V3 tag now that the V4 one holds the (edited) state under the same id.
+      if (existing.origin === 'v3') {
+        await dispatch(deleteExperimentTagApi(experimentId, getTraceV3SavedViewTagKey(id)));
+      }
+      await refetch();
+      // The stored view now matches live; update the baseline so the dirty dot clears immediately.
+      setActiveStoredState(state);
+      Utils.displayGlobalInfoNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'View "{name}" updated.',
+            description: 'Success toast shown after overwriting a saved traces view with the current state',
+          },
+          { name: existing.name },
+        ),
+        3,
+      );
     },
-    [setSearchParams],
+    [views, searchParams, visibleColumns, filterModel, dispatch, experimentId, refetch, intl],
   );
 
-  // Adopt the previewed columns into the user's own persisted store, then exit preview. This is the
-  // only write to the user's column store in this flow. When the link carried no resolvable columns
-  // (a filter-/sort-only view), there's nothing to adopt — Override just exits preview.
-  const override = useCallback(() => {
-    if (previewColumns) {
-      setColumns(previewColumns);
+  // Discard live edits: re-apply the active view's stored state (which also restores its columns).
+  const resetActiveView = useCallback(() => {
+    if (activeViewId) {
+      openView(activeViewId);
     }
-    clearPreviewParams();
-    Utils.displayGlobalInfoNotification(
-      intl.formatMessage({
-        defaultMessage: 'This view is now your default.',
-        description: 'Traces page > shared view > confirmation toast after adopting a shared view as the own view',
-      }),
-      5,
-    );
-  }, [previewColumns, setColumns, clearPreviewParams, intl]);
+  }, [activeViewId, openView]);
 
-  const discard = useCallback(() => {
-    clearPreviewParams();
-  }, [clearPreviewParams]);
+  // Tracks which view's columns have been restored, so a direct-link landing hydrates columns once
+  // but later user edits aren't clobbered on every render. Also gates the dirty diff so it never
+  // flashes "dirty" against half-restored state.
+  const hydratedViewIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeViewId) {
+      setActiveStoredState(null);
+      hydratedViewIdRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    void decodeViewState(activeViewId).then((state) => {
+      if (cancelled || !state) {
+        return;
+      }
+      setActiveStoredState(state);
+      // Cold-load: a link opened directly carries the query in the URL but not the columns or the
+      // popover filter model, so restore both once per view id. Menu-open already restored them via
+      // applyView; this is a harmless no-op in that case.
+      if (hydratedViewIdRef.current !== activeViewId) {
+        hydratedViewIdRef.current = activeViewId;
+        const columns = decodeViewColumns(state, TRACE_COLUMN_IDS);
+        if (columns) {
+          setColumns(columns);
+        }
+        setFilterModel(supportedFilters(state.filters));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeViewId, decodeViewState, setColumns, setFilterModel, supportedFilters]);
+
+  // Dirty = the live table (URL view params + columns) diverges from the active view's stored state.
+  // Treated as clean until the stored state is loaded AND columns are hydrated, so it never flashes
+  // dirty against a half-restored cold-load.
+  const dirtyStatus: TracesV4ViewDirtyStatus = useMemo(() => {
+    if (!activeViewId || !activeStoredState || hydratedViewIdRef.current !== activeViewId) {
+      return 'clean';
+    }
+    const live = captureV4ViewState(searchParams, visibleColumns, filterModel);
+    // Normalize the stored baseline's filters the same way openView restores them (drop unsupported
+    // clauses); diffing raw stored filters would mark a view with a since-removed field dirty forever.
+    const normalizedStored: CapturedV4ViewState = {
+      ...activeStoredState,
+      filters: supportedFilters(activeStoredState.filters),
+    };
+    return capturedV4StatesMatch(live, normalizedStored) ? 'clean' : 'dirty';
+  }, [activeViewId, activeStoredState, searchParams, visibleColumns, filterModel, supportedFilters]);
 
   // Opening a saved-view link in a tab whose experiment was loaded before the view was saved reads a
   // stale Apollo tag cache (a client-side nav doesn't refetch). The view still applies (its state
-  // rides in the URL), but the Views list/label wouldn't reflect it. When the active share key isn't
-  // in our list, refetch ONCE for that key so the list/label catch up. Guarded per-key so a
+  // rides in the URL), but the Views list/label/dirty-baseline wouldn't reflect it. When the active
+  // share key isn't in our list, refetch ONCE for that key so they catch up. Guarded per-key so a
   // genuinely-missing view doesn't loop.
   const refetchedShareKeyRef = useRef<string | null>(null);
   useEffect(() => {
@@ -307,13 +484,14 @@ export const useTracesV4SavedViews = ({ experimentId, visibleColumns, setColumns
     saveView,
     deleteView,
     openView,
+    applyView,
+    overwriteView,
+    resetActiveView,
+    resetToDefaultView,
     buildShareUrl,
     activeShareKey,
-    sharedViewActive,
-    previewColumns,
-    setPreviewColumns,
-    override,
-    discard,
+    activeViewId,
+    dirtyStatus,
   };
 };
 
@@ -325,12 +503,15 @@ const SaveTraceV4ViewModal = ({
   saveView,
   atCap,
   onCancel,
+  onSaved,
 }: {
   experimentId: string;
   visible: boolean;
   saveView: (name: string) => Promise<{ id: string; state: CapturedV4ViewState } | null>;
   atCap: boolean;
   onCancel: () => void;
+  /** Called with the new view's id + state after a successful save, so the caller can make it active. */
+  onSaved: (id: string, state: CapturedV4ViewState) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -358,6 +539,8 @@ const SaveTraceV4ViewModal = ({
       if (!result) {
         return;
       }
+      // Activate from the captured state directly — the refetched tags aren't in cache yet this render.
+      onSaved(result.id, result.state);
       setSavedUrl(getTraceV4SavedViewShareUrl(experimentId, result.state, result.id));
       Utils.displayGlobalInfoNotification(
         intl.formatMessage(
@@ -380,7 +563,7 @@ const SaveTraceV4ViewModal = ({
     } finally {
       setSaving(false);
     }
-  }, [name, saving, atCap, saveView, experimentId, intl]);
+  }, [name, saving, atCap, saveView, onSaved, experimentId, intl]);
 
   return (
     <Modal
@@ -468,12 +651,38 @@ export const TracesV4SavedViewsButton = ({
   savedViews: TracesV4SavedViewsApi;
 }) => {
   const intl = useIntl();
-  const { views, canModify, atCap, saveView, deleteView, openView, buildShareUrl, activeShareKey } = savedViews;
-  const { sharedViewActive, override, discard } = savedViews;
+  const { theme } = useDesignSystemTheme();
+  const {
+    views,
+    canModify,
+    atCap,
+    saveView,
+    deleteView,
+    openView,
+    applyView,
+    overwriteView,
+    resetActiveView,
+    resetToDefaultView,
+    buildShareUrl,
+    activeViewId,
+    dirtyStatus,
+  } = savedViews;
   const [showSaveModal, setShowSaveModal] = useState(false);
   // Held above the dropdown so the confirm dialog survives the dropdown closing on outside-click.
-  const [pendingDelete, setPendingDelete] = useState<TraceV4SavedViewSummary | null>(null);
-  const activeView = activeShareKey ? views.find((view) => view.id === activeShareKey) : undefined;
+  // Typed as the menu's item shape (id + name are all the confirm dialog needs).
+  const [pendingDelete, setPendingDelete] = useState<SavedViewMenuItem | null>(null);
+  const activeView = activeViewId ? views.find((view) => view.id === activeViewId) : undefined;
+  const isDirty = dirtyStatus === 'dirty';
+  // Shared style for the unsaved-edits dot, rendered twice (inline + a collapsed-only twin).
+  const dirtyDotStyles = {
+    display: 'inline-block',
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    backgroundColor: theme.colors.blue500,
+    marginLeft: theme.spacing.xs,
+    flexShrink: 0,
+  } as const;
 
   const handleCopyLink = async (view: SavedViewMenuItem) => {
     const url = await buildShareUrl(view.id);
@@ -519,39 +728,72 @@ export const TracesV4SavedViewsButton = ({
             icon={<LayerIcon />}
             endIcon={<ChevronDownIcon />}
             data-testid="trace-v4-saved-views-trigger"
+            // Names the button when its label collapses to icon-only.
+            aria-label={
+              activeView?.name ??
+              intl.formatMessage({
+                defaultMessage: 'Default view',
+                description:
+                  'Label for the saved views dropdown in the traces toolbar when no saved view is active (the default, unfiltered state)',
+              })
+            }
           >
-            {activeView ? (
-              <span css={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {activeView.name}
-              </span>
-            ) : (
-              <FormattedMessage
-                defaultMessage="Views"
-                description="Label for the saved views dropdown in the traces toolbar"
+            <ToolbarCollapsibleLabel>
+              {activeView ? (
+                <span css={{ display: 'inline-flex', alignItems: 'center', minWidth: 0 }}>
+                  <span
+                    css={{
+                      maxWidth: 200,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      // Tint the name while the view has unsaved edits, echoing the dirty dot.
+                      color: isDirty ? theme.colors.blue600 : undefined,
+                    }}
+                  >
+                    {activeView.name}
+                  </span>
+                  {/* Inline dot after the name while expanded. A twin (below) covers the collapsed,
+                      icon-only state; only one is visible at a time, so only the twin carries the testid. */}
+                  {isDirty && <span aria-hidden css={dirtyDotStyles} />}
+                </span>
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Default view"
+                  description="Label for the saved views dropdown in the traces toolbar when no saved view is active (the default, unfiltered state)"
+                />
+              )}
+            </ToolbarCollapsibleLabel>
+            {/* The inline dot lives inside the collapsible label, so it vanishes with the name when the
+                toolbar collapses to icon-only. This twin sits OUTSIDE the label and shows ONLY while
+                collapsed (inverse of the label's own container query), keeping the dirty signal visible. */}
+            {isDirty && (
+              <span
+                data-testid="trace-v4-saved-views-dirty-dot"
+                css={{
+                  display: 'none',
+                  [TRACES_TOOLBAR_COLLAPSE_QUERY]: { ...dirtyDotStyles, marginLeft: 0 },
+                }}
               />
             )}
           </Button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
+        <DropdownMenu.Content align="start">
           <SavedViewsMenu
             componentId="mlflow.traces-v4.saved_views"
             testIdPrefix="trace-v4-saved-views"
             views={views}
             canModify={canModify}
-            activeViewId={activeShareKey}
+            activeViewId={activeViewId}
             onOpen={openView}
             onCopyLink={handleCopyLink}
             onRequestDelete={setPendingDelete}
             onSaveCurrent={() => setShowSaveModal(true)}
-            sharedViewActive={sharedViewActive}
-            onOverrideActive={override}
-            onDiscardActive={discard}
-            overrideLabel={
-              <FormattedMessage
-                defaultMessage="Override my view"
-                description="Traces Views menu > entry that adopts the applied shared view into the user's own view"
-              />
-            }
+            onSelectDefault={resetToDefaultView}
+            dirtyViewActive={isDirty}
+            activeViewName={activeView?.name}
+            onOverwriteActive={activeViewId ? () => overwriteView(activeViewId) : undefined}
+            onResetActive={resetActiveView}
           />
         </DropdownMenu.Content>
       </DropdownMenu.Root>
@@ -585,40 +827,8 @@ export const TracesV4SavedViewsButton = ({
         saveView={saveView}
         atCap={atCap}
         onCancel={() => setShowSaveModal(false)}
+        onSaved={(id, state) => applyView(state, id)}
       />
     </>
-  );
-};
-
-/**
- * Banner shown in the V4 traces `bannerSlot` while a shared view is applied. Reuses the shared
- * {@link SharedViewBanner}; Override adopts the shared view's columns into the user's own store,
- * Discard reverts to the user's own view. Renders nothing when no shared view is active.
- */
-export const TracesV4SharedViewBanner = ({ savedViews }: { savedViews: TracesV4SavedViewsApi }) => {
-  const { sharedViewActive, override, discard } = savedViews;
-  if (!sharedViewActive) {
-    return null;
-  }
-  return (
-    <div data-testid="trace-v4-shared-view-banner">
-      <SharedViewBanner
-        componentId="mlflow.traces-v4.shared_view"
-        message={
-          <FormattedMessage
-            defaultMessage="You're viewing a shared view. Changes you make won't be saved unless you override your view."
-            description="Traces page > shared view banner > message shown while a shared view is applied"
-          />
-        }
-        onOverride={override}
-        overrideLabel={
-          <FormattedMessage
-            defaultMessage="Override my view"
-            description="Traces page > shared view banner > button that adopts the shared view into the user's own view"
-          />
-        }
-        onDiscard={discard}
-      />
-    </div>
   );
 };

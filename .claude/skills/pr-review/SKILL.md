@@ -26,13 +26,16 @@ These reads are independent. Issue them as parallel tool calls in a single turn,
 gh pr view <pr_url> --json title,body
 ```
 
-**PR diff hunks** via the [`fetch-diff`](../fetch-diff/SKILL.md) skill:
+**PR diff hunks**. The working tree is the merge ref (see step 3), so `HEAD^1 HEAD` is exactly the
+PR diff:
 
 ```bash
-uv run --package skills skills fetch-diff <pr_url>
+git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff
 ```
 
-Its annotated output gives you the `line` and `side` to anchor each comment on.
+Each line comes back as `old_line new_line | <marker> content`, which gives you the `line` and
+`side` to anchor each comment on: `-` is `side=LEFT` at `old_line`, `+` is `side=RIGHT` at
+`new_line`, and an unmarked context line is `side=RIGHT` at `new_line`. Pass `--help` for the rest.
 
 **Existing review threads**, so you can avoid duplicating prior feedback. Up to 100 threads (open,
 resolved, and outdated) with up to 20 comments each:
@@ -84,8 +87,7 @@ errors, so don't trust them for pre-change history.
 Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, or a
 quick search and fetch of the upstream docs will settle most questions in seconds, and an unverified
 finding should be dropped rather than hedged. When the cheap checks don't settle it, escalate to the
-expensive ones: build the docs site, build and boot the UI, start the backend, run the affected
-tests.
+expensive ones: build the docs site, build and boot the UI, start the backend.
 
 Node and `agent-browser` are on PATH for docs and UI changes. Capture to an absolute path named for
 what it shows: `agent-browser screenshot --full $media_dir/example.png`, and cite that same

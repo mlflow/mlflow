@@ -19,7 +19,9 @@
 MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com/mlflow/mlflow) that provides a TypeScript API for MLflow.
 
 > [!IMPORTANT]
-> MLflow Typescript SDK is catching up with the Python SDK. Currently only support [Tracing]() and [Feedback Collection]() features. Please raise an issue in Github if you need a feature that is not supported.
+> MLflow Typescript SDK is catching up with the Python SDK. Currently only support Tracing and
+> Feedback Collection features. Please raise an issue in Github if you need a feature that is not
+> supported.
 
 ## Packages
 
@@ -137,6 +139,31 @@ getWeather('San Francisco');
 const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
+
+Log feedback on a persisted trace (Python `mlflow.log_feedback` parity):
+
+```typescript
+import { AssessmentSourceType, MlflowClient, createAuthProvider } from '@mlflow/core';
+
+const trackingUri = 'http://localhost:5000';
+const client = new MlflowClient({
+  trackingUri,
+  authProvider: createAuthProvider({ trackingUri }),
+});
+
+await client.logFeedback({
+  traceId: '<trace-id>',
+  name: 'correctness',
+  value: true,
+  source: { sourceType: AssessmentSourceType.HUMAN, sourceId: 'reviewer@example.com' },
+  rationale: 'The answer matches the expected fact.',
+});
+
+const info = await client.getTraceInfo('<trace-id>');
+console.log(info.assessments);
+```
+
+Databricks Unity Catalog V4 assessment posting is not included in this first slice.
 
 Tag spans with a severity level so users (or you) can filter by **Minimum log level** in the trace UI:
 

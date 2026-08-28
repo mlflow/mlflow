@@ -1,9 +1,9 @@
 import { describe, expect, test } from '@jest/globals';
-import { TRACE_COLUMN_IDS } from '@databricks/web-shared/traces-table';
+import { FilterOp, TRACE_COLUMN_IDS } from '@databricks/web-shared/traces-table';
 import {
   captureV4ViewState,
   buildV4ViewQuery,
-  decodePreviewColumns,
+  decodeViewColumns,
   getTraceV4SavedViewShareUrl,
   getTraceV4SavedViewTagKey,
   getTraceV4SavedViewIdFromTagKey,
@@ -37,7 +37,9 @@ describe('tracesV4SavedViewState tag-key helpers', () => {
 describe('captureV4ViewState', () => {
   test('captures the whitelisted URL view params and drops the transient ones', () => {
     const state = captureV4ViewState(
-      params('q=refund&sort=duration&dir=asc&pageSize=50&page=3&traceId=abc123&startTimeLabel=LAST_7_DAYS'),
+      params(
+        'q=refund&sort=duration&dir=asc&pageSize=50&page=3&traceId=abc123&startTimeLabel=LAST_7_DAYS&groupBy=session',
+      ),
       ['start_time', 'input', 'duration'],
     );
     const query = buildV4ViewQuery(state, 'view-1');
@@ -48,6 +50,8 @@ describe('captureV4ViewState', () => {
     expect(out.get('dir')).toBe('asc');
     expect(out.get('pageSize')).toBe('50');
     expect(out.get('startTimeLabel')).toBe('LAST_7_DAYS');
+    // Session grouping is a URL-backed view param, so it round-trips like the rest.
+    expect(out.get('groupBy')).toBe('session');
     // Transient state is never part of a saved view.
     expect(out.get('page')).toBeNull();
     expect(out.get('traceId')).toBeNull();
@@ -59,11 +63,29 @@ describe('captureV4ViewState', () => {
     expect(out.getAll('tag')).toEqual(['env=prod', 'team=search']);
   });
 
-  test('captures the live visible columns as the cols param (not read from the URL)', () => {
-    // Columns live in localStorage, not the URL, so capture takes them from the live arg.
+  test('captures the live visible columns into the stored state (not the URL query)', () => {
+    // Columns live in localStorage, not the URL: they are stored in the envelope's `cols` key and
+    // restored into the column store on open, so they must NOT appear in the built query string.
     const state = captureV4ViewState(params('q=x'), ['start_time', 'input', 'duration']);
+    expect(state.single.cols).toBe('start_time,input,duration');
     const out = params(buildV4ViewQuery(state, 'view-1'));
-    expect(out.get('cols')).toBe('start_time,input,duration');
+    expect(out.get('cols')).toBeNull();
+  });
+
+  test('stores the live popover filter model, and omits an empty one', () => {
+    // Filters are React state (not URL-backed), so they're passed in and stored on the envelope; an
+    // empty model is omitted so a filter-less view stays byte-identical to a legacy (pre-filter) one.
+    const withFilters = captureV4ViewState(
+      params('q=x'),
+      ['start_time'],
+      [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }],
+    );
+    expect(withFilters.filters).toEqual([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]);
+    // Filters never leak into the rebuilt URL query.
+    expect(params(buildV4ViewQuery(withFilters, 'view-1')).has('filters')).toBe(false);
+
+    const noFilters = captureV4ViewState(params('q=x'), ['start_time'], []);
+    expect(noFilters.filters).toBeUndefined();
   });
 
   test('never captures an incoming share key or cols param from the URL (only the live columns)', () => {
@@ -72,8 +94,8 @@ describe('captureV4ViewState', () => {
       'start_time',
       'input',
     ]);
+    expect(state.single.cols).toBe('start_time,input'); // live columns win, not the URL's cols
     const out = params(buildV4ViewQuery(state, 'view-b'));
-    expect(out.get('cols')).toBe('start_time,input'); // live columns win, not the URL's cols
     expect(out.get(TRACE_V4_SHARE_URL_PARAM_KEY)).toBe('view-b'); // the new id, not the old one
   });
 });
@@ -89,7 +111,6 @@ describe('buildV4ViewQuery', () => {
 describe('urlHasCapturedV4ViewState', () => {
   test('true when the URL carries any serialized view state', () => {
     expect(urlHasCapturedV4ViewState(params('sort=duration'))).toBe(true);
-    expect(urlHasCapturedV4ViewState(params('cols=start_time'))).toBe(true);
     expect(urlHasCapturedV4ViewState(params('tag=env%3Dprod'))).toBe(true);
   });
 
@@ -101,9 +122,11 @@ describe('urlHasCapturedV4ViewState', () => {
   });
 });
 
-describe('decodePreviewColumns', () => {
-  test('resolves known column ids in the given order', () => {
-    expect(decodePreviewColumns('start_time,input,duration', TRACE_COLUMN_IDS)).toEqual([
+describe('decodeViewColumns', () => {
+  const withCols = (cols: string) => ({ single: { cols }, multi: {} });
+
+  test('resolves known column ids in the given (stored) order', () => {
+    expect(decodeViewColumns(withCols('start_time,input,duration'), TRACE_COLUMN_IDS)).toEqual([
       'start_time',
       'input',
       'duration',
@@ -111,13 +134,13 @@ describe('decodePreviewColumns', () => {
   });
 
   test('drops ids that no longer resolve (view saved against an older column set)', () => {
-    expect(decodePreviewColumns('start_time,bogus,input', TRACE_COLUMN_IDS)).toEqual(['start_time', 'input']);
+    expect(decodeViewColumns(withCols('start_time,bogus,input'), TRACE_COLUMN_IDS)).toEqual(['start_time', 'input']);
   });
 
-  test('returns undefined when nothing resolves or the value is empty', () => {
-    expect(decodePreviewColumns('bogus', TRACE_COLUMN_IDS)).toBeUndefined();
-    expect(decodePreviewColumns('', TRACE_COLUMN_IDS)).toBeUndefined();
-    expect(decodePreviewColumns(undefined, TRACE_COLUMN_IDS)).toBeUndefined();
+  test('returns undefined when nothing resolves or the value is empty/absent', () => {
+    expect(decodeViewColumns(withCols('bogus'), TRACE_COLUMN_IDS)).toBeUndefined();
+    expect(decodeViewColumns(withCols(''), TRACE_COLUMN_IDS)).toBeUndefined();
+    expect(decodeViewColumns({ single: {}, multi: {} }, TRACE_COLUMN_IDS)).toBeUndefined();
   });
 });
 
