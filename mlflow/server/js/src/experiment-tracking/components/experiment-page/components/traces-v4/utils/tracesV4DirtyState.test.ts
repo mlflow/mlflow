@@ -3,10 +3,14 @@ import { capturedV4StatesMatch, __test__ } from './tracesV4DirtyState';
 import { captureV4ViewState } from './tracesV4SavedViewState';
 import { FilterOp, type TraceColumnId, type TraceFilterModel } from '@databricks/web-shared/traces-table';
 
-const { canonicalViewQuery, columnSetsEqual } = __test__;
+const { canonicalViewQuery, columnSetsEqual, assessmentVisibilityEqual } = __test__;
 
-const capture = (query: string, cols: TraceColumnId[] = [], filters: TraceFilterModel = []) =>
-  captureV4ViewState(new URLSearchParams(query), cols, filters);
+const capture = (
+  query: string,
+  cols: TraceColumnId[] = [],
+  filters: TraceFilterModel = [],
+  assessments: Record<string, boolean> = {},
+) => captureV4ViewState(new URLSearchParams(query), cols, filters, assessments);
 
 describe('capturedV4StatesMatch', () => {
   test('identical captures match (clean)', () => {
@@ -61,6 +65,12 @@ describe('capturedV4StatesMatch', () => {
     expect(capturedV4StatesMatch(grouped, flat)).toBe(false);
     expect(capturedV4StatesMatch(grouped, capture('q=x&groupBy=session', ['start_time']))).toBe(true);
   });
+
+  test('hiding an assessment column is dirty', () => {
+    const a = capture('q=x', ['start_time'], [], { correctness: true });
+    const b = capture('q=x', ['start_time'], [], { correctness: false });
+    expect(capturedV4StatesMatch(a, b)).toBe(false);
+  });
 });
 
 describe('canonicalViewQuery', () => {
@@ -97,5 +107,14 @@ describe('columnSetsEqual', () => {
     expect(columnSetsEqual(['a', 'b'], ['b', 'a'])).toBe(true);
     expect(columnSetsEqual(['a'], ['a', 'b'])).toBe(false);
     expect(columnSetsEqual(['a', 'b'], ['a', 'c'])).toBe(false);
+  });
+});
+
+describe('assessmentVisibilityEqual', () => {
+  test('compares effective visibility — an absent name is default-visible', () => {
+    expect(assessmentVisibilityEqual({ a: true }, {})).toBe(true);
+    expect(assessmentVisibilityEqual({ a: true, b: true }, { a: true })).toBe(true);
+    expect(assessmentVisibilityEqual({ a: false }, {})).toBe(false);
+    expect(assessmentVisibilityEqual({ a: false }, { a: true })).toBe(false);
   });
 });

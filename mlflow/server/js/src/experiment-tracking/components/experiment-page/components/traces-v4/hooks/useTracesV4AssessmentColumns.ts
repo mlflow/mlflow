@@ -30,10 +30,17 @@ export interface TracesV4AssessmentColumns {
   selectorOptions: GenericColumnOption[];
   /** Namespaced ids of the currently-visible assessment columns. */
   visibleIds: string[];
+  /** Effective visibility by assessment name; captured into a saved view (see the `useMemo` below). */
+  visibilityByName: Record<string, boolean>;
   /** Toggle an assessment column's visibility by its namespaced id. */
   toggle: (id: string) => void;
   /** Show or hide every candidate assessment column at once (the "all assessments" toggle). */
   setAllVisible: (visible: boolean) => void;
+  /**
+   * Restore a saved view's assessment visibility (overwrites the override map). `undefined` clears
+   * overrides (returns every column to its default), matching an older view that captured nothing.
+   */
+  setVisibility: (visibility: Record<string, boolean> | undefined) => void;
   /** Clear all assessment overrides (return every column to its default visibility). */
   reset: () => void;
 }
@@ -105,5 +112,28 @@ export const useTracesV4AssessmentColumns = (
 
   const reset = useCallback(() => setOverrides({}), [setOverrides]);
 
-  return { columnDefs, candidateNames, selectorOptions, visibleIds, toggle, setAllVisible, reset };
+  // Union candidate names with the override keys: candidates alone miss a hidden name that has since
+  // dropped off the page (no traces carry it), which must still be recorded as hidden in a saved view.
+  const visibilityByName = useMemo(() => {
+    const visible = new Set(visibleNames);
+    const names = new Set([...candidateNames, ...Object.keys(overrides)]);
+    return Object.fromEntries([...names].map((name) => [name, overrides[name] ?? visible.has(name)]));
+  }, [candidateNames, visibleNames, overrides]);
+
+  const setVisibility = useCallback(
+    (visibility: Record<string, boolean> | undefined) => setOverrides(visibility ?? {}),
+    [setOverrides],
+  );
+
+  return {
+    columnDefs,
+    candidateNames,
+    selectorOptions,
+    visibleIds,
+    visibilityByName,
+    toggle,
+    setAllVisible,
+    setVisibility,
+    reset,
+  };
 };

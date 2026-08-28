@@ -73,11 +73,29 @@ const colsOf = (state: CapturedV4ViewState): string[] => {
   return raw ? raw.split(',').filter(Boolean) : [];
 };
 
+/**
+ * Compare EFFECTIVE assessment visibility, not the key sets. Visibility is page-derived, so captures
+ * on different pages carry different names; an absent name means default-visible, so an extra
+ * default-visible entry isn't a change — only a real hide/show reads as dirty. (Two captures across
+ * pages with different assessments may still diverge, but the dirty dot is advisory and both
+ * Overwrite / Reset recover.)
+ */
+const assessmentVisibilityEqual = (a: Record<string, boolean> = {}, b: Record<string, boolean> = {}): boolean => {
+  const names = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const name of names) {
+    if ((a[name] ?? true) !== (b[name] ?? true)) {
+      return false;
+    }
+  }
+  return true;
+};
+
 /** True when the live captured state matches the stored view (i.e. not dirty). */
 export const capturedV4StatesMatch = (live: CapturedV4ViewState, stored: CapturedV4ViewState): boolean =>
   canonicalViewQuery(live) === canonicalViewQuery(stored) &&
   columnSetsEqual(colsOf(live), colsOf(stored)) &&
+  assessmentVisibilityEqual(live.assessmentColumns, stored.assessmentColumns) &&
   isEqual(live.filters ?? [], stored.filters ?? []);
 
 // Exported for unit-testing the pure comparisons in isolation.
-export const __test__ = { canonicalViewQuery, columnSetsEqual };
+export const __test__ = { canonicalViewQuery, columnSetsEqual, assessmentVisibilityEqual };
