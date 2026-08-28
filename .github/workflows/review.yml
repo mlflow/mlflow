@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/review.yml"
-      - ".github/actions/anthropic-auth/**"
+      - ".github/actions/setup-gateway/**"
       - ".claude/scripts/**"
       - ".claude/skills/pr-review/**"
 
@@ -216,7 +216,7 @@ jobs:
 
       - name: Set up Anthropic
         id: anthropic
-        uses: ./base/.github/actions/anthropic-auth
+        uses: ./base/.github/actions/setup-gateway
         with:
           task: pr-review
           host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
