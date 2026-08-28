@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/review.yml"
+      - ".github/actions/setup-gateway/**"
       - ".claude/scripts/**"
       - ".claude/skills/pr-review/**"
 
@@ -90,6 +91,10 @@ jobs:
     # fails closed.
     permissions: {}
     timeout-minutes: 45
+    env:
+      REVIEW_PAYLOAD: /tmp/review-payload.json
+      REVIEW_MEDIA: /tmp/review-media
+      PR_CHECKOUT: ${{ github.workspace }}/pr
     steps:
       # Two app tokens with split scopes:
       # - app-token-read (read-only): used by the Claude step so prompt-injection
@@ -124,29 +129,52 @@ jobs:
         run: |
           printf '%s\n\n---\n\n🚀 [Review running...](%s)' "$COMMENT_BODY" "$JOB_RUN_URL" \
             | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          token: ${{ steps.app-token-read.outputs.token }}
-          ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
-          # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
-          # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
-          fetch-depth: 2
-      - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
-      - uses: ./.github/actions/setup-node
-      - name: Install Claude CLI
+      # Each checkout owns a subdirectory, so neither cleans the other and the
+      # two can run together.
+      - parallel:
+          # Everything this job runs comes from here: the setup actions, the
+          # install scripts, the `.claude` config Claude loads (settings, hooks,
+          # skills), and the `skills` CLI. No `ref`, so this is `github.ref` at
+          # `github.sha`, the commit the workflow file itself was read from:
+          # the default branch on `issue_comment`, and the PR's merge ref on
+          # `pull_request`, where the two checkouts are the same tree and
+          # changes to this tooling get smoke-tested.
+          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              persist-credentials: false
+              token: ${{ steps.app-token-read.outputs.token }}
+              path: base
+          # The reviewed tree, passed to the review as a path. Nothing the job
+          # itself runs comes from here.
+          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              persist-credentials: false
+              token: ${{ steps.app-token-read.outputs.token }}
+              ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
+              path: pr
+              # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
+              # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
+              fetch-depth: 2
+      # HEAD^2 of the merge ref is the PR head. Resolved before the review step,
+      # which runs Bash against that tree.
+      - name: Pin reviewed head commit
         run: |
-          .claude/scripts/install-claude.sh
-      - name: Verify Claude CLI
+          PR_HEAD_SHA=$(git -C "$PR_CHECKOUT" rev-parse HEAD^2)
+          echo "PR_HEAD_SHA=$PR_HEAD_SHA" >> "$GITHUB_ENV"
+      - parallel:
+          - uses: ./base/.github/actions/setup-python
+            with:
+              pin-micro-version: false
+          - uses: ./base/.github/actions/setup-node
+          - name: Install Claude CLI
+            run: |
+              base/.claude/scripts/install-claude.sh
+          - name: Install agent-browser
+            run: |
+              base/.claude/scripts/install-agent-browser.sh
+      - name: Verify tools
         run: |
           claude --version
-      - name: Install agent-browser
-        run: |
-          .claude/scripts/install-agent-browser.sh
-      - name: Verify agent-browser
-        run: |
           agent-browser --version
 
       - name: Parse review arguments
@@ -162,7 +190,6 @@ jobs:
           import sys
 
           MODEL_ALIASES = {
-              "fable": "claude-fable-5",
               "opus": "claude-opus-5",
               "sonnet": "claude-sonnet-5",
           }
@@ -181,43 +208,45 @@ jobs:
           args = parser.parse_args(body.split())
           model = MODEL_ALIASES.get(args.model, args.model)
 
-          sys.stdout.write(f"model={model}\neffort={args.effort}\n")
+          # The gateway names each Foundation Model API endpoint `databricks-<model>`.
+          sys.stdout.write(f"model=databricks-{model}\neffort={args.effort}\n")
           EOF
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
-      # The Claude step never sees the real API key: the proxy holds it and the
-      # CLI talks to the proxy with a random per-run client key. The real key
-      # is passed via stdin (printf is a bash builtin) so it appears in no
-      # process's env or argv, and --disable-sigusr1 blocks same-UID processes
-      # from recovering it through a signal-triggered inspector session.
-      - name: Start Anthropic proxy
-        id: proxy
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
-        run: |
-          CLIENT_KEY=$(openssl rand -hex 32)
-          echo "client-key=$CLIENT_KEY" >> "$GITHUB_OUTPUT"
-          printf '%s\n%s' "$ANTHROPIC_API_KEY" "$CLIENT_KEY" \
-            | env -u ANTHROPIC_API_KEY node --disable-sigusr1 .claude/scripts/anthropic-proxy.mjs \
-              > /tmp/anthropic-proxy.log 2>&1 &
-          timeout 10 bash -c 'until curl -sf -o /dev/null http://127.0.0.1:8082/healthz; do sleep 0.5; done' \
-            || { echo "::error::Anthropic proxy failed to start"; cat /tmp/anthropic-proxy.log; exit 1; }
+      - id: gateway
+        uses: ./base/.github/actions/setup-gateway
+        with:
+          task: pr-review
+          host: ${{ secrets.DATABRICKS_GATEWAY_HOST }}
+          client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
 
       - name: Review
         id: review
+        working-directory: base
         env:
           # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
           GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
-          ANTHROPIC_BASE_URL: http://127.0.0.1:8082
-          ANTHROPIC_API_KEY: ${{ steps.proxy.outputs.client-key }}
+          ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          # The auto mode permission classifier picks its model from the sonnet
+          # and opus aliases rather than `--model`, so without these it requests
+          # a bare `claude-sonnet-5` that the gateway does not serve and every
+          # ambiguous Bash command gets denied.
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
+          ANTHROPIC_DEFAULT_OPUS_MODEL: databricks-claude-opus-5
+          # The gateway's beta allowlist rejects several of the CLI's
+          # experimental betas with HTTP 400.
+          CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: "1"
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
-          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/review-shots
+          AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.REVIEW_MEDIA }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
-          mkdir -p /tmp/review-media
+          mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
@@ -227,11 +256,12 @@ jobs:
             --effort "$EFFORT" \
             --max-budget-usd 8 \
             --permission-mode auto \
+            --add-dir "$PR_CHECKOUT" \
             --allowed-tools "Bash(uv run --package skills skills:*)" \
             --print \
             --verbose \
             --output-format stream-json \
-            "/pr-review $PR_URL" \
+            "/pr-review $PR_URL $PR_CHECKOUT $REVIEW_PAYLOAD $REVIEW_MEDIA" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 30 minutes"
@@ -241,17 +271,12 @@ jobs:
             exit $EXIT_CODE
           fi
 
-      # The runner stops reading the proxy's stdout once its own step ends, so
-      # the proxy writes to a file and we dump it here for diagnosability.
-      - name: Show proxy log
-        if: always()
-        run: cat /tmp/anthropic-proxy.log || true
-
       # Kept out of the Claude step, which holds only the read-only app token, so a
       # poisoned diff can't reach this PAT. Gated like Post so the pull_request
       # smoke path stays non-mutating.
       - name: Upload review media
         if: github.event_name == 'issue_comment'
+        working-directory: base
         # Attaching media is a nicety; losing the whole review over it is not. Any
         # fault here must not take the job down before Post review.
         continue-on-error: true
@@ -259,20 +284,29 @@ jobs:
           GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
           REPO_ID: ${{ github.event.repository.id }}
         run: |
-          uv run --frozen --package skills skills embed-media \
-            --dir /tmp/review-media \
-            --target /tmp/review-payload.json \
+          uv run --package skills skills embed-media \
+            --dir "$REVIEW_MEDIA" \
+            --target "$REVIEW_PAYLOAD" \
             --repository-id "$REPO_ID"
 
-      - name: Validate review payload
+      # Without commit_id, GitHub anchors the comments to whatever head is current
+      # at POST time. Injected before validation so the schema's SHA pattern
+      # covers it.
+      - name: Pin review to the reviewed commit
         run: |
-          if [ ! -f /tmp/review-payload.json ]; then
-            echo "::error::Claude did not produce /tmp/review-payload.json"
+          if [ ! -f "$REVIEW_PAYLOAD" ]; then
+            echo "::error::Claude did not produce $REVIEW_PAYLOAD"
             exit 1
           fi
-          uv run --frozen --package skills skills validate-review /tmp/review-payload.json
+          jq --arg sha "$PR_HEAD_SHA" '.commit_id = $sha' "$REVIEW_PAYLOAD" > /tmp/pinned-payload.json
+          mv /tmp/pinned-payload.json "$REVIEW_PAYLOAD"
+
+      - name: Validate review payload
+        working-directory: base
+        run: |
+          uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
           echo "::group::Review payload"
-          jq . /tmp/review-payload.json
+          jq . "$REVIEW_PAYLOAD"
           echo "::endgroup::"
 
       - name: Post review
@@ -282,14 +316,14 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
-          gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input /tmp/review-payload.json
+          gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input "$REVIEW_PAYLOAD"
 
       - name: Redact secrets from transcript
         if: always()
         env:
           GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
           GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
-          PROXY_CLIENT_KEY: ${{ steps.proxy.outputs.client-key }}
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
         run: |
           python <<'PY'
           import os
@@ -300,7 +334,7 @@ jobs:
           if not path.exists():
               sys.exit(0)
           data = path.read_text()
-          for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE", "PROXY_CLIENT_KEY"):
+          for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE", "GATEWAY_TOKEN"):
               if val := os.environ.get(name):
                   data = data.replace(val, "***")
           path.write_text(data)

@@ -245,3 +245,45 @@ def test_filter_list_gateway_secrets_drops_unreadable(monkeypatch):
     a.filter_list_gateway_secrets(resp)
     ids = [s["secret_id"] for s in json.loads(resp.data)["secrets"]]
     assert ids == ["sec-allowed"]
+
+
+def test_secrets_config_redaction_registered():
+    # The redaction filter must be wired for the secrets/config GET so _after_request runs it
+    # (the path is otherwise excluded from the auto-built after-request handlers).
+    key = (a.GATEWAY_SECRETS_CONFIG, "GET")
+    assert a.AFTER_REQUEST_HANDLERS.get(key) is a.redact_secrets_config_for_non_admins
+
+
+def test_secrets_config_redacts_passphrase_for_non_admin(monkeypatch):
+    monkeypatch.setattr(a, "sender_is_admin", lambda: False)
+    resp = SimpleNamespace(
+        json={"secrets_available": True, "using_default_passphrase": True}, data=None
+    )
+    a.redact_secrets_config_for_non_admins(resp)
+    body = json.loads(resp.data)
+    assert body == {"secrets_available": True}
+    assert "using_default_passphrase" not in body
+
+
+def test_secrets_config_keeps_passphrase_for_admin(monkeypatch):
+    monkeypatch.setattr(a, "sender_is_admin", lambda: True)
+    resp = SimpleNamespace(
+        json={"secrets_available": True, "using_default_passphrase": True}, data=None
+    )
+    a.redact_secrets_config_for_non_admins(resp)
+    # Admin response is left untouched (data not rewritten).
+    assert resp.data is None
+
+
+def test_metric_history_bulk_interval_rest_prefix_is_gated():
+    # The /api/2.0 twin was ungated when only the /ajax-api path had a validator.
+    req = _Req("/api/2.0/mlflow/metrics/get-history-bulk-interval", "GET")
+    assert a._find_validator(req) is not None
+
+
+def test_demo_routes_gating():
+    # generate is authenticated-open; delete hard-deletes the shared demo -> admin-only.
+    gen = a._find_validator(_Req("/ajax-api/3.0/mlflow/demo/generate", "POST"))
+    dele = a._find_validator(_Req("/ajax-api/3.0/mlflow/demo/delete", "POST"))
+    assert gen is a._allow_authenticated
+    assert dele is a.sender_is_admin

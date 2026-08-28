@@ -60,6 +60,32 @@ use `gh` CLI instead of `actions/github-script`. It avoids the need for
     gh pr comment ...
 ```
 
+## Prefer the Shared Setup Actions
+
+Set up toolchains through the composite actions in `.github/actions/` rather than
+calling the upstream actions directly. Each one centralizes the pinned version and
+the env defaults every job expects, so an upstream bump stays a one-line change
+instead of a repo-wide sweep.
+
+| Toolchain       | Action                           |
+| --------------- | -------------------------------- |
+| Python and `uv` | `./.github/actions/setup-python` |
+| Node            | `./.github/actions/setup-node`   |
+| Java            | `./.github/actions/setup-java`   |
+
+```yaml
+# Bad: a second copy of the pin to keep in sync, and no uv or env defaults
+- uses: actions/setup-python@...
+
+# Good
+- uses: ./.github/actions/setup-python
+```
+
+Local action paths resolve relative to `$GITHUB_WORKSPACE`, so a workflow that
+checks the repo out into a subdirectory needs that prefix
+(`./mlflow/.github/actions/setup-python`). Never point it at a PR head checkout:
+that runs author-controlled code with whatever secrets the workflow holds.
+
 ## Use `sparse-checkout` When Only a Subset of Files Is Needed
 
 When a workflow only needs a small subset of the repo (e.g., a single script under `.github/`), pass `sparse-checkout` to `actions/checkout` instead of cloning the whole tree. A full checkout of this repo takes around 10 seconds on average; a sparse checkout finishes in a fraction of that.

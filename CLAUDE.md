@@ -85,14 +85,6 @@ tail -f "$LOG"
 
 ## Development Commands
 
-### Offline / No-Network Usage
-
-If PyPI is unreachable, add `--frozen` to `uv run` commands that should use the existing `uv.lock` as-is without modifying the environment. This works when the required dependencies are already installed or available in the local cache:
-
-```bash
-uv run --frozen pytest tests/
-```
-
 ### Package Cooldown Period
 
 7-day cooldown on new package releases to guard against compromised or broken
@@ -195,6 +187,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 # Push your changes
 git push origin <your-branch>
 ```
+
+### Keep Pull Requests to One Concern
+
+One PR = one concern. NEVER EVER bundle unrelated changes. They multiply review
+cost rather than adding to it, and since this repo squash-merges, they land as
+one commit that can't be reverted piece by piece and is hard to reason about
+later. When in doubt, split.
 
 ### Creating Pull Requests
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from mlflow.protos.service_pb2 import CreatePresignedUploadUrl as ProtoCreatePresignedUploadUrl
+
 
 @dataclass
 class CreatePresignedUploadResponse:
@@ -11,18 +13,16 @@ class CreatePresignedUploadResponse:
     presigned_url: str
     headers: dict[str, str] = field(default_factory=dict)
 
-    def to_proto(self):
-        from mlflow.protos.service_pb2 import (
-            CreatePresignedUploadUrl as ProtoCreatePresignedUploadUrl,
-        )
-
+    def to_proto(self) -> ProtoCreatePresignedUploadUrl.Response:
         response = ProtoCreatePresignedUploadUrl.Response()
         response.presigned_url = self.presigned_url
         response.headers.update(self.headers)
         return response
 
     @classmethod
-    def from_proto(cls, proto) -> CreatePresignedUploadResponse:
+    def from_proto(
+        cls, proto: ProtoCreatePresignedUploadUrl.Response
+    ) -> CreatePresignedUploadResponse:
         return cls(
             presigned_url=proto.presigned_url,
             headers=dict(proto.headers),
