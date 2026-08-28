@@ -103,6 +103,13 @@ interface UseTracesV4SavedViewsParams {
   setFilterModel: (next: TraceFilterModel) => void;
   /** Candidate assessment names, so restored assessment-filter clauses validate against live fields. */
   assessmentNames?: string[];
+  /**
+   * Live assessment-column visibility by name (localStorage-backed, not URL) — captured into a view on
+   * save and diffed for dirty. Defaults to an empty map so a page with no assessments captures nothing.
+   */
+  assessmentVisibility?: Record<string, boolean>;
+  /** Restores a view's assessment visibility (overwrites the override map); used by open / reset. */
+  setAssessmentVisibility?: (visibility: Record<string, boolean> | undefined) => void;
 }
 
 /**
@@ -119,6 +126,8 @@ export const useTracesV4SavedViews = ({
   resetColumns,
   setFilterModel,
   assessmentNames = [],
+  assessmentVisibility = {},
+  setAssessmentVisibility,
 }: UseTracesV4SavedViewsParams) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const intl = useIntl();
@@ -211,8 +220,9 @@ export const useTracesV4SavedViews = ({
         );
         return null;
       }
-      // Capture the current URL view params + the live columns and filter model (neither in the URL).
-      const state = captureV4ViewState(searchParams, visibleColumns, filterModel);
+      // Capture the current URL view params + the live columns, filter model and assessment-column
+      // visibility (none of the latter three ride in the URL).
+      const state = captureV4ViewState(searchParams, visibleColumns, filterModel, assessmentVisibility);
       const compressedState = await textCompressDeflate(JSON.stringify(state));
       const id = getUUID();
       const envelope = encodeSavedViewEnvelope(name.trim(), compressedState, Date.now());
@@ -230,7 +240,18 @@ export const useTracesV4SavedViews = ({
       await refetch();
       return { id, state };
     },
-    [dispatch, experimentId, refetch, searchParams, visibleColumns, filterModel, views, atCap, intl],
+    [
+      dispatch,
+      experimentId,
+      refetch,
+      searchParams,
+      visibleColumns,
+      filterModel,
+      assessmentVisibility,
+      views,
+      atCap,
+      intl,
+    ],
   );
 
   const deleteView = useCallback(
@@ -305,8 +326,11 @@ export const useTracesV4SavedViews = ({
         setColumns(columns);
       }
       setFilterModel(supportedFilters(state.filters));
+      // Restore assessment-column visibility (localStorage, not URL). An older view without the field
+      // clears overrides rather than leaving the previous view's visibility applied on top.
+      setAssessmentVisibility?.(state.assessmentColumns);
     },
-    [setSearchParams, setColumns, setFilterModel, supportedFilters],
+    [setSearchParams, setColumns, setFilterModel, supportedFilters, setAssessmentVisibility],
   );
 
   // Return to the default state: drop every view param, clear the non-URL surfaces (columns +
@@ -367,7 +391,7 @@ export const useTracesV4SavedViews = ({
       if (!existing) {
         return;
       }
-      const state = captureV4ViewState(searchParams, visibleColumns, filterModel);
+      const state = captureV4ViewState(searchParams, visibleColumns, filterModel, assessmentVisibility);
       const compressedState = await textCompressDeflate(JSON.stringify(state));
       const envelope = encodeSavedViewEnvelope(existing.name, compressedState, existing.createdAt, Date.now());
       if (envelope.length > MAX_TAG_VALUE_LENGTH) {
@@ -399,7 +423,7 @@ export const useTracesV4SavedViews = ({
         3,
       );
     },
-    [views, searchParams, visibleColumns, filterModel, dispatch, experimentId, refetch, intl],
+    [views, searchParams, visibleColumns, filterModel, assessmentVisibility, dispatch, experimentId, refetch, intl],
   );
 
   // Discard live edits: re-apply the active view's stored state (which also restores its columns).
@@ -435,12 +459,13 @@ export const useTracesV4SavedViews = ({
           setColumns(columns);
         }
         setFilterModel(supportedFilters(state.filters));
+        setAssessmentVisibility?.(state.assessmentColumns);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [activeViewId, decodeViewState, setColumns, setFilterModel, supportedFilters]);
+  }, [activeViewId, decodeViewState, setColumns, setFilterModel, supportedFilters, setAssessmentVisibility]);
 
   // Dirty = the live table (URL view params + columns) diverges from the active view's stored state.
   // Treated as clean until the stored state is loaded AND columns are hydrated, so it never flashes
@@ -449,7 +474,7 @@ export const useTracesV4SavedViews = ({
     if (!activeViewId || !activeStoredState || hydratedViewIdRef.current !== activeViewId) {
       return 'clean';
     }
-    const live = captureV4ViewState(searchParams, visibleColumns, filterModel);
+    const live = captureV4ViewState(searchParams, visibleColumns, filterModel, assessmentVisibility);
     // Normalize the stored baseline's filters the same way openView restores them (drop unsupported
     // clauses); diffing raw stored filters would mark a view with a since-removed field dirty forever.
     const normalizedStored: CapturedV4ViewState = {
@@ -457,7 +482,15 @@ export const useTracesV4SavedViews = ({
       filters: supportedFilters(activeStoredState.filters),
     };
     return capturedV4StatesMatch(live, normalizedStored) ? 'clean' : 'dirty';
-  }, [activeViewId, activeStoredState, searchParams, visibleColumns, filterModel, supportedFilters]);
+  }, [
+    activeViewId,
+    activeStoredState,
+    searchParams,
+    visibleColumns,
+    filterModel,
+    assessmentVisibility,
+    supportedFilters,
+  ]);
 
   // Opening a saved-view link in a tab whose experiment was loaded before the view was saved reads a
   // stale Apollo tag cache (a client-side nav doesn't refetch). The view still applies (its state

@@ -49,6 +49,10 @@ export interface CapturedV4ViewState {
   // validation pass (see `isSupportedFilterClause`) so a clause referencing a since-removed
   // field/operator is dropped rather than silently producing wrong results.
   filters?: TraceFilterModel;
+  // Assessment-column visibility by assessment name (localStorage-backed, not URL). A full map, not a
+  // visible-id list, so a hidden column is recorded too — restoring a bare id list would lose explicit
+  // hides. Absent in older stored views (treated as "capture nothing", i.e. clear overrides on restore).
+  assessmentColumns?: Record<string, boolean>;
 }
 
 export const getTraceV4SavedViewTagKey = (id: string): string => `${TRACE_V4_SAVED_VIEW_TAG_PREFIX}${id}`;
@@ -86,6 +90,7 @@ export const captureV4ViewState = (
   params: URLSearchParams,
   visibleColumns: readonly TraceColumnId[],
   filterModel: TraceFilterModel = [],
+  assessmentColumns: Record<string, boolean> = {},
 ): CapturedV4ViewState => {
   const single: CapturedV4ViewState['single'] = {};
   SINGLE_VALUE_KEYS.forEach((key) => {
@@ -107,6 +112,11 @@ export const captureV4ViewState = (
   const state: CapturedV4ViewState = { single, multi };
   if (filterModel.length > 0) {
     state.filters = filterModel;
+  }
+  // Omit an empty map so a view saved on a page with no assessments stays byte-identical to a legacy
+  // one (and never spuriously reads as dirty against `assessmentColumns ?? {}`).
+  if (Object.keys(assessmentColumns).length > 0) {
+    state.assessmentColumns = assessmentColumns;
   }
   return state;
 };

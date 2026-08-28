@@ -88,6 +88,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     resetColumns,
     setFilterModel: controller.setFilterModel,
     assessmentNames: assessments.candidateNames,
+    assessmentVisibility: assessments.visibilityByName,
+    setAssessmentVisibility: assessments.setVisibility,
   });
 
   const handleHideColumn = useCallback(

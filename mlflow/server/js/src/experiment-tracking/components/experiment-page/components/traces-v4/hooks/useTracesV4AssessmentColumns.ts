@@ -30,10 +30,17 @@ export interface TracesV4AssessmentColumns {
   selectorOptions: GenericColumnOption[];
   /** Namespaced ids of the currently-visible assessment columns. */
   visibleIds: string[];
+  /** Effective visibility by assessment name; captured into a saved view (see the `useMemo` below). */
+  visibilityByName: Record<string, boolean>;
   /** Toggle an assessment column's visibility by its namespaced id. */
   toggle: (id: string) => void;
   /** Show or hide every candidate assessment column at once (the "all assessments" toggle). */
   setAllVisible: (visible: boolean) => void;
+  /**
+   * Restore a saved view's assessment visibility (overwrites the override map). `undefined` clears
+   * overrides (returns every column to its default), matching an older view that captured nothing.
+   */
+  setVisibility: (visibility: Record<string, boolean> | undefined) => void;
   /** Clear all assessment overrides (return every column to its default visibility). */
   reset: () => void;
 }
@@ -105,5 +112,39 @@ export const useTracesV4AssessmentColumns = (
 
   const reset = useCallback(() => setOverrides({}), [setOverrides]);
 
-  return { columnDefs, candidateNames, selectorOptions, visibleIds, toggle, setAllVisible, reset };
+  // Effective visibility for the page's candidate assessments, plus any off-page name that is
+  // explicitly hidden. A hidden name that has dropped off the page (no traces carry it) must still be
+  // recorded so a saved view keeps hiding it; but an off-page name that's visible is left out — absent
+  // already means default-visible, and carrying it would let the stored map accumulate stale `true`
+  // entries across save/restore cycles.
+  const visibilityByName = useMemo(() => {
+    const visible = new Set(visibleNames);
+    const result: Record<string, boolean> = {};
+    for (const name of candidateNames) {
+      result[name] = overrides[name] ?? visible.has(name);
+    }
+    for (const [name, isVisible] of Object.entries(overrides)) {
+      if (!(name in result) && isVisible === false) {
+        result[name] = false;
+      }
+    }
+    return result;
+  }, [candidateNames, visibleNames, overrides]);
+
+  const setVisibility = useCallback(
+    (visibility: Record<string, boolean> | undefined) => setOverrides(visibility ?? {}),
+    [setOverrides],
+  );
+
+  return {
+    columnDefs,
+    candidateNames,
+    selectorOptions,
+    visibleIds,
+    visibilityByName,
+    toggle,
+    setAllVisible,
+    setVisibility,
+    reset,
+  };
 };

@@ -88,6 +88,19 @@ describe('captureV4ViewState', () => {
     expect(noFilters.filters).toBeUndefined();
   });
 
+  test('captures assessment-column visibility, omitting an empty map', () => {
+    // An empty map is omitted so a view saved with no assessments stays byte-identical to a legacy one.
+    const withAssessments = captureV4ViewState(params('q=x'), ['start_time'], [], {
+      correctness: true,
+      relevance: false,
+    });
+    expect(withAssessments.assessmentColumns).toEqual({ correctness: true, relevance: false });
+    expect(params(buildV4ViewQuery(withAssessments, 'view-1')).has('assessmentColumns')).toBe(false);
+
+    const noAssessments = captureV4ViewState(params('q=x'), ['start_time'], [], {});
+    expect(noAssessments.assessmentColumns).toBeUndefined();
+  });
+
   test('never captures an incoming share key or cols param from the URL (only the live columns)', () => {
     // Opening view A then saving must not leak A's share key / cols into view B.
     const state = captureV4ViewState(params(`q=x&cols=tokens,cost&${TRACE_V4_SHARE_URL_PARAM_KEY}=other-view`), [

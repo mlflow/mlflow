@@ -45,8 +45,9 @@ const makeV4ViewTag = async (
   query = 'q=x',
   cols: TraceColumnId[] = ['start_time'],
   filters: TraceFilterModel = [],
+  assessments: Record<string, boolean> = {},
 ) => {
-  const state = captureV4ViewState(new URLSearchParams(query), cols, filters);
+  const state = captureV4ViewState(new URLSearchParams(query), cols, filters, assessments);
   const compressed = await textCompressDeflate(JSON.stringify(state));
   return { key: `mlflow.tracesV4ViewState.${id}`, value: encodeSavedViewEnvelope(name, compressed, createdAt) };
 };
@@ -342,12 +343,15 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
   // Report BOTH the hook API and the live URL search each render, so assertions read the in-memory
   // router's state (TestRouter never touches window.location.hash) after a param rewrite.
   const setFilterModel = jest.fn();
+  const setAssessmentVisibility = jest.fn();
   const DirtyProbe = ({
     onRender,
     filterModel = [],
+    assessmentVisibility = {},
   }: {
     onRender: (s: any, search: string) => void;
     filterModel?: TraceFilterModel;
+    assessmentVisibility?: Record<string, boolean>;
   }) => {
     const savedViews = useTracesV4SavedViews({
       experimentId: 'exp-1',
@@ -356,6 +360,8 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       setColumns,
       resetColumns: jest.fn(),
       setFilterModel,
+      assessmentVisibility,
+      setAssessmentVisibility,
     });
     const [params] = useSearchParams();
     onRender(savedViews, params.toString());
@@ -366,12 +372,13 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
     entry: string,
     onRender: (s: any, search: string) => void,
     filterModel: TraceFilterModel = [],
+    assessmentVisibility: Record<string, boolean> = {},
   ) =>
     render(
       <IntlProvider locale="en">
         <DesignSystemProvider>
           <MockedReduxStoreProvider>
-            <DirtyProbe onRender={onRender} filterModel={filterModel} />
+            <DirtyProbe onRender={onRender} filterModel={filterModel} assessmentVisibility={assessmentVisibility} />
           </MockedReduxStoreProvider>
         </DesignSystemProvider>
       </IntlProvider>,
@@ -528,6 +535,27 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
     });
     expect(setFilterModel).toHaveBeenLastCalledWith([]);
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
+  });
+
+  test('opening a view restores its stored assessment-column visibility', async () => {
+    // v1 stored with one assessment hidden; opening it must push the full map into the live store.
+    mockExperiment([
+      await makeV4ViewTag('v1', 'Known', 1000, 'q=x', ['start_time'], [], { correctness: true, relevance: false }),
+    ]);
+    let state: any;
+    renderProbeAt('/', (s) => (state = s));
+    await act(async () => {
+      await state.openView('v1');
+    });
+    expect(setAssessmentVisibility).toHaveBeenCalledWith({ correctness: true, relevance: false });
+  });
+
+  test('an assessment-visibility divergence from the stored view reads as dirty', async () => {
+    // v1 stored with correctness visible; the probe's live map hides it → dirty.
+    mockExperiment([await makeV4ViewTag('v1', 'Known', 1000, 'q=x', ['start_time'], [], { correctness: true })]);
+    let state: any;
+    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s), [], { correctness: false });
+    await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
   });
 });
 
