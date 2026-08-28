@@ -214,8 +214,7 @@ jobs:
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
-      - name: Set up gateway
-        id: gateway
+      - id: gateway
         uses: ./base/.github/actions/setup-gateway
         with:
           task: pr-review
