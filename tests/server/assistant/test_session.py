@@ -210,6 +210,17 @@ def test_container_id_roundtrip(monkeypatch, tmp_path):
     assert session_module.get_container_id(_VALID_SID) is None
 
 
+def test_clear_container_id_tolerates_missing_file(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    # A second clear (e.g. a cancel racing the stream's finally) must not raise once the file is
+    # already gone.
+    session_module.save_container_id(_VALID_SID, "cid-1")
+    session_module.clear_container_id(_VALID_SID)
+    session_module.clear_container_id(_VALID_SID)
+
+
 def test_terminate_session_container_kills_and_clears(monkeypatch, tmp_path):
     import mlflow.server.assistant.session as session_module
 

@@ -81,6 +81,13 @@ def test_provider_display_name():
     assert CodexProvider().display_name == "Codex"
 
 
+def test_check_connection_skips_host_probe_in_sandbox_mode(monkeypatch):
+    # In sandbox mode the CLI lives in the image, so a missing host binary must not fail the check.
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
+    with patch("mlflow.assistant.providers.codex.shutil.which", return_value=None):
+        CodexProvider().check_connection()  # does not raise
+
+
 @pytest.mark.asyncio
 async def test_astream_yields_error_when_codex_not_found():
     with patch("mlflow.assistant.providers.codex.shutil.which", return_value=None):

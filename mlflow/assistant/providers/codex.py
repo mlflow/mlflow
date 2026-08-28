@@ -91,6 +91,13 @@ class CodexProvider(AssistantProvider):
         return assistant_sandbox_enabled() or shutil.which(_CODEX_BINARY) is not None
 
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
+        if assistant_sandbox_enabled():
+            # The CLI runs inside the operator image, not on the host, so there is no host binary
+            # or host login to verify here; image presence and auth are checked when a turn starts
+            # the container.
+            if echo:
+                echo("Assistant sandbox enabled; the Codex CLI runs in the sandbox image.")
+            return
         codex_path = shutil.which(_CODEX_BINARY)
         if not codex_path:
             if echo:

@@ -53,15 +53,16 @@ _STDIN_FILE = "stdin"
 # model endpoint) otherwise streams nothing and the turn would hang indefinitely. This is an
 # idle timeout, not a total-runtime cap, so a turn that keeps streaming output is never cut.
 _DEFAULT_STREAM_IDLE_TIMEOUT = 120.0
-# Max stdout lines buffered between the drain thread and the consumer. Bounds memory if the CLI
-# emits faster than a slow SSE client drains: the drain thread blocks (applying backpressure to
-# the container) instead of the queue growing without limit.
-_MAX_BUFFERED_LINES = 1000
-# Max bytes for a single stdout line. The buffered-line count above bounds memory only if each
-# line is itself bounded; without this, output that never emits a newline would grow the drain
-# buffer without limit and could OOM the server. A stream-json line (e.g. a large tool result)
-# can legitimately be tens of MB, so this is set well above that; exceeding it is treated as
-# malformed output and aborts the stream.
+# Max total stdout bytes buffered between the drain thread and the consumer. Bounds memory if the
+# CLI emits faster than a slow SSE client drains: the drain thread blocks (applying backpressure
+# to the container) once this many unconsumed bytes are in flight, instead of the queue growing
+# without limit. Bounding by bytes rather than line count keeps the ceiling fixed regardless of
+# how large individual lines are.
+_MAX_BUFFERED_BYTES = 256 * 1024 * 1024
+# Max bytes for a single stdout line, enforced while accumulating an unterminated line: without
+# it, output that never emits a newline would grow the drain buffer without limit and could OOM
+# the server. A stream-json line (e.g. a large tool result) can legitimately be tens of MB, so
+# this sits above that but within the in-flight budget; exceeding it aborts the stream.
 _MAX_LINE_BYTES = 128 * 1024 * 1024
 
 
@@ -111,16 +112,19 @@ class SandboxProcess:
 
         ``container.logs(stream=True, follow=True)`` is a blocking generator, so it is drained
         on a worker thread that hands items to this coroutine through a queue. Buffering is
-        bounded to ``_MAX_BUFFERED_LINES`` via a semaphore: the drain thread blocks before
-        enqueuing once that many lines are unconsumed, so a slow SSE client applies backpressure
-        to the container rather than letting the queue grow until the server is OOM-killed.
+        bounded to ``_MAX_BUFFERED_BYTES`` of in-flight output: the drain thread blocks before
+        enqueuing once that many unconsumed bytes are queued, so a slow SSE client applies
+        backpressure to the container rather than letting the queue grow until the server is
+        OOM-killed.
         """
         loop = asyncio.get_running_loop()
         # Items are bytes lines, a terminal sentinel, or an Exception raised while draining.
         queue: asyncio.Queue[bytes | object | Exception] = asyncio.Queue()
-        # Bounds in-flight data lines: the drain thread acquires a permit before enqueuing a line
-        # (blocking when the consumer is behind) and the consumer releases one after taking a line.
-        capacity = threading.Semaphore(_MAX_BUFFERED_LINES)
+        # Bounds in-flight bytes: the drain thread waits until a line fits under the budget before
+        # enqueuing it (blocking when the consumer is behind) and the consumer subtracts a line's
+        # bytes after dequeuing it. Guarded by the condition so both threads see a consistent total.
+        budget = threading.Condition()
+        buffered_bytes = 0
         sentinel = object()
         last_activity = time.monotonic()
         stop_watchdog = threading.Event()
@@ -139,12 +143,18 @@ class SandboxProcess:
                 pass
 
         def _put_line(line: bytes) -> bool:
-            # Backpressure: wait for the consumer to free a slot before enqueuing, so a slow
-            # reader can't grow the queue without bound. Give up if the consumer has torn down
+            # Backpressure: wait until this line fits within the in-flight byte budget before
+            # enqueuing, so a slow reader can't grow the queue without bound. A line is always
+            # admitted when nothing is buffered (so a single line up to _MAX_LINE_BYTES still
+            # passes even if it alone exceeds the budget). Give up if the consumer has torn down
             # (its finally sets stop_watchdog) so this daemon thread does not park forever.
-            while not capacity.acquire(timeout=1.0):
-                if stop_watchdog.is_set():
-                    return False
+            nonlocal buffered_bytes
+            with budget:
+                while buffered_bytes and buffered_bytes + len(line) > _MAX_BUFFERED_BYTES:
+                    if stop_watchdog.is_set():
+                        return False
+                    budget.wait(timeout=1.0)
+                buffered_bytes += len(line)
             _safe_put(line)
             return True
 
@@ -200,13 +210,17 @@ class SandboxProcess:
                     break
                 if isinstance(item, Exception):
                     raise SandboxUnavailableError(f"Sandbox output stream failed: {item}")
-                # Free the slot this line held so the drain thread may enqueue the next one.
-                capacity.release()
+                # Free the bytes this line held so the drain thread may enqueue more.
+                with budget:
+                    buffered_bytes -= len(item)
+                    budget.notify()
                 yield item
         finally:
-            # The drain thread's acquire() times out every second and re-checks this, so it
-            # observes the teardown and exits without needing an extra release here.
-            stop_watchdog.set()
+            # The drain thread's budget.wait() times out every second and re-checks this, so it
+            # observes the teardown and exits; wake it now so it does not linger up to a second.
+            with budget:
+                stop_watchdog.set()
+                budget.notify_all()
 
     async def wait(self) -> int:
         outcome = await asyncio.to_thread(self._container.wait)

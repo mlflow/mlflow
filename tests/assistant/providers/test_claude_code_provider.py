@@ -113,6 +113,15 @@ def test_check_connection_runs_auth_verification_prompt():
     )
 
 
+def test_check_connection_skips_host_probe_in_sandbox_mode(monkeypatch):
+    # In sandbox mode the CLI lives in the image, so a missing host binary must not fail the check.
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    with patch("mlflow.assistant.providers.claude_code.shutil.which", return_value=None):
+        ClaudeCodeProvider().check_connection()  # does not raise
+
+
 def test_check_connection_raises_not_authenticated_for_auth_error():
     completed = subprocess.CompletedProcess(
         args=["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],

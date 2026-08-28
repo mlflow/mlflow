@@ -407,6 +407,13 @@ class ClaudeCodeProvider(AssistantProvider):
         Raises:
             ProviderNotConfiguredError: If CLI is not installed or not authenticated.
         """
+        if assistant_sandbox_enabled():
+            # The CLI runs inside the operator image, not on the host, so there is no host binary
+            # or host login to verify here; image presence and auth are checked when a turn starts
+            # the container.
+            if echo:
+                echo("Assistant sandbox enabled; the Claude Code CLI runs in the sandbox image.")
+            return
         claude_path = shutil.which("claude")
         if not claude_path:
             if echo:

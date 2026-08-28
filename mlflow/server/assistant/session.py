@@ -286,8 +286,9 @@ def clear_container_id(session_id: str) -> None:
         container_file = get_container_file(session_id)
     except ValueError:
         return
-    if container_file.exists():
-        container_file.unlink()
+    # missing_ok: the stream's finally and a concurrent cancel can both clear the same id; tolerate
+    # the file already being gone rather than raising a spurious error on the losing path.
+    container_file.unlink(missing_ok=True)
 
 
 def get_session_sandbox_home(session_id: str) -> Path:
