@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787826203273,
+  "lastUpdate": 1787904391648,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -25109,6 +25109,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.33754320000071,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141703684+VenishPaneliya@users.noreply.github.com",
+            "name": "Venish Paneliya",
+            "username": "VenishPaneliya"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c3bfb448d430565f87226553e4df4e2af3de4a9d",
+          "message": "Fix `search_logged_models` quoted-value parsing and invalid-operator message (#25398)\n\nSigned-off-by: VenishPaneliya <141703684+VenishPaneliya@users.noreply.github.com>\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-28T17:05:05+09:00",
+          "tree_id": "7f664fd6a97ab953f1ea7d77b0c381d0ed0915b6",
+          "url": "https://github.com/mlflow/mlflow/commit/c3bfb448d430565f87226553e4df4e2af3de4a9d"
+        },
+        "date": 1787904388890,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.48557829999993,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.488579018517692,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.525162802920075,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.545587669643384,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.818584142856945,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 8.981734400001073,
             "unit": "ms"
           }
         ]
