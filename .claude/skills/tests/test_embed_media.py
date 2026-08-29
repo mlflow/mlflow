@@ -365,6 +365,7 @@ def test_check_rejects_a_citation_that_is_not_the_path_written(tmp_path: Path, b
         "[upstream](https://example.com/diagram.png)",
         "the `logo.png` in the diff",
         "[the module](mlflow/utils.py)",
+        "[the run log](/tmp/other/output.jsonl)",
     ],
 )
 def test_check_leaves_references_that_are_not_captures_alone(tmp_path: Path, body: str) -> None:
@@ -378,7 +379,6 @@ def test_check_leaves_references_that_are_not_captures_alone(tmp_path: Path, bod
     [
         "[the docs icon](docs/static/img/shot.png)",
         "[upstream](https://example.com/shot.png)",
-        "[a capture from another run](/tmp/other/shot.png)",
     ],
 )
 def test_check_leaves_a_link_whose_basename_collides_with_a_capture_alone(
@@ -387,6 +387,18 @@ def test_check_leaves_a_link_whose_basename_collides_with_a_capture_alone(
     # The capture is named shot.png, so every one of these shares its basename.
     report = check(tmp_path, body)
     assert report.errors == []
+
+
+@pytest.mark.parametrize("cite", ["/tmp/other/shot.png", "/tmp/other/absent.png"])
+def test_check_rejects_a_capture_cited_from_outside_the_media_directory(
+    tmp_path: Path, cite: str
+) -> None:
+    # The shape of a --dir pointing somewhere other than where the capture was written.
+    report = check(tmp_path, f"[the bug]({cite})")
+    assert report.errors == [
+        f"({cite}): not a capture in {tmp_path / 'media'}, so the citation is stripped "
+        "and the finding degrades to prose"
+    ]
 
 
 def test_check_warns_about_a_capture_nothing_cites(tmp_path: Path) -> None:
@@ -550,6 +562,22 @@ def test_cli_strips_a_bare_filename_citation(
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
     target.write_text(f"evidence: ![the bug]({cite})")
+
+    monkeypatch.setenv("GH_TOKEN", "t")
+    args = build_args(media, target)
+    with mock.patch.object(embed_media, "upload_asset") as uploader:
+        args.func(args)
+
+    uploader.assert_not_called()
+    assert target.read_text() == "evidence: the bug"
+
+
+def test_cli_strips_a_capture_cited_from_outside_the_media_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = make_media(tmp_path)
+    target = tmp_path / "body.md"
+    target.write_text("evidence: ![the bug](/tmp/other/shot.png)")
 
     monkeypatch.setenv("GH_TOKEN", "t")
     args = build_args(media, target)

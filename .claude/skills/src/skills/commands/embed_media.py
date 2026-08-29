@@ -91,6 +91,16 @@ def rewrite_payload(
 LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)\)")
 
 
+def is_local_media(raw: str) -> bool:
+    """Whether a citation names media on this machine rather than something GitHub serves.
+
+    Claude cites a capture by the absolute path it wrote it to, so one that matches no
+    collected file is a typo or a --dir that points somewhere else. GitHub resolves it
+    against the repository, where it is a 404 either way.
+    """
+    return raw.startswith("/") and Path(raw).suffix.lower() in MIME_TYPES
+
+
 @dataclass
 class CheckReport:
     errors: list[str] = field(default_factory=list)
@@ -132,7 +142,7 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
             if path and raw == str(path):
                 cited.add(name)
             # A basename alone can only be meant as a capture; the same basename under
-            # some other directory is an ordinary link that happens to collide.
+            # some other relative path is an ordinary link that happens to collide.
             elif path and "/" not in raw.removeprefix("./"):
                 cited.add(name)
                 report.errors.append(f"({raw}): cite the capture as {path}")
@@ -140,6 +150,11 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
                 report.errors.append(
                     f"({raw}): no such file, so the citation is stripped and the finding "
                     "degrades to prose"
+                )
+            elif is_local_media(raw):
+                report.errors.append(
+                    f"({raw}): not a capture in {directory}, so the citation is stripped "
+                    "and the finding degrades to prose"
                 )
 
     for name in sorted(cited):
@@ -244,7 +259,9 @@ def run(args: argparse.Namespace) -> None:
         raw
         for raw in dict.fromkeys(LINK.findall(target_text))
         if raw not in resolvable
-        and (raw.startswith(f"{args.dir}/") or raw.removeprefix("./") in names)
+        and (
+            raw.startswith(f"{args.dir}/") or raw.removeprefix("./") in names or is_local_media(raw)
+        )
     ]
     for raw in stray:
         print(f"  no such capture, stripping: {raw}", file=sys.stderr)
