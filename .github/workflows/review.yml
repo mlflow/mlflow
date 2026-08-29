@@ -175,8 +175,8 @@ jobs:
               # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
               fetch-depth: 2
       # HEAD^2 of the merge ref is the PR head. A mismatch means the branch moved
-      # between the gate and the checkout, leaving the review reading one commit
-      # and its comments anchored to another.
+      # between the gate and this checkout, so the run would review a different
+      # commit than the one it was started for.
       - name: Verify reviewed head commit
         env:
           EXPECTED_HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
