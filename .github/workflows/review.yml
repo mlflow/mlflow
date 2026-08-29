@@ -521,10 +521,16 @@ jobs:
           COMMENT_ID: ${{ github.event.comment.id }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          POST_STATUS: ${{ job.status }}
         run: |
-          # Missing only when the review job died before building it.
-          if [ ! -f "$RESULT_BODY" ]; then
-            mkdir -p "$(dirname "$RESULT_BODY")"
+          mkdir -p "$(dirname "$RESULT_BODY")"
+          # The review job renders this before this job runs, so it reports the
+          # review's own outcome and knows nothing about pinning, validation, or
+          # the POST. A failure in any of those must not leave a success message.
+          if [ "$POST_STATUS" != "success" ]; then
+            printf '%s\n\n---\n\n❌ [Review](%s) ran but could not be posted.' \
+              "$COMMENT_BODY" "$RUN_URL" > "$RESULT_BODY"
+          elif [ ! -f "$RESULT_BODY" ]; then
             printf '%s\n\n---\n\n❌ [Review](%s) failed before it could report a result.' \
               "$COMMENT_BODY" "$RUN_URL" > "$RESULT_BODY"
           fi
