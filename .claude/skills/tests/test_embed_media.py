@@ -379,6 +379,7 @@ def test_check_leaves_references_that_are_not_captures_alone(tmp_path: Path, bod
     [
         "[the docs icon](docs/static/img/shot.png)",
         "[upstream](https://example.com/shot.png)",
+        "[the cdn](//cdn.example.com/shot.png)",
     ],
 )
 def test_check_leaves_a_link_whose_basename_collides_with_a_capture_alone(
@@ -389,15 +390,23 @@ def test_check_leaves_a_link_whose_basename_collides_with_a_capture_alone(
     assert report.errors == []
 
 
-@pytest.mark.parametrize("cite", ["/tmp/other/shot.png", "/tmp/other/absent.png"])
-def test_check_rejects_a_capture_cited_from_outside_the_media_directory(
-    tmp_path: Path, cite: str
+def test_check_points_a_capture_cited_from_another_directory_at_the_path_written(
+    tmp_path: Path,
 ) -> None:
     # The shape of a --dir pointing somewhere other than where the capture was written.
-    report = check(tmp_path, f"[the bug]({cite})")
+    report = check(tmp_path, "[the bug](/tmp/other/shot.png)")
     assert report.errors == [
-        f"({cite}): not a capture in {tmp_path / 'media'}, so the citation is stripped "
-        "and the finding degrades to prose"
+        f"(/tmp/other/shot.png): cite the capture as {tmp_path / 'media' / 'shot.png'}"
+    ]
+    # The capture is cited, just under the wrong directory, so it is not also uncited.
+    assert report.warnings == []
+
+
+def test_check_rejects_a_local_citation_matching_no_capture(tmp_path: Path) -> None:
+    report = check(tmp_path, "[the bug](/tmp/other/absent.png)")
+    assert report.errors == [
+        f"(/tmp/other/absent.png): not a capture in {tmp_path / 'media'}, so the citation is "
+        "stripped and the finding degrades to prose"
     ]
 
 
@@ -592,12 +601,15 @@ def test_cli_strips_a_capture_cited_from_outside_the_media_directory(
     )
 
 
+@pytest.mark.parametrize(
+    "body",
+    ["see [the icon](docs/static/img/shot.png)", "see [the cdn](//cdn.example.com/shot.png)"],
+)
 def test_cli_leaves_a_link_outside_the_media_directory_alone(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str
 ) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
-    body = "see [the icon](docs/static/img/shot.png)"
     target.write_text(body)
 
     monkeypatch.setenv("GH_TOKEN", "t")

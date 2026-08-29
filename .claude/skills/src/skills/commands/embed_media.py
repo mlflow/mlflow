@@ -96,9 +96,12 @@ def is_local_media(raw: str) -> bool:
 
     Claude cites a capture by the absolute path it wrote it to, so one that matches no
     collected file is a typo or a --dir that points somewhere else. GitHub resolves it
-    against the repository, where it is a 404 either way.
+    against the repository, where it is a 404 either way. A leading // is a
+    scheme-relative URL, which GitHub serves like any other.
     """
-    return raw.startswith("/") and Path(raw).suffix.lower() in MIME_TYPES
+    return (
+        raw.startswith("/") and not raw.startswith("//") and Path(raw).suffix.lower() in MIME_TYPES
+    )
 
 
 @dataclass
@@ -141,9 +144,9 @@ def check_media(directory: Path, texts: list[str]) -> CheckReport:
             path = by_name.get(name)
             if path and raw == str(path):
                 cited.add(name)
-            # A basename alone can only be meant as a capture; the same basename under
-            # some other relative path is an ordinary link that happens to collide.
-            elif path and "/" not in raw.removeprefix("./"):
+            # A basename alone, or a local path, can only be meant as a capture; the same
+            # basename under some other relative path is a link that happens to collide.
+            elif path and ("/" not in raw.removeprefix("./") or is_local_media(raw)):
                 cited.add(name)
                 report.errors.append(f"({raw}): cite the capture as {path}")
             elif raw.startswith(f"{directory}/"):
