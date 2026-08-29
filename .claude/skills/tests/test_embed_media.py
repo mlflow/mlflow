@@ -599,7 +599,10 @@ def test_cli_strips_a_capture_cited_from_outside_the_media_directory(
 
     uploader.assert_not_called()
     assert target.read_text() == "evidence: the bug"
-    assert f"::warning::citations naming no capture, stripped: {cite}" in capsys.readouterr().out
+    # One annotation for the run, however many citations it stripped.
+    out = capsys.readouterr().out
+    assert f"::warning::citations naming no capture, stripped: {cite}" in out
+    assert out.count("::warning::") == 1
 
 
 @pytest.mark.parametrize(
