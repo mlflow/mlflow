@@ -125,8 +125,10 @@ Every workflow in this repo sets top-level `defaults.run.shell: bash` (enforced 
 Values that come from `secrets.*` are masked automatically. Anything a step
 mints at runtime (an OAuth token exchanged over `curl`, a random passphrase, a
 value decoded out of another secret) is not, so the first command that echoes it
-prints it in clear text. Emit `::add-mask::` the moment the value exists, before
-it reaches `$GITHUB_OUTPUT`, `$GITHUB_ENV`, or any other command.
+prints it in clear text. Emit
+[`::add-mask::`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#masking-a-value-in-a-log)
+the moment the value exists, before it reaches `$GITHUB_OUTPUT`,
+`$GITHUB_ENV`, or any other command.
 
 ```yaml
 # Bad: nothing stops a later command from printing the token
@@ -147,4 +149,4 @@ a secret.
 
 The mask covers only the job that registered it, and a masked value cannot be
 handed to another job through job-level `outputs`: GitHub redacts it on the
-runner. Mint and mask it again in the job that needs it. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#masking-a-value-in-a-log))
+runner. Mint and mask it again in the job that needs it.
