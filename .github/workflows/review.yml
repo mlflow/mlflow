@@ -327,8 +327,8 @@ jobs:
             exit $EXIT_CODE
           fi
 
-      # The only payload check the pull_request smoke path gets. Not the gate on
-      # posting: `post` revalidates what it downloads.
+      # Fails the review job fast, next to the payload it produced. Not the gate on
+      # posting: `post` revalidates what it downloads on its own side.
       - name: Validate review payload
         working-directory: base
         run: |
@@ -427,12 +427,17 @@ jobs:
 
       # Absolute paths share /tmp as their common ancestor, so this unpacks as
       # review-payload.json, review-media/, and updated-comment.md.
+      # Keyed on run_id, not run_attempt: re-running only `post` leaves the
+      # successful `review` job (and its attempt-1 artifact) untouched, so `post`
+      # must look under a name that does not change across attempts. overwrite so
+      # a full re-run replaces it cleanly.
       - name: Upload review output
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: review-output-${{ github.run_id }}-${{ github.run_attempt }}
+          name: review-output-${{ github.run_id }}
+          overwrite: true
           path: |
             /tmp/review-payload.json
             /tmp/review-media
@@ -483,7 +488,7 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
         with:
-          name: review-output-${{ github.run_id }}-${{ github.run_attempt }}
+          name: review-output-${{ github.run_id }}
           path: /tmp
 
       # Attaching media is a nicety; losing the whole review over it is not. Any
