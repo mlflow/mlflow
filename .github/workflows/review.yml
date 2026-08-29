@@ -137,7 +137,7 @@ jobs:
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          for _ in $(seq 8); do
+          for _ in $(seq 6); do
             url=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
                     --jq '.jobs[] | select(.name == "review") | .html_url')
             if [ -n "$url" ]; then
@@ -451,14 +451,17 @@ jobs:
     # The app token below is the only credential here, so a bare `gh` call fails closed.
     permissions: {}
     timeout-minutes: 10
+    # Same paths the review job used: the payload cites media by absolute path,
+    # and `embed-media` matches those citations against the files it finds.
     env:
-      REVIEW_PAYLOAD: ${{ github.workspace }}/review-output/review-payload.json
-      REVIEW_MEDIA: ${{ github.workspace }}/review-output/review-media
-      RESULT_BODY: ${{ github.workspace }}/review-output/updated-comment.md
+      REVIEW_PAYLOAD: /tmp/review-payload.json
+      REVIEW_MEDIA: /tmp/review-media
+      RESULT_BODY: /tmp/updated-comment.md
     steps:
       # Needed only here: GitHub refuses approving reviews from GITHUB_TOKEN, and
       # the payload's `event` can be APPROVE.
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        if: github.event_name == 'issue_comment'
         id: app-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
@@ -466,9 +469,13 @@ jobs:
           permission-pull-requests: write
       # Not sparse: `uv run --package skills` resolves the whole workspace, so a
       # subset would have to track `[tool.uv.workspace].members`.
+      # Pinned to the base: with no `ref` this resolves to the PR's merge ref on
+      # pull_request, which would run PR-authored code in the job that holds the
+      # app token.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.base.sha || github.ref }}
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
@@ -477,7 +484,7 @@ jobs:
         continue-on-error: true
         with:
           name: review-output-${{ github.run_id }}-${{ github.run_attempt }}
-          path: review-output
+          path: /tmp
 
       # Attaching media is a nicety; losing the whole review over it is not. Any
       # fault here must not take the job down before Post review.
