@@ -441,10 +441,12 @@ jobs:
           if-no-files-found: ignore
 
   # Separate job so PR-write credentials never share a machine with the code the
-  # review executes. Jobs get their own VM; steps do not.
+  # review executes. Jobs get their own VM; steps do not. Runs on both events so
+  # the smoke path covers the artifact handoff, the pin, and validation; only the
+  # steps that mutate the PR are issue_comment-only.
   post:
     needs: [gate, review]
-    if: "!cancelled() && needs.gate.result == 'success' && github.event_name == 'issue_comment'"
+    if: "!cancelled() && needs.gate.result == 'success'"
     runs-on: ubuntu-latest
     # The app token below is the only credential here, so a bare `gh` call fails closed.
     permissions: {}
@@ -480,7 +482,7 @@ jobs:
       # Attaching media is a nicety; losing the whole review over it is not. Any
       # fault here must not take the job down before Post review.
       - name: Upload review media
-        if: needs.review.result == 'success'
+        if: needs.review.result == 'success' && github.event_name == 'issue_comment'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
@@ -518,7 +520,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Post review
-        if: needs.review.result == 'success'
+        if: needs.review.result == 'success' && github.event_name == 'issue_comment'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
@@ -527,7 +529,7 @@ jobs:
           gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input "$REVIEW_PAYLOAD"
 
       - name: Report review results
-        if: "!cancelled()"
+        if: "!cancelled() && github.event_name == 'issue_comment'"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
