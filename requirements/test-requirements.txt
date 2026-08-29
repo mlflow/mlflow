@@ -46,6 +46,8 @@ polars>=1
 dspy
 # required for testing mlflow.genai.optimize.optimizers
 gepa
+# required for testing mlflow.optuna and mlflow.pyspark.optuna
+optuna
 # required for testing docker compose
 testcontainers
 # required for testing cost tracking
