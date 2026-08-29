@@ -61,6 +61,7 @@ def test_download_remote_path_returns_streaming_response(client, tmp_path):
 
     assert resp.status_code == 200
     assert resp.content == test_data
+    assert resp.headers["Content-Length"] == str(len(test_data))
     assert "attachment" in resp.headers["Content-Disposition"]
     mock_repo.download_artifacts.assert_called_once()
 
