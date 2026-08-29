@@ -120,6 +120,7 @@ async def download_artifact(artifact_path: str):
             headers={
                 "Content-Type": mime_type,
                 "Content-Disposition": _content_disposition(filename),
+                "Content-Length": str(os.path.getsize(dst)),
                 "X-Content-Type-Options": "nosniff",
             },
         )
