@@ -119,3 +119,28 @@ Set `sparse-checkout-cone-mode: false` only when you need to target individual f
 ## `pipefail` Is Already On
 
 Every workflow in this repo sets top-level `defaults.run.shell: bash` (enforced by [`.github/policy.rego`](../../.github/policy.rego)). GitHub Actions runs `shell: bash` as `bash --noprofile --norc -eo pipefail {0}`, so `pipefail` is already enabled. Don't ask for `set -o pipefail` in workflow `run:` steps. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#defaultsrunshell))
+
+## Mask Secrets Generated Mid-Job
+
+Values that come from `secrets.*` are masked automatically. Anything a step
+mints at runtime (an OAuth token exchanged over `curl`, a random passphrase, a
+value decoded out of another secret) is not, so the first command that echoes it
+prints it in clear text. Emit `::add-mask::` the moment the value exists, before
+it reaches `$GITHUB_OUTPUT`, `$GITHUB_ENV`, or any other command.
+
+```yaml
+# Bad: nothing stops a later command (or `set -x`) from printing the token
+- run: |
+    TOKEN=$(curl -sS ... | jq -r .access_token)
+    echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+# Good
+- run: |
+    TOKEN=$(curl -sS ... | jq -r .access_token)
+    echo "::add-mask::$TOKEN"
+    echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+```
+
+The mask covers only the job that registered it, and a masked value cannot be
+handed to another job through job-level `outputs`: GitHub redacts it on the
+runner. Mint and mask it again in the job that needs it.
