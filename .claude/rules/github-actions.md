@@ -143,4 +143,4 @@ it reaches `$GITHUB_OUTPUT`, `$GITHUB_ENV`, or any other command.
 
 The mask covers only the job that registered it, and a masked value cannot be
 handed to another job through job-level `outputs`: GitHub redacts it on the
-runner. Mint and mask it again in the job that needs it.
+runner. Mint and mask it again in the job that needs it. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#masking-a-value-in-a-log))
