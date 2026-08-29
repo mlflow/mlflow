@@ -121,7 +121,7 @@ jobs:
   link:
     needs: gate
     runs-on: ubuntu-slim
-    timeout-minutes: 10
+    timeout-minutes: 1
     permissions:
       actions: read
       pull-requests: write
@@ -137,7 +137,7 @@ jobs:
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          for _ in $(seq 60); do
+          for _ in $(seq 8); do
             url=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
                     --jq '.jobs[] | select(.name == "review") | .html_url')
             if [ -n "$url" ]; then
