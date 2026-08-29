@@ -139,7 +139,7 @@ jobs:
         run: |
           for _ in $(seq 6); do
             url=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
-                    --jq '.jobs[] | select(.name == "review") | .html_url')
+                    --jq '.jobs[] | select(.name == "review") | .html_url') || true
             if [ -n "$url" ]; then
               echo "url=$url" >> "$GITHUB_OUTPUT"
               exit 0
@@ -453,7 +453,7 @@ jobs:
     needs: [gate, review]
     if: "!cancelled() && needs.gate.result == 'success'"
     runs-on: ubuntu-latest
-    # The app token below is the only credential here, so a bare `gh` call fails closed.
+    # permissions: {} grants no GITHUB_TOKEN, so a bare `gh` call that forgets its token fails closed.
     permissions: {}
     timeout-minutes: 10
     # Same paths the review job used: the payload cites media by absolute path,
@@ -480,7 +480,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.base.sha || github.ref }}
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
       - uses: ./.github/actions/setup-python
         with:
           pin-micro-version: false
