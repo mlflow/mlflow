@@ -263,8 +263,10 @@ def run(args: argparse.Namespace) -> None:
             raw.startswith(f"{args.dir}/") or raw.removeprefix("./") in names or is_local_media(raw)
         )
     ]
-    for raw in stray:
-        print(f"  no such capture, stripping: {raw}", file=sys.stderr)
+    if stray:
+        # The workflow step is continue-on-error, so a non-zero exit here would change
+        # nothing, and stderr is buried in the log. An annotation is what reaches a human.
+        print(f"::warning::citations naming no capture, stripped: {', '.join(stray)}")
     if not referenced and not stray:
         print(f"No media referenced by {args.target}")
         return

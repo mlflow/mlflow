@@ -573,7 +573,7 @@ def test_cli_strips_a_bare_filename_citation(
 
 
 def test_cli_strips_a_capture_cited_from_outside_the_media_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
@@ -586,6 +586,10 @@ def test_cli_strips_a_capture_cited_from_outside_the_media_directory(
 
     uploader.assert_not_called()
     assert target.read_text() == "evidence: the bug"
+    assert (
+        "::warning::citations naming no capture, stripped: /tmp/other/shot.png"
+        in capsys.readouterr().out
+    )
 
 
 def test_cli_leaves_a_link_outside_the_media_directory_alone(
