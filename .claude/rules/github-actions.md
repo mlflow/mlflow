@@ -129,7 +129,7 @@ prints it in clear text. Emit `::add-mask::` the moment the value exists, before
 it reaches `$GITHUB_OUTPUT`, `$GITHUB_ENV`, or any other command.
 
 ```yaml
-# Bad: nothing stops a later command (or `set -x`) from printing the token
+# Bad: nothing stops a later command from printing the token
 - run: |
     TOKEN=$(curl -sS ... | jq -r .access_token)
     echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
@@ -140,6 +140,10 @@ it reaches `$GITHUB_OUTPUT`, `$GITHUB_ENV`, or any other command.
     echo "::add-mask::$TOKEN"
     echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 ```
+
+`set -x` needs separate care: xtrace prints the assignment itself, so the value
+is in the log before the mask can register. Don't enable it in a step that mints
+a secret.
 
 The mask covers only the job that registered it, and a masked value cannot be
 handed to another job through job-level `outputs`: GitHub redacts it on the
