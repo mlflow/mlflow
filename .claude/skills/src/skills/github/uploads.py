@@ -14,14 +14,14 @@ UPLOAD_URL = "https://uploads.github.com/user-attachments/assets"
 
 # The name's extension must agree with content_type or the endpoint returns 422. The
 # allowlist is narrower than the formats GitHub documents for attachments: audio is
-# refused, so extend this map only against a live 201. svg does upload, but is left out
-# until something confirms GitHub renders an svg attachment in markdown.
+# refused, so extend this map only against a live 201.
 MIME_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
     ".gif": "image/gif",
     ".webp": "image/webp",
+    ".svg": "image/svg+xml",
     ".mp4": "video/mp4",
     ".mov": "video/quicktime",
     ".webm": "video/webm",

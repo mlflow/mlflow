@@ -28,6 +28,19 @@ def test_upload_asset_builds_the_request_and_returns_the_url(tmp_path: Path) -> 
     assert request.data == b"\x89PNG"
 
 
+def test_upload_asset_percent_encodes_the_svg_mime(tmp_path: Path) -> None:
+    # A bare + in the query decodes to a space, which the endpoint answers 422 for both
+    # content_type and a name that no longer matches it.
+    path = tmp_path / "diagram.svg"
+    path.write_bytes(b"<svg/>")
+
+    response = io.BytesIO(json.dumps({"url": URL}).encode())
+    with mock.patch("urllib.request.urlopen", return_value=response) as opener:
+        assert uploads.upload_asset(path, "136202695", "tok") == URL
+
+    assert "content_type=image%2Fsvg%2Bxml" in opener.call_args.args[0].full_url
+
+
 @pytest.mark.parametrize(
     "outcome",
     [
@@ -97,6 +110,7 @@ def test_upload_asset_rejects_a_file_over_the_size_cap(tmp_path: Path) -> None:
     [
         ("shot.png", uploads.MAX_IMAGE_BYTES),
         ("shot.gif", uploads.MAX_IMAGE_BYTES),
+        ("diagram.svg", uploads.MAX_IMAGE_BYTES),
         ("clip.mp4", uploads.MAX_VIDEO_BYTES),
         ("clip.MOV", uploads.MAX_VIDEO_BYTES),
         ("clip.webm", uploads.MAX_VIDEO_BYTES),
