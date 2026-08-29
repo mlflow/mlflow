@@ -101,11 +101,13 @@ const client = new CopilotClient({
 ```python
 from copilot import CopilotClient, SubprocessConfig
 
-client = CopilotClient(SubprocessConfig(
-    telemetry={
-        "otlp_endpoint": "http://localhost:4318",
-    },
-))
+client = CopilotClient(
+    SubprocessConfig(
+        telemetry={
+            "otlp_endpoint": "http://localhost:4318",
+        },
+    )
+)
 ```
 
   </TabItem>
