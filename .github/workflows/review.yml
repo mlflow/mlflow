@@ -29,6 +29,9 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      pull-requests: write
+    outputs:
+      head_sha: ${{ steps.head.outputs.head_sha }}
     # Cheap author_association prefilter so random users can't spawn workflow
     # runs. The gate step below does the authoritative admin/maintain role
     # check.
@@ -83,52 +86,89 @@ jobs:
             check_user "$COMMENTER" "User"
           fi
 
+      # Pinned before any PR code runs, so `post` anchors the review to a commit
+      # the review job can't influence. `issue_comment` payloads carry no head SHA.
+      - name: Resolve reviewed head commit
+        id: head
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          CONTEXT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          head_sha="$CONTEXT_HEAD_SHA"
+          if [ -z "$head_sha" ]; then
+            head_sha=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)
+          fi
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      # `github.run_id` exists before any job starts, so this lands without waiting
+      # for the review job's runner. `link` swaps in the job-level URL later.
+      - name: Acknowledge the comment
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          printf '%s\n\n---\n\n🚀 [Review running...](%s)' "$COMMENT_BODY" "$RUN_URL" \
+            | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@-
+
+  # Deep-links the comment to the review job. Runs alongside `review`, not before
+  # it: a job's URL exists only once the job does. Cosmetic; nothing depends on it.
+  link:
+    needs: gate
+    if: github.event_name == 'issue_comment'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - name: Deep-link the running review job
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          for _ in $(seq 60); do
+            url=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+                    --jq '.jobs[] | select(.name == "review") | .html_url')
+            if [ -n "$url" ]; then
+              printf '%s\n\n---\n\n🚀 [Review running...](%s?pr=%s)' \
+                "$COMMENT_BODY" "$url" "$PR_NUMBER" \
+                | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@-
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::warning::review job never became visible; the comment keeps the run-level link"
+
   review:
     needs: gate
     runs-on: ubuntu-latest
-    # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
-    # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
-    # fails closed.
-    permissions: {}
+    # Runs PR code by design (builds, tests, the dev server), so it holds no app
+    # credentials: the private key here would let a poisoned diff mint a write token.
+    permissions:
+      contents: read
+      pull-requests: read
     timeout-minutes: 45
     env:
       REVIEW_PAYLOAD: /tmp/review-payload.json
       REVIEW_MEDIA: /tmp/review-media
       PR_CHECKOUT: ${{ github.workspace }}/pr
     steps:
-      # Two app tokens with split scopes:
-      # - app-token-read (read-only): used by the Claude step so prompt-injection
-      #   in a diff can't trigger comments, approvals, or any PR mutation.
-      # - app-token-write (write): used by React/Post/Report (code we control).
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        id: app-token-read
-        with:
-          client-id: ${{ secrets.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          permission-contents: read
-          permission-pull-requests: read
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        if: github.event_name == 'issue_comment'
-        id: app-token-write
-        with:
-          client-id: ${{ secrets.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          permission-pull-requests: write
       - name: Resolve job URL
         env:
           JOB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}?pr=${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
           echo "JOB_RUN_URL=$JOB_RUN_URL" >> "$GITHUB_ENV"
-      - name: React to comment
-        if: github.event_name == 'issue_comment'
-        env:
-          GH_TOKEN: ${{ steps.app-token-write.outputs.token }}
-          REPO: ${{ github.repository }}
-          COMMENT_ID: ${{ github.event.comment.id }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-        run: |
-          printf '%s\n\n---\n\n🚀 [Review running...](%s)' "$COMMENT_BODY" "$JOB_RUN_URL" \
-            | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@-
       # Each checkout owns a subdirectory, so neither cleans the other and the
       # two can run together.
       - parallel:
@@ -142,25 +182,28 @@ jobs:
           - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             with:
               persist-credentials: false
-              token: ${{ steps.app-token-read.outputs.token }}
               path: base
           # The reviewed tree, passed to the review as a path. Nothing the job
           # itself runs comes from here.
           - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             with:
               persist-credentials: false
-              token: ${{ steps.app-token-read.outputs.token }}
               ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
               path: pr
               # Depth 2 so HEAD^1 (the merge ref's base parent) is reachable, letting
               # the pr-review skill read pre-change content via `git show HEAD^1:<path>`.
               fetch-depth: 2
-      # HEAD^2 of the merge ref is the PR head. Resolved before the review step,
-      # which runs Bash against that tree.
-      - name: Pin reviewed head commit
+      # HEAD^2 of the merge ref is the PR head. A mismatch means the branch moved,
+      # so the review and `post` would target different commits.
+      - name: Verify reviewed head commit
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
         run: |
           PR_HEAD_SHA=$(git -C "$PR_CHECKOUT" rev-parse HEAD^2)
-          echo "PR_HEAD_SHA=$PR_HEAD_SHA" >> "$GITHUB_ENV"
+          if [ "$PR_HEAD_SHA" != "$EXPECTED_HEAD_SHA" ]; then
+            echo "::error::PR head moved after the gate pinned $EXPECTED_HEAD_SHA (merge ref now has $PR_HEAD_SHA)"
+            exit 1
+          fi
       - parallel:
           - uses: ./base/.github/actions/setup-python
             with:
@@ -226,8 +269,8 @@ jobs:
         id: review
         working-directory: base
         env:
-          # Read-only token: Claude can fetch PR/diff/comments but cannot post anything.
-          GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
+          # Read-only for the whole job: injected instructions can't mutate the PR.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
@@ -249,7 +292,7 @@ jobs:
           mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
 
           # Both event paths run /pr-review end-to-end against the PR; on
-          # pull_request (smoke), Post is gated off so no review is submitted.
+          # pull_request (smoke), `post` never runs so no review is submitted.
           EXIT_CODE=0
           timeout 30m claude \
             --model "$MODEL" \
@@ -271,36 +314,8 @@ jobs:
             exit $EXIT_CODE
           fi
 
-      # Kept out of the Claude step, which holds only the read-only app token, so a
-      # poisoned diff can't reach this PAT. Gated like Post so the pull_request
-      # smoke path stays non-mutating.
-      - name: Upload review media
-        if: github.event_name == 'issue_comment'
-        working-directory: base
-        # Attaching media is a nicety; losing the whole review over it is not. Any
-        # fault here must not take the job down before Post review.
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
-          REPO_ID: ${{ github.event.repository.id }}
-        run: |
-          uv run --package skills skills embed-media \
-            --dir "$REVIEW_MEDIA" \
-            --target "$REVIEW_PAYLOAD" \
-            --repository-id "$REPO_ID"
-
-      # Without commit_id, GitHub anchors the comments to whatever head is current
-      # at POST time. Injected before validation so the schema's SHA pattern
-      # covers it.
-      - name: Pin review to the reviewed commit
-        run: |
-          if [ ! -f "$REVIEW_PAYLOAD" ]; then
-            echo "::error::Claude did not produce $REVIEW_PAYLOAD"
-            exit 1
-          fi
-          jq --arg sha "$PR_HEAD_SHA" '.commit_id = $sha' "$REVIEW_PAYLOAD" > /tmp/pinned-payload.json
-          mv /tmp/pinned-payload.json "$REVIEW_PAYLOAD"
-
+      # The only payload check the pull_request smoke path gets. Not the gate on
+      # posting: `post` revalidates what it downloads.
       - name: Validate review payload
         working-directory: base
         run: |
@@ -309,20 +324,10 @@ jobs:
           jq . "$REVIEW_PAYLOAD"
           echo "::endgroup::"
 
-      - name: Post review
-        if: github.event_name == 'issue_comment'
-        env:
-          GH_TOKEN: ${{ steps.app-token-write.outputs.token }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input "$REVIEW_PAYLOAD"
-
       - name: Redact secrets from transcript
         if: always()
         env:
-          GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
-          GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
         run: |
           python <<'PY'
@@ -334,7 +339,7 @@ jobs:
           if not path.exists():
               sys.exit(0)
           data = path.read_text()
-          for name in ("GH_TOKEN_READ", "GH_TOKEN_WRITE", "GATEWAY_TOKEN"):
+          for name in ("GH_TOKEN", "GATEWAY_TOKEN"):
               if val := os.environ.get(name):
                   data = data.replace(val, "***")
           path.write_text(data)
@@ -407,11 +412,120 @@ jobs:
           fs.writeFileSync('/tmp/updated-comment.md', `${process.env.COMMENT_BODY}\n\n---\n\n${resultLine}`);
           JS
 
-      - name: Report review results
-        if: always() && github.event_name == 'issue_comment'
+      # Absolute paths share /tmp as their common ancestor, so this unpacks as
+      # review-payload.json, review-media/, and updated-comment.md.
+      - name: Upload review output
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: review-output-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            /tmp/review-payload.json
+            /tmp/review-media
+            /tmp/updated-comment.md
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # Separate job so PR-write credentials never share a machine with the code the
+  # review executes. Jobs get their own VM; steps do not.
+  post:
+    needs: [gate, review]
+    if: "!cancelled() && needs.gate.result == 'success' && github.event_name == 'issue_comment'"
+    runs-on: ubuntu-latest
+    # The app token below is the only credential here, so a bare `gh` call fails closed.
+    permissions: {}
+    timeout-minutes: 10
+    env:
+      REVIEW_PAYLOAD: ${{ github.workspace }}/review-output/review-payload.json
+      REVIEW_MEDIA: ${{ github.workspace }}/review-output/review-media
+      RESULT_BODY: ${{ github.workspace }}/review-output/updated-comment.md
+    steps:
+      # Needed only here: GitHub refuses approving reviews from GITHUB_TOKEN, and
+      # the payload's `event` can be APPROVE.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+      # Not sparse: `uv run --package skills` resolves the whole workspace, so a
+      # subset would have to track `[tool.uv.workspace].members`.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+      # Absent when the review job died before uploading, so the steps below check.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
+        with:
+          name: review-output-${{ github.run_id }}-${{ github.run_attempt }}
+          path: review-output
+
+      # Attaching media is a nicety; losing the whole review over it is not. Any
+      # fault here must not take the job down before Post review.
+      - name: Upload review media
+        if: needs.review.result == 'success'
+        continue-on-error: true
         env:
-          GH_TOKEN: ${{ steps.app-token-write.outputs.token }}
+          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          REPO_ID: ${{ github.event.repository.id }}
+        run: |
+          # Empty directories aren't uploaded, so review-media/ may be missing.
+          mkdir -p "$REVIEW_MEDIA"
+          uv run --package skills skills embed-media \
+            --dir "$REVIEW_MEDIA" \
+            --target "$REVIEW_PAYLOAD" \
+            --repository-id "$REPO_ID"
+
+      # Without commit_id, GitHub anchors the comments to whatever head is current
+      # at POST time. The SHA comes from the gate, not the review job. Injected
+      # before validation so the schema's SHA pattern covers it.
+      - name: Pin review to the reviewed commit
+        if: needs.review.result == 'success'
+        env:
+          PR_HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
+        run: |
+          if [ ! -f "$REVIEW_PAYLOAD" ]; then
+            echo "::error::Claude did not produce $REVIEW_PAYLOAD"
+            exit 1
+          fi
+          jq --arg sha "$PR_HEAD_SHA" '.commit_id = $sha' "$REVIEW_PAYLOAD" > /tmp/pinned-payload.json
+          mv /tmp/pinned-payload.json "$REVIEW_PAYLOAD"
+
+      # Authored on a machine that ran PR code, so it's checked on this side.
+      - name: Validate review payload
+        if: needs.review.result == 'success'
+        run: |
+          uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
+          echo "::group::Review payload"
+          jq . "$REVIEW_PAYLOAD"
+          echo "::endgroup::"
+
+      - name: Post review
+        if: needs.review.result == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input "$REVIEW_PAYLOAD"
+
+      - name: Report review results
+        if: "!cancelled()"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
           COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@/tmp/updated-comment.md
+          # Missing only when the review job died before building it.
+          if [ ! -f "$RESULT_BODY" ]; then
+            mkdir -p "$(dirname "$RESULT_BODY")"
+            printf '%s\n\n---\n\n❌ [Review](%s) failed before it could report a result.' \
+              "$COMMENT_BODY" "$RUN_URL" > "$RESULT_BODY"
+          fi
+          gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@"$RESULT_BODY"
