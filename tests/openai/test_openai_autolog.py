@@ -1292,3 +1292,107 @@ async def test_chat_completions_autolog_streaming_with_cached_tokens(client, moc
         TokenUsageKey.TOTAL_TOKENS: 70,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
     }
+
+
+def test_parse_service_tier_from_chat_completion():
+    """_parse_service_tier extracts the service_tier field from a ChatCompletion."""
+    from openai.types.chat import ChatCompletion
+    from openai.types.chat.chat_completion import Choice
+    from openai.types.chat.chat_completion_message import ChatCompletionMessage
+
+    from mlflow.openai.utils.chat_schema import _parse_service_tier
+
+    msg = ChatCompletionMessage(role="assistant", content="hi")
+    choice = Choice(index=0, message=msg, finish_reason="stop")
+    completion = ChatCompletion(
+        id="cmpl-1",
+        choices=[choice],
+        created=0,
+        model="gpt-4o-mini",
+        object="chat.completion",
+        service_tier="priority",
+    )
+    assert _parse_service_tier(completion) == "priority"
+
+
+def test_parse_service_tier_none_when_absent():
+    """_parse_service_tier returns None when service_tier is not set."""
+    from openai.types.chat import ChatCompletion
+    from openai.types.chat.chat_completion import Choice
+    from openai.types.chat.chat_completion_message import ChatCompletionMessage
+
+    from mlflow.openai.utils.chat_schema import _parse_service_tier
+
+    msg = ChatCompletionMessage(role="assistant", content="hi")
+    choice = Choice(index=0, message=msg, finish_reason="stop")
+    completion = ChatCompletion(
+        id="cmpl-2",
+        choices=[choice],
+        created=0,
+        model="gpt-4o-mini",
+        object="chat.completion",
+    )
+    assert _parse_service_tier(completion) is None
+
+
+@pytest.mark.asyncio
+async def test_service_tier_stored_and_passed_to_cost_calculation(client, mock_litellm_cost):
+    """service_tier from the OpenAI response is stored on the span and forwarded to
+    litellm.cost_per_token so that tier-specific pricing is applied."""
+    if mock_litellm_cost is None:
+        pytest.skip("litellm not installed")
+
+    mlflow.openai.autolog()
+
+    mock_response = {
+        "id": "chatcmpl-svc-tier",
+        "object": "chat.completion",
+        "created": 1741688000,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello!"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+        },
+        "service_tier": "priority",
+    }
+
+    if client._is_async:
+        patch_target = "httpx.AsyncClient.send"
+
+        async def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+
+    else:
+        patch_target = "httpx.Client.send"
+
+        def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+
+    with mock.patch(patch_target, send_patch):
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": "say hi"}],
+            model="gpt-4o-mini",
+        )
+        if client._is_async:
+            await response
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+
+    # service_tier must be stored as a span attribute
+    assert span.get_attribute(SpanAttributeKey.OPENAI_SERVICE_TIER) == "priority"
+
+    if not IS_TRACING_SDK_ONLY:
+        # litellm.cost_per_token must have been called with service_tier="priority"
+        assert mock_litellm_cost.called
+        call_kwargs = mock_litellm_cost.call_args
+        assert call_kwargs.kwargs.get("service_tier") == "priority"
