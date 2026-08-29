@@ -251,9 +251,9 @@ jobs:
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
           EXIT_CODE=0
-          # Bedrock, the gateway's backend, does not serve Anthropic's server-side
-          # web_search tool. Denying the bare name drops it from Claude's context
-          # instead of leaving it to fail on use.
+          # The gateway does not serve Anthropic's server-side web_search tool.
+          # Denying the bare name drops it from Claude's context instead of
+          # leaving it to fail on use.
           timeout 30m claude \
             --model "$MODEL" \
             --effort "$EFFORT" \

@@ -103,8 +103,8 @@ the shallow boundary rather than reaching the commit that actually introduced a 
 errors, so don't trust them for pre-change history.
 
 Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, or a
-quick search and fetch of the upstream docs will settle most questions in seconds, and an unverified
-finding should be dropped rather than hedged. When the cheap checks don't settle it, escalate to the
+web fetch of the upstream docs will settle most questions in seconds, and an unverified finding
+should be dropped rather than hedged. When the cheap checks don't settle it, escalate to the
 expensive ones: build the docs site, build and boot the UI, start the backend.
 
 Node and `agent-browser` are on PATH for docs and UI changes. Capture to an absolute path named for
