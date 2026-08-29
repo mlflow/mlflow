@@ -120,35 +120,48 @@ jobs:
   # it: a job's URL exists only once the job does. Cosmetic; nothing depends on it.
   link:
     needs: gate
-    if: github.event_name == 'issue_comment'
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
       actions: read
       pull-requests: write
     steps:
-      - name: Deep-link the running review job
+      # Runs on both events so the pull_request smoke path covers the polling,
+      # the `actions: read` scope, and the job-name filter. Only the comment
+      # edit below is issue_comment-only.
+      - name: Wait for the review job URL
+        id: job
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-          COMMENT_ID: ${{ github.event.comment.id }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           for _ in $(seq 60); do
             url=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
                     --jq '.jobs[] | select(.name == "review") | .html_url')
             if [ -n "$url" ]; then
-              printf '%s\n\n---\n\n🚀 [Review running...](%s?pr=%s)' \
-                "$COMMENT_BODY" "$url" "$PR_NUMBER" \
-                | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@-
+              echo "url=$url" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             sleep 2
           done
           echo "::warning::review job never became visible; the comment keeps the run-level link"
+
+      - name: Deep-link the comment
+        if: github.event_name == 'issue_comment' && steps.job.outputs.url
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          JOB_URL: ${{ steps.job.outputs.url }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          printf '%s\n\n---\n\n🚀 [Review running...](%s?pr=%s)' \
+            "$COMMENT_BODY" "$JOB_URL" "$PR_NUMBER" \
+            | gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -F body=@-
 
   review:
     needs: gate
