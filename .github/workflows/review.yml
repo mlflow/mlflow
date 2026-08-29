@@ -144,7 +144,7 @@ jobs:
               echo "url=$url" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            sleep 2
+            sleep 5
           done
           echo "::warning::review job never became visible; the comment keeps the run-level link"
 
