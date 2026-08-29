@@ -342,7 +342,8 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
     model_name = span.get_attribute(SpanAttributeKey.MODEL)
     usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
     model_provider = span.get_attribute(SpanAttributeKey.MODEL_PROVIDER)
-    return calculate_cost_by_model_and_token_usage(model_name, usage, model_provider)
+    service_tier = span.get_attribute(SpanAttributeKey.OPENAI_SERVICE_TIER)
+    return calculate_cost_by_model_and_token_usage(model_name, usage, model_provider, service_tier)
 
 
 # Model URI prefixes that are internal routing identifiers (not real model names).
@@ -351,7 +352,10 @@ _SKIP_COST_PREFIXES = ("gateway:/", "endpoints:/")
 
 
 def calculate_cost_by_model_and_token_usage(
-    model_name: str | None, usage: dict[str, int] | None, model_provider: str | None = None
+    model_name: str | None,
+    usage: dict[str, int] | None,
+    model_provider: str | None = None,
+    service_tier: str | None = None,
 ) -> dict[str, float] | None:
     if not model_name or not usage:
         return None
@@ -398,6 +402,7 @@ def calculate_cost_by_model_and_token_usage(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     custom_llm_provider=model_provider.lower(),
+                    service_tier=service_tier,
                     **cache_kwargs,
                 )
             except Exception:
@@ -411,6 +416,7 @@ def calculate_cost_by_model_and_token_usage(
                     model=model_name,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
+                    service_tier=service_tier,
                     **cache_kwargs,
                 )
             except Exception:

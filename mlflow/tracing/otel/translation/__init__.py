@@ -135,8 +135,13 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
                 if SpanAttributeKey.MODEL_PROVIDER in attributes
                 else None
             )
+            service_tier = (
+                json.loads(attributes[SpanAttributeKey.OPENAI_SERVICE_TIER])
+                if SpanAttributeKey.OPENAI_SERVICE_TIER in attributes
+                else None
+            )
             if cost := calculate_cost_by_model_and_token_usage(
-                model_name, token_usage, model_provider
+                model_name, token_usage, model_provider, service_tier
             ):
                 attributes[SpanAttributeKey.LLM_COST] = dump_span_attribute_value(cost)
         except Exception:
