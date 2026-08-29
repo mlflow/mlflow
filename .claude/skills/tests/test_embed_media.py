@@ -402,10 +402,13 @@ def test_check_points_a_capture_cited_from_another_directory_at_the_path_written
     assert report.warnings == []
 
 
-def test_check_rejects_a_local_citation_matching_no_capture(tmp_path: Path) -> None:
-    report = check(tmp_path, "[the bug](/tmp/other/absent.png)")
+# The svg is a format MIME_TYPES leaves out, so it only reaches this branch if the
+# citation gate is wider than the uploader's allowlist.
+@pytest.mark.parametrize("cite", ["/tmp/other/absent.png", "/tmp/other/diagram.svg"])
+def test_check_rejects_a_local_citation_matching_no_capture(tmp_path: Path, cite: str) -> None:
+    report = check(tmp_path, f"[the bug]({cite})")
     assert report.errors == [
-        f"(/tmp/other/absent.png): not a capture in {tmp_path / 'media'}, so the citation is "
+        f"({cite}): not a capture in {tmp_path / 'media'}, so the citation is "
         "stripped and the finding degrades to prose"
     ]
 
@@ -581,12 +584,13 @@ def test_cli_strips_a_bare_filename_citation(
     assert target.read_text() == "evidence: the bug"
 
 
+@pytest.mark.parametrize("cite", ["/tmp/other/shot.png", "/tmp/other/diagram.svg"])
 def test_cli_strips_a_capture_cited_from_outside_the_media_directory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], cite: str
 ) -> None:
     media = make_media(tmp_path)
     target = tmp_path / "body.md"
-    target.write_text("evidence: ![the bug](/tmp/other/shot.png)")
+    target.write_text(f"evidence: ![the bug]({cite})")
 
     monkeypatch.setenv("GH_TOKEN", "t")
     args = build_args(media, target)
@@ -595,10 +599,7 @@ def test_cli_strips_a_capture_cited_from_outside_the_media_directory(
 
     uploader.assert_not_called()
     assert target.read_text() == "evidence: the bug"
-    assert (
-        "::warning::citations naming no capture, stripped: /tmp/other/shot.png"
-        in capsys.readouterr().out
-    )
+    assert f"::warning::citations naming no capture, stripped: {cite}" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(

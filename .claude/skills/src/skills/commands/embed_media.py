@@ -91,6 +91,12 @@ def rewrite_payload(
 LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)\)")
 
 
+# Wider than MIME_TYPES, which is an uploadability allowlist that deliberately leaves out
+# formats GitHub may not render. A capture the uploader would refuse is still a capture,
+# and citing it from the wrong directory is still the mistake below.
+CAPTURE_SUFFIXES = MIME_TYPES.keys() | {".svg"}
+
+
 def is_local_media(raw: str) -> bool:
     """Whether a citation names media on this machine rather than something GitHub serves.
 
@@ -100,7 +106,9 @@ def is_local_media(raw: str) -> bool:
     scheme-relative URL, which GitHub serves like any other.
     """
     return (
-        raw.startswith("/") and not raw.startswith("//") and Path(raw).suffix.lower() in MIME_TYPES
+        raw.startswith("/")
+        and not raw.startswith("//")
+        and Path(raw).suffix.lower() in CAPTURE_SUFFIXES
     )
 
 
