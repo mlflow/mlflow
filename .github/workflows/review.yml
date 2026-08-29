@@ -174,7 +174,6 @@ jobs:
     timeout-minutes: 45
     env:
       REVIEW_PAYLOAD: /tmp/review-payload.json
-      REVIEW_MEDIA: /tmp/review-media
       PR_CHECKOUT: ${{ github.workspace }}/pr
     steps:
       - name: Resolve job URL
@@ -299,7 +298,7 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
-          AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.REVIEW_MEDIA }}
+          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/screenshots
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
           mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
@@ -317,7 +316,7 @@ jobs:
             --print \
             --verbose \
             --output-format stream-json \
-            "/pr-review $PR_URL $PR_CHECKOUT $REVIEW_PAYLOAD $REVIEW_MEDIA" \
+            "/pr-review $PR_URL $PR_CHECKOUT $REVIEW_PAYLOAD" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 30 minutes"
@@ -327,8 +326,22 @@ jobs:
             exit $EXIT_CODE
           fi
 
-      # Fails the review job fast, next to the payload it produced. Not the gate on
-      # posting: `post` revalidates what it downloads on its own side.
+      # Without commit_id, GitHub anchors the comments to whatever head is current
+      # at POST time. The SHA comes from the gate, not from this job. Injected
+      # before validation so the schema's SHA pattern covers it.
+      - name: Pin review to the reviewed commit
+        env:
+          PR_HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
+        run: |
+          if [ ! -f "$REVIEW_PAYLOAD" ]; then
+            echo "::error::Claude did not produce $REVIEW_PAYLOAD"
+            exit 1
+          fi
+          jq --arg sha "$PR_HEAD_SHA" '.commit_id = $sha' "$REVIEW_PAYLOAD" > /tmp/pinned-payload.json
+          mv /tmp/pinned-payload.json "$REVIEW_PAYLOAD"
+
+      # The last check before the payload becomes an artifact. `post` runs no
+      # repository code, so this is the only validation there is.
       - name: Validate review payload
         working-directory: base
         run: |
@@ -426,7 +439,7 @@ jobs:
           JS
 
       # Absolute paths share /tmp as their common ancestor, so this unpacks as
-      # review-payload.json, review-media/, and updated-comment.md.
+      # review-payload.json and updated-comment.md.
       # Keyed on run_id, not run_attempt: re-running only `post` leaves the
       # successful `review` job (and its attempt-1 artifact) untouched, so `post`
       # must look under a name that does not change across attempts. overwrite so
@@ -440,15 +453,16 @@ jobs:
           overwrite: true
           path: |
             /tmp/review-payload.json
-            /tmp/review-media
             /tmp/updated-comment.md
           retention-days: 1
           if-no-files-found: ignore
 
   # Separate job so PR-write credentials never share a machine with the code the
-  # review executes. Jobs get their own VM; steps do not. Runs on both events so
-  # the smoke path covers the artifact handoff, the pin, and validation; only the
-  # steps that mutate the PR are issue_comment-only.
+  # review executes. Jobs get their own VM; steps do not. It posts what the review
+  # job already pinned and validated, and runs no repository code of its own: no
+  # checkout, no toolchain, nothing between the artifact and the API call. Runs on
+  # both events so the smoke path covers the artifact handoff; only the steps that
+  # mutate the PR are issue_comment-only.
   post:
     needs: [gate, review]
     if: "!cancelled() && needs.gate.result == 'success'"
@@ -456,11 +470,9 @@ jobs:
     # permissions: {} grants no GITHUB_TOKEN, so a bare `gh` call that forgets its token fails closed.
     permissions: {}
     timeout-minutes: 10
-    # Same paths the review job used: the payload cites media by absolute path,
-    # and `embed-media` matches those citations against the files it finds.
+    # The paths the review job uploaded from, which is how the artifact unpacks.
     env:
       REVIEW_PAYLOAD: /tmp/review-payload.json
-      REVIEW_MEDIA: /tmp/review-media
       RESULT_BODY: /tmp/updated-comment.md
     steps:
       # Needed only here: GitHub refuses approving reviews from GITHUB_TOKEN, and
@@ -472,64 +484,12 @@ jobs:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-pull-requests: write
-      # Not sparse: `uv run --package skills` resolves the whole workspace, so a
-      # subset would have to track `[tool.uv.workspace].members`.
-      # Pinned to the base: with no `ref` this resolves to the PR's merge ref on
-      # pull_request, which would run PR-authored code in the job that holds the
-      # app token.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.base.sha || github.sha }}
-      - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
       # Absent when the review job died before uploading, so the steps below check.
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         continue-on-error: true
         with:
           name: review-output-${{ github.run_id }}
           path: /tmp
-
-      # Attaching media is a nicety; losing the whole review over it is not. Any
-      # fault here must not take the job down before Post review.
-      - name: Upload review media
-        if: needs.review.result == 'success' && github.event_name == 'issue_comment'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
-          REPO_ID: ${{ github.event.repository.id }}
-        run: |
-          # Empty directories aren't uploaded, so review-media/ may be missing.
-          mkdir -p "$REVIEW_MEDIA"
-          uv run --package skills skills embed-media \
-            --dir "$REVIEW_MEDIA" \
-            --target "$REVIEW_PAYLOAD" \
-            --repository-id "$REPO_ID"
-
-      # Without commit_id, GitHub anchors the comments to whatever head is current
-      # at POST time. The SHA comes from the gate, not the review job. Injected
-      # before validation so the schema's SHA pattern covers it.
-      - name: Pin review to the reviewed commit
-        if: needs.review.result == 'success'
-        env:
-          PR_HEAD_SHA: ${{ needs.gate.outputs.head_sha }}
-        run: |
-          if [ ! -f "$REVIEW_PAYLOAD" ]; then
-            echo "::error::Claude did not produce $REVIEW_PAYLOAD"
-            exit 1
-          fi
-          jq --arg sha "$PR_HEAD_SHA" '.commit_id = $sha' "$REVIEW_PAYLOAD" > /tmp/pinned-payload.json
-          mv /tmp/pinned-payload.json "$REVIEW_PAYLOAD"
-
-      # Authored on a machine that ran PR code, so it's checked on this side.
-      - name: Validate review payload
-        if: needs.review.result == 'success'
-        run: |
-          uv run --package skills skills validate-review "$REVIEW_PAYLOAD"
-          echo "::group::Review payload"
-          jq . "$REVIEW_PAYLOAD"
-          echo "::endgroup::"
 
       - name: Post review
         if: needs.review.result == 'success' && github.event_name == 'issue_comment'
@@ -538,6 +498,10 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
+          if [ ! -f "$REVIEW_PAYLOAD" ]; then
+            echo "::error::the review job uploaded no $REVIEW_PAYLOAD"
+            exit 1
+          fi
           gh api --method POST repos/"$REPO"/pulls/"$PR_NUMBER"/reviews --input "$REVIEW_PAYLOAD"
 
       - name: Report review results
@@ -552,8 +516,8 @@ jobs:
         run: |
           mkdir -p "$(dirname "$RESULT_BODY")"
           # The review job renders this before this job runs, so it reports the
-          # review's own outcome and knows nothing about pinning, validation, or
-          # the POST. A failure in any of those must not leave a success message.
+          # review's own outcome and knows nothing about the POST. A failure there
+          # must not leave a success message.
           if [ "$POST_STATUS" != "success" ]; then
             printf '%s\n\n---\n\n❌ [Review](%s) ran but could not be posted.' \
               "$COMMENT_BODY" "$RUN_URL" > "$RESULT_BODY"

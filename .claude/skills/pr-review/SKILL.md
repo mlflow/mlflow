@@ -2,8 +2,8 @@
 name: pr-review
 description: Review a pull request and emit a validated review payload.
 disable-model-invocation: true
-argument-hint: "<pr_url> <pr_checkout> <payload_path> <media_dir>"
-arguments: [pr_url, pr_checkout, payload_path, media_dir]
+argument-hint: "<pr_url> <pr_checkout> <payload_path>"
+arguments: [pr_url, pr_checkout, payload_path]
 ---
 
 # Review Pull Request
@@ -107,9 +107,10 @@ quick search and fetch of the upstream docs will settle most questions in second
 finding should be dropped rather than hedged. When the cheap checks don't settle it, escalate to the
 expensive ones: build the docs site, build and boot the UI, start the backend.
 
-Node and `agent-browser` are on PATH for docs and UI changes. Capture to an absolute path named for
-what it shows: `agent-browser screenshot --full $media_dir/example.png`, and cite that same
-path in a finding.
+Node and `agent-browser` are on PATH for docs and UI changes. A capture is something you look at,
+not something you attach: screenshot to an absolute path under `/tmp`, read it back, and write what
+it showed you in prose. A review posts text only, so a citation naming a local file resolves to
+nothing.
 
 Evaluate the changed code across these dimensions:
 
@@ -161,22 +162,13 @@ Authoring rules not captured by the schema:
   suggestion block already shows.
 - Use suggestion blocks for simple fixes: fence with ` ```suggestion ` and preserve original
   indentation.
-- To attach an image or video (a diagram, a chart, a captured repro), write the file into
-  `$media_dir` and cite it by the absolute path you wrote it to:
-  `![desc]($media_dir/name.png)` to embed, or `[desc]($media_dir/name.png)`
-  to link. A later workflow step uploads it and rewrites the reference to a URL. Do not
-  upload anything yourself. Skip this unless a visual genuinely beats prose; most reviews
-  need none.
-- Put a video reference (`.mp4`, `.mov`, `.webm`) on a line of its own. GitHub renders a
-  player only for a bare URL in its own paragraph, so a video cited mid-sentence falls back
-  to a plain link.
+- Nothing you write to disk reaches the PR. Do not link or embed a local path; describe what
+  the capture showed instead.
 
-Validate before finishing, then fix any errors and re-emit until both of these pass:
+Validate before finishing, then fix any errors and re-emit until it passes:
 
 ```bash
 uv run --package skills skills validate-review $payload_path
-# only when you wrote a file into $media_dir
-uv run --package skills skills embed-media --check --dir $media_dir --target $payload_path
 ```
 
 Do not post the review: no `gh pr review`, no review/comment APIs, no other skills. Stop
