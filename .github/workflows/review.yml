@@ -414,12 +414,12 @@ jobs:
               --max-budget-usd 8 \
               --permission-mode auto \
               --add-dir "$PR_CHECKOUT" \
-              --allowed-tools "Bash(uv run --package skills skills:*)" \
+              --allowed-tools "Bash(uv run --directory $SANDBOX_BASE --package skills skills:*)" \
               --disallowed-tools WebSearch \
               --print \
               --verbose \
               --output-format stream-json \
-              "/pr-review $PR_URL $PR_CHECKOUT $REVIEW_PAYLOAD $REVIEW_MEDIA" \
+              "/pr-review $PR_URL $PR_CHECKOUT $REVIEW_PAYLOAD $REVIEW_MEDIA $SANDBOX_BASE" \
             | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 45 minutes"
