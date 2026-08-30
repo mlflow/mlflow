@@ -2,8 +2,8 @@
 name: pr-review
 description: Review a pull request and emit a validated review payload.
 disable-model-invocation: true
-argument-hint: "<pr_url> <pr_checkout> <payload_path> <media_dir>"
-arguments: [pr_url, pr_checkout, payload_path, media_dir]
+argument-hint: "<pr_url> <pr_checkout> <payload_path> <media_dir> <base_dir>"
+arguments: [pr_url, pr_checkout, payload_path, media_dir, base_dir]
 ---
 
 # Review Pull Request
@@ -16,8 +16,8 @@ that payload is the whole job.
 The PR is checked out at `$pr_checkout`, not in the working directory:
 
 ```text
-<working directory>   # this skill and the `skills` CLI come from here, and
-                      # nothing you review does
+$base_dir             # the working directory: this skill and the `skills`
+                      # CLI come from here, and nothing you review does
 $pr_checkout          # the reviewed tree: the PR merged into its base
 ```
 
@@ -25,7 +25,11 @@ The working directory holds a checkout of the same repository, so it looks like 
 review and is not guaranteed to match it. Everything aimed at the PR needs the prefix:
 `git -C $pr_checkout ...`, `$pr_checkout/<path>` to open or grep a file, and
 `cd $pr_checkout && ...` for anything that builds or runs repository code. The
-`uv run --package skills` commands below are the exception, and run unprefixed.
+`uv run` commands below are the exception: `--directory $base_dir` pins each one to
+this checkout, so it keeps using this tree's `skills` package and rules even when the
+working directory has moved into `$pr_checkout`. uv resolves its workspace from the
+working directory, and so does the rule loader, so dropping the flag silently hands
+both to the code under review.
 
 ## Instructions
 
@@ -46,7 +50,7 @@ gh pr view <pr_url> --json title,body
 the PR diff:
 
 ```bash
-git -C $pr_checkout diff HEAD^1 HEAD | uv run --package skills skills annotate-diff
+git -C $pr_checkout diff HEAD^1 HEAD | uv run --directory $base_dir --package skills skills annotate-diff
 ```
 
 Each line comes back as `old_line new_line | <marker> content`, which gives you the `line` and
@@ -84,7 +88,7 @@ gh api graphql -F owner=<owner> -F repo=<repo> -F pr=<pr_number> \
 Load the repository style rules applicable to the changed files:
 
 ```bash
-git -C $pr_checkout diff --name-only HEAD^1 | uv run --package skills skills load-rules
+git -C $pr_checkout diff --name-only HEAD^1 | uv run --directory $base_dir --package skills skills load-rules
 ```
 
 ### 3. Analyze the change
@@ -173,9 +177,9 @@ Authoring rules not captured by the schema:
 Validate before finishing, then fix any errors and re-emit until both of these pass:
 
 ```bash
-uv run --package skills skills validate-review $payload_path
+uv run --directory $base_dir --package skills skills validate-review $payload_path
 # only when you wrote a file into $media_dir
-uv run --package skills skills embed-media --check --dir $media_dir --target $payload_path
+uv run --directory $base_dir --package skills skills embed-media --check --dir $media_dir --target $payload_path
 ```
 
 Do not post the review: no `gh pr review`, no review/comment APIs, no other skills. Stop
