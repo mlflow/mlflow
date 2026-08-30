@@ -263,6 +263,25 @@ jobs:
           cp -a pr "$SANDBOX_PR"
           mkdir -p "$REVIEW_MEDIA"
 
+      # THROWAWAY: records every name the sandbox resolves. Not for merge.
+      - name: Start the DNS probe
+        run: |
+          DOCKER_GW=$(docker network inspect bridge --format '{{ (index .IPAM.Config 0).Gateway }}')
+          echo "DOCKER_GW=$DOCKER_GW" >> "$GITHUB_ENV"
+          cat > /tmp/Corefile <<'CONF'
+          .:53 {
+            log
+            errors
+            forward . 8.8.8.8 1.1.1.1
+          }
+          CONF
+          # Bound to the bridge address, not 0.0.0.0, so it does not collide with
+          # systemd-resolved on the host.
+          docker run --detach --name dns-probe --publish "$DOCKER_GW:53:53/udp" \
+            --volume /tmp/Corefile:/Corefile:ro \
+            coredns/coredns@sha256:9b9128672209474da07c91439bf15ed704ae05ad918dd6454e5b6ae14e35fee6 \
+            -conf /Corefile
+
       - name: Parse review arguments
         id: prompt
         env:
@@ -398,6 +417,7 @@ jobs:
           # Denying the bare name drops it from Claude's context instead of
           # leaving it to fail on use.
           timeout 45m docker run --rm --runtime=runsc \
+            --dns "$DOCKER_GW" \
             --add-host gw-proxy:host-gateway \
             --volume "$SANDBOX_BASE:$SANDBOX_BASE" \
             --volume "$SANDBOX_PR:$SANDBOX_PR" \
@@ -432,6 +452,21 @@ jobs:
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
           fi
+
+      # THROWAWAY: what the sandbox resolved, most frequent first. `gw-proxy`
+      # will not appear: `--add-host` means it is never looked up.
+      - name: Domains the sandbox resolved
+        if: always()
+        continue-on-error: true
+        run: |
+          echo "::group::Unique names"
+          docker logs dns-probe 2>&1 \
+            | grep -oE '"[A-Z]+ IN [^ ]+' \
+            | awk '{print $3}' | sed 's/\.$//' | sort | uniq -c | sort -rn
+          echo "::endgroup::"
+          echo "::group::Raw query log"
+          docker logs dns-probe 2>&1 | tail -200
+          echo "::endgroup::"
 
       # A sandbox that cannot reach the proxy only reports a request timeout.
       - name: Gateway proxy log
