@@ -107,7 +107,10 @@ jobs:
   link:
     needs: gate
     runs-on: ubuntu-slim
-    timeout-minutes: 1
+    # The poll loop below can spend ~36s of this before the PATCH, and a job
+    # timeout cancels the job (reddening the run) even though its steps are
+    # `continue-on-error`.
+    timeout-minutes: 5
     permissions:
       actions: read
       pull-requests: write
@@ -162,6 +165,7 @@ jobs:
     timeout-minutes: 45
     env:
       REVIEW_PAYLOAD: /tmp/review-payload.json
+      RESULT_BODY: /tmp/updated-comment.md
       REVIEW_MEDIA: /tmp/review-media
       PR_CHECKOUT: ${{ github.workspace }}/pr
     steps:
@@ -446,7 +450,7 @@ jobs:
           }
 
           console.log(resultLine);
-          fs.writeFileSync('/tmp/updated-comment.md', `${process.env.COMMENT_BODY}\n\n---\n\n${resultLine}`);
+          fs.writeFileSync(process.env.RESULT_BODY, `${process.env.COMMENT_BODY}\n\n---\n\n${resultLine}`);
           JS
 
       # Keyed on run_id, not run_attempt, so re-running only `post` still finds
@@ -460,8 +464,8 @@ jobs:
           name: review-output-${{ github.run_id }}
           overwrite: true
           path: |
-            /tmp/review-payload.json
-            /tmp/updated-comment.md
+            ${{ env.REVIEW_PAYLOAD }}
+            ${{ env.RESULT_BODY }}
           retention-days: 1
           if-no-files-found: ignore
 
@@ -472,7 +476,11 @@ jobs:
   # no checkout and no toolchain in between. Runs on both events so the smoke
   # path covers the handoff; the mutating steps are issue_comment-only.
   post:
-    needs: [gate, review]
+    # `link` too: both patch the same comment, and a `review` that fails while
+    # `link` is still polling would otherwise let this job's result be
+    # overwritten by "Review running...". The `if` below ignores its result, so
+    # a failed link still reports.
+    needs: [gate, link, review]
     if: "!cancelled() && needs.gate.result == 'success'"
     runs-on: ubuntu-slim
     # No GITHUB_TOKEN scopes, so a `gh` call that forgets the app token fails closed.
