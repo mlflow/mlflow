@@ -19,12 +19,13 @@ def strip_suffix(original: str, suffix: str) -> str:
 
 
 def is_string_type(item: Any) -> bool:
-    return isinstance(item, str)
+    # numpy.str_ is a subclass of str, but bytes is not; include bytes for safety.
+    return isinstance(item, (str, bytes))
 
 
 def generate_feature_name_if_not_string(s: Any) -> str:
-    if isinstance(s, str):
-        return s
+    if isinstance(s, (str, bytes)):
+        return str(s)
 
     return f"feature_{s}"
 
