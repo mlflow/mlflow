@@ -304,6 +304,59 @@ jobs:
           client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
 
+      # nginx holds the bearer and overwrites the placeholder header the sandbox
+      # sends, so the credential never enters the container. No TLS interception:
+      # `ANTHROPIC_BASE_URL` is our own endpoint.
+      - name: Start the gateway proxy
+        env:
+          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
+        run: |
+          umask 077
+          cat > /tmp/nginx.conf <<CONF
+          events {}
+          http {
+            access_log /dev/stdout;
+            # Each turn resends the whole conversation, and a screenshot the
+            # review reads is a multi-MB base64 image. The 1m default 413s them.
+            client_max_body_size 0;
+            server {
+              listen 80;
+              # Answered by nginx itself, so the probe below cannot be held up by
+              # the gateway.
+              location = /healthz {
+                access_log off;
+                return 200;
+              }
+              location / {
+                proxy_pass ${GATEWAY_URL}/;
+                proxy_set_header Authorization "Bearer ${GATEWAY_TOKEN}";
+                proxy_http_version 1.1;
+                # Streamed responses, and the default 60s read timeout is short
+                # for a review turn.
+                proxy_buffering off;
+                proxy_request_buffering off;
+                proxy_read_timeout 600s;
+                # This hop is what attaches the credential, so it verifies the
+                # gateway rather than trusting whatever answers.
+                proxy_ssl_server_name on;
+                proxy_ssl_verify on;
+                proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+              }
+            }
+          }
+          CONF
+          # The sandbox runs as uid 1001 to keep its bind mounts writable, which
+          # is the runner's own uid, so mode alone would not keep the bearer from
+          # it if anything under /tmp were ever mounted in.
+          sudo chown root:root /tmp/nginx.conf
+          docker run --detach --name gw-proxy --publish 8080:80 \
+            --volume /tmp/nginx.conf:/etc/nginx/nginx.conf:ro \
+            nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+          # `--max-time` per attempt: without it a stalled connection would burn
+          # the whole `timeout` inside the first curl and never retry.
+          timeout 60 bash -c 'until curl -sf -o /dev/null --max-time 5 http://127.0.0.1:8080/healthz; do sleep 1; done'
+
       # The sandbox gets the PR tree, the tooling copy and a read-only `GH_TOKEN`,
       # each mounted at the path it has on the runner so a cited screenshot still
       # resolves for `skills embed-media` afterwards.
@@ -312,8 +365,10 @@ jobs:
         env:
           # Read-only for the whole job: injected instructions can't mutate the PR.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_BASE_URL: ${{ steps.gateway.outputs.base-url }}
-          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway.outputs.token }}
+          ANTHROPIC_BASE_URL: http://gw-proxy:8080
+          # The CLI refuses to start without a credential, so not simply empty.
+          ANTHROPIC_AUTH_TOKEN: placeholder-not-a-real-credential
+          # Tags, not a credential.
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
           # The auto mode permission classifier picks its model from the sonnet
           # and opus aliases rather than `--model`, so without these it requests
@@ -339,6 +394,7 @@ jobs:
           # Denying the bare name drops it from Claude's context instead of
           # leaving it to fail on use.
           timeout 45m docker run --rm --runtime=runsc \
+            --add-host gw-proxy:host-gateway \
             --volume "$SANDBOX_BASE:$SANDBOX_BASE" \
             --volume "$PR_CHECKOUT:$PR_CHECKOUT" \
             --volume "$REVIEW_OUT:$REVIEW_OUT" \
@@ -372,6 +428,13 @@ jobs:
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
           fi
+
+      # A sandbox that cannot reach the proxy only reports a request timeout.
+      - name: Gateway proxy log
+        if: always()
+        continue-on-error: true
+        run: |
+          docker logs gw-proxy
 
       # Kept out of the Claude step so a poisoned diff can't reach this PAT.
       # Metadata-only, unlike the app key, so it stays where the files and the
