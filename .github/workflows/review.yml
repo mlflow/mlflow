@@ -175,9 +175,12 @@ jobs:
       RESULT_BODY: /tmp/updated-comment.md
       PR_CHECKOUT: ${{ github.workspace }}/pr
       SANDBOX_IMAGE: ghcr.io/mlflow/sandbox:latest
-      # A copy, so a sandbox write cannot reach the `base` the runner later
-      # runs `skills` from with `UPLOAD_MEDIA_TOKEN` in scope.
+      # Copies, so nothing the sandbox writes reaches a tree the runner still
+      # uses. `base` needs it: the runner runs `skills` from there afterwards
+      # with `UPLOAD_MEDIA_TOKEN` in scope. Nothing reads `pr` after the
+      # container exits; copying keeps it that way by construction.
       SANDBOX_BASE: /tmp/base-sandbox
+      SANDBOX_PR: /tmp/pr-sandbox
     steps:
       - name: Resolve job URL
         env:
@@ -257,6 +260,7 @@ jobs:
           sudo systemctl restart docker
           docker run --rm --runtime=runsc "$SANDBOX_IMAGE" true
           cp -a base "$SANDBOX_BASE"
+          cp -a pr "$SANDBOX_PR"
           mkdir -p "$REVIEW_MEDIA"
 
       - name: Parse review arguments
@@ -396,7 +400,7 @@ jobs:
           timeout 45m docker run --rm --runtime=runsc \
             --add-host gw-proxy:host-gateway \
             --volume "$SANDBOX_BASE:$SANDBOX_BASE" \
-            --volume "$PR_CHECKOUT:$PR_CHECKOUT" \
+            --volume "$SANDBOX_PR:$SANDBOX_PR" \
             --volume "$REVIEW_OUT:$REVIEW_OUT" \
             --workdir "$SANDBOX_BASE" \
             --env GH_TOKEN \
@@ -413,13 +417,13 @@ jobs:
               --effort "$EFFORT" \
               --max-budget-usd 8 \
               --permission-mode auto \
-              --add-dir "$PR_CHECKOUT" \
+              --add-dir "$SANDBOX_PR" \
               --allowed-tools "Bash(uv run --directory $SANDBOX_BASE --package skills skills:*)" \
               --disallowed-tools WebSearch \
               --print \
               --verbose \
               --output-format stream-json \
-              "/pr-review $PR_URL $PR_CHECKOUT $REVIEW_PAYLOAD $REVIEW_MEDIA $SANDBOX_BASE" \
+              "/pr-review $PR_URL $SANDBOX_PR $REVIEW_PAYLOAD $REVIEW_MEDIA $SANDBOX_BASE" \
             | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 45 minutes"
