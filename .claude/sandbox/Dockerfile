@@ -14,7 +14,8 @@ ARG YARN_VERSION=1.22.22
 ARG GH_VERSION=2.98.0
 # gh_2.98.0_checksums.txt on the release.
 ARG GH_SHA256=3b8ac6b30336802fc1a858d7c084e11cdf24ac1a761ca90b68022d7d729208de
-# Both match `.claude/scripts/install-agent-browser.sh`.
+# Upstream publishes no checksum manifest, so recompute the digest by hand on a
+# version bump. https://github.com/vercel-labs/agent-browser/releases
 ARG AGENT_BROWSER_VERSION=0.34.0
 ARG AGENT_BROWSER_SHA256=69eadf5d8d6003a06a5cd2f914ebb261c7754fe1335a9190122c334e91909789
 

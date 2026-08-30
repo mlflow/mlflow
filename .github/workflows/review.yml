@@ -158,16 +158,26 @@ jobs:
     needs: gate
     runs-on: ubuntu-latest
     # Runs PR code by design, so it holds nothing that can write to the PR and
-    # no app key to mint one.
+    # no app key to mint one. The sandbox below puts it out of reach of this
+    # job's process memory too.
     permissions:
       contents: read
+      packages: read # to pull the sandbox image
       pull-requests: read
-    timeout-minutes: 45
+    # gVisor costs wall clock, so both this and the `timeout` below carry more
+    # headroom than the unsandboxed job needed.
+    timeout-minutes: 60
     env:
-      REVIEW_PAYLOAD: /tmp/review-payload.json
+      # Written in the sandbox, read back here, so both sit under one bind mount.
+      REVIEW_OUT: /tmp/review-out
+      REVIEW_PAYLOAD: /tmp/review-out/review-payload.json
+      REVIEW_MEDIA: /tmp/review-out/media
       RESULT_BODY: /tmp/updated-comment.md
-      REVIEW_MEDIA: /tmp/review-media
       PR_CHECKOUT: ${{ github.workspace }}/pr
+      SANDBOX_IMAGE: ghcr.io/mlflow/sandbox:latest
+      # A copy, so a sandbox write cannot reach the `base` the runner later
+      # runs `skills` from with `UPLOAD_MEDIA_TOKEN` in scope.
+      SANDBOX_BASE: /tmp/base-sandbox
     steps:
       - name: Resolve job URL
         env:
@@ -210,21 +220,44 @@ jobs:
             echo "::error::PR head moved after the gate pinned $EXPECTED_HEAD_SHA (merge ref now has $PR_HEAD_SHA)"
             exit 1
           fi
+      # The package is private, so pulling it needs a login even from this repo.
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - parallel:
+          # For the payload steps below; the review's toolchain is in the image.
           - uses: ./base/.github/actions/setup-python
             with:
               pin-micro-version: false
+          # For the result body script at the end of the job.
           - uses: ./base/.github/actions/setup-node
-          - name: Install Claude CLI
+          # A userspace kernel: the host kernel never sees the sandbox's syscalls.
+          # `runsc install` only edits the daemon config, so it runs alongside the
+          # pull below; the restart that applies it has to wait until that is done.
+          - name: Install gVisor
             run: |
-              base/.claude/scripts/install-claude.sh
-          - name: Install agent-browser
+              curl -fsSL https://gvisor.dev/archive.key \
+                | sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
+                | sudo tee /etc/apt/sources.list.d/gvisor.list
+              sudo apt-get update
+              sudo apt-get install -y runsc
+              sudo runsc install
+          - name: Pull the sandbox image
             run: |
-              base/.claude/scripts/install-agent-browser.sh
-      - name: Verify tools
+              docker pull "$SANDBOX_IMAGE"
+
+      - name: Stage the sandbox
         run: |
-          claude --version
-          agent-browser --version
+          # Picks up the runtime `runsc install` registered. Restarting mid-pull
+          # would have failed it, hence the split.
+          sudo systemctl restart docker
+          docker run --rm --runtime=runsc "$SANDBOX_IMAGE" true
+          cp -a base "$SANDBOX_BASE"
+          mkdir -p "$REVIEW_MEDIA"
 
       - name: Parse review arguments
         id: prompt
@@ -271,9 +304,11 @@ jobs:
           client-id: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_ID }}
           client-secret: ${{ secrets.DATABRICKS_GATEWAY_CLIENT_SECRET }}
 
+      # The sandbox gets the PR tree, the tooling copy and a read-only `GH_TOKEN`,
+      # each mounted at the path it has on the runner so a cited screenshot still
+      # resolves for `skills embed-media` afterwards.
       - name: Review
         id: review
-        working-directory: base
         env:
           # Read-only for the whole job: injected instructions can't mutate the PR.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -295,7 +330,6 @@ jobs:
           AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.REVIEW_MEDIA }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
-          mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
 
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), the steps that mutate the PR are gated off so
@@ -304,21 +338,35 @@ jobs:
           # The gateway does not serve Anthropic's server-side web_search tool.
           # Denying the bare name drops it from Claude's context instead of
           # leaving it to fail on use.
-          timeout 30m claude \
-            --model "$MODEL" \
-            --effort "$EFFORT" \
-            --max-budget-usd 8 \
-            --permission-mode auto \
-            --add-dir "$PR_CHECKOUT" \
-            --allowed-tools "Bash(uv run --package skills skills:*)" \
-            --disallowed-tools WebSearch \
-            --print \
-            --verbose \
-            --output-format stream-json \
-            "/pr-review $PR_URL $PR_CHECKOUT $REVIEW_PAYLOAD $REVIEW_MEDIA" \
-            | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          timeout 45m docker run --rm --runtime=runsc \
+            --volume "$SANDBOX_BASE:$SANDBOX_BASE" \
+            --volume "$PR_CHECKOUT:$PR_CHECKOUT" \
+            --volume "$REVIEW_OUT:$REVIEW_OUT" \
+            --workdir "$SANDBOX_BASE" \
+            --env GH_TOKEN \
+            --env ANTHROPIC_BASE_URL \
+            --env ANTHROPIC_AUTH_TOKEN \
+            --env ANTHROPIC_CUSTOM_HEADERS \
+            --env ANTHROPIC_DEFAULT_SONNET_MODEL \
+            --env ANTHROPIC_DEFAULT_OPUS_MODEL \
+            --env CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS \
+            --env AGENT_BROWSER_SCREENSHOT_DIR \
+            "$SANDBOX_IMAGE" \
+            claude \
+              --model "$MODEL" \
+              --effort "$EFFORT" \
+              --max-budget-usd 8 \
+              --permission-mode auto \
+              --add-dir "$PR_CHECKOUT" \
+              --allowed-tools "Bash(uv run --package skills skills:*)" \
+              --disallowed-tools WebSearch \
+              --print \
+              --verbose \
+              --output-format stream-json \
+              "/pr-review $PR_URL $PR_CHECKOUT $REVIEW_PAYLOAD $REVIEW_MEDIA" \
+            | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
-            echo "Warning: Claude command timed out after 30 minutes"
+            echo "Warning: Claude command timed out after 45 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
             echo "Error: Claude command failed with exit code $EXIT_CODE"
             cat "$OUTPUT_FILE"
@@ -488,7 +536,7 @@ jobs:
     timeout-minutes: 10
     # Where the artifact unpacks.
     env:
-      REVIEW_PAYLOAD: /tmp/review-payload.json
+      REVIEW_PAYLOAD: /tmp/review-out/review-payload.json
       RESULT_BODY: /tmp/updated-comment.md
     steps:
       # Not GITHUB_TOKEN: GitHub refuses approving reviews from it, and the

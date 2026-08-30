@@ -16,10 +16,9 @@ that payload is the whole job.
 The PR is checked out at `$pr_checkout`, not in the working directory:
 
 ```text
-$GITHUB_WORKSPACE/
-├── base/   # the working directory: this skill and the `skills` CLI come from
-│           # here, and nothing you review does
-└── pr/     # $pr_checkout, the reviewed tree: the PR merged into its base
+<working directory>   # this skill and the `skills` CLI come from here, and
+                      # nothing you review does
+$pr_checkout          # the reviewed tree: the PR merged into its base
 ```
 
 The working directory holds a checkout of the same repository, so it looks like the code under
