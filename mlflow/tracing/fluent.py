@@ -46,14 +46,18 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     capture_function_input_args,
+    construct_trace_id_v4,
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
+    parse_trace_id_v4,
 )
 from mlflow.tracing.utils.search import traces_to_df
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
 from mlflow.utils.thread_utils import map_with_context
+from mlflow.utils.uri import is_databricks_uri
 from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
@@ -321,7 +325,13 @@ def _wrap_function(
                 inputs = capture_function_input_args(fn, args, kwargs)
                 span.set_inputs(inputs)
                 result = yield  # sync/async function output to be sent here
-                span.set_outputs(result)
+                # Honor an explicit set_outputs() call made inside the function body.
+                # set_inputs() can already be overridden this way because the decorator
+                # captures inputs before the body runs, while outputs are captured after
+                # it returns. Fall back to the return value only when the user did not
+                # set outputs themselves, so the two are symmetric.
+                if span.outputs is None:
+                    span.set_outputs(result)
                 try:
                     yield result
                 except GeneratorExit:
@@ -816,6 +826,42 @@ def start_span_no_context(
     return mlflow_span
 
 
+def _carries_trace_location(trace_id: str) -> bool:
+    """
+    Whether ``trace_id`` already carries a location (``trace:/<location>/<id>``).
+
+    ``parse_trace_id_v4`` raises on a malformed V4 ID. Such an ID is reported as already
+    carrying a location so that callers leave it untouched and the tracking store remains
+    the single place that reports the malformed ID, preserving ``get_trace``'s contract of
+    returning ``None`` rather than raising.
+    """
+    try:
+        return parse_trace_id_v4(trace_id)[0] is not None
+    except MlflowException:
+        return True
+
+
+def _resolve_uc_trace_id(trace_id: str) -> str:
+    """
+    Resolve a plain trace ID to its Unity Catalog V4 form using the active experiment.
+
+    If ``trace_id`` already carries a location (``trace:/<location>/<id>``) or the active
+    experiment does not store its traces in Unity Catalog, ``trace_id`` is returned
+    unchanged. Otherwise it is qualified with the experiment's UC location so it can be
+    routed to the UC-backed endpoints.
+    """
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    if _carries_trace_location(trace_id):
+        return trace_id
+
+    location = TracingClient()._resolve_uc_trace_location(_get_experiment_id())
+    if location is None:
+        return trace_id
+
+    return construct_trace_id_v4(location, trace_id)
+
+
 @deprecated_parameter("request_id", "trace_id")
 def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace | None:
     """
@@ -852,6 +898,14 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
 
+    # UC-backed trace storage only exists on Databricks. Branch early so the non-Databricks
+    # path never enters the resolution logic below.
+    is_databricks = is_databricks_uri(get_tracking_uri())
+    if is_databricks:
+        # A plain trace ID does not carry the Unity Catalog location needed to fetch traces
+        # stored in UC. Resolve it from the active experiment's trace destination.
+        trace_id = _resolve_uc_trace_id(trace_id)
+
     exc: MlflowException | None = None
     try:
         return TracingClient().get_trace(trace_id)
@@ -872,6 +926,15 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
             if not flush
             else ""
         )
+        # If the ID is still a plain ID, the active experiment did not resolve a Unity
+        # Catalog location. Point the user to the fully-qualified form for UC traces.
+        # Only relevant on Databricks, where UC-backed trace storage exists.
+        if is_databricks and not _carries_trace_location(trace_id):
+            hint += (
+                " If this trace is stored in Unity Catalog, pass the fully-qualified trace ID "
+                "in the form `trace:/<catalog>.<schema>.<table>/<trace_id>`, or set an active "
+                "experiment linked to the UC location."
+            )
         _logger.warning(
             f"Failed to get trace from the tracking store: {exc}.{hint} "
             "For full traceback, set logging level to debug.",

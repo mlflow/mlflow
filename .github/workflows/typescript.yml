@@ -15,6 +15,7 @@ on:
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
+      - ".github/workflows/review.yml"
   push:
     branches:
       - master
@@ -46,7 +47,7 @@ jobs:
         shell: bash
         working-directory: libs/typescript
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -99,7 +100,7 @@ jobs:
         shell: bash
         working-directory: libs/typescript
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup Node.js

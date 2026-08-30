@@ -570,7 +570,6 @@ def _get_pinned_requirement(req_str, version=None, module=None):
         module: The name of the top-level module provided by the package . For example,
             if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
             to `package`.
-        extras: A list of extra names for the package.
 
     """
     req = Requirement(req_str)

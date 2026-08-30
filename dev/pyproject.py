@@ -157,6 +157,20 @@ def format_content_with_taplo(content: str) -> str:
     )
 
 
+DEPENDENCY_POLICY_NOTE = """\
+# Dependency version ranges express compatibility, not security. We do not raise version
+# floors to exclude dependency versions with known CVEs; patched versions are already
+# installable within the existing ranges, and pinning them is the responsibility of the
+# application. See https://sethmlarson.dev/library-version-specifiers-not-for-vulnerabilities
+"""
+
+
+def insert_dependency_policy_note(toml_content: str) -> str:
+    return toml_content.replace(
+        "\ndependencies = [", "\n" + DEPENDENCY_POLICY_NOTE + "dependencies = [", 1
+    )
+
+
 def write_toml_file_if_changed(
     file_path: Path, description: str, toml_data: dict[str, Any]
 ) -> None:
@@ -164,7 +178,7 @@ def write_toml_file_if_changed(
     Write a TOML file with description only if content has changed.
     Formats content with taplo before comparison.
     """
-    new_content = description + "\n" + toml.dumps(toml_data)
+    new_content = description + "\n" + insert_dependency_policy_note(toml.dumps(toml_data))
     formatted_content = format_content_with_taplo(new_content)
     write_file_if_changed(file_path, formatted_content)
 
@@ -450,7 +464,9 @@ def build(package_type: PackageType) -> None:
     else:
         out_path = Path("pyproject.toml")
         original_manual_content = out_path.read_text().split(SEPARATOR)[1]
-        generated_part = package_type.description() + "\n" + toml.dumps(data)
+        generated_part = (
+            package_type.description() + "\n" + insert_dependency_policy_note(toml.dumps(data))
+        )
         formatted_generated_part = format_content_with_taplo(generated_part)
         formatted_full_content = formatted_generated_part + SEPARATOR + original_manual_content
 

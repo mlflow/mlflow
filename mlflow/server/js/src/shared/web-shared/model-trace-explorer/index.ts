@@ -1,4 +1,4 @@
-export { ModelTraceExplorer } from './ModelTraceExplorer';
+export { ModelTraceExplorer, type ModelTraceExplorerProps } from './ModelTraceExplorerEntrypoint';
 export { SimplifiedModelTraceExplorer } from './SimplifiedModelTraceExplorer';
 export { ExpectationValuePreview } from './assessments-pane/ExpectationValuePreview';
 export { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
@@ -7,8 +7,9 @@ export { default as ModelTraceExplorerResizablePane } from './ModelTraceExplorer
 export type { ModelTraceExplorerResizablePaneRef } from './ModelTraceExplorerResizablePane';
 export {
   ModelTraceExplorerPreferencesProvider,
-  useModelTraceExplorerPreferences,
-} from './ModelTraceExplorerPreferencesContext';
+  type ModelTraceExplorerPreferencesProviderProps,
+} from './ModelTraceExplorerPreferencesContextEntrypoint';
+export { useModelTraceExplorerPreferences } from './ModelTraceExplorerPreferencesContext';
 export { AssessmentsPane } from './assessments-pane/AssessmentsPane';
 export {
   isModelTrace,
@@ -50,6 +51,7 @@ export {
   shouldUseUnifiedModelTraceComparisonUI,
   isEvaluatingTracesInDetailsViewEnabled,
   shouldEnableTracesTableStatePersistence,
+  shouldEnableModelTraceExplorerCustomTraceView,
 } from './FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from './contexts/AssessmentSchemaContext';
 export * from './ModelTrace.types';
@@ -89,6 +91,6 @@ export {
   type RenderExportTracesToDatasetsModalParams,
   type DrawerComponentType,
 } from './ModelTraceExplorerContext';
-export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawer';
+export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawerEntrypoint';
 export { formatCostUSD } from './CostUtils';
 export { SimplifiedAssessmentView } from './right-pane/SimplifiedAssessmentView';

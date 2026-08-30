@@ -793,7 +793,6 @@ class RetrievalGroundedness(BuiltInScorer):
         return feedbacks
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCallEfficiency(BuiltInScorer):
     """
@@ -875,7 +874,6 @@ class ToolCallEfficiency(BuiltInScorer):
         )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCallCorrectness(BuiltInScorer):
     """
@@ -1809,12 +1807,6 @@ class Correctness(BuiltInScorer):
             )
 
     def get_input_fields(self) -> list[JudgeField]:
-        """
-        Get the input fields for the Correctness judge.
-
-        Returns:
-            List of JudgeField objects defining the input fields based on the __call__ method.
-        """
         return [
             JudgeField(
                 name="inputs",
@@ -2271,11 +2263,15 @@ class BuiltInSessionLevelScorer(BuiltInScorer, SessionLevelScorer):
     implementation details should inherit from SessionLevelScorer directly.
     """
 
-    # All functionality now inherited from SessionLevelScorer
-    # BuiltInScorer provides special serialization for public API
+    # Re-declared because BuiltInScorer precedes SessionLevelScorer in the MRO, so
+    # BuiltInScorer's ``set()`` default would otherwise shadow SessionLevelScorer's
+    # ``{"trace"}``, leaving session scorers with an empty (incorrect) data contract.
+    required_columns: set[str] = {"trace"}
+
+    # Remaining functionality is inherited from SessionLevelScorer;
+    # BuiltInScorer provides special serialization for public API.
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class UserFrustration(BuiltInSessionLevelScorer):
     """
@@ -2355,7 +2351,6 @@ class UserFrustration(BuiltInSessionLevelScorer):
         return USER_FRUSTRATION_PROMPT
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationCompleteness(BuiltInSessionLevelScorer):
     """
@@ -2435,7 +2430,6 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         return CONVERSATION_COMPLETENESS_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalSafety(BuiltInSessionLevelScorer):
     """
@@ -2517,7 +2511,6 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_SAFETY_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
     """
@@ -2596,7 +2589,6 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
     """
@@ -2674,7 +2666,6 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalGuidelines(BuiltInSessionLevelScorer):
     """
@@ -2812,7 +2803,6 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
         return KNOWLEDGE_RETENTION_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class KnowledgeRetention(BuiltInSessionLevelScorer):
     """
@@ -3004,7 +2994,6 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         )
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class Completeness(BuiltInScorer):
     """
@@ -3114,7 +3103,6 @@ class Completeness(BuiltInScorer):
         )
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class Summarization(BuiltInScorer):
     """

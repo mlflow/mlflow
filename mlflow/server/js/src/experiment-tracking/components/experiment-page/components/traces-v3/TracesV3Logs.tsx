@@ -25,6 +25,7 @@ import {
   ModelTraceExplorerRunJudgesContextProvider,
   isEvaluatingTracesInDetailsViewEnabled,
   shouldEnableTracesTableStatePersistence,
+  shouldEnableModelTraceExplorerCustomTraceView,
   SESSION_ID_METADATA_KEY,
   MetricViewType,
   AggregationType,
@@ -96,6 +97,7 @@ import {
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useCountInfo } from './hooks/useCountInfo';
 import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
+import { useScorerDescriptions } from '../../../../pages/experiment-scorers/hooks/useScorerDescriptions';
 
 const JudgeContextProvider = ({
   children,
@@ -132,6 +134,15 @@ const ContextProviders = ({
     </GenAiTracesMarkdownConverterProvider>
   );
 };
+
+// Custom View pulls in @a2ui (ESM-only) transitively via ExperimentCustomViewProvider.
+// Lazy-load it so consumers that don't need Custom View don't pull @a2ui onto their
+// static module graph (mirrors the tab's own lazy import in ModelTraceExplorerContent).
+const LazyExperimentCustomViewProvider = React.lazy(() =>
+  import('./ExperimentCustomViewProvider').then((module) => ({
+    default: module.ExperimentCustomViewProvider,
+  })),
+);
 
 const firedCountTelemetryForExperiments = new Set<string>();
 
@@ -233,6 +244,9 @@ const TracesV3LogsImpl = React.memo(
 
     const getTrace = getTraceV3;
 
+    // The scorer registry is per-experiment, so multi-experiment views retain the generic tooltip.
+    const scorerDescriptionsByName = useScorerDescriptions(singleExperimentId);
+
     // Get metadata
     const {
       assessmentInfos,
@@ -248,6 +262,7 @@ const TracesV3LogsImpl = React.memo(
       timeRange,
       filterByLoggedModelId: loggedModelId,
       disabled: isQueryDisabled,
+      scorerDescriptionsByName,
     });
 
     // Setup table states
@@ -801,15 +816,26 @@ const TracesV3LogsImpl = React.memo(
       </ModelTraceExplorerContextProvider>
     );
 
+    let content = tableContent;
+    if (shouldEnableModelTraceExplorerCustomTraceView() && singleExperimentId) {
+      content = (
+        <React.Suspense fallback={tableContent}>
+          <LazyExperimentCustomViewProvider key={singleExperimentId} experimentId={singleExperimentId}>
+            {tableContent}
+          </LazyExperimentCustomViewProvider>
+        </React.Suspense>
+      );
+    }
+
     // If we're already inside an external provider (e.g., from SelectTracesModal),
     // don't create a new provider to avoid shadowing the parent's selection state
     if (hasExternalProvider) {
-      return tableContent;
+      return content;
     }
 
     return (
       <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-        {tableContent}
+        {content}
       </GenAiTraceTableRowSelectionProvider>
     );
   },

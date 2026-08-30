@@ -43,11 +43,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.0",
-            "maximum": "1.3.14"
+            "maximum": "1.3.15"
         },
         "autologging": {
             "minimum": "1.0.0",
-            "maximum": "1.3.14"
+            "maximum": "1.3.15"
         }
     },
     "langgraph": {
@@ -104,7 +104,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.28.0",
-            "maximum": "2.14.0"
+            "maximum": "2.18.1"
         }
     },
     "anthropic": {
@@ -143,7 +143,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.4.10",
-            "maximum": "2.16.0"
+            "maximum": "2.31.1"
         }
     },
     "smolagents": {
@@ -334,11 +334,11 @@ _ML_PACKAGE_VERSIONS = {
             "module_name": "pyspark"
         },
         "models": {
-            "minimum": "3.2.1",
+            "minimum": "3.4.4",
             "maximum": "4.2.0"
         },
         "autologging": {
-            "minimum": "3.3.0",
+            "minimum": "3.4.4",
             "maximum": "4.2.0"
         }
     },
@@ -397,11 +397,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.43.4",
-            "maximum": "5.14.1"
+            "maximum": "5.15.0"
         },
         "autologging": {
             "minimum": "4.43.4",
-            "maximum": "5.14.1"
+            "maximum": "5.15.0"
         }
     },
     "diffusers": {
@@ -420,7 +420,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "2.4.0",
-            "maximum": "2.31.0"
+            "maximum": "3.0.0"
         }
     },
     "sentence_transformers": {

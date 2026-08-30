@@ -46,10 +46,10 @@ import { SavedViewsMenu, type SavedViewMenuItem } from '../saved-views/SavedView
 const TRACE_SAVED_VIEW_TAG_PREFIX = 'mlflow.traceViewState.';
 export const TRACE_SHARE_URL_PARAM_KEY = 'traceViewShareKey';
 
-// Experiment-tag values are capped at MAX_EXPERIMENT_TAG_VAL_LENGTH (5000 chars) server-side; a
+// Experiment-tag values are capped at MAX_EXPERIMENT_TAG_VAL_LENGTH (20000 chars) server-side; a
 // write above the ceiling HARD-THROWS in the tracking store rather than truncating, so we preflight
 // the encoded envelope length before dispatching.
-const MAX_TAG_VALUE_LENGTH = 5000;
+const MAX_TAG_VALUE_LENGTH = 20000;
 
 // Client-side cap (mirrors the runs MAX_SAVED_VIEWS): each view is a tag and `get-experiment`
 // returns every tag value, so the count is bounded to keep that payload small. Best-effort; tags
@@ -614,7 +614,7 @@ export const TracesV3SavedViewsButton = ({
             )}
           </Button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
+        <DropdownMenu.Content align="start">
           <SavedViewsMenu
             componentId="mlflow.traces.saved_views"
             testIdPrefix="trace-saved-views"

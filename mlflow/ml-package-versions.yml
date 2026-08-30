@@ -159,6 +159,10 @@ xgboost:
     maximum: "3.3.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
+      # scikit-learn 1.8.0 dropped the attribute-based estimator type that
+      # `XGBModel._get_type` relies on, so older xgboost raises
+      # "`_estimator_type` undefined" against it.
+      "< 3.1.3": ["scikit-learn<1.8"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py
 
@@ -167,6 +171,7 @@ xgboost:
     maximum: "3.3.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
+      "< 3.1.3": ["scikit-learn<1.8"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py
 
@@ -204,6 +209,9 @@ catboost:
     maximum: "1.2.10"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
+      # scikit-learn 1.8.0 requires estimators to implement `__sklearn_tags__`,
+      # which catboost only started providing in 1.2.9.
+      "< 1.2.9": ["scikit-learn<1.8"]
       "< 1.3": ["numpy<2"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py
@@ -282,12 +290,22 @@ statsmodels:
   models:
     minimum: "0.14.3"
     maximum: "0.14.6"
+    requirements:
+      # scipy 1.16.0 removed the private `scipy._lib._util._lazywhere` that
+      # statsmodels imports at module scope until 0.14.5.
+      "< 0.14.5": ["scipy<1.16"]
+      # pandas 3 changed `pandas.util._decorators.deprecate_kwarg`, which
+      # statsmodels calls at import time until 0.14.6.
+      "< 0.14.6": ["pandas<3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
     minimum: "0.14.3"
     maximum: "0.14.6"
+    requirements:
+      "< 0.14.5": ["scipy<1.16"]
+      "< 0.14.6": ["pandas<3"]
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
 
@@ -307,17 +325,14 @@ spark:
       pyspark --version
 
   models:
-    minimum: "3.2.1"
+    minimum: "3.4.4"
     maximum: "4.2.0"
-    java:
-      "<= 3.4.1": "11"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow", "numpy<2"]
-      "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
@@ -336,17 +351,14 @@ spark:
       fi
 
   autologging:
-    minimum: "3.3.0"
+    minimum: "3.4.4"
     maximum: "4.2.0"
-    java:
-      "<= 3.4.1": "11"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["scikit-learn", "numpy<2"]
-      "< 3.4.0": ["pandas<2"]
     run: |
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
@@ -381,6 +393,8 @@ prophet:
       ">= 0.0.0": ["numpy<2"]
       # cmdstanpy>=1.3.0 is not compatible with prophet<=1.2.0: https://github.com/facebook/prophet/issues/2697
       "<= 1.2.0": ["cmdstanpy<1.3.0"]
+      # `Prophet.fit` raises "cannot reindex on an axis with duplicate labels" under pandas 3.
+      "< 1.2.2": ["pandas<3"]
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
@@ -457,7 +471,7 @@ transformers:
       uv pip install --system git+https://github.com/huggingface/transformers
   models:
     minimum: "4.43.4"
-    maximum: "5.14.1"
+    maximum: "5.15.0"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -477,7 +491,9 @@ transformers:
           "hf_transfer",
           "torch",
           "torchvision",
-          "tensorflow",
+          # TensorFlow < 2.19 is built against numpy 1.x and crashes ("_ARRAY_API not found")
+          # under the numpy 2.x that the rest of this set resolves to.
+          "tensorflow>=2.19",
           "peft", # optimized fine-tuning library developed by Hugging Face
           "accelerate", # required for large torch models where weights will not fit in RAM
           "librosa", # required for transformers audio pipelines for bitrate conversion
@@ -490,6 +506,8 @@ transformers:
         ]
       # peft >= 0.14 relies on classes from newer versions of transformers
       "< 4.45": ["peft<0.14.0"]
+      # The TAPAS tokenizer raises "len() of unsized object" under pandas 3, fixed in 5.10.4.
+      "< 5.10.4": ["pandas<3"]
       # peft >= 0.18 requires transformers.modeling_layers which was added in transformers 4.52.0
       "< 4.52": ["peft<0.18.0"]
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
@@ -506,7 +524,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.43.4"
-    maximum: "5.14.1"
+    maximum: "5.15.0"
     test_every_n_versions: 4
     unsupported: [
         # https://github.com/huggingface/transformers/issues/38269
@@ -631,7 +649,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "1.0.0"
-    maximum: "1.3.14"
+    maximum: "1.3.15"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -662,6 +680,9 @@ langchain:
           "databricks-vectorsearch<0.74",
           # Required for testing uc tools
           "unitycatalog-langchain",
+          # mcp 2.0 removed RequestContext from mcp.shared.context, breaking
+          # langchain_mcp_adapters at import time.
+          "mcp<2",
         ]
       ">= 1.0.0": [
           # required for testing legacy modules
@@ -684,7 +705,7 @@ langchain:
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
     minimum: "1.0.0"
-    maximum: "1.3.14"
+    maximum: "1.3.15"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -698,6 +719,9 @@ langchain:
           # Need to bump FasAPI version to support pydantic v2
           "fastapi>=0.100.0",
           "langchain-openai>=0.2.0",
+          # mcp 2.0 removed RequestContext from mcp.shared.context, breaking
+          # langchain_mcp_adapters at import time.
+          "mcp<2",
         ]
       ">= 1.0.0": ["langchain-classic"]
       # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
@@ -865,7 +889,7 @@ gemini:
       uv pip install --system git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.28.0"
-    maximum: "2.14.0"
+    maximum: "2.18.1"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK
@@ -950,15 +974,21 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.4.10"
-    maximum: "2.16.0"
+    maximum: "2.31.1"
     unsupported: [">=2.0.0,<2.5.0"]
     requirements:
-      ">= 0.0.0": ["mcp"]
-      # pydantic-ai < 1.0.0 does `from opentelemetry._events import Event`, but doesn't
+      # pydantic-ai < 2.0.0 does `from mcp.client.streamable_http import GetSessionIdCallback`,
+      # but doesn't cap mcp, so it floats to 2.0.0 which removed `GetSessionIdCallback`,
+      # breaking collection with `ImportError: cannot import name 'GetSessionIdCallback'`.
+      # pydantic-ai >= 2.0.0 uses `fastmcp` instead and no longer imports that symbol, so it
+      # can use an uncapped mcp.
+      "< 2.0.0": ["mcp<2"]
+      ">= 2.0.0": ["mcp"]
+      # pydantic-ai < 1.32.0 does `from opentelemetry._events import Event`, but doesn't
       # cap opentelemetry-api, so it floats to 1.44.0 which removed the `_events` module,
       # breaking collection with `ModuleNotFoundError: No module named 'opentelemetry._events'`.
-      # pydantic-ai >= 1.0.0 either caps the api itself or switched to `opentelemetry._logs`.
-      "< 1.0.0": ["opentelemetry-api<1.44"]
+      # pydantic-ai >= 1.32.0 no longer imports `opentelemetry._events`.
+      "< 1.32.0": ["opentelemetry-api<1.44"]
     run: pytest tests/pydantic_ai
     test_tracing_sdk: true
     test_every_n_versions: 10
@@ -1004,8 +1034,10 @@ haystack:
       uv pip install --system git+https://github.com/deepset-ai/haystack
   autologging:
     minimum: "2.4.0"
-    maximum: "2.31.0"
+    maximum: "3.0.0"
     requirements:
+      # `OpenTelemetryTracer` moved out of the core package in haystack 3.0
+      ">= 3.0.0": ["opentelemetry-haystack"]
     run: pytest tests/haystack
     test_tracing_sdk: true
     test_every_n_versions: 10
