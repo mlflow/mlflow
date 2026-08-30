@@ -13127,6 +13127,10 @@
     "defaultMessage": ".mcp.json",
     "description": "mcp.json install format label"
   },
+  "qj+LhB": {
+    "defaultMessage": "Name",
+    "description": "Label for the name field for expectations in the GenAI Traces Table Filter form"
+  },
   "qkRBUr": {
     "defaultMessage": "Line smoothing",
     "description": "Runs charts > line chart > configuration > label for line smoothing slider control. The control allows changing data trace line smoothness from 1 to 100, where 1 is the original data trace and 100 is the smoothest trace. Line smoothing helps eliminate noise in the data."
