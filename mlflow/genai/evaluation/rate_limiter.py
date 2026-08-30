@@ -16,15 +16,33 @@ _logger = logging.getLogger(__name__)
 def eval_retry_context():
     """Disable downstream 429 retries so errors bubble up to call_with_retry().
 
-    Sets flags on both the HTTP-layer retry (rest_utils) and the litellm
-    adapter so that rate-limit errors propagate to the evaluate pipeline's
-    own retry/AIMD logic.
+    Iterates the RateLimitRetryAdapter registry and disables internal retry loops
+    for every active provider, so that rate-limit errors propagate to the evaluate
+    pipeline's own retry/AIMD logic.
     """
-    # Lazy imports to avoid circular dependency: genai.evaluation → genai.judges/utils.
-    from mlflow.genai.judges.adapters.litellm_adapter import disable_litellm_rate_limit_retries
-    from mlflow.utils.rest_utils import disable_429_retry
+    # Lazy import to avoid circular dependency: genai.evaluation → genai.judges.
+    # Importing rate_limit_retry_adapters triggers all register_retry_adapter() calls.
+    from mlflow.genai.judges.adapters.rate_limit_retry_adapters import get_retry_adapters
 
-    with disable_litellm_rate_limit_retries(), disable_429_retry():
+    active_adapters = []
+    for adapter in get_retry_adapters():
+        try:
+            if adapter.is_adapter_active():
+                active_adapters.append(adapter)
+        except Exception:
+            _logger.warning(
+                f"eval_retry_context: is_adapter_active() raised for adapter "
+                f"'{adapter.name}', skipping",
+                exc_info=True,
+            )
+
+    _logger.debug(f"eval_retry_context: disabling retries for {[a.name for a in active_adapters]}")
+    # Adapters are disjoint (each targets a separate provider), so activation order
+    # does not matter — the ExitStack unwinds them in reverse order, but there are
+    # no shared resources between adapters that could be affected by ordering.
+    with contextlib.ExitStack() as stack:
+        for adapter in active_adapters:
+            stack.enter_context(adapter.disable_internal_retries())
         yield
 
 

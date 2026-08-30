@@ -1,6 +1,7 @@
 // Auto-close PRs based on linked-issue policy:
-//   1. PRs that attempt to close an issue without the "ready" label.
-//   2. PRs that don't link to any issue and change more than LOC_THRESHOLD
+//   1. PRs that modify maintainer-only paths (see PROTECTED_PATHS).
+//   2. PRs that attempt to close an issue without the "ready" label.
+//   3. PRs that don't link to any issue and change more than LOC_THRESHOLD
 //      lines.
 // Skips PRs that reference multiple issues (ambiguous intent).
 // Only enforces on issues/PRs created on or after 2026-03-10.
@@ -14,6 +15,17 @@ const PR_TEMPLATE_PATH = ".github/pull_request_template.md";
 const CUTOFF_DATE = new Date("2026-03-10T00:00:00Z");
 // PRs with more than this many LOC changed must link to an issue.
 const LOC_THRESHOLD = 100;
+// Paths only maintainers may change. Agent instruction files are listed here because a
+// coding agent silently obeys them, but any path that outside contributions shouldn't
+// touch can be added.
+const PROTECTED_PATHS = [
+  /(^|\/)AGENTS\.md$/,
+  /(^|\/)CLAUDE\.md$/,
+  /^\.agents\//,
+  /^\.claude\//,
+  /^\.claude-plugin\//,
+  /^\.github\/instructions\//,
+];
 
 const QUERY = `
   query($owner: String!, $repo: String!, $number: Int!) {
@@ -88,6 +100,27 @@ async function isDatabricksAuthor({ github, context }) {
   return commits.some((c) => /@databricks\.com$/i.test(c.commit.author.email || ""));
 }
 
+async function getProtectedPathHits({ github, context }) {
+  const { owner, repo } = context.repo;
+  const files = await github.paginate(github.rest.pulls.listFiles, {
+    owner,
+    repo,
+    pull_number: context.payload.pull_request.number,
+    per_page: 100,
+  });
+  // A rename reports the destination in `filename` and the source in `previous_filename`,
+  // so both must be checked to catch files moved out of a protected location.
+  const hits = new Set();
+  for (const { filename, previous_filename } of files) {
+    for (const name of [filename, previous_filename]) {
+      if (name && PROTECTED_PATHS.some((re) => re.test(name))) {
+        hits.add(name);
+      }
+    }
+  }
+  return [...hits];
+}
+
 async function getCloseReason({ github, context }) {
   const association = context.payload.pull_request.author_association;
   if (["OWNER", "MEMBER", "COLLABORATOR"].includes(association)) return undefined;
@@ -97,6 +130,16 @@ async function getCloseReason({ github, context }) {
     const prAuthor = context.payload.pull_request.user.login;
     console.log(`PR author @${prAuthor} has Databricks affiliation. Skipping.`);
     return undefined;
+  }
+
+  const protectedHits = await getProtectedPathHits({ github, context });
+  if (protectedHits.length > 0) {
+    console.log(`PR modifies protected paths: ${protectedHits.join(", ")}. Closing.`);
+    return [
+      "This PR was automatically closed because it modifies files that are maintained by the MLflow team:",
+      protectedHits.map((f) => `- \`${f}\``).join("\n"),
+      "Please open an issue if you'd like to propose a change.",
+    ].join("\n\n");
   }
 
   const prNumber = context.payload.pull_request.number;
@@ -227,4 +270,4 @@ async function main({ context, github }) {
   }
 }
 
-module.exports = { main, getCloseReason, isDatabricksAuthor };
+module.exports = { main, getCloseReason, isDatabricksAuthor, getProtectedPathHits };

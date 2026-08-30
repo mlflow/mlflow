@@ -40,6 +40,7 @@ import type {
   ModelTraceEvent,
   ModelTraceLocation,
   ModelTraceInputAudio,
+  ModelTraceSpanLink,
 } from './ModelTrace.types';
 import {
   ModelSpanType,
@@ -638,8 +639,33 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
   return spanId;
 };
 
+// Link trace ids arrive base64-encoded from OTLP endpoints (V3 traces/get,
+// V4 batchGet) but as `tr-<hex>` from the artifact route. Normalize to the
+// `tr-<hex>` form the links UI and batch trace-info lookup expect.
+export const decodeLinkTraceId = (traceId: string | null | undefined): string => {
+  if (!traceId) {
+    return '';
+  }
+
+  // Already in MLflow V3 (`tr-…`) or V4 (`trace:/…`) form.
+  if (traceId.startsWith('tr-') || traceId.startsWith('trace:/')) {
+    return traceId;
+  }
+
+  try {
+    return `tr-${base64ToHex(traceId)}`;
+  } catch (e) {
+    // if base64 decoding fails, just return the original traceId
+    return traceId;
+  }
+};
+
 export function isV3ModelTraceInfo(
-  info: Pick<ModelTraceInfoV3, 'trace_location' | 'trace_id'> | ModelTrace['info'],
+  info:
+    | Pick<ModelTraceInfoV3, 'trace_location' | 'trace_id'>
+    | ModelTrace['info']
+    | { trace?: { trace_info?: ModelTrace['info'] } }
+    | undefined,
 ): info is ModelTraceInfoV3 {
   if (!info) {
     return false;
@@ -661,7 +687,11 @@ export const getTraceHref = (traceId: string, traceInfo: ModelTrace['info'] | un
   }
 
   if (!experimentId) return undefined;
-  return `${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${traceId}`;
+  const params = new URLSearchParams({
+    selectedEvaluationId: traceId,
+    traceId,
+  });
+  return `${getExperimentPageTracesTabRoute(experimentId)}?${params.toString()}`;
 };
 
 export function isV4ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV4 {
@@ -1421,6 +1451,15 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
     );
   };
 
+  // Links from OTLP endpoints carry base64-encoded ids and K/V-list attributes,
+  // so normalize them the same way as span ids and attributes above.
+  const convertLink = (link: ModelTraceSpanLink): ModelTraceSpanLink => ({
+    ...link,
+    trace_id: decodeLinkTraceId(link.trace_id),
+    span_id: decodeSpanId(link.span_id, true),
+    ...(link.attributes && { attributes: convertAttributes(link.attributes) }),
+  });
+
   return {
     ...modelTraceSpan,
     ...(modelTraceSpan.attributes && { attributes: convertAttributes(modelTraceSpan.attributes) }),
@@ -1430,7 +1469,7 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
         attributes: convertAttributes(event.attributes),
       })),
     }),
-    ...(modelTraceSpan.links && { links: modelTraceSpan.links }),
+    ...(modelTraceSpan.links && { links: modelTraceSpan.links.map(convertLink) }),
   };
 };
 

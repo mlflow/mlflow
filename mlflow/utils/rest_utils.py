@@ -252,7 +252,8 @@ def http_request(
 
     timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
     auth_str = None
-    if host_creds.username and host_creds.password:
+    is_kubernetes_auth = host_creds.auth in {"kubernetes", "kubernetes-namespaced"}
+    if host_creds.username and host_creds.password and not is_kubernetes_auth:
         basic_auth_str = f"{host_creds.username}:{host_creds.password}".encode()
         auth_str = "Basic " + base64.standard_b64encode(basic_auth_str).decode("utf-8")
     elif host_creds.token:
