@@ -86,7 +86,14 @@ def _is_empty_database(engine):
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
-    _upgrade_db(engine)
+    # After creating all tables, stamp the latest revision to mark the schema as current.
+    # Do not run migrations because they would attempt to create the tables again.
+    config = _get_alembic_config(engine.url)
+    script = ScriptDirectory.from_config(config)
+    head = script.get_current_head()
+    with engine.begin() as connection:
+        context = MigrationContext.configure(connection)
+        context.stamp(script, head)
 
 
 def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
@@ -104,6 +111,21 @@ def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
     with ExclusiveFileLock(f"{tempfile.gettempdir()}/db_init_lock-{url_hash}"):
         if not _all_tables_exist(engine):
             _initialize_tables(engine)
+        else:
+            # If all tables exist but Alembic revision is not recorded (e.g., from a failed upgrade),
+            # stamp the latest revision to prevent future migration attempts.
+            try:
+                with engine.connect() as connection:
+                    context = MigrationContext.configure(connection)
+                    if context.get_current_revision() is None:
+                        config = _get_alembic_config(engine.url)
+                        script = ScriptDirectory.from_config(config)
+                        head = script.get_current_head()
+                        with engine.begin() as connection:
+                            context = MigrationContext.configure(connection)
+                            context.stamp(script, head)
+            except Exception:
+                _logger.warning("Failed to stamp Alembic revision; will retry during upgrade.", exc_info=True)
 
 
 def _get_latest_schema_revision():
