@@ -369,8 +369,7 @@ jobs:
       # server-side web_search tool, so `--disallowed-tools` denies the bare
       # name: that drops it from Claude's context instead of leaving it to fail
       # on use.
-      - name: Review
-        id: review
+      - name: Create the review sandbox
         env:
           # Read-only for the whole job: injected instructions can't mutate the PR.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -393,17 +392,11 @@ jobs:
           EFFORT: ${{ steps.prompt.outputs.effort }}
           AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.REVIEW_MEDIA }}
         run: |
-          OUTPUT_FILE="/tmp/output.jsonl"
-
-          # Both event paths run /pr-review end-to-end against the PR; on
-          # pull_request (smoke), the steps that mutate the PR are gated off so
-          # no review is submitted.
-          EXIT_CODE=0
           # `$REVIEW_OUT` is the mount source and has to exist first, or Docker
           # creates it root-owned and the sandbox cannot write it.
           mkdir -p "$REVIEW_MEDIA"
-          # `docker cp` needs a container to copy into, so the run is split and
-          # `--rm` gives way to the removal step below.
+          # `docker cp` needs a container to copy into, which is why creating it
+          # is a step of its own and `--rm` gives way to the removal step below.
           docker create --name review-sandbox --runtime=runsc \
             --add-host gw-proxy:host-gateway \
             --volume "$REVIEW_OUT:$REVIEW_OUT" \
@@ -440,6 +433,14 @@ jobs:
           docker cp -a "${SANDBOX_BASE##*/}" "review-sandbox:${SANDBOX_BASE%/*}/"
           docker cp -a "${SANDBOX_PR##*/}" "review-sandbox:${SANDBOX_PR%/*}/"
 
+      # Both event paths run /pr-review end-to-end against the PR; on
+      # pull_request (smoke), the steps that mutate the PR are gated off so no
+      # review is submitted.
+      - name: Review
+        id: review
+        run: |
+          OUTPUT_FILE="/tmp/output.jsonl"
+          EXIT_CODE=0
           timeout 45m docker start --attach review-sandbox \
             | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
