@@ -83,6 +83,7 @@ def test_detect_environment_none():
     ("environment", "expected"),
     [
         ({"AI_AGENT": "custom-agent"}, "custom-agent"),
+        ({"AI_AGENT": "claude-code_2-1-232_agent"}, "claude-code"),
         ({"CODEX_THREAD_ID": "thread-id"}, "codex"),
         ({"GEMINI_CLI": "1"}, "gemini-cli"),
         ({"COPILOT_CLI": "1"}, "copilot-cli"),
@@ -108,6 +109,20 @@ def test_detect_agent_ignores_invalid_ai_agent(agent):
 
 def test_detect_agent_none():
     with patch.dict("os.environ", {}, clear=True):
+        assert _detect_agent() is None
+
+
+@pytest.mark.parametrize(
+    "environment",
+    [
+        {"COPILOT_MODEL": "gpt-5"},
+        {"COPILOT_ALLOW_ALL": "1"},
+        {"COPILOT_GITHUB_TOKEN": "token"},
+        {"TERM_PROGRAM": "kiro"},
+    ],
+)
+def test_detect_agent_ignores_non_agent_markers(environment):
+    with patch.dict("os.environ", environment, clear=True):
         assert _detect_agent() is None
 
 

@@ -96,7 +96,11 @@ def _detect_agent() -> str | None:
     # https://www.npmjs.com/package/std-env#agent-detection
     if agent := os.environ.get("AI_AGENT", "").strip():
         if _AGENT_NAME_PATTERN.fullmatch(agent):
-            return agent.lower()
+            agent = agent.lower()
+            for known in sorted(CodingAgent, key=lambda a: len(a.value), reverse=True):
+                if agent.startswith(known.value):
+                    return known.value
+            return agent
 
     def is_set(*names: str) -> bool:
         return any(os.environ.get(name) for name in names)
@@ -108,7 +112,7 @@ def _detect_agent() -> str | None:
         return CodingAgent.CODEX.value
     if is_set("GEMINI_CLI"):
         return CodingAgent.GEMINI_CLI.value
-    if is_set("COPILOT_CLI", "COPILOT_MODEL", "COPILOT_ALLOW_ALL", "COPILOT_GITHUB_TOKEN"):
+    if is_set("COPILOT_CLI"):
         return CodingAgent.COPILOT_CLI.value
     if is_set("OPENCODE"):
         return CodingAgent.OPENCODE.value
@@ -122,7 +126,7 @@ def _detect_agent() -> str | None:
         return CodingAgent.CURSOR.value
     if is_set("CURSOR_AGENT") or os.environ.get("CURSOR_EXTENSION_HOST_ROLE") == "agent-exec":
         return CodingAgent.CURSOR_CLI.value
-    if is_set("KIRO_AGENT_PATH") or os.environ.get("TERM_PROGRAM") == "kiro":
+    if is_set("KIRO_AGENT_PATH"):
         return CodingAgent.KIRO.value
     if is_set("PI_CODING_AGENT"):
         return CodingAgent.PI.value
