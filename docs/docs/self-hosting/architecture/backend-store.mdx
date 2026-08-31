@@ -107,6 +107,59 @@ You can inject some [SQLAlchemy connection pooling options](https://docs.sqlalch
   </tbody>
 </Table>
 
+## Trace Analytics Daily Rollups
+
+Trace analytics queries (used by the traces dashboards) aggregate metrics such as trace counts, latency, token usage, and assessment values over a time range. On large trace tables these queries scan a lot of rows. MLflow can serve the whole-day portions of such queries from precomputed daily rollup tables, which is much faster than scanning raw traces and spans.
+
+Rollups are an **opt-in read acceleration**. They never change query results: any day that is not yet rolled up, and any partial day at the edges of a requested range, is served from the raw path, so enabling rollups only changes query speed. This feature requires a database backend (it is not available for the file store).
+
+Configure rollup reads and maintenance with the following environment variables on the tracking server:
+
+<Table>
+  <thead>
+    <tr>
+      <th>MLflow Environment Variable</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`MLFLOW_SQL_TRACE_ROLLUPS_ENABLED`</td>
+      <td>When `true`, the server maintains daily rollups and trace analytics queries serve eligible whole days from them. When `false`, maintenance is a no-op and all queries use the raw path.</td>
+      <td>`false`</td>
+    </tr>
+    <tr>
+      <td>`MLFLOW_TRACE_ROLLUPS_SCHEDULE`</td>
+      <td>Five-field UTC cron expression for the server-owned maintenance task.</td>
+      <td>`0 2 * * *`</td>
+    </tr>
+    <tr>
+      <td>`MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN`</td>
+      <td>Optional maximum number of daily partitions built or rebuilt by one maintenance run.</td>
+      <td>Unset (no limit)</td>
+    </tr>
+  </tbody>
+</Table>
+
+When job execution is available, MLflow registers the scheduled maintenance task automatically. The task builds only complete UTC-day partitions whose contributing traces have been complete or inactive for at least 24 hours. Writes that can make an existing partition stale add it to a durable rebuild queue; the next maintenance run atomically replaces that partition and removes its queue entry.
+
+Deployments that use an external scheduler, such as a Kubernetes `CronJob`, can invoke the same maintenance path without starting the MLflow scheduler:
+
+```bash
+mlflow db build-trace-rollups "$MLFLOW_TRACKING_URI"
+```
+
+The command and the server-owned task both no-op when `MLFLOW_SQL_TRACE_ROLLUPS_ENABLED` is `false`. Until a day has valid rollup coverage, queries for that day transparently use the raw path.
+
+:::note[Backend-specific behavior]
+
+- **Percentiles** (p50/p90/p99) are served from rollups for trace metrics such as latency and token usage, and only on PostgreSQL. On other backends, and for assessment percentiles, percentile aggregations fall back to the raw path.
+- **Grouping** supports whole-experiment daily aggregates and trace-count breakdowns by trace status. Other dimension groupings use the raw path.
+- **Span cost** metrics are intentionally excluded from rollups and always use the raw path, because their day bucketing cannot be made row-identical to the raw query. All other ungrouped trace-metric and assessment aggregations are eligible.
+
+:::
+
 ## MySQL SSL Options
 
 When connecting to a MySQL database that requires SSL certificates, you can set the following environment variables:

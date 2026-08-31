@@ -184,6 +184,30 @@ def test_trace_rollup_models_are_workspace_scoped(workspace_tracking_store, mode
                 assert [row.experiment_id for row in rows] == [experiment_ids[workspace]]
 
 
+def test_trace_rollup_invalidation_is_workspace_scoped(workspace_tracking_store):
+    experiment_ids = {}
+    for workspace in ("team-rollup-a", "team-rollup-b"):
+        with WorkspaceContext(workspace):
+            experiment_id = workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            experiment_ids[workspace] = int(experiment_id)
+            _create_trace(
+                workspace_tracking_store,
+                f"trace-{workspace}",
+                experiment_id,
+                request_time=1_700_000_000_000,
+            )
+
+    for workspace in ("team-rollup-a", "team-rollup-b"):
+        with WorkspaceContext(workspace):
+            with workspace_tracking_store.ManagedSessionMaker() as session:
+                entries = workspace_tracking_store._get_query(session, SqlTraceRollupRebuild).all()
+                assert {entry.experiment_id for entry in entries} == {experiment_ids[workspace]}
+                assert {entry.rollup_family for entry in entries} == {
+                    "trace_metric",
+                    "assessment",
+                }
+
+
 def test_experiments_are_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-a"):
         exp_a_id = workspace_tracking_store.create_experiment("exp-in-a")
