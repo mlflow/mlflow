@@ -12,7 +12,7 @@ from mlflow.utils.validation import (
 )
 
 
-@pytest.mark.parametrize("name", ["code-review", "123", "a.b_c-d", "x"])
+@pytest.mark.parametrize("name", ["code-review", "x", "123"])
 def test_valid_skill_names(name):
     _validate_skill_name(name)
 
@@ -23,15 +23,47 @@ def test_invalid_skill_names(name):
         _validate_skill_name(name)
 
 
-def test_skill_name_too_long():
-    with pytest.raises(MlflowException, match="exceed|length|255"):
-        _validate_skill_name("a" * 256)
+@pytest.mark.parametrize(
+    "name",
+    ["Code-review", "code_review", "code.review", "code-review-", "code--review", "a" * 65],
+)
+def test_skill_name_rejects_values_outside_rfc_contract(name):
+    with pytest.raises(MlflowException, match="[Ss]kill name"):
+        _validate_skill_name(name)
+
+
+@pytest.mark.parametrize("name", ["pr-workflow", "pr.workflow", "1.0.0", "acme"])
+def test_valid_agent_plugin_names(name):
+    _validate_agent_plugin_name(name)
 
 
 def test_agent_plugin_name_rejects_reserved_chars():
     _validate_agent_plugin_name("pr-workflow")
     with pytest.raises(MlflowException, match="plugin name"):
         _validate_agent_plugin_name("pr/workflow")
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["PR-workflow", "pr_workflow", "pr-workflow-", "pr..workflow", "pr--workflow", "a" * 65],
+)
+def test_agent_plugin_name_rejects_values_outside_rfc_contract(name):
+    with pytest.raises(MlflowException, match="plugin name"):
+        _validate_agent_plugin_name(name)
+
+
+@pytest.mark.parametrize(
+    "organization",
+    ["Acme.io", "acme_labs", "acme.io.", "acme..io", "acme--labs", "a" * 65],
+)
+def test_organization_rejects_values_outside_rfc_contract(organization):
+    with pytest.raises(MlflowException, match="[Oo]rganization"):
+        _validate_organization_name(organization)
+
+
+@pytest.mark.parametrize("organization", ["", "acme", "acme.io", "acme-labs"])
+def test_organization_accepts_rfc_examples(organization):
+    _validate_organization_name(organization)
 
 
 @pytest.mark.parametrize("org", ["", "acme", "acme.com", "acme-labs"])
