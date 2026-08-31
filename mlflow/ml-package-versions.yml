@@ -625,14 +625,14 @@ dspy:
       uv pip install --system git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "3.0.0"
-    maximum: "3.2.1"
+    maximum: "3.3.1"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "3.0.0"
-    maximum: "3.2.1"
+    maximum: "3.3.1"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
