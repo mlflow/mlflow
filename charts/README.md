@@ -179,9 +179,6 @@ ingress:
 On clusters that route with the [Gateway API](https://gateway-api.sigs.k8s.io/) instead of
 Ingress, set `httpRoute` to attach MLflow to an existing Gateway. The chart creates only the
 `HTTPRoute` — the Gateway API CRDs, a controller implementing them, and the parent Gateway must
-On clusters that route with the [Gateway API](https://gateway-api.sigs.k8s.io/) instead of
-Ingress, set `httpRoute` to attach MLflow to an existing Gateway. The chart creates only the
-`HTTPRoute` — the Gateway API CRDs, a controller implementing them, and the parent Gateway must
 already exist in the cluster. When the Gateway lives in another namespace, its listener must also
 allow routes from the release namespace: `allowedRoutes.namespaces` defaults to `from: Same`, and
 a route from elsewhere is rejected with `NotAllowedByListeners`.
