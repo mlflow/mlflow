@@ -5,8 +5,7 @@ from mlflow.entities.skill_source import (
     OCISource,
     SkillSourceType,
     ZipSource,
-    source_from_dict,
-    source_to_dict,
+    build_source,
 )
 from mlflow.exceptions import MlflowException
 
@@ -39,17 +38,18 @@ def test_from_dict_missing_required_key():
         GitSource.from_dict({"ref": "v1"})
 
 
-def test_source_to_from_dict_helpers():
-    assert source_to_dict(None) is None
-    assert source_to_dict("artifacts:/x") == "artifacts:/x"
-    git = GitSource(url="u", ref="r")
-    assert source_to_dict(git) == {"url": "u", "ref": "r"}
-    assert source_from_dict({"url": "u", "ref": "r"}, SkillSourceType.GIT) == git
-    assert source_from_dict("artifacts:/x", SkillSourceType.MLFLOW) == "artifacts:/x"
-    assert source_from_dict(None, None) is None
-
-
-@pytest.mark.parametrize("source_type", [SkillSourceType.MLFLOW, SkillSourceType.ASSEMBLED, None])
-def test_source_from_dict_rejects_structured_source_for_non_typed_types(source_type):
-    with pytest.raises(MlflowException, match="structured source"):
-        source_from_dict({"url": "u"}, source_type)
+def test_build_source_reconstructs_typed_sources():
+    assert build_source(SkillSourceType.GIT, "https://x/y", "v1", "sub") == GitSource(
+        url="https://x/y", ref="v1", subpath="sub"
+    )
+    assert build_source(SkillSourceType.OCI, "ghcr.io/a/b:v1", None, "sub") == OCISource(
+        image="ghcr.io/a/b:v1", subpath="sub"
+    )
+    assert build_source(SkillSourceType.ZIP, "https://x/a.zip", None, "sub") == ZipSource(
+        url="https://x/a.zip", subpath="sub"
+    )
+    assert (
+        build_source(SkillSourceType.MLFLOW, "artifacts:/skills/x/3", None, None)
+        == "artifacts:/skills/x/3"
+    )
+    assert build_source(None, None, None, None) is None

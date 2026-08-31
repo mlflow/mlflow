@@ -9,8 +9,7 @@ from mlflow.entities.skill_source import (
     OCISource,
     SkillSourceType,
     ZipSource,
-    source_from_dict,
-    source_to_dict,
+    build_source,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -39,25 +38,6 @@ class AgentPluginVersion:
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "version": self.version,
-            "organization": self.organization,
-            "plugin_json": self.plugin_json,
-            "source": source_to_dict(self.source),
-            "source_type": str(self.source_type) if self.source_type is not None else None,
-            "status": str(self.status),
-            "tags": self.tags,
-            "skills": self.skills,
-            "aliases": self.aliases,
-            "workspace": self.workspace,
-            "created_by": self.created_by,
-            "last_updated_by": self.last_updated_by,
-            "creation_timestamp": self.creation_timestamp,
-            "last_updated_timestamp": self.last_updated_timestamp,
-        }
-
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AgentPluginVersion:
         if not isinstance(data, dict):
@@ -71,7 +51,9 @@ class AgentPluginVersion:
                 version=data["version"],
                 organization=data.get("organization", ""),
                 plugin_json=data.get("plugin_json") or {},
-                source=source_from_dict(data.get("source"), source_type),
+                source=build_source(
+                    source_type, data.get("source"), data.get("ref"), data.get("subpath")
+                ),
                 source_type=source_type,
                 status=SkillStatus(data["status"]) if data.get("status") else SkillStatus.ACTIVE,
                 tags=data.get("tags") or {},
