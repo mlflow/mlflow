@@ -112,7 +112,7 @@ volumes:
 
 Common environment variables for configuring MLflow:
 
-- `MLFLOW_BACKEND_STORE_URI` - Backend store URI (database connection string)
+- `MLFLOW_BACKEND_STORE_URI` - Backend store URI (database connection string). The `mlflow server` command reads this variable automatically, so `--backend-store-uri` is not required when it is set.
 - `MLFLOW_DEFAULT_ARTIFACT_ROOT` - Default location for storing artifacts
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` - AWS credentials for S3
 - `AZURE_STORAGE_CONNECTION_STRING` - Azure storage connection string
