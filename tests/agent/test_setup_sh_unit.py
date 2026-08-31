@@ -40,6 +40,13 @@ def test_normalize_tracking_uri():
     assert result.stdout == "http://localhost:5000/some/path"
 
 
+def test_trim_whitespace():
+    result = run_shell('trim_whitespace "$1"', "  /Users/test/experiment  ")
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "/Users/test/experiment"
+
+
 def test_json_escape():
     result = run_shell('json_escape "$1"', 'a\\path"with-quote')
 
@@ -172,6 +179,27 @@ cat "$setup_tmp_dir/experiments.json"
     assert '"name":"second"' in result.stdout
 
 
+def test_local_server_always_prints_mlflow_command(tmp_path: Path):
+    curl = tmp_path / "curl"
+    curl.write_text("#!/bin/sh\n")
+    curl.chmod(0o755)
+
+    result = run_shell(
+        """
+PATH=$1
+run_with_spinner() { :; }
+success() { :; }
+EXPERIMENT_NAME=test
+configure_local
+""",
+        str(tmp_path),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "mlflow server --port 5000" in result.stderr
+    assert "uvx" not in result.stderr
+
+
 def test_existing_uc_experiment_selects_warehouse_without_reconfiguring_storage():
     result = run_shell(
         """
@@ -193,6 +221,26 @@ printf '%s\n' "$UC_SCHEMA" "$WAREHOUSE_ID"
     assert result.stdout.splitlines() == ["catalog.schema", "warehouse-id"]
 
 
+def test_existing_workspace_experiment_skips_uc_configuration():
+    result = run_shell(
+        """
+ensure_databricks_cli() { :; }
+resolve_databricks_profile() { PROFILE=DEFAULT; WORKSPACE_URL=https://example.databricks.com; }
+authenticate_databricks() { :; }
+resolve_databricks_experiment() {
+    experiment_created=false
+    trace_destination=
+}
+select_warehouse() { return 98; }
+link_uc_trace_storage() { return 99; }
+configure_databricks
+"""
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Existing experiment uses workspace storage" in result.stderr
+
+
 def test_databricks_authentication_uses_host_and_profile_flags(tmp_path: Path):
     calls_path = tmp_path / "calls"
     auth_state_path = tmp_path / "authenticated"
@@ -201,8 +249,15 @@ def test_databricks_authentication_uses_host_and_profile_flags(tmp_path: Path):
         """#!/bin/sh
 if [ "$1 $2" = "auth login" ]; then
     printf '%s\n' "$*" > "$DATABRICKS_TEST_CALLS"
+elif [ "$1 $2" = "auth token" ]; then
+    if [ -f "$DATABRICKS_TEST_AUTH_STATE" ]; then
+        printf '%s\n' '{}'
+    else
+        : > "$DATABRICKS_TEST_AUTH_STATE"
+        exit 1
+    fi
 else
-    printf '%s\n' '{}'
+    exit 2
 fi
 """
     )
@@ -212,15 +267,8 @@ fi
         """
 DATABRICKS_BIN=$1
 DATABRICKS_TEST_CALLS=$2
-auth_state=$3
-export DATABRICKS_TEST_CALLS
-dbx_json() {
-    if [ -f "$auth_state" ]; then
-        return 0
-    fi
-    : > "$auth_state"
-    return 1
-}
+DATABRICKS_TEST_AUTH_STATE=$3
+export DATABRICKS_TEST_CALLS DATABRICKS_TEST_AUTH_STATE
 WORKSPACE_URL=https://workspace.example.com
 PROFILE=DEFAULT
 TTY_DEVICE=/dev/null

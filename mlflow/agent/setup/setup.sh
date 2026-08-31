@@ -4,7 +4,6 @@ set -eu
 
 CONSOLE_WIDTH=68
 MAX_VISIBLE_OPTIONS=5
-DATABRICKS_CLI_VERSION="1.14.1"
 if [ -t 0 ]; then
 	TTY_DEVICE="/dev/stdin"
 else
@@ -301,10 +300,18 @@ require_tty() {
 prompt_text() {
 	prompt_label=$1
 	prompt_default=${2:-}
+	prompt_description=${3:-}
 	require_tty
 	printf '%b○%b  %b%s%b\n' "$BLUE" "$RESET" "$BOLD" "$prompt_label" "$RESET" >&2
+	if [ -n "$prompt_description" ]; then
+		detail "$prompt_description"
+	fi
 	if [ -n "$prompt_default" ]; then
-		detail "Press Enter to use $prompt_default"
+		if [ -n "$prompt_description" ]; then
+			detail "Default: $prompt_default"
+		else
+			detail "Press Enter to use $prompt_default"
+		fi
 	fi
 	printf '%b│%b  %b❯ %b' "$LINE" "$RESET" "$BLUE" "$RESET" >&2
 	IFS= read -r prompt_value <"$TTY_DEVICE" || die "Could not read from the terminal."
@@ -572,6 +579,10 @@ json_escape() {
 	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+trim_whitespace() {
+	printf '%s' "$1" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
 normalize_workspace_url() {
 	workspace_value=$1
 	case "$workspace_value" in
@@ -809,77 +820,25 @@ choose_backend() {
 ensure_databricks_cli() {
 	if command -v databricks >/dev/null 2>&1; then
 		system_databricks=$(command -v databricks)
-		system_databricks_version=$("$system_databricks" version 2>/dev/null | awk '{
-			for (i = 1; i <= NF; i++) {
-				if ($i ~ /^v?[0-9]+(\.[0-9]+)+$/) { sub(/^v/, "", $i); print $i; exit }
-			}
-		}')
-		if [ -n "$system_databricks_version" ] && awk -v current="$system_databricks_version" -v required="$DATABRICKS_CLI_VERSION" 'BEGIN {
-			split(current, a, "."); split(required, b, ".")
-			for (i = 1; i <= 3; i++) {
-				if ((a[i] + 0) > (b[i] + 0)) exit 0
-				if ((a[i] + 0) < (b[i] + 0)) exit 1
-			}
-			exit 0
-		}'; then
+		if "$system_databricks" auth profiles --help >/dev/null 2>&1; then
 			DATABRICKS_BIN=$system_databricks
 			return
 		fi
 	fi
-	cache_home=${XDG_CACHE_HOME:-$HOME/.cache}
-	DATABRICKS_BIN="$cache_home/mlflow/setup/bin/databricks"
-	if [ -x "$DATABRICKS_BIN" ]; then
-		cached_databricks_version=$("$DATABRICKS_BIN" version 2>/dev/null | awk '{
-			for (i = 1; i <= NF; i++) {
-				if ($i ~ /^v?[0-9]+(\.[0-9]+)+$/) { sub(/^v/, "", $i); print $i; exit }
-			}
-		}')
-		if [ "$cached_databricks_version" = "$DATABRICKS_CLI_VERSION" ]; then
-			return
-		fi
-	fi
 	command -v curl >/dev/null 2>&1 || die "curl is required to download the Databricks CLI."
-	command -v unzip >/dev/null 2>&1 || die "unzip is required to download the Databricks CLI."
-	case "$(uname -s)" in
-	Darwin) cli_os="darwin" ;;
-	Linux) cli_os="linux" ;;
-	*) die "Automatic Databricks CLI setup supports macOS and Linux." ;;
-	esac
-	case "$(uname -m)" in
-	x86_64 | amd64) cli_arch="amd64" ;;
-	arm64 | aarch64) cli_arch="arm64" ;;
-	*) die "Unsupported architecture: $(uname -m)" ;;
-	esac
-	asset="databricks_cli_${DATABRICKS_CLI_VERSION}_${cli_os}_${cli_arch}.zip"
-	asset_url="https://github.com/databricks/cli/releases/download/v${DATABRICKS_CLI_VERSION}/${asset}"
-	case "$cli_os/$cli_arch" in
-	darwin/amd64) expected_checksum="376852e5f78c680cc22fba5fbc16ef640a82018d923750f42e4e84d6552f9f23" ;;
-	darwin/arm64) expected_checksum="ecc69a61e57874f6c5ed98ea63cdc9a24556c408455564b668512a0afb634954" ;;
-	linux/amd64) expected_checksum="06ecb5a3299a3ef85d0ec7095fa193dd28bc12834f59e9ba399846b3af2fbfe8" ;;
-	linux/arm64) expected_checksum="f7eee573804b06c6a3875e76ab43bb8ea758c4a56fde264b1ea9c2eba1498dde" ;;
-	esac
-	if [ -n "${system_databricks_version:-}" ]; then
-		progress "Databricks CLI update required" "Found v${system_databricks_version} · downloading v${DATABRICKS_CLI_VERSION}…"
+	if [ -n "${system_databricks:-}" ]; then
+		progress "Databricks CLI update required" "Installing the latest release…"
 	else
-		progress "Databricks CLI not found" "Downloading Databricks CLI v${DATABRICKS_CLI_VERSION}…"
+		progress "Databricks CLI not found" "Installing the latest release…"
 	fi
 	setup_tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/mlflow-databricks-cli.XXXXXX")
-	curl -fsSL "$asset_url" -o "$setup_tmp_dir/$asset" || die "Could not download the Databricks CLI."
-	if command -v sha256sum >/dev/null 2>&1; then
-		actual_checksum=$(sha256sum "$setup_tmp_dir/$asset" | awk '{print $1}')
-	elif command -v shasum >/dev/null 2>&1; then
-		actual_checksum=$(shasum -a 256 "$setup_tmp_dir/$asset" | awk '{print $1}')
-	else
-		die "sha256sum or shasum is required to verify the Databricks CLI download."
-	fi
-	[ "$actual_checksum" = "$expected_checksum" ] || die "The Databricks CLI download failed checksum verification."
-	unzip -q "$setup_tmp_dir/$asset" -d "$setup_tmp_dir"
-	[ -f "$setup_tmp_dir/databricks" ] || die "The Databricks CLI archive did not contain a binary."
-	mkdir -p "$(dirname "$DATABRICKS_BIN")"
-	chmod +x "$setup_tmp_dir/databricks"
-	mv "$setup_tmp_dir/databricks" "$DATABRICKS_BIN"
+	installer="$setup_tmp_dir/install.sh"
+	curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh -o "$installer" || die "Could not download the Databricks CLI installer."
+	sh "$installer" || die "Could not install the Databricks CLI."
 	rm -rf "$setup_tmp_dir"
 	setup_tmp_dir=""
+	DATABRICKS_BIN=/usr/local/bin/databricks
+	[ -x "$DATABRICKS_BIN" ] || die "The Databricks CLI installer did not produce a binary."
 	success "Databricks CLI ready" "$DATABRICKS_BIN"
 }
 
@@ -926,6 +885,16 @@ databricks_token_user() {
 
 list_databricks_profiles() {
 	"$DATABRICKS_BIN" auth profiles --skip-validate 2>/dev/null | awk 'NR > 1 && $1 != "" && $2 ~ /^https?:\/\// { print $1 "|" $2 }'
+}
+
+databricks_auth_valid() {
+	if [ -n "$PROFILE" ]; then
+		"$DATABRICKS_BIN" auth token "$PROFILE" --output json >/dev/null 2>&1
+	elif [ -n "$WORKSPACE_URL" ]; then
+		"$DATABRICKS_BIN" auth token --host "$WORKSPACE_URL" --output json >/dev/null 2>&1
+	else
+		"$DATABRICKS_BIN" auth token --output json >/dev/null 2>&1
+	fi
 }
 
 resolve_databricks_profile() {
@@ -1010,14 +979,14 @@ EOF
 
 authenticate_databricks() {
 	current_user=""
-	if ! dbx_json workspace list / >/dev/null 2>&1; then
+	if ! databricks_auth_valid; then
 		progress "Sign in to Databricks" "Opening $WORKSPACE_URL in your browser…"
 		if [ -n "$PROFILE" ]; then
 			"$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" --profile "$PROFILE" <"$TTY_DEVICE" || die "Databricks authentication failed."
 		else
 			"$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" <"$TTY_DEVICE" || die "Databricks authentication failed."
 		fi
-		dbx_json workspace list / >/dev/null 2>&1 || die "Databricks authentication could not be verified."
+		databricks_auth_valid || die "Databricks authentication could not be verified."
 	fi
 	current_user=$(databricks_token_user || true)
 	if [ -n "$PROFILE" ]; then
@@ -1049,13 +1018,15 @@ resolve_databricks_experiment() {
 				begin_selection "Choose an MLflow experiment" "Experiments group traces. Create one or connect an existing experiment."
 				selection_hint="Default path: $default_experiment"
 				select_option "Choose an MLflow experiment" \
-					"Create default experiment" \
+					"Create a new experiment" \
 					"Use existing experiment path or ID"
 				if [ "$selected_index" -eq 0 ]; then
-					EXPERIMENT_NAME=$default_experiment
+					prompt_text "New experiment path" "$default_experiment" "Type an experiment path, or press Enter to use the default."
+					EXPERIMENT_NAME=$(trim_whitespace "$prompt_value")
+					[ -n "$EXPERIMENT_NAME" ] || die "An absolute Databricks experiment path is required."
 				else
 					prompt_text "Existing experiment path or ID" ""
-					existing_experiment=$prompt_value
+					existing_experiment=$(trim_whitespace "$prompt_value")
 					[ -n "$existing_experiment" ] || die "An experiment path or ID is required."
 					case "$existing_experiment" in
 					/*)
@@ -1069,7 +1040,7 @@ resolve_databricks_experiment() {
 				fi
 			else
 				prompt_text "Experiment path" ""
-				EXPERIMENT_NAME=$prompt_value
+				EXPERIMENT_NAME=$(trim_whitespace "$prompt_value")
 				[ -n "$EXPERIMENT_NAME" ] || die "An absolute Databricks experiment path is required."
 			fi
 		fi
@@ -1419,11 +1390,10 @@ configure_local() {
 		done
 	fi
 	TRACKING_URI="http://127.0.0.1:$local_port"
-	command -v uvx >/dev/null 2>&1 || die "uvx is required to start a local MLflow server. Install uv from https://docs.astral.sh/uv/."
 	command -v curl >/dev/null 2>&1 || die "curl is required to wait for the local MLflow server."
 	printf '%b○%b  %bStart a local MLflow server%b\n' "$BLUE" "$RESET" "$BOLD" "$RESET" >&2
 	primary_detail "Run this command in another terminal:"
-	printf '%b│%b  %buvx mlflow server --port %s%b\n' "$LINE" "$RESET" "$YELLOW" "$local_port" "$RESET" >&2
+	printf '%b│%b  %bmlflow server --port %s%b\n' "$LINE" "$RESET" "$YELLOW" "$local_port" "$RESET" >&2
 	primary_detail "This setup will continue when the server is ready. Press Ctrl+C to stop waiting."
 	printf '%b│%b\n' "$LINE" "$RESET" >&2
 	run_with_spinner "Waiting for the local MLflow server…" wait_for_local_server
