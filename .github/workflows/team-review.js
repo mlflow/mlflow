@@ -27,6 +27,19 @@ async function loadStats(github, owner, repo) {
   if (Object.keys(reviewCounts).length === 0) {
     throw new Error(`\`reviewCounts\` is empty in ${issueUrl}, so the roster has no members`);
   }
+
+  // A rule naming someone off the roster is inert rather than broken, so warn instead of throwing.
+  const staleRuleReviewers = [
+    ...new Set(
+      REVIEWER_BALANCE_RULES.flatMap((rule) => rule.reviewers.filter((r) => !(r in reviewCounts)))
+    ),
+  ];
+  if (staleRuleReviewers.length > 0) {
+    console.warn(
+      `Warning: REVIEWER_BALANCE_RULES names ${staleRuleReviewers.join(", ")}, ` +
+        `absent from ${issueUrl}. Affected rules have no effect.`
+    );
+  }
   return stats;
 }
 
