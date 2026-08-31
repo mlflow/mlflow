@@ -2,6 +2,7 @@ const STATS_ISSUE_NUMBER = 19428;
 const REVIEWER_BALANCE_RULES = [{ reviewers: ["mprahl", "HumairAK"], maxSelected: 1 }];
 
 async function loadStats(github, owner, repo) {
+  const issueUrl = `https://github.com/${owner}/${repo}/issues/${STATS_ISSUE_NUMBER}`;
   const issue = await github.rest.issues.get({
     owner,
     repo,
@@ -9,11 +10,24 @@ async function loadStats(github, owner, repo) {
   });
   const match = issue.data.body.match(/```json\n([\s\S]*?)\n```/);
   if (!match) {
-    throw new Error(
-      `No JSON block found in https://github.com/${owner}/${repo}/issues/${STATS_ISSUE_NUMBER}`
-    );
+    throw new Error(`No JSON block found in ${issueUrl}`);
   }
-  return JSON.parse(match[1]);
+
+  let stats;
+  try {
+    stats = JSON.parse(match[1]);
+  } catch (err) {
+    throw new Error(`Malformed JSON block in ${issueUrl}: ${err.message}`);
+  }
+
+  const { reviewCounts } = stats;
+  if (typeof reviewCounts !== "object" || reviewCounts === null || Array.isArray(reviewCounts)) {
+    throw new Error(`\`reviewCounts\` is missing or not an object in ${issueUrl}`);
+  }
+  if (Object.keys(reviewCounts).length === 0) {
+    throw new Error(`\`reviewCounts\` is empty in ${issueUrl}, so the roster has no members`);
+  }
+  return stats;
 }
 
 async function saveStats(github, owner, repo, stats) {
@@ -158,7 +172,7 @@ module.exports = async ({ github, context }) => {
   const requested = context.payload.pull_request.requested_reviewers.map((r) => r.login);
 
   const stats = await loadStats(github, owner, repo);
-  const eligibleReviewers = Object.keys(stats.reviewCounts || {}).filter(
+  const eligibleReviewers = Object.keys(stats.reviewCounts).filter(
     (m) => !approved.includes(m) && !requested.includes(m) && m !== author && m !== copilotInitiator
   );
   const selectedReviewers = selectReviewers(eligibleReviewers, stats);
