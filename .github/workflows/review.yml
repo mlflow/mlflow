@@ -175,8 +175,6 @@ jobs:
       RESULT_BODY: /tmp/updated-comment.md
       PR_CHECKOUT: ${{ github.workspace }}/pr
       SANDBOX_IMAGE: ghcr.io/mlflow/sandbox:latest
-      # A fixed name rather than the id `docker create` prints, so the run and
-      # removal steps can reach the container without passing it between them.
       SANDBOX_CONTAINER: review-sandbox
       # Copied into the container rather than mounted, so nothing the sandbox
       # writes reaches a tree the runner still uses. `base` needs that: the
