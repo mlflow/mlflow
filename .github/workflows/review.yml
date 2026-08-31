@@ -168,17 +168,18 @@ jobs:
     # headroom than the unsandboxed job needed.
     timeout-minutes: 60
     env:
-      # Written in the sandbox, read back here, so both sit under one bind mount.
+      # Written in the sandbox, copied back here when it exits, so one
+      # `docker cp` retrieves both.
       REVIEW_OUT: /tmp/review-out
       REVIEW_PAYLOAD: /tmp/review-out/review-payload.json
       REVIEW_MEDIA: /tmp/review-out/media
       RESULT_BODY: /tmp/updated-comment.md
       PR_CHECKOUT: ${{ github.workspace }}/pr
       SANDBOX_IMAGE: ghcr.io/mlflow/sandbox:latest
-      # Copies, so nothing the sandbox writes reaches a tree the runner still
-      # uses. `base` needs it: the runner runs `skills` from there afterwards
-      # with `UPLOAD_MEDIA_TOKEN` in scope. Nothing reads `pr` after the
-      # container exits; copying keeps it that way by construction.
+      # Copied into the container rather than mounted, so nothing the sandbox
+      # writes reaches a tree the runner still uses. `base` needs that: the
+      # runner runs `skills` from its own copy afterwards with
+      # `UPLOAD_MEDIA_TOKEN` in scope.
       SANDBOX_BASE: /tmp/base-sandbox
       SANDBOX_PR: /tmp/pr-sandbox
     steps:
@@ -253,15 +254,12 @@ jobs:
             run: |
               docker pull "$SANDBOX_IMAGE"
 
-      - name: Stage the sandbox
+      - name: Enable the gVisor runtime
         run: |
           # Picks up the runtime `runsc install` registered. Restarting mid-pull
           # would have failed it, hence the split.
           sudo systemctl restart docker
           docker run --rm --runtime=runsc "$SANDBOX_IMAGE" true
-          cp -a base "$SANDBOX_BASE"
-          cp -a pr "$SANDBOX_PR"
-          mkdir -p "$REVIEW_MEDIA"
 
       - name: Parse review arguments
         id: prompt
@@ -350,9 +348,9 @@ jobs:
             }
           }
           CONF
-          # The sandbox runs as uid 1001 to keep its bind mounts writable, which
-          # is the runner's own uid, so mode alone would not keep the bearer from
-          # it if anything under /tmp were ever mounted in.
+          # The sandbox runs as uid 1001, the runner's own uid, which is what
+          # makes the trees copied into it writable. Mode alone would therefore
+          # not keep the bearer from it if this file were ever copied in.
           sudo chown root:root /tmp/nginx.conf
           docker run --detach --name gw-proxy --publish 8080:80 \
             --volume /tmp/nginx.conf:/etc/nginx/nginx.conf:ro \
@@ -362,7 +360,7 @@ jobs:
           timeout 60 bash -c 'until curl -sf -o /dev/null --max-time 5 http://127.0.0.1:8080/healthz; do sleep 1; done'
 
       # The sandbox gets the PR tree, the tooling copy and a read-only `GH_TOKEN`,
-      # each mounted at the path it has on the runner so a cited screenshot still
+      # each copied to the path it has on the runner so a cited screenshot still
       # resolves for `skills embed-media` afterwards.
       - name: Review
         id: review
@@ -394,14 +392,13 @@ jobs:
           # pull_request (smoke), the steps that mutate the PR are gated off so
           # no review is submitted.
           EXIT_CODE=0
+          # `--rm` is out: the output has to outlive the container that wrote it.
+          #
           # The gateway does not serve Anthropic's server-side web_search tool.
           # Denying the bare name drops it from Claude's context instead of
           # leaving it to fail on use.
-          timeout 45m docker run --rm --runtime=runsc \
+          docker create --name review-sandbox --runtime=runsc \
             --add-host gw-proxy:host-gateway \
-            --volume "$SANDBOX_BASE:$SANDBOX_BASE" \
-            --volume "$SANDBOX_PR:$SANDBOX_PR" \
-            --volume "$REVIEW_OUT:$REVIEW_OUT" \
             --workdir "$SANDBOX_BASE" \
             --env GH_TOKEN \
             --env ANTHROPIC_BASE_URL \
@@ -424,6 +421,16 @@ jobs:
               --verbose \
               --output-format stream-json \
               "/pr-review $PR_URL $SANDBOX_PR $REVIEW_PAYLOAD $REVIEW_MEDIA $SANDBOX_BASE" \
+            > /dev/null
+
+          mkdir -p "$REVIEW_MEDIA"
+          # `-a` keeps the runner's uid on the copies, which is the uid the
+          # image runs as, so the sandbox can write what it was given.
+          docker cp -a base "review-sandbox:$SANDBOX_BASE"
+          docker cp -a pr "review-sandbox:$SANDBOX_PR"
+          docker cp -a "$REVIEW_OUT" "review-sandbox:$REVIEW_OUT"
+
+          timeout 45m docker start --attach review-sandbox \
             | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 45 minutes"
@@ -432,6 +439,24 @@ jobs:
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
           fi
+
+      # The container holds the only copy of what the review wrote, so this runs
+      # on every path and ahead of the removal below. `docker stop` first so a
+      # container the `timeout` detached from has finished writing.
+      - name: Collect the review output
+        if: always()
+        run: |
+          if ! docker inspect review-sandbox > /dev/null 2>&1; then
+            echo "No sandbox container was created; nothing to collect"
+            exit 0
+          fi
+          docker stop --time 30 review-sandbox > /dev/null
+          docker cp -a "review-sandbox:$REVIEW_OUT/." "$REVIEW_OUT"
+
+      - name: Remove the sandbox container
+        if: always()
+        run: |
+          docker rm --force review-sandbox > /dev/null 2>&1 || true
 
       # A sandbox that cannot reach the proxy only reports a request timeout.
       - name: Gateway proxy log
