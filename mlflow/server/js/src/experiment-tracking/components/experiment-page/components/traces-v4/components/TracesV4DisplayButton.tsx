@@ -82,10 +82,15 @@ export const TracesV4DisplayButton = ({
           defaultMessage: 'Compact',
           description: 'Traces table row-height option: compact (dense) rows',
         })
-      : intl.formatMessage({
-          defaultMessage: 'Standard',
-          description: 'Traces table row-height option: standard (default) rows',
-        });
+      : density === 'standard'
+        ? intl.formatMessage({
+            defaultMessage: 'Standard',
+            description: 'Traces table row-height option: taller rows with two-line text previews',
+          })
+        : intl.formatMessage({
+            defaultMessage: 'Tall',
+            description: 'Traces table row-height option: tall rows with longer text previews',
+          });
 
   return (
     // Non-modal so the open menu doesn't aria-hide / scroll-lock the table behind it — the grid stays
@@ -94,7 +99,7 @@ export const TracesV4DisplayButton = ({
       <DropdownMenu.Trigger asChild>
         <Button
           componentId={`${COMPONENT_ID}.trigger`}
-          icon={<SlidersIcon />}
+          icon={<SlidersIcon css={{ color: theme.colors.textSecondary }} />}
           endIcon={<ChevronDownIcon />}
           // Names the button when its label collapses to icon-only.
           aria-label={intl.formatMessage({
@@ -275,11 +280,18 @@ export const TracesV4DisplayButton = ({
                   description="Traces table row-height option: compact (dense) rows"
                 />
               </DropdownMenu.RadioItem>
-              <DropdownMenu.RadioItem value="default">
+              <DropdownMenu.RadioItem value="standard">
                 <DropdownMenu.ItemIndicator />
                 <FormattedMessage
                   defaultMessage="Standard"
-                  description="Traces table row-height option: standard (default) rows"
+                  description="Traces table row-height option: taller rows with two-line text previews"
+                />
+              </DropdownMenu.RadioItem>
+              <DropdownMenu.RadioItem value="tall">
+                <DropdownMenu.ItemIndicator />
+                <FormattedMessage
+                  defaultMessage="Tall"
+                  description="Traces table row-height option: tall rows with longer text previews"
                 />
               </DropdownMenu.RadioItem>
             </DropdownMenu.RadioGroup>

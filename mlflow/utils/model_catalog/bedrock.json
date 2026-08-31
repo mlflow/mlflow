@@ -4355,11 +4355,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-08-31"
     },
     "global.openai.gpt-5.6-sol": {
       "mode": "chat",
@@ -4369,28 +4369,28 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 5.0,
-        "output_per_million_tokens": 30.0,
-        "cache_read_per_million_tokens": 0.5,
-        "cache_write_per_million_tokens": 6.25,
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 20.0,
+        "cache_read_per_million_tokens": 0.4,
+        "cache_write_per_million_tokens": 5.0,
         "long_context": [
           {
             "threshold_tokens": 272000,
-            "input_per_million_tokens": 10.0,
-            "cache_write_per_million_tokens": 12.5,
-            "cache_read_per_million_tokens": 1.0,
-            "output_per_million_tokens": 45.0
+            "input_per_million_tokens": 8.0,
+            "cache_write_per_million_tokens": 10.0,
+            "cache_read_per_million_tokens": 0.8,
+            "output_per_million_tokens": 30.0
           }
         ]
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-08-31"
     },
     "global.openai.gpt-5.6-terra": {
       "mode": "chat",
@@ -4417,11 +4417,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-08-31"
     },
     "global.xai.grok-4.6": {
       "mode": "chat",
@@ -4439,10 +4439,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": true,
+        "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-08-31"
     },
     "google.gemma-3-12b-it": {
       "mode": "chat",
@@ -8543,11 +8543,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-08-31"
     },
     "us.openai.gpt-5.6-sol": {
       "mode": "chat",
@@ -8557,28 +8557,28 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 5.5,
-        "output_per_million_tokens": 33.0,
-        "cache_read_per_million_tokens": 0.55,
-        "cache_write_per_million_tokens": 6.875,
+        "input_per_million_tokens": 4.4,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 0.44,
+        "cache_write_per_million_tokens": 5.5,
         "long_context": [
           {
             "threshold_tokens": 272000,
-            "input_per_million_tokens": 11.0,
-            "cache_write_per_million_tokens": 13.75,
-            "cache_read_per_million_tokens": 1.1,
-            "output_per_million_tokens": 49.5
+            "input_per_million_tokens": 8.8,
+            "cache_write_per_million_tokens": 11.0,
+            "cache_read_per_million_tokens": 0.88,
+            "output_per_million_tokens": 33.0
           }
         ]
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-08-31"
     },
     "us.openai.gpt-5.6-terra": {
       "mode": "chat",
@@ -8605,11 +8605,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-08-31"
     },
     "us.twelvelabs.marengo-embed-2-7-v1:0": {
       "mode": "embedding",
@@ -8714,10 +8714,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": true,
+        "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-08-31"
     },
     "writer.palmyra-x4-v1:0": {
       "mode": "chat",

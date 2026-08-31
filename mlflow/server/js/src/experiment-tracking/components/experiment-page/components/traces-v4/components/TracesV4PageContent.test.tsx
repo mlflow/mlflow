@@ -336,6 +336,18 @@ describe('TracesV4PageContent', () => {
       expect(link).toHaveAttribute('href', expect.stringContaining('traceId=trace%3A%2Fcat.sch%2Ftr-000'));
     });
 
+    test('the trace link preserves the current URL params (filters survive opening a trace)', async () => {
+      // Land on the page with an existing filter param already on the URL; opening a trace should
+      // add `traceId` without dropping it, so a filtered view (or a Cmd/Ctrl+click into a new tab)
+      // reopens with the same filters rather than resetting to a bare Traces route.
+      const filterParam = new URLSearchParams({ filter: "trace.status = 'OK'" }).toString();
+      renderPage({ initialUrl: `${URL}?${filterParam}` });
+      const link = await findTraceRow('tr-000');
+      const href = link.getAttribute('href') ?? '';
+      expect(href).toContain('traceId=trace%3A%2Fcat.sch%2Ftr-000');
+      expect(href).toContain(filterParam);
+    });
+
     test('clicking a UC-backed row opens the drawer with a V4 long identifier (not a bare hex id)', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();

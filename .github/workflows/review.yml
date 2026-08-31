@@ -22,8 +22,9 @@ permissions: {}
 
 jobs:
   # Auth gate: only users with admin or maintain role on the repo can trigger
-  # the review (plus the Copilot bot). For issue_comment, BOTH the PR author
-  # and the commenter are checked.
+  # the review (plus the Copilot bot). On `issue_comment` that is the commenter,
+  # so a maintainer can review a contributor's PR; `pull_request` has no
+  # commenter, so the author is checked instead.
   gate:
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -43,10 +44,6 @@ jobs:
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       (
-        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) ||
-        (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
-       ) &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/review') &&
        !startsWith(github.event.comment.body, '/review-'))
@@ -56,8 +53,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login }}
-          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type || github.event.issue.user.type }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
           COMMENTER: ${{ github.event.comment.user.login }}
         run: |
           check_user() {
@@ -80,9 +77,10 @@ jobs:
                 ;;
             esac
           }
-          check_user "$PR_AUTHOR" "$PR_AUTHOR_TYPE"
           if [ "$EVENT_NAME" = "issue_comment" ]; then
             check_user "$COMMENTER" "User"
+          else
+            check_user "$PR_AUTHOR" "$PR_AUTHOR_TYPE"
           fi
 
       # Pinned here, before anything checks out or runs PR code. `issue_comment`
@@ -168,19 +166,24 @@ jobs:
     # headroom than the unsandboxed job needed.
     timeout-minutes: 60
     env:
-      # Written in the sandbox, read back here, so both sit under one bind mount.
+      # Written in the sandbox, read back here, so both sit under one bind
+      # mount. gVisor overlays the container's root filesystem, so a write
+      # anywhere else would never reach the runner.
       REVIEW_OUT: /tmp/review-out
       REVIEW_PAYLOAD: /tmp/review-out/review-payload.json
       REVIEW_MEDIA: /tmp/review-out/media
       RESULT_BODY: /tmp/updated-comment.md
       PR_CHECKOUT: ${{ github.workspace }}/pr
       SANDBOX_IMAGE: ghcr.io/mlflow/sandbox:latest
-      # Copies, so nothing the sandbox writes reaches a tree the runner still
-      # uses. `base` needs it: the runner runs `skills` from there afterwards
-      # with `UPLOAD_MEDIA_TOKEN` in scope. Nothing reads `pr` after the
-      # container exits; copying keeps it that way by construction.
-      SANDBOX_BASE: /tmp/base-sandbox
-      SANDBOX_PR: /tmp/pr-sandbox
+      # Copied into the container rather than mounted, so nothing the sandbox
+      # writes reaches a tree the runner still uses. `base` needs that: the
+      # runner runs `skills` from its own copy afterwards with
+      # `UPLOAD_MEDIA_TOKEN` in scope.
+      # Basenames match the checkout directories: the copy below sends each
+      # tree to `/tmp/`, so the directory entry in the archive is what names
+      # it and sets its ownership.
+      SANDBOX_BASE: /tmp/base
+      SANDBOX_PR: /tmp/pr
     steps:
       - name: Resolve job URL
         env:
@@ -253,15 +256,12 @@ jobs:
             run: |
               docker pull "$SANDBOX_IMAGE"
 
-      - name: Stage the sandbox
+      - name: Enable the gVisor runtime
         run: |
           # Picks up the runtime `runsc install` registered. Restarting mid-pull
           # would have failed it, hence the split.
           sudo systemctl restart docker
           docker run --rm --runtime=runsc "$SANDBOX_IMAGE" true
-          cp -a base "$SANDBOX_BASE"
-          cp -a pr "$SANDBOX_PR"
-          mkdir -p "$REVIEW_MEDIA"
 
       - name: Parse review arguments
         id: prompt
@@ -350,9 +350,10 @@ jobs:
             }
           }
           CONF
-          # The sandbox runs as uid 1001 to keep its bind mounts writable, which
-          # is the runner's own uid, so mode alone would not keep the bearer from
-          # it if anything under /tmp were ever mounted in.
+          # The sandbox runs as uid 1001, the runner's own uid, which is what
+          # makes the trees copied into it and the output mount writable. Mode
+          # alone would therefore not keep the bearer from it if this file were
+          # ever copied or mounted in.
           sudo chown root:root /tmp/nginx.conf
           docker run --detach --name gw-proxy --publish 8080:80 \
             --volume /tmp/nginx.conf:/etc/nginx/nginx.conf:ro \
@@ -361,9 +362,13 @@ jobs:
           # the whole `timeout` inside the first curl and never retry.
           timeout 60 bash -c 'until curl -sf -o /dev/null --max-time 5 http://127.0.0.1:8080/healthz; do sleep 1; done'
 
-      # The sandbox gets the PR tree, the tooling copy and a read-only `GH_TOKEN`,
-      # each mounted at the path it has on the runner so a cited screenshot still
-      # resolves for `skills embed-media` afterwards.
+      # The sandbox gets a read-only `GH_TOKEN` in its environment, the PR tree
+      # and the tooling copy, and the output directory mounted at the path it
+      # has on the runner so a cited screenshot still resolves for
+      # `skills embed-media` afterwards. The gateway does not serve Anthropic's
+      # server-side web_search tool, so `--disallowed-tools` denies the bare
+      # name: that drops it from Claude's context instead of leaving it to fail
+      # on use.
       - name: Review
         id: review
         env:
@@ -394,13 +399,13 @@ jobs:
           # pull_request (smoke), the steps that mutate the PR are gated off so
           # no review is submitted.
           EXIT_CODE=0
-          # The gateway does not serve Anthropic's server-side web_search tool.
-          # Denying the bare name drops it from Claude's context instead of
-          # leaving it to fail on use.
-          timeout 45m docker run --rm --runtime=runsc \
+          # `$REVIEW_OUT` is the mount source and has to exist first, or Docker
+          # creates it root-owned and the sandbox cannot write it.
+          mkdir -p "$REVIEW_MEDIA"
+          # `docker cp` needs a container to copy into, so the run is split and
+          # `--rm` gives way to the removal step below.
+          docker create --name review-sandbox --runtime=runsc \
             --add-host gw-proxy:host-gateway \
-            --volume "$SANDBOX_BASE:$SANDBOX_BASE" \
-            --volume "$SANDBOX_PR:$SANDBOX_PR" \
             --volume "$REVIEW_OUT:$REVIEW_OUT" \
             --workdir "$SANDBOX_BASE" \
             --env GH_TOKEN \
@@ -424,6 +429,18 @@ jobs:
               --verbose \
               --output-format stream-json \
               "/pr-review $PR_URL $SANDBOX_PR $REVIEW_PAYLOAD $REVIEW_MEDIA $SANDBOX_BASE" \
+            > /dev/null
+
+          # Copied to the parent rather than onto the path itself, so the archive
+          # carries the directory entry: `docker create` pre-creates `--workdir`
+          # owned by root, and only extracting that entry resets it to the uid
+          # the image runs as. `-a` carries the runner's uid, which is that uid.
+          # Both halves come from the same variable, so retargeting one fails on
+          # a missing checkout rather than silently copying somewhere else.
+          docker cp -a "${SANDBOX_BASE##*/}" "review-sandbox:${SANDBOX_BASE%/*}/"
+          docker cp -a "${SANDBOX_PR##*/}" "review-sandbox:${SANDBOX_PR%/*}/"
+
+          timeout 45m docker start --attach review-sandbox \
             | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 45 minutes"
@@ -432,6 +449,13 @@ jobs:
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
           fi
+
+      # `--force` because a `timeout` only kills the client the container was
+      # attached to, leaving it running.
+      - name: Remove the sandbox container
+        if: always()
+        run: |
+          docker rm --force review-sandbox > /dev/null 2>&1 || true
 
       # A sandbox that cannot reach the proxy only reports a request timeout.
       - name: Gateway proxy log

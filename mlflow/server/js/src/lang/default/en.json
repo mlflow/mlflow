@@ -2775,6 +2775,10 @@
     "defaultMessage": "Version status",
     "description": "Aria label for MCP server version status selector"
   },
+  "9RoNrt": {
+    "defaultMessage": "Standard",
+    "description": "Traces table row-height option: taller rows with two-line text previews"
+  },
   "9Sxo9h": {
     "defaultMessage": "Max length",
     "description": "Text max length input"
@@ -9127,6 +9131,10 @@
     "defaultMessage": "Column options",
     "description": "Accessible label for the per-column options menu button in the traces table header"
   },
+  "ZIR7dS": {
+    "defaultMessage": "Tall",
+    "description": "Traces table row-height option: tall rows with longer text previews"
+  },
   "ZJK1e+": {
     "defaultMessage": "The Sessions view has moved to the Traces tab.",
     "description": "Explanation that the Sessions view has moved to the Traces tab"
@@ -15378,10 +15386,6 @@
   "y2rjoF": {
     "defaultMessage": "No trace data recorded",
     "description": "Empty state in the v2 dataset record side-panel trace modal when the trace has no spans"
-  },
-  "y4BFou": {
-    "defaultMessage": "Standard",
-    "description": "Traces table row-height option: standard (default) rows"
   },
   "y4I2zP": {
     "defaultMessage": "Select all traces on this page",
