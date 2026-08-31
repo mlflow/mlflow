@@ -376,13 +376,23 @@ jobs:
           # the whole `timeout` inside the first curl and never retry.
           timeout 60 bash -c 'until curl -sf -o /dev/null --max-time 5 http://127.0.0.1:8080/healthz; do sleep 1; done'
 
+      # Proves the OpenAI route and the gateway's web_search tool work, which a
+      # review only covers by chance.
+      - name: Smoke-test the search tool
+        if: github.event_name == 'pull_request'
+        env:
+          WEB_SEARCH_BASE_URL: http://127.0.0.1:8080/openai/v1
+        run: |
+          base/.claude/skills/pr-review/search-web.sh "What is the latest MLflow release on PyPI?"
+
       # The sandbox gets a read-only `GH_TOKEN` in its environment, the PR tree
       # and the tooling copy, and the output directory mounted at the path it
       # has on the runner so a cited screenshot still resolves for
       # `skills embed-media` afterwards. The gateway does not serve Anthropic's
       # server-side web_search tool, so `--disallowed-tools` denies the bare
       # name: that drops it from Claude's context instead of leaving it to fail
-      # on use.
+      # on use. `search-web.sh` covers the same need over the OpenAI route,
+      # which does serve one.
       - name: Create the review sandbox
         env:
           # Read-only for the whole job: injected instructions can't mutate the PR.
@@ -392,6 +402,8 @@ jobs:
           ANTHROPIC_AUTH_TOKEN: placeholder-not-a-real-credential
           # Tags, not a credential.
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          # Read by `search-web.sh`; the proxy attaches the credential.
+          WEB_SEARCH_BASE_URL: http://gw-proxy:8080/openai/v1
           # The auto mode permission classifier picks its model from the sonnet
           # and opus aliases rather than `--model`, so without these it requests
           # a bare `claude-sonnet-5` that the gateway does not serve and every
@@ -419,6 +431,7 @@ jobs:
             --env ANTHROPIC_BASE_URL \
             --env ANTHROPIC_AUTH_TOKEN \
             --env ANTHROPIC_CUSTOM_HEADERS \
+            --env WEB_SEARCH_BASE_URL \
             --env ANTHROPIC_DEFAULT_SONNET_MODEL \
             --env ANTHROPIC_DEFAULT_OPUS_MODEL \
             --env CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS \
