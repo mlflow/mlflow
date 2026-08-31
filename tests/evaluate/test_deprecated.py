@@ -21,6 +21,19 @@ def test_global_evaluate_warn_in_tracking_uri(tracking_uri):
             )
 
 
+def test_global_evaluate_hints_for_genai_model_type():
+    with (
+        patch("mlflow.agent.hint.maybe_warn_agent") as warn,
+        # Patch the implementation because this test only covers dispatch from
+        # the deprecated public entry point.
+        patch("mlflow.models.evaluation.deprecated.model_evaluate"),
+        pytest.warns(FutureWarning, match="The `mlflow.evaluate` API has been deprecated"),
+    ):
+        mlflow.evaluate(data=_TEST_DATA, model_type="question-answering")
+
+    warn.assert_called_once()
+
+
 @contextmanager
 def no_future_warning():
     with warnings.catch_warnings():

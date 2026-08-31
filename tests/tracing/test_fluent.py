@@ -822,6 +822,23 @@ def test_start_span_context_manager(async_logging_enabled):
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
+def test_successful_genai_span_without_inputs_or_outputs_warns_agent(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        with mlflow.start_span(name="empty_tool", span_type=SpanType.TOOL):
+            pass
+
+    assert warn.call_args_list == [
+        mock.call(
+            "genai-span-missing-inputs",
+            "The successful TOOL span 'empty_tool' has no recorded inputs.",
+        ),
+        mock.call(
+            "genai-span-missing-outputs",
+            "The successful TOOL span 'empty_tool' has no recorded outputs.",
+        ),
+    ]
+
+
 @pytest.mark.skipif(
     IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
 )

@@ -1,4 +1,4 @@
-"""An agent-directed pointer to the MLflow tracing skill.
+"""Agent-directed pointers to the bundled MLflow skills.
 
 Emitted on ``import mlflow`` when a coding agent is driving. Whether the skill
 is already installed is deliberately not probed: skills end up in too many
@@ -61,6 +61,11 @@ _AGENT_ENV_VALUES_WITHOUT_TTY = {"TERM_PROGRAM": "kiro"}
 # Lives in https://github.com/mlflow/skills and is installed by `mlflow agent setup`.
 TRACING_SKILL = "instrumenting-with-mlflow-tracing"
 
+# All hints in this module are process-local. An agent only needs to see a
+# particular problem once to change course; repeating it on every span or row
+# makes the useful message indistinguishable from ordinary logs.
+_EMITTED_HINTS: set[str] = set()
+
 # Points at the copy shipped inside this MLflow install: no network, and the
 # revision always matches the installed code.
 #
@@ -115,3 +120,33 @@ def maybe_hint_tracing_skill() -> None:
     if (path := _bundled_skill_manifest()) is None:
         return
     _logger.info(_HINT.format(skill=TRACING_SKILL, path=path))
+
+
+def maybe_warn_agent(issue_id: str, issue: str) -> None:
+    """Warn a coding agent about an observed GenAI anti-pattern once per process.
+
+    The warning deliberately points at the bundled skills collection instead of
+    choosing a skill for the agent. Detectors describe only the concrete issue
+    they observed and leave routing to the installed skills.
+    """
+    if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
+        return
+
+    try:
+        skills = resources.files("mlflow.assistant.skills")
+        readme = skills.joinpath("README.md")
+        if not readme.is_file():
+            return
+        skills_path = Path(str(readme)).parent
+    except Exception:
+        # Hints are advisory and must never affect the operation that detected
+        # the issue, including unusual import loaders and packaged installs.
+        return
+
+    _EMITTED_HINTS.add(issue_id)
+    _logger.warning(
+        "%s Review the MLflow skills bundled at %s before continuing. "
+        "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
+        issue,
+        skills_path,
+    )

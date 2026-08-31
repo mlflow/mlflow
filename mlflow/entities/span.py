@@ -1142,6 +1142,24 @@ class LiveSpan(Span):
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
 
+            if self.span_type in (SpanType.LLM, SpanType.TOOL, SpanType.RETRIEVER):
+                # Import lazily: most MLflow users never create GenAI spans, and
+                # agent hints must not add work to their span lifecycle.
+                from mlflow.agent.hint import maybe_warn_agent
+
+                if self.inputs is None:
+                    maybe_warn_agent(
+                        "genai-span-missing-inputs",
+                        f"The successful {self.span_type} span {self.name!r} has no recorded "
+                        "inputs.",
+                    )
+                if self.outputs is None:
+                    maybe_warn_agent(
+                        "genai-span-missing-outputs",
+                        f"The successful {self.span_type} span {self.name!r} has no recorded "
+                        "outputs.",
+                    )
+
             if should_compute_cost_client_side():
                 set_span_cost_attribute(self)
 

@@ -22,6 +22,7 @@ def clean_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     ):
         monkeypatch.delenv(marker, raising=False)
     monkeypatch.delenv("MLFLOW_DISABLE_AGENT_HINT", raising=False)
+    hint._EMITTED_HINTS.clear()
 
     home = tmp_path / "home"
     home.mkdir()
@@ -145,3 +146,22 @@ def test_detects_agents_absent_from_the_setup_registry(
     assert "cursor" not in AGENTS
     monkeypatch.setenv("CURSOR_AGENT", "1")
     assert hint_message() is not None
+
+
+def test_antipattern_warning_names_issue_and_is_emitted_once(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("CLAUDECODE", "1")
+
+    with mock.patch.object(hint._logger, "warning") as warning:
+        hint.maybe_warn_agent("missing-inputs", "A tool span has no inputs.")
+        hint.maybe_warn_agent("missing-inputs", "A different instance has no inputs.")
+
+    warning.assert_called_once()
+    assert warning.call_args.args[1] == "A tool span has no inputs."
+    assert "different instance" not in str(warning.call_args)
+
+
+def test_antipattern_warning_is_silent_for_humans(clean_env: Path, caplog):
+    hint.maybe_warn_agent("missing-inputs", "A tool span has no inputs.")
+    assert not caplog.records
