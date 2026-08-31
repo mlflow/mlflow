@@ -30,11 +30,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.0",
-            "maximum": "3.2.1"
+            "maximum": "3.3.1"
         },
         "autologging": {
             "minimum": "3.0.0",
-            "maximum": "3.2.1"
+            "maximum": "3.3.1"
         }
     },
     "langchain": {
