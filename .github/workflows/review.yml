@@ -398,8 +398,8 @@ jobs:
           # pull_request (smoke), the steps that mutate the PR are gated off so
           # no review is submitted.
           EXIT_CODE=0
-          # The mount source has to exist first, or Docker creates it root-owned
-          # and the sandbox cannot write it.
+          # `$REVIEW_OUT` is the mount source and has to exist first, or Docker
+          # creates it root-owned and the sandbox cannot write it.
           mkdir -p "$REVIEW_MEDIA"
           # `docker cp` needs a container to copy into, so the run is split and
           # `--rm` gives way to the removal step below.
@@ -438,8 +438,9 @@ jobs:
           # carries the directory entry: `docker create` pre-creates `--workdir`
           # owned by root, and only extracting that entry resets it to the uid
           # the image runs as. `-a` carries the runner's uid, which is that uid.
-          docker cp -a base "review-sandbox:/tmp/"
-          docker cp -a pr "review-sandbox:/tmp/"
+          # Each checkout directory name has to match its target's basename.
+          docker cp -a base "review-sandbox:${SANDBOX_BASE%/*}/"
+          docker cp -a pr "review-sandbox:${SANDBOX_PR%/*}/"
 
           timeout 45m docker start --attach review-sandbox \
             | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
