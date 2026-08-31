@@ -88,8 +88,9 @@ def _cast_assessment_value_to_float(assessment: Feedback) -> float | None:
 
         maybe_warn_agent(
             "non-aggregatable-scorer-output",
-            f"Scorer {assessment.name!r} returned {assessment.value!r}, which is not included in "
-            "aggregated metrics; return a boolean, number, or 'yes'/'no' instead.",
+            f"Scorer {assessment.name!r} returned a value of type "
+            f"{type(assessment.value).__name__!r}, which is not included in aggregated metrics; "
+            "return a boolean, number, or 'yes'/'no' instead.",
         )
 
 

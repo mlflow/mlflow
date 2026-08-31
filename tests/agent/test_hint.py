@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from unittest import mock
 
@@ -37,10 +38,13 @@ def clean_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 @pytest.fixture(autouse=True)
 def bundled_skill(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Stand in for the skill copy that released MLflow packages ship."""
-    manifest = tmp_path / "bundled" / hint.TRACING_SKILL / "SKILL.md"
+    skills = tmp_path / "bundled"
+    manifest = skills / hint.TRACING_SKILL / "SKILL.md"
     manifest.parent.mkdir(parents=True)
     manifest.write_text("---\nname: tracing\n---\n")
+    (skills / "README.md").write_text("# MLflow skills\n")
     monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda: manifest)
+    monkeypatch.setattr(hint.resources, "files", lambda _package: skills)
     return manifest
 
 
@@ -160,6 +164,34 @@ def test_antipattern_warning_names_issue_and_is_emitted_once(
     warning.assert_called_once()
     assert warning.call_args.args[1] == "A tool span has no inputs."
     assert "different instance" not in str(warning.call_args)
+
+
+def test_antipattern_warning_is_emitted_once_across_threads(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch, bundled_skill: Path
+):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    barrier = threading.Barrier(2)
+
+    def find_skills(_package):
+        barrier.wait()
+        return bundled_skill.parent.parent
+
+    monkeypatch.setattr(hint.resources, "files", find_skills)
+    with mock.patch.object(hint._logger, "warning") as warning:
+        threads = [
+            threading.Thread(
+                target=hint.maybe_warn_agent,
+                args=("missing-inputs", "Missing."),
+                name=f"agent-hint-test-{index}",
+            )
+            for index in range(2)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    warning.assert_called_once()
 
 
 def test_antipattern_warning_is_silent_for_humans(clean_env: Path, caplog):

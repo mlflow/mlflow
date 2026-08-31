@@ -131,6 +131,6 @@ def test_non_aggregatable_output_warns_agent(value):
 
     warn.assert_called_once_with(
         "non-aggregatable-scorer-output",
-        f"Scorer 'quality' returned {value!r}, which is not included in aggregated metrics; "
-        "return a boolean, number, or 'yes'/'no' instead.",
+        f"Scorer 'quality' returned a value of type {type(value).__name__!r}, which is not "
+        "included in aggregated metrics; return a boolean, number, or 'yes'/'no' instead.",
     )

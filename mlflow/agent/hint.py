@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import threading
 from importlib import resources
 from pathlib import Path
 
@@ -65,6 +66,7 @@ TRACING_SKILL = "instrumenting-with-mlflow-tracing"
 # particular problem once to change course; repeating it on every span or row
 # makes the useful message indistinguishable from ordinary logs.
 _EMITTED_HINTS: set[str] = set()
+_EMITTED_HINTS_LOCK = threading.Lock()
 
 # Points at the copy shipped inside this MLflow install: no network, and the
 # revision always matches the installed code.
@@ -139,7 +141,14 @@ def maybe_warn_agent(issue_id: str, issue: str) -> None:
             return
         skills_path = Path(str(readme)).parent
 
-        _EMITTED_HINTS.add(issue_id)
+        # Resource discovery above can overlap across threads, so repeat the
+        # membership check while atomically claiming this issue. Do not hold
+        # the lock while invoking user-configurable logging handlers.
+        with _EMITTED_HINTS_LOCK:
+            if issue_id in _EMITTED_HINTS:
+                return
+            _EMITTED_HINTS.add(issue_id)
+
         _logger.warning(
             "%s Review the MLflow skills bundled at %s before continuing. "
             "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
