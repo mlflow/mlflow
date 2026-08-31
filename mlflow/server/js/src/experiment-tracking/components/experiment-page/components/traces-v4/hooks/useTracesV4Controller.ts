@@ -21,7 +21,7 @@ import { useTracesV4Columns } from './useTracesV4Columns';
 import { useTracesV4AssessmentColumns } from './useTracesV4AssessmentColumns';
 import { useTracesV4ColumnSizing } from './useTracesV4ColumnSizing';
 import { useTracesV4TraceCount } from './useTracesV4TraceCount';
-import { buildFilter, buildOrderBy } from '../utils/buildTracesV4SearchParams';
+import { buildFilter, buildOrderBy, isExactTraceIdSearch } from '../utils/buildTracesV4SearchParams';
 import { compileFilterModel, compileTagFilters } from '../utils/filterModel';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 
@@ -177,7 +177,12 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
   const columns = useTracesV4Columns(experimentId, { hasSessionOnPage });
   const assessments = useTracesV4AssessmentColumns(experimentId, page.traces);
   const columnSizing = useTracesV4ColumnSizing(experimentId);
-  const traceCount = useTracesV4TraceCount(experimentId, page.traces.length, timeRange);
+  const traceCount = useTracesV4TraceCount(
+    experimentId,
+    page.traces.length,
+    timeRange,
+    isExactTraceIdSearch(url.search),
+  );
 
   const bulk = useBulkTraceSelection(page.traces);
 

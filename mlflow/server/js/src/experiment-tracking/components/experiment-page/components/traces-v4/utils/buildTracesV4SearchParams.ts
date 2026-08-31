@@ -41,6 +41,15 @@ const normalizeTraceIdQuery = (query: string): string | undefined => {
  */
 export const escapeFilterValue = (value: string): string => value.replace(/'/g, "''");
 
+/**
+ * True when the free-text query is an exact trace-id in any of the three recognized formats.
+ * Such a search resolves via the indexed `request_id` lookup and deliberately ignores the time
+ * range (see `buildFilter`), so callers that scope other queries (e.g. the metrics total) to the
+ * time window must treat this case specially.
+ */
+export const isExactTraceIdSearch = (searchQuery?: string): boolean =>
+  normalizeTraceIdQuery(searchQuery?.trim() ?? '') !== undefined;
+
 export interface BuildFilterParams {
   /** Free-text search. A trace-id token becomes an indexed `request_id` lookup; otherwise ILIKE. */
   searchQuery?: string;

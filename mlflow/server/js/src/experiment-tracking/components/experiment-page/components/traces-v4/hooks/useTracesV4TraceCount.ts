@@ -16,11 +16,18 @@ export interface TracesV4TraceCount {
  * The "{n} of {total}" footer count for the V4 traces tab, mirroring the prior tab's `useCountInfo`:
  * the current count is the current page's row count, and the total comes from the trace-metrics
  * endpoint (the cursor search API returns no total), scoped to the same experiment and time range.
+ *
+ * An exact trace-id search is the one case where the search ignores the time range (see
+ * `buildFilter`): it resolves the trace via the indexed `request_id` lookup regardless of the
+ * selected window. The time-scoped metrics total is then meaningless (it would read 0 for a trace
+ * older than the window, giving the "1 of 0" mismatch), so we skip the metrics query and let the
+ * total fall back to the resolved page count.
  */
 export const useTracesV4TraceCount = (
   experimentId: string,
   currentPageCount: number,
   timeRange: StartEndTime,
+  isExactTraceIdSearch = false,
 ): TracesV4TraceCount => {
   const experimentIds = useMemo(() => [experimentId], [experimentId]);
   const startTimeMs = timeRange.startTime ? Number(timeRange.startTime) : undefined;
@@ -33,9 +40,11 @@ export const useTracesV4TraceCount = (
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     startTimeMs,
     endTimeMs,
+    enabled: !isExactTraceIdSearch,
   });
 
-  const totalCount = data?.data_points?.[0]?.values?.[AggregationType.COUNT];
+  // For an exact trace-id search the time-scoped total doesn't apply; report the resolved rows.
+  const totalCount = isExactTraceIdSearch ? currentPageCount : data?.data_points?.[0]?.values?.[AggregationType.COUNT];
 
-  return { currentCount: currentPageCount, totalCount, isTotalLoading: isLoading };
+  return { currentCount: currentPageCount, totalCount, isTotalLoading: isExactTraceIdSearch ? false : isLoading };
 };
