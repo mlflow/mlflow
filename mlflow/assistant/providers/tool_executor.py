@@ -4,11 +4,34 @@ import os
 import shlex
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
+from mlflow.assistant.providers.base import assistant_sandbox_enabled
 
 _logger = logging.getLogger(__name__)
+
+
+def _uri_without_credentials(name: str, uri: str) -> str | None:
+    """Return ``uri`` only when it carries no embedded credentials, else ``None``.
+
+    ``MLFLOW_TRACKING_URI`` / ``MLFLOW_REGISTRY_URI`` can be SQLAlchemy database URIs that embed
+    credentials in the netloc (``user:password@host``). Forwarding one with userinfo into the
+    sandbox would leak host credentials to sandboxed commands, defeating the isolation the sandbox
+    exists for, so a URI with credentials (or one that cannot be parsed to confirm it has none) is
+    dropped and logged rather than passed through.
+    """
+    try:
+        parts = urlsplit(uri)
+    except ValueError:
+        _logger.warning("Not forwarding %s to the sandbox: its URI could not be parsed.", name)
+        return None
+    if parts.username or parts.password:
+        _logger.warning("Not forwarding %s to the sandbox: it contains embedded credentials.", name)
+        return None
+    return uri
+
 
 _FILE_TOOLS = {"Read", "Write", "Edit"}
 # Restricted mode only permits MLflow CLI and Python; anything else needs Full Access.
@@ -160,6 +183,17 @@ async def _execute_bash(
     if not command:
         return "No command provided", True
 
+    if assistant_sandbox_enabled():
+        return await _execute_bash_in_sandbox(command, cwd, tracking_uri, full_access)
+    return await _execute_bash_on_host(command, cwd, tracking_uri, full_access)
+
+
+async def _execute_bash_on_host(
+    command: str,
+    cwd: Path | None,
+    tracking_uri: str | None,
+    full_access: bool,
+) -> tuple[str, bool]:
     env = os.environ.copy()
     if tracking_uri:
         env["MLFLOW_TRACKING_URI"] = tracking_uri
@@ -208,6 +242,71 @@ async def _execute_bash(
         return (output + err_output).strip() or "(no output)", False
     except asyncio.TimeoutError:
         return "Command timed out after 120 seconds", True
+
+
+async def _execute_bash_in_sandbox(
+    command: str,
+    cwd: Path | None,
+    tracking_uri: str | None,
+    full_access: bool,
+) -> tuple[str, bool]:
+    """Run the command inside a hardened Docker container instead of on the host.
+
+    The restricted/full-access distinction is preserved: full access runs the command
+    through a shell (there is no allowlist to bypass), while restricted mode runs the
+    already-validated argv directly with no shell, matching the host path. The container
+    itself is the hard boundary; the static permission policy remains defense-in-depth.
+    """
+    from mlflow.server.sandbox import (
+        SandboxUnavailableError,
+        run_in_sandbox,
+        to_container_host_uri,
+    )
+
+    # Start from an empty environment rather than os.environ.copy(): isolating host
+    # credentials (e.g. DATABRICKS_TOKEN, cloud keys) from sandboxed commands is a primary
+    # reason for the sandbox, so they are intentionally NOT forwarded. Only non-secret MLflow
+    # configuration a restricted `mlflow` command needs is passed through, loopback-rewritten
+    # so it resolves from inside the container.
+    env = {}
+    if tracking_uri and (safe := _uri_without_credentials("MLFLOW_TRACKING_URI", tracking_uri)):
+        env["MLFLOW_TRACKING_URI"] = to_container_host_uri(safe)
+    for var in ("MLFLOW_REGISTRY_URI",):
+        if (value := os.environ.get(var)) and (safe := _uri_without_credentials(var, value)):
+            env[var] = to_container_host_uri(safe)
+
+    if full_access:
+        sandbox_command = [command]
+        use_shell = True
+    else:
+        try:
+            argv = shlex.split(command)
+        except ValueError:
+            return "Permission denied: malformed command", True
+        sandbox_command = argv
+        use_shell = False
+
+    try:
+        # run_in_sandbox uses the blocking docker-py client, so run it off the event loop.
+        result = await asyncio.to_thread(
+            run_in_sandbox,
+            sandbox_command,
+            workdir=cwd,
+            environment=env,
+            timeout=120,
+            use_shell=use_shell,
+        )
+    except SandboxUnavailableError as e:
+        # Do not silently fall back to host execution: that would defeat the sandbox the
+        # operator explicitly enabled.
+        return f"Sandbox is enabled but the command could not be run: {e}", True
+
+    if result.timed_out:
+        return "Command timed out after 120 seconds", True
+    output = result.output.strip()
+    if result.exit_code != 0:
+        return output or f"Exit code: {result.exit_code}", True
+    return output or "(no output)", False
 
 
 def _execute_read(tool_input: dict[str, Any], cwd: Path | None = None) -> tuple[str, bool]:
