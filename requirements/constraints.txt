@@ -2,6 +2,3 @@ pytest==9.1.1
 # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
 # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
 xgboost<3.1.0
-# litellm 1.98.0 imports NotRequired from typing (requires Python 3.11+) rather than typing_extensions,
-# breaking imports on Python 3.10
-litellm<1.98.0

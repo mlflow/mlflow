@@ -635,6 +635,9 @@ dspy:
     maximum: "3.3.1"
     requirements:
       ">= 0.0.0": ["openai"]
+      # dspy >= 3.3.0 pulls in litellm>=1.98.0 which uses NotRequired from typing (Python 3.11+);
+      # cap it for Python 3.10 CI. litellm 1.97.0 is also excluded (see test-requirements.txt).
+      ">= 3.3.0": ["litellm!=1.97.0,<1.98.0"]
     run: |
       pytest tests/dspy/test_dspy_autolog.py
     test_tracing_sdk: true
