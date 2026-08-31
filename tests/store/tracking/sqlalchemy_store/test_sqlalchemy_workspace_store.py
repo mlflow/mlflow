@@ -1,3 +1,4 @@
+import contextlib
 import json
 import math
 import time
@@ -6,6 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from sqlalchemy import event
 
 from mlflow.entities import (
     AssessmentSource,
@@ -76,6 +78,21 @@ from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store_scorers import 
     _gateway_model_scorer_json,
     _mock_gateway_endpoint,
 )
+
+
+@contextlib.contextmanager
+def _bound_params(engine):
+    """Collect the parameter values SQLAlchemy binds for statements executed on `engine`."""
+    values = []
+
+    def _record(conn, cursor, statement, parameters, context, executemany):
+        values.extend(parameters.values() if isinstance(parameters, dict) else parameters)
+
+    event.listen(engine, "before_cursor_execute", _record)
+    try:
+        yield values
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
 
 
 def _now_ms() -> int:
@@ -419,31 +436,33 @@ def test_entity_associations_are_workspace_scoped(workspace_tracking_store):
 
 
 def test_filter_entity_ids_and_experiment_ids_use_integer_bind_params(workspace_tracking_store):
-    # Regression test for https://github.com/mlflow/mlflow/issues/25188: experiment_id
-    # must be bound as an integer (matching the INTEGER column type), not a string, or
-    # backends like PostgreSQL reject the comparison with "operator does not exist:
-    # integer = character varying".
+    # Regression test for https://github.com/mlflow/mlflow/issues/25188: experiment_id must be
+    # bound as an integer (matching the INTEGER column type), not a string, or backends like
+    # PostgreSQL reject the comparison with "operator does not exist: integer = character
+    # varying". SQLite applies integer affinity and returns the same rows either way, so assert
+    # on the values the helpers actually bind rather than on the rows they return.
     with WorkspaceContext("team-a"):
         exp_id = workspace_tracking_store.create_experiment("filter-entity-ids-exp")
+        assert isinstance(exp_id, str)
 
         with workspace_tracking_store.ManagedSessionMaker() as session:
-            filtered_experiment_ids = workspace_tracking_store._filter_experiment_ids(
-                session, [exp_id]
-            )
-            assert filtered_experiment_ids == [int(exp_id)]
+            with _bound_params(workspace_tracking_store.engine) as experiment_id_params:
+                filtered_experiment_ids = workspace_tracking_store._filter_experiment_ids(
+                    session, [exp_id]
+                )
 
-            filtered_entity_ids = workspace_tracking_store._filter_entity_ids(
-                session, EntityAssociationType.EXPERIMENT, [exp_id]
-            )
-            assert filtered_entity_ids == [exp_id]
+            with _bound_params(workspace_tracking_store.engine) as entity_id_params:
+                filtered_entity_ids = workspace_tracking_store._filter_entity_ids(
+                    session, EntityAssociationType.EXPERIMENT, [exp_id]
+                )
 
-            compiled = (
-                session
-                .query(SqlExperiment.experiment_id)
-                .filter(SqlExperiment.experiment_id.in_([int(exp_id)]))
-                .statement.compile(compile_kwargs={"literal_binds": True})
-            )
-            assert f"experiments.experiment_id IN ({exp_id})" in str(compiled)
+    assert filtered_experiment_ids == [int(exp_id)]
+    assert int(exp_id) in experiment_id_params
+    assert exp_id not in experiment_id_params
+
+    assert filtered_entity_ids == [exp_id]
+    assert int(exp_id) in entity_id_params
+    assert exp_id not in entity_id_params
 
 
 def test_artifact_locations_are_scoped_to_workspace(workspace_tracking_store):
