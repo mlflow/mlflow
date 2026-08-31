@@ -359,9 +359,9 @@ jobs:
           # the whole `timeout` inside the first curl and never retry.
           timeout 60 bash -c 'until curl -sf -o /dev/null --max-time 5 http://127.0.0.1:8080/healthz; do sleep 1; done'
 
-      # The sandbox gets the PR tree, the tooling copy and a read-only `GH_TOKEN`,
-      # each copied to the path it has on the runner so a cited screenshot still
-      # resolves for `skills embed-media` afterwards.
+      # The sandbox gets a read-only `GH_TOKEN` in its environment, plus the PR
+      # tree and the tooling copy, each at the path it has on the runner so a
+      # cited screenshot still resolves for `skills embed-media` afterwards.
       - name: Review
         id: review
         env:
@@ -392,7 +392,9 @@ jobs:
           # pull_request (smoke), the steps that mutate the PR are gated off so
           # no review is submitted.
           EXIT_CODE=0
-          # `--rm` is out: the output has to outlive the container that wrote it.
+          # `--rm` is out: the output exists only in the container's layer until
+          # the collect step copies it back, so the container has to outlive the
+          # review process.
           #
           # The gateway does not serve Anthropic's server-side web_search tool.
           # Denying the bare name drops it from Claude's context instead of
