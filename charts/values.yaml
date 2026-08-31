@@ -133,6 +133,8 @@ httpRoute:
   # parent Gateway listens on.
   hostnames: []
   # Path matches for the generated rule. Defaults to a PathPrefix match on "/".
+  # Serving MLflow under a subpath also needs `server.staticPrefix` set to the
+  # same prefix, or a `filters` URLRewrite entry below that strips it.
   # Example:
   #   matches:
   #     - path:
