@@ -732,23 +732,26 @@ def _validate_model_alias_name_reserved(model_alias_name):
         )
 
 
-MAX_SKILL_NAME_LENGTH = 255
-MAX_AGENT_PLUGIN_NAME_LENGTH = 255
-MAX_ORGANIZATION_NAME_LENGTH = 255
+MAX_SKILL_NAME_LENGTH = 64
+MAX_AGENT_PLUGIN_NAME_LENGTH = 64
+MAX_ORGANIZATION_NAME_LENGTH = 64
 
-# Names may not start with '@' (the URI organization marker) and may not contain
-# reserved URI characters ('/', '@', '#', '?'). Allowed: letters, digits, '.', '_', '-'.
-_SKILL_ENTITY_NAME_REGEX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+# Skill names: lowercase ASCII letters, digits, and single hyphens; alphanumeric first
+# and last characters; no consecutive hyphens.
+_SKILL_NAME_REGEX = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+# Agent plugin (and organization) names: additionally allow single periods between
+# alphanumeric groups (so SemVer-looking names like "1.0.0" are permitted).
+_AGENT_PLUGIN_NAME_REGEX = re.compile(r"^[a-z0-9]+([-.][a-z0-9]+)*$")
 
 
 def _validate_skill_name(name):
     if not name:
         raise MlflowException.invalid_parameter_value("Skill name must not be empty.")
-    if _SKILL_ENTITY_NAME_REGEX.fullmatch(name) is None:
+    if _SKILL_NAME_REGEX.fullmatch(name) is None:
         raise MlflowException.invalid_parameter_value(
-            f"Invalid skill name {name!r}. Names must start with a letter or digit; may "
-            "contain only letters, digits, '.', '_', and '-'; must not start with '@'; and "
-            "must not contain reserved URI characters ('/', '@', '#', '?')."
+            f"Invalid skill name {name!r}. Names must be 1-64 lowercase ASCII letters, digits, "
+            "and hyphens; cannot begin or end with a hyphen; and cannot contain consecutive "
+            "hyphens."
         )
     _validate_length_limit("Skill name", MAX_SKILL_NAME_LENGTH, name)
 
@@ -756,11 +759,11 @@ def _validate_skill_name(name):
 def _validate_agent_plugin_name(name):
     if not name:
         raise MlflowException.invalid_parameter_value("Agent plugin name must not be empty.")
-    if _SKILL_ENTITY_NAME_REGEX.fullmatch(name) is None:
+    if _AGENT_PLUGIN_NAME_REGEX.fullmatch(name) is None:
         raise MlflowException.invalid_parameter_value(
-            f"Invalid agent plugin name {name!r}. Names must start with a letter or digit; may "
-            "contain only letters, digits, '.', '_', and '-'; must not start with '@'; and "
-            "must not contain reserved URI characters ('/', '@', '#', '?')."
+            f"Invalid agent plugin name {name!r}. Names must be 1-64 lowercase ASCII letters, "
+            "digits, hyphens, and periods; must have alphanumeric first and last characters; and "
+            "cannot contain consecutive hyphens or periods."
         )
     _validate_length_limit("Agent plugin name", MAX_AGENT_PLUGIN_NAME_LENGTH, name)
 
@@ -768,10 +771,11 @@ def _validate_agent_plugin_name(name):
 def _validate_organization_name(organization):
     if organization is None or organization == "":
         return
-    if _SKILL_ENTITY_NAME_REGEX.fullmatch(organization) is None:
+    if _AGENT_PLUGIN_NAME_REGEX.fullmatch(organization) is None:
         raise MlflowException.invalid_parameter_value(
-            f"Invalid organization name {organization!r}. Organizations may contain only "
-            "letters, digits, '.', '_', and '-', and must not start with '@'."
+            f"Invalid organization name {organization!r}. Organizations must be 1-64 lowercase "
+            "ASCII letters, digits, hyphens, and periods; must have alphanumeric first and last "
+            "characters; and cannot contain consecutive hyphens or periods."
         )
     _validate_length_limit("Organization name", MAX_ORGANIZATION_NAME_LENGTH, organization)
 

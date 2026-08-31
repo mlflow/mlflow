@@ -101,3 +101,15 @@ def test_parse_skill_uri_invalid(uri, match):
 def test_parse_plugin_uri_rejects_non_semver_version():
     with pytest.raises(MlflowException, match="[Ss]em[Vv]er|version"):
         parse_agent_plugin_uri("agent-plugins:/pr-workflow/not-a-version")
+
+
+@pytest.mark.parametrize(
+    ("parser", "uri"),
+    [
+        (parse_skill_uri, "skills:/@/skill"),
+        (parse_agent_plugin_uri, "agent-plugins:/@/plugin"),
+    ],
+)
+def test_parse_uri_rejects_empty_marked_organization(parser, uri):
+    with pytest.raises(MlflowException, match="organization marker"):
+        parser(uri)

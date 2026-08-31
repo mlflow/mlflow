@@ -79,9 +79,14 @@ def _split_uri(uri: str, scheme: str) -> tuple[str, str, str | None, str | None]
     organization = ""
     if remainder.startswith("@"):
         match remainder[1:].split("/", 1):
-            case [org, rest] if rest:
+            case [org, rest] if rest and org:
                 organization = org
                 remainder = rest
+            case ["", rest] if rest:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid URI {uri!r}: organization marker '@' must be followed by a "
+                    "non-empty organization name."
+                )
             case _:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid URI {uri!r}: organization must be followed by a name."
