@@ -44,13 +44,13 @@ export MLFLOW_ENABLE_ASSISTANT_SANDBOX=false  # opt out; run on the host
 
 Relevant environment variables:
 
-| Variable | Purpose | Default |
-| --- | --- | --- |
-| `MLFLOW_ENABLE_REMOTE_ASSISTANT` | Put the assistant in remote/multi-user mode; when a `docker` executable is present, its work runs in the sandbox. | `false` |
-| `MLFLOW_ENABLE_ASSISTANT_SANDBOX` | Override the automatic decision: `true` forces the sandbox on, `false` forces it off. Unset derives it from remote mode + Docker. | unset |
-| `MLFLOW_SANDBOX_DOCKER_IMAGE` | Image for the `Bash` sandbox (needs Python + MLflow). Auto-built if missing. | `mlflow-sandbox:latest` |
+| Variable                             | Purpose                                                                                                                                        | Default                           |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `MLFLOW_ENABLE_REMOTE_ASSISTANT`     | Put the assistant in remote/multi-user mode; when a `docker` executable is present, its work runs in the sandbox.                              | `false`                           |
+| `MLFLOW_ENABLE_ASSISTANT_SANDBOX`    | Override the automatic decision: `true` forces the sandbox on, `false` forces it off. Unset derives it from remote mode + Docker.              | unset                             |
+| `MLFLOW_SANDBOX_DOCKER_IMAGE`        | Image for the `Bash` sandbox (needs Python + MLflow). Auto-built if missing.                                                                   | `mlflow-sandbox:latest`           |
 | `MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE` | Image for the coding-agent CLI sandbox — Claude Code and/or Codex (needs the CLI(s) + their runtime). **Operator-provided; never auto-built.** | `mlflow-assistant-sandbox:latest` |
-| `MLFLOW_SANDBOX_EGRESS_PROXY` | Optional proxy to steer container egress through (see below). | unset |
+| `MLFLOW_SANDBOX_EGRESS_PROXY`        | Optional proxy to steer container egress through (see below).                                                                                  | unset                             |
 
 ## Building the CLI image
 
