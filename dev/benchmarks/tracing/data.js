@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788170987686,
+  "lastUpdate": 1788178034778,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -25379,6 +25379,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.744847000002665,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "163738104+mayuriphad@users.noreply.github.com",
+            "name": "Mayuri",
+            "username": "mayuriphad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8c6e2b77a4a042d6d81a42286998a01d584353cb",
+          "message": "Fix integer/varchar type mismatch in WorkspaceAwareSqlAlchemyStore experiment_id filters (#25232)\n\nSigned-off-by: mayuriphad <mayuriphad656@gmail.com>\nSigned-off-by: Mayuri <vijay.looprai@gmail.com>\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Mayuri <vijay.looprai@gmail.com>\nCo-authored-by: Harutaka Kawamura <hkawamura0130@gmail.com>\nCo-authored-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2026-08-31T21:04:34+09:00",
+          "tree_id": "7c113b0427564283aca34484807d19b1d03b074d",
+          "url": "https://github.com/mlflow/mlflow/commit/8c6e2b77a4a042d6d81a42286998a01d584353cb"
+        },
+        "date": 1788178031534,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 133.37034189999883,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 3.4021451956517543,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 2.899584108948847,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.398326131979906,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 3.4590939770638522,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.5484495999980936,
             "unit": "ms"
           }
         ]
