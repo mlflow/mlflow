@@ -327,26 +327,39 @@ jobs:
             client_max_body_size 0;
             server {
               listen 80;
+              # Every route reaches the same gateway with the same bearer, so
+              # only the upstream path differs.
+              proxy_set_header Authorization "Bearer ${GATEWAY_TOKEN}";
+              proxy_http_version 1.1;
+              # Streamed responses, and the default 60s read timeout is short
+              # for a review turn.
+              proxy_buffering off;
+              proxy_request_buffering off;
+              proxy_read_timeout 600s;
+              # This hop is what attaches the credential, so it verifies the
+              # gateway rather than trusting whatever answers.
+              proxy_ssl_server_name on;
+              proxy_ssl_verify on;
+              proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
               # Answered by nginx itself, so the probe below cannot be held up by
               # the gateway.
               location = /healthz {
                 access_log off;
                 return 200;
               }
+              # One route per gateway surface, named after it, so
+              # /anthropic/v1/messages and /openai/v1/responses land on the
+              # paths the gateway serves.
+              location /anthropic/ {
+                proxy_pass ${GATEWAY_URL}/anthropic/;
+              }
+              location /openai/ {
+                proxy_pass ${GATEWAY_URL}/openai/;
+              }
+              # Nothing else is a gateway path, and forwarding it would spend the
+              # bearer on a request we did not mean to make.
               location / {
-                proxy_pass ${GATEWAY_URL}/;
-                proxy_set_header Authorization "Bearer ${GATEWAY_TOKEN}";
-                proxy_http_version 1.1;
-                # Streamed responses, and the default 60s read timeout is short
-                # for a review turn.
-                proxy_buffering off;
-                proxy_request_buffering off;
-                proxy_read_timeout 600s;
-                # This hop is what attaches the credential, so it verifies the
-                # gateway rather than trusting whatever answers.
-                proxy_ssl_server_name on;
-                proxy_ssl_verify on;
-                proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+                return 404;
               }
             }
           }
@@ -374,7 +387,7 @@ jobs:
         env:
           # Read-only for the whole job: injected instructions can't mutate the PR.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_BASE_URL: http://gw-proxy:8080
+          ANTHROPIC_BASE_URL: http://gw-proxy:8080/anthropic
           # The CLI refuses to start without a credential, so not simply empty.
           ANTHROPIC_AUTH_TOKEN: placeholder-not-a-real-credential
           # Tags, not a credential.
