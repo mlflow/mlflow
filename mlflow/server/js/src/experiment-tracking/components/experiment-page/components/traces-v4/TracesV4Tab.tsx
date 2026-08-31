@@ -1,7 +1,18 @@
+import React from 'react';
 import { GenericSkeleton } from '@databricks/design-system';
+import { shouldEnableModelTraceExplorerCustomTraceView } from '@databricks/web-shared/model-trace-explorer';
 import { MonitoringConfigProvider } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { TracesV4PageWrapper } from './components/TracesV4PageWrapper';
 import { TracesV4PageContent } from './components/TracesV4PageContent';
+
+// Custom View pulls in @a2ui (ESM-only) transitively via ExperimentCustomViewProvider.
+// Lazy-load it so consumers that don't need Custom View don't pull @a2ui onto their
+// static module graph (mirrors the V3 traces page).
+const LazyExperimentCustomViewProvider = React.lazy(() =>
+  import('../traces-v3/ExperimentCustomViewProvider').then((module) => ({
+    default: module.ExperimentCustomViewProvider,
+  })),
+);
 
 interface TracesV4TabProps {
   experimentId: string;
@@ -19,14 +30,21 @@ interface TracesV4TabProps {
  * the controller's clear-on-time-change effect wipes the bulk selection before the user can act.
  */
 export const TracesV4Tab = ({ experimentId, isLoadingExperiment }: TracesV4TabProps) => {
+  const pageContent = <TracesV4PageContent experimentId={experimentId} />;
+  const content = shouldEnableModelTraceExplorerCustomTraceView() ? (
+    <React.Suspense fallback={pageContent}>
+      <LazyExperimentCustomViewProvider key={experimentId} experimentId={experimentId}>
+        {pageContent}
+      </LazyExperimentCustomViewProvider>
+    </React.Suspense>
+  ) : (
+    pageContent
+  );
+
   return (
     <TracesV4PageWrapper resetKey={experimentId}>
       <MonitoringConfigProvider>
-        {isLoadingExperiment ? (
-          <GenericSkeleton css={{ flex: 1, margin: 16 }} />
-        ) : (
-          <TracesV4PageContent experimentId={experimentId} />
-        )}
+        {isLoadingExperiment ? <GenericSkeleton css={{ flex: 1, margin: 16 }} /> : content}
       </MonitoringConfigProvider>
     </TracesV4PageWrapper>
   );
