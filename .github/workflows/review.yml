@@ -53,8 +53,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login }}
-          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type || github.event.issue.user.type }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
           COMMENTER: ${{ github.event.comment.user.login }}
         run: |
           check_user() {
