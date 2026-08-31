@@ -129,35 +129,36 @@ def maybe_warn_agent(issue_id: str, issue: str) -> None:
     choosing a skill for the agent. Detectors describe only the concrete issue
     they observed and leave routing to the installed skills.
     """
-    if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
-        return
-
     try:
+        if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
+            return
+
         skills = resources.files("mlflow.assistant.skills")
         readme = skills.joinpath("README.md")
         if not readme.is_file():
             return
         skills_path = Path(str(readme)).parent
+
+        _EMITTED_HINTS.add(issue_id)
+        _logger.warning(
+            "%s Review the MLflow skills bundled at %s before continuing. "
+            "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
+            issue,
+            skills_path,
+        )
     except Exception:
         # Hints are advisory and must never affect the operation that detected
-        # the issue, including unusual import loaders and packaged installs.
+        # the issue, including unusual import loaders and logging handlers.
         return
-
-    _EMITTED_HINTS.add(issue_id)
-    _logger.warning(
-        "%s Review the MLflow skills bundled at %s before continuing. "
-        "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
-        issue,
-        skills_path,
-    )
 
 
 def maybe_warn_local_tracking_for_databricks() -> None:
     """Warn when a GenAI trace is going to local storage despite Databricks intent."""
-    if MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
-        return
-
     try:
+        issue_id = "databricks-intent-with-local-tracking"
+        if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
+            return
+
         from mlflow import get_tracking_uri
         from mlflow.utils.databricks_utils import is_in_databricks_runtime
         from mlflow.utils.uri import is_local_uri
@@ -170,7 +171,7 @@ def maybe_warn_local_tracking_for_databricks() -> None:
         tracking_uri = get_tracking_uri()
         if has_databricks_intent and is_local_uri(tracking_uri):
             maybe_warn_agent(
-                "databricks-intent-with-local-tracking",
+                issue_id,
                 f"A GenAI trace is being written to the local tracking URI {tracking_uri!r} even "
                 "though a Databricks environment or profile is configured.",
             )

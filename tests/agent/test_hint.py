@@ -197,3 +197,13 @@ def test_local_tracking_check_ignores_human_and_remote_tracking(
         with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
             hint.maybe_warn_local_tracking_for_databricks()
     warn.assert_not_called()
+
+
+def test_local_tracking_check_stops_after_warning(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    hint._EMITTED_HINTS.add("databricks-intent-with-local-tracking")
+
+    with mock.patch("mlflow.get_tracking_uri") as get_tracking_uri:
+        hint.maybe_warn_local_tracking_for_databricks()
+
+    get_tracking_uri.assert_not_called()

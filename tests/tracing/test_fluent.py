@@ -839,6 +839,25 @@ def test_successful_genai_span_without_inputs_or_outputs_warns_agent(async_loggi
     ]
 
 
+def test_error_genai_span_without_outputs_does_not_warn_agent(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        with mlflow.start_span(name="failed_tool", span_type=SpanType.TOOL) as span:
+            span.set_status(SpanStatusCode.ERROR)
+
+    warn.assert_not_called()
+
+
+def test_agent_hint_failure_does_not_prevent_span_finalization(async_logging_enabled):
+    span = start_span_no_context(name="empty_tool", span_type=SpanType.TOOL)
+    with (
+        mock.patch("mlflow.agent.hint.maybe_warn_agent", side_effect=RuntimeError("hint failed")),
+        mock.patch.object(span._span, "end", wraps=span._span.end) as end,
+    ):
+        span.end()
+
+    end.assert_called_once()
+
+
 @pytest.mark.skipif(
     IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
 )

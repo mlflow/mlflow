@@ -1142,28 +1142,36 @@ class LiveSpan(Span):
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
 
-            if self.span_type in (SpanType.LLM, SpanType.TOOL, SpanType.RETRIEVER):
-                # Import lazily: most MLflow users never create GenAI spans, and
-                # agent hints must not add work to their span lifecycle.
-                from mlflow.agent.hint import (
-                    maybe_warn_agent,
-                    maybe_warn_local_tracking_for_databricks,
-                )
-
-                maybe_warn_local_tracking_for_databricks()
-
-                if self.inputs is None:
-                    maybe_warn_agent(
-                        "genai-span-missing-inputs",
-                        f"The successful {self.span_type} span {self.name!r} has no recorded "
-                        "inputs.",
+            if self.status.status_code != SpanStatusCode.ERROR and self.span_type in (
+                SpanType.LLM,
+                SpanType.TOOL,
+                SpanType.RETRIEVER,
+            ):
+                try:
+                    # Import lazily: most MLflow users never create GenAI spans, and
+                    # agent hints must not add work to their span lifecycle.
+                    from mlflow.agent.hint import (
+                        maybe_warn_agent,
+                        maybe_warn_local_tracking_for_databricks,
                     )
-                if self.outputs is None:
-                    maybe_warn_agent(
-                        "genai-span-missing-outputs",
-                        f"The successful {self.span_type} span {self.name!r} has no recorded "
-                        "outputs.",
-                    )
+
+                    maybe_warn_local_tracking_for_databricks()
+
+                    if self.inputs is None:
+                        maybe_warn_agent(
+                            "genai-span-missing-inputs",
+                            f"The successful {self.span_type} span {self.name!r} has no recorded "
+                            "inputs.",
+                        )
+                    if self.outputs is None:
+                        maybe_warn_agent(
+                            "genai-span-missing-outputs",
+                            f"The successful {self.span_type} span {self.name!r} has no recorded "
+                            "outputs.",
+                        )
+                except Exception:
+                    # Agent hints are advisory and must never prevent span finalization.
+                    pass
 
             if should_compute_cost_client_side():
                 set_span_cost_attribute(self)
