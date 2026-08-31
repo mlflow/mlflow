@@ -47,6 +47,12 @@ class ParsedSkillUri:
             raise MlflowException.invalid_parameter_value(
                 "Skill URI cannot specify both a version and an alias."
             )
+        _validate_organization_name(self.organization)
+        _validate_skill_name(self.name)
+        if self.version is not None:
+            _validate_skill_version(self.version)
+        if self.alias is not None:
+            _validate_skill_alias(self.alias)
 
 
 @experimental(version="3.16.0")
@@ -64,6 +70,12 @@ class ParsedAgentPluginUri:
             raise MlflowException.invalid_parameter_value(
                 "Agent plugin URI cannot specify both a version and an alias."
             )
+        _validate_organization_name(self.organization)
+        _validate_agent_plugin_name(self.name)
+        if self.version is not None:
+            object.__setattr__(self, "version", normalize_semver(self.version))
+        if self.alias is not None:
+            _validate_skill_alias(self.alias)
 
 
 def _split_uri(uri: str, scheme: str) -> tuple[str, str, str | None, str | None]:
