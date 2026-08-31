@@ -158,6 +158,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.rest_mixin import RestGatewayStoreMixin
+from mlflow.store.tracking.mcp_server_registry.rest_mixin import RestMCPServerRegistryMixin
 from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import (
@@ -194,7 +195,9 @@ _logger = logging.getLogger(__name__)
 # RestGatewayStoreMixin provides concrete implementations of those methods. For Python's MRO
 # to correctly resolve the Gateway methods to RestGatewayStoreMixin's implementations,
 # RestGatewayStoreMixin must appear first in the parent class list.
-class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
+class RestStore(
+    WorkspaceRestStoreMixin, RestGatewayStoreMixin, RestMCPServerRegistryMixin, AbstractStore
+):
     """
     Client for a remote tracking server accessed via REST API calls
 
@@ -2477,15 +2480,3 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
 
         verify_rest_response(response, OTLP_TRACES_PATH)
         return spans
-
-    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """Async wrapper for log_spans. Delegates to the synchronous implementation.
-
-        Args:
-            location: Experiment ID of an MLflow experiment.
-            spans: List of Span entities to log.
-
-        Returns:
-            List of logged Span entities.
-        """
-        return self.log_spans(location, spans)

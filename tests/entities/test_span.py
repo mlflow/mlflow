@@ -989,7 +989,29 @@ def test_add_link_rejects_invalid_ids():
         with pytest.raises(MlflowException, match="Invalid link"):
             span.add_link(Link(trace_id="tr-abc123", span_id="aabbccddeeff0011aabbccddeeff0011"))
 
+        with pytest.raises(MlflowException, match="Invalid link"):
+            span.add_link(Link(trace_id=None, span_id="aabbccddeeff0011"))
+
         assert len(span.links) == 0
+
+
+def test_add_link_skips_v4_trace_id():
+    from mlflow.entities.link import Link
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+
+        with mock.patch("mlflow.entities.span._logger.warning") as mock_warning:
+            span.add_link(Link(trace_id="trace:/catalog.schema/abc123", span_id="aabbccddeeff0011"))
+
+        # V4/UC trace links are not supported: skipped, not normalized or stored.
+        assert len(span.links) == 0
+        assert len(otel_span.links) == 0
+        mock_warning.assert_called_once()
+        assert "Unity Catalog" in mock_warning.call_args.args[0]
+        assert mock_warning.call_args.args[1] == "trace:/catalog.schema/abc123"
 
 
 def test_span_seeds_links_from_otel_span():
@@ -1164,3 +1186,91 @@ def test_to_immutable_span_deep_copies_links():
     live_span._links[0].attributes["k"] = "mutated"
 
     assert immutable_span.links[0].attributes["k"] == "v"
+
+
+def test_lazy_span_to_dict_does_not_materialize():
+    from mlflow.entities.span import LazySpan
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+            span.set_outputs(2)
+
+    span_dict = span.to_dict()
+    lazy = LazySpan(span_dict)
+
+    assert isinstance(lazy, Span)
+    assert not isinstance(lazy, LiveSpan)
+    assert lazy.to_dict() is span_dict
+    assert lazy.__dict__["_materialized"] is False
+
+
+def test_lazy_span_materializes_on_property_access():
+    from mlflow.entities.span import LazySpan
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+            span.set_outputs(2)
+            span.set_status("OK")
+
+    span_dict = span.to_dict()
+    lazy = LazySpan(span_dict)
+
+    assert lazy.name == "child"
+    assert lazy.__dict__["_materialized"] is True
+    assert lazy.inputs == {"input": 1}
+    assert lazy.outputs == 2
+    assert lazy.span_type == SpanType.LLM
+    assert lazy.to_dict() == span_dict
+
+
+def test_lazy_span_round_trips_through_trace_data_to_dict():
+    from mlflow.entities.span import LazySpan
+    from mlflow.entities.trace_data import TraceData
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    lazy = LazySpan(span.to_dict())
+    trace_data = TraceData(spans=[lazy])
+
+    dumped = trace_data.to_dict()
+    assert dumped["spans"][0]["name"] == "child"
+    assert lazy.__dict__["_materialized"] is False
+
+
+def test_lazy_span_matches_eager_span_after_materialization():
+    from mlflow.entities.link import Link
+    from mlflow.entities.span import LazySpan
+    from mlflow.tracing.otel.translation import translate_loaded_span
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("parent"):
+        with tracer.start_as_current_span("child") as otel_span:
+            span = create_mlflow_span(otel_span, trace_id=trace_id, span_type=SpanType.LLM)
+            span.set_inputs({"input": 1})
+            span.set_outputs({"output": 2})
+            span.set_status("OK")
+            span.add_event(SpanEvent("test_event", timestamp=0, attributes={"foo": "bar"}))
+            span.add_link(
+                Link(trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "test"})
+            )
+
+    span_dict = translate_loaded_span(span.to_dict())
+    eager = Span.from_dict(span_dict)
+    lazy = LazySpan(span_dict)
+
+    assert lazy.to_dict() == eager.to_dict()
+    assert lazy.to_otel_proto().SerializeToString() == eager.to_otel_proto().SerializeToString()
+
+    _ = lazy.name
+    assert lazy.__dict__["_materialized"] is True
+    assert lazy.to_dict() == eager.to_dict()
+    assert lazy.attributes == eager.attributes
+    assert lazy.links == eager.links
+    assert lazy.status == eager.status
+    assert lazy.events == eager.events
+    assert lazy.to_otel_proto().SerializeToString() == eager.to_otel_proto().SerializeToString()

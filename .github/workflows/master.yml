@@ -15,6 +15,7 @@ on:
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
+      - ".github/workflows/review.yml"
   push:
     branches:
       - master
@@ -56,7 +57,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -81,7 +82,7 @@ jobs:
         include:
           - splits: 4
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           submodules: true
@@ -109,13 +110,22 @@ jobs:
           GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
-            --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/genai \
-            --ignore=tests/docker \
+          # Two passes: the bulk of the suite runs in parallel across cores with
+          # pytest-xdist (`--serial=exclude -n auto`), and the xdist-hostile tests
+          # (shared Spark session, process-global Flask app / server config,
+          # env-building subprocesses; see `_XDIST_SERIAL_PATHS` in tests/conftest.py)
+          # run serially afterward (`--serial=only`, no `-n`).
+          COMMON_ARGS=(
+            --splits="$SPLITS" --group="$GROUP"
+            --quiet --requires-ssh --ignore-flavors
+            --ignore=tests/examples
+            --ignore=tests/evaluate
+            --ignore=tests/genai
+            --ignore=tests/docker
             tests
+          )
+          uv run --no-sync pytest --serial=exclude -n auto --dist loadscope "${COMMON_ARGS[@]}"
+          uv run --no-sync pytest --serial=only "${COMMON_ARGS[@]}"
 
       - name: Run databricks-connect related tests
         run: |
@@ -131,7 +141,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -188,7 +198,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -212,7 +222,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -246,7 +256,7 @@ jobs:
         include:
           - splits: 3
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -281,7 +291,7 @@ jobs:
         include:
           - splits: 1
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -308,11 +318,11 @@ jobs:
   genai:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -334,9 +344,13 @@ jobs:
           # unpinned install backtracks to the ancient 0.1.8 (imports the
           # removed openai.error). Restore it once upstream lifts the pins.
           # https://github.com/guardrails-ai/guardrails/issues/1505
+          # Avoid google-adk[gcp] here: its OTel GCP deps include prereleases,
+          # and UV_EXCLUDE_NEWER=P7D can make uv backtrack to google-adk==0.0.1
+          # when a new stable OTel GCP release is still cooldown-excluded. These
+          # tests need google-adk plus vertexai imports from google-cloud-aiplatform.
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm 'google-adk[gcp]'
+            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm google-adk google-cloud-aiplatform
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
@@ -375,7 +389,7 @@ jobs:
         include:
           - splits: 4
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -400,68 +414,3 @@ jobs:
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
-
-  windows:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-    runs-on: windows-latest
-    timeout-minutes: 120
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        group: [1, 2, 3]
-        include:
-          - splits: 3
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-          submodules: true
-      - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java
-      - name: Install python dependencies
-        run: |
-          uv sync --extra extras --extra genai --extra mcp
-          uv pip install \
-            -r requirements/test-requirements.txt \
-            pyspark datasets tensorflow torch transformers openai \
-            tests/resources/mlflow-test-plugin
-      - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/cache-hf
-      - name: Download Hadoop winutils for Spark
-        run: |
-          git clone https://github.com/cdarlint/winutils /tmp/winutils
-      - name: Run python tests
-        env:
-          # Set Hadoop environment variables required for testing Spark integrations on Windows
-          HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
-          # Use non-GUI matplotlib backend since Tkinter may not be installed properly on Windows runners
-          # https://github.com/stefmolin/data-morph/pull/273
-          MPLBACKEND: Agg
-          SPLITS: ${{ matrix.splits }}
-          GROUP: ${{ matrix.group }}
-        run: |
-          export PATH=$PATH:$HADOOP_HOME/bin
-          uv run --no-sync pytest tests \
-            --splits=$SPLITS \
-            --group=$GROUP \
-            --ignore-flavors \
-            --ignore=tests/projects \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/optuna \
-            --ignore=tests/pyspark/optuna \
-            --ignore=tests/genai \
-            --ignore=tests/sagemaker \
-            --ignore=tests/gateway \
-            --ignore=tests/server/auth \
-            --ignore=tests/data/test_spark_dataset.py \
-            --ignore=tests/data/test_spark_dataset_source.py \
-            --ignore=tests/data/test_delta_dataset_source.py \
-            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_spark_datasource \
-            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource \
-            --ignore=tests/docker \
-            --ignore=tests/demo

@@ -60,7 +60,7 @@ jobs:
 
       - name: Generate App installation token (multi-repo)
         id: app_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.NAILAOPUS_APP_CLIENT_ID }}
           private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
@@ -79,12 +79,14 @@ jobs:
           COMMENT_ID: ${{ github.event.comment.id }}
           SERVER_URL: ${{ github.server_url }}
           RUN_ID: ${{ github.run_id }}
+          PR: ${{ steps.ctx.outputs.pr }}
         # Mirrors review.yml's pattern: append a run-URL link to the trigger
         # comment instead of leaving a separate reaction artifact on the PR.
         # The maintainer who typed `/review-v2` sees a clickable "🚀 running"
-        # link to follow the job in real time.
+        # link to follow the job in real time. `?pr=` makes the run page
+        # render a back-link to the PR.
         run: |
-          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID?pr=$PR"
           orig=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
           body=$(printf '%s\n\n---\n\n🚀 [NaiLaOpus running...](%s)' "$orig" "$run_url")
           gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$body" || true
@@ -116,7 +118,7 @@ jobs:
             --add-label nailaopus-reviewed || true
 
       - name: Checkout PR head
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.repository }}
           ref: refs/pull/${{ steps.ctx.outputs.pr }}/head
@@ -133,7 +135,7 @@ jobs:
           persist-credentials: false
 
       - name: Checkout mlflow/internal (orchestrator code)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: mlflow/internal
           # Pinned to a specific commit so production reviews are reproducible
@@ -141,17 +143,23 @@ jobs:
           # open a new PR that updates this SHA to the latest mlflow/internal
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable; see mlflow/internal for the policy.
-          ref: d4ac1fd5e110dbbe3f00db09b65b53d06d022d66
+          ref: 5e5f9229e16b97822ea3349b31285370be36b4d1
           sparse-checkout: |
             nailaopus
           path: internal
           token: ${{ steps.app_token.outputs.token }}
           persist-credentials: false
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
-        with:
-          enable-cache: false
+      # PR head code. Safe only because the job gate limits this workflow to
+      # maintainer-authored PRs.
+      - uses: ./mlflow/.github/actions/setup-python
+
+      - name: Install ripgrep
+        run: |
+          curl -LsSf https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz -o /tmp/rg.tar.gz
+          tar xzf /tmp/rg.tar.gz -C /tmp
+          sudo mv /tmp/ripgrep-15.2.0-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
+          rg --version
 
       - name: Parse review flags
         id: flags
@@ -216,7 +224,7 @@ jobs:
           SERVER_URL: ${{ github.server_url }}
           RUN_ID: ${{ github.run_id }}
         run: |
-          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID"
+          run_url="$SERVER_URL/$REPO/actions/runs/$RUN_ID?pr=$PR"
           # printf with a single-quoted format string keeps backticks literal
           # (no command substitution) and avoids the multi-line YAML quoting
           # bug where embedded backticks broke shell parsing. The leading ❌

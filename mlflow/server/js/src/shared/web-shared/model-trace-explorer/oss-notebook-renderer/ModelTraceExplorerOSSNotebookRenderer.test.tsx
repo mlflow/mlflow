@@ -9,6 +9,13 @@ import { ModelTraceExplorerOSSNotebookRenderer } from './ModelTraceExplorerOSSNo
 import { getTraceArtifact } from './mlflow-fetch-utils';
 import { MOCK_TRACE } from '../ModelTraceExplorer.test-utils';
 
+// This test renders the full ModelTraceExplorer, which is a heavy component. The configured
+// React Testing Library asyncUtilTimeout (10s) exceeds Jest's default 5s per-test timeout, so on
+// slow CI workers the findBy* polls get killed by Jest before they can resolve. Raise the timeout
+// to match the sibling ModelTraceExplorer.test.tsx convention.
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
+
 jest.mock('./mlflow-fetch-utils', () => ({
   getTraceArtifact: jest.fn(),
 }));
@@ -50,5 +57,26 @@ describe('ModelTraceExplorerOSSNotebookRenderer', () => {
 
     expect(await screen.findByText('MLflow Trace UI')).toBeInTheDocument();
     expect(await screen.findByText('document-qa-chain')).toBeInTheDocument();
+  });
+  it('builds the "View in MLflow UI" link with both selectedEvaluationId and traceId', async () => {
+    const queryClient = new QueryClient();
+
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueryClientProvider client={queryClient}>
+            <ModelTraceExplorerOSSNotebookRenderer />
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    const link = await screen.findByRole('link', { name: /View in MLflow UI/ });
+    const href = link.getAttribute('href') ?? '';
+
+    // The traces page selects a trace via the `traceId` query param; without it the link
+    // falls back to the full trace list. `selectedEvaluationId` is kept for the legacy table.
+    expect(href).toContain('selectedEvaluationId=1');
+    expect(href).toContain('traceId=1');
   });
 });

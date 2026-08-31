@@ -884,6 +884,10 @@ class InstructionsJudge(Judge):
             )
         if self._inference_params is not None:
             pydantic_data["inference_params"] = self._inference_params
+        # Only serialize when enabled to keep existing (result-first) payloads unchanged;
+        # deserialization defaults this back to False when the key is absent.
+        if self._generate_rationale_first:
+            pydantic_data["generate_rationale_first"] = self._generate_rationale_first
 
         serialized_scorer = SerializedScorer(
             name=self.name,

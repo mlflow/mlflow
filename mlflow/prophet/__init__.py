@@ -78,6 +78,11 @@ def get_default_pip_requirements():
     if Version(prophet.__version__) <= Version("1.2.0"):
         pip_deps.append("cmdstanpy<1.3.0")
 
+    # `Prophet.fit` raises "cannot reindex on an axis with duplicate labels" under pandas 3, and
+    # these versions do not declare the bound themselves (1.2.2 does, and 1.3.0 supports pandas 3)
+    if Version(prophet.__version__) < Version("1.2.2"):
+        pip_deps.append("pandas<3")
+
     return pip_deps
 
 
@@ -198,7 +203,7 @@ def save_model(
             # as the package installation of pystan requires Cython to be present
             # in the path. Prophet's installation itself requires imports of
             # existing libraries, preventing the execution of a batched pip install
-            # and instead using a a strictly defined list of dependencies.
+            # and instead using a strictly defined list of dependencies.
             # NOTE: if Prophet .whl build architecture is changed, this should be
             # modified to a standard inferred approach.
             default_reqs = get_default_pip_requirements()

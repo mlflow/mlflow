@@ -6,7 +6,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 if TYPE_CHECKING:
@@ -17,8 +16,9 @@ _MODEL_API_DOC = {
     "model": """Judge model to use. Must be either `"databricks"` or a form of
 `<provider>:/<model-name>`, such as `"openai:/gpt-4.1-mini"`,
 `"anthropic:/claude-3.5-sonnet-20240620"`. MLflow natively supports
-`["openai", "anthropic", "bedrock", "mistral"]`, and more providers are supported
+`["openai", "anthropic", "bedrock", "mistral", "sap-ai-core"]`, and more providers are supported
 through `LiteLLM <https://docs.litellm.ai/docs/providers>`_.
+For ``sap-ai-core``, set ``MLFLOW_GENAI_JUDGE_BASE_URL`` to the Orchestration v2 endpoint URL.
 Default model depends on the ``MLFLOW_GENAI_JUDGE_DEFAULT_MODEL`` environment
 variable and the tracking URI setup:
 
@@ -67,7 +67,12 @@ def requires_databricks_agents(func):
 
 @format_docstring(_MODEL_API_DOC)
 def is_context_relevant(
-    *, request: str, context: Any, name: str | None = None, model: str | None = None
+    *,
+    request: str,
+    context: Any,
+    name: str | None = None,
+    model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given context is relevant to the input request.
@@ -78,6 +83,9 @@ def is_context_relevant(
             Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -124,7 +132,11 @@ def is_context_relevant(
     else:
         prompt = get_prompt(request, str(context))
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -139,6 +151,7 @@ def is_context_sufficient(
     expected_response: str | None = None,
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given context is sufficient to answer the input request.
@@ -150,6 +163,9 @@ def is_context_sufficient(
         expected_response: The expected response from the application. Optional.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -207,7 +223,11 @@ def is_context_sufficient(
             expected_facts=expected_facts,
         )
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -222,6 +242,7 @@ def is_correct(
     expected_response: str | None = None,
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the expected facts are supported by the response.
@@ -241,6 +262,9 @@ def is_correct(
         expected_response: The expected response containing facts that should be supported.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -296,7 +320,11 @@ def is_correct(
             expected_facts=expected_facts,
         )
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -310,6 +338,7 @@ def is_grounded(
     context: Any,
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response is grounded in the given context.
@@ -320,6 +349,9 @@ def is_grounded(
         context: Context to evaluate the response against. Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -375,13 +407,16 @@ def is_grounded(
             context=context,
         )
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def is_tool_call_efficient(
     *,
@@ -390,6 +425,7 @@ def is_tool_call_efficient(
     available_tools: list["ChatTool"],
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the agent's tool usage is efficient and free of redundancy.
@@ -405,6 +441,9 @@ def is_tool_call_efficient(
             Each element should be a dictionary containing the tool name and description.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -482,13 +521,16 @@ def is_tool_call_efficient(
 
     prompt = get_prompt(request=request, tools_called=tools_called, available_tools=available_tools)
     feedback = invoke_judge_model(
-        model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+        model,
+        prompt,
+        assessment_name=assessment_name,
+        use_case=USE_CASE_BUILTIN_JUDGE,
+        extra_headers=extra_headers,
     )
 
     return _sanitize_feedback(feedback)
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def is_tool_call_correct(
     *,
@@ -500,6 +542,7 @@ def is_tool_call_correct(
     check_order: bool = False,
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the agent's tool calls and their arguments are correct
@@ -523,6 +566,9 @@ def is_tool_call_correct(
         check_order: If True, ask LLM to consider ordering of tool calls.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -583,14 +629,24 @@ def is_tool_call_correct(
         check_order=check_order,
     )
     feedback = invoke_judge_model(
-        model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+        model,
+        prompt,
+        assessment_name=assessment_name,
+        use_case=USE_CASE_BUILTIN_JUDGE,
+        extra_headers=extra_headers,
     )
 
     return _sanitize_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
-def is_safe(*, content: str, name: str | None = None, model: str | None = None) -> Feedback:
+def is_safe(
+    *,
+    content: str,
+    name: str | None = None,
+    model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
+) -> Feedback:
     """
     LLM judge determines whether the given response is safe.
 
@@ -598,6 +654,9 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
         content: Text content to evaluate for safety.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -624,7 +683,11 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
     else:
         prompt = get_prompt(content=content)
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -637,6 +700,7 @@ def meets_guidelines(
     context: dict[str, Any],
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response meets the given guideline(s).
@@ -648,6 +712,9 @@ def meets_guidelines(
             the given guidelines.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -693,6 +760,7 @@ def meets_guidelines(
             prompt,
             assessment_name=name or GUIDELINES_FEEDBACK_NAME,
             use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)

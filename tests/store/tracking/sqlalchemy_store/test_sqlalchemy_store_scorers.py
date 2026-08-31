@@ -23,6 +23,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
@@ -545,6 +546,39 @@ def test_list_scorers_across_experiments(store: SqlAlchemyStore, monkeypatch):
     monkeypatch.setattr(SqlAlchemyStore, "_LIST_SCORERS_CHUNK_SIZE", 1)
     chunked = store.list_scorers_across_experiments([exp_a, exp_b, exp_c])
     assert [(s.experiment_id, s.scorer_name, s.scorer_version) for s in chunked] == expected
+
+
+def test_scorer_experiment_ids_are_coerced_to_int(store: SqlAlchemyStore):
+    """String experiment IDs must be bound as INTEGER, not VARCHAR.
+
+    ``experiments.experiment_id`` is an INTEGER column while the REST layer
+    hands IDs over as strings. SQLite (and psycopg2's untyped literals)
+    coerce silently, which is how the mismatch survived CI; psycopg v3 binds
+    typed VARCHAR parameters and PostgreSQL rejects the comparison with
+    ``operator does not exist: integer = character varying``. See
+    https://github.com/mlflow/mlflow/issues/25282 — this test pins the
+    coercion contract that keeps the PostgreSQL + psycopg v3 backend working.
+    """
+    exp_id = store.create_experiment("coercion_exp")
+    assert isinstance(exp_id, str)
+
+    registered = store.register_scorer(exp_id, "coerced", '{"v": 1}')
+    assert registered.experiment_id == exp_id
+    store.register_scorer(exp_id, "coerced", '{"v": 2}')
+
+    listed = store.list_scorers_across_experiments([exp_id])
+    assert [s.scorer_name for s in listed] == ["coerced"]
+    assert [s.scorer_name for s in store.list_scorers(exp_id)] == ["coerced"]
+
+    fetched = store.get_scorer(exp_id, "coerced")
+    assert fetched.scorer_version == 2
+    assert [v.scorer_version for v in store.list_scorer_versions(exp_id, "coerced")] == [1, 2]
+
+    store.delete_scorer(exp_id, "coerced", version=1)
+    assert [v.scorer_version for v in store.list_scorer_versions(exp_id, "coerced")] == [2]
+
+    with pytest.raises(MlflowException, match="must be valid integers"):
+        store.list_scorers_across_experiments(["not-a-number"])
 
 
 @pytest.mark.parametrize(
@@ -1189,6 +1223,106 @@ def test_calculate_trace_filter_correlation_zero_counts(store):
     assert result.filter2_count == 5
     assert result.joint_count == 0
     assert math.isnan(result.npmi)
+
+
+def test_calculate_trace_filter_correlation_span_filters_deduplicate_traces(store):
+    exp_id = _create_experiments(store, "span_filter_dedup_correlation")
+
+    trace_id_1 = _create_trace_for_correlation(store, exp_id)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id_1,
+                name="tool_match_1",
+                span_id=111,
+                span_type="TOOL",
+                status=trace_api.StatusCode.OK,
+            ),
+            create_test_span(
+                trace_id_1,
+                name="tool_match_2",
+                span_id=112,
+                span_type="TOOL",
+                status=trace_api.StatusCode.OK,
+            ),
+        ],
+    )
+
+    trace_id_2 = _create_trace_for_correlation(store, exp_id)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id_2,
+                name="tool_match_3",
+                span_id=221,
+                span_type="TOOL",
+                status=trace_api.StatusCode.OK,
+            )
+        ],
+    )
+
+    trace_id_3 = _create_trace_for_correlation(store, exp_id)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id_3,
+                name="llm_no_match",
+                span_id=331,
+                span_type="LLM",
+                status=trace_api.StatusCode.ERROR,
+            )
+        ],
+    )
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1='span.type = "TOOL"',
+        filter_string2='span.status = "OK"',
+    )
+
+    assert result.total_count == 3
+    assert result.filter1_count == 2
+    assert result.filter2_count == 2
+    assert result.joint_count == 2
+
+
+def test_calculate_trace_filter_correlation_run_id_filter_matches_linked_traces(store):
+    exp_id = _create_experiments(store, "run_id_filter_correlation")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    run_id = run.info.run_id
+
+    timestamp_ms = time.time_ns() // 1_000_000
+    direct_trace_id = f"tr-{uuid.uuid4()}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=direct_trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={TraceMetadataKey.SOURCE_RUN: run_id},
+        )
+    )
+
+    linked_trace_id = _create_trace_for_correlation(store, exp_id)
+    store.link_traces_to_run([linked_trace_id], run_id)
+
+    _create_trace_for_correlation(store, exp_id)
+
+    result = store.calculate_trace_filter_correlation(
+        experiment_ids=[exp_id],
+        filter_string1=f'run_id = "{run_id}"',
+        filter_string2='status = "OK"',
+    )
+
+    assert result.total_count == 3
+    assert result.filter1_count == 2
+    assert result.filter2_count == 3
+    assert result.joint_count == 2
 
 
 def test_calculate_trace_filter_correlation_multiple_experiments(store):

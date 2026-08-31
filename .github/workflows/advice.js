@@ -1,8 +1,23 @@
 const ACTIVITY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_REPOS_TO_DISPLAY = 10;
 
+const UI_FILE = /^mlflow\/server\/js\/src\/.+\.(tsx|jsx|ts|js|css|scss|less)$/;
+const STACKED_PR_SECTION = /^(#{1,6}|>)\s.*\bStacked (?:PRs?|on)\b/m;
+const MEDIA =
+  /!\[[^\]]*\]\([^)]+\)|<(img|video)\b|https:\/\/github\.com\/user-attachments\/|https?:\/\/\S+\.(png|jpe?g|gif|webp|mp4|mov|webm)\b/i;
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function hasUiChanges(files) {
+  return files.some(({ filename }) => UI_FILE.test(filename) && !filename.includes(".test."));
+}
+
+function hasVisibleMedia(body) {
+  // Strip HTML comments first. The PR template ships a "screenshot, video" hint as a comment,
+  // and media pasted inside a comment block isn't rendered either.
+  return MEDIA.test((body || "").replace(/<!--[\s\S]*?-->/g, ""));
 }
 
 async function getRecentActivity(github, username) {
@@ -174,6 +189,36 @@ ${activitySection}
         "The PR description is missing required sections. " +
         "Please use the [PR template](https://raw.githubusercontent.com/mlflow/mlflow/master/.github/pull_request_template.md)."
     );
+  }
+
+  if (STACKED_PR_SECTION.test(body || "")) {
+    messages.push(
+      "#### &#x1F95E; Not a GitHub stack\n\n" +
+        "GitHub now supports " +
+        "[stacked pull requests](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs) " +
+        "natively. Please use those instead."
+    );
+  }
+
+  if (!hasVisibleMedia(body)) {
+    try {
+      const files = await github.paginate(github.rest.pulls.listFiles, {
+        owner,
+        repo,
+        pull_number: issue_number,
+        per_page: 100,
+      });
+      if (hasUiChanges(files)) {
+        messages.push(
+          "#### &#x1F5BC;&#xFE0F; Missing visual media\n\n" +
+            "This PR changes front-end code, but the description has no screenshot or " +
+            "screen recording. Please attach one to the PR description, including a " +
+            "before/after pair if you're changing existing UI. Ignore this if it's a false alert."
+        );
+      }
+    } catch (e) {
+      console.log("Failed to fetch changed files:", e);
+    }
   }
 
   if (messages.length > 0) {

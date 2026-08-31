@@ -1,10 +1,21 @@
 import { describe, test, expect, jest, beforeEach, beforeAll } from '@jest/globals';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { AssistantChatPanel } from './AssistantChatPanel';
+import { AssistantChatPanel, AssistantMessageBody, groupParts } from './AssistantChatPanel';
+import * as AssistantService from './AssistantService';
+import type {
+  AssistantPart,
+  ChatMessage,
+  PendingAutomaticMessage,
+  ProviderInfo,
+  ResolvedProviderInfo,
+  TokenUsage,
+} from './types';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
+import type { Endpoint } from '../gateway/types';
 
 jest.mock('../telemetry/hooks/useLogTelemetryEvent', () => ({
   useLogTelemetryEvent: jest.fn(() => jest.fn()),
@@ -16,10 +27,50 @@ beforeAll(() => {
 });
 
 const mockSendMessage = jest.fn();
+const mockSelectProvider = jest.fn();
 const mockCancelSession = jest.fn();
 const mockClearPendingPrompt = jest.fn();
+const mockClearComposerFocusRequest = jest.fn();
+const mockForceSendPendingAutomaticMessage = jest.fn();
+const mockRefreshConfig = jest.fn((options?: { silent?: boolean }) => {
+  void options;
+  return Promise.resolve();
+});
+const mockRespondToPermission = jest.fn();
 let mockSetupComplete = true;
 let mockPendingPrompt: string | null = null;
+let mockPendingComposerFocus = false;
+let mockPendingAutomaticMessage: PendingAutomaticMessage | null = null;
+let mockActiveProvider: ResolvedProviderInfo | null = null;
+let mockProviders: ProviderInfo[] = [];
+let mockGatewayVendorOptions: Record<string, string[]> = {};
+let mockGatewayEndpoints: Endpoint[] = [];
+let mockIsLocalServer = true;
+let mockCanUseAssistant = true;
+let mockNeedsApiKey = false;
+let mockError: string | null = null;
+let mockErrorCode: string | null = null;
+const EMPTY_TOKEN_USAGE: TokenUsage = {
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+  cacheReadTokens: 0,
+  costUsd: null,
+};
+let mockTokenUsage: TokenUsage = EMPTY_TOKEN_USAGE;
+
+jest.mock('./AssistantService', () => ({
+  __esModule: true,
+  updateConfig: jest.fn(() => Promise.resolve({})),
+}));
+const mockUpdateConfig = jest.mocked(AssistantService.updateConfig);
+
+jest.mock('../gateway/hooks/useEndpointsQuery', () => ({
+  useEndpointsQuery: () => ({
+    data: mockGatewayEndpoints,
+    isLoading: false,
+  }),
+}));
 
 jest.mock('./AssistantContext', () => ({
   useAssistant: () => ({
@@ -27,24 +78,49 @@ jest.mock('./AssistantContext', () => ({
     sessionId: 'test-session',
     messages: [],
     isStreaming: false,
-    error: null,
+    error: mockError,
+    errorCode: mockErrorCode,
     currentStatus: null,
     activeTools: [],
     setupComplete: mockSetupComplete,
     isLoadingConfig: false,
-    isLocalServer: true,
+    isLocalServer: mockIsLocalServer,
+    activeProvider: mockActiveProvider,
+    providers: mockProviders,
+    gatewayVendorOptions: mockGatewayVendorOptions,
+    needsApiKey: mockNeedsApiKey,
     pendingPrompt: mockPendingPrompt,
+    pendingComposerFocus: mockPendingComposerFocus,
+    pendingAutomaticMessage: mockPendingAutomaticMessage,
+    canUseAssistant: mockCanUseAssistant,
+    tokenUsage: mockTokenUsage,
     openPanel: jest.fn(),
     closePanel: jest.fn(),
     sendMessage: mockSendMessage,
+    sendMessageWhenReady: jest.fn(),
+    forceSendPendingAutomaticMessage: mockForceSendPendingAutomaticMessage,
+    selectProvider: mockSelectProvider,
     prefillPrompt: jest.fn(),
     clearPendingPrompt: mockClearPendingPrompt,
+    requestComposerFocus: jest.fn(),
+    clearComposerFocusRequest: mockClearComposerFocusRequest,
     regenerateLastMessage: jest.fn(),
     reset: jest.fn(),
     cancelSession: mockCancelSession,
-    refreshConfig: jest.fn(),
+    refreshConfig: mockRefreshConfig,
     completeSetup: jest.fn(),
+    pendingPermission: null,
+    respondToPermission: mockRespondToPermission,
   }),
+}));
+
+// Stub the settings page so the settings view exposes its onBack handler directly.
+jest.mock('./setup', () => ({
+  AssistantSettingsPage: ({ onBack }: { onBack: () => void }) => (
+    <button type="button" onClick={onBack}>
+      Back from settings
+    </button>
+  ),
 }));
 
 jest.mock('./AssistantPageContext', () => ({
@@ -56,11 +132,17 @@ jest.mock('../common/utils/RoutingUtils', () => ({
 }));
 
 const renderChatPanel = () => {
-  return renderWithIntl(
-    <DesignSystemProvider>
-      <AssistantChatPanel />
-    </DesignSystemProvider>,
+  // The settings escape hatch mounts a config hook that needs a QueryClient.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const panel = () => (
+    <QueryClientProvider client={queryClient}>
+      <DesignSystemProvider>
+        <AssistantChatPanel />
+      </DesignSystemProvider>
+    </QueryClientProvider>
   );
+  const result = renderWithIntl(panel());
+  return { ...result, rerenderChatPanel: () => result.rerender(panel()) };
 };
 
 describe('AssistantChatPanel', () => {
@@ -68,21 +150,48 @@ describe('AssistantChatPanel', () => {
 
   beforeEach(() => {
     mockSendMessage.mockClear();
+    mockSelectProvider.mockClear();
     mockCancelSession.mockClear();
     mockClearPendingPrompt.mockClear();
+    mockClearComposerFocusRequest.mockClear();
+    mockForceSendPendingAutomaticMessage.mockClear();
+    mockRefreshConfig.mockClear();
+    mockRespondToPermission.mockClear();
+    mockUpdateConfig.mockClear();
     mockSetupComplete = true;
     mockPendingPrompt = null;
+    mockPendingComposerFocus = false;
+    mockPendingAutomaticMessage = null;
+    mockActiveProvider = null;
+    mockProviders = [];
+    mockGatewayVendorOptions = {};
+    mockGatewayEndpoints = [];
+    mockIsLocalServer = true;
+    mockCanUseAssistant = true;
+    mockNeedsApiKey = false;
+    mockError = null;
+    mockErrorCode = null;
+    mockTokenUsage = EMPTY_TOKEN_USAGE;
     mockLogTelemetryEvent = jest.fn();
     jest.mocked(useLogTelemetryEvent).mockReturnValue(mockLogTelemetryEvent);
   });
 
-  test('when setup is NOT complete, the panel shows the "Get Started" setup prompt and no chat input', () => {
+  test('when setup is NOT complete, the panel shows the welcome prompt and no chat input', () => {
     mockSetupComplete = false;
     renderChatPanel();
 
-    // The user is asked to set up the assistant ...
-    expect(screen.getByRole('button', { name: 'Get Started' })).toBeInTheDocument();
-    // ... and the chat input isn't mounted yet, so a queued prompt waits on the context.
+    expect(screen.getByText('Welcome to MLflow Assistant')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Get Started' })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
+  });
+
+  test('when setup is incomplete on a remote client, the panel asks for local setup', () => {
+    mockSetupComplete = false;
+    mockIsLocalServer = false;
+    renderChatPanel();
+
+    expect(screen.getByText('Assistant setup required')).toBeInTheDocument();
+    expect(screen.queryByText('Welcome to MLflow Assistant')).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
   });
 
@@ -99,24 +208,64 @@ describe('AssistantChatPanel', () => {
   test('seed waits while setup is incomplete, then prefills the input after setup completes', async () => {
     mockSetupComplete = false;
     mockPendingPrompt = 'SEED';
-    const { rerender } = renderChatPanel();
+    const { rerenderChatPanel } = renderChatPanel();
 
     // Setup prompt is shown; no input yet; the seed has NOT been consumed.
-    expect(screen.getByRole('button', { name: 'Get Started' })).toBeInTheDocument();
+    expect(screen.getByText('Welcome to MLflow Assistant')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Get Started' })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
     expect(mockClearPendingPrompt).not.toHaveBeenCalled();
 
     // Setup completes (provider selected) — ChatPanelContent mounts and consumes the seed.
     mockSetupComplete = true;
-    rerender(
-      <DesignSystemProvider>
-        <AssistantChatPanel />
-      </DesignSystemProvider>,
-    );
+    rerenderChatPanel();
 
     const textarea = await screen.findByDisplayValue('SEED');
     expect(textarea.tagName).toBe('TEXTAREA');
     expect(mockClearPendingPrompt).toHaveBeenCalledTimes(1);
+  });
+
+  test('a focus-only request focuses the composer without changing its text', async () => {
+    mockPendingComposerFocus = true;
+    renderChatPanel();
+
+    const textarea = screen.getByPlaceholderText('Ask a question...');
+    await waitFor(() => expect(textarea).toHaveFocus());
+    expect(textarea).toHaveValue('');
+    expect(mockClearComposerFocusRequest).toHaveBeenCalledTimes(1);
+  });
+
+  test('a focus request waits for setup before focusing the composer', async () => {
+    mockSetupComplete = false;
+    mockPendingComposerFocus = true;
+    const { rerenderChatPanel } = renderChatPanel();
+
+    expect(screen.queryByPlaceholderText('Ask a question...')).not.toBeInTheDocument();
+    expect(mockClearComposerFocusRequest).not.toHaveBeenCalled();
+
+    mockSetupComplete = true;
+    rerenderChatPanel();
+
+    const textarea = await screen.findByPlaceholderText('Ask a question...');
+    await waitFor(() => expect(textarea).toHaveFocus());
+    expect(mockClearComposerFocusRequest).toHaveBeenCalledTimes(1);
+  });
+
+  test('a focus request refocuses an open composer without replacing draft text', async () => {
+    const user = userEvent.setup();
+    const { rerenderChatPanel } = renderChatPanel();
+    const textarea = screen.getByPlaceholderText('Ask a question...');
+    await user.type(textarea, 'draft edit request');
+    textarea.blur();
+    expect(textarea).not.toHaveFocus();
+
+    mockPendingComposerFocus = true;
+    rerenderChatPanel();
+
+    const refocusedTextarea = await screen.findByPlaceholderText('Ask a question...');
+    await waitFor(() => expect(refocusedTextarea).toHaveFocus());
+    expect(refocusedTextarea).toHaveValue('draft edit request');
+    expect(mockClearComposerFocusRequest).toHaveBeenCalledTimes(1);
   });
 
   test('renders a textarea for chat input', () => {
@@ -185,5 +334,246 @@ describe('AssistantChatPanel', () => {
     await user.keyboard('{Enter}');
 
     expect(mockLogTelemetryEvent).not.toHaveBeenCalled();
+  });
+
+  test('first send with a missing API key shows the inline key prompt instead of sending', async () => {
+    mockActiveProvider = {
+      name: 'mlflow_gateway',
+      model: 'mlflow-assistant-openai',
+      auto_selected: true,
+      model_provider: 'openai',
+      provider_model: 'gpt-5.5',
+      model_options: ['gpt-5.5', 'gpt-5-mini'],
+      requires_api_key: true,
+      has_api_key: false,
+      client_tool_delivery: 'tool',
+    };
+    mockNeedsApiKey = true;
+    const user = userEvent.setup();
+    renderChatPanel();
+    const textarea = screen.getByPlaceholderText('Ask a question...');
+
+    await user.click(textarea);
+    await user.type(textarea, 'hello');
+    await user.keyboard('{Enter}');
+
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('Add your OpenAI API key to continue, or pick another provider below.'),
+    ).toBeInTheDocument();
+  });
+
+  test('a queued automatic message uses the key prompt and sends after the key is saved', async () => {
+    mockActiveProvider = {
+      name: 'mlflow_gateway',
+      model: 'mlflow-assistant-openai',
+      auto_selected: true,
+      model_provider: 'openai',
+      provider_model: 'gpt-5.5',
+      model_options: ['gpt-5.5'],
+      requires_api_key: true,
+      has_api_key: false,
+      client_tool_delivery: 'tool',
+    };
+    mockNeedsApiKey = true;
+    mockPendingAutomaticMessage = {
+      message: 'Build my custom trace view',
+      options: { newSession: true },
+    };
+    const user = userEvent.setup();
+    renderChatPanel();
+
+    expect(
+      screen.getByText('Add your OpenAI API key to continue, or pick another provider below.'),
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Ask a question...')).toHaveValue('');
+
+    await user.type(screen.getByPlaceholderText('sk-...'), 'sk-test');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => expect(mockForceSendPendingAutomaticMessage).toHaveBeenCalledTimes(1));
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
+  });
+
+  test('a queued automatic message does not show the key prompt when the provider needs no key', () => {
+    mockActiveProvider = {
+      name: 'ollama',
+      model: 'llama3.2',
+      auto_selected: true,
+      model_options: [],
+      requires_api_key: false,
+      has_api_key: false,
+      client_tool_delivery: 'tool',
+    };
+    mockNeedsApiKey = false;
+    mockPendingAutomaticMessage = {
+      message: 'Build my custom trace view',
+      options: { newSession: true },
+    };
+    renderChatPanel();
+
+    expect(screen.queryByText(/Add your .* API key to continue/)).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Ask a question...')).toHaveValue('');
+  });
+
+  test('an api_key_missing stream error also shows the inline key prompt', () => {
+    mockActiveProvider = {
+      name: 'mlflow_gateway',
+      model: 'mlflow-assistant-openai',
+      auto_selected: true,
+      model_provider: 'openai',
+      provider_model: 'gpt-5.5',
+      model_options: ['gpt-5.5', 'gpt-5-mini'],
+      requires_api_key: true,
+      has_api_key: false,
+      client_tool_delivery: 'tool',
+    };
+    mockError = 'OpenAI requires an API key.';
+    mockErrorCode = 'api_key_missing';
+    renderChatPanel();
+
+    expect(
+      screen.getByText('Add your OpenAI API key to continue, or pick another provider below.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+  });
+
+  test('a classified stream error renders a recoverable callout with a settings shortcut', () => {
+    mockError = 'Claude CLI not found';
+    mockErrorCode = 'cli_not_installed';
+    renderChatPanel();
+
+    expect(screen.getByText('Claude CLI not found')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open Settings' })).toBeInTheDocument();
+  });
+
+  test('an unclassified error renders no recoverable callout', () => {
+    mockError = 'some other failure';
+    mockErrorCode = null;
+    renderChatPanel();
+
+    expect(screen.queryByRole('button', { name: 'Open Settings' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Set API key' })).not.toBeInTheDocument();
+  });
+
+  test('returning from settings refreshes config so the provider indicator is not stale', async () => {
+    const user = userEvent.setup();
+    renderChatPanel();
+
+    // Opening settings alone should not refetch config.
+    await user.click(screen.getByLabelText('Settings'));
+    expect(mockRefreshConfig).not.toHaveBeenCalled();
+
+    // Going back re-reads the config, so a provider changed in settings is reflected immediately.
+    // The refresh is silent so it doesn't flash the loading state over the already-open chat.
+    await user.click(screen.getByRole('button', { name: 'Back from settings' }));
+    expect(mockRefreshConfig).toHaveBeenCalledTimes(1);
+    expect(mockRefreshConfig).toHaveBeenCalledWith({ silent: true });
+  });
+
+  test('token footer shows a compact total and an info trigger when usage is present', () => {
+    mockTokenUsage = {
+      promptTokens: 200,
+      completionTokens: 30,
+      totalTokens: 230,
+      cacheReadTokens: 120,
+      costUsd: 0.02,
+    };
+    renderChatPanel();
+
+    // Compact headline reflects the full processed total; the breakdown (fresh vs cached
+    // input) lives in the hover tooltip, which Radix doesn't reliably open in JSDOM, so
+    // the fresh/cached arithmetic is covered by AssistantContext's accumulation test.
+    expect(screen.getByText('230')).toBeInTheDocument();
+    expect(screen.getByLabelText('More information')).toBeInTheDocument();
+  });
+
+  test('token footer is hidden when no tokens have been used', () => {
+    mockTokenUsage = EMPTY_TOKEN_USAGE;
+    renderChatPanel();
+
+    expect(screen.queryByLabelText('More information')).not.toBeInTheDocument();
+  });
+});
+
+const renderBody = (message: ChatMessage) =>
+  renderWithIntl(
+    <DesignSystemProvider>
+      <AssistantMessageBody message={message} />
+    </DesignSystemProvider>,
+  );
+
+const baseAssistantMessage = {
+  id: 'm1',
+  role: 'assistant' as const,
+  content: '',
+  timestamp: new Date(),
+};
+
+describe('groupParts', () => {
+  test('coalesces adjacent tool calls while preserving interleaving order', () => {
+    const parts: AssistantPart[] = [
+      { type: 'text', text: 'a' },
+      { type: 'toolCall', toolUseId: 't1', name: 'Bash' },
+      { type: 'toolCall', toolUseId: 't2', name: 'Bash' },
+      { type: 'text', text: 'b' },
+      { type: 'toolCall', toolUseId: 't3', name: 'Read' },
+    ];
+    const groups = groupParts(parts);
+    expect(groups).toEqual([
+      { kind: 'text', text: 'a' },
+      { kind: 'tools', calls: [parts[1], parts[2]] },
+      { kind: 'text', text: 'b' },
+      { kind: 'tools', calls: [parts[4]] },
+    ]);
+  });
+
+  test('returns an empty array unchanged', () => {
+    expect(groupParts([])).toEqual([]);
+  });
+});
+
+describe('AssistantMessageBody', () => {
+  test('renders text parts in order around a collapsed tool-call group', () => {
+    renderBody({
+      ...baseAssistantMessage,
+      content: 'Found it.',
+      parts: [
+        { type: 'text', text: 'Let me check.' },
+        {
+          type: 'toolCall',
+          toolUseId: 't1',
+          name: 'trace_analyse',
+          input: { trace_id: 'tr-1', jq_filter: '.data.spans' },
+        },
+        { type: 'text', text: 'Found it.' },
+      ],
+    });
+
+    expect(screen.getByText('Let me check.')).toBeInTheDocument();
+    expect(screen.getByText('Found it.')).toBeInTheDocument();
+    // Collapsed: the header shows the count + tool name, but the inner card's input detail is hidden.
+    expect(screen.getByText('1 tool call')).toBeInTheDocument();
+    expect(screen.getByText('trace_analyse')).toBeInTheDocument();
+    expect(screen.queryByText('tr-1 · .data.spans')).not.toBeInTheDocument();
+  });
+
+  test('expanding the group reveals the inner tool-call cards', async () => {
+    const user = userEvent.setup();
+    renderBody({
+      ...baseAssistantMessage,
+      parts: [{ type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'mlflow traces search' } }],
+    });
+
+    // The command lives only in the inner card, hidden until the group is expanded.
+    expect(screen.queryByText('mlflow traces search')).not.toBeInTheDocument();
+    await user.click(screen.getByText('1 tool call'));
+    expect(screen.getByText('mlflow traces search')).toBeInTheDocument();
+  });
+
+  test('falls back to content for legacy messages without parts', () => {
+    renderBody({ ...baseAssistantMessage, content: 'legacy answer' });
+    expect(screen.getByText('legacy answer')).toBeInTheDocument();
   });
 });

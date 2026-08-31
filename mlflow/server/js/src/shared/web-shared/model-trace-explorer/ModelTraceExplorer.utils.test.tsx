@@ -43,6 +43,7 @@ import {
   getTotalTokens,
   getTraceCost,
   convertOtelAttributesToMap,
+  decodeLinkTraceId,
   isSessionLevelAssessment,
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
@@ -1189,6 +1190,8 @@ describe('convertOtelAttributesToMap', () => {
         { key: 'bool_attr', value: { bool_value: true } },
         { key: 'int_attr', value: { int_value: 42 } },
         { key: 'double_attr', value: { double_value: 3.14 } },
+        // an empty AnyValue is how OTLP represents null
+        { key: 'null_attr', value: {} },
       ],
     } as any;
 
@@ -1202,6 +1205,65 @@ describe('convertOtelAttributesToMap', () => {
         bool_attr: true,
         int_attr: 42,
         double_attr: 3.14,
+        null_attr: null,
+      },
+    });
+  });
+
+  it('should recursively decode kvlist and array values', () => {
+    // shape returned by OTLP-based endpoints (e.g. V3 traces/get) for
+    // dict-valued attributes like mlflow.spanInputs / mlflow.spanOutputs
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        {
+          key: 'mlflow.spanInputs',
+          value: {
+            kvlist_value: {
+              values: [
+                {
+                  key: 'messages',
+                  value: {
+                    array_value: {
+                      values: [
+                        {
+                          kvlist_value: {
+                            values: [
+                              { key: 'role', value: { string_value: 'user' } },
+                              { key: 'content', value: { string_value: 'How are you?' } },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+                { key: 'n', value: { int_value: 1 } },
+                // null fields are serialized as kvlist entries without a value
+                { key: 'stop' },
+              ],
+            },
+          },
+        },
+        { key: 'empty_kvlist', value: { kvlist_value: {} } },
+        { key: 'empty_array', value: { array_value: {} } },
+        { key: 'int64_as_string', value: { int_value: '1783916154' } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        'mlflow.spanInputs': {
+          messages: [{ role: 'user', content: 'How are you?' }],
+          n: 1,
+          stop: null,
+        },
+        empty_kvlist: {},
+        empty_array: [],
+        int64_as_string: 1783916154,
       },
     });
   });
@@ -1307,6 +1369,77 @@ describe('convertOtelAttributesToMap', () => {
       span_id: '1',
       events: [{ attributes: { converted: 'value' } }],
     });
+  });
+
+  it('should normalize OTLP-format links (base64 ids, key-value array attributes)', () => {
+    // shape returned by OTLP-based endpoints (V3 traces/get): base64-encoded
+    // ids and K/V-list attributes that the links UI expects as tr-<hex> + map
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'r/bfSxmZcIKSljvv1ZuvFA==',
+          span_id: 'OMvyqZzI1C0=',
+          attributes: [
+            { key: 'relationship', value: { string_value: 'triggered_by' } },
+            { key: 'handoff', value: { string_value: 'research' } },
+          ],
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'tr-aff6df4b1999708292963befd59baf14',
+          span_id: '38cbf2a99cc8d42d',
+          attributes: {
+            relationship: 'triggered_by',
+            handoff: 'research',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should leave already-normalized links (tr- id, map attributes) unchanged', () => {
+    // shape returned by the artifact route: already tr-<hex> + hex span id + map
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'tr-aff6df4b1999708292963befd59baf14',
+          span_id: '38cbf2a99cc8d42d',
+          attributes: { relationship: 'triggered_by' },
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual(modelTraceSpan);
+  });
+});
+
+describe('decodeLinkTraceId', () => {
+  it('should decode a base64-encoded trace id to tr-<hex>', () => {
+    expect(decodeLinkTraceId('r/bfSxmZcIKSljvv1ZuvFA==')).toBe('tr-aff6df4b1999708292963befd59baf14');
+  });
+
+  it('should leave a tr- prefixed id unchanged', () => {
+    expect(decodeLinkTraceId('tr-aff6df4b1999708292963befd59baf14')).toBe('tr-aff6df4b1999708292963befd59baf14');
+  });
+
+  it('should leave a V4 trace:/ id unchanged', () => {
+    expect(decodeLinkTraceId('trace:/catalog.schema/abc123')).toBe('trace:/catalog.schema/abc123');
+  });
+
+  it('should return an empty string for nullish input', () => {
+    expect(decodeLinkTraceId(undefined)).toBe('');
+    expect(decodeLinkTraceId(null)).toBe('');
   });
 });
 

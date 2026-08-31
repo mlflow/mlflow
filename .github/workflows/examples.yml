@@ -15,6 +15,7 @@ on:
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
+      - ".github/workflows/review.yml"
   schedule:
     # Run this action daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -65,7 +66,7 @@ jobs:
         include:
           - splits: 2
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
@@ -126,7 +127,7 @@ jobs:
       contents: read
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}

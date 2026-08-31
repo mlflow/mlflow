@@ -1040,6 +1040,17 @@ class LiveSpan(Span):
                 INVALID_PARAMETER_VALUE,
             )
 
+        # Span links are not supported for Unity Catalog (V4) traces. Warn and skip rather than
+        # silently normalizing the V4 trace ID to raw OTel hex (see #25080); this matches how
+        # V4-trace links are dropped at span construction.
+        if link.trace_id is not None and link.trace_id.startswith(TRACE_ID_V4_PREFIX):
+            _logger.warning(
+                "Span links are not currently supported for Unity Catalog traces. "
+                "The link to trace '%s' will be skipped.",
+                link.trace_id,
+            )
+            return
+
         # Validate and forward to the underlying OTel span so external exporters can see links
         try:
             link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
@@ -1050,7 +1061,7 @@ class LiveSpan(Span):
             trace_id_int.to_bytes(16, "big")
             span_id_int.to_bytes(8, "big")
             otel_context = build_otel_context(trace_id_int, span_id_int)
-        except (ValueError, OverflowError, MlflowException) as e:
+        except (ValueError, OverflowError, AttributeError, MlflowException) as e:
             raise MlflowException(
                 f"Invalid link: trace_id={link.trace_id!r}, span_id={link.span_id!r}. "
                 "trace_id must be a valid MLflow trace ID or hex string, and "
@@ -1269,6 +1280,60 @@ class LiveSpan(Span):
 
 
 NO_OP_SPAN_TRACE_ID = "MLFLOW_NO_OP_SPAN_TRACE_ID"
+
+
+class LazySpan(Span):
+    """
+    A span that keeps its stored dict form and only builds an OTel-backed Span
+    when a property or conversion that needs one is accessed.
+
+    TRACKING_STORE rows already persist the span as JSON. Returning ``LazySpan``
+    from the store avoids an eager ``json.loads`` → ``Span.from_dict`` →
+    ``to_dict``/``to_otel_proto`` round-trip when the consumer only needs the
+    dict (for example ``get-trace-artifact`` or ``TraceData.to_dict``).
+    """
+
+    def __init__(self, span_dict: dict[str, Any]):
+        # Skip Span.__init__: we intentionally avoid constructing an OTel span
+        # until a caller needs property access or OTLP conversion.
+        self.__dict__["_span_dict"] = span_dict
+        self.__dict__["_materialized"] = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.__dict__["_span_dict"]
+
+    def _ensure_materialized(self) -> None:
+        if self.__dict__["_materialized"]:
+            return
+        span = Span.from_dict(self.__dict__["_span_dict"])
+        self.__dict__["_span"] = span._span
+        self.__dict__["_attributes"] = span._attributes
+        self.__dict__["_attachments"] = span._attachments
+        self.__dict__["_links"] = span._links
+        self.__dict__["_materialized"] = True
+
+    def __getattr__(self, name: str):
+        self._ensure_materialized()
+        return object.__getattribute__(self, name)
+
+    def __repr__(self):
+        if self.__dict__.get("_materialized"):
+            return super().__repr__()
+        span_dict = self.__dict__["_span_dict"]
+        name = span_dict.get("name")
+        attributes = span_dict.get("attributes") or {}
+        request_id = attributes.get(SpanAttributeKey.REQUEST_ID)
+        # request_id may still be JSON-encoded in persisted attributes.
+        if isinstance(request_id, str):
+            try:
+                request_id = json.loads(request_id)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+        return (
+            f"LazySpan(name={name!r}, trace_id={request_id!r}, "
+            f"span_id={span_dict.get('span_id')!r}, "
+            f"parent_id={span_dict.get('parent_span_id')!r})"
+        )
 
 
 class NoOpSpan(Span):

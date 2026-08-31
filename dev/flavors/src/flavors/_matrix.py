@@ -200,7 +200,7 @@ def infer_python_version(package: Package, version: str, repo_url: str | None = 
     """
     Infer the minimum Python version required by the package.
     """
-    candidates = ("3.10", "3.11")
+    candidates = ("3.10", "3.11", "3.12")
 
     if version == DEV_VERSION:
         # `Version("dev")` would raise InvalidVersion, so resolve dev separately
@@ -497,13 +497,17 @@ async def expand_config(
             # Add tracing SDK test with the latest stable version
             if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
                 version = max(versions)  # Test against the latest stable version
+                # Build install command for `version`, not the last loop iteration's version
+                tracing_reqs = [f"{package_info.pip_release}=={version}"]
+                tracing_reqs.extend(get_matched_requirements(cfg.requirements or {}, str(version)))
+                tracing_install = make_pip_install_command(tracing_reqs)
                 matrix.add(
                     MatrixItem(
                         name=f"{name}-tracing",
                         flavor=flavor,
                         category="tracing-sdk",
                         job_name=f"{name} / tracing-sdk / {version}",
-                        install=install,
+                        install=tracing_install,
                         # --import-mode=importlib is required for testing tracing SDK
                         # (mlflow-tracing) works properly, without being affected by environment.
                         run=run.replace("pytest", "pytest --import-mode=importlib"),

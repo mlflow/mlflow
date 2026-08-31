@@ -579,10 +579,14 @@ def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo)
     )
     assert len(results) == 100
     assert mock_store.batch_get_traces.call_count == 10
-    assert mock_store.batch_get_traces.has_calls([
-        mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
-        for j in range(10)
-    ])
+    mock_store.batch_get_traces.assert_has_calls(
+        [
+            mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
+            for j in range(10)
+        ],
+        # The batches are fetched concurrently, so the call order is not deterministic
+        any_order=True,
+    )
     mock_artifact_repo.download_trace_data.assert_not_called()
 
 
@@ -3067,6 +3071,50 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     ]
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
     assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
+
+
+def test_log_model_artifact_with_artifact_path(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment("test")
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    client.log_model_artifact(
+        model_id=model.model_id, local_path=str(tmp_file), artifact_path="subdir"
+    )
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    assert artifacts == [FileInfo(path="subdir", is_dir=True, file_size=None)]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="subdir")
+    assert artifacts == [FileInfo(path="subdir/file", is_dir=False, file_size=1)]
+
+
+def test_log_model_artifacts_with_artifact_path(tmp_path: Path, tracking_uri: str) -> None:
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment("test")
+    model = client.create_logged_model(experiment_id=experiment_id)
+    tmp_path = tmp_path.joinpath("artifacts")
+    tmp_path.mkdir()
+    tmp_file = tmp_path.joinpath("file")
+    tmp_file.write_text("a")
+    tmp_dir = tmp_path.joinpath("dir")
+    tmp_dir.mkdir()
+    another_file = tmp_dir.joinpath("another_file")
+    another_file.write_text("aa")
+    client.log_model_artifacts(
+        model_id=model.model_id, local_dir=str(tmp_path), artifact_path="subdir"
+    )
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id)
+    assert artifacts == [FileInfo(path="subdir", is_dir=True, file_size=None)]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="subdir")
+    artifacts = sorted(artifacts, key=lambda x: x.path)
+    assert artifacts == [
+        FileInfo(path="subdir/dir", is_dir=True, file_size=None),
+        FileInfo(path="subdir/file", is_dir=False, file_size=1),
+    ]
+    artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="subdir/dir")
+    assert artifacts == [FileInfo(path="subdir/dir/another_file", is_dir=False, file_size=2)]
 
 
 def test_logged_model_model_id_required(tracking_uri):
