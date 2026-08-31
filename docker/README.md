@@ -43,7 +43,7 @@ Access the MLflow UI at http://localhost:5000
 docker run -p 5000:5000 \
   -e MLFLOW_BACKEND_STORE_URI=mysql+pymysql://user:password@mysql-host:3306/mlflow \
   mlflow:latest-full \
-  mlflow server --backend-store-uri $MLFLOW_BACKEND_STORE_URI --host 0.0.0.0
+  mlflow server --host 0.0.0.0
 ```
 
 ### With PostgreSQL Backend
@@ -52,7 +52,7 @@ docker run -p 5000:5000 \
 docker run -p 5000:5000 \
   -e MLFLOW_BACKEND_STORE_URI=postgresql://user:password@postgres-host:5432/mlflow \
   mlflow:latest-full \
-  mlflow server --backend-store-uri $MLFLOW_BACKEND_STORE_URI --host 0.0.0.0
+  mlflow server --host 0.0.0.0
 ```
 
 ### With S3 Artifact Storage
@@ -102,7 +102,7 @@ services:
       - "5000:5000"
     environment:
       MLFLOW_BACKEND_STORE_URI: mysql+pymysql://mlflow:mlflow@mysql:3306/mlflow
-    command: mlflow server --backend-store-uri $MLFLOW_BACKEND_STORE_URI --host 0.0.0.0
+    command: mlflow server --host 0.0.0.0
 
 volumes:
   mysql-data:
