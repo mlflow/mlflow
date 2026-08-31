@@ -14511,6 +14511,10 @@
     "defaultMessage": "Guardrail: {name}",
     "description": "Title for guardrail detail modal"
   },
+  "uQEKQL": {
+    "defaultMessage": "Expected output for evaluation",
+    "description": "Tooltip description for the Expected response column in the traces table"
+  },
   "uSVfB9": {
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > retrieval grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
@@ -14954,6 +14958,10 @@
   "wOmMb1": {
     "defaultMessage": "Budget exceeded: {spend} of {limit} spent",
     "description": "Tooltip shown when current spend exceeds the budget limit"
+  },
+  "wOupuD": {
+    "defaultMessage": "Expected facts for evaluation",
+    "description": "Tooltip description for the Expected facts column in the traces table"
   },
   "wSIkSJ": {
     "defaultMessage": "Select trace {traceId}",
