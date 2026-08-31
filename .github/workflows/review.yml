@@ -22,8 +22,9 @@ permissions: {}
 
 jobs:
   # Auth gate: only users with admin or maintain role on the repo can trigger
-  # the review (plus the Copilot bot). For issue_comment, BOTH the PR author
-  # and the commenter are checked.
+  # the review (plus the Copilot bot). On `issue_comment` that is the commenter,
+  # so a maintainer can review a contributor's PR; `pull_request` has no
+  # commenter, so the author is checked instead.
   gate:
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -43,10 +44,6 @@ jobs:
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       (
-        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) ||
-        (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
-       ) &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/review') &&
        !startsWith(github.event.comment.body, '/review-'))
@@ -56,8 +53,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login }}
-          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type || github.event.issue.user.type }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
           COMMENTER: ${{ github.event.comment.user.login }}
         run: |
           check_user() {
@@ -80,9 +77,10 @@ jobs:
                 ;;
             esac
           }
-          check_user "$PR_AUTHOR" "$PR_AUTHOR_TYPE"
           if [ "$EVENT_NAME" = "issue_comment" ]; then
             check_user "$COMMENTER" "User"
+          else
+            check_user "$PR_AUTHOR" "$PR_AUTHOR_TYPE"
           fi
 
       # Pinned here, before anything checks out or runs PR code. `issue_comment`
