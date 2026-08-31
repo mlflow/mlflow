@@ -136,6 +136,27 @@ describe('useTracesV4UrlState', () => {
     expect(param('traceId')).toBeNull();
   });
 
+  test('falls back to the legacy selectedEvaluationId param when traceId is absent', async () => {
+    const { result } = await mountHook('/p?selectedEvaluationId=tr-legacy');
+    expect(result.current.traceId).toBe('tr-legacy');
+  });
+
+  test('prefers traceId over selectedEvaluationId when both are present', async () => {
+    const { result } = await mountHook('/p?traceId=tr-new&selectedEvaluationId=tr-legacy');
+    expect(result.current.traceId).toBe('tr-new');
+  });
+
+  test('setTraceId normalizes the legacy selectedEvaluationId param away', async () => {
+    const { result } = await mountHook('/p?selectedEvaluationId=tr-legacy');
+    act(() => result.current.setTraceId('tr-new'));
+    expect(param('traceId')).toBe('tr-new');
+    expect(param('selectedEvaluationId')).toBeNull();
+
+    act(() => result.current.setTraceId(undefined));
+    expect(param('traceId')).toBeNull();
+    expect(param('selectedEvaluationId')).toBeNull();
+  });
+
   test('setPageIndex removes the param when set back to 1', async () => {
     const { result } = await mountHook('/p');
     act(() => result.current.setPageIndex(4));

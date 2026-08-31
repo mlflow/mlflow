@@ -14,6 +14,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
+import type { CSSObject } from '@emotion/react';
 // This react-table package predates `useReactTableWithDeepMemo`. Use the canonical
 // `useReactTable_unverifiedWithReact18` (the same hook `GenAiTracesTableBody` uses for react-query
 // data): `data` comes reference-stable from `useTracesPageQuery`, and `columns`/`meta` are memoized
@@ -48,17 +49,6 @@ const noop = () => {};
 // requires `componentId` values to be static, so a runtime-injected prefix isn't possible).
 const COMPONENT_ID = 'web-shared.traces-table';
 
-// TableSkeleton and TableRow both reduce their vertical spacing in small tables. Compact loading
-// rows are therefore 25px tall versus 33px at the default size, so rendering the same count leaves
-// the bottom of the table blank. Scale the compact count to preserve the default skeleton height.
-const STANDARD_SKELETON_ROW_HEIGHT = 33;
-const COMPACT_SKELETON_ROW_HEIGHT = 25;
-
-const getRenderedSkeletonRowCount = (skeletonRowCount: number, size: 'default' | 'small') =>
-  size === 'small'
-    ? Math.ceil((skeletonRowCount * STANDARD_SKELETON_ROW_HEIGHT) / COMPACT_SKELETON_ROW_HEIGHT)
-    : skeletonRowCount;
-
 // Input/Output are the fill columns: each takes grow factor 1 so any leftover container width is
 // split equally between them (no dead whitespace on the right), with `maxWidth: unset` so the cap
 // can't block that growth. Every other column stays fixed-width — it occupies exactly its (possibly
@@ -79,8 +69,25 @@ const rowWidthStyle = { width: `var(${ROW_WIDTH_VARIABLE})`, minWidth: '100%' } 
 const stopPropagationProps = {
   onClick: (event: React.MouseEvent) => event.stopPropagation(),
 };
-// Center the row-select checkbox vertically against the single-line cell text.
-const selectCellAlign = { '.table-row-select-cell': { alignItems: 'center' } } as const;
+// Whether a checkbox change originated from a shift-modified click (range selection). The change
+// event's `nativeEvent` carries `shiftKey`; guard structurally since the handler receives `unknown`.
+const isShiftModifiedEvent = (event: unknown): boolean => {
+  if (typeof event !== 'object' || event === null) {
+    return false;
+  }
+  const nativeEvent = 'nativeEvent' in event ? event.nativeEvent : event;
+  return (
+    typeof nativeEvent === 'object' &&
+    nativeEvent !== null &&
+    'shiftKey' in nativeEvent &&
+    nativeEvent.shiftKey === true
+  );
+};
+const dataSelectCellAlign = {
+  '.table-row-select-cell': { alignItems: 'flex-start' },
+  '.table-row-select-cell > *': { transform: 'translateY(2px)' },
+} as const;
+const headerSelectCellAlign = { '.table-row-select-cell': { alignItems: 'center' } } as const;
 
 export interface TracesTableProps {
   traces: ModelTraceInfoV3[];
@@ -104,7 +111,7 @@ export interface TracesTableProps {
   selectedForBulk: ReadonlyMap<string, ModelTraceInfoV3>;
   isAllOnPageSelected: boolean;
   isSomeOnPageSelected: boolean;
-  onToggleBulkRow: (trace: ModelTraceInfoV3) => void;
+  onToggleBulkRow: (trace: ModelTraceInfoV3, selectRange?: boolean) => void;
   /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
   onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
@@ -125,8 +132,8 @@ export interface TracesTableProps {
   onHideColumn: (columnId: string) => void;
   /** Groups traces with a session id into collapsible session rows. Standalone traces remain rows. */
   isGroupedBySession?: boolean;
-  /** Row-height density passed to the DS `Table` (`'small'` = compact rows). Defaults to `'default'`. */
-  size?: 'default' | 'small';
+  /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
+  previewLineClamp?: number;
 }
 
 interface GroupedTraceRows {
@@ -181,10 +188,14 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     renderRunName,
     onHideColumn,
     isGroupedBySession = false,
-    size = 'default',
+    previewLineClamp = 1,
   }: TracesTableProps) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
+    // Keep the checkbox centered and leave a full spacing token before the first data column.
+    const selectCellCss = {
+      '.table-row-select-cell': { alignItems: 'center', paddingRight: theme.spacing.sm },
+    } as const;
 
     // Canonical-order visible column defs + any product columns. `extraColumns` is guarded to a stable
     // reference so a stable/undefined value doesn't defeat the deep memo (see `getVisibleColumnDefs`).
@@ -237,8 +248,8 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     );
 
     const meta = useMemo<TracesTableMeta>(
-      () => ({ intl, onTraceSelected, getTraceHref, getSessionHref, onFilterByTag, renderRunName }),
-      [intl, onTraceSelected, getTraceHref, getSessionHref, onFilterByTag, renderRunName],
+      () => ({ intl, onTraceSelected, getTraceHref, getSessionHref, onFilterByTag, renderRunName, previewLineClamp }),
+      [intl, onTraceSelected, getTraceHref, getSessionHref, onFilterByTag, renderRunName, previewLineClamp],
     );
 
     // Clamp the state TanStack is seeded with as well as the column definition. `getSize()` normally
@@ -343,7 +354,19 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     }, [table, isResizingColumn, onColumnSizingSettled]);
 
     const leafHeaders = table.getLeafHeaders();
-    const renderedSkeletonRowCount = getRenderedSkeletonRowCount(skeletonRowCount, size);
+
+    // A density floor matching the preview clamp keeps Standard/Tall rows uniform and lets the loading
+    // skeleton reserve the height real rows will take (no layout shift on swap). Gate it on a visible
+    // preview column: with both hidden, the floor would force tall, empty rows, so those size to content.
+    const isPreviewColumnVisible = leafHeaders.some(
+      (header) => header.column.id === 'input' || header.column.id === 'output',
+    );
+    const previewLineHeight = Number.parseInt(theme.typography.lineHeightBase, 10);
+    const rowMinHeight =
+      previewLineClamp > 1 && isPreviewColumnVisible
+        ? theme.general.heightSm + theme.spacing.md + (previewLineClamp - 2) * previewLineHeight
+        : undefined;
+    const dataRowStyle: CSSProperties = rowMinHeight ? { ...rowWidthStyle, minHeight: rowMinHeight } : rowWidthStyle;
 
     // Pin every row to the summed width of the visible columns so its hover/selected background spans
     // the full horizontal extent, not just the visible viewport. A DuBois `scrollable` Table makes the
@@ -353,9 +376,9 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     // the row's own width) cuts off at the viewport's right edge. `minWidth: 100%` keeps rows filling the
     // viewport — and lets the input/output fill columns grow — when the columns are narrower than it.
     //
-    // The leading select cell lives outside the TanStack column set: it's content-box with a 16px
-    // (spacing.md) content width + 8px (spacing.sm) left padding, so it contributes a fixed 24px.
-    const selectCellWidth = theme.spacing.md + theme.spacing.sm;
+    // The leading select cell lives outside the TanStack column set: 16px checkbox content plus 8px
+    // padding on each side, including the explicit trailing gap before the first data column.
+    const selectCellWidth = theme.spacing.md + theme.spacing.sm * 2;
     // Grouped mode inserts a leading expand/collapse toggle cell (a small button) before the columns;
     // reserve its width so header, session, and trace rows all stay column-aligned.
     const sessionToggleWidth = isGroupedBySession ? theme.general.heightSm + theme.spacing.xs : 0;
@@ -370,6 +393,12 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       [ROW_WIDTH_VARIABLE]: `${rowWidth}px`,
       ...Object.fromEntries(leafHeaders.map((header, index) => [columnSizeVariable(index), `${header.getSize()}px`])),
     } as CSSProperties;
+    const rowPaddingCss: CSSObject = {
+      '&& > *': {
+        paddingTop: theme.spacing.xs + 2,
+        paddingBottom: theme.spacing.xs + 2,
+      },
+    };
     const columnStyles = useMemo(
       () => new Map(leafHeaders.map((header, index) => [header.column.id, sizeStyleFor(header.column.id, index)])),
       // Header identities are stable while only column sizing changes.
@@ -377,20 +406,26 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       [table, columns],
     );
 
-    // Header-row overrides: near-black labels and a visible divider.
+    // Header-row overrides: align its contents and set the header's bottom border.
     const headerRowCss = {
-      ...selectCellAlign,
+      ...selectCellCss,
+      borderBottom: `1px solid ${theme.colors.border}`,
       // Center each header label against the (vertically-centered) select-all checkbox. Padding sets
       // the label→divider gap directly — DS applies --table-row-vertical-padding via an inline style,
       // so a `css` override of it is a no-op.
-      '[role="columnheader"]': { alignItems: 'center', paddingBottom: theme.spacing.sm },
-      // The select-all cell keeps the DS default bottom padding otherwise, which shifts the centered
-      // checkbox up off the label line — zero it so the checkbox sits on the labels' center.
-      '&& .table-row-select-cell': { paddingBottom: 0 },
-      // Doubled `&&` beats the DS 2-class `.table-header-text` var rule, forcing the darkest token.
-      '&& .table-header-text': { color: theme.colors.textPrimary },
-      // Light divider (grey200), overriding the separator var for the header subtree only.
-      ['--table-separator-color' as string]: theme.colors.grey200,
+      '[role="columnheader"]': {
+        alignItems: 'center',
+        paddingBottom: theme.spacing.mid - 2,
+        '&:hover .traces-table-header-menu-trigger, &:focus-within .traces-table-header-menu-trigger': {
+          opacity: 1,
+        },
+      },
+      // TableRowSelectCell resets vertical padding to zero, so restore the same padding as the other
+      // header cells to keep the checkbox and labels on the same center line.
+      '&& .table-row-select-cell': {
+        paddingTop: theme.spacing.sm,
+        paddingBottom: theme.spacing.mid - 2,
+      },
       // Keep the header's select-all checkbox always visible (data rows stay hover-reveal).
       '&& .table-row-select-cell input[type="checkbox"] ~ *': { opacity: 1 },
     };
@@ -399,9 +434,11 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     // skeleton, expanded trace rows) keep their columns aligned under the session rows that do.
     const renderSessionToggleSpacer = () => <div css={{ width: sessionToggleWidth, flexShrink: 0 }} />;
 
-    const renderSessionPreview = (value: string) =>
+    const renderSessionPreview = (value: string, color: 'primary' | 'secondary' = 'primary') =>
       value ? (
-        <Typography.Text ellipsis>{value}</Typography.Text>
+        <Typography.Text color={color} ellipsis>
+          {value}
+        </Typography.Text>
       ) : (
         <Typography.Text color="secondary">-</Typography.Text>
       );
@@ -450,17 +487,18 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
             }
             onTraceSelected(row.original);
           }}
-          style={rowWidthStyle}
+          style={dataRowStyle}
           css={{
             cursor: 'pointer',
             backgroundColor: isSelected ? theme.colors.tableBackgroundUnselectedHover : undefined,
-            ...selectCellAlign,
+            ...rowPaddingCss,
+            ...dataSelectCellAlign,
           }}
         >
           <TableRowSelectCell
             componentId={`${COMPONENT_ID}.row-select`}
             checked={isBulkChecked}
-            onChange={() => onToggleBulkRow(row.original)}
+            onChange={(event) => onToggleBulkRow(row.original, !isGroupedBySession && isShiftModifiedEvent(event))}
             checkboxLabel={intl.formatMessage(
               {
                 defaultMessage: 'Select trace {traceId}',
@@ -506,18 +544,20 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           flexDirection: 'column',
           flex: 1,
           minHeight: 0,
-          // Row-height density (`size='small'`) should change ONLY the row height, not the text size.
-          // DuBois's `TableCell` wraps its content in a `Typography.Text` sized `sm` (12px) when the
-          // table is `small`, which would shrink the cell font. The DS typography class carries a
-          // theme-specific prefix (`du-bois-light-`/`du-bois-dark-`), so pin the whole cell subtree
-          // back to the base size instead — density then affects row height alone. (Cell icons set
-          // their own 13px `fontSize`, which equals the base, so this doesn't disturb them.)
+          // Keep every cell at the base font size so density affects row height alone: the DS
+          // typography class carries a theme-specific prefix (`du-bois-light-`/`du-bois-dark-`), so
+          // pin the whole cell subtree rather than fighting individual styles.
           '[role="cell"], [role="cell"] *': { fontSize: `${theme.typography.fontSizeBase}px !important` },
         }}
       >
         {/* `scrollable` makes the DuBois Table the scroll container (both axes), which is what activates
           its sticky-header CSS; `flex: 1` gives it a bounded height from the flex parent to scroll within. */}
-        <Table scrollable size={size} css={{ flex: 1 }} someRowsSelected={isAllOnPageSelected || isSomeOnPageSelected}>
+        <Table
+          scrollable
+          size="default"
+          css={{ flex: 1 }}
+          someRowsSelected={isAllOnPageSelected || isSomeOnPageSelected}
+        >
           <TableRow isHeader css={headerRowCss} style={rowWidthStyle}>
             <TableRowSelectCell
               componentId={`${COMPONENT_ID}.row-select-all`}
@@ -551,6 +591,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                   wrapContent={false}
                 >
                   <TraceColumnHeader
+                    columnId={columnId}
                     label={labelNode}
                     labelText={typeof labelNode === 'string' ? labelNode : undefined}
                     sortable={isSortableTraceColumn(columnId)}
@@ -564,8 +605,8 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
           </TableRow>
 
           {isLoading
-            ? Array.from({ length: renderedSkeletonRowCount }, (_, i) => (
-                <TableRow key={`skeleton-${i}`} css={selectCellAlign} style={rowWidthStyle}>
+            ? Array.from({ length: skeletonRowCount }, (_, i) => (
+                <TableRow key={`skeleton-${i}`} css={{ ...rowPaddingCss, ...dataSelectCellAlign }} style={dataRowStyle}>
                   <TableRowSelectCell componentId={`${COMPONENT_ID}.row-select.skeleton`} noCheckbox />
                   {isGroupedBySession && renderSessionToggleSpacer()}
                   {leafHeaders.map((header) => (
@@ -594,7 +635,11 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                       <TableRow
                         isHeader
                         style={rowWidthStyle}
-                        css={{ cursor: onSessionSelected ? 'pointer' : undefined, ...selectCellAlign }}
+                        css={{
+                          cursor: onSessionSelected ? 'pointer' : undefined,
+                          ...rowPaddingCss,
+                          ...dataSelectCellAlign,
+                        }}
                         onClick={
                           onSessionSelected
                             ? () => onSessionSelected({ trace: rows[0].original, sessionId })
@@ -661,7 +706,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                               {header.column.id === 'session'
                                 ? renderSessionHeaderCell(sessionId, rows[0].original)
                                 : header.column.id === 'input'
-                                  ? renderSessionPreview(getTraceInfoInputs(rows[0].original))
+                                  ? renderSessionPreview(getTraceInfoInputs(rows[0].original), 'secondary')
                                   : header.column.id === 'output'
                                     ? renderSessionPreview(
                                         getTraceInfoOutputs(rows.at(-1)?.original ?? rows[0].original),

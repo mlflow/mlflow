@@ -1,4 +1,5 @@
 import {
+  ArrowUpIcon,
   Button,
   CheckIcon,
   ChevronDownIcon,
@@ -6,6 +7,7 @@ import {
   SortAscendingIcon,
   SortDescendingIcon,
   Typography,
+  UserIcon,
   useDesignSystemTheme,
   VisibleOffIcon,
 } from '@databricks/design-system';
@@ -46,7 +48,8 @@ export const TraceColumnHeaderMenu = ({
         <Button
           componentId={`${COMPONENT_ID}.trigger`}
           size="small"
-          icon={<ChevronDownIcon />}
+          type="tertiary"
+          icon={<ChevronDownIcon css={{ color: theme.colors.textSecondary }} />}
           aria-label={triggerLabel}
           onClick={stopPropagation}
         />
@@ -96,6 +99,7 @@ export const TraceColumnHeaderMenu = ({
 };
 
 export interface TraceColumnHeaderProps {
+  columnId: string;
   label: React.ReactNode;
   /** Plain-text column name for the menu trigger's accessible label. */
   labelText?: string;
@@ -111,6 +115,7 @@ export interface TraceColumnHeaderProps {
  * inside its button trigger); sort moved into the menu dropdown.
  */
 export const TraceColumnHeader = ({
+  columnId,
   label,
   labelText,
   sortable,
@@ -137,6 +142,13 @@ export const TraceColumnHeader = ({
 
   const showMenu = sortable || Boolean(onHide);
 
+  const columnIcon =
+    columnId === 'input' ? (
+      <UserIcon />
+    ) : columnId === 'output' ? (
+      <ArrowUpIcon css={{ transform: 'rotate(45deg)' }} />
+    ) : null;
+
   const sortToggleLabel = labelText
     ? intl.formatMessage(
         {
@@ -151,8 +163,29 @@ export const TraceColumnHeader = ({
       });
 
   return (
-    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, width: '100%', minWidth: 0 }}>
-      <Typography.Text bold ellipsis className="table-header-text" css={{ minWidth: 0, flex: '0 1 auto' }}>
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        width: '100%',
+        minWidth: 0,
+      }}
+    >
+      {columnIcon && (
+        <span
+          aria-hidden
+          css={{
+            display: 'inline-flex',
+            flexShrink: 0,
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.fontSizeBase,
+          }}
+        >
+          {columnIcon}
+        </span>
+      )}
+      <Typography.Text bold size="sm" color="secondary" ellipsis css={{ minWidth: 0, flex: '0 1 auto' }}>
         {label}
       </Typography.Text>
       {sortable && sortDirection !== 'none' && (
@@ -175,7 +208,10 @@ export const TraceColumnHeader = ({
         </span>
       )}
       {showMenu && (
-        <span css={{ flexShrink: 0 }}>
+        <span
+          className="traces-table-header-menu-trigger"
+          css={{ display: 'inline-flex', flexShrink: 0, opacity: 0, transition: 'opacity 0.1s ease' }}
+        >
           <TraceColumnHeaderMenu
             sortable={sortable}
             sortDirection={sortDirection}
