@@ -1538,7 +1538,7 @@
       "pricing": {
         "input_per_million_tokens": 0.3,
         "output_per_million_tokens": 2.5,
-        "cache_read_per_million_tokens": 0.075,
+        "cache_read_per_million_tokens": 0.03,
         "modality": {
           "audio": {
             "input_per_million_tokens": 1.0
@@ -1559,7 +1559,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-08-31"
     },
     "gemini-2.5-pro": {
       "mode": "chat",
@@ -1607,17 +1607,9 @@
         "max_tokens": 65535
       },
       "pricing": {
-        "input_per_million_tokens": 1.25,
-        "output_per_million_tokens": 10.0,
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 20.0,
         "cache_read_per_million_tokens": 0.125,
-        "long_context": [
-          {
-            "threshold_tokens": 200000,
-            "cache_read_per_million_tokens": 0.25,
-            "input_per_million_tokens": 2.5,
-            "output_per_million_tokens": 15.0
-          }
-        ],
         "modality": {
           "audio": {
             "input_per_million_tokens": 0.7
@@ -1638,7 +1630,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-08-31"
     },
     "gemini-3-flash-preview": {
       "mode": "chat",
@@ -2139,7 +2131,7 @@
           "flex": {
             "input_per_million_tokens": 0.15,
             "output_per_million_tokens": 1.25,
-            "cache_read_per_million_tokens": 0.02
+            "cache_read_per_million_tokens": 0.015
           },
           "priority": {
             "input_per_million_tokens": 0.54,
@@ -2163,7 +2155,7 @@
         "response_schema": true
       },
       "deprecation_date": "2027-07-21",
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-08-31"
     },
     "gemini-3.6-flash": {
       "mode": "chat",
@@ -3583,6 +3575,21 @@
         "response_schema": false
       },
       "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-lite-generate-001": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
     },
     "xai/grok-4.1-fast-non-reasoning": {
       "mode": "chat",
