@@ -181,8 +181,11 @@ jobs:
       # writes reaches a tree the runner still uses. `base` needs that: the
       # runner runs `skills` from its own copy afterwards with
       # `UPLOAD_MEDIA_TOKEN` in scope.
-      SANDBOX_BASE: /tmp/base-sandbox
-      SANDBOX_PR: /tmp/pr-sandbox
+      # Basenames match the checkout directories: the copy below sends each
+      # tree to `/tmp/`, so the directory entry in the archive is what names
+      # it and sets its ownership.
+      SANDBOX_BASE: /tmp/base
+      SANDBOX_PR: /tmp/pr
     steps:
       - name: Resolve job URL
         env:
@@ -431,13 +434,12 @@ jobs:
               "/pr-review $PR_URL $SANDBOX_PR $REVIEW_PAYLOAD $REVIEW_MEDIA $SANDBOX_BASE" \
             > /dev/null
 
-          # `docker create` pre-creates `--workdir`, so `$SANDBOX_BASE` already
-          # exists and takes the `SRC/.` form to land the tree there rather than
-          # nested under it; `$SANDBOX_PR` does not exist, so the plain form
-          # creates it. `-a` keeps the runner's uid, which the image runs as, so
-          # the sandbox can write what it was given.
-          docker cp -a base/. "review-sandbox:$SANDBOX_BASE"
-          docker cp -a pr "review-sandbox:$SANDBOX_PR"
+          # Copied to the parent rather than onto the path itself, so the archive
+          # carries the directory entry: `docker create` pre-creates `--workdir`
+          # owned by root, and only extracting that entry resets it to the uid
+          # the image runs as. `-a` carries the runner's uid, which is that uid.
+          docker cp -a base "review-sandbox:/tmp/"
+          docker cp -a pr "review-sandbox:/tmp/"
 
           timeout 45m docker start --attach review-sandbox \
             | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
