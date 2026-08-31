@@ -1,14 +1,17 @@
+import os
 import uuid
 
 import pytest
 import sqlalchemy as sa
 
 from mlflow.entities.entity_type import EntityAssociationType
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
+
+DB_URI = os.environ.get("MLFLOW_TRACKING_URI")
 
 
 @pytest.fixture
@@ -20,8 +23,7 @@ def psycopg3_store(tmp_path, monkeypatch):
     rejects a string compared against an INTEGER column. psycopg2, the driver the other db tests
     run on, interpolates the parameter as an untyped literal that PostgreSQL coerces for us.
     """
-    uri = MLFLOW_TRACKING_URI.get()
-    if not uri.startswith("postgresql"):
+    if not DB_URI or not DB_URI.startswith("postgresql"):
         pytest.skip("Only PostgreSQL rejects comparing an integer column to a string parameter")
     pytest.importorskip("psycopg")
 
@@ -29,7 +31,10 @@ def psycopg3_store(tmp_path, monkeypatch):
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
     psycopg3_uri = (
-        sa.make_url(uri).set(drivername="postgresql+psycopg").render_as_string(hide_password=False)
+        sa
+        .make_url(DB_URI)
+        .set(drivername="postgresql+psycopg")
+        .render_as_string(hide_password=False)
     )
     store = WorkspaceAwareSqlAlchemyStore(psycopg3_uri, artifact_dir.as_uri())
     try:
