@@ -175,6 +175,7 @@ jobs:
       RESULT_BODY: /tmp/updated-comment.md
       PR_CHECKOUT: ${{ github.workspace }}/pr
       SANDBOX_IMAGE: ghcr.io/mlflow/sandbox:latest
+      SANDBOX_CONTAINER: review-sandbox
       # Copied into the container rather than mounted, so nothing the sandbox
       # writes reaches a tree the runner still uses. `base` needs that: the
       # runner runs `skills` from its own copy afterwards with
@@ -369,8 +370,7 @@ jobs:
       # server-side web_search tool, so `--disallowed-tools` denies the bare
       # name: that drops it from Claude's context instead of leaving it to fail
       # on use.
-      - name: Review
-        id: review
+      - name: Create the review sandbox
         env:
           # Read-only for the whole job: injected instructions can't mutate the PR.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -393,18 +393,12 @@ jobs:
           EFFORT: ${{ steps.prompt.outputs.effort }}
           AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.REVIEW_MEDIA }}
         run: |
-          OUTPUT_FILE="/tmp/output.jsonl"
-
-          # Both event paths run /pr-review end-to-end against the PR; on
-          # pull_request (smoke), the steps that mutate the PR are gated off so
-          # no review is submitted.
-          EXIT_CODE=0
           # `$REVIEW_OUT` is the mount source and has to exist first, or Docker
           # creates it root-owned and the sandbox cannot write it.
           mkdir -p "$REVIEW_MEDIA"
-          # `docker cp` needs a container to copy into, so the run is split and
-          # `--rm` gives way to the removal step below.
-          docker create --name review-sandbox --runtime=runsc \
+          # `docker cp` needs a container to copy into, which is why creating it
+          # is a step of its own and `--rm` gives way to the removal step below.
+          docker create --name "$SANDBOX_CONTAINER" --runtime=runsc \
             --add-host gw-proxy:host-gateway \
             --volume "$REVIEW_OUT:$REVIEW_OUT" \
             --workdir "$SANDBOX_BASE" \
@@ -437,10 +431,18 @@ jobs:
           # the image runs as. `-a` carries the runner's uid, which is that uid.
           # Both halves come from the same variable, so retargeting one fails on
           # a missing checkout rather than silently copying somewhere else.
-          docker cp -a "${SANDBOX_BASE##*/}" "review-sandbox:${SANDBOX_BASE%/*}/"
-          docker cp -a "${SANDBOX_PR##*/}" "review-sandbox:${SANDBOX_PR%/*}/"
+          docker cp -a "${SANDBOX_BASE##*/}" "$SANDBOX_CONTAINER:${SANDBOX_BASE%/*}/"
+          docker cp -a "${SANDBOX_PR##*/}" "$SANDBOX_CONTAINER:${SANDBOX_PR%/*}/"
 
-          timeout 45m docker start --attach review-sandbox \
+      # Both event paths run /pr-review end-to-end against the PR; on
+      # pull_request (smoke), the steps that mutate the PR are gated off so no
+      # review is submitted.
+      - name: Review
+        id: review
+        run: |
+          OUTPUT_FILE="/tmp/output.jsonl"
+          EXIT_CODE=0
+          timeout 45m docker start --attach "$SANDBOX_CONTAINER" \
             | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 45 minutes"
@@ -455,7 +457,7 @@ jobs:
       - name: Remove the sandbox container
         if: always()
         run: |
-          docker rm --force review-sandbox > /dev/null 2>&1 || true
+          docker rm --force "$SANDBOX_CONTAINER" > /dev/null 2>&1 || true
 
       # A sandbox that cannot reach the proxy only reports a request timeout.
       - name: Gateway proxy log
