@@ -436,11 +436,9 @@ def test_entity_associations_are_workspace_scoped(workspace_tracking_store):
 
 
 def test_filter_entity_ids_and_experiment_ids_use_integer_bind_params(workspace_tracking_store):
-    # Regression test for https://github.com/mlflow/mlflow/issues/25188: experiment_id must be
-    # bound as an integer (matching the INTEGER column type), not a string, or backends like
-    # PostgreSQL reject the comparison with "operator does not exist: integer = character
-    # varying". SQLite applies integer affinity and returns the same rows either way, so assert
-    # on the values the helpers actually bind rather than on the rows they return.
+    # PostgreSQL rejects a string bound against the INTEGER `experiment_id` column with
+    # "operator does not exist: integer = character varying". SQLite matches either way, so
+    # assert on the bound values. https://github.com/mlflow/mlflow/issues/25188
     with WorkspaceContext("team-a"):
         exp_id = workspace_tracking_store.create_experiment("filter-entity-ids-exp")
         assert isinstance(exp_id, str)
