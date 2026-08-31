@@ -122,6 +122,12 @@ jobs:
           kubectl port-forward svc/mlflow 5000:5000 &
           curl --retry 10 --retry-connrefused --retry-delay 3 --fail $CURL_FLAGS ${SCHEME}://localhost:5000/health
 
+      - name: Verify installation notes
+        env:
+          SCHEME: ${{ matrix.tls == true && 'https' || 'http' }}
+        run: |
+          helm get notes mlflow | grep -F "Then open: ${SCHEME}://127.0.0.1:5000"
+
       - name: Print container logs
         if: always()
         run: kubectl logs -l app.kubernetes.io/name=mlflow --tail=-1
