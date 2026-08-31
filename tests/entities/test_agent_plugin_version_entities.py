@@ -17,22 +17,23 @@ def test_agent_plugin_version_defaults():
     assert apv.workspace == resolve_entity_workspace_name(None)
 
 
-def test_agent_plugin_version_roundtrip():
-    apv = AgentPluginVersion(
-        name="pr-workflow",
-        version="1.0.0",
-        organization="acme",
-        plugin_json={"name": "pr-workflow", "version": "1.0.0"},
-        source=GitSource(url="https://github.com/acme/plugins", ref="v1"),
-        source_type=SkillSourceType.GIT,
-        skills=["skills:/code-review/1", "skills:/security-scan@production"],
-        aliases=["production"],
-    )
-    data = apv.to_dict()
-    assert data["source_type"] == "git"
-    assert data["skills"] == ["skills:/code-review/1", "skills:/security-scan@production"]
-    restored = AgentPluginVersion.from_dict(data)
-    assert restored == apv
+def test_agent_plugin_version_from_dict_flat_git_source():
+    data = {
+        "name": "pr-workflow",
+        "version": "1.0.0",
+        "organization": "acme",
+        "plugin_json": {"name": "pr-workflow", "version": "1.0.0"},
+        "source_type": "git",
+        "source": "https://github.com/acme/plugins",
+        "ref": "v1",
+        "skills": ["skills:/code-review/1", "skills:/security-scan@production"],
+        "aliases": ["production"],
+    }
+    apv = AgentPluginVersion.from_dict(data)
+    assert apv.source == GitSource(url="https://github.com/acme/plugins", ref="v1")
+    assert apv.source_type == SkillSourceType.GIT
+    assert apv.skills == ["skills:/code-review/1", "skills:/security-scan@production"]
+    assert apv.plugin_json == {"name": "pr-workflow", "version": "1.0.0"}
 
 
 def test_agent_plugin_version_from_dict_missing_field():

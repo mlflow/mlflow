@@ -20,19 +20,16 @@ def test_skill_defaults_and_workspace_resolution():
     assert skill.workspace == resolve_entity_workspace_name(None)
 
 
-def test_skill_to_from_dict_roundtrip():
-    skill = Skill(
-        name="code-review",
-        organization="acme",
-        description="Reviews PRs",
-        status=SkillStatus.ACTIVE,
-        tags={"team": "platform"},
-        aliases={"production": 1},
-        latest_version=2,
-    )
-    data = skill.to_dict()
-    assert data["status"] == "active"
-    assert data["aliases"] == {"production": 1}
+def test_skill_from_dict():
+    data = {
+        "name": "code-review",
+        "organization": "acme",
+        "description": "Reviews PRs",
+        "status": "active",
+        "tags": {"team": "platform"},
+        "aliases": {"production": 1},
+        "latest_version": 2,
+    }
     restored = Skill.from_dict(data)
     assert restored.name == "code-review"
     assert restored.organization == "acme"

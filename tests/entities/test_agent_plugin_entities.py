@@ -14,21 +14,21 @@ def test_agent_plugin_defaults():
     assert plugin.workspace == resolve_entity_workspace_name(None)
 
 
-def test_agent_plugin_to_from_dict_roundtrip():
-    plugin = AgentPlugin(
-        name="pr-workflow",
-        organization="acme",
-        status=SkillStatus.ACTIVE,
-        tags={"team": "platform"},
-        aliases={"production": "1.0.0"},
-        latest_version="1.2.0",
-    )
-    data = plugin.to_dict()
-    assert data["status"] == "active"
-    assert data["aliases"] == {"production": "1.0.0"}
-    assert data["latest_version"] == "1.2.0"
+def test_agent_plugin_from_dict():
+    data = {
+        "name": "pr-workflow",
+        "organization": "acme",
+        "status": "active",
+        "tags": {"team": "platform"},
+        "aliases": {"production": "1.0.0"},
+        "latest_version": "1.2.0",
+    }
     restored = AgentPlugin.from_dict(data)
-    assert restored == plugin
+    assert restored.name == "pr-workflow"
+    assert restored.organization == "acme"
+    assert restored.status == SkillStatus.ACTIVE
+    assert restored.aliases == {"production": "1.0.0"}
+    assert restored.latest_version == "1.2.0"
 
 
 def test_agent_plugin_from_dict_missing_name():

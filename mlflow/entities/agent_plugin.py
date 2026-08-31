@@ -28,22 +28,6 @@ class AgentPlugin:
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "organization": self.organization,
-            "description": self.description,
-            "workspace": self.workspace,
-            "status": str(self.status) if self.status is not None else None,
-            "tags": self.tags,
-            "aliases": self.aliases,
-            "latest_version": self.latest_version,
-            "created_by": self.created_by,
-            "last_updated_by": self.last_updated_by,
-            "creation_timestamp": self.creation_timestamp,
-            "last_updated_timestamp": self.last_updated_timestamp,
-        }
-
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AgentPlugin:
         if not isinstance(data, dict):

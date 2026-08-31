@@ -9,8 +9,7 @@ from mlflow.entities.skill_source import (
     OCISource,
     SkillSourceType,
     ZipSource,
-    source_from_dict,
-    source_to_dict,
+    build_source,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -38,24 +37,6 @@ class SkillVersion:
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "version": self.version,
-            "organization": self.organization,
-            "source": source_to_dict(self.source),
-            "source_type": str(self.source_type) if self.source_type is not None else None,
-            "digest": self.digest,
-            "status": str(self.status),
-            "tags": self.tags,
-            "aliases": self.aliases,
-            "workspace": self.workspace,
-            "created_by": self.created_by,
-            "last_updated_by": self.last_updated_by,
-            "creation_timestamp": self.creation_timestamp,
-            "last_updated_timestamp": self.last_updated_timestamp,
-        }
-
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SkillVersion:
         if not isinstance(data, dict):
@@ -68,7 +49,9 @@ class SkillVersion:
                 name=data["name"],
                 version=data["version"],
                 organization=data.get("organization", ""),
-                source=source_from_dict(data.get("source"), source_type),
+                source=build_source(
+                    source_type, data.get("source"), data.get("ref"), data.get("subpath")
+                ),
                 source_type=source_type,
                 digest=data.get("digest"),
                 status=SkillStatus(data["status"]) if data.get("status") else SkillStatus.ACTIVE,

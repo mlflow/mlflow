@@ -88,31 +88,25 @@ class ZipSource:
         return cls(url=url, subpath=data.get("subpath"))
 
 
-SourceValue = GitSource | OCISource | ZipSource | str
+def build_source(
+    source_type: SkillSourceType | None,
+    source: str | None,
+    ref: str | None = None,
+    subpath: str | None = None,
+) -> GitSource | OCISource | ZipSource | str | None:
+    """Reconstruct a typed source from the flat wire/DB fields.
 
-_SOURCE_CLASSES = {
-    SkillSourceType.GIT: GitSource,
-    SkillSourceType.OCI: OCISource,
-    SkillSourceType.ZIP: ZipSource,
-}
-
-
-def source_to_dict(source: SourceValue | None) -> Any:
-    if source is None or isinstance(source, str):
-        return source
-    return source.to_dict()
-
-
-def source_from_dict(source: Any, source_type: SkillSourceType | None) -> SourceValue | None:
-    if source is None or isinstance(source, str):
-        return source
+    git -> GitSource(url, ref, subpath); oci -> OCISource(image, subpath);
+    zip -> ZipSource(url, subpath); mlflow/assembled -> the plain string pointer.
+    """
+    if source is None:
+        return None
     if source_type is not None and not isinstance(source_type, SkillSourceType):
         source_type = SkillSourceType(source_type)
-    cls = _SOURCE_CLASSES.get(source_type)
-    if cls is None:
-        raise MlflowException.invalid_parameter_value(
-            f"Cannot deserialize a structured source for source_type {source_type!r}; only "
-            "git, oci, and zip sources use structured payloads (mlflow and assembled sources "
-            "are represented as strings)."
-        )
-    return cls.from_dict(source)
+    if source_type == SkillSourceType.GIT:
+        return GitSource(url=source, ref=ref, subpath=subpath)
+    if source_type == SkillSourceType.OCI:
+        return OCISource(image=source, subpath=subpath)
+    if source_type == SkillSourceType.ZIP:
+        return ZipSource(url=source, subpath=subpath)
+    return source
