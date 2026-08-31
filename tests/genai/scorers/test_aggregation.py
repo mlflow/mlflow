@@ -122,14 +122,15 @@ def test_cast_numeric_values(value, expected_float):
     assert _cast_assessment_value_to_float(assessment) == expected_float
 
 
-def test_non_aggregatable_string_warns_agent():
-    assessment = Feedback(name="quality", value="pass")
+@pytest.mark.parametrize("value", ["pass", ["good", "safe"], {"rating": "good"}])
+def test_non_aggregatable_output_warns_agent(value):
+    assessment = Feedback(name="quality", value=value)
 
     with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
         assert _cast_assessment_value_to_float(assessment) is None
 
     warn.assert_called_once_with(
-        "non-aggregatable-scorer-string",
-        "Scorer 'quality' returned 'pass', which is not included in aggregated metrics; return a "
-        "boolean, number, or 'yes'/'no' instead.",
+        "non-aggregatable-scorer-output",
+        f"Scorer 'quality' returned {value!r}, which is not included in aggregated metrics; "
+        "return a boolean, number, or 'yes'/'no' instead.",
     )

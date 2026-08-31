@@ -462,7 +462,20 @@ def autologging_integration(name):
             ):
                 _check_and_log_warning_for_unsupported_package_versions(name)
 
-                return _autolog(*args, **kwargs)
+                try:
+                    return _autolog(*args, **kwargs)
+                except Exception:
+                    from mlflow.ml_package_versions import GENAI_FLAVOR_TO_MODULE_NAME
+
+                    if name in GENAI_FLAVOR_TO_MODULE_NAME:
+                        from mlflow.agent.hint import maybe_warn_agent
+
+                        maybe_warn_agent(
+                            "genai-autologging-initialization-failed",
+                            f"MLflow {name} autologging failed to initialize; enabling autologging "
+                            "after framework or client setup can prevent tracing.",
+                        )
+                    raise
 
         wrapped_autolog = update_wrapper_extended(autolog, _autolog)
         # Set the autologging integration name as a function attribute on the wrapped autologging

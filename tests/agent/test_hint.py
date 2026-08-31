@@ -165,3 +165,35 @@ def test_antipattern_warning_names_issue_and_is_emitted_once(
 def test_antipattern_warning_is_silent_for_humans(clean_env: Path, caplog):
     hint.maybe_warn_agent("missing-inputs", "A tool span has no inputs.")
     assert not caplog.records
+
+
+@pytest.mark.parametrize("intent_var", ["DATABRICKS_HOST", "DATABRICKS_CONFIG_PROFILE"])
+def test_local_tracking_warns_when_databricks_is_configured(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch, intent_var: str
+):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    monkeypatch.setenv(intent_var, "configured")
+
+    with (
+        mock.patch("mlflow.get_tracking_uri", return_value="file:///tmp/mlruns"),
+        mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn,
+    ):
+        hint.maybe_warn_local_tracking_for_databricks()
+
+    warn.assert_called_once_with(
+        "databricks-intent-with-local-tracking",
+        "A GenAI trace is being written to the local tracking URI 'file:///tmp/mlruns' even "
+        "though a Databricks environment or profile is configured.",
+    )
+
+
+def test_local_tracking_check_ignores_human_and_remote_tracking(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://example.databricks.com")
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        hint.maybe_warn_local_tracking_for_databricks()
+        monkeypatch.setenv("CLAUDECODE", "1")
+        with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+            hint.maybe_warn_local_tracking_for_databricks()
+    warn.assert_not_called()

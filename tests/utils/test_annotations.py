@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass, fields
+from unittest import mock
 
 import pytest
 
@@ -122,6 +123,25 @@ def test_deprecated_function():
     docstring = function.__doc__
     assert docstring is not None
     assert msg in docstring
+
+
+def test_deprecated_genai_api_warns_agent():
+    @deprecated(alternative="mlflow.genai.make_judge")
+    def legacy_judge():
+        return "judge"
+
+    with (
+        mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn,
+        pytest.warns(FutureWarning, match="legacy_judge.*deprecated"),
+    ):
+        assert legacy_judge() == "judge"
+
+    warn.assert_called_once_with(
+        "deprecated-genai-metric-or-judge",
+        "The deprecated GenAI API tests.utils.test_annotations."
+        "test_deprecated_genai_api_warns_agent.<locals>.legacy_judge is being used; use current "
+        "MLflow scorers or mlflow.genai.make_judge instead.",
+    )
 
 
 def test_empty_docstring():

@@ -509,6 +509,28 @@ def test_autologging_integration_makes_expected_event_logging_calls():
     assert call.call_kwargs == {"biz": 82, "baz": "val", "disable": False, "silent": True}
 
 
+def test_failed_genai_autologging_warns_agent():
+    @autologging_integration("test_genai")
+    def autolog(disable=False, silent=False):
+        raise RuntimeError("patch failed")
+
+    with (
+        mock.patch.dict(
+            "mlflow.ml_package_versions.GENAI_FLAVOR_TO_MODULE_NAME",
+            {"test_genai": "test_genai"},
+        ),
+        mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn,
+        pytest.raises(RuntimeError, match="patch failed"),
+    ):
+        autolog()
+
+    warn.assert_called_once_with(
+        "genai-autologging-initialization-failed",
+        "MLflow test_genai autologging failed to initialize; enabling autologging after framework "
+        "or client setup can prevent tracing.",
+    )
+
+
 @pytest.mark.usefixtures(test_mode_off.__name__)
 def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_mode():
     @autologging_integration("test")

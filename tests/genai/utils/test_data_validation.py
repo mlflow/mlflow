@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 import mlflow
@@ -156,6 +158,23 @@ data = [
 ]
 """
     assert _extract_code_example(e.value) == code_example
+
+
+def test_predict_fn_signature_mismatch_warns_agent():
+    def fn(question: str):
+        return "response"
+
+    with (
+        mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn,
+        pytest.raises(MlflowException, match="parameter names"),
+    ):
+        check_model_prediction(fn, {"query": "What is MLflow?"})
+
+    warn.assert_called_once_with(
+        "genai-evaluate-predict-fn-signature-mismatch",
+        "The evaluation predict_fn signature does not match the dataset input keys; MLflow "
+        "unpacks each inputs dictionary as keyword arguments.",
+    )
 
 
 def test_check_model_prediction_unmatched_keys_with_many_args():

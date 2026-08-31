@@ -45,6 +45,7 @@ def _validate_function_and_input_compatibility(
     """
     params = inspect.signature(predict_fn).parameters
     if not params:
+        _warn_predict_fn_signature_mismatch()
         raise MlflowException.invalid_parameter_value(
             "`predict_fn` must accept at least one argument."
         ) from e
@@ -71,6 +72,8 @@ def _has_variable_positional_arguments(params: inspect.Signature) -> bool:
 def _validate_no_var_args(params: inspect.Signature, e: Exception):
     if not any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params.values()):
         return
+
+    _warn_predict_fn_signature_mismatch()
 
     """Raise an error for functions using *args which aren't supported."""
     code_sample = """```python
@@ -106,6 +109,8 @@ def _validate_input_keys_match_function_params(
 ):
     if _has_required_keyword_arguments(params, input_keys):
         return
+
+    _warn_predict_fn_signature_mismatch()
 
     """Raise an error when input keys don't match function parameters."""
     param_names = list(params.keys())
@@ -146,3 +151,13 @@ def _has_required_keyword_arguments(params: inspect.Signature, required_args: li
 
     # Required argument must be a subset of the function's arguments
     return set(required_args) <= set(func_args)
+
+
+def _warn_predict_fn_signature_mismatch() -> None:
+    from mlflow.agent.hint import maybe_warn_agent
+
+    maybe_warn_agent(
+        "genai-evaluate-predict-fn-signature-mismatch",
+        "The evaluation predict_fn signature does not match the dataset input keys; MLflow "
+        "unpacks each inputs dictionary as keyword arguments.",
+    )
