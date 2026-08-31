@@ -403,7 +403,7 @@ jobs:
           mkdir -p "$REVIEW_MEDIA"
           # `docker cp` needs a container to copy into, so the run is split and
           # `--rm` gives way to the removal step below.
-          #
+
           # The gateway does not serve Anthropic's server-side web_search tool.
           # Denying the bare name drops it from Claude's context instead of
           # leaving it to fail on use.
