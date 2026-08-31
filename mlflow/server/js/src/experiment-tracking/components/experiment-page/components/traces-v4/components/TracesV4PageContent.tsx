@@ -42,7 +42,7 @@ import { TracesV4DeleteModal } from './TracesV4DeleteModal';
 import { makeTracesV4ErrorDescription } from './TracesV4States';
 import { TracesV4EmptyState } from './TracesV4EmptyState';
 import { IssueDetectionModal } from '../../traces-v3/IssueDetectionModal';
-import { TracesV4SavedViewsButton, TracesV4SharedViewBanner, useTracesV4SavedViews } from './TracesV4SavedViews';
+import { TracesV4SavedViewsButton, useTracesV4SavedViews } from './TracesV4SavedViews';
 
 interface TracesV4PageContentProps {
   experimentId: string;
@@ -71,41 +71,26 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   const { density, setDensity } = useTracesV4Density(experimentId);
 
   // One "Reset to defaults" in the column selector clears both standard and assessment overrides.
-  // (Only reachable when not previewing — a preview's columns come from its `cols` param.)
   const resetColumns = useCallback(() => {
     columns.resetToDefaults();
     assessments.reset();
   }, [columns, assessments]);
 
-  // Saved views (URL-first): the hook reads/writes view tags and drives the `cols`+share-key preview
-  // overlay. While a shared view is applied, its previewed columns render INSTEAD of the user's own
-  // (without touching localStorage until Override); otherwise the user's own columns show.
+  // Saved views (dirty model): the hook reads/writes view tags, restores a view's columns into the
+  // user's own column store on open, and reports whether the live table has diverged from the active
+  // view (dirty) so the Views menu can offer Overwrite / Reset. There is no read-only preview — the
+  // table always renders the user's real columns.
   const savedViews = useTracesV4SavedViews({
     experimentId,
     visibleColumns: columns.visibleColumns,
+    filterModel,
     setColumns: columns.setColumns,
     resetColumns,
     setFilterModel: controller.setFilterModel,
+    assessmentNames: assessments.candidateNames,
+    assessmentVisibility: assessments.visibilityByName,
+    setAssessmentVisibility: assessments.setVisibility,
   });
-  const effectiveVisibleColumns = savedViews.previewColumns ?? columns.visibleColumns;
-
-  // While previewing a shared view, column toggles edit the preview (the `cols` URL param) rather
-  // than the user's persisted columns — matching the banner's "changes aren't saved unless you
-  // override" promise. Otherwise they write the user's own localStorage as usual. The selector
-  // always reflects `effectiveVisibleColumns`, so its checkboxes match the table in both modes.
-  const toggleColumn = useCallback(
-    (column: TraceColumnId) => {
-      if (savedViews.sharedViewActive) {
-        const next = effectiveVisibleColumns.includes(column)
-          ? effectiveVisibleColumns.filter((id) => id !== column)
-          : [...effectiveVisibleColumns, column];
-        savedViews.setPreviewColumns(next);
-        return;
-      }
-      columns.toggleColumn(column);
-    },
-    [savedViews, effectiveVisibleColumns, columns],
-  );
 
   const handleHideColumn = useCallback(
     (columnId: string) => {
@@ -255,8 +240,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     onFilterChange: controller.setFilterModel,
     onClearFilters: clearAllFilters,
     activeFilterCount: controller.activeFilterCount,
-    visibleColumns: effectiveVisibleColumns,
-    onToggleColumn: toggleColumn,
+    visibleColumns: columns.visibleColumns,
+    onToggleColumn: columns.toggleColumn,
     onResetColumns: resetColumns,
     assessmentColumns: assessments,
     sort: url.sort,
@@ -323,7 +308,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             viewState={viewState}
             // Table
             traces={page.traces}
-            visibleColumns={effectiveVisibleColumns}
+            visibleColumns={columns.visibleColumns}
             extraColumns={assessments.columnDefs}
             initialColumnSizing={columnSizing.columnSizing}
             onColumnSizingSettled={columnSizing.setColumnSizing}
@@ -363,7 +348,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             rightControls={toolbarSlots.rightControls}
             bannerSlot={
               <>
-                <TracesV4SharedViewBanner savedViews={savedViews} />
                 {actions.runJudges?.JudgesStatusBanner}
                 {showErrorAlert && (
                   <TracesErrorAlert

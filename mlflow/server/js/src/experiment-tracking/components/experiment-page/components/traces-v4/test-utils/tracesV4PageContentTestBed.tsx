@@ -144,8 +144,13 @@ export const server = setupServer(
   // The add-to-dataset provider (GenAITracesTableProvider / ExportTracesToDatasetModal) fetches the
   // datasets list on mount; stub it so an unhandled request doesn't disrupt the toolbar render.
   rest.post('/ajax-api/3.0/mlflow/datasets/search', (_req, res, ctx) => res(ctx.json({ datasets: [] }))),
-  // The footer "{n} of {total}" count reads the total from the trace-metrics endpoint.
+  // The footer "{n} of {total}" count reads the total from the trace-metrics endpoint. The endpoint
+  // version depends on `shouldUseTracesV4API()` (3.0 when off, 4.0 when on), so mock both — the V4
+  // tab uses 4.0 when the flag is enabled.
   rest.post('/ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) =>
+    res(ctx.json({ data_points: [{ metric_name: 'trace_count', values: { COUNT: env.metricsTotalCount } }] })),
+  ),
+  rest.post('/ajax-api/4.0/mlflow/traces/metrics', (_req, res, ctx) =>
     res(ctx.json({ data_points: [{ metric_name: 'trace_count', values: { COUNT: env.metricsTotalCount } }] })),
   ),
 );
