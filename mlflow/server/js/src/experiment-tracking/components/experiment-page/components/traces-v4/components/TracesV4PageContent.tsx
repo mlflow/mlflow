@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type InputRef, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import {
@@ -27,7 +27,8 @@ import { useDeleteTracesMutation } from '@mlflow/mlflow/src/experiment-tracking/
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
-import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
@@ -229,6 +230,25 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // selection, falling back to the most-recent page of traces when nothing is selected. Completion
   // toasts are handled globally by `IssueDetectionJobNotifications` (mounted in MlflowRouter).
   const [isIssueDetectionOpen, setIsIssueDetectionOpen] = useState(false);
+
+  // The overview and run pages deep-link here with `?detectIssues=true` to auto-open the modal.
+  // Wait for the first page so the modal seeds from real traces, then strip the param via `replace`
+  // so a refresh doesn't reopen it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (!shouldEnableIssueDetection() || searchParams.get('detectIssues') !== 'true' || page.isLoading) {
+      return;
+    }
+    setIsIssueDetectionOpen(true);
+    setSearchParams(
+      (params) => {
+        params.delete('detectIssues');
+        return params;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams, page.isLoading]);
+
   const selectedTraceIds = useMemo(() => Array.from(bulk.selected.keys()), [bulk.selected]);
   const availableTraceIds = useMemo(
     () => page.traces.map((trace) => trace.trace_id).filter((id): id is string => Boolean(id)),
