@@ -367,7 +367,10 @@ jobs:
       # The sandbox gets a read-only `GH_TOKEN` in its environment, the PR tree
       # and the tooling copy, and the output directory mounted at the path it
       # has on the runner so a cited screenshot still resolves for
-      # `skills embed-media` afterwards.
+      # `skills embed-media` afterwards. The gateway does not serve Anthropic's
+      # server-side web_search tool, so `--disallowed-tools` denies the bare
+      # name: that drops it from Claude's context instead of leaving it to fail
+      # on use.
       - name: Review
         id: review
         env:
@@ -401,10 +404,6 @@ jobs:
           # `$REVIEW_OUT` is the mount source and has to exist first, or Docker
           # creates it root-owned and the sandbox cannot write it.
           mkdir -p "$REVIEW_MEDIA"
-          # The gateway does not serve Anthropic's server-side web_search tool.
-          # Denying the bare name drops it from Claude's context instead of
-          # leaving it to fail on use.
-
           # `docker cp` needs a container to copy into, so the run is split and
           # `--rm` gives way to the removal step below.
           docker create --name review-sandbox --runtime=runsc \
@@ -438,9 +437,10 @@ jobs:
           # carries the directory entry: `docker create` pre-creates `--workdir`
           # owned by root, and only extracting that entry resets it to the uid
           # the image runs as. `-a` carries the runner's uid, which is that uid.
-          # Each checkout directory name has to match its target's basename.
-          docker cp -a base "review-sandbox:${SANDBOX_BASE%/*}/"
-          docker cp -a pr "review-sandbox:${SANDBOX_PR%/*}/"
+          # Both halves come from the same variable, so retargeting one fails on
+          # a missing checkout rather than silently copying somewhere else.
+          docker cp -a "${SANDBOX_BASE##*/}" "review-sandbox:${SANDBOX_BASE%/*}/"
+          docker cp -a "${SANDBOX_PR##*/}" "review-sandbox:${SANDBOX_PR%/*}/"
 
           timeout 45m docker start --attach review-sandbox \
             | base/.claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
