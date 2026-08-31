@@ -113,3 +113,21 @@ def test_parse_plugin_uri_rejects_non_semver_version():
 def test_parse_uri_rejects_empty_marked_organization(parser, uri):
     with pytest.raises(MlflowException, match="organization marker"):
         parser(uri)
+
+
+def test_parsed_agent_plugin_uri_normalizes_semver_on_construction():
+    assert ParsedAgentPluginUri(name="p", version="1.0").version == "1.0.0"
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"name": "bad/name"}, "skill name"),
+        ({"name": "code-review", "version": -1}, "positive integer"),
+        ({"name": "code-review", "alias": "not a valid alias!"}, "alias"),
+        ({"name": "code-review", "organization": "Bad_Org"}, "[Oo]rganization"),
+    ],
+)
+def test_parsed_skill_uri_rejects_invalid_fields_on_construction(kwargs, match):
+    with pytest.raises(MlflowException, match=match):
+        ParsedSkillUri(**kwargs)

@@ -115,6 +115,8 @@ def test_valid_artifact_paths(path):
         "",
         "a/%2e%2e/b",
         "C:\\evil",
+        "a/%2e/b",
+        "a%2f%2fb",
     ],
 )
 def test_invalid_artifact_paths(path):

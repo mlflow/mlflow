@@ -805,9 +805,11 @@ def _validate_skill_artifact_path(path):
             f"Artifact path must be a non-empty string, got {path!r}."
         )
     # Delegates the security-critical checks (absolute, '..', backslash, url-encoded,
-    # windows-absolute, control chars, '#') to the shared path-safety helper.
-    validate_path_is_safe(path)
-    for segment in path.split("/"):
+    # windows-absolute, control chars, '#') to the shared path-safety helper, then runs
+    # the segment checks on its decoded/normalized return value so URL-encoded traversals
+    # (e.g. '%2e' or '%2f') can't slip past as empty or '.' segments.
+    normalized = validate_path_is_safe(path)
+    for segment in normalized.split("/"):
         if segment in ("", "."):
             raise MlflowException.invalid_parameter_value(
                 f"Invalid artifact path {path!r}: empty or '.' segments are not allowed."
