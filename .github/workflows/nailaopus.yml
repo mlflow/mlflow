@@ -150,10 +150,16 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
           persist-credentials: false
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-        with:
-          enable-cache: false
+      # PR head code. Safe only because the job gate limits this workflow to
+      # maintainer-authored PRs.
+      - uses: ./mlflow/.github/actions/setup-python
+
+      - name: Install ripgrep
+        run: |
+          curl -LsSf https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz -o /tmp/rg.tar.gz
+          tar xzf /tmp/rg.tar.gz -C /tmp
+          sudo mv /tmp/ripgrep-15.2.0-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
+          rg --version
 
       - name: Parse review flags
         id: flags

@@ -33,6 +33,7 @@ const baseProps = (over: Partial<TracesTableViewProps> = {}): TracesTableViewPro
   hasPrev: false,
   onClearFilters: jest.fn(),
   onRetry: jest.fn(),
+  onHideColumn: jest.fn(),
   ...over,
 });
 
