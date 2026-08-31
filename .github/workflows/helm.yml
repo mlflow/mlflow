@@ -72,12 +72,13 @@ jobs:
           # schema validation rejects as null.
           render --set httpRoute.apiVersion= | grep -q '^apiVersion: gateway\.networking\.k8s\.io/v1$'
           # parentRefs is required, otherwise the route attaches to no Gateway.
-          if helm template mlflow charts/ \
+          if err=$(helm template mlflow charts/ \
             --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
-            --set httpRoute.enabled=true > /dev/null 2>&1; then
+            --set httpRoute.enabled=true 2>&1 >/dev/null); then
             echo "Expected rendering to fail when httpRoute.parentRefs is empty"
             exit 1
           fi
+          grep -q 'httpRoute.parentRefs is required' <<<"$err"
 
   e2e:
     runs-on: ubuntu-latest
