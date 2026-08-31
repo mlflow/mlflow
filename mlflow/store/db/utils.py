@@ -70,11 +70,24 @@ def _all_tables_exist(engine):
     # Using issubset() instead of equality so that additional tables added by migrations
     # don't cause this check to fail. This prevents unnecessary calls to _initialize_tables
     # which can cause migration errors like "Can't locate revision identified by 'xxx'".
+    #
+    # However, if the DB already has tables but its schema is out of date (e.g., the
+    # 'secrets' table exists from an older migration), we must not skip initialization.
+    # Compare the current Alembic head to the latest revision. If they differ,
+    # the tables are present but stale, so return False to force migration.
     expected_tables = set(Base.metadata.tables)
     actual_tables = {
         t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
     }
-    return expected_tables.issubset(actual_tables)
+    if not expected_tables.issubset(actual_tables):
+        return False
+    try:
+        current_rev = _get_current_schema_revision(engine)
+        latest_rev = _get_latest_schema_revision()
+        return current_rev == latest_rev
+    except Exception as e:
+        _logger.warning("Failed to compare schema revisions, assuming tables are stale: %s", e)
+        return False
 
 
 def _is_empty_database(engine):
