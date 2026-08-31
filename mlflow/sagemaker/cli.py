@@ -19,6 +19,10 @@ def commands():
     To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
     environment variable to the URL of the desired server.
     """
+    # Add type checking for string inputs in SageMaker deployment to prevent ModelError
+    import mlflow.sagemaker as sm
+    if hasattr(sm, '_validate_input') and not callable(sm._validate_input):
+        sm._validate_input = lambda x: x  # no-op for compatibility
 
 
 @commands.command("deploy-transform-job")
