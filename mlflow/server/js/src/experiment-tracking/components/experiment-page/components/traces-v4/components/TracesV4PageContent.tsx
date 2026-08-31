@@ -27,7 +27,7 @@ import { useDeleteTracesMutation } from '@mlflow/mlflow/src/experiment-tracking/
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
-import { useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useNavigate, useSearchParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
@@ -49,6 +49,12 @@ interface TracesV4PageContentProps {
   experimentId: string;
 }
 
+const PREVIEW_LINE_CLAMP_BY_DENSITY = {
+  small: 1,
+  standard: 2,
+  tall: 6,
+} as const;
+
 // Narrows a column id to a standard `TraceColumnId` (assessment columns are namespaced separately).
 const isStandardColumnId = (id: string): id is TraceColumnId => (TRACE_COLUMN_IDS as readonly string[]).includes(id);
 
@@ -62,6 +68,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const navigate = useNavigate();
+  const { pathname, search, hash } = useLocation();
   const { notify, notificationContainer } = useTracesV4Notifications();
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
@@ -167,12 +174,16 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   );
   const closeDrawer = useCallback(() => url.setTraceId(undefined), [url]);
 
+  // Open a trace by adding `traceId` to the *current* location rather than resetting to a bare Traces
+  // route, so active filters/sort in the URL survive an open (and a Cmd/Ctrl+click into a new tab).
   const getTraceHref = useCallback<TraceHrefGetter>(
     (trace) => {
       const traceId = doesTraceSupportV4API(trace) ? createTraceV4LongIdentifier(trace) : trace.trace_id;
-      return `${Routes.getExperimentPageTracesTabRoute(experimentId)}?traceId=${encodeURIComponent(traceId)}`;
+      const searchParams = new URLSearchParams(search);
+      searchParams.set('traceId', traceId);
+      return `${pathname}?${searchParams.toString()}${hash}`;
     },
-    [experimentId],
+    [pathname, search, hash],
   );
 
   // The session cell's only product coupling: build the single-chat-session route (matching v1),
@@ -350,7 +361,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             sort={url.sort}
             dir={url.dir}
             onSort={url.setSort}
-            size={density}
+            previewLineClamp={PREVIEW_LINE_CLAMP_BY_DENSITY[density]}
             getTraceHref={getTraceHref}
             getSessionHref={getSessionHref}
             onSessionSelected={handleSessionSelected}

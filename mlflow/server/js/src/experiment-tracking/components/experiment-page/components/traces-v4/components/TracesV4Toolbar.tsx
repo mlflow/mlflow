@@ -241,10 +241,12 @@ export const useTracesV4ToolbarSlots = ({
           />
         )}
         <div css={{ flex: 1 }} />
-        <TracesV4RefreshButton isFetching={isRefreshing} />
-        {shouldEnableIssueDetection() && onDetectIssues && (
-          <DetectIssuesButton componentId="mlflow.traces-v4.detect-issues-button" onClick={onDetectIssues} />
-        )}
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <TracesV4RefreshButton isFetching={isRefreshing} />
+          {shouldEnableIssueDetection() && onDetectIssues && (
+            <DetectIssuesButton componentId="mlflow.traces-v4.detect-issues-button" onClick={onDetectIssues} />
+          )}
+        </div>
       </>
     ),
   };
