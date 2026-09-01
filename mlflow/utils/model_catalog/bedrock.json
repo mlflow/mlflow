@@ -768,7 +768,13 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25
+        "cache_write_per_million_tokens": 1.25,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.5,
+            "output_per_million_tokens": 2.5
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -777,7 +783,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "anthropic.claude-haiku-4-5@20251001": {
       "mode": "chat",
@@ -1096,6 +1102,12 @@
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
         "cache_write_per_million_tokens": 3.75,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 7.5
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -1120,7 +1132,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -1986,7 +1998,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1995,7 +2013,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "apac.anthropic.claude-sonnet-4-20250514-v1:0": {
       "mode": "chat",
@@ -2047,7 +2065,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2056,7 +2080,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "au.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -2186,6 +2210,12 @@
         "output_per_million_tokens": 16.5,
         "cache_read_per_million_tokens": 0.33,
         "cache_write_per_million_tokens": 4.125,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 8.25
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -2210,7 +2240,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "au.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -2322,6 +2352,12 @@
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
         "cache_write_per_million_tokens": 3.75,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 7.5
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -2339,7 +2375,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "cohere.command-light-text-v14": {
       "mode": "chat",
@@ -3441,7 +3477,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3451,7 +3493,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-10-15",
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "eu.anthropic.claude-opus-4-1-20250805-v1:0": {
       "mode": "chat",
@@ -3707,6 +3749,12 @@
         "output_per_million_tokens": 16.5,
         "cache_read_per_million_tokens": 0.33,
         "cache_write_per_million_tokens": 4.125,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 8.25
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -3731,7 +3779,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "eu.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -3979,7 +4027,13 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25
+        "cache_write_per_million_tokens": 1.25,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.5,
+            "output_per_million_tokens": 2.5
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3988,7 +4042,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "global.anthropic.claude-opus-4-5-20251101-v1:0": {
       "mode": "chat",
@@ -4186,6 +4240,12 @@
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
         "cache_write_per_million_tokens": 3.75,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 7.5
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -4210,7 +4270,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "global.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -4269,6 +4329,120 @@
         "response_schema": true
       },
       "last_updated_at": "2026-07-06"
+    },
+    "global.openai.gpt-5.6-luna": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.02,
+        "cache_write_per_million_tokens": 0.25,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 0.4,
+            "cache_write_per_million_tokens": 0.5,
+            "cache_read_per_million_tokens": 0.04,
+            "output_per_million_tokens": 1.8
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "global.openai.gpt-5.6-sol": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 20.0,
+        "cache_read_per_million_tokens": 0.4,
+        "cache_write_per_million_tokens": 5.0,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 8.0,
+            "cache_write_per_million_tokens": 10.0,
+            "cache_read_per_million_tokens": 0.8,
+            "output_per_million_tokens": 30.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "global.openai.gpt-5.6-terra": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.2,
+        "cache_write_per_million_tokens": 2.5,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 4.0,
+            "cache_write_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.4,
+            "output_per_million_tokens": 18.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "global.xai.grok-4.6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000,
+        "max_tokens": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
     },
     "google.gemma-3-12b-it": {
       "mode": "chat",
@@ -4363,7 +4537,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -4372,7 +4552,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "jp.anthropic.claude-opus-4-7": {
       "mode": "chat",
@@ -4473,6 +4653,12 @@
         "output_per_million_tokens": 16.5,
         "cache_read_per_million_tokens": 0.33,
         "cache_write_per_million_tokens": 4.125,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 8.25
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -4497,7 +4683,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "jp.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -5428,7 +5614,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.22,
-        "output_per_million_tokens": 0.88
+        "output_per_million_tokens": 0.88,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.11,
+            "output_per_million_tokens": 0.44
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5437,7 +5629,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-25"
     },
     "qwen.qwen3-32b-v1:0": {
       "mode": "chat",
@@ -7692,7 +7884,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -7701,7 +7899,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "us.anthropic.claude-opus-4-1-20250805-v1:0": {
       "mode": "chat",
@@ -7958,6 +8156,12 @@
         "output_per_million_tokens": 16.5,
         "cache_read_per_million_tokens": 0.33,
         "cache_write_per_million_tokens": 4.125,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 8.25
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -7982,7 +8186,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "us.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -8314,6 +8518,99 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "us.openai.gpt-5.6-luna": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.22,
+        "output_per_million_tokens": 1.32,
+        "cache_read_per_million_tokens": 0.022,
+        "cache_write_per_million_tokens": 0.275,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 0.44,
+            "cache_write_per_million_tokens": 0.55,
+            "cache_read_per_million_tokens": 0.044,
+            "output_per_million_tokens": 1.98
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "us.openai.gpt-5.6-sol": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.4,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 0.44,
+        "cache_write_per_million_tokens": 5.5,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 8.8,
+            "cache_write_per_million_tokens": 11.0,
+            "cache_read_per_million_tokens": 0.88,
+            "output_per_million_tokens": 33.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "us.openai.gpt-5.6-terra": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.2,
+        "output_per_million_tokens": 13.2,
+        "cache_read_per_million_tokens": 0.22,
+        "cache_write_per_million_tokens": 2.75,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 4.4,
+            "cache_write_per_million_tokens": 5.5,
+            "cache_read_per_million_tokens": 0.44,
+            "output_per_million_tokens": 19.8
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
     "us.twelvelabs.marengo-embed-2-7-v1:0": {
       "mode": "embedding",
       "context_window": {
@@ -8400,6 +8697,27 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "us.xai.grok-4.6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000,
+        "max_tokens": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.2,
+        "output_per_million_tokens": 6.6,
+        "cache_read_per_million_tokens": 0.55
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
     },
     "writer.palmyra-x4-v1:0": {
       "mode": "chat",

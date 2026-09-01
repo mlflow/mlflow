@@ -30,11 +30,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.0.0",
-            "maximum": "3.2.1"
+            "maximum": "3.3.1"
         },
         "autologging": {
             "minimum": "3.0.0",
-            "maximum": "3.2.1"
+            "maximum": "3.3.1"
         }
     },
     "langchain": {
@@ -43,11 +43,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.0",
-            "maximum": "1.3.14"
+            "maximum": "1.3.15"
         },
         "autologging": {
             "minimum": "1.0.0",
-            "maximum": "1.3.14"
+            "maximum": "1.3.15"
         }
     },
     "langgraph": {
@@ -104,7 +104,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.28.0",
-            "maximum": "2.14.0"
+            "maximum": "2.18.1"
         }
     },
     "anthropic": {
@@ -123,7 +123,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.152.0",
-            "maximum": "1.15.5"
+            "maximum": "1.15.17"
         }
     },
     "agno": {
@@ -143,7 +143,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.4.10",
-            "maximum": "2.16.0"
+            "maximum": "2.31.1"
         }
     },
     "smolagents": {
@@ -397,11 +397,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.43.4",
-            "maximum": "5.14.1"
+            "maximum": "5.15.0"
         },
         "autologging": {
             "minimum": "4.43.4",
-            "maximum": "5.14.1"
+            "maximum": "5.15.0"
         }
     },
     "diffusers": {

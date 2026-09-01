@@ -60,7 +60,10 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          uv pip install --system pytest pytest-asyncio pytest-timeout litellm
+          # litellm pinned as in `requirements/test-requirements.txt`, which
+          # this install path does not read.
+          # https://github.com/BerriAI/litellm/issues/38892
+          uv pip install --system pytest pytest-asyncio pytest-timeout 'litellm!=1.97.0,<1.98.0'
 
       - name: Run core tracing tests
         # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job

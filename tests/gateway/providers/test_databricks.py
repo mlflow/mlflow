@@ -22,13 +22,17 @@ def _mock_workspace_client(host="https://my-workspace.databricks.com"):
     return client
 
 
-def _make_provider(*, host: str = "https://my-workspace.databricks.com") -> DatabricksProvider:
+def _make_provider(
+    *,
+    host: str = "https://my-workspace.databricks.com",
+    model_name: str = "databricks-dbrx-instruct",
+) -> DatabricksProvider:
     endpoint_config = EndpointConfig(
         name="databricks-endpoint",
         endpoint_type="llm/v1/chat",
         model={
             "provider": "databricks",
-            "name": "databricks-dbrx-instruct",
+            "name": model_name,
             "config": {"host": host, "token": "dapi-test-key"},
         },
     )
@@ -72,6 +76,37 @@ def _embeddings_response():
 def test_api_base_normalization():
     provider = _make_provider(host="https://my-workspace.databricks.com")
     assert provider._api_base == "https://my-workspace.databricks.com/serving-endpoints"
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected_base"),
+    [
+        # Serving endpoint names (simple, no dots) → /serving-endpoints
+        ("databricks-dbrx-instruct", "https://my-workspace.databricks.com/serving-endpoints"),
+        ("my-custom-endpoint", "https://my-workspace.databricks.com/serving-endpoints"),
+        # UC model service FQNs (three-level) → /ai-gateway/mlflow/v1
+        (
+            "catalog_ml.schema_ml.my-opus5",
+            "https://my-workspace.databricks.com/ai-gateway/mlflow/v1",
+        ),
+        ("system.ai.claude-haiku-4-5", "https://my-workspace.databricks.com/ai-gateway/mlflow/v1"),
+        (
+            "my_catalog.my_schema.my_model",
+            "https://my-workspace.databricks.com/ai-gateway/mlflow/v1",
+        ),
+    ],
+)
+def test_api_base_routes_uc_model_to_ai_gateway(model_name, expected_base):
+    provider = _make_provider(model_name=model_name)
+    assert provider._api_base == expected_base
+
+
+def test_get_endpoint_url_uc_model():
+    provider = _make_provider(model_name="catalog.schema.my-model")
+    assert (
+        provider.get_endpoint_url("llm/v1/chat")
+        == "https://my-workspace.databricks.com/ai-gateway/mlflow/v1/chat/completions"
+    )
 
 
 def test_headers_from_sdk():
