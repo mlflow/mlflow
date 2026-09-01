@@ -64,8 +64,13 @@ jest.mock('./hooks/useGetOrCreateUserQueueMutation', () => ({
 }));
 
 let mockUsersError: Error | null = null;
+let mockUsers: any[] = [];
 jest.mock('./hooks/useAssignableUsersQuery', () => ({
-  useAssignableUsersQuery: () => ({ users: [], isLoading: false, error: mockUsersError }),
+  useAssignableUsersQuery: ({ enabled }: { enabled: boolean }) => ({
+    users: enabled ? mockUsers : [],
+    isLoading: false,
+    error: mockUsersError,
+  }),
 }));
 // The experiment's queues (the unfiltered call). One assignable CUSTOM queue
 // (its schema_id resolves against the experiment schema below), so tests can
@@ -119,6 +124,7 @@ describe('AddToReviewQueueDropdown', () => {
     mockCanEdit = true;
     mockCanManage = false;
     mockUsersError = null;
+    mockUsers = [];
     mockMemberQueues = [];
     mockMembersLoading = false;
     mockListQueues = [
@@ -161,6 +167,35 @@ describe('AddToReviewQueueDropdown', () => {
     renderDropdown({ open: true });
     expect(screen.getByText(/couldn't load users/i)).toBeInTheDocument();
     expect(screen.queryByText(/search by name to add/i)).not.toBeInTheDocument();
+  });
+
+  it('assigns traces to a searched user queue for an authenticated editor', async () => {
+    mockAuthAvailable = true;
+    mockUsers = [{ id: 2, username: 'alice', is_admin: false }];
+    mockGetOrCreateUserQueue.mockResolvedValue({ review_queue: { queue_id: 'rq-alice' } });
+    renderDropdown({ open: true });
+
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'ali' } });
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'alice' }));
+
+    await waitFor(() =>
+      expect(mockGetOrCreateUserQueue).toHaveBeenCalledWith({
+        experiment_id: 'exp-1',
+        user: 'alice',
+        created_by: 'default',
+      }),
+    );
+    expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-alice', item_ids: ['tr-1'] });
+  });
+
+  it('hides user assignment from an authenticated READ-only user', () => {
+    mockAuthAvailable = true;
+    mockCanEdit = false;
+    mockUsers = [{ id: 2, username: 'alice', is_admin: false }];
+    renderDropdown({ open: true });
+
+    expect(screen.queryByText('Users')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'alice' })).not.toBeInTheDocument();
   });
 
   it('immediately adds traces when a queue is clicked and shows a toast', async () => {
