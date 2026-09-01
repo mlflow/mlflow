@@ -17,6 +17,7 @@ import {
   TraceStartTimeCell,
   TraceStateCell,
   TraceTagsCell,
+  TraceMetadataCell,
   TraceTokensCell,
   TraceUserCell,
 } from './TraceCell';
@@ -191,6 +192,22 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
           onSelect={onTraceSelected}
           accessibleLabel={openLabel(intl, trace.trace_id, 'tags')}
           onFilterByTag={onFilterByTag}
+        />
+      );
+    },
+  },
+  {
+    id: 'metadata',
+    ...COLUMN_SIZES.metadata,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.metadata} />,
+    cell: (ctx) => {
+      const { intl, onTraceSelected } = getTableMeta(ctx);
+      const trace = ctx.row.original;
+      return (
+        <TraceMetadataCell
+          trace={trace}
+          onSelect={onTraceSelected}
+          accessibleLabel={openLabel(intl, trace.trace_id, 'metadata')}
         />
       );
     },

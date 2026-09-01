@@ -18,6 +18,8 @@ export type SessionCellRenderer = (traces: ModelTraceInfoV3[]) => ReactNode;
 /** A table column definition over a trace row — the type product code passes as an `extraColumns` entry. */
 export type TraceTableColumn = ColumnDef<ModelTraceInfoV3> & {
   renderSessionCell?: SessionCellRenderer;
+  /** Plain-text column name for the menu trigger's a11y label when the header is JSX instead of a string. */
+  labelText?: string;
 };
 
 /**
@@ -32,3 +34,9 @@ export type SessionSelectionHandler = (params: { trace: ModelTraceInfoV3; sessio
 
 /** Resolves the destination used by trace identity and preview cells. */
 export type TraceHrefGetter = (trace: ModelTraceInfoV3) => To | undefined;
+
+export interface TraceColumnHeaderAction {
+  label: ReactNode;
+  icon: ReactNode;
+  onClick: () => void;
+}

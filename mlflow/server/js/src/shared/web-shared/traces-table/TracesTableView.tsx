@@ -8,6 +8,7 @@ import type {
   PageSize,
   SortDirection,
   TraceColumnId,
+  TraceColumnHeaderAction,
   TraceHrefGetter,
   TraceTableColumn,
 } from './types';
@@ -66,6 +67,7 @@ export interface TracesTableViewProps {
   renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
   /** Hides the column with the given id — forwarded to the table's per-header menu. */
   onHideColumn: (columnId: string) => void;
+  columnHeaderActions?: Readonly<Partial<Record<string, TraceColumnHeaderAction>>>;
   /** Groups traces with a session id into collapsible session rows — forwarded to the table. */
   isGroupedBySession?: boolean;
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
@@ -204,6 +206,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onFilterByTag={props.onFilterByTag}
       renderRunName={props.renderRunName}
       onHideColumn={props.onHideColumn}
+      columnHeaderActions={props.columnHeaderActions}
       isGroupedBySession={props.isGroupedBySession}
       previewLineClamp={props.previewLineClamp}
     />

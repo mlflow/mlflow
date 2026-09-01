@@ -46,8 +46,9 @@ const makeV4ViewTag = async (
   cols: TraceColumnId[] = ['start_time'],
   filters: TraceFilterModel = [],
   assessments: Record<string, boolean> = {},
+  custom: Record<string, boolean> = {},
 ) => {
-  const state = captureV4ViewState(new URLSearchParams(query), cols, filters, assessments);
+  const state = captureV4ViewState(new URLSearchParams(query), cols, filters, assessments, custom);
   const compressed = await textCompressDeflate(JSON.stringify(state));
   return { key: `mlflow.tracesV4ViewState.${id}`, value: encodeSavedViewEnvelope(name, compressed, createdAt) };
 };
@@ -78,6 +79,7 @@ const { history } = setupTestRouter();
 
 // Shared across the button harness so tests can assert column restore on open / reset.
 const buttonSetColumns = jest.fn();
+const buttonSetCustomVisibility = jest.fn();
 const SavedViewsButtonHarness = ({ experimentId }: { experimentId: string }) => {
   const savedViews = useTracesV4SavedViews({
     experimentId,
@@ -86,6 +88,8 @@ const SavedViewsButtonHarness = ({ experimentId }: { experimentId: string }) => 
     setColumns: buttonSetColumns,
     resetColumns: jest.fn(),
     setFilterModel: jest.fn(),
+    customVisibility: {},
+    setCustomVisibility: buttonSetCustomVisibility,
   });
   return <TracesV4SavedViewsButton experimentId={experimentId} savedViews={savedViews} />;
 };
