@@ -97,20 +97,20 @@ def test_detect_environment_none():
         ({"PI_CODING_AGENT": "1"}, "pi"),
     ],
 )
-def test_detect_agent(environment, expected):
-    with patch.dict("os.environ", environment, clear=True):
-        assert _detect_agent() == expected
+def test_detect_agent(clear_os_environ, environment, expected):
+    for name, value in environment.items():
+        clear_os_environ.setenv(name, value)
+    assert _detect_agent() == expected
 
 
 @pytest.mark.parametrize("agent", ["", "contains spaces", "agent@1", "x" * 65])
-def test_detect_agent_ignores_invalid_ai_agent(agent):
-    with patch.dict("os.environ", {"AI_AGENT": agent}, clear=True):
-        assert _detect_agent() is None
+def test_detect_agent_ignores_invalid_ai_agent(clear_os_environ, agent):
+    clear_os_environ.setenv("AI_AGENT", agent)
+    assert _detect_agent() is None
 
 
-def test_detect_agent_none():
-    with patch.dict("os.environ", {}, clear=True):
-        assert _detect_agent() is None
+def test_detect_agent_none(clear_os_environ):
+    assert _detect_agent() is None
 
 
 @pytest.mark.parametrize(
@@ -122,9 +122,10 @@ def test_detect_agent_none():
         {"TERM_PROGRAM": "kiro"},
     ],
 )
-def test_detect_agent_ignores_non_agent_markers(environment):
-    with patch.dict("os.environ", environment, clear=True):
-        assert _detect_agent() is None
+def test_detect_agent_ignores_non_agent_markers(clear_os_environ, environment):
+    for name, value in environment.items():
+        clear_os_environ.setenv(name, value)
+    assert _detect_agent() is None
 
 
 @pytest.mark.parametrize(
@@ -134,9 +135,10 @@ def test_detect_agent_ignores_non_agent_markers(environment):
         {"CLAUDE_CODE": "1", "CLAUDE_CODE_IS_COWORK": "1"},
     ],
 )
-def test_detect_agent_ignores_unsupported_claude_variants(environment):
-    with patch.dict("os.environ", environment, clear=True):
-        assert _detect_agent() is None
+def test_detect_agent_ignores_unsupported_claude_variants(clear_os_environ, environment):
+    for name, value in environment.items():
+        clear_os_environ.setenv(name, value)
+    assert _detect_agent() is None
 
 
 def test_is_telemetry_disabled(monkeypatch, bypass_env_check):

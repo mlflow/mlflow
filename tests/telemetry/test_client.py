@@ -58,10 +58,10 @@ def test_telemetry_client_session_id(
         assert telemetry_client.info["session_id"] != "test_session_id"
 
 
-def test_telemetry_client_coding_agent():
-    with mock.patch.dict("os.environ", {"CLAUDECODE": "1"}, clear=True):
-        with TelemetryClient() as telemetry_client:
-            assert telemetry_client.info["coding_agent"] == "claude-code"
+def test_telemetry_client_coding_agent(clear_os_environ):
+    clear_os_environ.setenv("CLAUDECODE", "1")
+    with TelemetryClient() as telemetry_client:
+        assert telemetry_client.info["coding_agent"] == "claude-code"
 
 
 def test_add_record_and_send(mock_telemetry_client: TelemetryClient, mock_requests):
