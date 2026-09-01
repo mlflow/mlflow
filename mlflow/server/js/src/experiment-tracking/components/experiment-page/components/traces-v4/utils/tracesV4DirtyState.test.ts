@@ -3,7 +3,7 @@ import { capturedV4StatesMatch, __test__ } from './tracesV4DirtyState';
 import { captureV4ViewState } from './tracesV4SavedViewState';
 import { FilterOp, type TraceColumnId, type TraceFilterModel } from '@databricks/web-shared/traces-table';
 
-const { canonicalViewQuery, columnSetsEqual, assessmentVisibilityEqual, customVisibilityEqual } = __test__;
+const { canonicalViewQuery, columnListsEqual, assessmentVisibilityEqual, customVisibilityEqual } = __test__;
 
 const capture = (
   query: string,
@@ -26,9 +26,15 @@ describe('capturedV4StatesMatch', () => {
     expect(capturedV4StatesMatch(a, b)).toBe(false);
   });
 
-  test('columns are compared as a set — reordering is still clean', () => {
+  test('reordering the same columns is dirty (order is part of the diff)', () => {
     const a = capture('q=x', ['input', 'start_time']);
     const b = capture('q=x', ['start_time', 'input']);
+    expect(capturedV4StatesMatch(a, b)).toBe(false);
+  });
+
+  test('identical column order is clean', () => {
+    const a = capture('q=x', ['start_time', 'input', 'duration']);
+    const b = capture('q=x', ['start_time', 'input', 'duration']);
     expect(capturedV4StatesMatch(a, b)).toBe(true);
   });
 
@@ -115,11 +121,12 @@ describe('canonicalViewQuery', () => {
   });
 });
 
-describe('columnSetsEqual', () => {
-  test('true regardless of order, false on differing membership', () => {
-    expect(columnSetsEqual(['a', 'b'], ['b', 'a'])).toBe(true);
-    expect(columnSetsEqual(['a'], ['a', 'b'])).toBe(false);
-    expect(columnSetsEqual(['a', 'b'], ['a', 'c'])).toBe(false);
+describe('columnListsEqual', () => {
+  test('true only for same ids in the same order', () => {
+    expect(columnListsEqual(['a', 'b'], ['a', 'b'])).toBe(true);
+    expect(columnListsEqual(['a', 'b'], ['b', 'a'])).toBe(false); // reorder is a change
+    expect(columnListsEqual(['a'], ['a', 'b'])).toBe(false);
+    expect(columnListsEqual(['a', 'b'], ['a', 'c'])).toBe(false);
   });
 });
 

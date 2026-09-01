@@ -14,7 +14,8 @@ import { DEFAULT_TRACES_V4_TIME_LABEL } from './timeRange';
  *   - Relative time ranges recompute their absolute `startTime`/`endTime` on every render, so for a
  *     non-CUSTOM label only the label is compared (the bounds are dropped). The default label is
  *     explicit in fresh captures but absent in older stored views, so it is normalized in first.
- *   - Column visibility is a selection, not an ordering, so the two lists are compared as sets.
+ *   - The stored column list carries both membership and order (reordering persists into a view), so
+ *     the two `cols` lists are compared position-by-position — a pure reorder reads as dirty.
  *   - The popover filter model is deep-compared (`filters ?? []`) so absent (legacy) and empty read
  *     as equal. The caller must normalize the stored baseline through the same `supportedFilters`
  *     validation openView applies, so a clause referencing a since-removed field/operator (dropped
@@ -24,7 +25,7 @@ import { DEFAULT_TRACES_V4_TIME_LABEL } from './timeRange';
 const START_TIME_LABEL_KEY = 'startTimeLabel';
 
 // The `cols` param no longer rides in the URL query, but a stored view may still carry it inside
-// `single`; strip it from the query comparison and diff columns as a set instead (below).
+// `single`; strip it from the query comparison and diff the column list separately (below).
 const COLS_KEY = 'cols';
 
 /**
@@ -59,14 +60,10 @@ const canonicalViewQuery = (state: CapturedV4ViewState): string => {
   return canonical.toString();
 };
 
-/** Column visibility is a selection, not an ordering — compare the two id lists as sets. */
-const columnSetsEqual = (a: readonly string[], b: readonly string[]): boolean => {
-  if (a.length !== b.length) {
-    return false;
-  }
-  const set = new Set(a);
-  return b.every((id) => set.has(id));
-};
+// The captured `cols` list now carries column ORDER as well as membership (reordering persists into a
+// view), so compare the two lists position-by-position: a pure reorder must read as dirty, not clean.
+const columnListsEqual = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((id, index) => id === b[index]);
 
 const colsOf = (state: CapturedV4ViewState): string[] => {
   const raw = state.single?.[COLS_KEY];
@@ -108,10 +105,10 @@ const customVisibilityEqual = (a: Record<string, boolean> = {}, b: Record<string
 /** True when the live captured state matches the stored view (i.e. not dirty). */
 export const capturedV4StatesMatch = (live: CapturedV4ViewState, stored: CapturedV4ViewState): boolean =>
   canonicalViewQuery(live) === canonicalViewQuery(stored) &&
-  columnSetsEqual(colsOf(live), colsOf(stored)) &&
+  columnListsEqual(colsOf(live), colsOf(stored)) &&
   assessmentVisibilityEqual(live.assessmentColumns, stored.assessmentColumns) &&
   customVisibilityEqual(live.customColumns, stored.customColumns) &&
   isEqual(live.filters ?? [], stored.filters ?? []);
 
 // Exported for unit-testing the pure comparisons in isolation.
-export const __test__ = { canonicalViewQuery, columnSetsEqual, assessmentVisibilityEqual, customVisibilityEqual };
+export const __test__ = { canonicalViewQuery, columnListsEqual, assessmentVisibilityEqual, customVisibilityEqual };

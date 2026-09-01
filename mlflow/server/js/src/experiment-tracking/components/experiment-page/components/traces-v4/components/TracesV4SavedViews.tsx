@@ -41,6 +41,7 @@ import {
   buildV4ViewQuery,
   captureV4ViewState,
   decodeViewColumns,
+  decodeViewColumnOrder,
   getTraceV4SavedViewIdFromTagKey,
   getTraceV4SavedViewShareUrl,
   getTraceV4SavedViewTagKey,
@@ -91,8 +92,11 @@ export type TracesV4ViewDirtyStatus = 'clean' | 'dirty';
 
 interface UseTracesV4SavedViewsParams {
   experimentId: string;
-  /** The user's live visible columns — captured into a view on save, and diffed against it for dirty. */
-  visibleColumns: TraceColumnId[];
+  /**
+   * The user's live visible columns — standard + assessment (`assessment:*`) ids in display order —
+   * captured into a view on save (as `cols`, carrying both membership and order) and diffed for dirty.
+   */
+  visibleColumns: string[];
   /** The live popover filter model — captured into a view on save, restored on open, diffed for dirty. */
   filterModel: TraceFilterModel;
   /** Writes an explicit column set into the user's persisted store (used by open / reset). */
@@ -344,6 +348,9 @@ export const useTracesV4SavedViews = ({
       if (columns) {
         setColumns(columns);
       }
+      // Restore the full mixed (standard + assessment) column order so a reordered view round-trips.
+      // Absent `cols` (an older view) leaves the user's order intact.
+      setColumnOrder?.(decodeViewColumnOrder(state));
       setFilterModel(supportedFilters(state.filters));
       // Restore assessment-column visibility (localStorage, not URL). An older view without the field
       // clears overrides rather than leaving the previous view's visibility applied on top.
@@ -352,7 +359,15 @@ export const useTracesV4SavedViews = ({
       // clears overrides rather than leaving the previous view's visibility applied on top.
       setCustomVisibility?.(state.customColumns);
     },
-    [setSearchParams, setColumns, setFilterModel, supportedFilters, setAssessmentVisibility, setCustomVisibility],
+    [
+      setSearchParams,
+      setColumns,
+      setColumnOrder,
+      setFilterModel,
+      supportedFilters,
+      setAssessmentVisibility,
+      setCustomVisibility,
+    ],
   );
 
   // Return to the default state: drop every view param, clear the non-URL surfaces (columns +
@@ -497,6 +512,7 @@ export const useTracesV4SavedViews = ({
         if (columns) {
           setColumns(columns);
         }
+        setColumnOrder?.(decodeViewColumnOrder(state));
         setFilterModel(supportedFilters(state.filters));
         setAssessmentVisibility?.(state.assessmentColumns);
         setCustomVisibility?.(state.customColumns);
@@ -509,6 +525,7 @@ export const useTracesV4SavedViews = ({
     activeViewId,
     decodeViewState,
     setColumns,
+    setColumnOrder,
     setFilterModel,
     supportedFilters,
     setAssessmentVisibility,

@@ -101,13 +101,19 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     columnOrder.reset();
   }, [columns, assessments, customColumns, columnOrder]);
 
-  // Saved views (dirty model): the hook reads/writes view tags, restores a view's columns into the
-  // user's own column store on open, and reports whether the live table has diverged from the active
-  // view (dirty) so the Views menu can offer Overwrite / Reset. There is no read-only preview — the
-  // table always renders the user's real columns.
+  // What a view captures: visible standard + assessment ids in display order (from the reorder store),
+  // so a saved view's `cols` carries reordering, not just membership.
+  const effectiveVisibleColumns = useMemo(() => {
+    const visible = new Set<string>([...columns.visibleColumns, ...assessments.visibleIds]);
+    return columnOrder.columnOrder.filter((id) => visible.has(id));
+  }, [columnOrder.columnOrder, columns.visibleColumns, assessments.visibleIds]);
+
+  // Saved views (dirty model): the hook reads/writes view tags, restores a view's columns + order into
+  // the user's own store on open, and reports whether the live table has diverged (dirty) so the Views
+  // menu can offer Overwrite / Reset. No read-only preview — the table always renders the real columns.
   const savedViews = useTracesV4SavedViews({
     experimentId,
-    visibleColumns: columns.visibleColumns,
+    visibleColumns: effectiveVisibleColumns,
     filterModel,
     setColumns: columns.setColumns,
     resetColumns,
@@ -117,6 +123,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     setAssessmentVisibility: assessments.setVisibility,
     customVisibility: customColumns.visibilityById,
     setCustomVisibility: customColumns.setVisibility,
+    setColumnOrder: columnOrder.setColumnOrder,
   });
 
   const handleHideColumn = useCallback(
