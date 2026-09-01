@@ -45,9 +45,8 @@ def _validate_function_and_input_compatibility(
     """
     params = inspect.signature(predict_fn).parameters
     if not params:
-        _warn_predict_fn_signature_mismatch()
         raise MlflowException.invalid_parameter_value(
-            "`predict_fn` must accept at least one argument."
+            _append_predict_fn_hint("`predict_fn` must accept at least one argument.")
         ) from e
 
     # Check for *args-style parameters which aren't supported
@@ -73,8 +72,6 @@ def _validate_no_var_args(params: inspect.Signature, e: Exception):
     if not any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params.values()):
         return
 
-    _warn_predict_fn_signature_mismatch()
-
     """Raise an error for functions using *args which aren't supported."""
     code_sample = """```python
 def predict_fn(param1, param2):
@@ -95,10 +92,12 @@ mlflow.genai.evaluate(predict_fn=predict_fn, data=data, ...)
 """
 
     raise MlflowException.invalid_parameter_value(
-        "The `predict_fn` has dynamic positional arguments (e.g. `*args`), "
-        "so it cannot be used as a `predict_fn`. Please wrap it into another "
-        "function that accepts explicit keyword arguments.\n"
-        f"Example:\n\n{code_sample}\n"
+        _append_predict_fn_hint(
+            "The `predict_fn` has dynamic positional arguments (e.g. `*args`), "
+            "so it cannot be used as a `predict_fn`. Please wrap it into another "
+            "function that accepts explicit keyword arguments.\n"
+            f"Example:\n\n{code_sample}\n"
+        )
     ) from e
 
 
@@ -109,8 +108,6 @@ def _validate_input_keys_match_function_params(
 ):
     if _has_required_keyword_arguments(params, input_keys):
         return
-
-    _warn_predict_fn_signature_mismatch()
 
     """Raise an error when input keys don't match function parameters."""
     param_names = list(params.keys())
@@ -132,9 +129,11 @@ def _validate_input_keys_match_function_params(
     ])
 
     raise MlflowException.invalid_parameter_value(
-        "The `inputs` column must be a dictionary with the parameter names of "
-        f"the `predict_fn` as keys. It seems the specified keys do not match "
-        f"with the `predict_fn`'s arguments. Correct example:\n\n{code_sample}"
+        _append_predict_fn_hint(
+            "The `inputs` column must be a dictionary with the parameter names of "
+            f"the `predict_fn` as keys. It seems the specified keys do not match "
+            f"with the `predict_fn`'s arguments. Correct example:\n\n{code_sample}"
+        )
     ) from e
 
 
@@ -153,11 +152,10 @@ def _has_required_keyword_arguments(params: inspect.Signature, required_args: li
     return set(required_args) <= set(func_args)
 
 
-def _warn_predict_fn_signature_mismatch() -> None:
-    from mlflow.agent.hint import maybe_warn_agent
+def _append_predict_fn_hint(message: str) -> str:
+    from mlflow.agent.hint import maybe_append_agent_hint
 
-    maybe_warn_agent(
+    return maybe_append_agent_hint(
         "genai-evaluate-predict-fn-signature-mismatch",
-        "The evaluation predict_fn signature does not match the dataset input keys; MLflow "
-        "unpacks each inputs dictionary as keyword arguments.",
+        message,
     )

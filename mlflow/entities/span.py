@@ -1142,6 +1142,16 @@ class LiveSpan(Span):
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
 
+            try:
+                # Tracking configuration applies to the whole trace regardless
+                # of this span's type or final status.
+                from mlflow.agent.hint import maybe_warn_local_tracking_for_databricks
+
+                maybe_warn_local_tracking_for_databricks()
+            except Exception:
+                # Agent hints are advisory and must never prevent span finalization.
+                pass
+
             if self.status.status_code != SpanStatusCode.ERROR and self.span_type in (
                 SpanType.LLM,
                 SpanType.TOOL,
@@ -1150,12 +1160,7 @@ class LiveSpan(Span):
                 try:
                     # Import lazily: most MLflow users never create GenAI spans, and
                     # agent hints must not add work to their span lifecycle.
-                    from mlflow.agent.hint import (
-                        maybe_warn_agent,
-                        maybe_warn_local_tracking_for_databricks,
-                    )
-
-                    maybe_warn_local_tracking_for_databricks()
+                    from mlflow.agent.hint import maybe_warn_agent
 
                     if self.inputs is None:
                         maybe_warn_agent(

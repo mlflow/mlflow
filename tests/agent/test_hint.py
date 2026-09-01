@@ -199,6 +199,25 @@ def test_antipattern_warning_is_silent_for_humans(clean_env: Path, caplog):
     assert not caplog.records
 
 
+def test_append_agent_hint_augments_existing_message_once(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch, bundled_skill: Path
+):
+    monkeypatch.setenv("CLAUDECODE", "1")
+
+    augmented = hint.maybe_append_agent_hint("deprecated-api", "Existing warning.")
+    repeated = hint.maybe_append_agent_hint("deprecated-api", "Existing warning.")
+
+    assert augmented.startswith("Existing warning.")
+    assert str(bundled_skill.parent.parent) in augmented
+    assert repeated == "Existing warning."
+
+
+def test_append_agent_hint_leaves_human_message_unchanged(clean_env: Path):
+    assert (
+        hint.maybe_append_agent_hint("deprecated-api", "Existing warning.") == "Existing warning."
+    )
+
+
 @pytest.mark.parametrize("intent_var", ["DATABRICKS_HOST", "DATABRICKS_CONFIG_PROFILE"])
 def test_local_tracking_warns_when_databricks_is_configured(
     clean_env: Path, monkeypatch: pytest.MonkeyPatch, intent_var: str

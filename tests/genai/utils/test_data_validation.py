@@ -160,20 +160,22 @@ data = [
     assert _extract_code_example(e.value) == code_example
 
 
-def test_predict_fn_signature_mismatch_warns_agent():
+def test_predict_fn_signature_mismatch_appends_agent_hint_to_exception():
     def fn(question: str):
         return "response"
 
     with (
-        mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn,
-        pytest.raises(MlflowException, match="parameter names"),
+        mock.patch(
+            "mlflow.agent.hint.maybe_append_agent_hint",
+            side_effect=lambda _issue_id, message: f"{message}\nAgent skill hint.",
+        ) as append_hint,
+        pytest.raises(MlflowException, match="(?s)parameter names.*Agent skill hint"),
     ):
         check_model_prediction(fn, {"query": "What is MLflow?"})
 
-    warn.assert_called_once_with(
+    append_hint.assert_called_once_with(
         "genai-evaluate-predict-fn-signature-mismatch",
-        "The evaluation predict_fn signature does not match the dataset input keys; MLflow "
-        "unpacks each inputs dictionary as keyword arguments.",
+        mock.ANY,
     )
 
 

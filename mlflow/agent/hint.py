@@ -124,21 +124,16 @@ def maybe_hint_tracing_skill() -> None:
     _logger.info(_HINT.format(skill=TRACING_SKILL, path=path))
 
 
-def maybe_warn_agent(issue_id: str, issue: str) -> None:
-    """Warn a coding agent about an observed GenAI anti-pattern once per process.
-
-    The warning deliberately points at the bundled skills collection instead of
-    choosing a skill for the agent. Detectors describe only the concrete issue
-    they observed and leave routing to the installed skills.
-    """
+def _claim_agent_hint(issue_id: str) -> Path | None:
+    """Claim an agent hint once per process and return the bundled skills path."""
     try:
         if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
-            return
+            return None
 
         skills = resources.files("mlflow.assistant.skills")
         readme = skills.joinpath("README.md")
         if not readme.is_file():
-            return
+            return None
         skills_path = Path(str(readme)).parent
 
         # Resource discovery above can overlap across threads, so repeat the
@@ -146,19 +141,39 @@ def maybe_warn_agent(issue_id: str, issue: str) -> None:
         # the lock while invoking user-configurable logging handlers.
         with _EMITTED_HINTS_LOCK:
             if issue_id in _EMITTED_HINTS:
-                return
+                return None
             _EMITTED_HINTS.add(issue_id)
-
-        _logger.warning(
-            "%s Review the MLflow skills bundled at %s before continuing. "
-            "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
-            issue,
-            skills_path,
-        )
+        return skills_path
     except Exception:
-        # Hints are advisory and must never affect the operation that detected
-        # the issue, including unusual import loaders and logging handlers.
+        return None
+
+
+def maybe_warn_agent(issue_id: str, issue: str) -> None:
+    """Warn a coding agent about an observed GenAI anti-pattern once per process."""
+    try:
+        if skills_path := _claim_agent_hint(issue_id):
+            _logger.warning(
+                "%s Review the MLflow skills bundled at %s before continuing. "
+                "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
+                issue,
+                skills_path,
+            )
+    except Exception:
+        # User-configurable logging handlers must not affect MLflow behavior.
         return
+
+
+def maybe_append_agent_hint(issue_id: str, message: str) -> str:
+    """Append the bundled-skills pointer to an existing message once for a coding agent."""
+    try:
+        if skills_path := _claim_agent_hint(issue_id):
+            return (
+                f"{message}\n\nReview the MLflow skills bundled at {skills_path} before "
+                "continuing. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
+            )
+    except Exception:
+        pass
+    return message
 
 
 def maybe_warn_local_tracking_for_databricks() -> None:

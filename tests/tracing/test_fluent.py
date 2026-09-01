@@ -847,6 +847,14 @@ def test_error_genai_span_without_outputs_does_not_warn_agent(async_logging_enab
     warn.assert_not_called()
 
 
+def test_local_tracking_check_runs_independently_of_span_type_and_status(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_local_tracking_for_databricks") as check:
+        with mlflow.start_span(name="failed_unknown") as span:
+            span.set_status(SpanStatusCode.ERROR)
+
+    check.assert_called_once()
+
+
 def test_agent_hint_failure_does_not_prevent_span_finalization(async_logging_enabled):
     span = start_span_no_context(name="empty_tool", span_type=SpanType.TOOL)
     with (

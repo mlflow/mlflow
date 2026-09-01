@@ -131,16 +131,19 @@ def test_deprecated_genai_api_warns_agent():
         return "judge"
 
     with (
-        mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn,
-        pytest.warns(FutureWarning, match="legacy_judge.*deprecated"),
+        mock.patch(
+            "mlflow.agent.hint.maybe_append_agent_hint",
+            side_effect=lambda _issue_id, message: f"{message} Agent skill hint.",
+        ) as append_hint,
+        pytest.warns(FutureWarning, match="legacy_judge.*deprecated.*Agent skill hint"),
     ):
         assert legacy_judge() == "judge"
 
-    warn.assert_called_once_with(
+    append_hint.assert_called_once_with(
         "deprecated-genai-metric-or-judge",
-        "The deprecated GenAI API tests.utils.test_annotations."
-        "test_deprecated_genai_api_warns_agent.<locals>.legacy_judge is being used; use current "
-        "MLflow scorers or mlflow.genai.make_judge instead.",
+        "``tests.utils.test_annotations.test_deprecated_genai_api_warns_agent.<locals>."
+        "legacy_judge`` is deprecated. This method will be removed in a future release. "
+        "Use ``mlflow.genai.make_judge`` instead.",
     )
 
 
