@@ -51,7 +51,7 @@ export interface TracesTableViewProps {
   selectedForBulk: ReadonlyMap<string, ModelTraceInfoV3>;
   isAllOnPageSelected: boolean;
   isSomeOnPageSelected: boolean;
-  onToggleBulkRow: (trace: ModelTraceInfoV3) => void;
+  onToggleBulkRow: (trace: ModelTraceInfoV3, selectRange?: boolean) => void;
   /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
   onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
@@ -68,8 +68,8 @@ export interface TracesTableViewProps {
   onHideColumn: (columnId: string) => void;
   /** Groups traces with a session id into collapsible session rows — forwarded to the table. */
   isGroupedBySession?: boolean;
-  /** Row-height density forwarded to the table (`'small'` = compact rows). Defaults to `'default'`. */
-  size?: 'default' | 'small';
+  /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
+  previewLineClamp?: number;
 
   // Toolbar passthrough.
   searchValue: string;
@@ -205,7 +205,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       renderRunName={props.renderRunName}
       onHideColumn={props.onHideColumn}
       isGroupedBySession={props.isGroupedBySession}
-      size={props.size}
+      previewLineClamp={props.previewLineClamp}
     />
   );
 

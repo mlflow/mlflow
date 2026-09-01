@@ -110,16 +110,12 @@ describe('TracesTable', () => {
     expect(screen.queryByRole('columnheader', { name: /Duration/ })).not.toBeInTheDocument();
   });
 
-  test('renders the requested number of skeleton rows at the default size', async () => {
+  test('renders exactly skeletonRowCount skeleton rows', async () => {
     await renderWithProviders(<TracesTable {...baseProps({ isLoading: true, skeletonRowCount: 25 })} />);
     // Real row content (the input preview text) is absent during the skeleton.
     expect(screen.queryByText('request for tr-000')).not.toBeInTheDocument();
+    // 25 skeleton rows + 1 header row.
     expect(screen.getAllByRole('row')).toHaveLength(26);
-  });
-
-  test('renders enough compact skeleton rows to match the default-size loading height', async () => {
-    await renderWithProviders(<TracesTable {...baseProps({ isLoading: true, skeletonRowCount: 25, size: 'small' })} />);
-    expect(screen.getAllByRole('row')).toHaveLength(34);
   });
 
   test('clicking a row calls onTraceSelected with that trace', async () => {
@@ -283,6 +279,31 @@ describe('TracesTable', () => {
     expect(onSessionSelected).not.toHaveBeenCalled();
   });
 
+  test('Shift-clicking a row checkbox requests a range selection in flat mode', async () => {
+    const onToggleBulkRow = jest.fn();
+    const traces = makeTraces(3);
+    await renderWithProviders(<TracesTable {...baseProps({ traces, onToggleBulkRow })} />);
+
+    const checkbox = within(screen.getByRole('row', { name: /Select trace tr-001/ })).getByRole('checkbox');
+    fireEvent.click(checkbox, { shiftKey: true });
+
+    expect(onToggleBulkRow).toHaveBeenCalledWith(traces[1], true);
+  });
+
+  test('Shift-clicking a row checkbox never requests a range in grouped mode', async () => {
+    // Grouped mode reorders and hides rows, so a flat-array range would select unrelated or collapsed
+    // traces; the range request is suppressed and the click toggles only the clicked trace.
+    const onToggleBulkRow = jest.fn();
+    const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
+    await renderWithProviders(<TracesTable {...baseProps({ traces, isGroupedBySession: true, onToggleBulkRow })} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand session s1' }));
+    const checkbox = within(screen.getByRole('row', { name: /Select trace s1-turn-2/ })).getByRole('checkbox');
+    fireEvent.click(checkbox, { shiftKey: true });
+
+    expect(onToggleBulkRow).toHaveBeenCalledWith(traces[1], false);
+  });
+
   test('clicking a grouped session summary selects the overall conversation instead of a trace', async () => {
     const onSessionSelected = jest.fn();
     const onTraceSelected = jest.fn();
@@ -437,5 +458,56 @@ describe('TracesTable', () => {
 
     expect(within(taggedRow).getByRole('button', { name: 'Open trace changing-tags — tags' })).toHaveTextContent('+2');
     expect(within(taggedRow).queryByRole('button', { name: 'Filter by tag b: 2' })).not.toBeInTheDocument();
+  });
+
+  test.each([2, 6])('wraps input and output previews over %s lines', async (previewLineClamp) => {
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          traces: [
+            makeTrace('expanded', {
+              request_preview: 'a long request preview '.repeat(10),
+              response_preview: 'a long response preview '.repeat(10),
+            }),
+          ],
+          visibleColumns: ['input', 'output'],
+          previewLineClamp,
+        })}
+      />,
+    );
+
+    for (const previewText of [
+      within(screen.getByRole('button', { name: 'Open trace expanded — input' })).getByText(
+        /a long request preview a long request preview/,
+      ),
+      within(screen.getByRole('button', { name: 'Open trace expanded — output' })).getByText(
+        /a long response preview a long response preview/,
+      ),
+    ]) {
+      // A multi-line preview sets an inline `white-space: normal` (single-line previews set no inline
+      // style and stay `nowrap`). The clamp count lives in `-webkit-line-clamp`, which jsdom's CSSOM
+      // silently drops, so it can't be asserted here — the inline wrapping flag is the observable signal.
+      expect(previewText).toHaveStyle({ whiteSpace: 'normal' });
+    }
+  });
+
+  test('keeps expanded previews on the base table typography', async () => {
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          traces: [makeTrace('expanded', { request_preview: 'a long request preview '.repeat(10) })],
+          visibleColumns: ['input'],
+          previewLineClamp: 2,
+        })}
+      />,
+    );
+
+    const previewText = screen.getByText(/a long request preview a long request preview/);
+    // See the note above: assert the inline wrapping flag, not the jsdom-dropped clamp count.
+    expect(previewText).toHaveStyle({ whiteSpace: 'normal' });
+    // Density changes row height alone: the cell subtree is pinned to the base typography size (the
+    // component's `[role="cell"] *` font-size rule), so the preview keeps the default typography class.
+    const typography = previewText.closest('[class*="typography"]');
+    expect(typography).not.toBeNull();
   });
 });

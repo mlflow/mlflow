@@ -9,7 +9,6 @@ import {
   DialogComboboxOptionList,
   DialogComboboxOptionListSelectItem,
   RangePicker,
-  RefreshIcon,
   SyncIcon,
   Tooltip,
   Typography,
@@ -197,6 +196,7 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
           right edge rather than leaving a gap. */}
       <Typography.Text
         color="secondary"
+        size="sm"
         css={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -208,10 +208,10 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
         }}
       >
         {isFetching ? (
-          <SyncIcon spin />
+          <SyncIcon spin css={{ fontSize: theme.typography.fontSizeSm }} />
         ) : (
           <>
-            <RefreshIcon />
+            <SyncIcon css={{ fontSize: theme.typography.fontSizeSm }} />
             <ToolbarCollapsibleLabel>
               <FormattedRelativeTime
                 value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}

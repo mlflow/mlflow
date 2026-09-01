@@ -13,7 +13,8 @@ export interface UseBulkTraceSelectionResult {
   isAllVisibleChecked: boolean;
   /** True iff some — but not all — visible traces are selected (drives the header's indeterminate UI). */
   isSomeVisibleChecked: boolean;
-  toggle: (trace: ModelTraceInfoV3) => void;
+  /** Toggle one trace, or the inclusive visible range from the previous anchor when selectRange is true. */
+  toggle: (trace: ModelTraceInfoV3, selectRange?: boolean) => void;
   /** Select every supplied trace unless all are selected, in which case clear all supplied traces. */
   toggleMany: (traces: ModelTraceInfoV3[]) => void;
   /** Select all visible traces when none/some are checked; clear them when all are checked. */
@@ -33,24 +34,48 @@ export interface UseBulkTraceSelectionResult {
  * re-fetch.
  */
 export const useBulkTraceSelection = (visibleTraces: ModelTraceInfoV3[]): UseBulkTraceSelectionResult => {
-  const [selected, setSelected] = useState<Map<string, ModelTraceInfoV3>>(() => new Map());
+  const [{ selected }, setSelection] = useState<{
+    selected: Map<string, ModelTraceInfoV3>;
+    selectionAnchorTraceId: string | null;
+  }>(() => ({ selected: new Map(), selectionAnchorTraceId: null }));
 
-  const toggle = useCallback((trace: ModelTraceInfoV3) => {
-    setSelected((prev) => {
-      const next = new Map(prev);
-      if (next.has(trace.trace_id)) {
-        next.delete(trace.trace_id);
-      } else {
-        next.set(trace.trace_id, trace);
-      }
-      return next;
-    });
-  }, []);
+  const toggle = useCallback(
+    (trace: ModelTraceInfoV3, selectRange = false) => {
+      setSelection((prev) => {
+        // Shift-click extends from the last-toggled anchor to the clicked row across the visible page;
+        // a plain click toggles just that row (and re-anchors it).
+        const anchorIndex = selectRange
+          ? visibleTraces.findIndex((visibleTrace) => visibleTrace.trace_id === prev.selectionAnchorTraceId)
+          : -1;
+        const targetIndex = selectRange
+          ? visibleTraces.findIndex((visibleTrace) => visibleTrace.trace_id === trace.trace_id)
+          : -1;
+        const tracesToToggle =
+          anchorIndex >= 0 && targetIndex >= 0
+            ? visibleTraces.slice(Math.min(anchorIndex, targetIndex), Math.max(anchorIndex, targetIndex) + 1)
+            : [trace];
+        const isDeselecting = prev.selected.has(trace.trace_id);
+        const next = new Map(prev.selected);
+        tracesToToggle.forEach((rangeTrace) => {
+          if (isDeselecting) {
+            next.delete(rangeTrace.trace_id);
+          } else {
+            next.set(rangeTrace.trace_id, rangeTrace);
+          }
+        });
+        return {
+          selected: next,
+          selectionAnchorTraceId: next.size === 0 ? null : trace.trace_id,
+        };
+      });
+    },
+    [visibleTraces],
+  );
 
   const toggleMany = useCallback((traces: ModelTraceInfoV3[]) => {
-    setSelected((prev) => {
-      const allChecked = traces.length > 0 && traces.every((trace) => prev.has(trace.trace_id));
-      const next = new Map(prev);
+    setSelection((prev) => {
+      const allChecked = traces.length > 0 && traces.every((trace) => prev.selected.has(trace.trace_id));
+      const next = new Map(prev.selected);
       traces.forEach((trace) => {
         if (allChecked) {
           next.delete(trace.trace_id);
@@ -58,25 +83,35 @@ export const useBulkTraceSelection = (visibleTraces: ModelTraceInfoV3[]): UseBul
           next.set(trace.trace_id, trace);
         }
       });
-      return next;
+      return {
+        selected: next,
+        selectionAnchorTraceId: next.size === 0 ? null : prev.selectionAnchorTraceId,
+      };
     });
   }, []);
 
   const toggleAll = useCallback(() => {
-    setSelected((prev) => {
-      const allChecked = visibleTraces.length > 0 && visibleTraces.every((trace) => prev.has(trace.trace_id));
-      const next = new Map(prev);
+    setSelection((prev) => {
+      const allChecked = visibleTraces.length > 0 && visibleTraces.every((trace) => prev.selected.has(trace.trace_id));
+      const next = new Map(prev.selected);
       if (allChecked) {
         visibleTraces.forEach((trace) => next.delete(trace.trace_id));
       } else {
         visibleTraces.forEach((trace) => next.set(trace.trace_id, trace));
       }
-      return next;
+      return {
+        selected: next,
+        selectionAnchorTraceId: next.size === 0 ? null : prev.selectionAnchorTraceId,
+      };
     });
   }, [visibleTraces]);
 
   const clear = useCallback(() => {
-    setSelected((prev) => (prev.size === 0 ? prev : new Map()));
+    setSelection((prev) =>
+      prev.selected.size === 0 && prev.selectionAnchorTraceId === null
+        ? prev
+        : { selected: new Map(), selectionAnchorTraceId: null },
+    );
   }, []);
 
   const { isAllVisibleChecked, isSomeVisibleChecked } = useMemo(() => {
