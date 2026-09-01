@@ -635,7 +635,7 @@ class ListArtifacts(_message.Message):
     def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., path: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
 
 class CreatePresignedUploadUrl(_message.Message):
-    __slots__ = ("run_id", "path", "expiration")
+    __slots__ = ("run_id", "path", "expiration", "model_id")
     class Response(_message.Message):
         __slots__ = ("presigned_url", "headers")
         class HeadersEntry(_message.Message):
@@ -653,10 +653,12 @@ class CreatePresignedUploadUrl(_message.Message):
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     PATH_FIELD_NUMBER: _ClassVar[int]
     EXPIRATION_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     run_id: str
     path: str
     expiration: int
-    def __init__(self, run_id: _Optional[str] = ..., path: _Optional[str] = ..., expiration: _Optional[int] = ...) -> None: ...
+    model_id: str
+    def __init__(self, run_id: _Optional[str] = ..., path: _Optional[str] = ..., expiration: _Optional[int] = ..., model_id: _Optional[str] = ...) -> None: ...
 
 class CreatePresignedDownloadUrl(_message.Message):
     __slots__ = ("run_id", "path", "expiration")

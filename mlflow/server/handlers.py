@@ -389,6 +389,8 @@ from mlflow.utils.providers import (
 from mlflow.utils.server_info import (
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
+    SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
@@ -3856,32 +3858,45 @@ def _create_presigned_upload_url():
     """
     Handler for POST /api/2.0/mlflow/artifacts/presigned-upload-url.
     Generates a presigned URL for uploading an artifact directly to cloud storage.
+    Supports run artifacts (``run_id``) and logged model artifacts (``model_id``);
+    exactly one of the two must be provided.
 
     Client reference: https://github.com/aws/sagemaker-mlflow
     """
     request_message = _get_request_message(
         CreatePresignedUploadUrl(),
         schema={
-            "run_id": [_assert_required, _assert_string],
+            "run_id": [_assert_string],
+            "model_id": [_assert_string],
             "path": [_assert_required, _assert_string],
             "expiration": [_assert_intlike],
         },
     )
     run_id = request_message.run_id
+    model_id = request_message.model_id
+    if bool(run_id) == bool(model_id):
+        raise MlflowException(
+            "Exactly one of run_id and model_id must be provided.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     path = validate_path_is_safe(request_message.path)
     expiration = request_message.expiration if request_message.HasField("expiration") else 900
 
-    run = _get_tracking_store().get_run(run_id)
-    artifact_uri = run.info.artifact_uri
+    if run_id:
+        run = _get_tracking_store().get_run(run_id)
+        artifact_uri = run.info.artifact_uri
+    else:
+        logged_model = _get_tracking_store().get_logged_model(model_id)
+        artifact_uri = logged_model.artifact_location
     artifact_uri_scheme = urllib.parse.urlparse(artifact_uri).scheme
     if artifact_uri_scheme in ("http", "https", "mlflow-artifacts"):
         raise MlflowException(
-            "Presigned upload is not supported for runs with proxied artifact storage "
+            "Presigned upload is not supported for proxied artifact storage "
             f"(artifact URI scheme: {artifact_uri_scheme}). "
-            "This endpoint requires a run with a direct cloud storage artifact URI.",
+            "This endpoint requires a direct cloud storage artifact URI.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    artifact_repo = _get_artifact_repo(run)
+    artifact_repo = _get_artifact_repo(run) if run_id else get_artifact_repository(artifact_uri)
     _validate_support_presigned_upload(artifact_repo)
 
     response = artifact_repo.create_presigned_upload_url(path, expiration=expiration)
@@ -6978,6 +6993,9 @@ def _get_server_info():
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
+        # These advertise request-contract support; repository support is checked per resource.
+        SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED: True,
+        SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED: True,
     })
 
 
