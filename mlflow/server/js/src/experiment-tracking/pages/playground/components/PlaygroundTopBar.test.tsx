@@ -70,7 +70,7 @@ describe('PlaygroundTopBar', () => {
     expect(screen.getByRole('button', { name: /open variable values/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /load prompt/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save prompt/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /add to evaluation dataset/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add to datasets/i })).toBeInTheDocument();
   });
 
   it('wires onOpenRegistry to the Load button', async () => {
@@ -87,7 +87,7 @@ describe('PlaygroundTopBar', () => {
 
   it('wires onOpenAddToDataset to the Add to dataset button', async () => {
     const { onOpenAddToDataset } = renderTopBar();
-    await userEvent.click(screen.getByRole('button', { name: /add to evaluation dataset/i }));
+    await userEvent.click(screen.getByRole('button', { name: /add to datasets/i }));
     expect(onOpenAddToDataset).toHaveBeenCalledTimes(1);
   });
 });

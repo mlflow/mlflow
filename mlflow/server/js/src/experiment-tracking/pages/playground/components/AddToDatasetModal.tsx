@@ -1,4 +1,4 @@
-import { Alert, FormUI, Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Checkbox, FormUI, Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -38,37 +38,23 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
   // Remounting the picker resets its selection and search; bumped on every modal open.
   const [pickerResetKey, setPickerResetKey] = useState(0);
   const [expectedResponse, setExpectedResponse] = useState('');
+  // Storing a reference answer is opt-in; unchecked, the record is created with inputs only.
+  const [includeExpectedResponse, setIncludeExpectedResponse] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
 
   const { selectedDatasets, hasMultiturnDataset, isCheckingMultiturn } = pickerState;
 
   const inputMessages = useMemo(() => getDatasetInputMessages(messages, variables), [messages, variables]);
 
-  // One confirm fans out into one upsert per selected dataset; notify the parent only after
-  // the last one succeeds, and drop the batch on the first error so a partial failure
-  // surfaces instead of a success toast.
-  const pendingBatchRef = useRef<{ remaining: number; datasetNames: string[] } | null>(null);
-  const { upsertDatasetRecordsMutation, isLoading: isAdding } = useUpsertDatasetRecordsMutation({
-    onSuccess: () => {
-      const batch = pendingBatchRef.current;
-      if (!batch) return;
-      batch.remaining -= 1;
-      if (batch.remaining === 0) {
-        pendingBatchRef.current = null;
-        onAdded({ datasetNames: batch.datasetNames });
-      }
-    },
-    onError: (error) => {
-      pendingBatchRef.current = null;
-      setSubmitError(
-        getErrorMessage(error) ??
-          intl.formatMessage({
-            defaultMessage: 'Failed to add the record to the dataset',
-            description: 'Fallback error shown when adding a playground prompt to an evaluation dataset fails',
-          }),
-      );
-    },
-  });
+  const {
+    upsertDatasetRecordsMutationAsync,
+    invalidateAfterUpsert,
+    isLoading: isAdding,
+  } = useUpsertDatasetRecordsMutation();
+
+  // Bumped on cancel so a still-in-flight batch can tell it has been dismissed and skip
+  // the success path (toast / closing) the user no longer asked for.
+  const submissionGenerationRef = useRef(0);
 
   // Latest snapshot of the conversation for the open-time reset below, kept out of the
   // effect deps so editing messages while the modal is open doesn't overwrite the user's
@@ -78,34 +64,65 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
 
   // Reset the form each time the modal is opened: clear the previous selection and search
   // (by remounting the picker), default the expected response to the latest assistant
-  // reply, and drop any prior error or leftover in-flight batch.
+  // reply, and drop any prior error or leftover in-flight batch. The opt-in starts checked
+  // only when there is a reply to pre-fill, so the prompt-only case stays inputs-only.
   useEffect(() => {
     if (!visible) return;
-    pendingBatchRef.current = null;
+    submissionGenerationRef.current += 1;
     setPickerResetKey((key) => key + 1);
     setPickerState(EMPTY_EVALUATION_DATASET_PICKER_STATE);
-    setExpectedResponse(getLatestAssistantContent(messagesRef.current));
+    const latestAssistantContent = getLatestAssistantContent(messagesRef.current);
+    setExpectedResponse(latestAssistantContent);
+    setIncludeExpectedResponse(latestAssistantContent.trim().length > 0);
     setSubmitError(undefined);
   }, [visible]);
 
   const hasInput = inputMessages.length > 0;
   const canAdd = selectedDatasets.length > 0 && hasInput && !hasMultiturnDataset && !isCheckingMultiturn && !isAdding;
 
-  const handleAdd = () => {
+  // One confirm fans out into one upsert per selected dataset. Record counts and the open
+  // records table are invalidated for the datasets that succeeded, and a partial failure
+  // surfaces as an error instead of a success toast.
+  const handleAdd = async () => {
     if (!canAdd) return;
     setSubmitError(undefined);
-    const records = JSON.stringify([buildPlaygroundDatasetRecord({ inputMessages, expectedResponse })]);
-    pendingBatchRef.current = {
-      remaining: selectedDatasets.length,
-      datasetNames: selectedDatasets.map((dataset) => dataset.name),
-    };
-    selectedDatasets.forEach((dataset) => upsertDatasetRecordsMutation({ datasetId: dataset.dataset_id, records }));
+    const generation = submissionGenerationRef.current;
+    const datasets = selectedDatasets;
+    const records = JSON.stringify([
+      buildPlaygroundDatasetRecord({
+        inputMessages,
+        expectedResponse: includeExpectedResponse ? expectedResponse : '',
+      }),
+    ]);
+
+    const results = await Promise.allSettled(
+      datasets.map((dataset) => upsertDatasetRecordsMutationAsync({ datasetId: dataset.dataset_id, records })),
+    );
+    const succeeded = datasets.filter((_, index) => results[index].status === 'fulfilled');
+    invalidateAfterUpsert(succeeded.map((dataset) => dataset.dataset_id));
+
+    // The user dismissed the modal while the batch was in flight; the records still landed,
+    // but the success toast / close would be for an interaction they already abandoned.
+    if (generation !== submissionGenerationRef.current) return;
+
+    const firstRejection = results.find((result) => result.status === 'rejected');
+    if (firstRejection) {
+      setSubmitError(
+        getErrorMessage((firstRejection as PromiseRejectedResult).reason) ??
+          intl.formatMessage({
+            defaultMessage: 'Failed to add the record to the dataset',
+            description: 'Fallback error shown when adding a playground prompt to an evaluation dataset fails',
+          }),
+      );
+      return;
+    }
+    onAdded({ datasetNames: succeeded.map((dataset) => dataset.name) });
   };
 
-  // Drop any in-flight batch on dismiss so a late upsert success can't fire the
+  // Invalidate any in-flight batch on dismiss so a late upsert success can't fire the
   // onAdded success path after the user has cancelled.
   const handleCancel = () => {
-    pendingBatchRef.current = null;
+    submissionGenerationRef.current += 1;
     onCancel();
   };
 
@@ -141,7 +158,7 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
         <Typography.Paragraph withoutMargins>
           <FormattedMessage
-            defaultMessage="Save the current prompt as a record in an evaluation dataset. The messages become the record's inputs, and the response is stored as the expected answer so you can score it with judges later."
+            defaultMessage="Save the current prompt as a record in an evaluation dataset. The messages become the record's inputs, and you can optionally store an expected response so you can score it with judges later."
             description="Intro paragraph at the top of the playground add-to-evaluation-dataset modal"
           />
         </Typography.Paragraph>
@@ -176,32 +193,6 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
             onStateChange={setPickerState}
             tableHeight={PICKER_TABLE_HEIGHT}
             enabled={visible}
-          />
-        </div>
-
-        <div>
-          <FormUI.Label htmlFor="mlflow.playground.add_to_dataset.expected_response">
-            <FormattedMessage
-              defaultMessage="Expected response (optional)"
-              description="Label for the expected-response editor on the playground add-to-dataset modal"
-            />
-          </FormUI.Label>
-          <FormUI.Hint>
-            <FormattedMessage
-              defaultMessage="Stored as expectations.expected_response — the reference answer that judges such as Correctness compare against."
-              description="Hint under the expected-response editor on the playground add-to-dataset modal"
-            />
-          </FormUI.Hint>
-          <TextArea
-            componentId="mlflow.playground.add_to_dataset.expected_response"
-            id="mlflow.playground.add_to_dataset.expected_response"
-            value={expectedResponse}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setExpectedResponse(event.target.value)}
-            autoSize={{ minRows: 3, maxRows: 12 }}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'The reference answer to score responses against',
-              description: 'Placeholder for the expected-response editor on the playground add-to-dataset modal',
-            })}
           />
         </div>
 
@@ -256,6 +247,39 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
             </div>
           </>
         )}
+
+        <div>
+          <Checkbox
+            componentId="mlflow.playground.add_to_dataset.include_expected_response"
+            isChecked={includeExpectedResponse}
+            onChange={setIncludeExpectedResponse}
+          >
+            <FormattedMessage
+              defaultMessage="Add expected response"
+              description="Label of the checkbox that opts into storing an expected response on the playground add-to-dataset modal"
+            />
+          </Checkbox>
+          <FormUI.Hint>
+            <FormattedMessage
+              defaultMessage="Stored as expectations.expected_response — the reference answer that judges such as Correctness compare against."
+              description="Hint under the expected-response editor on the playground add-to-dataset modal"
+            />
+          </FormUI.Hint>
+          {includeExpectedResponse && (
+            <TextArea
+              componentId="mlflow.playground.add_to_dataset.expected_response"
+              id="mlflow.playground.add_to_dataset.expected_response"
+              value={expectedResponse}
+              onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setExpectedResponse(event.target.value)}
+              autoSize={{ minRows: 3, maxRows: 12 }}
+              css={{ marginTop: theme.spacing.sm }}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'The reference answer to score responses against',
+                description: 'Placeholder for the expected-response editor on the playground add-to-dataset modal',
+              })}
+            />
+          )}
+        </div>
       </div>
     </Modal>
   );

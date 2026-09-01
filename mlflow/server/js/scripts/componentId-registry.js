@@ -1830,6 +1830,7 @@ module.exports = {
   "mlflow.playground.add_to_dataset.added.close": "",
   "mlflow.playground.add_to_dataset.error": "",
   "mlflow.playground.add_to_dataset.expected_response": "",
+  "mlflow.playground.add_to_dataset.include_expected_response": "",
   "mlflow.playground.add_to_dataset.no_input": "",
   "mlflow.playground.clear": "",
   "mlflow.playground.json_code_block.copy": "",

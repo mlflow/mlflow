@@ -1,6 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { PointerEventsCheckLevel } from '@testing-library/user-event';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEventGlobal from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -31,7 +31,15 @@ const mockSearchDatasets = jest.mocked(useSearchEvaluationDatasets);
 const mockCheckMultiturn = jest.mocked(useCheckMultiturnDatasets);
 const mockUpsertMutation = jest.mocked(useUpsertDatasetRecordsMutation);
 
-const upsertDatasetRecordsMutation = jest.fn();
+const upsertDatasetRecordsMutationAsync = jest.fn<(payload: { datasetId: string; records: string }) => Promise<any>>();
+const invalidateAfterUpsert = jest.fn();
+
+const mockUpsert = (mutationAsync: typeof upsertDatasetRecordsMutationAsync) =>
+  mockUpsertMutation.mockReturnValue({
+    upsertDatasetRecordsMutationAsync: mutationAsync,
+    invalidateAfterUpsert,
+    isLoading: false,
+  } as any);
 
 const CONVERSATION: ConversationMessage[] = [
   { role: 'user', content: 'What is MLflow?' },
@@ -75,19 +83,17 @@ const renderModal = ({
 };
 
 const selectFirstDatasetRow = async () => {
-  // First checkbox is the header select-all; the row checkboxes follow.
-  const checkboxes = await screen.findAllByRole('checkbox');
-  await userEvent.click(checkboxes[checkboxes.length - 1]);
+  // Scoped to the dataset row so it can't pick up the header select-all or the
+  // expected-response opt-in checkbox elsewhere in the modal.
+  const row = await screen.findByRole('row', { name: /my dataset/i });
+  await userEvent.click(within(row).getByRole('checkbox'));
 };
 
 describe('AddToDatasetModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCheckMultiturn.mockReturnValue({ data: false, isLoading: false });
-    mockUpsertMutation.mockImplementation(({ onSuccess }: any) => ({
-      upsertDatasetRecordsMutation: upsertDatasetRecordsMutation.mockImplementation(() => onSuccess?.()),
-      isLoading: false,
-    })) as any;
+    mockUpsert(upsertDatasetRecordsMutationAsync.mockResolvedValue({ insertedCount: 1, updatedCount: 0 }));
     setDatasets([{ dataset_id: 'd1', name: 'My Dataset' }]);
   });
 
@@ -101,11 +107,13 @@ describe('AddToDatasetModal', () => {
     expect(screen.getByRole('button', { name: /add to dataset/i })).toBeDisabled();
   });
 
-  it('defaults the expected response to the latest assistant reply', async () => {
+  it('opts in and defaults the expected response to the latest assistant reply', async () => {
     renderModal();
 
-    const expectedResponse = await screen.findByLabelText(/expected response/i);
-    expect(expectedResponse).toHaveValue('MLflow is an ML platform.');
+    expect(await screen.findByRole('checkbox', { name: /add expected response/i })).toBeChecked();
+    expect(screen.getByPlaceholderText(/the reference answer to score responses against/i)).toHaveValue(
+      'MLflow is an ML platform.',
+    );
   });
 
   it('upserts the record into the selected dataset and reports success', async () => {
@@ -117,7 +125,7 @@ describe('AddToDatasetModal', () => {
     await waitFor(() => expect(addButton).toBeEnabled());
     await userEvent.click(addButton);
 
-    expect(upsertDatasetRecordsMutation).toHaveBeenCalledWith({
+    expect(upsertDatasetRecordsMutationAsync).toHaveBeenCalledWith({
       datasetId: 'd1',
       records: JSON.stringify([
         {
@@ -127,6 +135,44 @@ describe('AddToDatasetModal', () => {
       ]),
     });
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith({ datasetNames: ['My Dataset'] }));
+    expect(invalidateAfterUpsert).toHaveBeenCalledWith(['d1']);
+  });
+
+  it('omits expectations when the expected-response opt-in is unchecked', async () => {
+    renderModal();
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: /add expected response/i }));
+    expect(screen.queryByLabelText(/the reference answer to score responses against/i)).not.toBeInTheDocument();
+
+    await selectFirstDatasetRow();
+    const addButton = screen.getByRole('button', { name: /add to dataset/i });
+    await waitFor(() => expect(addButton).toBeEnabled());
+    await userEvent.click(addButton);
+
+    expect(upsertDatasetRecordsMutationAsync).toHaveBeenCalledWith({
+      datasetId: 'd1',
+      records: JSON.stringify([{ inputs: { messages: [{ role: 'user', content: 'What is MLflow?' }] } }]),
+    });
+  });
+
+  it('leaves the expected-response opt-in unchecked when the prompt has not been run', async () => {
+    renderModal({ messages: [{ role: 'user', content: 'What is MLflow?' }] });
+
+    expect(await screen.findByRole('checkbox', { name: /add expected response/i })).not.toBeChecked();
+    expect(screen.queryByPlaceholderText(/the reference answer to score responses against/i)).not.toBeInTheDocument();
+  });
+
+  it('surfaces an error and skips the success path when the upsert fails', async () => {
+    mockUpsert(upsertDatasetRecordsMutationAsync.mockRejectedValue(new Error('Dataset is read-only')));
+    const { onAdded } = renderModal();
+
+    await selectFirstDatasetRow();
+    const addButton = screen.getByRole('button', { name: /add to dataset/i });
+    await waitFor(() => expect(addButton).toBeEnabled());
+    await userEvent.click(addButton);
+
+    expect(await screen.findByText('Dataset is read-only')).toBeInTheDocument();
+    expect(onAdded).not.toHaveBeenCalled();
   });
 
   it('shows the empty state when the experiment has no datasets', async () => {
@@ -143,17 +189,19 @@ describe('AddToDatasetModal', () => {
     expect(await screen.findByText(/add at least one non-empty message/i)).toBeInTheDocument();
     await selectFirstDatasetRow();
     expect(screen.getByRole('button', { name: /add to dataset/i })).toBeDisabled();
-    expect(upsertDatasetRecordsMutation).not.toHaveBeenCalled();
+    expect(upsertDatasetRecordsMutationAsync).not.toHaveBeenCalled();
   });
 
   it('does not report success for an in-flight upsert after the modal was cancelled', async () => {
-    let resolveUpsert: (() => void) | undefined;
-    mockUpsertMutation.mockImplementation(({ onSuccess }: any) => ({
-      upsertDatasetRecordsMutation: jest.fn(() => {
-        resolveUpsert = onSuccess;
-      }),
-      isLoading: false,
-    })) as any;
+    let resolveUpsert: ((value: unknown) => void) | undefined;
+    mockUpsert(
+      upsertDatasetRecordsMutationAsync.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveUpsert = resolve;
+          }),
+      ),
+    );
     const { onCancel, onAdded } = renderModal();
 
     await selectFirstDatasetRow();
@@ -164,7 +212,9 @@ describe('AddToDatasetModal', () => {
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onCancel).toHaveBeenCalled();
 
-    resolveUpsert?.();
+    // The record still lands, but the abandoned interaction must not fire the success path.
+    resolveUpsert?.({ insertedCount: 1, updatedCount: 0 });
+    await waitFor(() => expect(invalidateAfterUpsert).toHaveBeenCalledWith(['d1']));
     expect(onAdded).not.toHaveBeenCalled();
   });
 
@@ -176,6 +226,6 @@ describe('AddToDatasetModal', () => {
 
     expect(await screen.findByText(/multi-turn datasets is not yet supported/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add to dataset/i })).toBeDisabled();
-    expect(upsertDatasetRecordsMutation).not.toHaveBeenCalled();
+    expect(upsertDatasetRecordsMutationAsync).not.toHaveBeenCalled();
   });
 });
