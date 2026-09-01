@@ -74,7 +74,7 @@ describe('TracesV4PageContent (interactions)', () => {
 
       await applyErrorStateClause(user);
       expect(state.searchCalls.some((c) => c.filter?.includes("attributes.status = 'ERROR'"))).toBe(true);
-    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+    }, 20000); // heavy full-page userEvent render; bump off the flaky 5s default under parallel jsdom load
 
     // TODO(traces-v4): service_name filtering was dropped in OSS (the SearchTracesV3 parser rejects span.service_name). Field + clause removed by design.
 
@@ -379,6 +379,15 @@ describe('TracesV4PageContent (interactions)', () => {
   describe('trace drawer navigation', () => {
     // The drawer binds ArrowLeft/ArrowRight at the window level; driving it via the keyboard is the
     // user-faithful way to exercise nav (the header's chevron buttons are icon-only, no a11y name).
+    test('offers "Flag for review" in the trace drawer header', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      renderPage();
+      await user.click(await findTraceRow('tr-000'));
+
+      const drawer = await screen.findByRole('dialog');
+      expect(within(drawer).getByRole('button', { name: 'Flag for review' })).toBeInTheDocument();
+    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+
     test('ArrowRight advances to the next row, writing its V4 long id to the URL', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
