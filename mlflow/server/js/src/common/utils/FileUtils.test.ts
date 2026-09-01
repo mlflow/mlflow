@@ -15,4 +15,8 @@ describe('FileUtils', () => {
   test('supports jsonl text previews', () => {
     expect(TEXT_EXTENSIONS.has('jsonl')).toBe(true);
   });
+
+  test('supports pbtxt text previews', () => {
+    expect(TEXT_EXTENSIONS.has('pbtxt')).toBe(true);
+  });
 });

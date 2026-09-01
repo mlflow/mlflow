@@ -26,6 +26,7 @@ export const TRACE_COLUMN_IDS = [
   'tokens',
   'cost',
   'tags',
+  'metadata',
 ] as const;
 
 /**
@@ -48,7 +49,7 @@ export const DEFAULT_SORT_DIR: SortDirection = 'desc';
 
 /**
  * Seed pixel widths per column, sized from the previous flex intent (input/output carry the most
- * content, so they get the most room; id/session are medium; time/duration/tokens/cost are compact).
+ * content, so they get the most room; identifiers and numeric/status fields are compact).
  * `size` is the initial/reset width; `minSize`/`maxSize` bound dragging. Persisted overrides win over
  * `size` at render time.
  */
@@ -64,13 +65,14 @@ export const COLUMN_SIZES: Record<TraceColumnId, ColumnSizeSpec> = {
   input: { size: 360, minSize: 160, maxSize: 900 },
   output: { size: 360, minSize: 160, maxSize: 900 },
   user: { size: 180, minSize: 100, maxSize: 480 },
-  session: { size: 140, minSize: 100, maxSize: 480 },
+  session: { size: 100, minSize: 100, maxSize: 480 },
   duration: { size: 100, minSize: 80, maxSize: 240 },
   state: { size: 96, minSize: 72, maxSize: 240 },
   source: { size: 180, minSize: 100, maxSize: 480 },
   run_name: { size: 180, minSize: 100, maxSize: 480 },
-  trace_id: { size: 160, minSize: 100, maxSize: 480 },
+  trace_id: { size: 100, minSize: 100, maxSize: 480 },
   tokens: { size: 110, minSize: 80, maxSize: 220 },
   cost: { size: 110, minSize: 80, maxSize: 220 },
   tags: { size: 200, minSize: 120, maxSize: 600 },
+  metadata: { size: 160, minSize: 120, maxSize: 600 },
 };

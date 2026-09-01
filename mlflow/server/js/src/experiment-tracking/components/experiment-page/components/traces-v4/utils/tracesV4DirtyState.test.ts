@@ -3,14 +3,15 @@ import { capturedV4StatesMatch, __test__ } from './tracesV4DirtyState';
 import { captureV4ViewState } from './tracesV4SavedViewState';
 import { FilterOp, type TraceColumnId, type TraceFilterModel } from '@databricks/web-shared/traces-table';
 
-const { canonicalViewQuery, columnSetsEqual, assessmentVisibilityEqual } = __test__;
+const { canonicalViewQuery, columnSetsEqual, assessmentVisibilityEqual, customVisibilityEqual } = __test__;
 
 const capture = (
   query: string,
   cols: TraceColumnId[] = [],
   filters: TraceFilterModel = [],
   assessments: Record<string, boolean> = {},
-) => captureV4ViewState(new URLSearchParams(query), cols, filters, assessments);
+  custom: Record<string, boolean> = {},
+) => captureV4ViewState(new URLSearchParams(query), cols, filters, assessments, custom);
 
 describe('capturedV4StatesMatch', () => {
   test('identical captures match (clean)', () => {
@@ -71,6 +72,18 @@ describe('capturedV4StatesMatch', () => {
     const b = capture('q=x', ['start_time'], [], { correctness: false });
     expect(capturedV4StatesMatch(a, b)).toBe(false);
   });
+
+  test('showing a custom column is dirty', () => {
+    const a = capture('q=x', ['start_time'], [], {}, { 'tag:environment': true });
+    const b = capture('q=x', ['start_time'], [], {}, { 'tag:environment': false });
+    expect(capturedV4StatesMatch(a, b)).toBe(false);
+  });
+
+  test('an absent custom column entry is treated as hidden (opt-in default)', () => {
+    const a = capture('q=x', ['start_time'], [], {}, {});
+    const b = capture('q=x', ['start_time'], [], {}, { 'tag:environment': false });
+    expect(capturedV4StatesMatch(a, b)).toBe(true);
+  });
 });
 
 describe('canonicalViewQuery', () => {
@@ -116,5 +129,14 @@ describe('assessmentVisibilityEqual', () => {
     expect(assessmentVisibilityEqual({ a: true, b: true }, { a: true })).toBe(true);
     expect(assessmentVisibilityEqual({ a: false }, {})).toBe(false);
     expect(assessmentVisibilityEqual({ a: false }, { a: true })).toBe(false);
+  });
+});
+
+describe('customVisibilityEqual', () => {
+  test('compares effective visibility — an absent id is default-hidden (opt-in)', () => {
+    expect(customVisibilityEqual({ a: false }, {})).toBe(true);
+    expect(customVisibilityEqual({ a: false, b: false }, { a: false })).toBe(true);
+    expect(customVisibilityEqual({ a: true }, {})).toBe(false);
+    expect(customVisibilityEqual({ a: true }, { a: false })).toBe(false);
   });
 });

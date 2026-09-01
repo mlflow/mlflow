@@ -11,6 +11,7 @@ import {
 } from '@databricks/web-shared/traces-table';
 import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { type TracesV4AssessmentColumns } from '../hooks/useTracesV4AssessmentColumns';
+import { type TracesV4CustomColumns } from '../hooks/useTracesV4CustomColumns';
 import { type TracesV4Density } from '../hooks/useTracesV4Density';
 import { TracesV4DateSelector, TracesV4RefreshButton } from './TracesV4DateSelector';
 import { TracesV4DisplayButton, type TracesV4ColumnGroup } from './TracesV4DisplayButton';
@@ -29,6 +30,8 @@ export interface TracesV4ToolbarParams {
   onResetColumns: () => void;
   /** Assessment column selection (dynamic, per-page) rendered as a group in the column selector. */
   assessmentColumns: TracesV4AssessmentColumns;
+  /** Custom (tag + metadata) column selection (dynamic, per-page). */
+  customColumns: TracesV4CustomColumns;
   /** Active sort column + direction, and its setter — surfaced in the Display popover's Sort submenu. */
   sort: TraceColumnId;
   dir: SortDirection;
@@ -73,6 +76,9 @@ const COLUMN_LABELS: Record<TraceColumnId, React.ReactNode> = {
   tokens: <FormattedMessage defaultMessage="Tokens" description="Column selector label for the tokens column" />,
   cost: <FormattedMessage defaultMessage="Cost" description="Column selector label for the cost column" />,
   tags: <FormattedMessage defaultMessage="Tags" description="Column selector label for the tags column" />,
+  metadata: (
+    <FormattedMessage defaultMessage="Metadata" description="Column selector label for the aggregate metadata column" />
+  ),
 };
 
 // Static per-column componentIds (the lint rule requires static ids). Canonical render order.
@@ -103,6 +109,7 @@ const COLUMN_OPTIONS: ColumnSelectorOption[] = [
   { id: 'tokens', label: COLUMN_LABELS.tokens, componentId: 'mlflow.traces-v4.column-selector.item.tokens' },
   { id: 'cost', label: COLUMN_LABELS.cost, componentId: 'mlflow.traces-v4.column-selector.item.cost' },
   { id: 'tags', label: COLUMN_LABELS.tags, componentId: 'mlflow.traces-v4.column-selector.item.tags' },
+  { id: 'metadata', label: COLUMN_LABELS.metadata, componentId: 'mlflow.traces-v4.column-selector.item.metadata' },
 ];
 
 export interface TracesV4ToolbarSlots {
@@ -126,6 +133,7 @@ export const useTracesV4ToolbarSlots = ({
   onToggleColumn,
   onResetColumns,
   assessmentColumns,
+  customColumns,
   sort,
   dir,
   onSort,
@@ -153,25 +161,52 @@ export const useTracesV4ToolbarSlots = ({
     ? COLUMN_OPTIONS.map((option) => (option.id === 'session' ? { ...option, disabled: true } : option))
     : COLUMN_OPTIONS;
 
-  // Assessment columns are dynamic (per-page), so they render as a labeled group under the standard
-  // columns in the Display → Columns submenu. Omitted entirely when the page has no assessments.
-  const columnGroups: TracesV4ColumnGroup[] | undefined =
-    assessmentColumns.selectorOptions.length > 0
-      ? [
-          {
-            label: (
-              <FormattedMessage
-                defaultMessage="Assessments"
-                description="Section label for assessment columns in the traces table column selector"
-              />
-            ),
-            options: assessmentColumns.selectorOptions,
-            visibleIds: assessmentColumns.visibleIds,
-            onToggle: assessmentColumns.toggle,
-            onToggleAll: assessmentColumns.setAllVisible,
-          },
-        ]
-      : undefined;
+  // Custom and assessment columns are dynamic (per-page), so they render as labeled groups under
+  // the standard columns in the Display → Columns submenu. Each group is included only when the
+  // page has relevant candidates.
+  const columnGroups: TracesV4ColumnGroup[] = [];
+  if (customColumns.tags.selectorOptions.length > 0) {
+    columnGroups.push({
+      label: (
+        <FormattedMessage
+          defaultMessage="Tags"
+          description="Section label for tag columns in the traces table column selector"
+        />
+      ),
+      options: customColumns.tags.selectorOptions,
+      visibleIds: customColumns.tags.visibleIds,
+      onToggle: customColumns.tags.toggle,
+      onToggleAll: customColumns.tags.setAllVisible,
+    });
+  }
+  if (customColumns.metadata.selectorOptions.length > 0) {
+    columnGroups.push({
+      label: (
+        <FormattedMessage
+          defaultMessage="Metadata"
+          description="Section label for metadata columns in the traces table column selector"
+        />
+      ),
+      options: customColumns.metadata.selectorOptions,
+      visibleIds: customColumns.metadata.visibleIds,
+      onToggle: customColumns.metadata.toggle,
+      onToggleAll: customColumns.metadata.setAllVisible,
+    });
+  }
+  if (assessmentColumns.selectorOptions.length > 0) {
+    columnGroups.push({
+      label: (
+        <FormattedMessage
+          defaultMessage="Assessments"
+          description="Section label for assessment columns in the traces table column selector"
+        />
+      ),
+      options: assessmentColumns.selectorOptions,
+      visibleIds: assessmentColumns.visibleIds,
+      onToggle: assessmentColumns.toggle,
+      onToggleAll: assessmentColumns.setAllVisible,
+    });
+  }
 
   // Note: the Databricks build disables Delete for UC-backed traces (with a "delete from the Delta
   // table instead" tooltip). OSS traces are always deletable via the standard path, so that gate is
@@ -241,10 +276,12 @@ export const useTracesV4ToolbarSlots = ({
           />
         )}
         <div css={{ flex: 1 }} />
-        <TracesV4RefreshButton isFetching={isRefreshing} />
-        {shouldEnableIssueDetection() && onDetectIssues && (
-          <DetectIssuesButton componentId="mlflow.traces-v4.detect-issues-button" onClick={onDetectIssues} />
-        )}
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <TracesV4RefreshButton isFetching={isRefreshing} />
+          {shouldEnableIssueDetection() && onDetectIssues && (
+            <DetectIssuesButton componentId="mlflow.traces-v4.detect-issues-button" onClick={onDetectIssues} />
+          )}
+        </div>
       </>
     ),
   };

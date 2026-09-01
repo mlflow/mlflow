@@ -2163,6 +2163,10 @@
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
   },
+  "78/HiZ": {
+    "defaultMessage": "Expand tag columns",
+    "description": "Column header action for expanding tag columns"
+  },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
     "description": "Error message text when saving an editable note in MLflow"
@@ -2467,6 +2471,10 @@
     "defaultMessage": "Type a key",
     "description": "Key-value tag editor modal > Tag dropdown > Tag input placeholder"
   },
+  "8CgyA/": {
+    "defaultMessage": "Tags",
+    "description": "Section label for tag columns in the traces table column selector"
+  },
   "8DoNdT": {
     "defaultMessage": "Save",
     "description": "Save button text for edit endpoint name modal"
@@ -2534,6 +2542,10 @@
   "8XrJnT": {
     "defaultMessage": "Delete section",
     "description": "Experiment page > compare runs > chart section > delete section label"
+  },
+  "8Y+yRh": {
+    "defaultMessage": "Expand metadata columns",
+    "description": "Column header action for expanding metadata columns"
   },
   "8YmId5": {
     "defaultMessage": "Y axis",
@@ -2774,6 +2786,10 @@
   "9QLHlI": {
     "defaultMessage": "Version status",
     "description": "Aria label for MCP server version status selector"
+  },
+  "9RoNrt": {
+    "defaultMessage": "Standard",
+    "description": "Traces table row-height option: taller rows with two-line text previews"
   },
   "9Sxo9h": {
     "defaultMessage": "Max length",
@@ -6123,6 +6139,10 @@
     "defaultMessage": "{fieldName} are identical",
     "description": "Default text in data table where items are identical in the model comparison page"
   },
+  "NJPvPG": {
+    "defaultMessage": "Metadata: {name}",
+    "description": "Accessible label qualifier for a custom trace metadata column header"
+  },
   "NKj5Xb": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}",
     "description": "Description of the empty state for the evaluation runs page"
@@ -6979,6 +6999,10 @@
     "defaultMessage": "Name",
     "description": "Header for the name column in the experiments table"
   },
+  "Qhtkvn": {
+    "defaultMessage": "Tag: {name}",
+    "description": "Accessible label qualifier for a custom trace tag column header"
+  },
   "Qi6Etm": {
     "defaultMessage": "Hide all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
@@ -7582,6 +7606,10 @@
   "TFWXO/": {
     "defaultMessage": "Hide raw server.json",
     "description": "Toggle to hide raw server.json"
+  },
+  "TKo/CQ": {
+    "defaultMessage": "Metadata",
+    "description": "Column selector label for the aggregate metadata column"
   },
   "TKtJIK": {
     "defaultMessage": "Page not found",
@@ -9126,6 +9154,10 @@
   "ZH4G1j": {
     "defaultMessage": "Column options",
     "description": "Accessible label for the per-column options menu button in the traces table header"
+  },
+  "ZIR7dS": {
+    "defaultMessage": "Tall",
+    "description": "Traces table row-height option: tall rows with longer text previews"
   },
   "ZJK1e+": {
     "defaultMessage": "The Sessions view has moved to the Traces tab.",
@@ -10674,6 +10706,10 @@
   "fMf88R": {
     "defaultMessage": "Columns",
     "description": "Run page > artifact view > logged table view > columns selector label"
+  },
+  "fMsHva": {
+    "defaultMessage": "Metadata",
+    "description": "Header for the traces table metadata column"
   },
   "fMxD0i": {
     "defaultMessage": "Admin",
@@ -12482,6 +12518,10 @@
   "lyNyOH": {
     "defaultMessage": "Default queue",
     "description": "Add to review queue: the experiment default queue option"
+  },
+  "lzW28v": {
+    "defaultMessage": "Metadata",
+    "description": "Section label for metadata columns in the traces table column selector"
   },
   "m1Nb7W": {
     "defaultMessage": "Save",
@@ -14503,6 +14543,10 @@
     "defaultMessage": "Guardrail: {name}",
     "description": "Title for guardrail detail modal"
   },
+  "uQEKQL": {
+    "defaultMessage": "Expected output for evaluation",
+    "description": "Tooltip description for the Expected response column in the traces table"
+  },
   "uSVfB9": {
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > retrieval grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
@@ -14947,6 +14991,10 @@
     "defaultMessage": "Budget exceeded: {spend} of {limit} spent",
     "description": "Tooltip shown when current spend exceeds the budget limit"
   },
+  "wOupuD": {
+    "defaultMessage": "Expected facts for evaluation",
+    "description": "Tooltip description for the Expected facts column in the traces table"
+  },
   "wSIkSJ": {
     "defaultMessage": "Select trace {traceId}",
     "description": "Aria label for the per-row select checkbox in the traces table"
@@ -15378,10 +15426,6 @@
   "y2rjoF": {
     "defaultMessage": "No trace data recorded",
     "description": "Empty state in the v2 dataset record side-panel trace modal when the trace has no spans"
-  },
-  "y4BFou": {
-    "defaultMessage": "Standard",
-    "description": "Traces table row-height option: standard (default) rows"
   },
   "y4I2zP": {
     "defaultMessage": "Select all traces on this page",

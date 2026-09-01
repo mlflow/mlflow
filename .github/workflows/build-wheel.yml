@@ -20,6 +20,7 @@ on:
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
+      - ".github/workflows/review.yml"
   workflow_dispatch:
     inputs:
       ref:
@@ -149,9 +150,10 @@ jobs:
       - name: Test installation from GitHub
         env:
           REPO: ${{ github.repository }}
-          REF: ${{ github.ref }}
           MATRIX_TYPE: ${{ matrix.type }}
         run: |
+          # Test the exact commit that was checked out and used to build the wheel.
+          REF=$(git rev-parse HEAD)
           if [ "$MATRIX_TYPE" == "skinny" ]; then
             URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/skinny"
           elif [ "$MATRIX_TYPE" == "tracing" ]; then

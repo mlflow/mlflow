@@ -17,6 +17,7 @@ import {
   TraceStartTimeCell,
   TraceStateCell,
   TraceTagsCell,
+  TraceMetadataCell,
   TraceTokensCell,
   TraceUserCell,
 } from './TraceCell';
@@ -36,6 +37,8 @@ export interface TracesTableMeta {
   onFilterByTag?: (key: string, value: string) => void;
   /** Product-owned renderer for resolving an experiment-scoped run name. */
   renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
+  /** Maximum lines shown by input and output previews before truncation. */
+  previewLineClamp: number;
 }
 
 export const getTableMeta = (context: CellContext<ModelTraceInfoV3, unknown>): TracesTableMeta =>
@@ -97,7 +100,7 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.input,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.input} />,
     cell: (ctx) => {
-      const { intl, onTraceSelected, getTraceHref } = getTableMeta(ctx);
+      const { intl, onTraceSelected, getTraceHref, previewLineClamp } = getTableMeta(ctx);
       const trace = ctx.row.original;
       return (
         <TraceInputCell
@@ -105,6 +108,7 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
           onSelect={onTraceSelected}
           to={getTraceHref?.(trace)}
           accessibleLabel={openLabel(intl, trace.trace_id, 'input')}
+          previewLineClamp={previewLineClamp}
         />
       );
     },
@@ -114,7 +118,7 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.output,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.output} />,
     cell: (ctx) => {
-      const { intl, onTraceSelected, getTraceHref } = getTableMeta(ctx);
+      const { intl, onTraceSelected, getTraceHref, previewLineClamp } = getTableMeta(ctx);
       const trace = ctx.row.original;
       return (
         <TraceOutputCell
@@ -122,6 +126,7 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
           onSelect={onTraceSelected}
           to={getTraceHref?.(trace)}
           accessibleLabel={openLabel(intl, trace.trace_id, 'output')}
+          previewLineClamp={previewLineClamp}
         />
       );
     },
@@ -187,6 +192,22 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
           onSelect={onTraceSelected}
           accessibleLabel={openLabel(intl, trace.trace_id, 'tags')}
           onFilterByTag={onFilterByTag}
+        />
+      );
+    },
+  },
+  {
+    id: 'metadata',
+    ...COLUMN_SIZES.metadata,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.metadata} />,
+    cell: (ctx) => {
+      const { intl, onTraceSelected } = getTableMeta(ctx);
+      const trace = ctx.row.original;
+      return (
+        <TraceMetadataCell
+          trace={trace}
+          onSelect={onTraceSelected}
+          accessibleLabel={openLabel(intl, trace.trace_id, 'metadata')}
         />
       );
     },

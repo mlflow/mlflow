@@ -34,6 +34,7 @@ describe('useTraceColumnVisibility', () => {
       'source',
       'run_name',
       'tags',
+      'metadata',
     ]);
   });
 
