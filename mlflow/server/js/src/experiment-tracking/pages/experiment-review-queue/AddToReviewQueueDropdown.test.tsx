@@ -184,18 +184,19 @@ describe('AddToReviewQueueDropdown', () => {
     fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'ali' } });
     fireEvent.click(await screen.findByRole('checkbox', { name: 'alice' }));
 
-    await waitFor(() =>
+    await waitFor(() => {
       expect(mockGetOrCreateUserQueue).toHaveBeenCalledWith({
         experiment_id: 'exp-1',
         user: 'alice',
         created_by: 'default',
-      }),
-    );
-    expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-alice', item_ids: ['tr-1'] });
-    expect(onCloseDrawer).toHaveBeenCalledTimes(1);
-    expect(onCloseDrawer.mock.invocationCallOrder[0]).toBeLessThan(
-      jest.mocked(Utils.displayGlobalInfoNotification).mock.invocationCallOrder[0],
-    );
+      });
+      expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-alice', item_ids: ['tr-1'] });
+      expect(onCloseDrawer).toHaveBeenCalledTimes(1);
+      expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledTimes(1);
+      expect(onCloseDrawer.mock.invocationCallOrder[0]).toBeLessThan(
+        jest.mocked(Utils.displayGlobalInfoNotification).mock.invocationCallOrder[0],
+      );
+    });
   });
 
   it('hides user assignment from an authenticated READ-only user', () => {
