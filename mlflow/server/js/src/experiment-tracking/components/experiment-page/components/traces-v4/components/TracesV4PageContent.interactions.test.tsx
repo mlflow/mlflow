@@ -381,11 +381,48 @@ describe('TracesV4PageContent (interactions)', () => {
     // user-faithful way to exercise nav (the header's chevron buttons are icon-only, no a11y name).
     test('offers "Flag for review" in the trace drawer header', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      server.use(
+        rest.get('*/ajax-api/3.0/mlflow/review-queues/list', (req, res, ctx) =>
+          res(
+            ctx.json({
+              review_queues: req.url.searchParams.has('item_id')
+                ? []
+                : [
+                    {
+                      queue_id: 'rq-relevance',
+                      experiment_id: EXPERIMENT_ID,
+                      name: 'Relevance',
+                      queue_type: 'CUSTOM',
+                      schema_ids: ['schema-relevance'],
+                      creation_time_ms: 1,
+                      last_update_time_ms: 1,
+                    },
+                  ],
+            }),
+          ),
+        ),
+        rest.get('*/ajax-api/3.0/mlflow/label-schemas/list', (_req, res, ctx) =>
+          res(
+            ctx.json({
+              label_schemas: [
+                {
+                  schema_id: 'schema-relevance',
+                  experiment_id: EXPERIMENT_ID,
+                  name: 'Relevance',
+                  type: 'FEEDBACK',
+                  input: { text: {} },
+                },
+              ],
+            }),
+          ),
+        ),
+      );
       renderPage();
       await user.click(await findTraceRow('tr-000'));
 
       const drawer = await screen.findByRole('dialog');
-      expect(within(drawer).getByRole('button', { name: 'Flag for review' })).toBeInTheDocument();
+      await user.click(within(drawer).getByRole('button', { name: 'Flag for review' }));
+      expect(await screen.findByRole('checkbox', { name: 'Relevance' })).toBeInTheDocument();
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
     test('ArrowRight advances to the next row, writing its V4 long id to the URL', async () => {
