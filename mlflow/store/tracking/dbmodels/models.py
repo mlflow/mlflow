@@ -3052,7 +3052,7 @@ class SqlGatewayBudgetPolicy(Base):
     target_value = Column(String(255), nullable=True)
     """
     Target the policy applies to: `String` (limit 255 characters). Interpreted per
-    ``target_scope`` — a gateway endpoint ID for ENDPOINT, a principal (user identity)
+    ``target_scope`` — a gateway endpoint ID for ENDPOINT, a username
     for USER. NULL for GLOBAL and WORKSPACE scopes.
     """
 

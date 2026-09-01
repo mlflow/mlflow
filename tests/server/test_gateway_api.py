@@ -51,7 +51,7 @@ from mlflow.server.fastapi_app import add_gateway_timing_middleware
 from mlflow.server.gateway_api import (
     _build_endpoint_config,
     _create_provider_from_endpoint_name,
-    _get_request_principal,
+    _get_request_username,
     anthropic_passthrough_messages,
     chat_completions,
     gateway_router,
@@ -3712,18 +3712,18 @@ async def test_guardrail_spans_created_when_usage_tracking_on(store: SqlAlchemyS
     assert jspan.parent_id == gspan.span_id
 
 
-# ==================== Per-user budget: principal derivation ====================
+# ==================== Per-user budget: username derivation ====================
 
 
-def test_get_request_principal_reads_username():
+def test_get_request_username_reads_username():
     req = SimpleNamespace(state=SimpleNamespace(username="alice@example.com"))
-    assert _get_request_principal(req) == "alice@example.com"
+    assert _get_request_username(req) == "alice@example.com"
 
     req_no_user = SimpleNamespace(state=SimpleNamespace())
-    assert _get_request_principal(req_no_user) is None
+    assert _get_request_username(req_no_user) is None
 
 
-def test_invocations_passes_principal_to_budget_enforcement(store: SqlAlchemyStore):
+def test_invocations_passes_username_to_budget_enforcement(store: SqlAlchemyStore):
     app = FastAPI()
     app.include_router(gateway_router)
 
@@ -3775,7 +3775,7 @@ def test_invocations_passes_principal_to_budget_enforcement(store: SqlAlchemySto
 
     assert response.status_code == 200
     mock_check.assert_called_once()
-    assert mock_check.call_args.kwargs["principal"] == "alice@example.com"
+    assert mock_check.call_args.kwargs["username"] == "alice@example.com"
     mock_on_complete.assert_called()
-    assert mock_on_complete.call_args.kwargs["principal"] == "alice@example.com"
+    assert mock_on_complete.call_args.kwargs["username"] == "alice@example.com"
     assert mock_on_complete.call_args.kwargs["endpoint_id"] == "test-endpoint-id"

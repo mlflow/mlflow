@@ -131,7 +131,7 @@ class GatewayBudgetPolicy(_MlflowObject):
         last_updated_by: User ID who last updated the policy.
         workspace: Workspace that owns the policy.
         target_value: Target the policy applies to, interpreted per ``target_scope``:
-            a gateway endpoint ID for ENDPOINT scope, a principal (user identity) for
+            a gateway endpoint ID for ENDPOINT scope, a username for
             USER scope. ``None`` for GLOBAL and WORKSPACE scopes.
     """
 

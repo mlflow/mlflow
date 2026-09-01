@@ -500,7 +500,7 @@ class BudgetPolicyExceededPayload(TypedDict):
     """The workspace this budget applies to."""
     target_value: str | None
     """The target this budget applies to, interpreted per target_scope: a gateway
-    endpoint ID for ENDPOINT scope, a principal (user identity) for USER scope.
+    endpoint ID for ENDPOINT scope, a username for USER scope.
     None for GLOBAL and WORKSPACE scopes."""
     window_start: int
     """The start timestamp (milliseconds) of the current budget window."""

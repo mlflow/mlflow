@@ -437,20 +437,20 @@ def test_serialize_roundtrip_preserves_target_value():
     assert restored.target_value == "alice"
 
 
-def test_user_scoped_cost_recording_matches_principal():
+def test_user_scoped_cost_recording_matches_username():
     tracker = _make_tracker()
     tracker.refresh_policies([
         _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice", budget_amount=100.0)
     ])
 
-    tracker.record_cost(200.0, principal="bob")
+    tracker.record_cost(200.0, username="bob")
     assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
 
-    tracker.record_cost(50.0, principal="alice")
+    tracker.record_cost(50.0, username="alice")
     assert tracker._get_window_info("bp-test").cumulative_spend == 50.0
 
 
-def test_user_scoped_should_reject_only_for_matching_principal():
+def test_user_scoped_should_reject_only_for_matching_username():
     tracker = _make_tracker()
     tracker.refresh_policies([
         _make_policy(
@@ -460,13 +460,13 @@ def test_user_scoped_should_reject_only_for_matching_principal():
             budget_action=BudgetAction.REJECT,
         )
     ])
-    tracker.record_cost(150.0, principal="alice")
+    tracker.record_cost(150.0, username="alice")
 
-    exceeded, window = tracker.should_reject_request(principal="alice")
+    exceeded, window = tracker.should_reject_request(username="alice")
     assert exceeded is True
     assert window.policy.budget_policy_id == "bp-test"
 
-    exceeded, window = tracker.should_reject_request(principal="bob")
+    exceeded, window = tracker.should_reject_request(username="bob")
     assert exceeded is False
     assert window is None
 
@@ -488,7 +488,7 @@ def test_multiple_user_policies_are_independent():
         ),
     ])
 
-    exceeded = tracker.record_cost(150.0, principal="alice")
+    exceeded = tracker.record_cost(150.0, username="alice")
     assert {w.policy.budget_policy_id for w in exceeded} == {"bp-alice"}
     assert tracker._get_window_info("bp-alice").cumulative_spend == 150.0
     assert tracker._get_window_info("bp-bob").cumulative_spend == 0.0

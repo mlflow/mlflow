@@ -138,7 +138,7 @@ def _get_user_metadata(request: Request) -> dict[str, Any]:
     return metadata
 
 
-def _get_request_principal(request: Request) -> str | None:
+def _get_request_username(request: Request) -> str | None:
     """Return the authenticated username driving the request, if any.
 
     Used to enforce USER-scoped budget policies. The auth middleware stores the
@@ -640,7 +640,7 @@ async def invocations(endpoint_name: str, request: Request):
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
-        store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
     )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -685,7 +685,7 @@ async def invocations(endpoint_name: str, request: Request):
                     store,
                     workspace,
                     endpoint_id=endpoint_config.endpoint_id,
-                    principal=_get_request_principal(request),
+                    username=_get_request_username(request),
                 ),
             )(payload)
             return StreamingResponse(
@@ -725,7 +725,7 @@ async def invocations(endpoint_name: str, request: Request):
                         store,
                         workspace,
                         endpoint_id=endpoint_config.endpoint_id,
-                        principal=_get_request_principal(request),
+                        username=_get_request_username(request),
                     ),
                 )(payload)
             except GuardrailViolation as e:
@@ -753,7 +753,7 @@ async def invocations(endpoint_name: str, request: Request):
                 store,
                 workspace,
                 endpoint_id=endpoint_config.endpoint_id,
-                principal=_get_request_principal(request),
+                username=_get_request_username(request),
             ),
         )(payload)
 
@@ -799,7 +799,7 @@ async def chat_completions(request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
-        store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
     )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -836,7 +836,7 @@ async def chat_completions(request: Request):
                 store,
                 workspace,
                 endpoint_id=endpoint_config.endpoint_id,
-                principal=_get_request_principal(request),
+                username=_get_request_username(request),
             ),
         )(payload)
         return StreamingResponse(
@@ -876,7 +876,7 @@ async def chat_completions(request: Request):
                     store,
                     workspace,
                     endpoint_id=endpoint_config.endpoint_id,
-                    principal=_get_request_principal(request),
+                    username=_get_request_username(request),
                 ),
             )(payload)
         except GuardrailViolation as e:
@@ -919,7 +919,7 @@ async def openai_passthrough_chat(request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
-        store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
     )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -948,7 +948,7 @@ async def openai_passthrough_chat(request: Request):
                 store,
                 workspace,
                 endpoint_id=endpoint_config.endpoint_id,
-                principal=_get_request_principal(request),
+                username=_get_request_username(request),
             ),
         )
         return StreamingResponse(
@@ -984,7 +984,7 @@ async def openai_passthrough_chat(request: Request):
                 store,
                 workspace,
                 endpoint_id=endpoint_config.endpoint_id,
-                principal=_get_request_principal(request),
+                username=_get_request_username(request),
             ),
         )(body)
     except GuardrailViolation as e:
@@ -1023,7 +1023,7 @@ async def openai_passthrough_embeddings(request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
-        store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
     )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -1047,7 +1047,7 @@ async def openai_passthrough_embeddings(request: Request):
             store,
             workspace,
             endpoint_id=endpoint_config.endpoint_id,
-            principal=_get_request_principal(request),
+            username=_get_request_username(request),
         ),
     )
     # Post-LLM guardrails are skipped for embeddings: responses are float vectors
@@ -1087,7 +1087,7 @@ async def _openai_responses_passthrough_unary(
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
-        store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
     )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -1118,7 +1118,7 @@ async def _openai_responses_passthrough_unary(
                 store,
                 workspace,
                 endpoint_id=endpoint_config.endpoint_id,
-                principal=_get_request_principal(request),
+                username=_get_request_username(request),
             ),
         )(body)
     except GuardrailViolation as e:
@@ -1165,7 +1165,7 @@ async def openai_passthrough_responses(request: Request):
         )
         _set_gateway_telemetry_state(request, endpoint_config)
         check_budget_limit(
-            store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+            store, endpoint_config, workspace=workspace, username=_get_request_username(request)
         )
         guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -1193,7 +1193,7 @@ async def openai_passthrough_responses(request: Request):
                 store,
                 workspace,
                 endpoint_id=endpoint_config.endpoint_id,
-                principal=_get_request_principal(request),
+                username=_get_request_username(request),
             ),
         )
         return StreamingResponse(
@@ -1288,7 +1288,7 @@ async def anthropic_passthrough_messages(request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
-        store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
     )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -1318,7 +1318,7 @@ async def anthropic_passthrough_messages(request: Request):
                 store,
                 workspace,
                 endpoint_id=endpoint_config.endpoint_id,
-                principal=_get_request_principal(request),
+                username=_get_request_username(request),
             ),
             message_format="anthropic",
         )
@@ -1355,7 +1355,7 @@ async def anthropic_passthrough_messages(request: Request):
                 store,
                 workspace,
                 endpoint_id=endpoint_config.endpoint_id,
-                principal=_get_request_principal(request),
+                username=_get_request_username(request),
             ),
             message_format="anthropic",
         )(body)
@@ -1399,7 +1399,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
-        store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
     )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -1432,7 +1432,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
                 store,
                 workspace,
                 endpoint_id=endpoint_config.endpoint_id,
-                principal=_get_request_principal(request),
+                username=_get_request_username(request),
             ),
             message_format="gemini",
         )(body)
@@ -1476,7 +1476,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
-        store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
     )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -1507,7 +1507,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
             store,
             workspace,
             endpoint_id=endpoint_config.endpoint_id,
-            principal=_get_request_principal(request),
+            username=_get_request_username(request),
         ),
         message_format="gemini",
     )
@@ -1558,7 +1558,7 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     )
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
-        store, endpoint_config, workspace=workspace, principal=_get_request_principal(request)
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
     )
     guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
 
@@ -1607,7 +1607,7 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
             store,
             workspace,
             endpoint_id=endpoint_config.endpoint_id,
-            principal=_get_request_principal(request),
+            username=_get_request_username(request),
         ),
     )
 

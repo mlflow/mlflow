@@ -466,7 +466,7 @@ class GatewayStoreMixin:
             created_by: Username of the creator.
             target_value: Target the policy applies to, interpreted per
                 ``target_scope``: a gateway endpoint ID for ENDPOINT scope, a
-                principal (user identity) for USER scope. Required for those scopes.
+                username for USER scope. Required for those scopes.
 
         Returns:
             GatewayBudgetPolicy entity.
@@ -511,7 +511,7 @@ class GatewayStoreMixin:
             budget_action: Optional new budget action.
             updated_by: Username of the updater.
             target_value: Optional new target the policy applies to (endpoint ID for
-                ENDPOINT scope, principal for USER scope). Required when switching to
+                ENDPOINT scope, username for USER scope). Required when switching to
                 a targeted scope; cleared automatically for GLOBAL/WORKSPACE.
 
         Returns:
@@ -547,7 +547,7 @@ class GatewayStoreMixin:
         end_time_ms: int,
         workspace: str | None = None,
         endpoint_id: str | None = None,
-        principal: str | None = None,
+        username: str | None = None,
     ) -> float:
         """
         Sum total_cost from span metrics for gateway traces within a time range.
@@ -559,8 +559,8 @@ class GatewayStoreMixin:
                 to this workspace.
             endpoint_id: If provided, filter to traces routed to this gateway
                 endpoint.
-            principal: If provided, filter to traces whose recorded auth username
-                matches this principal (used for USER-scoped budgets).
+            username: If provided, filter to traces whose recorded auth username
+                matches this username (used for USER-scoped budgets).
 
         Returns:
             Total cost in USD.

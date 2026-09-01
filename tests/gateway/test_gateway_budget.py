@@ -791,25 +791,25 @@ def test_check_budget_limit_user_scope():
 
     tracker = get_budget_tracker()
     tracker.refresh_policies([policy])
-    tracker.record_cost(150.0, principal="alice")
+    tracker.record_cost(150.0, username="alice")
 
     with pytest.raises(fastapi.HTTPException, match="Request rejected"):
-        check_budget_limit(store, _NO_TRACE_CONFIG, principal="alice")
+        check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
 
     # A different user is not rejected by alice's budget.
-    check_budget_limit(store, _NO_TRACE_CONFIG, principal="bob")
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="bob")
     # Neither is an unauthenticated request.
-    check_budget_limit(store, _NO_TRACE_CONFIG, principal=None)
+    check_budget_limit(store, _NO_TRACE_CONFIG, username=None)
 
 
 @pytest.mark.asyncio
-async def test_budget_on_complete_user_scope_records_for_matching_principal():
+async def test_budget_on_complete_user_scope_records_for_matching_username():
     policy = _make_policy(
         budget_amount=100.0, target_scope=BudgetTargetScope.USER, target_value="alice"
     )
     store = _make_store(policies=[policy])
 
-    on_complete = make_budget_on_complete(store, workspace=None, principal="alice")
+    on_complete = make_budget_on_complete(store, workspace=None, username="alice")
     await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
 
     window = get_budget_tracker()._get_window_info("bp-test")
@@ -817,13 +817,13 @@ async def test_budget_on_complete_user_scope_records_for_matching_principal():
 
 
 @pytest.mark.asyncio
-async def test_budget_on_complete_user_scope_ignores_other_principal():
+async def test_budget_on_complete_user_scope_ignores_other_username():
     policy = _make_policy(
         budget_amount=100.0, target_scope=BudgetTargetScope.USER, target_value="alice"
     )
     store = _make_store(policies=[policy])
 
-    on_complete = make_budget_on_complete(store, workspace=None, principal="bob")
+    on_complete = make_budget_on_complete(store, workspace=None, username="bob")
     await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
 
     window = get_budget_tracker()._get_window_info("bp-test")
@@ -831,7 +831,7 @@ async def test_budget_on_complete_user_scope_ignores_other_principal():
 
 
 @pytest.mark.asyncio
-async def test_budget_on_complete_user_webhook_includes_principal():
+async def test_budget_on_complete_user_webhook_includes_username():
     with patch(_DELIVER_FUNC) as mock_deliver:
         policy = _make_policy(
             budget_amount=0.05,
@@ -841,7 +841,7 @@ async def test_budget_on_complete_user_webhook_includes_principal():
         )
         store = _make_store(policies=[policy])
 
-        on_complete = make_budget_on_complete(store, workspace=None, principal="alice")
+        on_complete = make_budget_on_complete(store, workspace=None, username="alice")
         await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
 
         mock_deliver.assert_called_once()
@@ -850,7 +850,7 @@ async def test_budget_on_complete_user_webhook_includes_principal():
         assert payload["target_value"] == "alice"
 
 
-def test_calculate_existing_cost_user_scope_passes_principal():
+def test_calculate_existing_cost_user_scope_passes_username():
     tracker = get_budget_tracker()
     windows = tracker.refresh_policies([
         _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice", budget_amount=100.0)
@@ -863,7 +863,7 @@ def test_calculate_existing_cost_user_scope_passes_principal():
     tracker.backfill_spend(existing_spend)
 
     store.sum_gateway_trace_cost.assert_called_once()
-    assert store.sum_gateway_trace_cost.call_args.kwargs["principal"] == "alice"
+    assert store.sum_gateway_trace_cost.call_args.kwargs["username"] == "alice"
     assert store.sum_gateway_trace_cost.call_args.kwargs["workspace"] is None
     assert tracker._get_window_info("bp-test").cumulative_spend == 30.0
 
@@ -879,9 +879,9 @@ def test_check_budget_limit_user_scope_zero_budget_rejects_first_request():
 
     # A $0 REJECT budget blocks alice with no spend recorded at all.
     with pytest.raises(fastapi.HTTPException, match="Request rejected"):
-        check_budget_limit(store, _NO_TRACE_CONFIG, principal="alice")
+        check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
     # Other users are still allowed.
-    check_budget_limit(store, _NO_TRACE_CONFIG, principal="bob")
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="bob")
 
 
 @pytest.mark.asyncio
@@ -900,8 +900,8 @@ async def test_user_budget_overshoots_crossing_request_then_rejects_next():
 
     # Request 1: nothing spent yet → pre-request check passes → request completes,
     # recording $0.075 (overshooting the $0.05 limit).
-    check_budget_limit(store, _NO_TRACE_CONFIG, principal="alice")
-    on_complete = make_budget_on_complete(store, workspace=None, principal="alice")
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
+    on_complete = make_budget_on_complete(store, workspace=None, username="alice")
     await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
 
     tracker = get_budget_tracker()
@@ -909,7 +909,7 @@ async def test_user_budget_overshoots_crossing_request_then_rejects_next():
 
     # Request 2 from alice is now rejected.
     with pytest.raises(fastapi.HTTPException, match="Request rejected"):
-        check_budget_limit(store, _NO_TRACE_CONFIG, principal="alice")
+        check_budget_limit(store, _NO_TRACE_CONFIG, username="alice")
 
     # A different user is unaffected by alice's overspend.
-    check_budget_limit(store, _NO_TRACE_CONFIG, principal="bob")
+    check_budget_limit(store, _NO_TRACE_CONFIG, username="bob")

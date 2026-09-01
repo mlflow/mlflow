@@ -6312,7 +6312,7 @@ def _validate_budget_target_scope(target_scope, target_value):
     """Validate the target_value / target_scope relationship for budget policies.
 
     ENDPOINT- and USER-scoped policies must carry a ``target_value`` (the endpoint ID
-    or principal to match); policies with any other scope must not.
+    or username to match); policies with any other scope must not.
     """
     if target_scope in _TARGETED_BUDGET_SCOPES:
         if not target_value:
@@ -6341,7 +6341,7 @@ def _is_server_auth_enabled() -> bool:
 def _assert_user_scope_enforceable(target_scope: BudgetTargetScope) -> None:
     """Reject USER-scoped budgets when auth is off, since they would never match.
 
-    Without authentication the gateway has no request principal, so a USER-scoped
+    Without authentication the gateway has no request username, so a USER-scoped
     policy is silently inert (a REJECT cap never rejects, an ALERT never fires).
     Fail loudly at write time rather than let an admin create a non-functional cap.
     """
@@ -6496,7 +6496,7 @@ def _update_budget_policy():
     # update one field alone) are not rejected, while updates that would produce a
     # targeted (ENDPOINT/USER) policy without a target_value — a silently non-enforcing
     # policy — still are. A target only carries over within the same scope: an endpoint
-    # ID is meaningless as a principal and vice versa, so switching scope requires an
+    # ID is meaningless as a username and vice versa, so switching scope requires an
     # explicit new target_value.
     if target_scope is not None or target_value_provided:
         existing = store.get_budget_policy(budget_policy_id=request_message.budget_policy_id)
@@ -6587,15 +6587,15 @@ def _list_budget_windows():
     maybe_refresh_budget_policies(store)
     windows = get_budget_tracker().get_all_windows()
     if workspace is not None:
-        # GLOBAL policies are always shown, and USER-scoped windows aren't
-        # workspace-bound so they also stay visible. WORKSPACE/ENDPOINT policies
-        # are shown only for the requesting workspace (ENDPOINT policies still
-        # carry an owning workspace even though enforcement matches on endpoint_id).
+        # GLOBAL policies are always shown. Every other scope is filtered to the
+        # requesting workspace by the policy's owning workspace, so current-spend
+        # figures never leak across workspaces. WORKSPACE/ENDPOINT/USER policies all
+        # carry an owning workspace even when enforcement matches on target_value
+        # (an endpoint ID or a username) rather than on the workspace itself.
         windows = [
             w
             for w in windows
-            if w.policy.target_scope in (BudgetTargetScope.GLOBAL, BudgetTargetScope.USER)
-            or w.policy.workspace == workspace
+            if w.policy.target_scope == BudgetTargetScope.GLOBAL or w.policy.workspace == workspace
         ]
     response_message = ListGatewayBudgetWindows.Response()
     for w in windows:

@@ -6207,7 +6207,7 @@ def test_update_budget_policy_switch_to_endpoint_requires_target_value():
 
 
 def test_update_budget_policy_scope_switch_does_not_inherit_target():
-    # An endpoint ID is meaningless as a principal: switching an ENDPOINT policy to
+    # An endpoint ID is meaningless as a username: switching an ENDPOINT policy to
     # USER without an explicit new target must be rejected, not inherit "ep-1".
     store = mock.MagicMock()
     store.get_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
@@ -6472,22 +6472,14 @@ def test_update_budget_policy_switch_to_user_requires_auth():
     mock_store.return_value.update_budget_policy.assert_not_called()
 
 
-def test_list_budget_windows_keeps_user_scope_under_workspace_filter():
+def test_list_budget_windows_workspace_scoped_filters_user_policies():
     tracker = InMemoryBudgetTracker()
     global_policy = _make_budget_policy(budget_policy_id="bp-global")
-    user_policy = _user_policy(budget_policy_id="bp-user", target_value="alice")
-    other_ws_policy = GatewayBudgetPolicy(
-        budget_policy_id="bp-other-ws",
-        budget_unit=BudgetUnit.USD,
-        budget_amount=75.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=BudgetTargetScope.WORKSPACE,
-        budget_action=BudgetAction.ALERT,
-        created_at=0,
-        last_updated_at=0,
-        workspace="team-b",
-    )
-    tracker.refresh_policies([global_policy, user_policy, other_ws_policy])
+    same_ws_user_policy = _user_policy(budget_policy_id="bp-user-team-a", target_value="alice")
+    same_ws_user_policy.workspace = "team-a"
+    other_ws_user_policy = _user_policy(budget_policy_id="bp-user-team-b", target_value="alice")
+    other_ws_user_policy.workspace = "team-b"
+    tracker.refresh_policies([global_policy, same_ws_user_policy, other_ws_user_policy])
 
     with (
         app.test_client() as c,
@@ -6499,9 +6491,10 @@ def test_list_budget_windows_keeps_user_scope_under_workspace_filter():
 
     assert response.status_code == 200
     policy_ids = {w["budget_policy_id"] for w in response.json["windows"]}
-    # GLOBAL applies everywhere and USER windows are always shown; team-b's
-    # workspace policy is filtered out under the team-a workspace context.
-    assert policy_ids == {"bp-global", "bp-user"}
+    # GLOBAL applies everywhere; team-b's USER policy stays hidden under the team-a
+    # workspace context so its current-spend figures don't leak across workspaces,
+    # even though the two policies target the same username.
+    assert policy_ids == {"bp-global", "bp-user-team-a"}
 
 
 def test_create_issue_with_all_fields():
