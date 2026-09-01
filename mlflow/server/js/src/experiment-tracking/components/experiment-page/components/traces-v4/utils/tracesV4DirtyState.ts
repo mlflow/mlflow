@@ -1,6 +1,7 @@
 import { isEqual } from 'lodash';
 
 import { type CapturedV4ViewState } from './tracesV4SavedViewState';
+import { assessmentColumnId, isAssessmentColumnId } from './assessmentColumns';
 import { DEFAULT_TRACES_V4_TIME_LABEL } from './timeRange';
 
 /**
@@ -65,9 +66,23 @@ const canonicalViewQuery = (state: CapturedV4ViewState): string => {
 const columnListsEqual = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((id, index) => id === b[index]);
 
+// The live capture folds visible `assessment:*` ids into `cols`, but a legacy view predating this PR
+// stored standard ids only and kept assessment visibility in `assessmentColumns`. To compare like
+// with like, fold a legacy baseline's visible assessments into its `cols` too (sorted, as a fresh
+// order store lists them) — otherwise it reads permanently dirty and Reset can't clean it. A post-PR
+// view already carries its assessments inline, so the guard skips it and its order is preserved.
 const colsOf = (state: CapturedV4ViewState): string[] => {
   const raw = state.single?.[COLS_KEY];
-  return raw ? raw.split(',').filter(Boolean) : [];
+  const cols = raw ? raw.split(',').filter(Boolean) : [];
+  if (cols.some(isAssessmentColumnId)) {
+    return cols;
+  }
+  const visibleAssessmentIds = Object.entries(state.assessmentColumns ?? {})
+    .filter(([, visible]) => visible)
+    .map(([name]) => name)
+    .sort()
+    .map(assessmentColumnId);
+  return [...cols, ...visibleAssessmentIds];
 };
 
 /**

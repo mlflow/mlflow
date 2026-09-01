@@ -79,6 +79,30 @@ describe('capturedV4StatesMatch', () => {
     expect(capturedV4StatesMatch(a, b)).toBe(false);
   });
 
+  test('a legacy view (assessment visibility stored separately) stays clean against the mixed live cols', () => {
+    // Legacy: standard-only `cols` + separate `assessmentColumns`. Must line up with the live mixed
+    // `cols` so the view isn't stranded permanently dirty.
+    const legacyStored = capture('q=x', ['start_time', 'input'], [], { relevance: true });
+    const liveMixed = capture('q=x', ['start_time', 'input', 'assessment:relevance'] as TraceColumnId[], [], {
+      relevance: true,
+    });
+    expect(capturedV4StatesMatch(liveMixed, legacyStored)).toBe(true);
+  });
+
+  test('a legacy view with a hidden assessment stays clean (nothing folded in)', () => {
+    const legacyStored = capture('q=x', ['start_time', 'input'], [], { relevance: false });
+    const live = capture('q=x', ['start_time', 'input'], [], { relevance: false });
+    expect(capturedV4StatesMatch(live, legacyStored)).toBe(true);
+  });
+
+  test('showing an assessment the legacy view had hidden is still dirty', () => {
+    const legacyStored = capture('q=x', ['start_time', 'input'], [], { relevance: false });
+    const live = capture('q=x', ['start_time', 'input', 'assessment:relevance'] as TraceColumnId[], [], {
+      relevance: true,
+    });
+    expect(capturedV4StatesMatch(live, legacyStored)).toBe(false);
+  });
+
   test('showing a custom column is dirty', () => {
     const a = capture('q=x', ['start_time'], [], {}, { 'tag:environment': true });
     const b = capture('q=x', ['start_time'], [], {}, { 'tag:environment': false });
