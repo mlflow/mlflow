@@ -1658,6 +1658,29 @@ service MlflowService {
     };
   }
 
+  // List immutable versions for an evaluation dataset
+  rpc listDatasetVersions(ListDatasetVersions) returns (ListDatasetVersions.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/datasets/{dataset_id}/versions"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List Evaluation Dataset Versions"
+    };
+  }
+
   // Delete an evaluation dataset
   rpc deleteDataset(DeleteDataset) returns (DeleteDataset.Response) {
     option (rpc) = {
@@ -4970,12 +4993,25 @@ message GetDataset {
   // Optional page token for paginating records
   optional string page_token = 2;
 
+  // Optional immutable dataset revision
+  optional int32 version = 3;
+
   message Response {
     // The dataset (without records for lazy loading)
     optional datasets.Dataset dataset = 1;
 
     // Next page token if more records exist
     optional string next_page_token = 2;
+  }
+}
+
+message ListDatasetVersions {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string dataset_id = 1 [(validate_required) = true];
+
+  message Response {
+    repeated datasets.DatasetVersion versions = 1;
   }
 }
 
@@ -5088,6 +5124,9 @@ message GetDatasetRecords {
 
   // Optional pagination token for getting next page
   optional string page_token = 3;
+
+  // Optional immutable dataset revision
+  optional int32 version = 4;
 
   message Response {
     // Records in the dataset (JSON serialized list)

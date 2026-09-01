@@ -1019,3 +1019,71 @@ def test_sql_dataset_record_wrapping_unwrapping():
 
     sql_record7.merge({"outputs": {"new": "dict"}})
     assert sql_record7.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"new": "dict"}}
+
+
+def test_dataset_versions_preserve_historical_records(store):
+    dataset = store.create_dataset(name="versioned_dataset")
+    assert dataset.version == 1
+    assert [v["version"] for v in store.list_dataset_versions(dataset.dataset_id)] == [1]
+
+    store.upsert_dataset_records(
+        dataset.dataset_id,
+        [
+            {"inputs": {"id": "a"}, "outputs": "A"},
+            {"inputs": {"id": "b"}, "outputs": "B"},
+        ],
+    )
+    assert store.get_dataset(dataset.dataset_id).version == 2
+    records_v1, _ = store._load_dataset_records(dataset.dataset_id, version=1)
+    assert records_v1 == []
+
+    store.upsert_dataset_records(
+        dataset.dataset_id,
+        [
+            {"inputs": {"id": "a"}, "outputs": "A2"},
+            {"inputs": {"id": "c"}, "outputs": "C"},
+        ],
+    )
+
+    current = store.get_dataset(dataset.dataset_id)
+    assert current.version == 3
+    records_v2, _ = store._load_dataset_records(dataset.dataset_id, version=2)
+    assert {(r.inputs["id"], r.outputs) for r in records_v2} == {("a", "A"), ("b", "B")}
+    records_v3, _ = store._load_dataset_records(dataset.dataset_id, version=3)
+    assert {(r.inputs["id"], r.outputs) for r in records_v3} == {
+        ("a", "A2"),
+        ("b", "B"),
+        ("c", "C"),
+    }
+
+    historical = store.get_dataset(dataset.dataset_id, version=2)
+    assert historical.version == 2
+    assert historical.digest != current.digest
+    assert [v["version"] for v in store.list_dataset_versions(dataset.dataset_id)] == [3, 2, 1]
+
+
+def test_delete_records_creates_version_only_when_records_change(store):
+    dataset = store.create_dataset(name="versioned_delete_dataset")
+    store.upsert_dataset_records(
+        dataset.dataset_id,
+        [
+            {"inputs": {"id": "a"}, "outputs": "A"},
+            {"inputs": {"id": "b"}, "outputs": "B"},
+        ],
+    )
+    assert store.get_dataset(dataset.dataset_id).version == 2
+
+    assert store.delete_dataset_records(dataset.dataset_id, ["missing"]) == 0
+    assert store.get_dataset(dataset.dataset_id).version == 2
+    assert store.upsert_dataset_records(dataset.dataset_id, []) == {"inserted": 0, "updated": 0}
+    assert store.get_dataset(dataset.dataset_id).version == 2
+
+    records, _ = store._load_dataset_records(dataset.dataset_id)
+    record_b = next(record for record in records if record.inputs["id"] == "b")
+    assert store.delete_dataset_records(dataset.dataset_id, [record_b.dataset_record_id]) == 1
+    assert store.get_dataset(dataset.dataset_id).version == 3
+
+    historical, _ = store._load_dataset_records(dataset.dataset_id, version=2)
+    assert {record.inputs["id"] for record in historical} == {"a", "b"}
+    current, _ = store._load_dataset_records(dataset.dataset_id, version=3)
+    assert {record.inputs["id"] for record in current} == {"a"}

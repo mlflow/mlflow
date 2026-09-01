@@ -328,6 +328,25 @@ public final class Datasets {
      */
     com.google.protobuf.ByteString
         getExperimentIdsBytes(int index);
+
+    /**
+     * <pre>
+     * Immutable dataset revision
+     * </pre>
+     *
+     * <code>optional int32 version = 12;</code>
+     * @return Whether the version field is set.
+     */
+    boolean hasVersion();
+    /**
+     * <pre>
+     * Immutable dataset revision
+     * </pre>
+     *
+     * <code>optional int32 version = 12;</code>
+     * @return The version.
+     */
+    int getVersion();
   }
   /**
    * Protobuf type {@code mlflow.datasets.Dataset}
@@ -449,6 +468,11 @@ public final class Datasets {
                 mutable_bitField0_ |= 0x00000400;
               }
               experimentIds_.add(bs);
+              break;
+            }
+            case 96: {
+              bitField0_ |= 0x00000400;
+              version_ = input.readInt32();
               break;
             }
             default: {
@@ -1072,6 +1096,33 @@ public final class Datasets {
       return experimentIds_.getByteString(index);
     }
 
+    public static final int VERSION_FIELD_NUMBER = 12;
+    private int version_;
+    /**
+     * <pre>
+     * Immutable dataset revision
+     * </pre>
+     *
+     * <code>optional int32 version = 12;</code>
+     * @return Whether the version field is set.
+     */
+    @java.lang.Override
+    public boolean hasVersion() {
+      return ((bitField0_ & 0x00000400) != 0);
+    }
+    /**
+     * <pre>
+     * Immutable dataset revision
+     * </pre>
+     *
+     * <code>optional int32 version = 12;</code>
+     * @return The version.
+     */
+    @java.lang.Override
+    public int getVersion() {
+      return version_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -1118,6 +1169,9 @@ public final class Datasets {
       }
       for (int i = 0; i < experimentIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 11, experimentIds_.getRaw(i));
+      }
+      if (((bitField0_ & 0x00000400) != 0)) {
+        output.writeInt32(12, version_);
       }
       unknownFields.writeTo(output);
     }
@@ -1167,6 +1221,10 @@ public final class Datasets {
         }
         size += dataSize;
         size += 1 * getExperimentIdsList().size();
+      }
+      if (((bitField0_ & 0x00000400) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(12, version_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1235,6 +1293,11 @@ public final class Datasets {
       }
       if (!getExperimentIdsList()
           .equals(other.getExperimentIdsList())) return false;
+      if (hasVersion() != other.hasVersion()) return false;
+      if (hasVersion()) {
+        if (getVersion()
+            != other.getVersion()) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -1291,6 +1354,10 @@ public final class Datasets {
       if (getExperimentIdsCount() > 0) {
         hash = (37 * hash) + EXPERIMENT_IDS_FIELD_NUMBER;
         hash = (53 * hash) + getExperimentIdsList().hashCode();
+      }
+      if (hasVersion()) {
+        hash = (37 * hash) + VERSION_FIELD_NUMBER;
+        hash = (53 * hash) + getVersion();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -1447,6 +1514,8 @@ public final class Datasets {
         bitField0_ = (bitField0_ & ~0x00000200);
         experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000400);
+        version_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000800);
         return this;
       }
 
@@ -1520,6 +1589,10 @@ public final class Datasets {
           bitField0_ = (bitField0_ & ~0x00000400);
         }
         result.experimentIds_ = experimentIds_;
+        if (((from_bitField0_ & 0x00000800) != 0)) {
+          result.version_ = version_;
+          to_bitField0_ |= 0x00000400;
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -1624,6 +1697,9 @@ public final class Datasets {
             experimentIds_.addAll(other.experimentIds_);
           }
           onChanged();
+        }
+        if (other.hasVersion()) {
+          setVersion(other.getVersion());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -2773,6 +2849,61 @@ public final class Datasets {
         onChanged();
         return this;
       }
+
+      private int version_ ;
+      /**
+       * <pre>
+       * Immutable dataset revision
+       * </pre>
+       *
+       * <code>optional int32 version = 12;</code>
+       * @return Whether the version field is set.
+       */
+      @java.lang.Override
+      public boolean hasVersion() {
+        return ((bitField0_ & 0x00000800) != 0);
+      }
+      /**
+       * <pre>
+       * Immutable dataset revision
+       * </pre>
+       *
+       * <code>optional int32 version = 12;</code>
+       * @return The version.
+       */
+      @java.lang.Override
+      public int getVersion() {
+        return version_;
+      }
+      /**
+       * <pre>
+       * Immutable dataset revision
+       * </pre>
+       *
+       * <code>optional int32 version = 12;</code>
+       * @param value The version to set.
+       * @return This builder for chaining.
+       */
+      public Builder setVersion(int value) {
+        bitField0_ |= 0x00000800;
+        version_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Immutable dataset revision
+       * </pre>
+       *
+       * <code>optional int32 version = 12;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearVersion() {
+        bitField0_ = (bitField0_ & ~0x00000800);
+        version_ = 0;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2821,6 +2952,993 @@ public final class Datasets {
 
     @java.lang.Override
     public org.mlflow.api.proto.Datasets.Dataset getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface DatasetVersionOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.datasets.DatasetVersion)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <code>optional int32 version = 1;</code>
+     * @return Whether the version field is set.
+     */
+    boolean hasVersion();
+    /**
+     * <code>optional int32 version = 1;</code>
+     * @return The version.
+     */
+    int getVersion();
+
+    /**
+     * <code>optional int64 created_time = 2;</code>
+     * @return Whether the createdTime field is set.
+     */
+    boolean hasCreatedTime();
+    /**
+     * <code>optional int64 created_time = 2;</code>
+     * @return The createdTime.
+     */
+    long getCreatedTime();
+
+    /**
+     * <code>optional string created_by = 3;</code>
+     * @return Whether the createdBy field is set.
+     */
+    boolean hasCreatedBy();
+    /**
+     * <code>optional string created_by = 3;</code>
+     * @return The createdBy.
+     */
+    java.lang.String getCreatedBy();
+    /**
+     * <code>optional string created_by = 3;</code>
+     * @return The bytes for createdBy.
+     */
+    com.google.protobuf.ByteString
+        getCreatedByBytes();
+
+    /**
+     * <code>optional string operation = 4;</code>
+     * @return Whether the operation field is set.
+     */
+    boolean hasOperation();
+    /**
+     * <code>optional string operation = 4;</code>
+     * @return The operation.
+     */
+    java.lang.String getOperation();
+    /**
+     * <code>optional string operation = 4;</code>
+     * @return The bytes for operation.
+     */
+    com.google.protobuf.ByteString
+        getOperationBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.datasets.DatasetVersion}
+   */
+  public static final class DatasetVersion extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.datasets.DatasetVersion)
+      DatasetVersionOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use DatasetVersion.newBuilder() to construct.
+    private DatasetVersion(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private DatasetVersion() {
+      createdBy_ = "";
+      operation_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new DatasetVersion();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private DatasetVersion(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 8: {
+              bitField0_ |= 0x00000001;
+              version_ = input.readInt32();
+              break;
+            }
+            case 16: {
+              bitField0_ |= 0x00000002;
+              createdTime_ = input.readInt64();
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              createdBy_ = bs;
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
+              operation_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Datasets.internal_static_mlflow_datasets_DatasetVersion_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Datasets.internal_static_mlflow_datasets_DatasetVersion_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Datasets.DatasetVersion.class, org.mlflow.api.proto.Datasets.DatasetVersion.Builder.class);
+    }
+
+    private int bitField0_;
+    public static final int VERSION_FIELD_NUMBER = 1;
+    private int version_;
+    /**
+     * <code>optional int32 version = 1;</code>
+     * @return Whether the version field is set.
+     */
+    @java.lang.Override
+    public boolean hasVersion() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <code>optional int32 version = 1;</code>
+     * @return The version.
+     */
+    @java.lang.Override
+    public int getVersion() {
+      return version_;
+    }
+
+    public static final int CREATED_TIME_FIELD_NUMBER = 2;
+    private long createdTime_;
+    /**
+     * <code>optional int64 created_time = 2;</code>
+     * @return Whether the createdTime field is set.
+     */
+    @java.lang.Override
+    public boolean hasCreatedTime() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <code>optional int64 created_time = 2;</code>
+     * @return The createdTime.
+     */
+    @java.lang.Override
+    public long getCreatedTime() {
+      return createdTime_;
+    }
+
+    public static final int CREATED_BY_FIELD_NUMBER = 3;
+    private volatile java.lang.Object createdBy_;
+    /**
+     * <code>optional string created_by = 3;</code>
+     * @return Whether the createdBy field is set.
+     */
+    @java.lang.Override
+    public boolean hasCreatedBy() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <code>optional string created_by = 3;</code>
+     * @return The createdBy.
+     */
+    @java.lang.Override
+    public java.lang.String getCreatedBy() {
+      java.lang.Object ref = createdBy_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          createdBy_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string created_by = 3;</code>
+     * @return The bytes for createdBy.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getCreatedByBytes() {
+      java.lang.Object ref = createdBy_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        createdBy_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int OPERATION_FIELD_NUMBER = 4;
+    private volatile java.lang.Object operation_;
+    /**
+     * <code>optional string operation = 4;</code>
+     * @return Whether the operation field is set.
+     */
+    @java.lang.Override
+    public boolean hasOperation() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <code>optional string operation = 4;</code>
+     * @return The operation.
+     */
+    @java.lang.Override
+    public java.lang.String getOperation() {
+      java.lang.Object ref = operation_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          operation_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string operation = 4;</code>
+     * @return The bytes for operation.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getOperationBytes() {
+      java.lang.Object ref = operation_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        operation_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        output.writeInt32(1, version_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeInt64(2, createdTime_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, createdBy_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, operation_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(1, version_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(2, createdTime_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, createdBy_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, operation_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Datasets.DatasetVersion)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Datasets.DatasetVersion other = (org.mlflow.api.proto.Datasets.DatasetVersion) obj;
+
+      if (hasVersion() != other.hasVersion()) return false;
+      if (hasVersion()) {
+        if (getVersion()
+            != other.getVersion()) return false;
+      }
+      if (hasCreatedTime() != other.hasCreatedTime()) return false;
+      if (hasCreatedTime()) {
+        if (getCreatedTime()
+            != other.getCreatedTime()) return false;
+      }
+      if (hasCreatedBy() != other.hasCreatedBy()) return false;
+      if (hasCreatedBy()) {
+        if (!getCreatedBy()
+            .equals(other.getCreatedBy())) return false;
+      }
+      if (hasOperation() != other.hasOperation()) return false;
+      if (hasOperation()) {
+        if (!getOperation()
+            .equals(other.getOperation())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasVersion()) {
+        hash = (37 * hash) + VERSION_FIELD_NUMBER;
+        hash = (53 * hash) + getVersion();
+      }
+      if (hasCreatedTime()) {
+        hash = (37 * hash) + CREATED_TIME_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getCreatedTime());
+      }
+      if (hasCreatedBy()) {
+        hash = (37 * hash) + CREATED_BY_FIELD_NUMBER;
+        hash = (53 * hash) + getCreatedBy().hashCode();
+      }
+      if (hasOperation()) {
+        hash = (37 * hash) + OPERATION_FIELD_NUMBER;
+        hash = (53 * hash) + getOperation().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Datasets.DatasetVersion parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Datasets.DatasetVersion prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.datasets.DatasetVersion}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.datasets.DatasetVersion)
+        org.mlflow.api.proto.Datasets.DatasetVersionOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Datasets.internal_static_mlflow_datasets_DatasetVersion_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Datasets.internal_static_mlflow_datasets_DatasetVersion_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Datasets.DatasetVersion.class, org.mlflow.api.proto.Datasets.DatasetVersion.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Datasets.DatasetVersion.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        version_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        createdTime_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        createdBy_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
+        operation_ = "";
+        bitField0_ = (bitField0_ & ~0x00000008);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Datasets.internal_static_mlflow_datasets_DatasetVersion_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Datasets.DatasetVersion getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Datasets.DatasetVersion.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Datasets.DatasetVersion build() {
+        org.mlflow.api.proto.Datasets.DatasetVersion result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Datasets.DatasetVersion buildPartial() {
+        org.mlflow.api.proto.Datasets.DatasetVersion result = new org.mlflow.api.proto.Datasets.DatasetVersion(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          result.version_ = version_;
+          to_bitField0_ |= 0x00000001;
+        }
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          result.createdTime_ = createdTime_;
+          to_bitField0_ |= 0x00000002;
+        }
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.createdBy_ = createdBy_;
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.operation_ = operation_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Datasets.DatasetVersion) {
+          return mergeFrom((org.mlflow.api.proto.Datasets.DatasetVersion)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Datasets.DatasetVersion other) {
+        if (other == org.mlflow.api.proto.Datasets.DatasetVersion.getDefaultInstance()) return this;
+        if (other.hasVersion()) {
+          setVersion(other.getVersion());
+        }
+        if (other.hasCreatedTime()) {
+          setCreatedTime(other.getCreatedTime());
+        }
+        if (other.hasCreatedBy()) {
+          bitField0_ |= 0x00000004;
+          createdBy_ = other.createdBy_;
+          onChanged();
+        }
+        if (other.hasOperation()) {
+          bitField0_ |= 0x00000008;
+          operation_ = other.operation_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Datasets.DatasetVersion parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Datasets.DatasetVersion) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private int version_ ;
+      /**
+       * <code>optional int32 version = 1;</code>
+       * @return Whether the version field is set.
+       */
+      @java.lang.Override
+      public boolean hasVersion() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <code>optional int32 version = 1;</code>
+       * @return The version.
+       */
+      @java.lang.Override
+      public int getVersion() {
+        return version_;
+      }
+      /**
+       * <code>optional int32 version = 1;</code>
+       * @param value The version to set.
+       * @return This builder for chaining.
+       */
+      public Builder setVersion(int value) {
+        bitField0_ |= 0x00000001;
+        version_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional int32 version = 1;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearVersion() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        version_ = 0;
+        onChanged();
+        return this;
+      }
+
+      private long createdTime_ ;
+      /**
+       * <code>optional int64 created_time = 2;</code>
+       * @return Whether the createdTime field is set.
+       */
+      @java.lang.Override
+      public boolean hasCreatedTime() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <code>optional int64 created_time = 2;</code>
+       * @return The createdTime.
+       */
+      @java.lang.Override
+      public long getCreatedTime() {
+        return createdTime_;
+      }
+      /**
+       * <code>optional int64 created_time = 2;</code>
+       * @param value The createdTime to set.
+       * @return This builder for chaining.
+       */
+      public Builder setCreatedTime(long value) {
+        bitField0_ |= 0x00000002;
+        createdTime_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional int64 created_time = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearCreatedTime() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        createdTime_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object createdBy_ = "";
+      /**
+       * <code>optional string created_by = 3;</code>
+       * @return Whether the createdBy field is set.
+       */
+      public boolean hasCreatedBy() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <code>optional string created_by = 3;</code>
+       * @return The createdBy.
+       */
+      public java.lang.String getCreatedBy() {
+        java.lang.Object ref = createdBy_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            createdBy_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string created_by = 3;</code>
+       * @return The bytes for createdBy.
+       */
+      public com.google.protobuf.ByteString
+          getCreatedByBytes() {
+        java.lang.Object ref = createdBy_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          createdBy_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string created_by = 3;</code>
+       * @param value The createdBy to set.
+       * @return This builder for chaining.
+       */
+      public Builder setCreatedBy(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        createdBy_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string created_by = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearCreatedBy() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        createdBy_ = getDefaultInstance().getCreatedBy();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string created_by = 3;</code>
+       * @param value The bytes for createdBy to set.
+       * @return This builder for chaining.
+       */
+      public Builder setCreatedByBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        createdBy_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object operation_ = "";
+      /**
+       * <code>optional string operation = 4;</code>
+       * @return Whether the operation field is set.
+       */
+      public boolean hasOperation() {
+        return ((bitField0_ & 0x00000008) != 0);
+      }
+      /**
+       * <code>optional string operation = 4;</code>
+       * @return The operation.
+       */
+      public java.lang.String getOperation() {
+        java.lang.Object ref = operation_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            operation_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string operation = 4;</code>
+       * @return The bytes for operation.
+       */
+      public com.google.protobuf.ByteString
+          getOperationBytes() {
+        java.lang.Object ref = operation_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          operation_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string operation = 4;</code>
+       * @param value The operation to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOperation(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        operation_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string operation = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearOperation() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        operation_ = getDefaultInstance().getOperation();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string operation = 4;</code>
+       * @param value The bytes for operation to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOperationBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        operation_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.datasets.DatasetVersion)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.datasets.DatasetVersion)
+    private static final org.mlflow.api.proto.Datasets.DatasetVersion DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Datasets.DatasetVersion();
+    }
+
+    public static org.mlflow.api.proto.Datasets.DatasetVersion getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<DatasetVersion>
+        PARSER = new com.google.protobuf.AbstractParser<DatasetVersion>() {
+      @java.lang.Override
+      public DatasetVersion parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new DatasetVersion(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<DatasetVersion> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<DatasetVersion> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Datasets.DatasetVersion getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -6917,6 +8035,11 @@ public final class Datasets {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_datasets_Dataset_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_datasets_DatasetVersion_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_datasets_DatasetVersion_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_datasets_DatasetRecord_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -6935,27 +8058,30 @@ public final class Datasets {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\016datasets.proto\022\017mlflow.datasets\"\337\001\n\007Da" +
+      "\n\016datasets.proto\022\017mlflow.datasets\"\360\001\n\007Da" +
       "taset\022\022\n\ndataset_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022" +
       "\014\n\004tags\030\003 \001(\t\022\016\n\006schema\030\004 \001(\t\022\017\n\007profile" +
       "\030\005 \001(\t\022\016\n\006digest\030\006 \001(\t\022\024\n\014created_time\030\007" +
       " \001(\003\022\030\n\020last_update_time\030\010 \001(\003\022\022\n\ncreate" +
       "d_by\030\t \001(\t\022\027\n\017last_updated_by\030\n \001(\t\022\026\n\016e" +
-      "xperiment_ids\030\013 \003(\t\"\311\002\n\rDatasetRecord\022\031\n" +
-      "\021dataset_record_id\030\001 \001(\t\022\022\n\ndataset_id\030\002" +
-      " \001(\t\022\016\n\006inputs\030\003 \001(\t\022\024\n\014expectations\030\004 \001" +
-      "(\t\022\014\n\004tags\030\005 \001(\t\022\016\n\006source\030\006 \001(\t\022\021\n\tsour" +
-      "ce_id\030\007 \001(\t\022D\n\013source_type\030\010 \001(\0162/.mlflo" +
-      "w.datasets.DatasetRecordSource.SourceTyp" +
-      "e\022\024\n\014created_time\030\t \001(\003\022\030\n\020last_update_t" +
-      "ime\030\n \001(\003\022\022\n\ncreated_by\030\013 \001(\t\022\027\n\017last_up" +
-      "dated_by\030\014 \001(\t\022\017\n\007outputs\030\r \001(\t\"\311\001\n\023Data" +
-      "setRecordSource\022D\n\013source_type\030\001 \001(\0162/.m" +
-      "lflow.datasets.DatasetRecordSource.Sourc" +
-      "eType\022\023\n\013source_data\030\002 \001(\t\"W\n\nSourceType" +
-      "\022\033\n\027SOURCE_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001" +
-      "\022\t\n\005HUMAN\020\002\022\014\n\010DOCUMENT\020\003\022\010\n\004CODE\020\004B\031\n\024o" +
-      "rg.mlflow.api.proto\220\001\001"
+      "xperiment_ids\030\013 \003(\t\022\017\n\007version\030\014 \001(\005\"^\n\016" +
+      "DatasetVersion\022\017\n\007version\030\001 \001(\005\022\024\n\014creat" +
+      "ed_time\030\002 \001(\003\022\022\n\ncreated_by\030\003 \001(\t\022\021\n\tope" +
+      "ration\030\004 \001(\t\"\311\002\n\rDatasetRecord\022\031\n\021datase" +
+      "t_record_id\030\001 \001(\t\022\022\n\ndataset_id\030\002 \001(\t\022\016\n" +
+      "\006inputs\030\003 \001(\t\022\024\n\014expectations\030\004 \001(\t\022\014\n\004t" +
+      "ags\030\005 \001(\t\022\016\n\006source\030\006 \001(\t\022\021\n\tsource_id\030\007" +
+      " \001(\t\022D\n\013source_type\030\010 \001(\0162/.mlflow.datas" +
+      "ets.DatasetRecordSource.SourceType\022\024\n\014cr" +
+      "eated_time\030\t \001(\003\022\030\n\020last_update_time\030\n \001" +
+      "(\003\022\022\n\ncreated_by\030\013 \001(\t\022\027\n\017last_updated_b" +
+      "y\030\014 \001(\t\022\017\n\007outputs\030\r \001(\t\"\311\001\n\023DatasetReco" +
+      "rdSource\022D\n\013source_type\030\001 \001(\0162/.mlflow.d" +
+      "atasets.DatasetRecordSource.SourceType\022\023" +
+      "\n\013source_data\030\002 \001(\t\"W\n\nSourceType\022\033\n\027SOU" +
+      "RCE_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001\022\t\n\005HUM" +
+      "AN\020\002\022\014\n\010DOCUMENT\020\003\022\010\n\004CODE\020\004B\031\n\024org.mlfl" +
+      "ow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -6966,15 +8092,21 @@ public final class Datasets {
     internal_static_mlflow_datasets_Dataset_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_datasets_Dataset_descriptor,
-        new java.lang.String[] { "DatasetId", "Name", "Tags", "Schema", "Profile", "Digest", "CreatedTime", "LastUpdateTime", "CreatedBy", "LastUpdatedBy", "ExperimentIds", });
-    internal_static_mlflow_datasets_DatasetRecord_descriptor =
+        new java.lang.String[] { "DatasetId", "Name", "Tags", "Schema", "Profile", "Digest", "CreatedTime", "LastUpdateTime", "CreatedBy", "LastUpdatedBy", "ExperimentIds", "Version", });
+    internal_static_mlflow_datasets_DatasetVersion_descriptor =
       getDescriptor().getMessageTypes().get(1);
+    internal_static_mlflow_datasets_DatasetVersion_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_datasets_DatasetVersion_descriptor,
+        new java.lang.String[] { "Version", "CreatedTime", "CreatedBy", "Operation", });
+    internal_static_mlflow_datasets_DatasetRecord_descriptor =
+      getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_datasets_DatasetRecord_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_datasets_DatasetRecord_descriptor,
         new java.lang.String[] { "DatasetRecordId", "DatasetId", "Inputs", "Expectations", "Tags", "Source", "SourceId", "SourceType", "CreatedTime", "LastUpdateTime", "CreatedBy", "LastUpdatedBy", "Outputs", });
     internal_static_mlflow_datasets_DatasetRecordSource_descriptor =
-      getDescriptor().getMessageTypes().get(2);
+      getDescriptor().getMessageTypes().get(3);
     internal_static_mlflow_datasets_DatasetRecordSource_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_datasets_DatasetRecordSource_descriptor,

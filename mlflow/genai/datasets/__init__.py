@@ -335,9 +335,8 @@ def get_dataset(
         name: The name of the dataset. In Databricks, this is the UC table name.
             In non-Databricks environments, this will search for a dataset with the given name.
         dataset_id: The ID of the dataset (non-Databricks only).
-        version: The immutable Databricks dataset version to retrieve. This can be an integer
-            or an ``EvaluationDatasetVersion`` returned by ``dataset.list_versions()``. This
-            parameter is not supported in non-Databricks environments.
+        version: The immutable dataset version to retrieve. This can be an integer or an
+            ``EvaluationDatasetVersion`` returned by ``dataset.list_versions()``.
 
     Returns:
         An EvaluationDataset object representing the retrieved dataset.
@@ -391,14 +390,16 @@ def get_dataset(
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
-        if version is not None:
-            raise NotImplementedError("`version` is only supported for Databricks datasets.")
         _validate_non_databricks_get_params(name, dataset_id)
+        resolved_version = _resolve_dataset_version_arg(version)
 
         if name is not None:
-            return EvaluationDataset(_get_dataset_by_name(name))
+            dataset = _get_dataset_by_name(name)
+            if resolved_version is None:
+                return EvaluationDataset(dataset)
+            return EvaluationDataset(MlflowClient().get_dataset(dataset.dataset_id, version=resolved_version))
 
-        return EvaluationDataset(MlflowClient().get_dataset(dataset_id))
+        return EvaluationDataset(MlflowClient().get_dataset(dataset_id, version=resolved_version))
 
 
 def search_datasets(

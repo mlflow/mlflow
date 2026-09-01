@@ -1372,16 +1372,22 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def get_dataset(self, dataset_id: str) -> "EvaluationDataset":
+    def get_dataset(self, dataset_id: str, version: int | None = None) -> "EvaluationDataset":
         """
         Get an evaluation dataset by ID.
 
         Args:
             dataset_id: The ID of the dataset to retrieve.
+            version: Optional immutable revision. If omitted, retrieve the current revision.
 
         Returns:
             The evaluation dataset object.
         """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_dataset_versions(self, dataset_id: str) -> list[dict[str, Any]]:
+        """List immutable revisions for an evaluation dataset."""
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
@@ -1505,6 +1511,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         dataset_id: str,
         max_results: int | None = None,
         page_token: str | None = None,
+        version: int | None = None,
     ) -> tuple[list[DatasetRecord], str | None]:
         """
         Load dataset records with pagination support.
@@ -1516,6 +1523,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             dataset_id: The ID of the dataset.
             max_results: Maximum number of records to return. If None, returns all records.
             page_token: Token for pagination. If None, starts from the beginning.
+            version: Optional immutable dataset revision.
 
         Returns:
             Tuple of (list of DatasetRecord objects, next_page_token).

@@ -1640,7 +1640,7 @@ class CreateDataset(_message.Message):
     def __init__(self, name: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ..., source_type: _Optional[_Union[_datasets_pb2.DatasetRecordSource.SourceType, str]] = ..., source: _Optional[str] = ..., schema: _Optional[str] = ..., profile: _Optional[str] = ..., created_by: _Optional[str] = ..., tags: _Optional[str] = ...) -> None: ...
 
 class GetDataset(_message.Message):
-    __slots__ = ("dataset_id", "page_token")
+    __slots__ = ("dataset_id", "page_token", "version")
     class Response(_message.Message):
         __slots__ = ("dataset", "next_page_token")
         DATASET_FIELD_NUMBER: _ClassVar[int]
@@ -1650,9 +1650,22 @@ class GetDataset(_message.Message):
         def __init__(self, dataset: _Optional[_Union[_datasets_pb2.Dataset, _Mapping]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
     dataset_id: str
     page_token: str
-    def __init__(self, dataset_id: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
+    version: int
+    def __init__(self, dataset_id: _Optional[str] = ..., page_token: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+
+class ListDatasetVersions(_message.Message):
+    __slots__ = ("dataset_id",)
+    class Response(_message.Message):
+        __slots__ = ("versions",)
+        VERSIONS_FIELD_NUMBER: _ClassVar[int]
+        versions: _containers.RepeatedCompositeFieldContainer[_datasets_pb2.DatasetVersion]
+        def __init__(self, versions: _Optional[_Iterable[_Union[_datasets_pb2.DatasetVersion, _Mapping]]] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    def __init__(self, dataset_id: _Optional[str] = ...) -> None: ...
 
 class DeleteDataset(_message.Message):
     __slots__ = ("dataset_id",)
@@ -1737,7 +1750,7 @@ class GetDatasetExperimentIds(_message.Message):
     def __init__(self, dataset_id: _Optional[str] = ...) -> None: ...
 
 class GetDatasetRecords(_message.Message):
-    __slots__ = ("dataset_id", "max_results", "page_token")
+    __slots__ = ("dataset_id", "max_results", "page_token", "version")
     class Response(_message.Message):
         __slots__ = ("records", "next_page_token")
         RECORDS_FIELD_NUMBER: _ClassVar[int]
@@ -1748,10 +1761,12 @@ class GetDatasetRecords(_message.Message):
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
     dataset_id: str
     max_results: int
     page_token: str
-    def __init__(self, dataset_id: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+    version: int
+    def __init__(self, dataset_id: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
 
 class DeleteDatasetRecords(_message.Message):
     __slots__ = ("dataset_id", "dataset_record_ids")

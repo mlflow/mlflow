@@ -6437,12 +6437,13 @@ class MlflowClient:
         )
 
     @_disable_in_databricks()
-    def get_dataset(self, dataset_id: str) -> EvaluationDataset:
+    def get_dataset(self, dataset_id: str, version: int | None = None) -> EvaluationDataset:
         """
         Get a dataset by ID.
 
         Args:
             dataset_id: The ID of the dataset to retrieve.
+            version: Optional immutable revision. If omitted, retrieve the current revision.
 
         Returns:
             The EvaluationDataset object.
@@ -6459,7 +6460,12 @@ class MlflowClient:
             # Access records (lazy loaded)
             df = dataset.to_df()
         """
-        return self._tracking_client.get_dataset(dataset_id)
+        return self._tracking_client.get_dataset(dataset_id, version=version)
+
+    @_disable_in_databricks()
+    def list_dataset_versions(self, dataset_id: str) -> list[dict[str, Any]]:
+        """List immutable revisions for a dataset."""
+        return self._tracking_client.list_dataset_versions(dataset_id)
 
     @_disable_in_databricks()
     def delete_dataset(self, dataset_id: str) -> None:

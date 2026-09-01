@@ -40,6 +40,16 @@ message Dataset {
 
   // Associated experiment IDs (populated from entity_associations table)
   repeated string experiment_ids = 11;
+
+  // Immutable dataset revision
+  optional int32 version = 12;
+}
+
+message DatasetVersion {
+  optional int32 version = 1;
+  optional int64 created_time = 2;
+  optional string created_by = 3;
+  optional string operation = 4;
 }
 
 message DatasetRecord {

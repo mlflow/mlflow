@@ -18,7 +18,7 @@ if Version(google.protobuf.__version__).major >= 5:
 
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0e\x64\x61tasets.proto\x12\x0fmlflow.datasets\"\xdf\x01\n\x07\x44\x61taset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x01(\t\x12\x0e\n\x06schema\x18\x04 \x01(\t\x12\x0f\n\x07profile\x18\x05 \x01(\t\x12\x0e\n\x06\x64igest\x18\x06 \x01(\t\x12\x14\n\x0c\x63reated_time\x18\x07 \x01(\x03\x12\x18\n\x10last_update_time\x18\x08 \x01(\x03\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0b \x03(\t\"\xc9\x02\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0e\n\x06inputs\x18\x03 \x01(\t\x12\x14\n\x0c\x65xpectations\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\x12\x11\n\tsource_id\x18\x07 \x01(\t\x12\x44\n\x0bsource_type\x18\x08 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x14\n\x0c\x63reated_time\x18\t \x01(\x03\x12\x18\n\x10last_update_time\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0c \x01(\t\x12\x0f\n\x07outputs\x18\r \x01(\t\"\xc9\x01\n\x13\x44\x61tasetRecordSource\x12\x44\n\x0bsource_type\x18\x01 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x13\n\x0bsource_data\x18\x02 \x01(\t\"W\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01\x12\t\n\x05HUMAN\x10\x02\x12\x0c\n\x08\x44OCUMENT\x10\x03\x12\x08\n\x04\x43ODE\x10\x04\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0e\x64\x61tasets.proto\x12\x0fmlflow.datasets\"\xf0\x01\n\x07\x44\x61taset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x01(\t\x12\x0e\n\x06schema\x18\x04 \x01(\t\x12\x0f\n\x07profile\x18\x05 \x01(\t\x12\x0e\n\x06\x64igest\x18\x06 \x01(\t\x12\x14\n\x0c\x63reated_time\x18\x07 \x01(\x03\x12\x18\n\x10last_update_time\x18\x08 \x01(\x03\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0b \x03(\t\x12\x0f\n\x07version\x18\x0c \x01(\x05\"^\n\x0e\x44\x61tasetVersion\x12\x0f\n\x07version\x18\x01 \x01(\x05\x12\x14\n\x0c\x63reated_time\x18\x02 \x01(\x03\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x12\x11\n\toperation\x18\x04 \x01(\t\"\xc9\x02\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0e\n\x06inputs\x18\x03 \x01(\t\x12\x14\n\x0c\x65xpectations\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\x12\x11\n\tsource_id\x18\x07 \x01(\t\x12\x44\n\x0bsource_type\x18\x08 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x14\n\x0c\x63reated_time\x18\t \x01(\x03\x12\x18\n\x10last_update_time\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0c \x01(\t\x12\x0f\n\x07outputs\x18\r \x01(\t\"\xc9\x01\n\x13\x44\x61tasetRecordSource\x12\x44\n\x0bsource_type\x18\x01 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x13\n\x0bsource_data\x18\x02 \x01(\t\"W\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01\x12\t\n\x05HUMAN\x10\x02\x12\x0c\n\x08\x44OCUMENT\x10\x03\x12\x08\n\x04\x43ODE\x10\x04\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -27,13 +27,15 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['DESCRIPTOR']._loaded_options = None
     _globals['DESCRIPTOR']._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001'
     _globals['_DATASET']._serialized_start=36
-    _globals['_DATASET']._serialized_end=259
-    _globals['_DATASETRECORD']._serialized_start=262
-    _globals['_DATASETRECORD']._serialized_end=591
-    _globals['_DATASETRECORDSOURCE']._serialized_start=594
-    _globals['_DATASETRECORDSOURCE']._serialized_end=795
-    _globals['_DATASETRECORDSOURCE_SOURCETYPE']._serialized_start=708
-    _globals['_DATASETRECORDSOURCE_SOURCETYPE']._serialized_end=795
+    _globals['_DATASET']._serialized_end=276
+    _globals['_DATASETVERSION']._serialized_start=278
+    _globals['_DATASETVERSION']._serialized_end=372
+    _globals['_DATASETRECORD']._serialized_start=375
+    _globals['_DATASETRECORD']._serialized_end=704
+    _globals['_DATASETRECORDSOURCE']._serialized_start=707
+    _globals['_DATASETRECORDSOURCE']._serialized_end=908
+    _globals['_DATASETRECORDSOURCE_SOURCETYPE']._serialized_start=821
+    _globals['_DATASETRECORDSOURCE_SOURCETYPE']._serialized_end=908
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -53,11 +55,12 @@ else:
 
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0e\x64\x61tasets.proto\x12\x0fmlflow.datasets\"\xdf\x01\n\x07\x44\x61taset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x01(\t\x12\x0e\n\x06schema\x18\x04 \x01(\t\x12\x0f\n\x07profile\x18\x05 \x01(\t\x12\x0e\n\x06\x64igest\x18\x06 \x01(\t\x12\x14\n\x0c\x63reated_time\x18\x07 \x01(\x03\x12\x18\n\x10last_update_time\x18\x08 \x01(\x03\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0b \x03(\t\"\xc9\x02\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0e\n\x06inputs\x18\x03 \x01(\t\x12\x14\n\x0c\x65xpectations\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\x12\x11\n\tsource_id\x18\x07 \x01(\t\x12\x44\n\x0bsource_type\x18\x08 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x14\n\x0c\x63reated_time\x18\t \x01(\x03\x12\x18\n\x10last_update_time\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0c \x01(\t\x12\x0f\n\x07outputs\x18\r \x01(\t\"\xc9\x01\n\x13\x44\x61tasetRecordSource\x12\x44\n\x0bsource_type\x18\x01 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x13\n\x0bsource_data\x18\x02 \x01(\t\"W\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01\x12\t\n\x05HUMAN\x10\x02\x12\x0c\n\x08\x44OCUMENT\x10\x03\x12\x08\n\x04\x43ODE\x10\x04\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0e\x64\x61tasets.proto\x12\x0fmlflow.datasets\"\xf0\x01\n\x07\x44\x61taset\x12\x12\n\ndataset_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x01(\t\x12\x0e\n\x06schema\x18\x04 \x01(\t\x12\x0f\n\x07profile\x18\x05 \x01(\t\x12\x0e\n\x06\x64igest\x18\x06 \x01(\t\x12\x14\n\x0c\x63reated_time\x18\x07 \x01(\x03\x12\x18\n\x10last_update_time\x18\x08 \x01(\x03\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x17\n\x0flast_updated_by\x18\n \x01(\t\x12\x16\n\x0e\x65xperiment_ids\x18\x0b \x03(\t\x12\x0f\n\x07version\x18\x0c \x01(\x05\"^\n\x0e\x44\x61tasetVersion\x12\x0f\n\x07version\x18\x01 \x01(\x05\x12\x14\n\x0c\x63reated_time\x18\x02 \x01(\x03\x12\x12\n\ncreated_by\x18\x03 \x01(\t\x12\x11\n\toperation\x18\x04 \x01(\t\"\xc9\x02\n\rDatasetRecord\x12\x19\n\x11\x64\x61taset_record_id\x18\x01 \x01(\t\x12\x12\n\ndataset_id\x18\x02 \x01(\t\x12\x0e\n\x06inputs\x18\x03 \x01(\t\x12\x14\n\x0c\x65xpectations\x18\x04 \x01(\t\x12\x0c\n\x04tags\x18\x05 \x01(\t\x12\x0e\n\x06source\x18\x06 \x01(\t\x12\x11\n\tsource_id\x18\x07 \x01(\t\x12\x44\n\x0bsource_type\x18\x08 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x14\n\x0c\x63reated_time\x18\t \x01(\x03\x12\x18\n\x10last_update_time\x18\n \x01(\x03\x12\x12\n\ncreated_by\x18\x0b \x01(\t\x12\x17\n\x0flast_updated_by\x18\x0c \x01(\t\x12\x0f\n\x07outputs\x18\r \x01(\t\"\xc9\x01\n\x13\x44\x61tasetRecordSource\x12\x44\n\x0bsource_type\x18\x01 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x13\n\x0bsource_data\x18\x02 \x01(\t\"W\n\nSourceType\x12\x1b\n\x17SOURCE_TYPE_UNSPECIFIED\x10\x00\x12\t\n\x05TRACE\x10\x01\x12\t\n\x05HUMAN\x10\x02\x12\x0c\n\x08\x44OCUMENT\x10\x03\x12\x08\n\x04\x43ODE\x10\x04\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
 
 
   _DATASET = DESCRIPTOR.message_types_by_name['Dataset']
+  _DATASETVERSION = DESCRIPTOR.message_types_by_name['DatasetVersion']
   _DATASETRECORD = DESCRIPTOR.message_types_by_name['DatasetRecord']
   _DATASETRECORDSOURCE = DESCRIPTOR.message_types_by_name['DatasetRecordSource']
   _DATASETRECORDSOURCE_SOURCETYPE = _DATASETRECORDSOURCE.enum_types_by_name['SourceType']
@@ -67,6 +70,13 @@ else:
     # @@protoc_insertion_point(class_scope:mlflow.datasets.Dataset)
     })
   _sym_db.RegisterMessage(Dataset)
+
+  DatasetVersion = _reflection.GeneratedProtocolMessageType('DatasetVersion', (_message.Message,), {
+    'DESCRIPTOR' : _DATASETVERSION,
+    '__module__' : 'datasets_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.datasets.DatasetVersion)
+    })
+  _sym_db.RegisterMessage(DatasetVersion)
 
   DatasetRecord = _reflection.GeneratedProtocolMessageType('DatasetRecord', (_message.Message,), {
     'DESCRIPTOR' : _DATASETRECORD,
@@ -87,12 +97,14 @@ else:
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001'
     _DATASET._serialized_start=36
-    _DATASET._serialized_end=259
-    _DATASETRECORD._serialized_start=262
-    _DATASETRECORD._serialized_end=591
-    _DATASETRECORDSOURCE._serialized_start=594
-    _DATASETRECORDSOURCE._serialized_end=795
-    _DATASETRECORDSOURCE_SOURCETYPE._serialized_start=708
-    _DATASETRECORDSOURCE_SOURCETYPE._serialized_end=795
+    _DATASET._serialized_end=276
+    _DATASETVERSION._serialized_start=278
+    _DATASETVERSION._serialized_end=372
+    _DATASETRECORD._serialized_start=375
+    _DATASETRECORD._serialized_end=704
+    _DATASETRECORDSOURCE._serialized_start=707
+    _DATASETRECORDSOURCE._serialized_end=908
+    _DATASETRECORDSOURCE_SOURCETYPE._serialized_start=821
+    _DATASETRECORDSOURCE_SOURCETYPE._serialized_end=908
   # @@protoc_insertion_point(module_scope)
 
