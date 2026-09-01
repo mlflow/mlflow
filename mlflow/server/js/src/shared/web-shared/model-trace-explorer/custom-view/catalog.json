@@ -166,6 +166,10 @@
             "hideFormatToggle": {
               "type": "boolean",
               "description": "When true, hides the per-value format dropdown."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
             }
           },
           "required": ["component", "value"]

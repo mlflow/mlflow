@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { buildFilter, buildOrderBy } from './buildTracesV4SearchParams';
+import { buildFilter, buildOrderBy, isExactTraceIdSearch } from './buildTracesV4SearchParams';
 
 describe('buildFilter', () => {
   test('returns undefined when there are no clauses', () => {
@@ -30,16 +30,14 @@ describe('buildFilter', () => {
     );
   });
 
-  test('a trace-id lookup still ANDs the time-range clauses', () => {
+  test('a trace-id lookup ignores the time range and other clauses (found regardless of window)', () => {
     expect(
       buildFilter({
         searchQuery: '0123456789abcdef0123456789abcdef',
         timeRange: { startTime: '1000', endTime: '2000' },
+        extraClauses: ["attributes.status = 'ERROR'"],
       }),
-    ).toBe(
-      "attributes.request_id = 'tr-0123456789abcdef0123456789abcdef' AND " +
-        'attributes.timestamp_ms > 1000 AND attributes.timestamp_ms < 2000',
-    );
+    ).toBe("attributes.request_id = 'tr-0123456789abcdef0123456789abcdef'");
   });
 
   test('a non-trace-id search uses ILIKE on trace.text (span content)', () => {
@@ -74,6 +72,22 @@ describe('buildFilter', () => {
 
   test('ignores blank extra clauses', () => {
     expect(buildFilter({ extraClauses: ['', '  '] })).toBeUndefined();
+  });
+});
+
+describe('isExactTraceIdSearch', () => {
+  test("recognizes every trace-id format (matching buildFilter's request_id fast path)", () => {
+    expect(isExactTraceIdSearch('tr-0123456789ABCDEF0123456789abcdef')).toBe(true);
+    expect(isExactTraceIdSearch('0123456789abcdef0123456789abcdef')).toBe(true);
+    expect(isExactTraceIdSearch('  trace:/cat.sch/tr-0123456789abcdef0123456789abcdef  ')).toBe(true);
+    expect(isExactTraceIdSearch('trace:/cat.sch/0123456789ABCDEF0123456789abcdef')).toBe(true);
+  });
+
+  test('is false for free-text, empty, and undefined queries', () => {
+    expect(isExactTraceIdSearch('refund policy')).toBe(false);
+    expect(isExactTraceIdSearch('   ')).toBe(false);
+    expect(isExactTraceIdSearch('')).toBe(false);
+    expect(isExactTraceIdSearch(undefined)).toBe(false);
   });
 });
 

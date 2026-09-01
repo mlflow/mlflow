@@ -116,12 +116,39 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
 #: **Experimental** — subject to change or removal in a future release.
-#: Controls whether the MLflow Assistant API is reachable from non-localhost clients.
-#: Remote access is still limited to providers that don't require local execution
-#: (e.g. the MLflow Gateway); this only opts into that check.
+#: Controls whether the MLflow Assistant API is reachable from non-localhost clients. When true,
+#: the server runs the work the assistant would otherwise run on the host — the ``Bash`` tool and
+#: the coding-agent CLI providers — inside a hardened Docker container instead (automatically,
+#: when a ``docker`` executable is available), so those providers can serve remote clients without
+#: executing on the host. When false (the default) the assistant is localhost-only and runs that
+#: work in a host subprocess, exactly as before.
 #: (default: ``False``)
 MLFLOW_ENABLE_REMOTE_ASSISTANT = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_REMOTE_ASSISTANT", False
+)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: Override for whether the assistant runs its work (the ``Bash`` tool and the coding-agent CLI
+#: providers) inside a Docker sandbox. Tri-state:
+#:
+#: - unset (the default): derive it from the deployment — sandbox when the assistant is in remote
+#:   mode (``MLFLOW_ENABLE_REMOTE_ASSISTANT``) and a ``docker`` executable is available.
+#: - ``true``: force the sandbox on (a turn fails at container start if Docker is unavailable).
+#: - ``false``: force it off — run that work in a host subprocess even in remote mode, letting an
+#:   operator opt out of sandboxing.
+#:
+#: (default: unset)
+MLFLOW_ENABLE_ASSISTANT_SANDBOX = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ASSISTANT_SANDBOX", None
+)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: Docker image used for server-side sandboxed execution (e.g. the assistant ``Bash`` sandbox).
+#: The image must have Python and MLflow installed. If the image is not present locally, a
+#: minimal one is built on first use.
+#: (default: ``mlflow-sandbox:latest``)
+MLFLOW_SANDBOX_DOCKER_IMAGE = _EnvironmentVariable(
+    "MLFLOW_SANDBOX_DOCKER_IMAGE", str, "mlflow-sandbox:latest"
 )
 
 #: When true, newly created workspaces are seeded with two default RBAC roles
@@ -1420,6 +1447,11 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: Whether to disable schema details in error messages for MLflow schema enforcement.
 #: (default: ``False``)
 MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
+
+#: Disable the hint that points a coding agent at the MLflow tracing skill on
+#: ``import mlflow``. The hint is only ever emitted when a coding agent is detected.
+#: (default: ``False``)
+MLFLOW_DISABLE_AGENT_HINT = _BooleanEnvironmentVariable("MLFLOW_DISABLE_AGENT_HINT", False)
 
 
 def _split_strip(s: str) -> list[str]:

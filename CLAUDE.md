@@ -11,6 +11,7 @@ Claude's training data may lag behind current releases. When reviewing docs or c
 - Use top-level imports (only use lazy imports when necessary)
 - Only add docstrings in tests when they provide additional context
 - Only add comments that explain non-obvious logic or provide additional context
+- In source files, use full `https://github.com/<owner>/<repo>/issues/<number>` URLs for cross-repository issue references instead of `<owner>/<repo>#<number>`, because the shorthand does not autolink or identify the target type; it remains fine in PR descriptions and issue comments, where GitHub autolinks it.
 - When touching the SQLAlchemy tracking store, keep all workspace-aware paths and validations intact; never drop workspace plumbing even if the change focuses on single-tenant behavior
 - New functionality in the tracking layer should be mirrored by workspace-aware tests (e.g., add workspace variants in `tests/store/tracking/test_sqlalchemy_store_workspace.py` when applicable)
 
@@ -187,6 +188,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 # Push your changes
 git push origin <your-branch>
 ```
+
+### Keep Pull Requests to One Concern
+
+One PR = one concern. NEVER EVER bundle unrelated changes. They multiply review
+cost rather than adding to it, and since this repo squash-merges, they land as
+one commit that can't be reverted piece by piece and is hard to reason about
+later. When in doubt, split.
 
 ### Creating Pull Requests
 
