@@ -770,6 +770,8 @@ def test_validate_schema_with_empty_records_after_to_dict():
 
     mock_store = Mock()
     mock_store.upsert_dataset_records.return_value = None
+    # schema=None forces _get_existing_granularity into the _records branch under test
+    mock_store.get_dataset.return_value.schema = None
 
     with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
         dataset.merge_records([new_record])
