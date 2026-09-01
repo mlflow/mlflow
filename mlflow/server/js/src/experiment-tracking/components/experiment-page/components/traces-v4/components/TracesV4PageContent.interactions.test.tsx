@@ -381,6 +381,7 @@ describe('TracesV4PageContent (interactions)', () => {
     // user-faithful way to exercise nav (the header's chevron buttons are icon-only, no a11y name).
     test('offers "Flag for review" in the trace drawer header', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      let addItemsRequest: unknown;
       server.use(
         rest.get('*/ajax-api/3.0/mlflow/review-queues/list', (req, res, ctx) =>
           res(
@@ -416,13 +417,18 @@ describe('TracesV4PageContent (interactions)', () => {
             }),
           ),
         ),
+        rest.post('*/ajax-api/3.0/mlflow/review-queues/items/add', async (req, res, ctx) => {
+          addItemsRequest = await req.json();
+          return res(ctx.json({ items: [] }));
+        }),
       );
       renderPage();
       await user.click(await findTraceRow('tr-000'));
 
       const drawer = await screen.findByRole('dialog');
       await user.click(within(drawer).getByRole('button', { name: 'Flag for review' }));
-      expect(await screen.findByRole('checkbox', { name: 'Relevance' })).toBeInTheDocument();
+      await user.click(await screen.findByRole('checkbox', { name: 'Relevance' }));
+      await waitFor(() => expect(addItemsRequest).toEqual({ queue_id: 'rq-relevance', item_ids: ['tr-000'] }));
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
     test('ArrowRight advances to the next row, writing its V4 long id to the URL', async () => {
