@@ -168,6 +168,18 @@ export namespace CreateAssessment {
 }
 
 /**
+ * Create an assessment on a Databricks Unity Catalog trace using the V4 traces API.
+ * Endpoint: POST /api/4.0/mlflow/traces/{location}/{trace_id}/assessments
+ */
+export namespace CreateAssessmentV4 {
+  export const getEndpoint = (host: string, location: string, traceId: string) =>
+    `${host}/api/4.0/mlflow/traces/${encodeURIComponent(location)}/${encodeURIComponent(traceId)}/assessments`;
+
+  export type Request = SerializedAssessment;
+  export type Response = SerializedAssessment;
+}
+
+/**
  * OTLP span upload endpoint for OSS (non-Databricks) tracking servers.
  *
  * Endpoint: POST /v1/traces
