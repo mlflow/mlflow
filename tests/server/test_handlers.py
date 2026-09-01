@@ -276,6 +276,7 @@ from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIEW_TAG_PREFIX
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_STORE_TYPE,
@@ -493,6 +494,17 @@ def test_server_info_multipart_capabilities_disabled_by_default():
         data = response.get_json()
         assert data[SERVER_INFO_MULTIPART_UPLOADS_ENABLED] is False
         assert data[SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED] is False
+        assert data[SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED] is False
+
+
+def test_server_info_advertises_presigned_only_mode(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+
+    assert response.status_code == 200
+    assert response.get_json()[SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED] is True
 
 
 def test_server_info_multipart_capabilities_with_multipart_backend(monkeypatch):
@@ -5079,6 +5091,20 @@ def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp
     mock_tmp_dir.assert_not_called()
 
 
+def test_download_artifact_rejects_legacy_transfer_in_presigned_only_mode(
+    enable_serve_artifacts, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+
+    with app.test_request_context(method="GET"):
+        response = _download_artifact("model.pkl")
+
+    assert response.status_code == 409
+    body = response.get_json()
+    assert body["error_code"] == "RESOURCE_CONFLICT"
+    assert "Upgrade your MLflow client" in body["message"]
+
+
 def test_upload_artifact_uses_stream_upload_when_mixin_supported(enable_serve_artifacts):
     artifact_path = "nested/model.pkl"
     test_data = b"streamed artifact"
@@ -5099,6 +5125,20 @@ def test_upload_artifact_uses_stream_upload_when_mixin_supported(enable_serve_ar
     assert args[1] == "model.pkl"
     assert kwargs["artifact_path"] == "nested"
     assert response.status_code == 200
+
+
+def test_upload_artifact_rejects_legacy_transfer_in_presigned_only_mode(
+    enable_serve_artifacts, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+
+    with app.test_request_context(method="PUT", data=b"legacy upload"):
+        response = _upload_artifact("model.pkl")
+
+    assert response.status_code == 409
+    body = response.get_json()
+    assert body["error_code"] == "RESOURCE_CONFLICT"
+    assert "Upgrade your MLflow client" in body["message"]
 
 
 def test_upload_artifact_falls_back_to_log_artifact_without_mixin(enable_serve_artifacts):

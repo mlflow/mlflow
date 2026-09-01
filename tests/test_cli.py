@@ -22,6 +22,7 @@ from mlflow.data import numpy_dataset
 from mlflow.entities import Metric, ViewType, Workspace
 from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACTS_ONLY_PRESIGNED,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_WORKSPACE_STORE_URI,
@@ -117,6 +118,7 @@ def test_server_uvicorn_options():
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
             artifacts_only=mock.ANY,
+            artifacts_only_presigned=mock.ANY,
             artifacts_destination=mock.ANY,
             host="127.0.0.1",
             port=5000,
@@ -142,6 +144,7 @@ def test_server_uvicorn_options():
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
             artifacts_only=mock.ANY,
+            artifacts_only_presigned=mock.ANY,
             artifacts_destination=mock.ANY,
             host="127.0.0.1",
             port=5000,
@@ -170,6 +173,7 @@ def test_server_dev_mode():
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
             artifacts_only=mock.ANY,
+            artifacts_only_presigned=mock.ANY,
             artifacts_destination=mock.ANY,
             host="127.0.0.1",
             port=5000,
@@ -198,6 +202,7 @@ def test_server_gunicorn_options():
             default_artifact_root=mock.ANY,
             serve_artifacts=mock.ANY,
             artifacts_only=mock.ANY,
+            artifacts_only_presigned=mock.ANY,
             artifacts_destination=mock.ANY,
             host="127.0.0.1",
             port=5000,
@@ -273,6 +278,25 @@ def test_server_mlflow_artifacts_options():
             with mock.patch("mlflow.server._run_server") as run_server_mock:
                 runner.invoke(server, ["--artifacts-only"])
                 run_server_mock.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("args", "env_value", "expected"),
+    [(["--artifacts-only-presigned"], None, True), ([], "false", False), ([], "true", True)],
+)
+def test_server_resolves_presigned_only_configuration(monkeypatch, args, env_value, expected):
+    if env_value is not None:
+        monkeypatch.setenv(MLFLOW_ARTIFACTS_ONLY_PRESIGNED.name, env_value)
+
+    with (
+        mock.patch("mlflow.cli.artifacts_only_presigned_config_validation"),
+        mock.patch("mlflow.server.handlers.initialize_backend_stores"),
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+    ):
+        result = CliRunner().invoke(server, args)
+
+    assert result.exit_code == 0, result.output
+    assert run_server_mock.call_args.kwargs["artifacts_only_presigned"] is expected
 
 
 def test_server_artifacts_only_with_workspaces_initializes_only_workspace_store(
