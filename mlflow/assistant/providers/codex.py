@@ -491,8 +491,7 @@ class CodexProvider(AssistantProvider):
                                 "stopping.",
                                 _CODEX_NO_PROGRESS_TIMEOUT,
                             )
-                            # kill() is a blocking docker-py call; keep it off the event loop.
-                            await asyncio.to_thread(proc.kill)
+                            await proc.akill()
                             yield Event.from_error(
                                 "Codex could not connect and kept retrying without progress; "
                                 f"stopped after {int(_CODEX_NO_PROGRESS_TIMEOUT)}s. "
@@ -570,9 +569,7 @@ class CodexProvider(AssistantProvider):
             _logger.exception("Error running Codex CLI in sandbox")
             yield Event.from_exception(e)
         finally:
-            # cleanup() force-removes the container (a blocking docker-py socket call); keep it off
-            # the event loop so a slow daemon during teardown cannot stall other requests.
-            await asyncio.to_thread(proc.cleanup)
+            await proc.aclose()
 
     @staticmethod
     def _unwrap_error_message(message: Any) -> str | None:

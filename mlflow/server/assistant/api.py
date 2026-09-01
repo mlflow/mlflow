@@ -515,7 +515,11 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
         # loop so a slow/unhealthy Docker daemon can't stall unrelated requests.
         container_terminated = await asyncio.to_thread(terminate_session_container, session_id)
         terminated = proc_terminated or container_terminated
-        msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
+        msg = (
+            "Session cancelled and process/sandbox terminated"
+            if terminated
+            else "Session cancelled"
+        )
         return SessionPatchResponse(message=msg)
 
     # This branch is unreachable due to Literal type, but satisfies type checker

@@ -887,9 +887,7 @@ class ClaudeCodeProvider(AssistantProvider):
             _logger.exception("Error running Claude Code CLI in sandbox")
             yield Event.from_exception(e)
         finally:
-            # cleanup() force-removes the container (a blocking docker-py socket call); keep it off
-            # the event loop so a slow daemon during teardown cannot stall other requests.
-            await asyncio.to_thread(proc.cleanup)
+            await proc.aclose()
 
     @staticmethod
     def _build_usage_event(usage: dict[str, Any], cost_usd: float | None = None) -> Event:

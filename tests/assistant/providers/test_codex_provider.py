@@ -839,8 +839,14 @@ class _FakeSandboxProcess:
     def kill(self):
         self.killed = True
 
+    async def akill(self):
+        self.kill()
+
     def cleanup(self):
         self.cleaned_up = True
+
+    async def aclose(self):
+        self.cleanup()
 
 
 @pytest.mark.asyncio

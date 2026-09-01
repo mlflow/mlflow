@@ -893,6 +893,9 @@ class _FakeSandboxProcess:
     def cleanup(self):
         self.cleaned_up = True
 
+    async def aclose(self):
+        self.cleanup()
+
 
 @pytest.mark.asyncio
 async def test_astream_uses_sandbox_when_flag_enabled(monkeypatch):

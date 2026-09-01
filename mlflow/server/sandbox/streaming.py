@@ -177,8 +177,9 @@ class SandboxProcess:
                         # container so logs() ends, and surface it rather than risking an OOM.
                         self.kill()
                         raise SandboxUnavailableError(
-                            f"Sandbox emitted a single stdout line over {_MAX_LINE_BYTES} bytes "
-                            "with no newline; aborting the stream to bound server memory."
+                            f"Sandbox emitted a single stdout line of {len(buffer)} bytes with no "
+                            f"newline, over the {_MAX_LINE_BYTES}-byte cap; aborting the stream to "
+                            "bound server memory."
                         )
                 if buffer and not _put_line(bytes(buffer)):
                     return
@@ -239,6 +240,10 @@ class SandboxProcess:
         except Exception:
             pass
 
+    async def akill(self) -> None:
+        """``kill()`` off the event loop — it makes a blocking docker-py socket call."""
+        await asyncio.to_thread(self.kill)
+
     def cleanup(self) -> None:
         try:
             self._container.remove(force=True)
@@ -247,6 +252,12 @@ class SandboxProcess:
         shutil.rmtree(self._io_dir, ignore_errors=True)
         if self._ephemeral_home is not None:
             shutil.rmtree(self._ephemeral_home, ignore_errors=True)
+
+    async def aclose(self) -> None:
+        """``cleanup()`` off the event loop — force-removing the container blocks on docker-py, so
+        running it inline would stall the server on a slow/unhealthy daemon during teardown.
+        """
+        await asyncio.to_thread(self.cleanup)
 
 
 def start_sandbox_process(
