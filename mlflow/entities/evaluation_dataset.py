@@ -415,7 +415,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             DatasetGranularity based on existing records, or UNKNOWN if empty/unparseable
         """
         if self._schema is None:
-            if self.has_records():
+            if self.has_records() and self.records:
                 return self._classify_input_fields(set(self.records[0].inputs.keys()))
             return DatasetGranularity.UNKNOWN
         try:
