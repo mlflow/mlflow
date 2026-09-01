@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788229361717,
+  "lastUpdate": 1788239940696,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -25487,6 +25487,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.868999200004168,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "31272819+mukeshbhandarkar@users.noreply.github.com",
+            "name": "Mukesh Bhandarkar",
+            "username": "mukeshbhandarkar"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "89a0b7efc7f0fa31b76acb0a157930277ec3716f",
+          "message": "fix: prevent async trace queue deadlock during flush (#25264)\n\nSigned-off-by: mukeshbhandarkar <shell00035@gmail.com>",
+          "timestamp": "2026-09-01T05:16:54Z",
+          "tree_id": "a673642abe1acc74aedc5e7d8f4ee0a77ef8211c",
+          "url": "https://github.com/mlflow/mlflow/commit/89a0b7efc7f0fa31b76acb0a157930277ec3716f"
+        },
+        "date": 1788239938827,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 92.49900179999884,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.081440417723162,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.3713775958542285,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.129800514707055,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.582667731845227,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.7287518571409755,
             "unit": "ms"
           }
         ]
