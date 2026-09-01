@@ -1,6 +1,7 @@
 import filecmp
 import hashlib
 import io
+import logging
 import os
 import shutil
 import stat
@@ -22,6 +23,7 @@ from mlflow.utils.file_utils import (
     get_parent_dir,
     get_total_file_size,
     local_file_uri_to_path,
+    remove_on_error,
 )
 from mlflow.utils.os import is_windows
 
@@ -390,3 +392,44 @@ def test_safe_extractall_blocks_symlink_escape(tmp_path):
         with pytest.raises(MlflowException, match="would be extracted outside"):
             _safe_extractall(tar, dest)
     assert not (tmp_path.parent / "pwned.txt").exists()
+
+
+def test_remove_on_error_reraises_original_exception_when_cleanup_fails(tmp_path, monkeypatch):
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("content")
+
+    def fail_remove(path):
+        raise PermissionError("cleanup failed")
+
+    monkeypatch.setattr(os, "remove", fail_remove)
+
+    with pytest.raises(ValueError, match="root cause"):
+        with remove_on_error(file_path):
+            raise ValueError("root cause")
+
+
+def test_remove_on_error_removes_file_and_reraises(tmp_path, caplog, monkeypatch):
+    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("content")
+
+    with caplog.at_level(logging.WARNING, logger="mlflow.utils.file_utils"):
+        with pytest.raises(ValueError, match="root cause"):
+            with remove_on_error(file_path):
+                raise ValueError("root cause")
+
+    assert not file_path.exists()
+    assert f"Successfully removed {file_path}" in caplog.text
+
+
+def test_remove_on_error_does_not_log_removal_for_nonexistent_path(tmp_path, caplog, monkeypatch):
+    # The "mlflow" logger disables propagation, so enable it for caplog to capture records
+    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
+    path = tmp_path / "never_created"
+
+    with caplog.at_level(logging.WARNING, logger="mlflow.utils.file_utils"):
+        with pytest.raises(ValueError, match="root cause"):
+            with remove_on_error(path):
+                raise ValueError("root cause")
+
+    assert f"Successfully removed {path}" not in caplog.text
