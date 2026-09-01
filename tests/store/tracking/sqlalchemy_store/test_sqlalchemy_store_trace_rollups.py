@@ -7,6 +7,7 @@
 # the sentinel, while a served query returns the sentinel, pinning down exactly when rollups are
 # consulted.
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -712,6 +713,79 @@ def test_multi_experiment_request_falls_back_to_raw(store: SqlAlchemyStore, monk
     )
 
 
+@pytest.mark.parametrize(
+    "metric_name",
+    [
+        TraceMetricKey.INPUT_TOKENS,
+        TraceMetricKey.OUTPUT_TOKENS,
+        TraceMetricKey.TOTAL_TOKENS,
+        TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+        TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
+    ],
+)
+@pytest.mark.parametrize("aggregations", [_SUM, _AVG])
+def test_token_sum_and_avg_stay_on_raw_path(
+    store: SqlAlchemyStore, monkeypatch, metric_name, aggregations
+):
+    exp_id = _seed(store)
+    _insert_trace_metric_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        metric_name,
+        GroupingSet.GLOBAL.value,
+        sample_count=2,
+        sum_value=float(SENTINEL_COUNT),
+    )
+
+    # Token values are authoritative BIGINTs, but the current rollup sum is a float. The raw rows
+    # in this fixture are null, so consulting the sentinel rollup would incorrectly emit a point.
+    _assert_enabled_equals_raw(
+        store,
+        monkeypatch,
+        exp_id,
+        MetricViewType.TRACES,
+        metric_name,
+        aggregations,
+        None,
+    )
+
+
+def test_debug_log_explains_planner_fallback(store: SqlAlchemyStore, monkeypatch, caplog):
+    exp_id = _seed(store)
+    _set_enabled(monkeypatch, True)
+
+    with caplog.at_level(logging.DEBUG, logger="mlflow.store.tracking.utils.sql_trace_rollups"):
+        _query(
+            store,
+            exp_id,
+            MetricViewType.TRACES,
+            TraceMetricKey.INPUT_TOKENS,
+            _SUM,
+            None,
+        )
+
+    assert "token SUM and AVG require the authoritative BIGINT values" in caplog.text
+
+
+def test_debug_log_summarizes_missing_coverage(store: SqlAlchemyStore, monkeypatch, caplog):
+    exp_id = _seed(store)
+    _set_enabled(monkeypatch, True)
+
+    with caplog.at_level(logging.DEBUG, logger="mlflow.store.tracking.utils.sql_trace_rollups"):
+        _query(
+            store,
+            exp_id,
+            MetricViewType.TRACES,
+            TraceMetricKey.TRACE_COUNT,
+            _COUNT,
+            None,
+        )
+
+    assert "1 candidate days" in caplog.text
+    assert "none of 1 candidate days has valid coverage" in caplog.text
+
+
 def test_rollup_for_other_experiment_is_ignored(store: SqlAlchemyStore, monkeypatch):
     exp_id = _seed(store)
     other_exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
@@ -953,6 +1027,56 @@ def test_span_cost_raw_ranges_use_span_start_time(store: SqlAlchemyStore, monkey
     assert dict(day_b[0][1]) == {"SUM": 0.75}
 
 
+@pytest.mark.parametrize(
+    ("metric_name", "aggregations", "value_label", "expected_value"),
+    [
+        (SpanMetricKey.SPAN_COUNT, _COUNT, "COUNT", 1.0),
+        (SpanMetricKey.LATENCY, _AVG, "AVG", 1.0),
+    ],
+)
+def test_span_count_and_latency_ranges_preserve_parent_trace_time(
+    store: SqlAlchemyStore,
+    monkeypatch,
+    metric_name,
+    aggregations,
+    value_label,
+    expected_value,
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    _new_span_cost_trace(
+        store,
+        exp_id,
+        trace_time_ms=DAY_A_START + 5_000,
+        span_time_ms=DAY_B_START + 5_000,
+        total_cost=0.75,
+    )
+    _set_enabled(monkeypatch, False)
+
+    day_a = _query(
+        store,
+        exp_id,
+        MetricViewType.SPANS,
+        metric_name,
+        aggregations,
+        None,
+        start=DAY_A_START,
+        end=DAY_A_START + MS_PER_DAY - 1,
+    )
+    day_b = _query(
+        store,
+        exp_id,
+        MetricViewType.SPANS,
+        metric_name,
+        aggregations,
+        None,
+        start=DAY_B_START,
+        end=DAY_B_START + MS_PER_DAY - 1,
+    )
+
+    assert dict(day_a[0][1]) == {value_label: expected_value}
+    assert day_b == []
+
+
 def test_span_raw_range_includes_fractional_nanoseconds_in_end_millisecond(
     store: SqlAlchemyStore, monkeypatch
 ):
@@ -986,7 +1110,24 @@ def test_span_raw_range_includes_fractional_nanoseconds_in_end_millisecond(
     assert dict(result[0][1]) == {"SUM": 0.5}
 
 
-def test_span_cost_model_grouping_is_served_from_rollup(store: SqlAlchemyStore, monkeypatch):
+@pytest.mark.parametrize(
+    ("grouping_set", "dimensions"),
+    [
+        (GroupingSet.MODEL, [SpanMetricDimensionKey.SPAN_MODEL_NAME]),
+        (GroupingSet.PROVIDER, [SpanMetricDimensionKey.SPAN_MODEL_PROVIDER]),
+        (
+            GroupingSet.MODEL_PROVIDER,
+            [
+                SpanMetricDimensionKey.SPAN_MODEL_NAME,
+                SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            ],
+        ),
+    ],
+)
+@pytest.mark.parametrize("time_interval", [DAILY_INTERVAL_SECONDS, None])
+def test_span_string_groupings_stay_on_raw_path(
+    store: SqlAlchemyStore, monkeypatch, grouping_set, dimensions, time_interval
+):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     _new_span_cost_trace(
         store,
@@ -1000,24 +1141,25 @@ def test_span_cost_model_grouping_is_served_from_rollup(store: SqlAlchemyStore, 
         exp_id,
         DAY_A_START,
         SpanMetricKey.TOTAL_COST,
-        GroupingSet.MODEL.value,
+        grouping_set.value,
         sample_count=1,
         sum_value=float(SENTINEL_COUNT),
-        model_name="gpt-test",
+        model_name="gpt-test" if grouping_set != GroupingSet.PROVIDER else None,
+        model_provider="test-provider" if grouping_set != GroupingSet.MODEL else None,
     )
-    _set_enabled(monkeypatch, True)
 
-    served = _query(
+    # Python cannot reproduce the database's string grouping or ordering semantics. A rollup read
+    # could therefore split one raw SQL group or select a different max_results boundary.
+    _assert_enabled_equals_raw(
         store,
+        monkeypatch,
         exp_id,
         MetricViewType.SPANS,
         SpanMetricKey.TOTAL_COST,
         _SUM,
-        [SpanMetricDimensionKey.SPAN_MODEL_NAME],
+        dimensions,
+        time_interval=time_interval,
     )
-
-    assert dict(served[0][0])[SpanMetricDimensionKey.SPAN_MODEL_NAME] == "gpt-test"
-    assert dict(served[0][1]) == {"SUM": float(SENTINEL_COUNT)}
 
 
 def test_scattered_raw_gaps_are_queried_once(store: SqlAlchemyStore, monkeypatch):
@@ -1142,3 +1284,79 @@ def test_rollup_snapshot_configures_repeatable_read(monkeypatch):
     configure_rollup_read_snapshot(SessionSpy(), "postgresql")
 
     assert calls == [{"execution_options": {"isolation_level": "REPEATABLE READ"}}]
+
+
+def test_sqlite_rollup_snapshot_stays_stable_through_completed_rebuild(
+    store: SqlAlchemyStore, monkeypatch
+):
+    if store.engine.dialect.name != "sqlite":
+        pytest.skip("SQLite snapshot behavior is backend-specific")
+
+    exp_id = _seed(store)
+    _insert_trace_metric_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        TraceMetricKey.TRACE_COUNT,
+        GroupingSet.GLOBAL.value,
+        sample_count=2,
+    )
+    _set_enabled(monkeypatch, True)
+
+    # WAL allows the rebuild transaction to publish while the reader remains open, making this a
+    # deterministic reproduction of the invalidate/rebuild/queue-removal race.
+    with store.engine.connect() as connection:
+        journal_mode = connection.exec_driver_sql("PRAGMA journal_mode=WAL").scalar_one()
+    if journal_mode.lower() != "wal":
+        pytest.skip("SQLite WAL mode is unavailable")
+
+    rollup_filter = (
+        SqlTraceMetricDailyRollup.experiment_id == int(exp_id),
+        SqlTraceMetricDailyRollup.rollup_day == _day_of(DAY_A_START),
+        SqlTraceMetricDailyRollup.metric_name == TraceMetricKey.TRACE_COUNT,
+        SqlTraceMetricDailyRollup.grouping_set == GroupingSet.GLOBAL.value,
+    )
+    queue_filter = (
+        SqlTraceRollupRebuild.experiment_id == int(exp_id),
+        SqlTraceRollupRebuild.rollup_day == _day_of(DAY_A_START),
+        SqlTraceRollupRebuild.rollup_family == RollupFamily.TRACE_METRIC.value,
+    )
+
+    with store.ManagedSessionMaker() as reader:
+        configure_rollup_read_snapshot(reader, store.db_type)
+        assert reader.query(SqlTraceRollupRebuild).filter(*queue_filter).first() is None
+        assert (
+            reader.query(SqlTraceMetricDailyRollup).filter(*rollup_filter).one().sample_count == 2
+        )
+
+        with store.ManagedSessionMaker(read_only=False) as writer:
+            writer.add(
+                SqlTraceRollupRebuild(
+                    experiment_id=int(exp_id),
+                    rollup_day=_day_of(DAY_A_START),
+                    rollup_family=RollupFamily.TRACE_METRIC.value,
+                )
+            )
+            writer.flush()
+            writer.query(SqlTraceMetricDailyRollup).filter(*rollup_filter).update({
+                SqlTraceMetricDailyRollup.sample_count: SENTINEL_COUNT
+            })
+            writer.query(SqlTraceRollupRebuild).filter(*queue_filter).delete()
+            writer.commit()
+
+        # The queue is absent both before and after publication, but the rollup and any raw-gap
+        # reads remain on the same old snapshot rather than mixing old and newly committed state.
+        assert reader.query(SqlTraceRollupRebuild).filter(*queue_filter).first() is None
+        assert (
+            reader.query(SqlTraceMetricDailyRollup).filter(*rollup_filter).one().sample_count == 2
+        )
+
+    with store.ManagedSessionMaker() as current_reader:
+        assert (
+            current_reader
+            .query(SqlTraceMetricDailyRollup)
+            .filter(*rollup_filter)
+            .one()
+            .sample_count
+            == SENTINEL_COUNT
+        )

@@ -26,9 +26,11 @@ the requester may access. Hard experiment deletion removes these non-FK rows bef
 can be reused.
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import Enum
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -54,6 +56,8 @@ from mlflow.tracing.constant import (
     TraceMetricDimensionKey,
     TraceMetricKey,
 )
+
+_logger = logging.getLogger(__name__)
 
 MS_PER_DAY = 86_400_000
 DAILY_INTERVAL_SECONDS = 86_400
@@ -131,6 +135,22 @@ ROLLUP_METRICS: dict[RollupFamily, frozenset[str]] = {
     }),
 }
 
+# Token counts are stored as exact BIGINT values in the authoritative trace table, while the
+# current rollup schema stores ``sum_value`` as a double-precision float. Serving SUM or AVG from
+# that column could change results above 2^53, so those shapes remain on the exact raw path.
+EXACT_INTEGER_SUM_METRICS = frozenset({
+    TraceMetricKey.INPUT_TOKENS,
+    TraceMetricKey.OUTPUT_TOKENS,
+    TraceMetricKey.TOTAL_TOKENS,
+    TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+    TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
+})
+
+# Trace latency also originates from a BIGINT column, but a daily latency sum must exceed
+# 2**53 milliseconds (roughly 285,000 years of aggregate latency) before the rollup FLOAT
+# can lose integer precision. Keep latency AVG eligible because it is a core rollup use case;
+# supporting exact arbitrary-magnitude latency sums would require a future schema change.
+
 # Only trace-metric rollups store daily percentile columns, and only PostgreSQL computes them.
 PERCENTILE_FAMILIES = frozenset({RollupFamily.TRACE_METRIC})
 PERCENTILE_BACKENDS = frozenset({db_types.POSTGRES})
@@ -142,6 +162,16 @@ SERVABLE_FAMILIES = frozenset(RollupFamily)
 # Publication is atomic with rebuild-queue removal, making every materialized grouping set
 # readable. Trace status additionally has a cheap global-count completeness check.
 SERVABLE_GROUPING_SETS = frozenset(GroupingSet)
+
+# Model/provider dimensions are user-controlled strings. Python equality and ordering cannot
+# reproduce an arbitrary database collation, which can change both grouping and the max_results
+# boundary. These shapes stay in SQL until merging, ordering, and limiting can all be performed
+# under the backend's own collation.
+COLLATION_SENSITIVE_GROUPING_SETS = frozenset({
+    GroupingSet.MODEL,
+    GroupingSet.PROVIDER,
+    GroupingSet.MODEL_PROVIDER,
+})
 
 _ROLLUP_READ_ISOLATION_LEVEL = {
     db_types.POSTGRES: "REPEATABLE READ",
@@ -155,14 +185,32 @@ def rollups_enabled() -> bool:
     return MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get()
 
 
+def _raw_fallback(view_type: MetricViewType, metric_name: str, reason: str) -> None:
+    _logger.debug(
+        "SQL trace rollup routing selected the raw path for view=%s metric=%s: %s",
+        view_type.value,
+        metric_name,
+        reason,
+    )
+
+
 def configure_rollup_read_snapshot(session: Session, db_type: str) -> None:
     """Start eligible multi-statement reads at a stable backend isolation level.
 
     PostgreSQL and MySQL use a repeatable snapshot. MSSQL repeatable-read locks stable rows; a
-    final rebuild-queue check catches queue-row phantoms. SQLite's managed session already starts
-    reads in its serializable transaction mode, so it needs no per-connection override.
+    final rebuild-queue check catches queue-row phantoms. SQLite's legacy driver mode does not emit
+    BEGIN for SELECT, so issue it explicitly before the first planning query to keep coverage,
+    rollup rows, raw gaps, and the final queue check in one read snapshot.
     """
-    if rollups_enabled() and (isolation_level := _ROLLUP_READ_ISOLATION_LEVEL.get(db_type)):
+    if not rollups_enabled():
+        return
+
+    if db_type == db_types.SQLITE:
+        connection = session.connection()
+        driver_connection = connection.connection.driver_connection
+        if not driver_connection.in_transaction:
+            connection.exec_driver_sql("BEGIN")
+    elif isolation_level := _ROLLUP_READ_ISOLATION_LEVEL.get(db_type):
         session.connection(execution_options={"isolation_level": isolation_level})
 
 
@@ -330,42 +378,57 @@ def resolve_rollup_read(
 
     family = VIEW_TYPE_TO_FAMILY.get(view_type)
     if family is None or family not in SERVABLE_FAMILIES:
-        return None
+        return _raw_fallback(view_type, metric_name, "the metric view is not rollup-servable")
     if metric_name not in ROLLUP_METRICS[family]:
-        return None
+        return _raw_fallback(view_type, metric_name, "the metric is not materialized")
 
     # ``all([])`` is true, but an empty aggregation request produces no raw data points and must
     # not be turned into rollup points with empty value maps.
     if not aggregations:
-        return None
+        return _raw_fallback(view_type, metric_name, "the aggregation list is empty")
 
     # Rollups are unfiltered daily aggregates; any request-level filter must use the raw path.
     if filters:
-        return None
+        return _raw_fallback(view_type, metric_name, "request filters are not materialized")
 
     grouping_set = resolve_grouping_set(view_type, dimensions)
     if grouping_set is None or grouping_set not in SERVABLE_GROUPING_SETS:
-        return None
+        return _raw_fallback(view_type, metric_name, "the requested grouping is not materialized")
 
     # Rollups are UTC-day aligned: serve only single-day buckets or a single whole-range aggregate.
     if time_interval_seconds is not None and time_interval_seconds != DAILY_INTERVAL_SECONDS:
-        return None
+        return _raw_fallback(view_type, metric_name, "the time bucket is not one UTC day")
     bucketed = time_interval_seconds == DAILY_INTERVAL_SECONDS
+    if grouping_set in COLLATION_SENSITIVE_GROUPING_SETS:
+        return _raw_fallback(
+            view_type,
+            metric_name,
+            "string grouping and ordering require database collation semantics",
+        )
 
     if start_time_ms is None or end_time_ms is None:
-        return None
+        return _raw_fallback(view_type, metric_name, "the request has no bounded time range")
 
     # Rollup serving is single-experiment: multi-experiment coverage cannot distinguish "no data
     # that day" from "not built yet", and daily percentiles are single-experiment by definition.
     if len(experiment_ids) != 1:
-        return None
+        return _raw_fallback(view_type, metric_name, "the request is not single-experiment")
+
+    if metric_name in EXACT_INTEGER_SUM_METRICS and any(
+        agg.aggregation_type in {AggregationType.SUM, AggregationType.AVG} for agg in aggregations
+    ):
+        return _raw_fallback(
+            view_type,
+            metric_name,
+            "token SUM and AVG require the authoritative BIGINT values",
+        )
 
     if not all(_aggregation_servable(agg, family, db_type, bucketed) for agg in aggregations):
-        return None
+        return _raw_fallback(view_type, metric_name, "an aggregation is not rollup-servable")
 
     split = split_range_into_utc_days(start_time_ms, end_time_ms)
     if not split.covered_day_starts_ms:
-        return None
+        return _raw_fallback(view_type, metric_name, "the range contains no eligible full UTC day")
 
     # Date columns cannot represent arbitrary integer epochs. Out-of-range requests remain valid
     # raw SQL predicates, but must never fail while the optional planner converts day starts.
@@ -373,9 +436,9 @@ def resolve_rollup_read(
         _day_start_ms_to_date(split.covered_day_starts_ms[0])
         _day_start_ms_to_date(split.covered_day_starts_ms[-1])
     except (OverflowError, OSError, ValueError):
-        return None
+        return _raw_fallback(view_type, metric_name, "the time range is outside SQL DATE bounds")
 
-    return RollupReadPlan(
+    plan = RollupReadPlan(
         family=family,
         metric_name=metric_name,
         grouping_set=grouping_set,
@@ -389,6 +452,15 @@ def resolve_rollup_read(
             agg.aggregation_type == AggregationType.PERCENTILE for agg in aggregations
         ),
     )
+    _logger.debug(
+        "SQL trace rollup planner accepted view=%s metric=%s with %d candidate days and %d "
+        "partial raw ranges",
+        view_type.value,
+        metric_name,
+        len(plan.covered_day_starts_ms),
+        len(plan.raw_ranges),
+    )
+    return plan
 
 
 FAMILY_MODEL = {
@@ -527,11 +599,11 @@ def read_rollup_data_points(
         model.rollup_day.in_(list(date_to_ms.keys())),
     )
 
-    rows_by_day: dict[date, list] = {}
+    rows_by_day: dict[date, list[Any]] = {}
     for row in rows:
         rows_by_day.setdefault(row.rollup_day, []).append(row)
 
-    global_rows_by_day: dict[date, list] = {}
+    global_rows_by_day: dict[date, list[Any]] = {}
     if plan.grouping_set == GroupingSet.STATUS:
         global_rows = session.query(model).filter(
             model.experiment_id == plan.experiment_id,
@@ -647,13 +719,43 @@ def serve_rollup_read(session: Session, plan: RollupReadPlan) -> RollupReadResul
     """
     covered = compute_covered_day_starts(session, plan)
     if not covered:
+        _logger.debug(
+            "SQL trace rollup routing selected the full raw path for family=%s metric=%s: none "
+            "of %d candidate days has valid coverage",
+            plan.family.value,
+            plan.metric_name,
+            len(plan.covered_day_starts_ms),
+        )
         return None
     data_points, served_day_starts = read_rollup_data_points(session, plan, covered)
     if not served_day_starts:
+        _logger.debug(
+            "SQL trace rollup routing selected the full raw path for family=%s metric=%s: "
+            "covered rows were incomplete for the requested aggregations",
+            plan.family.value,
+            plan.metric_name,
+        )
         return None
     raw_ranges = remaining_raw_ranges(plan, served_day_starts)
     if len(raw_ranges) > MAX_RAW_RANGES:
+        _logger.debug(
+            "SQL trace rollup routing selected the full raw path for family=%s metric=%s: %d raw "
+            "ranges exceed the routing limit of %d",
+            plan.family.value,
+            plan.metric_name,
+            len(raw_ranges),
+            MAX_RAW_RANGES,
+        )
         return None
+    _logger.debug(
+        "SQL trace rollup routing will serve %d of %d candidate days from family=%s metric=%s "
+        "and query %d raw ranges",
+        len(served_day_starts),
+        len(plan.covered_day_starts_ms),
+        plan.family.value,
+        plan.metric_name,
+        len(raw_ranges),
+    )
     return RollupReadResult(data_points, raw_ranges, served_day_starts)
 
 

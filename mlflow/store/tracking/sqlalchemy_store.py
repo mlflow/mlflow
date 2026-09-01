@@ -4407,6 +4407,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     time_interval_seconds=time_interval_seconds,
                     max_results=max_results,
                     time_ranges_ms=ranges,
+                    accessible_experiment_ids=experiment_ids_int,
                 )
 
             full_raw_range = [(start_time_ms, end_time_ms)]
@@ -4437,6 +4438,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     else []
                 )
                 if not rollup_read_is_current(session, plan, served.served_day_starts_ms):
+                    _logger.debug(
+                        "SQL trace rollup routing selected the full raw path for view=%s "
+                        "metric=%s: "
+                        "a served day was invalidated during the read",
+                        view_type.value,
+                        metric_name,
+                    )
                     data_points = raw_range_points(full_raw_range)
                 elif plan.bucketed:
                     # Match the single-query raw path: order by time bucket (then grouping
