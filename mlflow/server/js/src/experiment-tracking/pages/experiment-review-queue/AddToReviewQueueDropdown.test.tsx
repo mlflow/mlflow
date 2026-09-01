@@ -101,7 +101,11 @@ jest.mock('../../components/label-schemas', () => ({
   LabelSchemaFormModal: () => null,
 }));
 
-const renderDropdown = (props?: { open?: boolean; onOpenChange?: (open: boolean) => void }) =>
+const renderDropdown = (props?: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onCloseDrawer?: () => void;
+}) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
@@ -110,6 +114,7 @@ const renderDropdown = (props?: { open?: boolean; onOpenChange?: (open: boolean)
           selectedTraceInfos={[{ trace_id: 'tr-1' } as any]}
           open={props?.open}
           onOpenChange={props?.onOpenChange}
+          onCloseDrawer={props?.onCloseDrawer}
         >
           <button type="button">Trigger</button>
         </AddToReviewQueueDropdown>
@@ -170,10 +175,11 @@ describe('AddToReviewQueueDropdown', () => {
   });
 
   it('assigns traces to a searched user queue for an authenticated editor', async () => {
+    const onCloseDrawer = jest.fn();
     mockAuthAvailable = true;
     mockUsers = [{ id: 2, username: 'alice', is_admin: false }];
     mockGetOrCreateUserQueue.mockResolvedValue({ review_queue: { queue_id: 'rq-alice' } });
-    renderDropdown({ open: true });
+    renderDropdown({ open: true, onCloseDrawer });
 
     fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'ali' } });
     fireEvent.click(await screen.findByRole('checkbox', { name: 'alice' }));
@@ -186,6 +192,10 @@ describe('AddToReviewQueueDropdown', () => {
       }),
     );
     expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-alice', item_ids: ['tr-1'] });
+    expect(onCloseDrawer).toHaveBeenCalledTimes(1);
+    expect(onCloseDrawer.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(Utils.displayGlobalInfoNotification).mock.invocationCallOrder[0],
+    );
   });
 
   it('hides user assignment from an authenticated READ-only user', () => {
@@ -199,11 +209,16 @@ describe('AddToReviewQueueDropdown', () => {
   });
 
   it('immediately adds traces when a queue is clicked and shows a toast', async () => {
-    renderDropdown({ open: true });
+    const onCloseDrawer = jest.fn();
+    renderDropdown({ open: true, onCloseDrawer });
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
 
     await waitFor(() => expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-default', item_ids: ['tr-1'] }));
+    expect(onCloseDrawer).toHaveBeenCalledTimes(1);
+    expect(onCloseDrawer.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(Utils.displayGlobalInfoNotification).mock.invocationCallOrder[0],
+    );
     expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledTimes(1);
 
     const [toastNode, duration] = jest.mocked(Utils.displayGlobalInfoNotification).mock.calls[0];
@@ -247,17 +262,23 @@ describe('AddToReviewQueueDropdown', () => {
   });
 
   it('un-checking a queue removes the traces from it', async () => {
-    renderDropdown({ open: true });
+    const onCloseDrawer = jest.fn();
+    renderDropdown({ open: true, onCloseDrawer });
 
     // First click adds.
     fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
     await waitFor(() => expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-custom', item_ids: ['tr-1'] }));
+    expect(onCloseDrawer).toHaveBeenCalledTimes(1);
+    expect(onCloseDrawer.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(Utils.displayGlobalInfoNotification).mock.invocationCallOrder[0],
+    );
     // Wait for the checked state to settle before clicking again.
     await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Relevance' })).toBeChecked());
 
     // Second click removes.
     fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
     await waitFor(() => expect(mockRemoveItems).toHaveBeenCalledWith({ queue_id: 'rq-custom', item_ids: ['tr-1'] }));
+    expect(onCloseDrawer).toHaveBeenCalledTimes(1);
   });
 
   it('allows adding to multiple queues sequentially', async () => {
