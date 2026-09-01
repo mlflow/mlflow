@@ -4394,6 +4394,7 @@ dev = [
     { name = "ruff" },
     { name = "setuptools" },
     { name = "skills" },
+    { name = "texttable" },
     { name = "toml" },
     { name = "ty" },
     { name = "types-pyyaml" },
@@ -4470,6 +4471,7 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
+    { name = "texttable" },
 ]
 
 [package.metadata]
@@ -4590,6 +4592,7 @@ dev = [
     { name = "ruff", specifier = "==0.16.0" },
     { name = "setuptools" },
     { name = "skills", editable = ".claude/skills" },
+    { name = "texttable" },
     { name = "toml", specifier = "==0.10.2" },
     { name = "ty", specifier = "==0.0.24" },
     { name = "types-pyyaml" },
@@ -4663,6 +4666,7 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-repeat" },
     { name = "pytest-timeout" },
+    { name = "texttable" },
 ]
 
 [[package]]
@@ -8891,6 +8895,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/46/79/cf31d7a93a8fdc6aa0fbb665be84426a8c5a557d9240b6239e9e11e35fc5/termcolor-3.3.0.tar.gz", hash = "sha256:348871ca648ec6a9a983a13ab626c0acce02f515b9e1983332b17af7979521c5", size = 14434, upload-time = "2025-12-29T12:55:21.882Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/33/d1/8bb87d21e9aeb323cc03034f5eaf2c8f69841e40e4853c2627edf8111ed3/termcolor-3.3.0-py3-none-any.whl", hash = "sha256:cf642efadaf0a8ebbbf4bc7a31cec2f9b5f21a9f726f4ccbb08192c9c26f43a5", size = 7734, upload-time = "2025-12-29T12:55:20.718Z" },
+]
+
+[[package]]
+name = "texttable"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/dc/0aff23d6036a4d3bf4f1d8c8204c5c79c4437e25e0ae94ffe4bbb55ee3c2/texttable-1.7.0.tar.gz", hash = "sha256:2d2068fb55115807d3ac77a4ca68fa48803e84ebb0ee2340f858107a36522638", size = 12831, upload-time = "2023-10-03T09:48:12.272Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/99/4772b8e00a136f3e01236de33b0efda31ee7077203ba5967fcc76da94d65/texttable-1.7.0-py2.py3-none-any.whl", hash = "sha256:72227d592c82b3d7f672731ae73e4d1f88cd8e2ef5b075a7a7f01a23a3743917", size = 10768, upload-time = "2023-10-03T09:48:10.434Z" },
 ]
 
 [[package]]

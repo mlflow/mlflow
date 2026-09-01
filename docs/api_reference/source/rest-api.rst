@@ -5524,6 +5524,1738 @@ Response Structure
 | file_size  | ``INT64``                                                                     | Optional size of the file in bytes.                                         |
 +------------+-------------------------------------------------------------------------------+-----------------------------------------------------------------------------+
 
+.. _fastapiOpenTelemetryAPIs:
+
+OpenTelemetry APIs
+==================
+
+
+
+.. _fastapiPOSTv1traces:
+
+Export Traces
+-------------
+
++----------------+-------------+
+|    Endpoint    | HTTP Method |
++================+=============+
+| ``/v1/traces`` | ``POST``    |
++----------------+-------------+
+
+Export trace spans to MLflow via the OpenTelemetry protocol.
+
+This endpoint accepts OTLP/HTTP protobuf trace export requests.
+Protobuf format reference: https://opentelemetry.io/docs/specs/otlp/#binary-protobuf-encoding
+
+Note: All spans in the batch are persisted in a single log_spans() call. If that
+call fails, the entire batch is rejected (all-or-nothing). Partial-success is not
+supported; clients that need per-trace error isolation should batch by trace.
+
+
+
+.. _fastapipostv1tracesrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------------------+------------------------+------------------------------------------------------------------------+
+|       Field Name       |          Type          |                              Description                               |
++========================+========================+========================================================================+
+| x-mlflow-experiment-id | ``STRING``             | Header parameter. This field is required.                              |
++------------------------+------------------------+------------------------------------------------------------------------+
+| x-mlflow-run-id        | ``STRING`` OR ``NULL`` | Header parameter.                                                      |
++------------------------+------------------------+------------------------------------------------------------------------+
+| content-type           | ``STRING`` OR ``NULL`` | Header parameter.                                                      |
++------------------------+------------------------+------------------------------------------------------------------------+
+| content-encoding       | ``STRING`` OR ``NULL`` | Header parameter.                                                      |
++------------------------+------------------------+------------------------------------------------------------------------+
+| User-Agent             | ``STRING`` OR ``NULL`` | Header parameter.                                                      |
++------------------------+------------------------+------------------------------------------------------------------------+
+| X-MLFLOW-WORKSPACE     | ``STRING`` OR ``NULL`` | Header parameter. Workspace to use when MLflow workspaces are enabled. |
++------------------------+------------------------+------------------------------------------------------------------------+
+
+.. _fastapiGatewayAPIs:
+
+Gateway APIs
+============
+
+
+
+.. _fastapiPOSTgatewayendpointnamemlflowinvocations:
+
+Invocations
+-----------
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``/gateway/{endpoint_name}/mlflow/invocations`` | ``POST``    |
++-------------------------------------------------+-------------+
+
+Unified invocations endpoint handler that supports both chat and embeddings.
+
+The handler automatically detects the request type based on the payload structure:
+- If payload has "messages" field -> chat endpoint
+- If payload has "input" field -> embeddings endpoint
+
+
+
+.. _fastapipostgatewayendpointnamemlflowinvocationsrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++---------------+------------+-----------------------------------------+
+|  Field Name   |    Type    |               Description               |
++===============+============+=========================================+
+| endpoint_name | ``STRING`` | Path parameter. This field is required. |
++---------------+------------+-----------------------------------------+
+
+.. _fastapiPOSTgatewaymlflowv1chatcompletions:
+
+Chat Completions
+----------------
+
++-----------------------------------------+-------------+
+|                Endpoint                 | HTTP Method |
++=========================================+=============+
+| ``/gateway/mlflow/v1/chat/completions`` | ``POST``    |
++-----------------------------------------+-------------+
+
+OpenAI-compatible chat completions endpoint.
+
+This endpoint follows the OpenAI API format where the endpoint name is specified
+via the "model" parameter in the request body, allowing clients to use the
+standard OpenAI SDK.
+
+Example::
+
+    POST /gateway/mlflow/v1/chat/completions
+    {
+        "model": "my-endpoint-name",
+        "messages": [{"role": "user", "content": "Hello"}]
+    }
+
+
+
+.. _fastapiPOSTgatewayopenaiv1chatcompletions:
+
+OpenAI Passthrough Chat
+-----------------------
+
++-----------------------------------------+-------------+
+|                Endpoint                 | HTTP Method |
++=========================================+=============+
+| ``/gateway/openai/v1/chat/completions`` | ``POST``    |
++-----------------------------------------+-------------+
+
+OpenAI passthrough endpoint for chat completions.
+
+This endpoint accepts raw OpenAI API format and passes it through to the
+OpenAI provider with the configured API key and model. The 'model' parameter
+in the request specifies which MLflow endpoint to use.
+
+Supports streaming responses when the 'stream' parameter is set to true.
+
+Example::
+
+    POST /gateway/openai/v1/chat/completions
+    {
+        "model": "my-openai-endpoint",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "temperature": 0.7,
+        "stream": true
+    }
+
+
+
+.. _fastapiPOSTgatewayopenaiv1embeddings:
+
+OpenAI Passthrough Embeddings
+-----------------------------
+
++-----------------------------------+-------------+
+|             Endpoint              | HTTP Method |
++===================================+=============+
+| ``/gateway/openai/v1/embeddings`` | ``POST``    |
++-----------------------------------+-------------+
+
+OpenAI passthrough endpoint for embeddings.
+
+This endpoint accepts raw OpenAI API format and passes it through to the
+OpenAI provider with the configured API key and model. The 'model' parameter
+in the request specifies which MLflow endpoint to use.
+
+Example::
+
+    POST /gateway/openai/v1/embeddings
+    {
+        "model": "my-openai-endpoint",
+        "input": "The food was delicious and the waiter..."
+    }
+
+
+
+.. _fastapiPOSTgatewayopenaiv1responses:
+
+OpenAI Passthrough Responses
+----------------------------
+
++----------------------------------+-------------+
+|             Endpoint             | HTTP Method |
++==================================+=============+
+| ``/gateway/openai/v1/responses`` | ``POST``    |
++----------------------------------+-------------+
+
+OpenAI passthrough endpoint for the Responses API.
+
+This endpoint accepts raw OpenAI Responses API format and passes it through to the
+OpenAI provider with the configured API key and model. The 'model' parameter
+in the request specifies which MLflow endpoint to use.
+
+Supports streaming responses when the 'stream' parameter is set to true.
+
+Example::
+
+    POST /gateway/openai/v1/responses
+    {
+        "model": "my-openai-endpoint",
+        "input": [{"type": "text", "text": "Hello"}],
+        "instructions": "You are a helpful assistant",
+        "stream": true
+    }
+
+
+
+.. _fastapiPOSTgatewayopenaiv1responsescompact:
+
+OpenAI Passthrough Responses Compact
+------------------------------------
+
++------------------------------------------+-------------+
+|                 Endpoint                 | HTTP Method |
++==========================================+=============+
+| ``/gateway/openai/v1/responses/compact`` | ``POST``    |
++------------------------------------------+-------------+
+
+OpenAI passthrough endpoint for the Responses API ``/compact`` route.
+
+Mirrors ``openai_passthrough_responses`` for session compaction calls
+(e.g. those issued by the OpenAI Agents SDK's ``OpenAIResponsesCompactionSession``).
+Compaction is a unary request — there is no streaming variant. A request
+that sets ``stream=true`` is rejected with HTTP 400 to avoid the underlying
+provider passthrough (which treats all non-embeddings actions as
+stream-capable) attempting an SSE stream against an upstream endpoint that
+does not support it.
+
+Example::
+
+    POST /gateway/openai/v1/responses/compact
+    {
+        "model": "my-openai-endpoint",
+        "previous_response_id": "resp_abc123"
+    }
+
+
+
+.. _fastapiPOSTgatewayanthropicv1messages:
+
+Anthropic Passthrough Messages
+------------------------------
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``/gateway/anthropic/v1/messages`` | ``POST``    |
++------------------------------------+-------------+
+
+Anthropic passthrough endpoint for the Messages API.
+
+This endpoint accepts raw Anthropic API format and passes it through to the
+Anthropic provider with the configured API key and model. The 'model' parameter
+in the request specifies which MLflow endpoint to use.
+
+Supports streaming responses when the 'stream' parameter is set to true.
+
+Example::
+
+    POST /gateway/anthropic/v1/messages
+    {
+        "model": "my-anthropic-endpoint",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 1024,
+        "stream": true
+    }
+
+
+
+.. _fastapiPOSTgatewaygeminiv1betamodelsendpointnamegenerateContent:
+
+Gemini Passthrough Generate Content
+-----------------------------------
+
++-------------------------------------------------------------------+-------------+
+|                             Endpoint                              | HTTP Method |
++===================================================================+=============+
+| ``/gateway/gemini/v1beta/models/{endpoint_name}:generateContent`` | ``POST``    |
++-------------------------------------------------------------------+-------------+
+
+Gemini passthrough endpoint for generateContent API (non-streaming).
+
+This endpoint accepts raw Gemini API format and passes it through to the
+Gemini provider with the configured API key. The endpoint_name in the URL path
+specifies which MLflow endpoint to use.
+
+Example::
+
+    POST /gateway/gemini/v1beta/models/my-gemini-endpoint:generateContent
+    {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": "Hello"}]
+            }
+        ]
+    }
+
+
+
+.. _fastapipostgatewaygeminiv1betamodelsendpointnamegenerateContentrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++---------------+------------+-----------------------------------------+
+|  Field Name   |    Type    |               Description               |
++===============+============+=========================================+
+| endpoint_name | ``STRING`` | Path parameter. This field is required. |
++---------------+------------+-----------------------------------------+
+
+.. _fastapiPOSTgatewaygeminiv1betamodelsendpointnamestreamGenerateContent:
+
+Gemini Passthrough Stream Generate Content
+------------------------------------------
+
++-------------------------------------------------------------------------+-------------+
+|                                Endpoint                                 | HTTP Method |
++=========================================================================+=============+
+| ``/gateway/gemini/v1beta/models/{endpoint_name}:streamGenerateContent`` | ``POST``    |
++-------------------------------------------------------------------------+-------------+
+
+Gemini passthrough endpoint for streamGenerateContent API (streaming).
+
+This endpoint accepts raw Gemini API format and passes it through to the
+Gemini provider with the configured API key. The endpoint_name in the URL path
+specifies which MLflow endpoint to use.
+
+Example::
+
+    POST /gateway/gemini/v1beta/models/my-gemini-endpoint:streamGenerateContent
+    {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": "Hello"}]
+            }
+        ]
+    }
+
+
+
+.. _fastapipostgatewaygeminiv1betamodelsendpointnamestreamGenerateContentrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++---------------+------------+-----------------------------------------+
+|  Field Name   |    Type    |               Description               |
++===============+============+=========================================+
+| endpoint_name | ``STRING`` | Path parameter. This field is required. |
++---------------+------------+-----------------------------------------+
+
+.. _fastapiPOSTgatewayproxyendpointnamepath:
+
+Raw Proxy
+---------
+
++-------------------------------------------+-------------+
+|                 Endpoint                  | HTTP Method |
++===========================================+=============+
+| ``/gateway/proxy/{endpoint_name}/{path}`` | ``POST``    |
++-------------------------------------------+-------------+
+
+Raw proxy endpoint.
+
+Routes the request payload as-is to the upstream provider at
+<provider_base_url>/<path>, using the credentials configured for the named
+endpoint. Unlike the typed passthrough routes, the ``model`` field in the
+payload is NOT replaced with the value from the endpoint config.
+
+Streaming is detected automatically from the response Content-Type
+(``text/event-stream`` or ``application/x-ndjson``), so this endpoint
+supports providers like Gemini that signal streaming via Content-Type rather
+than a ``"stream": true`` request flag.
+
+Example::
+
+    POST /gateway/proxy/my-openai-endpoint/chat/completions
+    {
+        "model": "gpt-4o",
+        "messages": [{"role": "user", "content": "Hello"}]
+    }
+
+
+
+.. _fastapipostgatewayproxyendpointnamepathrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++---------------+------------+-----------------------------------------+
+|  Field Name   |    Type    |               Description               |
++===============+============+=========================================+
+| endpoint_name | ``STRING`` | Path parameter. This field is required. |
++---------------+------------+-----------------------------------------+
+| path          | ``STRING`` | Path parameter. This field is required. |
++---------------+------------+-----------------------------------------+
+
+.. _fastapiMCPServerRegistryAPIs:
+
+MCP Server Registry APIs
+========================
+
+
+
+.. _fastapiPOSTapi30mlflowmcpservers:
+
+Create MCP Server
+-----------------
+
++---------------------------------+-------------+
+|            Endpoint             | HTTP Method |
++=================================+=============+
+| ``/api/3.0/mlflow/mcp-servers`` | ``POST``    |
++---------------------------------+-------------+
+
+
+
+.. _fastapipostapi30mlflowmcpserversrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++-------------+-------------------------------------------------------------+-------------------------+
+| Field Name  |                            Type                             |       Description       |
++=============+=============================================================+=========================+
+| name        | ``STRING``                                                  | This field is required. |
++-------------+-------------------------------------------------------------+-------------------------+
+| description | ``STRING`` OR ``NULL``                                      |                         |
++-------------+-------------------------------------------------------------+-------------------------+
+| icons       | An array of :ref:`fastapiMCPIconRequestPayload` OR ``NULL`` |                         |
++-------------+-------------------------------------------------------------+-------------------------+
+
+.. _fastapipostapi30mlflowmcpserversresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+------------------------------------------------------------+-------------------------+
+|       Field Name       |                            Type                            |       Description       |
++========================+============================================================+=========================+
+| name                   | ``STRING``                                                 | This field is required. |
++------------------------+------------------------------------------------------------+-------------------------+
+| display_name           | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| description            | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| icons                  | An array of ``MAP`` OR ``NULL``                            |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| status                 | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| access_endpoints       | An array of :ref:`fastapiMCPAccessEndpointSummaryResponse` |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| latest_version         | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| aliases                | An array of :ref:`fastapiAliasResponse`                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| tags                   | ``MAP``                                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+
+.. _fastapiGETapi30mlflowmcpservers:
+
+Search MCP Servers
+------------------
+
++---------------------------------+-------------+
+|            Endpoint             | HTTP Method |
++=================================+=============+
+| ``/api/3.0/mlflow/mcp-servers`` | ``GET``     |
++---------------------------------+-------------+
+
+
+
+.. _fastapigetapi30mlflowmcpserversrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++---------------+------------------------------------+------------------+
+|  Field Name   |                Type                |   Description    |
++===============+====================================+==================+
+| filter_string | ``STRING`` OR ``NULL``             | Query parameter. |
++---------------+------------------------------------+------------------+
+| max_results   | ``INTEGER``                        | Query parameter. |
++---------------+------------------------------------+------------------+
+| order_by      | An array of ``STRING`` OR ``NULL`` | Query parameter. |
++---------------+------------------------------------+------------------+
+| page_token    | ``STRING`` OR ``NULL``             | Query parameter. |
++---------------+------------------------------------+------------------+
+
+.. _fastapigetapi30mlflowmcpserversresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++-----------------+---------------------------------------------+-------------------------+
+|   Field Name    |                    Type                     |       Description       |
++=================+=============================================+=========================+
+| mcp_servers     | An array of :ref:`fastapiMCPServerResponse` | This field is required. |
++-----------------+---------------------------------------------+-------------------------+
+| next_page_token | ``STRING`` OR ``NULL``                      |                         |
++-----------------+---------------------------------------------+-------------------------+
+
+.. _fastapiGETapi30mlflowmcpserversendpoints:
+
+Search All Access Endpoints
+---------------------------
+
++-------------------------------------------+-------------+
+|                 Endpoint                  | HTTP Method |
++===========================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/endpoints`` | ``GET``     |
++-------------------------------------------+-------------+
+
+
+
+.. _fastapigetapi30mlflowmcpserversendpointsrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++----------------+------------------------------------+------------------+
+|   Field Name   |                Type                |   Description    |
++================+====================================+==================+
+| filter_string  | ``STRING`` OR ``NULL``             | Query parameter. |
++----------------+------------------------------------+------------------+
+| max_results    | ``INTEGER``                        | Query parameter. |
++----------------+------------------------------------+------------------+
+| order_by       | An array of ``STRING`` OR ``NULL`` | Query parameter. |
++----------------+------------------------------------+------------------+
+| page_token     | ``STRING`` OR ``NULL``             | Query parameter. |
++----------------+------------------------------------+------------------+
+| server_version | ``STRING`` OR ``NULL``             | Query parameter. |
++----------------+------------------------------------+------------------+
+| server_alias   | ``STRING`` OR ``NULL``             | Query parameter. |
++----------------+------------------------------------+------------------+
+
+.. _fastapigetapi30mlflowmcpserversendpointsresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++----------------------+-----------------------------------------------------+-------------------------+
+|      Field Name      |                        Type                         |       Description       |
++======================+=====================================================+=========================+
+| mcp_access_endpoints | An array of :ref:`fastapiMCPAccessEndpointResponse` | This field is required. |
++----------------------+-----------------------------------------------------+-------------------------+
+| next_page_token      | ``STRING`` OR ``NULL``                              |                         |
++----------------------+-----------------------------------------------------+-------------------------+
+
+.. _fastapiPOSTapi30mlflowmcpserversnameversionsversiontags:
+
+Set MCP Server Version Tag
+--------------------------
+
++----------------------------------------------------------------+-------------+
+|                            Endpoint                            | HTTP Method |
++================================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/versions/{version}/tags`` | ``POST``    |
++----------------------------------------------------------------+-------------+
+
+
+
+.. _fastapipostapi30mlflowmcpserversnameversionsversiontagsrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| version    | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| key        | ``STRING`` | This field is required.                 |
++------------+------------+-----------------------------------------+
+| value      | ``STRING`` | This field is required.                 |
++------------+------------+-----------------------------------------+
+
+.. _fastapipostapi30mlflowmcpserversnameversionsversiontagsresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------+---------+-------------+
+| Field Name |  Type   | Description |
++============+=========+=============+
+| value      | ``MAP`` |             |
++------------+---------+-------------+
+
+.. _fastapiDELETEapi30mlflowmcpserversnameversionsversiontagskey:
+
+Delete MCP Server Version Tag
+-----------------------------
+
++----------------------------------------------------------------------+-------------+
+|                               Endpoint                               | HTTP Method |
++======================================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/versions/{version}/tags/{key}`` | ``DELETE``  |
++----------------------------------------------------------------------+-------------+
+
+
+
+.. _fastapideleteapi30mlflowmcpserversnameversionsversiontagskeyrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| version    | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| key        | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+
+.. _fastapideleteapi30mlflowmcpserversnameversionsversiontagskeyresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------+---------+-------------+
+| Field Name |  Type   | Description |
++============+=========+=============+
+| value      | ``MAP`` |             |
++------------+---------+-------------+
+
+.. _fastapiGETapi30mlflowmcpserversnameversionsversion:
+
+Get MCP Server Version
+----------------------
+
++-----------------------------------------------------------+-------------+
+|                         Endpoint                          | HTTP Method |
++===========================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/versions/{version}`` | ``GET``     |
++-----------------------------------------------------------+-------------+
+
+
+
+.. _fastapigetapi30mlflowmcpserversnameversionsversionrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| version    | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+
+.. _fastapigetapi30mlflowmcpserversnameversionsversionresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+--------------------------------------------------+-------------------------+
+|       Field Name       |                       Type                       |       Description       |
++========================+==================================================+=========================+
+| name                   | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| version                | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| server_json            | ``MAP``                                          | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| status                 | ``STRING``                                       |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tools                  | An array of :ref:`fastapiMCPToolResponsePayload` |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| aliases                | An array of ``STRING``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tags                   | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| connect_options        | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| source                 | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+
+.. _fastapiPATCHapi30mlflowmcpserversnameversionsversion:
+
+Update MCP Server Version
+-------------------------
+
++-----------------------------------------------------------+-------------+
+|                         Endpoint                          | HTTP Method |
++===========================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/versions/{version}`` | ``PATCH``   |
++-----------------------------------------------------------+-------------+
+
+
+
+.. _fastapipatchapi30mlflowmcpserversnameversionsversionrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++-----------------+-------------------------------------------------------------+-----------------------------------------+
+|   Field Name    |                            Type                             |               Description               |
++=================+=============================================================+=========================================+
+| name            | ``STRING``                                                  | Path parameter. This field is required. |
++-----------------+-------------------------------------------------------------+-----------------------------------------+
+| version         | ``STRING``                                                  | Path parameter. This field is required. |
++-----------------+-------------------------------------------------------------+-----------------------------------------+
+| status          | ``STRING`` OR ``NULL``                                      |                                         |
++-----------------+-------------------------------------------------------------+-----------------------------------------+
+| tools           | An array of :ref:`fastapiMCPToolRequestPayload` OR ``NULL`` |                                         |
++-----------------+-------------------------------------------------------------+-----------------------------------------+
+| connect_options | ``MAP`` OR ``NULL``                                         |                                         |
++-----------------+-------------------------------------------------------------+-----------------------------------------+
+
+.. _fastapipatchapi30mlflowmcpserversnameversionsversionresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+--------------------------------------------------+-------------------------+
+|       Field Name       |                       Type                       |       Description       |
++========================+==================================================+=========================+
+| name                   | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| version                | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| server_json            | ``MAP``                                          | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| status                 | ``STRING``                                       |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tools                  | An array of :ref:`fastapiMCPToolResponsePayload` |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| aliases                | An array of ``STRING``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tags                   | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| connect_options        | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| source                 | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+
+.. _fastapiDELETEapi30mlflowmcpserversnameversionsversion:
+
+Delete MCP Server Version
+-------------------------
+
++-----------------------------------------------------------+-------------+
+|                         Endpoint                          | HTTP Method |
++===========================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/versions/{version}`` | ``DELETE``  |
++-----------------------------------------------------------+-------------+
+
+
+
+.. _fastapideleteapi30mlflowmcpserversnameversionsversionrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| version    | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+
+.. _fastapideleteapi30mlflowmcpserversnameversionsversionresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------+---------+-------------+
+| Field Name |  Type   | Description |
++============+=========+=============+
+| value      | ``MAP`` |             |
++------------+---------+-------------+
+
+.. _fastapiPOSTapi30mlflowmcpserversnameversions:
+
+Create MCP Server Version
+-------------------------
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/versions`` | ``POST``    |
++-------------------------------------------------+-------------+
+
+
+
+.. _fastapipostapi30mlflowmcpserversnameversionsrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+|   Field Name    |                            Type                             |                                                     Description                                                      |
++=================+=============================================================+======================================================================================================================+
+| name            | ``STRING``                                                  | Path parameter. This field is required.                                                                              |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| server_json     | :ref:`fastapiServerJSONPayload`                             | This field is required.                                                                                              |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| status          | ``STRING``                                                  |                                                                                                                      |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| source          | ``STRING`` OR ``NULL``                                      |                                                                                                                      |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| tools           | An array of :ref:`fastapiMCPToolRequestPayload` OR ``NULL`` | Optional tool definitions for this version. Omitting the field or passing null stores no tools. Pass [] for an empty |
+|                 |                                                             | list, or a list of tool definitions.                                                                                 |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| connect_options | ``MAP`` OR ``NULL``                                         |                                                                                                                      |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+
+.. _fastapipostapi30mlflowmcpserversnameversionsresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+--------------------------------------------------+-------------------------+
+|       Field Name       |                       Type                       |       Description       |
++========================+==================================================+=========================+
+| name                   | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| version                | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| server_json            | ``MAP``                                          | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| status                 | ``STRING``                                       |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tools                  | An array of :ref:`fastapiMCPToolResponsePayload` |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| aliases                | An array of ``STRING``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tags                   | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| connect_options        | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| source                 | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+
+.. _fastapiGETapi30mlflowmcpserversnameversions:
+
+Search MCP Server Versions
+--------------------------
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/versions`` | ``GET``     |
++-------------------------------------------------+-------------+
+
+
+
+.. _fastapigetapi30mlflowmcpserversnameversionsrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++---------------+------------------------------------+-----------------------------------------+
+|  Field Name   |                Type                |               Description               |
++===============+====================================+=========================================+
+| name          | ``STRING``                         | Path parameter. This field is required. |
++---------------+------------------------------------+-----------------------------------------+
+| filter_string | ``STRING`` OR ``NULL``             | Query parameter.                        |
++---------------+------------------------------------+-----------------------------------------+
+| max_results   | ``INTEGER``                        | Query parameter.                        |
++---------------+------------------------------------+-----------------------------------------+
+| order_by      | An array of ``STRING`` OR ``NULL`` | Query parameter.                        |
++---------------+------------------------------------+-----------------------------------------+
+| page_token    | ``STRING`` OR ``NULL``             | Query parameter.                        |
++---------------+------------------------------------+-----------------------------------------+
+
+.. _fastapigetapi30mlflowmcpserversnameversionsresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++---------------------+----------------------------------------------------+-------------------------+
+|     Field Name      |                        Type                        |       Description       |
++=====================+====================================================+=========================+
+| mcp_server_versions | An array of :ref:`fastapiMCPServerVersionResponse` | This field is required. |
++---------------------+----------------------------------------------------+-------------------------+
+| next_page_token     | ``STRING`` OR ``NULL``                             |                         |
++---------------------+----------------------------------------------------+-------------------------+
+
+.. _fastapiPOSTapi30mlflowmcpserversnameendpoints:
+
+Create MCP Access Endpoint
+--------------------------
+
++--------------------------------------------------+-------------+
+|                     Endpoint                     | HTTP Method |
++==================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/endpoints`` | ``POST``    |
++--------------------------------------------------+-------------+
+
+
+
+.. _fastapipostapi30mlflowmcpserversnameendpointsrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++----------------+------------------------+-----------------------------------------+
+|   Field Name   |          Type          |               Description               |
++================+========================+=========================================+
+| name           | ``STRING``             | Path parameter. This field is required. |
++----------------+------------------------+-----------------------------------------+
+| server_version | ``STRING`` OR ``NULL`` |                                         |
++----------------+------------------------+-----------------------------------------+
+| server_alias   | ``STRING`` OR ``NULL`` |                                         |
++----------------+------------------------+-----------------------------------------+
+| url            | ``STRING``             | This field is required.                 |
++----------------+------------------------+-----------------------------------------+
+| transport_type | ``STRING``             |                                         |
++----------------+------------------------+-----------------------------------------+
+
+.. _fastapipostapi30mlflowmcpserversnameendpointsresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+--------------------------------------------------------------+-------------------------+
+|       Field Name       |                             Type                             |       Description       |
++========================+==============================================================+=========================+
+| id                     | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_name            | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| url                    | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| transport_type         | ``STRING``                                                   |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| tools                  | An array of :ref:`fastapiMCPToolResponsePayload` OR ``NULL`` |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_version         | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_alias           | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| resolved_version       | :ref:`fastapiMCPServerVersionResponse` OR ``NULL``           |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                                      |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                                      |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+
+.. _fastapiGETapi30mlflowmcpserversnameendpoints:
+
+Search Server Access Endpoints
+------------------------------
+
++--------------------------------------------------+-------------+
+|                     Endpoint                     | HTTP Method |
++==================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/endpoints`` | ``GET``     |
++--------------------------------------------------+-------------+
+
+
+
+.. _fastapigetapi30mlflowmcpserversnameendpointsrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++----------------+------------------------------------+-----------------------------------------+
+|   Field Name   |                Type                |               Description               |
++================+====================================+=========================================+
+| name           | ``STRING``                         | Path parameter. This field is required. |
++----------------+------------------------------------+-----------------------------------------+
+| filter_string  | ``STRING`` OR ``NULL``             | Query parameter.                        |
++----------------+------------------------------------+-----------------------------------------+
+| max_results    | ``INTEGER``                        | Query parameter.                        |
++----------------+------------------------------------+-----------------------------------------+
+| order_by       | An array of ``STRING`` OR ``NULL`` | Query parameter.                        |
++----------------+------------------------------------+-----------------------------------------+
+| page_token     | ``STRING`` OR ``NULL``             | Query parameter.                        |
++----------------+------------------------------------+-----------------------------------------+
+| server_version | ``STRING`` OR ``NULL``             | Query parameter.                        |
++----------------+------------------------------------+-----------------------------------------+
+| server_alias   | ``STRING`` OR ``NULL``             | Query parameter.                        |
++----------------+------------------------------------+-----------------------------------------+
+
+.. _fastapigetapi30mlflowmcpserversnameendpointsresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++----------------------+-----------------------------------------------------+-------------------------+
+|      Field Name      |                        Type                         |       Description       |
++======================+=====================================================+=========================+
+| mcp_access_endpoints | An array of :ref:`fastapiMCPAccessEndpointResponse` | This field is required. |
++----------------------+-----------------------------------------------------+-------------------------+
+| next_page_token      | ``STRING`` OR ``NULL``                              |                         |
++----------------------+-----------------------------------------------------+-------------------------+
+
+.. _fastapiGETapi30mlflowmcpserversnameendpointsendpointid:
+
+Get MCP Access Endpoint
+-----------------------
+
++----------------------------------------------------------------+-------------+
+|                            Endpoint                            | HTTP Method |
++================================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/endpoints/{endpoint_id}`` | ``GET``     |
++----------------------------------------------------------------+-------------+
+
+
+
+.. _fastapigetapi30mlflowmcpserversnameendpointsendpointidrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++-------------+------------+-----------------------------------------+
+| Field Name  |    Type    |               Description               |
++=============+============+=========================================+
+| name        | ``STRING`` | Path parameter. This field is required. |
++-------------+------------+-----------------------------------------+
+| endpoint_id | ``STRING`` | Path parameter. This field is required. |
++-------------+------------+-----------------------------------------+
+
+.. _fastapigetapi30mlflowmcpserversnameendpointsendpointidresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+--------------------------------------------------------------+-------------------------+
+|       Field Name       |                             Type                             |       Description       |
++========================+==============================================================+=========================+
+| id                     | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_name            | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| url                    | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| transport_type         | ``STRING``                                                   |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| tools                  | An array of :ref:`fastapiMCPToolResponsePayload` OR ``NULL`` |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_version         | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_alias           | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| resolved_version       | :ref:`fastapiMCPServerVersionResponse` OR ``NULL``           |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                                      |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                                      |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+
+.. _fastapiPATCHapi30mlflowmcpserversnameendpointsendpointid:
+
+Update MCP Access Endpoint
+--------------------------
+
++----------------------------------------------------------------+-------------+
+|                            Endpoint                            | HTTP Method |
++================================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/endpoints/{endpoint_id}`` | ``PATCH``   |
++----------------------------------------------------------------+-------------+
+
+
+
+.. _fastapipatchapi30mlflowmcpserversnameendpointsendpointidrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++----------------+------------------------+-----------------------------------------+
+|   Field Name   |          Type          |               Description               |
++================+========================+=========================================+
+| name           | ``STRING``             | Path parameter. This field is required. |
++----------------+------------------------+-----------------------------------------+
+| endpoint_id    | ``STRING``             | Path parameter. This field is required. |
++----------------+------------------------+-----------------------------------------+
+| server_version | ``STRING`` OR ``NULL`` |                                         |
++----------------+------------------------+-----------------------------------------+
+| server_alias   | ``STRING`` OR ``NULL`` |                                         |
++----------------+------------------------+-----------------------------------------+
+| url            | ``STRING`` OR ``NULL`` |                                         |
++----------------+------------------------+-----------------------------------------+
+| transport_type | ``STRING`` OR ``NULL`` |                                         |
++----------------+------------------------+-----------------------------------------+
+
+.. _fastapipatchapi30mlflowmcpserversnameendpointsendpointidresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+--------------------------------------------------------------+-------------------------+
+|       Field Name       |                             Type                             |       Description       |
++========================+==============================================================+=========================+
+| id                     | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_name            | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| url                    | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| transport_type         | ``STRING``                                                   |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| tools                  | An array of :ref:`fastapiMCPToolResponsePayload` OR ``NULL`` |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_version         | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_alias           | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| resolved_version       | :ref:`fastapiMCPServerVersionResponse` OR ``NULL``           |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                                      |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                                      |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+
+.. _fastapiDELETEapi30mlflowmcpserversnameendpointsendpointid:
+
+Delete MCP Access Endpoint
+--------------------------
+
++----------------------------------------------------------------+-------------+
+|                            Endpoint                            | HTTP Method |
++================================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/endpoints/{endpoint_id}`` | ``DELETE``  |
++----------------------------------------------------------------+-------------+
+
+
+
+.. _fastapideleteapi30mlflowmcpserversnameendpointsendpointidrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++-------------+------------+-----------------------------------------+
+| Field Name  |    Type    |               Description               |
++=============+============+=========================================+
+| name        | ``STRING`` | Path parameter. This field is required. |
++-------------+------------+-----------------------------------------+
+| endpoint_id | ``STRING`` | Path parameter. This field is required. |
++-------------+------------+-----------------------------------------+
+
+.. _fastapideleteapi30mlflowmcpserversnameendpointsendpointidresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------+---------+-------------+
+| Field Name |  Type   | Description |
++============+=========+=============+
+| value      | ``MAP`` |             |
++------------+---------+-------------+
+
+.. _fastapiPOSTapi30mlflowmcpserversnametags:
+
+Set MCP Server Tag
+------------------
+
++---------------------------------------------+-------------+
+|                  Endpoint                   | HTTP Method |
++=============================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/tags`` | ``POST``    |
++---------------------------------------------+-------------+
+
+
+
+.. _fastapipostapi30mlflowmcpserversnametagsrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| key        | ``STRING`` | This field is required.                 |
++------------+------------+-----------------------------------------+
+| value      | ``STRING`` | This field is required.                 |
++------------+------------+-----------------------------------------+
+
+.. _fastapipostapi30mlflowmcpserversnametagsresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------+---------+-------------+
+| Field Name |  Type   | Description |
++============+=========+=============+
+| value      | ``MAP`` |             |
++------------+---------+-------------+
+
+.. _fastapiDELETEapi30mlflowmcpserversnametagskey:
+
+Delete MCP Server Tag
+---------------------
+
++---------------------------------------------------+-------------+
+|                     Endpoint                      | HTTP Method |
++===================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/tags/{key}`` | ``DELETE``  |
++---------------------------------------------------+-------------+
+
+
+
+.. _fastapideleteapi30mlflowmcpserversnametagskeyrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| key        | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+
+.. _fastapideleteapi30mlflowmcpserversnametagskeyresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------+---------+-------------+
+| Field Name |  Type   | Description |
++============+=========+=============+
+| value      | ``MAP`` |             |
++------------+---------+-------------+
+
+.. _fastapiPOSTapi30mlflowmcpserversnamealiases:
+
+Set MCP Server Alias
+--------------------
+
++------------------------------------------------+-------------+
+|                    Endpoint                    | HTTP Method |
++================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/aliases`` | ``POST``    |
++------------------------------------------------+-------------+
+
+
+
+.. _fastapipostapi30mlflowmcpserversnamealiasesrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| alias      | ``STRING`` | This field is required.                 |
++------------+------------+-----------------------------------------+
+| version    | ``STRING`` | This field is required.                 |
++------------+------------+-----------------------------------------+
+
+.. _fastapipostapi30mlflowmcpserversnamealiasesresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------+---------+-------------+
+| Field Name |  Type   | Description |
++============+=========+=============+
+| value      | ``MAP`` |             |
++------------+---------+-------------+
+
+.. _fastapiGETapi30mlflowmcpserversnamealiasesalias:
+
+Get Version By Alias
+--------------------
+
++--------------------------------------------------------+-------------+
+|                        Endpoint                        | HTTP Method |
++========================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/aliases/{alias}`` | ``GET``     |
++--------------------------------------------------------+-------------+
+
+
+
+.. _fastapigetapi30mlflowmcpserversnamealiasesaliasrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| alias      | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+
+.. _fastapigetapi30mlflowmcpserversnamealiasesaliasresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+--------------------------------------------------+-------------------------+
+|       Field Name       |                       Type                       |       Description       |
++========================+==================================================+=========================+
+| name                   | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| version                | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| server_json            | ``MAP``                                          | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| status                 | ``STRING``                                       |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tools                  | An array of :ref:`fastapiMCPToolResponsePayload` |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| aliases                | An array of ``STRING``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tags                   | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| connect_options        | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| source                 | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+
+.. _fastapiDELETEapi30mlflowmcpserversnamealiasesalias:
+
+Delete MCP Server Alias
+-----------------------
+
++--------------------------------------------------------+-------------+
+|                        Endpoint                        | HTTP Method |
++========================================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}/aliases/{alias}`` | ``DELETE``  |
++--------------------------------------------------------+-------------+
+
+
+
+.. _fastapideleteapi30mlflowmcpserversnamealiasesaliasrequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+| alias      | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+
+.. _fastapideleteapi30mlflowmcpserversnamealiasesaliasresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------+---------+-------------+
+| Field Name |  Type   | Description |
++============+=========+=============+
+| value      | ``MAP`` |             |
++------------+---------+-------------+
+
+.. _fastapiGETapi30mlflowmcpserversname:
+
+Get MCP Server
+--------------
+
++----------------------------------------+-------------+
+|                Endpoint                | HTTP Method |
++========================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}`` | ``GET``     |
++----------------------------------------+-------------+
+
+
+
+.. _fastapigetapi30mlflowmcpserversnamerequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+
+.. _fastapigetapi30mlflowmcpserversnameresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+------------------------------------------------------------+-------------------------+
+|       Field Name       |                            Type                            |       Description       |
++========================+============================================================+=========================+
+| name                   | ``STRING``                                                 | This field is required. |
++------------------------+------------------------------------------------------------+-------------------------+
+| display_name           | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| description            | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| icons                  | An array of ``MAP`` OR ``NULL``                            |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| status                 | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| access_endpoints       | An array of :ref:`fastapiMCPAccessEndpointSummaryResponse` |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| latest_version         | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| aliases                | An array of :ref:`fastapiAliasResponse`                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| tags                   | ``MAP``                                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+
+.. _fastapiPATCHapi30mlflowmcpserversname:
+
+Update MCP Server
+-----------------
+
++----------------------------------------+-------------+
+|                Endpoint                | HTTP Method |
++========================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}`` | ``PATCH``   |
++----------------------------------------+-------------+
+
+
+
+.. _fastapipatchapi30mlflowmcpserversnamerequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++--------------+-------------------------------------------------------------+-----------------------------------------+
+|  Field Name  |                            Type                             |               Description               |
++==============+=============================================================+=========================================+
+| name         | ``STRING``                                                  | Path parameter. This field is required. |
++--------------+-------------------------------------------------------------+-----------------------------------------+
+| display_name | ``STRING`` OR ``NULL``                                      |                                         |
++--------------+-------------------------------------------------------------+-----------------------------------------+
+| description  | ``STRING`` OR ``NULL``                                      |                                         |
++--------------+-------------------------------------------------------------+-----------------------------------------+
+| icons        | An array of :ref:`fastapiMCPIconRequestPayload` OR ``NULL`` |                                         |
++--------------+-------------------------------------------------------------+-----------------------------------------+
+
+.. _fastapipatchapi30mlflowmcpserversnameresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------------------+------------------------------------------------------------+-------------------------+
+|       Field Name       |                            Type                            |       Description       |
++========================+============================================================+=========================+
+| name                   | ``STRING``                                                 | This field is required. |
++------------------------+------------------------------------------------------------+-------------------------+
+| display_name           | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| description            | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| icons                  | An array of ``MAP`` OR ``NULL``                            |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| status                 | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| access_endpoints       | An array of :ref:`fastapiMCPAccessEndpointSummaryResponse` |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| latest_version         | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| aliases                | An array of :ref:`fastapiAliasResponse`                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| tags                   | ``MAP``                                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+
+.. _fastapiDELETEapi30mlflowmcpserversname:
+
+Delete MCP Server
+-----------------
+
++----------------------------------------+-------------+
+|                Endpoint                | HTTP Method |
++========================================+=============+
+| ``/api/3.0/mlflow/mcp-servers/{name}`` | ``DELETE``  |
++----------------------------------------+-------------+
+
+
+
+.. _fastapideleteapi30mlflowmcpserversnamerequest:
+
+Request Structure
+~~~~~~~~~~~~~~~~~
+
+
+
++------------+------------+-----------------------------------------+
+| Field Name |    Type    |               Description               |
++============+============+=========================================+
+| name       | ``STRING`` | Path parameter. This field is required. |
++------------+------------+-----------------------------------------+
+
+.. _fastapideleteapi30mlflowmcpserversnameresponse:
+
+Response Structure
+~~~~~~~~~~~~~~~~~~
+
+
+
+Successful Response
+
++------------+---------+-------------+
+| Field Name |  Type   | Description |
++============+=========+=============+
+| value      | ``MAP`` |             |
++------------+---------+-------------+
+
 .. _RESTadd:
 
 Data Structures
@@ -9593,6 +11325,537 @@ Workspace metadata returned by workspace APIs.
 +-----------------------+----------------------------------+-------------------------------------------------------------+
 | trace_archival_config | :ref:`mlflowtracearchivalconfig` | Optional trace archival settings for this workspace.        |
 +-----------------------+----------------------------------+-------------------------------------------------------------+
+
+.. _fastapiAliasResponse:
+
+Alias Response
+--------------
+
+
+
++------------+------------+-------------------------+
+| Field Name |    Type    |       Description       |
++============+============+=========================+
+| alias      | ``STRING`` | This field is required. |
++------------+------------+-------------------------+
+| version    | ``STRING`` | This field is required. |
++------------+------------+-------------------------+
+
+.. _fastapiCreateMCPAccessEndpointRequest:
+
+Create MCP Access Endpoint Request
+----------------------------------
+
+
+
++----------------+------------------------+-------------------------+
+|   Field Name   |          Type          |       Description       |
++================+========================+=========================+
+| server_version | ``STRING`` OR ``NULL`` |                         |
++----------------+------------------------+-------------------------+
+| server_alias   | ``STRING`` OR ``NULL`` |                         |
++----------------+------------------------+-------------------------+
+| url            | ``STRING``             | This field is required. |
++----------------+------------------------+-------------------------+
+| transport_type | ``STRING``             |                         |
++----------------+------------------------+-------------------------+
+
+.. _fastapiCreateMCPServerRequest:
+
+Create MCP Server Request
+-------------------------
+
+
+
++-------------+-------------------------------------------------------------+-------------------------+
+| Field Name  |                            Type                             |       Description       |
++=============+=============================================================+=========================+
+| name        | ``STRING``                                                  | This field is required. |
++-------------+-------------------------------------------------------------+-------------------------+
+| description | ``STRING`` OR ``NULL``                                      |                         |
++-------------+-------------------------------------------------------------+-------------------------+
+| icons       | An array of :ref:`fastapiMCPIconRequestPayload` OR ``NULL`` |                         |
++-------------+-------------------------------------------------------------+-------------------------+
+
+.. _fastapiCreateMCPServerVersionRequest:
+
+Create MCP Server Version Request
+---------------------------------
+
+
+
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+|   Field Name    |                            Type                             |                                                     Description                                                      |
++=================+=============================================================+======================================================================================================================+
+| server_json     | :ref:`fastapiServerJSONPayload`                             | This field is required.                                                                                              |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| status          | ``STRING``                                                  |                                                                                                                      |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| source          | ``STRING`` OR ``NULL``                                      |                                                                                                                      |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| tools           | An array of :ref:`fastapiMCPToolRequestPayload` OR ``NULL`` | Optional tool definitions for this version. Omitting the field or passing null stores no tools. Pass [] for an empty |
+|                 |                                                             | list, or a list of tool definitions.                                                                                 |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+| connect_options | ``MAP`` OR ``NULL``                                         |                                                                                                                      |
++-----------------+-------------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------+
+
+.. _fastapiMCPAccessEndpointResponse:
+
+MCP Access Endpoint Response
+----------------------------
+
+
+
++------------------------+--------------------------------------------------------------+-------------------------+
+|       Field Name       |                             Type                             |       Description       |
++========================+==============================================================+=========================+
+| id                     | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_name            | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| url                    | ``STRING``                                                   | This field is required. |
++------------------------+--------------------------------------------------------------+-------------------------+
+| transport_type         | ``STRING``                                                   |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| tools                  | An array of :ref:`fastapiMCPToolResponsePayload` OR ``NULL`` |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_version         | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| server_alias           | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| resolved_version       | :ref:`fastapiMCPServerVersionResponse` OR ``NULL``           |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                                       |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                                      |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                                      |                         |
++------------------------+--------------------------------------------------------------+-------------------------+
+
+.. _fastapiMCPAccessEndpointSummaryResponse:
+
+MCP Access Endpoint Summary Response
+------------------------------------
+
+
+
++------------------------+----------------------------------------------------+-------------------------+
+|       Field Name       |                        Type                        |       Description       |
++========================+====================================================+=========================+
+| id                     | ``STRING``                                         | This field is required. |
++------------------------+----------------------------------------------------+-------------------------+
+| server_name            | ``STRING``                                         | This field is required. |
++------------------------+----------------------------------------------------+-------------------------+
+| url                    | ``STRING``                                         | This field is required. |
++------------------------+----------------------------------------------------+-------------------------+
+| transport_type         | ``STRING``                                         |                         |
++------------------------+----------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                             |                         |
++------------------------+----------------------------------------------------+-------------------------+
+| server_version         | ``STRING`` OR ``NULL``                             |                         |
++------------------------+----------------------------------------------------+-------------------------+
+| server_alias           | ``STRING`` OR ``NULL``                             |                         |
++------------------------+----------------------------------------------------+-------------------------+
+| resolved_version       | :ref:`fastapiMCPServerVersionResponse` OR ``NULL`` |                         |
++------------------------+----------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                             |                         |
++------------------------+----------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                             |                         |
++------------------------+----------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                            |                         |
++------------------------+----------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                            |                         |
++------------------------+----------------------------------------------------+-------------------------+
+
+.. _fastapiMCPIconRequestPayload:
+
+MCP Icon Request Payload
+------------------------
+
+
+
++------------+------------------------------------+-------------------------+
+| Field Name |                Type                |       Description       |
++============+====================================+=========================+
+| src        | ``STRING``                         | This field is required. |
++------------+------------------------------------+-------------------------+
+| sizes      | An array of ``STRING`` OR ``NULL`` |                         |
++------------+------------------------------------+-------------------------+
+| mimeType   | ``STRING`` OR ``NULL``             |                         |
++------------+------------------------------------+-------------------------+
+| theme      | ``STRING`` OR ``NULL``             |                         |
++------------+------------------------------------+-------------------------+
+
+.. _fastapiMCPServerResponse:
+
+MCP Server Response
+-------------------
+
+
+
++------------------------+------------------------------------------------------------+-------------------------+
+|       Field Name       |                            Type                            |       Description       |
++========================+============================================================+=========================+
+| name                   | ``STRING``                                                 | This field is required. |
++------------------------+------------------------------------------------------------+-------------------------+
+| display_name           | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| description            | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| icons                  | An array of ``MAP`` OR ``NULL``                            |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| status                 | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| access_endpoints       | An array of :ref:`fastapiMCPAccessEndpointSummaryResponse` |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| latest_version         | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| aliases                | An array of :ref:`fastapiAliasResponse`                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| tags                   | ``MAP``                                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                                     |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                                    |                         |
++------------------------+------------------------------------------------------------+-------------------------+
+
+.. _fastapiMCPServerVersionResponse:
+
+MCP Server Version Response
+---------------------------
+
+
+
++------------------------+--------------------------------------------------+-------------------------+
+|       Field Name       |                       Type                       |       Description       |
++========================+==================================================+=========================+
+| name                   | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| version                | ``STRING``                                       | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| server_json            | ``MAP``                                          | This field is required. |
++------------------------+--------------------------------------------------+-------------------------+
+| workspace              | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| status                 | ``STRING``                                       |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tools                  | An array of :ref:`fastapiMCPToolResponsePayload` |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| aliases                | An array of ``STRING``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| tags                   | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| connect_options        | ``MAP``                                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| source                 | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| created_by             | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_by        | ``STRING`` OR ``NULL``                           |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| creation_timestamp     | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+| last_updated_timestamp | ``INTEGER`` OR ``NULL``                          |                         |
++------------------------+--------------------------------------------------+-------------------------+
+
+.. _fastapiMCPToolRequestPayload:
+
+MCP Tool Request Payload
+------------------------
+
+
+
++--------------+-------------------------------------------------------------+-------------------------+
+|  Field Name  |                            Type                             |       Description       |
++==============+=============================================================+=========================+
+| name         | ``STRING``                                                  | This field is required. |
++--------------+-------------------------------------------------------------+-------------------------+
+| title        | ``STRING`` OR ``NULL``                                      |                         |
++--------------+-------------------------------------------------------------+-------------------------+
+| description  | ``STRING`` OR ``NULL``                                      |                         |
++--------------+-------------------------------------------------------------+-------------------------+
+| inputSchema  | ``MAP`` OR ``NULL``                                         |                         |
++--------------+-------------------------------------------------------------+-------------------------+
+| outputSchema | ``MAP`` OR ``NULL``                                         |                         |
++--------------+-------------------------------------------------------------+-------------------------+
+| annotations  | ``MAP`` OR ``NULL``                                         |                         |
++--------------+-------------------------------------------------------------+-------------------------+
+| icons        | An array of :ref:`fastapiMCPIconRequestPayload` OR ``NULL`` |                         |
++--------------+-------------------------------------------------------------+-------------------------+
+| execution    | ``MAP`` OR ``NULL``                                         |                         |
++--------------+-------------------------------------------------------------+-------------------------+
+
+.. _fastapiMCPToolResponsePayload:
+
+MCP Tool Response Payload
+-------------------------
+
+
+
++--------------+---------------------------------+-------------------------+
+|  Field Name  |              Type               |       Description       |
++==============+=================================+=========================+
+| name         | ``STRING``                      | This field is required. |
++--------------+---------------------------------+-------------------------+
+| title        | ``STRING`` OR ``NULL``          |                         |
++--------------+---------------------------------+-------------------------+
+| description  | ``STRING`` OR ``NULL``          |                         |
++--------------+---------------------------------+-------------------------+
+| inputSchema  | ``MAP`` OR ``NULL``             |                         |
++--------------+---------------------------------+-------------------------+
+| outputSchema | ``MAP`` OR ``NULL``             |                         |
++--------------+---------------------------------+-------------------------+
+| annotations  | ``MAP`` OR ``NULL``             |                         |
++--------------+---------------------------------+-------------------------+
+| icons        | An array of ``MAP`` OR ``NULL`` |                         |
++--------------+---------------------------------+-------------------------+
+| execution    | ``MAP`` OR ``NULL``             |                         |
++--------------+---------------------------------+-------------------------+
+
+.. _fastapiSearchMCPAccessEndpointsResponse:
+
+Search MCP Access Endpoints Response
+------------------------------------
+
+
+
++----------------------+-----------------------------------------------------+-------------------------+
+|      Field Name      |                        Type                         |       Description       |
++======================+=====================================================+=========================+
+| mcp_access_endpoints | An array of :ref:`fastapiMCPAccessEndpointResponse` | This field is required. |
++----------------------+-----------------------------------------------------+-------------------------+
+| next_page_token      | ``STRING`` OR ``NULL``                              |                         |
++----------------------+-----------------------------------------------------+-------------------------+
+
+.. _fastapiSearchMCPServerVersionsResponse:
+
+Search MCP Server Versions Response
+-----------------------------------
+
+
+
++---------------------+----------------------------------------------------+-------------------------+
+|     Field Name      |                        Type                        |       Description       |
++=====================+====================================================+=========================+
+| mcp_server_versions | An array of :ref:`fastapiMCPServerVersionResponse` | This field is required. |
++---------------------+----------------------------------------------------+-------------------------+
+| next_page_token     | ``STRING`` OR ``NULL``                             |                         |
++---------------------+----------------------------------------------------+-------------------------+
+
+.. _fastapiSearchMCPServersResponse:
+
+Search MCP Servers Response
+---------------------------
+
+
+
++-----------------+---------------------------------------------+-------------------------+
+|   Field Name    |                    Type                     |       Description       |
++=================+=============================================+=========================+
+| mcp_servers     | An array of :ref:`fastapiMCPServerResponse` | This field is required. |
++-----------------+---------------------------------------------+-------------------------+
+| next_page_token | ``STRING`` OR ``NULL``                      |                         |
++-----------------+---------------------------------------------+-------------------------+
+
+.. _fastapiServerJSONEnvironmentVariablePayload:
+
+Server JSON Environment Variable Payload
+----------------------------------------
+
+
+
++-------------+-------------------------+-------------------------+
+| Field Name  |          Type           |       Description       |
++=============+=========================+=========================+
+| name        | ``STRING``              | This field is required. |
++-------------+-------------------------+-------------------------+
+| description | ``STRING`` OR ``NULL``  |                         |
++-------------+-------------------------+-------------------------+
+| isRequired  | ``BOOLEAN`` OR ``NULL`` |                         |
++-------------+-------------------------+-------------------------+
+| isSecret    | ``BOOLEAN`` OR ``NULL`` |                         |
++-------------+-------------------------+-------------------------+
+
+.. _fastapiServerJSONPackagePayload:
+
+Server JSON Package Payload
+---------------------------
+
+
+
++----------------------+----------------------------------------------------------------------------+-------------------------+
+|      Field Name      |                                    Type                                    |       Description       |
++======================+============================================================================+=========================+
+| registryType         | ``STRING``                                                                 | This field is required. |
++----------------------+----------------------------------------------------------------------------+-------------------------+
+| identifier           | ``STRING``                                                                 | This field is required. |
++----------------------+----------------------------------------------------------------------------+-------------------------+
+| transport            | ``JSON``                                                                   | This field is required. |
++----------------------+----------------------------------------------------------------------------+-------------------------+
+| registryBaseUrl      | ``STRING`` OR ``NULL``                                                     |                         |
++----------------------+----------------------------------------------------------------------------+-------------------------+
+| version              | ``STRING`` OR ``NULL``                                                     |                         |
++----------------------+----------------------------------------------------------------------------+-------------------------+
+| environmentVariables | An array of :ref:`fastapiServerJSONEnvironmentVariablePayload` OR ``NULL`` |                         |
++----------------------+----------------------------------------------------------------------------+-------------------------+
+
+.. _fastapiServerJSONPayload:
+
+Server JSON Payload
+-------------------
+
+
+
++-------------+----------------------------------------------------------------+-------------------------+
+| Field Name  |                              Type                              |       Description       |
++=============+================================================================+=========================+
+| name        | ``STRING``                                                     | This field is required. |
++-------------+----------------------------------------------------------------+-------------------------+
+| version     | ``STRING``                                                     | This field is required. |
++-------------+----------------------------------------------------------------+-------------------------+
+| title       | ``STRING`` OR ``NULL``                                         |                         |
++-------------+----------------------------------------------------------------+-------------------------+
+| description | ``STRING`` OR ``NULL``                                         |                         |
++-------------+----------------------------------------------------------------+-------------------------+
+| icons       | An array of :ref:`fastapiMCPIconRequestPayload` OR ``NULL``    |                         |
++-------------+----------------------------------------------------------------+-------------------------+
+| packages    | An array of :ref:`fastapiServerJSONPackagePayload` OR ``NULL`` |                         |
++-------------+----------------------------------------------------------------+-------------------------+
+| remotes     | An array of :ref:`fastapiServerJSONRemotePayload` OR ``NULL``  |                         |
++-------------+----------------------------------------------------------------+-------------------------+
+| repository  | :ref:`fastapiServerJSONRepositoryPayload` OR ``NULL``          |                         |
++-------------+----------------------------------------------------------------+-------------------------+
+| websiteUrl  | ``STRING`` OR ``NULL``                                         |                         |
++-------------+----------------------------------------------------------------+-------------------------+
+| _meta       | ``MAP`` OR ``NULL``                                            |                         |
++-------------+----------------------------------------------------------------+-------------------------+
+
+.. _fastapiServerJSONRemotePayload:
+
+Server JSON Remote Payload
+--------------------------
+
+
+
++------------+------------------------+-------------+
+| Field Name |          Type          | Description |
++============+========================+=============+
+| type       | ``STRING`` OR ``NULL`` |             |
++------------+------------------------+-------------+
+| url        | ``STRING`` OR ``NULL`` |             |
++------------+------------------------+-------------+
+
+.. _fastapiServerJSONRepositoryPayload:
+
+Server JSON Repository Payload
+------------------------------
+
+
+
++------------+------------------------+-------------------------+
+| Field Name |          Type          |       Description       |
++============+========================+=========================+
+| url        | ``STRING``             | This field is required. |
++------------+------------------------+-------------------------+
+| source     | ``STRING``             | This field is required. |
++------------+------------------------+-------------------------+
+| id         | ``STRING`` OR ``NULL`` |                         |
++------------+------------------------+-------------------------+
+| subfolder  | ``STRING`` OR ``NULL`` |                         |
++------------+------------------------+-------------------------+
+
+.. _fastapiSetAliasRequest:
+
+Set Alias Request
+-----------------
+
+
+
++------------+------------+-------------------------+
+| Field Name |    Type    |       Description       |
++============+============+=========================+
+| alias      | ``STRING`` | This field is required. |
++------------+------------+-------------------------+
+| version    | ``STRING`` | This field is required. |
++------------+------------+-------------------------+
+
+.. _fastapiSetTagRequest:
+
+Set Tag Request
+---------------
+
+
+
++------------+------------+-------------------------+
+| Field Name |    Type    |       Description       |
++============+============+=========================+
+| key        | ``STRING`` | This field is required. |
++------------+------------+-------------------------+
+| value      | ``STRING`` | This field is required. |
++------------+------------+-------------------------+
+
+.. _fastapiUpdateMCPAccessEndpointRequest:
+
+Update MCP Access Endpoint Request
+----------------------------------
+
+
+
++----------------+------------------------+-------------+
+|   Field Name   |          Type          | Description |
++================+========================+=============+
+| server_version | ``STRING`` OR ``NULL`` |             |
++----------------+------------------------+-------------+
+| server_alias   | ``STRING`` OR ``NULL`` |             |
++----------------+------------------------+-------------+
+| url            | ``STRING`` OR ``NULL`` |             |
++----------------+------------------------+-------------+
+| transport_type | ``STRING`` OR ``NULL`` |             |
++----------------+------------------------+-------------+
+
+.. _fastapiUpdateMCPServerRequest:
+
+Update MCP Server Request
+-------------------------
+
+
+
++--------------+-------------------------------------------------------------+-------------+
+|  Field Name  |                            Type                             | Description |
++==============+=============================================================+=============+
+| display_name | ``STRING`` OR ``NULL``                                      |             |
++--------------+-------------------------------------------------------------+-------------+
+| description  | ``STRING`` OR ``NULL``                                      |             |
++--------------+-------------------------------------------------------------+-------------+
+| icons        | An array of :ref:`fastapiMCPIconRequestPayload` OR ``NULL`` |             |
++--------------+-------------------------------------------------------------+-------------+
+
+.. _fastapiUpdateMCPServerVersionRequest:
+
+Update MCP Server Version Request
+---------------------------------
+
+
+
++-----------------+-------------------------------------------------------------+-------------+
+|   Field Name    |                            Type                             | Description |
++=================+=============================================================+=============+
+| status          | ``STRING`` OR ``NULL``                                      |             |
++-----------------+-------------------------------------------------------------+-------------+
+| tools           | An array of :ref:`fastapiMCPToolRequestPayload` OR ``NULL`` |             |
++-----------------+-------------------------------------------------------------+-------------+
+| connect_options | ``MAP`` OR ``NULL``                                         |             |
++-----------------+-------------------------------------------------------------+-------------+
 
 .. _mlflowAggregationType:
 
