@@ -15,6 +15,7 @@ cursor_hidden="false"
 spinner_pid=""
 spinner_output_file=""
 spinner_error_file=""
+curl_auth_config=""
 selection_header_open=""
 selection_default_index=0
 selection_filter_enabled="false"
@@ -68,6 +69,10 @@ cleanup() {
 	if [ -n "$spinner_error_file" ]; then
 		rm -f "$spinner_error_file"
 		spinner_error_file=""
+	fi
+	if [ -n "$curl_auth_config" ]; then
+		rm -f "$curl_auth_config"
+		curl_auth_config=""
 	fi
 	if [ -n "$setup_tmp_dir" ] && [ -d "$setup_tmp_dir" ]; then
 		rm -rf "$setup_tmp_dir"
@@ -548,17 +553,28 @@ select_option() {
 
 json_first_string() {
 	json_key=$1
-	sed -n 's/.*"'"$json_key"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
+	if command -v jq >/dev/null 2>&1; then
+		jq -r --arg key "$json_key" '[.. | objects | .[$key]? | select(type == "string")][0] // empty'
+	else
+		sed -n 's/.*"'"$json_key"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1
+	fi
 }
 
 json_all_strings() {
 	json_key=$1
-	sed -n 's/.*"'"$json_key"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
+	if command -v jq >/dev/null 2>&1; then
+		jq -r --arg key "$json_key" '.. | objects | .[$key]? | select(type == "string")'
+	else
+		sed -n 's/.*"'"$json_key"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
+	fi
 }
 
 json_tag_value() {
 	tag_key=$1
-	awk -v wanted="$tag_key" '
+	if command -v jq >/dev/null 2>&1; then
+		jq -r --arg wanted "$tag_key" '[.. | objects | select(.key? == $wanted) | .value? | select(type == "string")][0] // empty'
+	else
+		awk -v wanted="$tag_key" '
 		/"key"[[:space:]]*:/ {
 			line=$0
 			sub(/^.*"key"[[:space:]]*:[[:space:]]*"/, "", line)
@@ -573,6 +589,21 @@ json_tag_value() {
 			current_key=""
 		}
 	'
+	fi
+}
+
+json_experiment_strings() {
+	json_key=$1
+	if command -v jq >/dev/null 2>&1; then
+		jq -r --arg key "$json_key" '.experiments[]? | .[$key] | select(type == "string")'
+	else
+		sed '
+s/"experiment_id"/\
+"experiment_id"/g
+s/"name"/\
+"name"/g
+' | json_all_strings "$json_key"
+	fi
 }
 
 json_escape() {
@@ -609,6 +640,8 @@ EXPERIMENT_NAME=""
 UC_SCHEMA=""
 WAREHOUSE_ID=""
 AGENT_NAME=""
+WORKSPACE_URL_EXPLICIT="false"
+PROFILE_EXPLICIT="false"
 
 usage() {
 	printf '%s\n' \
@@ -632,11 +665,13 @@ parse_args() {
 		--workspace-url)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
 			WORKSPACE_URL=$2
+			WORKSPACE_URL_EXPLICIT="true"
 			shift 2
 			;;
 		--profile)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
 			PROFILE=$2
+			PROFILE_EXPLICIT="true"
 			shift 2
 			;;
 		--tracking-uri)
@@ -721,9 +756,9 @@ show_manual_setup() {
 			primary_detail "3. Set MLFLOW_TRACING_SQL_WAREHOUSE_ID=$WAREHOUSE_ID."
 		fi
 		if [ -n "$PROFILE" ]; then
-			primary_detail "Authenticate with: databricks auth login --host $WORKSPACE_URL --profile $PROFILE"
+			primary_detail "Authenticate with: $DATABRICKS_BIN auth login --host $WORKSPACE_URL --profile $PROFILE"
 		else
-			primary_detail "Set DATABRICKS_HOST=$WORKSPACE_URL and authenticate with: databricks auth login --host $WORKSPACE_URL"
+			primary_detail "Set DATABRICKS_HOST=$WORKSPACE_URL and authenticate with: $DATABRICKS_BIN auth login --host $WORKSPACE_URL"
 		fi
 		primary_detail "Enable tracing for your framework, run one request, and confirm the trace appears in MLflow."
 		;;
@@ -751,6 +786,13 @@ show_manual_setup() {
 	printf '%b│%b  %b%s%b\n' "$LINE" "$RESET" "$YELLOW" "$manual_setup_docs" "$RESET" >&2
 	printf '%b│%b\n' "$LINE" "$RESET" >&2
 	footer "Setup complete"
+}
+
+validate_agent_name() {
+	case "$AGENT_NAME" in
+	"" | claude | codex | opencode) ;;
+	*) die "Unsupported coding agent: $AGENT_NAME" ;;
+	esac
 }
 
 choose_agent() {
@@ -817,28 +859,68 @@ choose_backend() {
 	fi
 }
 
-ensure_databricks_cli() {
-	if command -v databricks >/dev/null 2>&1; then
-		system_databricks=$(command -v databricks)
-		if "$system_databricks" auth profiles --help >/dev/null 2>&1; then
-			DATABRICKS_BIN=$system_databricks
+find_compatible_databricks_cli() {
+	for candidate_dir in "${XDG_BIN_HOME:-}" "$HOME/.local/bin" "${CARGO_HOME:-$HOME/.cargo}/bin"; do
+		[ -n "$candidate_dir" ] || continue
+		candidate="$candidate_dir/databricks"
+		if [ -x "$candidate" ] && "$candidate" auth profiles --help >/dev/null 2>&1; then
+			printf '%s' "$candidate"
 			return
 		fi
+	done
+	if command -v databricks >/dev/null 2>&1; then
+		candidate=$(command -v databricks)
+		if "$candidate" auth profiles --help >/dev/null 2>&1; then
+			printf '%s' "$candidate"
+		fi
 	fi
+}
+
+databricks_cli_target() {
+	case "$(uname -s)" in
+	Darwin) cli_os="darwin" ;;
+	Linux) cli_os="linux" ;;
+	*) die "Automatic Databricks CLI setup supports macOS and Linux." ;;
+	esac
+	case "$(uname -m)" in
+	x86_64 | amd64) cli_arch="amd64" ;;
+	arm64 | aarch64) cli_arch="arm64" ;;
+	*) die "Unsupported architecture: $(uname -m)" ;;
+	esac
+	printf '%s|%s' "$cli_os" "$cli_arch"
+}
+
+ensure_databricks_cli() {
+	DATABRICKS_BIN=$(find_compatible_databricks_cli)
+	[ -z "$DATABRICKS_BIN" ] || return 0
 	command -v curl >/dev/null 2>&1 || die "curl is required to download the Databricks CLI."
-	if [ -n "${system_databricks:-}" ]; then
+	command -v unzip >/dev/null 2>&1 || die "unzip is required to install the Databricks CLI."
+	if command -v databricks >/dev/null 2>&1; then
 		progress "Databricks CLI update required" "Installing the latest release…"
 	else
 		progress "Databricks CLI not found" "Installing the latest release…"
 	fi
+	release_json=$(curl -fsSL -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/databricks/cli/releases/latest) || die "Could not determine the latest Databricks CLI release."
+	cli_tag=$(printf '%s' "$release_json" | json_first_string tag_name)
+	[ -n "$cli_tag" ] || die "Could not determine the latest Databricks CLI release."
+	cli_version=${cli_tag#v}
+	cli_target=$(databricks_cli_target)
+	cli_os=${cli_target%%|*}
+	cli_arch=${cli_target#*|}
+	cli_asset="databricks_cli_${cli_version}_${cli_os}_${cli_arch}.zip"
+	cli_url="https://github.com/databricks/cli/releases/download/${cli_tag}/${cli_asset}"
 	setup_tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/mlflow-databricks-cli.XXXXXX")
-	installer="$setup_tmp_dir/install.sh"
-	curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh -o "$installer" || die "Could not download the Databricks CLI installer."
-	sh "$installer" || die "Could not install the Databricks CLI."
+	curl -fsSL "$cli_url" -o "$setup_tmp_dir/$cli_asset" || die "Could not download Databricks CLI $cli_tag for ${cli_os}/${cli_arch}."
+	unzip -q "$setup_tmp_dir/$cli_asset" -d "$setup_tmp_dir" || die "Could not extract the Databricks CLI."
+	[ -f "$setup_tmp_dir/databricks" ] || die "Databricks CLI installation completed, but the CLI could not be found."
+	cli_install_dir=${XDG_BIN_HOME:-$HOME/.local/bin}
+	mkdir -p "$cli_install_dir" || die "Could not create $cli_install_dir."
+	chmod +x "$setup_tmp_dir/databricks"
+	mv "$setup_tmp_dir/databricks" "$cli_install_dir/databricks" || die "Could not install the Databricks CLI in $cli_install_dir."
+	DATABRICKS_BIN="$cli_install_dir/databricks"
 	rm -rf "$setup_tmp_dir"
 	setup_tmp_dir=""
-	DATABRICKS_BIN=/usr/local/bin/databricks
-	[ -x "$DATABRICKS_BIN" ] || die "The Databricks CLI installer did not produce a binary."
+	[ -x "$DATABRICKS_BIN" ] || die "Databricks CLI installation completed, but the CLI could not be found."
 	success "Databricks CLI ready" "$DATABRICKS_BIN"
 }
 
@@ -899,10 +981,10 @@ databricks_auth_valid() {
 
 resolve_databricks_profile() {
 	profile_selection_needed="false"
-	if [ -z "$PROFILE" ] && [ -n "${DATABRICKS_CONFIG_PROFILE:-}" ]; then
+	if [ "$WORKSPACE_URL_EXPLICIT" = "false" ] && [ -z "$PROFILE" ] && [ -n "${DATABRICKS_CONFIG_PROFILE:-}" ]; then
 		PROFILE=$DATABRICKS_CONFIG_PROFILE
 	fi
-	if [ -z "$WORKSPACE_URL" ] && [ -n "${DATABRICKS_HOST:-}" ]; then
+	if [ "$PROFILE_EXPLICIT" = "false" ] && [ -z "$WORKSPACE_URL" ] && [ -n "${DATABRICKS_HOST:-}" ]; then
 		WORKSPACE_URL=$DATABRICKS_HOST
 	fi
 	if [ -n "$WORKSPACE_URL" ]; then
@@ -926,6 +1008,12 @@ resolve_databricks_profile() {
 	fi
 	if [ -n "$PROFILE" ]; then
 		profile_host=$(printf '%s\n' "$profiles" | awk -F '|' -v profile="$PROFILE" '$1 == profile { print $2; exit }')
+		if [ -n "$profile_host" ]; then
+			profile_host=$(normalize_workspace_url "$profile_host")
+		fi
+		if [ -n "$WORKSPACE_URL" ] && [ -n "$profile_host" ] && [ "$WORKSPACE_URL" != "$profile_host" ]; then
+			die "Databricks profile '$PROFILE' points to $profile_host, not $WORKSPACE_URL."
+		fi
 		if [ -z "$WORKSPACE_URL" ]; then
 			WORKSPACE_URL=$profile_host
 		fi
@@ -1243,17 +1331,78 @@ configure_databricks() {
 	fi
 }
 
+tracking_uri_authority() {
+	tracking_authority=${TRACKING_URI#*://}
+	printf '%s' "${tracking_authority%%/*}"
+}
+
+validate_tracking_uri() {
+	case "$(tracking_uri_authority)" in
+	*@*) die "Do not include credentials in the MLflow tracking server URL. Enter them when prompted instead." ;;
+	esac
+}
+
+require_secure_auth_transport() {
+	case "$TRACKING_URI" in
+	https://*) return ;;
+	esac
+	case "$(tracking_uri_authority)" in
+	localhost | localhost:* | 127.0.0.1 | 127.0.0.1:* | \[::1\] | \[::1\]:*) return ;;
+	esac
+	die "Authentication requires HTTPS for non-local MLflow tracking servers."
+}
+
+curl_config_escape() {
+	if printf '%s' "$1" | LC_ALL=C grep '[[:cntrl:]]' >/dev/null 2>&1; then
+		die "MLflow credentials cannot contain control characters."
+	fi
+	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
 oss_curl() {
+	set -- --connect-timeout 10 --max-time 60 "$@"
 	if [ -n "${MLFLOW_WORKSPACE:-}" ]; then
 		set -- -H "X-MLFLOW-WORKSPACE: $MLFLOW_WORKSPACE" "$@"
 	fi
-	if [ -n "${MLFLOW_TRACKING_USERNAME:-}" ] && [ -n "${MLFLOW_TRACKING_PASSWORD:-}" ]; then
-		curl -u "${MLFLOW_TRACKING_USERNAME:-}:${MLFLOW_TRACKING_PASSWORD:-}" "$@"
-	elif [ -n "${MLFLOW_TRACKING_TOKEN:-}" ]; then
-		curl -H "Authorization: Bearer $MLFLOW_TRACKING_TOKEN" "$@"
-	else
-		curl "$@"
+	case "${MLFLOW_TRACKING_INSECURE_TLS:-}" in
+	1 | true | TRUE | True)
+		[ -z "${MLFLOW_TRACKING_SERVER_CERT_PATH:-}" ] || die "MLFLOW_TRACKING_INSECURE_TLS and MLFLOW_TRACKING_SERVER_CERT_PATH cannot both be set."
+		set -- --insecure "$@"
+		;;
+	esac
+	if [ -n "${MLFLOW_TRACKING_SERVER_CERT_PATH:-}" ]; then
+		set -- --cacert "$MLFLOW_TRACKING_SERVER_CERT_PATH" "$@"
 	fi
+	if [ -n "${MLFLOW_TRACKING_CLIENT_CERT_PATH:-}" ]; then
+		set -- --cert "$MLFLOW_TRACKING_CLIENT_CERT_PATH" "$@"
+	fi
+	curl_auth_config=""
+	if [ -n "${MLFLOW_TRACKING_USERNAME:-}" ] && [ -n "${MLFLOW_TRACKING_PASSWORD:-}" ]; then
+		require_secure_auth_transport
+		curl_auth_config=$(mktemp "${TMPDIR:-/tmp}/mlflow-curl-auth.XXXXXX")
+		chmod 600 "$curl_auth_config"
+		curl_user=$(curl_config_escape "${MLFLOW_TRACKING_USERNAME:-}:${MLFLOW_TRACKING_PASSWORD:-}")
+		printf 'user = "%s"\n' "$curl_user" >"$curl_auth_config"
+	elif [ -n "${MLFLOW_TRACKING_TOKEN:-}" ]; then
+		require_secure_auth_transport
+		curl_auth_config=$(mktemp "${TMPDIR:-/tmp}/mlflow-curl-auth.XXXXXX")
+		chmod 600 "$curl_auth_config"
+		curl_token=$(curl_config_escape "$MLFLOW_TRACKING_TOKEN")
+		printf 'header = "Authorization: Bearer %s"\n' "$curl_token" >"$curl_auth_config"
+	fi
+	if [ -n "$curl_auth_config" ]; then
+		set -- --config "$curl_auth_config" "$@"
+	fi
+	if curl "$@"; then
+		curl_status=0
+	else
+		curl_status=$?
+	fi
+	if [ -n "$curl_auth_config" ]; then
+		rm -f "$curl_auth_config"
+		curl_auth_config=""
+	fi
+	return "$curl_status"
 }
 
 check_oss_server() {
@@ -1271,6 +1420,7 @@ check_oss_server() {
 		401 | 403)
 			auth_attempts=$((auth_attempts + 1))
 			[ "$auth_attempts" -le 3 ] || die "MLflow authentication failed after 3 attempts."
+			require_secure_auth_transport
 			select_option "Authentication required" "Use an access token" "Use a username and password"
 			if [ "$selected_index" -eq 0 ]; then
 				prompt_secret "MLflow access token"
@@ -1323,26 +1473,26 @@ resolve_oss_experiment() {
 		return
 	fi
 	search_oss_experiments
+	experiment_ids_file="$setup_tmp_dir/experiment-ids"
+	experiment_names_file="$setup_tmp_dir/experiment-names"
+	json_experiment_strings experiment_id <"$setup_tmp_dir/experiments.json" >"$experiment_ids_file"
+	json_experiment_strings name <"$setup_tmp_dir/experiments.json" >"$experiment_names_file"
 	if [ -n "$EXPERIMENT_NAME" ]; then
-		EXPERIMENT_ID=$(awk -v wanted="$EXPERIMENT_NAME" '
-			/"experiment_id"[[:space:]]*:/ { line=$0; sub(/^.*"experiment_id"[[:space:]]*:[[:space:]]*"/, "", line); sub(/".*$/, "", line); id=line }
-			/"name"[[:space:]]*:/ { line=$0; sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", line); sub(/".*$/, "", line); if (line == wanted) { print id; exit } }
-		' "$setup_tmp_dir/experiments.json")
+		experiment_line=$(awk -v wanted="$EXPERIMENT_NAME" '$0 == wanted { print NR; exit }' "$experiment_names_file")
+		if [ -n "$experiment_line" ]; then
+			EXPERIMENT_ID=$(sed -n "${experiment_line}p" "$experiment_ids_file")
+		fi
 	else
-		experiment_rows=$(awk '
-			/"experiment_id"[[:space:]]*:/ { line=$0; sub(/^.*"experiment_id"[[:space:]]*:[[:space:]]*"/, "", line); sub(/".*$/, "", line); id=line }
-			/"name"[[:space:]]*:/ { line=$0; sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", line); sub(/".*$/, "", line); if (id != "" && line != "") { print id "|" line; id="" } }
-		' "$setup_tmp_dir/experiments.json")
 		set -- "Create a new experiment"
-		while IFS='|' read -r experiment_id experiment_name; do
-			[ -n "$experiment_id" ] && set -- "$@" "$experiment_name"
+		while IFS= read -r experiment_name; do
+			[ -n "$experiment_name" ] && set -- "$@" "$experiment_name"
 		done <<EOF
-$experiment_rows
+$(cat "$experiment_names_file")
 EOF
 		select_option "Choose an experiment" "$@"
 		if [ "$selected_index" -gt 0 ]; then
 			EXPERIMENT_NAME=$selected_value
-			EXPERIMENT_ID=$(printf '%s\n' "$experiment_rows" | awk -F '|' -v name="$EXPERIMENT_NAME" '$2 == name { print $1; exit }')
+			EXPERIMENT_ID=$(sed -n "${selected_index}p" "$experiment_ids_file")
 		else
 			prompt_text "Experiment name" "$repo_name"
 			EXPERIMENT_NAME=$prompt_value
@@ -1367,6 +1517,7 @@ configure_remote() {
 		TRACKING_URI=$prompt_value
 	fi
 	TRACKING_URI=$(normalize_tracking_uri "$TRACKING_URI")
+	validate_tracking_uri
 	check_oss_server
 	success "MLflow server" "$TRACKING_URI"
 	success "Authentication verified"
@@ -1431,6 +1582,9 @@ build_agent_prompt() {
 			"Add the latest mlflow-tracing package and configure these non-secret values using the project's conventions:" \
 			"MLFLOW_TRACKING_URI=$TRACKING_URI" \
 			"MLFLOW_EXPERIMENT_ID=$EXPERIMENT_ID"
+		if [ -z "$PROFILE" ]; then
+			printf '%s\n' "DATABRICKS_HOST=$WORKSPACE_URL"
+		fi
 		if [ -n "$WAREHOUSE_ID" ]; then
 			printf '%s\n' "MLFLOW_TRACING_SQL_WAREHOUSE_ID=$WAREHOUSE_ID"
 		fi
@@ -1462,6 +1616,9 @@ build_agent_prompt() {
 			"- Experiment name: $EXPERIMENT_NAME" \
 			"" \
 			"Add the latest mlflow-tracing package and configure MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID using the project's conventions."
+		if [ -n "${MLFLOW_WORKSPACE:-}" ]; then
+			printf '%s\n' "MLFLOW_WORKSPACE=$MLFLOW_WORKSPACE"
+		fi
 		;;
 	local)
 		printf '%s\n' \
@@ -1493,6 +1650,7 @@ launch_agent() {
 
 main() {
 	parse_args "$@"
+	validate_agent_name
 	header
 	inspect_repository
 	choose_backend

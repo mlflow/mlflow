@@ -60,9 +60,13 @@ def setup_env(tmp_path: Path) -> dict[str, str]:
         "DATABRICKS_CONFIG_PROFILE",
         "DATABRICKS_HOST",
         "MLFLOW_TRACKING_PASSWORD",
+        "MLFLOW_TRACKING_CLIENT_CERT_PATH",
+        "MLFLOW_TRACKING_INSECURE_TLS",
+        "MLFLOW_TRACKING_SERVER_CERT_PATH",
         "MLFLOW_TRACKING_TOKEN",
         "MLFLOW_TRACKING_URI",
         "MLFLOW_TRACKING_USERNAME",
+        "MLFLOW_WORKSPACE",
     ):
         env.pop(name, None)
     env.update({
