@@ -173,7 +173,8 @@ export const decodeViewColumns = (
   allColumns: readonly TraceColumnId[],
 ): TraceColumnId[] | undefined => {
   const raw = state.single?.[TRACE_V4_COLS_PARAM_KEY];
-  if (!raw) {
+  // `typeof` (not just falsy) so a hand-edited tag with a non-string `cols` can't reach `.split()`.
+  if (typeof raw !== 'string' || raw === '') {
     return undefined;
   }
   const known = new Set<string>(allColumns);
@@ -192,7 +193,8 @@ export const decodeViewColumns = (
  */
 export const decodeViewColumnOrder = (state: CapturedV4ViewState): string[] | undefined => {
   const raw = state.single?.[TRACE_V4_COLS_PARAM_KEY];
-  if (!raw) {
+  // `typeof` (not just falsy) so a hand-edited tag with a non-string `cols` can't reach `.split()`.
+  if (typeof raw !== 'string' || raw === '') {
     return undefined;
   }
   const resolved = raw.split(COLUMNS_SEPARATOR).filter(Boolean);

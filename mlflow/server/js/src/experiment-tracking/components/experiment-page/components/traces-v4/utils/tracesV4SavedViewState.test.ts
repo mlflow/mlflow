@@ -182,6 +182,12 @@ describe('decodeViewColumns', () => {
     expect(decodeViewColumns(withCols(''), TRACE_COLUMN_IDS)).toBeUndefined();
     expect(decodeViewColumns({ single: {}, multi: {} }, TRACE_COLUMN_IDS)).toBeUndefined();
   });
+
+  test('returns undefined for a non-string cols (hand-edited tag) rather than throwing', () => {
+    expect(
+      decodeViewColumns({ single: { cols: 123 as unknown as string }, multi: {} }, TRACE_COLUMN_IDS),
+    ).toBeUndefined();
+  });
 });
 
 describe('decodeViewColumnOrder', () => {
@@ -200,6 +206,10 @@ describe('decodeViewColumnOrder', () => {
   test('returns undefined when cols is empty or absent (leaves the user order intact)', () => {
     expect(decodeViewColumnOrder(withCols(''))).toBeUndefined();
     expect(decodeViewColumnOrder({ single: {}, multi: {} })).toBeUndefined();
+  });
+
+  test('returns undefined for a non-string cols (hand-edited tag) rather than throwing', () => {
+    expect(decodeViewColumnOrder({ single: { cols: 123 as unknown as string }, multi: {} })).toBeUndefined();
   });
 });
 
