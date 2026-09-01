@@ -4171,6 +4171,10 @@
     "defaultMessage": "Path",
     "description": "Label for displaying the current experiment path"
   },
+  "F97lYw": {
+    "defaultMessage": "Metadata",
+    "description": "Traces table metadata column name"
+  },
   "F9Aau+": {
     "defaultMessage": "Table view",
     "description": "Label for the table view toggle button in the logged model list page"

@@ -165,7 +165,6 @@ describe('useTraceColumnVisibility', () => {
     );
     act(() => result.current.reorderColumn('tags', 'trace_id'));
     act(() => result.current.resetToDefaults());
-    expect(result.current.columnOrder[0]).toBe('trace_id');
-    expect(result.current.columnOrder.at(-1)).toBe('tags');
+    expect(result.current.columnOrder).toEqual([...TRACE_COLUMN_IDS]);
   });
 });

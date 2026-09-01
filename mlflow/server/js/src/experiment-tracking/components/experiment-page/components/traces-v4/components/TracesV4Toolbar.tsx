@@ -240,10 +240,11 @@ export const useTracesV4ToolbarSlots = ({
       'Trace deletion disabled reason. Displayed in a tooltip when a user attempts to delete a trace housed in the UC delta table.',
   });
 
-  // Custom (tag + metadata) columns are dynamic (per-page) and toggle-only for now, so they render as
-  // labeled checkbox groups beneath the reorderable list in the Display → Columns submenu. Assessment
-  // columns are NOT a group here — they live in the reorderable list above (see `reorderableColumns`).
-  // Each group is included only when the page has relevant candidates.
+  // Dynamic (per-page) columns render as labeled checkbox groups beneath the reorderable list in the
+  // Display → Columns submenu. Tags/metadata are toggle-only. Assessments ALSO appear in the
+  // reorderable list above (so they can be dragged + toggled individually); the group here adds only
+  // the bulk "show/hide all assessments" affordance via its toggle-all header. Each group is included
+  // only when the page has relevant candidates.
   const columnGroups: TracesV4ColumnGroup[] = [];
   if (customColumns.tags.selectorOptions.length > 0) {
     columnGroups.push({
@@ -271,6 +272,23 @@ export const useTracesV4ToolbarSlots = ({
       visibleIds: customColumns.metadata.visibleIds,
       onToggle: customColumns.metadata.toggle,
       onToggleAll: customColumns.metadata.setAllVisible,
+    });
+  }
+  if (assessmentColumns.selectorOptions.length > 0) {
+    columnGroups.push({
+      label: (
+        <FormattedMessage
+          defaultMessage="Assessments"
+          description="Section label for assessment columns in the traces table column selector"
+        />
+      ),
+      options: assessmentColumns.selectorOptions,
+      visibleIds: assessmentColumns.visibleIds,
+      onToggle: assessmentColumns.toggle,
+      onToggleAll: assessmentColumns.setAllVisible,
+      // Assessments already appear (draggable + individually toggleable) in the reorderable list
+      // above; this group adds only the bulk "show/hide all" header, so skip its per-item checkboxes.
+      headerOnly: true,
     });
   }
 

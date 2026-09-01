@@ -27,6 +27,12 @@ import type { TracesV4Density } from '../hooks/useTracesV4Density';
  */
 export interface TracesV4ColumnGroup extends ColumnSelectorGroup {
   onToggleAll?: (visible: boolean) => void;
+  /**
+   * Render only the group's toggle-all header, not its per-column checkboxes. Used when the group's
+   * columns already appear elsewhere (e.g. assessments live in the reorderable list) and the group
+   * exists solely to add the bulk show/hide-all affordance, avoiding duplicate checkboxes.
+   */
+  headerOnly?: boolean;
 }
 
 // Module-local static analytics-id namespace (the `@databricks/no-dynamic-property-value` lint rule
@@ -166,20 +172,23 @@ export const TracesV4DisplayButton = ({
                   ) : (
                     <DropdownMenu.Label>{group.label}</DropdownMenu.Label>
                   )}
-                  {group.options.map(({ id, label, componentId }) => (
-                    <DropdownMenu.CheckboxItem
-                      key={id}
-                      componentId={componentId}
-                      checked={groupVisible.has(id)}
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        group.onToggle(id);
-                      }}
-                    >
-                      <DropdownMenu.ItemIndicator />
-                      {label}
-                    </DropdownMenu.CheckboxItem>
-                  ))}
+                  {/* `headerOnly` groups contribute just the toggle-all header — their columns are
+                      already listed in the reorderable list above, so skip the per-item checkboxes. */}
+                  {!group.headerOnly &&
+                    group.options.map(({ id, label, componentId }) => (
+                      <DropdownMenu.CheckboxItem
+                        key={id}
+                        componentId={componentId}
+                        checked={groupVisible.has(id)}
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          group.onToggle(id);
+                        }}
+                      >
+                        <DropdownMenu.ItemIndicator />
+                        {label}
+                      </DropdownMenu.CheckboxItem>
+                    ))}
                 </Fragment>
               );
             })}
