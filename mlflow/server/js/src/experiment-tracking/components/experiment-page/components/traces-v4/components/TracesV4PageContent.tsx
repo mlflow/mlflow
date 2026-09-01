@@ -374,6 +374,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     // and the dataset modal) to the drawer and Actions menu.
     <ModelTraceExplorerContextProvider
       renderExportTracesToDatasetsModal={actions.renderExportTracesToDatasetsModal}
+      renderAddToReviewQueueDropdown={actions.AddToReviewQueueDropdown}
       DrawerComponent={AssistantAwareDrawer}
     >
       <GenAITracesTableProvider

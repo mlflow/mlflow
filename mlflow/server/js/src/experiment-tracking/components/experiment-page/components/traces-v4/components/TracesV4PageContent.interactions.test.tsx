@@ -74,7 +74,7 @@ describe('TracesV4PageContent (interactions)', () => {
 
       await applyErrorStateClause(user);
       expect(state.searchCalls.some((c) => c.filter?.includes("attributes.status = 'ERROR'"))).toBe(true);
-    }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+    }, 20000); // heavy full-page userEvent render; bump off the flaky 5s default under parallel jsdom load
 
     // TODO(traces-v4): service_name filtering was dropped in OSS (the SearchTracesV3 parser rejects span.service_name). Field + clause removed by design.
 
@@ -379,6 +379,59 @@ describe('TracesV4PageContent (interactions)', () => {
   describe('trace drawer navigation', () => {
     // The drawer binds ArrowLeft/ArrowRight at the window level; driving it via the keyboard is the
     // user-faithful way to exercise nav (the header's chevron buttons are icon-only, no a11y name).
+    test('adds the drawer trace to a review queue and closes the drawer', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      let addItemsRequest: unknown;
+      server.use(
+        rest.get('*/ajax-api/3.0/mlflow/review-queues/list', (req, res, ctx) =>
+          res(
+            ctx.json({
+              review_queues: req.url.searchParams.has('item_id')
+                ? []
+                : [
+                    {
+                      queue_id: 'rq-relevance',
+                      experiment_id: EXPERIMENT_ID,
+                      name: 'Relevance',
+                      queue_type: 'CUSTOM',
+                      schema_ids: ['schema-relevance'],
+                      creation_time_ms: 1,
+                      last_update_time_ms: 1,
+                    },
+                  ],
+            }),
+          ),
+        ),
+        rest.get('*/ajax-api/3.0/mlflow/label-schemas/list', (_req, res, ctx) =>
+          res(
+            ctx.json({
+              label_schemas: [
+                {
+                  schema_id: 'schema-relevance',
+                  experiment_id: EXPERIMENT_ID,
+                  name: 'Relevance',
+                  type: 'FEEDBACK',
+                  input: { text: {} },
+                },
+              ],
+            }),
+          ),
+        ),
+        rest.post('*/ajax-api/3.0/mlflow/review-queues/items/add', async (req, res, ctx) => {
+          addItemsRequest = await req.json();
+          return res(ctx.json({ items: [] }));
+        }),
+      );
+      renderPage();
+      await user.click(await findTraceRow('tr-000'));
+
+      const drawer = await screen.findByRole('dialog');
+      await user.click(within(drawer).getByRole('button', { name: 'Flag for review' }));
+      await user.click(await screen.findByRole('checkbox', { name: 'Relevance' }));
+      await waitFor(() => expect(addItemsRequest).toEqual({ queue_id: 'rq-relevance', item_ids: ['tr-000'] }));
+      await waitFor(() => expect(drawer).not.toBeInTheDocument());
+    }, 40000); // heavy full-page render + mutation + drawer close animation under parallel jsdom load
+
     test('ArrowRight advances to the next row, writing its V4 long id to the URL', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
