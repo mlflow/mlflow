@@ -1590,6 +1590,10 @@ public final class Service {
      */
     ENDPOINT(3),
     /**
+     * <pre>
+     * Applies only to requests made by a specific authenticated user
+     * </pre>
+     *
      * <code>USER = 4;</code>
      */
     USER(4),
@@ -1616,6 +1620,10 @@ public final class Service {
      */
     public static final int ENDPOINT_VALUE = 3;
     /**
+     * <pre>
+     * Applies only to requests made by a specific authenticated user
+     * </pre>
+     *
      * <code>USER = 4;</code>
      */
     public static final int USER_VALUE = 4;
@@ -260846,7 +260854,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -260857,7 +260865,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -260868,7 +260876,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -261441,7 +261449,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -261455,7 +261463,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -261480,7 +261488,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -262910,7 +262918,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -262923,7 +262931,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -262947,7 +262955,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -262970,7 +262978,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -262991,7 +262999,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -263007,7 +263015,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -263160,7 +263168,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -263170,7 +263178,7 @@ public final class Service {
     boolean hasTargetValue();
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -263180,7 +263188,7 @@ public final class Service {
     java.lang.String getTargetValue();
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -264126,7 +264134,7 @@ public final class Service {
     private volatile java.lang.Object targetValue_;
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -264139,7 +264147,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -264163,7 +264171,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -265034,7 +265042,7 @@ public final class Service {
       private java.lang.Object targetValue_ = "";
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265046,7 +265054,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265069,7 +265077,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265091,7 +265099,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265111,7 +265119,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265126,7 +265134,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -266534,7 +266542,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -266544,7 +266552,7 @@ public final class Service {
     boolean hasTargetValue();
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -266554,7 +266562,7 @@ public final class Service {
     java.lang.String getTargetValue();
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -267555,7 +267563,7 @@ public final class Service {
     private volatile java.lang.Object targetValue_;
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -267568,7 +267576,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -267592,7 +267600,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -268573,7 +268581,7 @@ public final class Service {
       private java.lang.Object targetValue_ = "";
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268585,7 +268593,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268608,7 +268616,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268630,7 +268638,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268650,7 +268658,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268665,7 +268673,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
