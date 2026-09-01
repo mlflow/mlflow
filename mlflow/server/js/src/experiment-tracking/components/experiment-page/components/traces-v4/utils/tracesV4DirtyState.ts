@@ -90,12 +90,28 @@ const assessmentVisibilityEqual = (a: Record<string, boolean> = {}, b: Record<st
   return true;
 };
 
+/**
+ * Compare EFFECTIVE custom column visibility. Unlike assessments (opt-out / default-visible), custom
+ * columns are opt-in / default-hidden, so an absent id means hidden. Only a real show/hide reads
+ * as dirty — an extra default-hidden entry isn't a change.
+ */
+const customVisibilityEqual = (a: Record<string, boolean> = {}, b: Record<string, boolean> = {}): boolean => {
+  const ids = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const id of ids) {
+    if ((a[id] ?? false) !== (b[id] ?? false)) {
+      return false;
+    }
+  }
+  return true;
+};
+
 /** True when the live captured state matches the stored view (i.e. not dirty). */
 export const capturedV4StatesMatch = (live: CapturedV4ViewState, stored: CapturedV4ViewState): boolean =>
   canonicalViewQuery(live) === canonicalViewQuery(stored) &&
   columnSetsEqual(colsOf(live), colsOf(stored)) &&
   assessmentVisibilityEqual(live.assessmentColumns, stored.assessmentColumns) &&
+  customVisibilityEqual(live.customColumns, stored.customColumns) &&
   isEqual(live.filters ?? [], stored.filters ?? []);
 
 // Exported for unit-testing the pure comparisons in isolation.
-export const __test__ = { canonicalViewQuery, columnSetsEqual, assessmentVisibilityEqual };
+export const __test__ = { canonicalViewQuery, columnSetsEqual, assessmentVisibilityEqual, customVisibilityEqual };

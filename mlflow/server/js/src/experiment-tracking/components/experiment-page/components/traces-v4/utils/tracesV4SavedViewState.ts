@@ -53,6 +53,8 @@ export interface CapturedV4ViewState {
   // visible-id list, so a hidden column is recorded too — restoring a bare id list would lose explicit
   // hides. Absent in older stored views (treated as "capture nothing", i.e. clear overrides on restore).
   assessmentColumns?: Record<string, boolean>;
+  /** Custom tag/metadata column visibility. Optional for backward compatibility with older views. */
+  customColumns?: Record<string, boolean>;
 }
 
 export const getTraceV4SavedViewTagKey = (id: string): string => `${TRACE_V4_SAVED_VIEW_TAG_PREFIX}${id}`;
@@ -91,6 +93,7 @@ export const captureV4ViewState = (
   visibleColumns: readonly TraceColumnId[],
   filterModel: TraceFilterModel = [],
   assessmentColumns: Record<string, boolean> = {},
+  customColumns: Record<string, boolean> = {},
 ): CapturedV4ViewState => {
   const single: CapturedV4ViewState['single'] = {};
   SINGLE_VALUE_KEYS.forEach((key) => {
@@ -117,6 +120,11 @@ export const captureV4ViewState = (
   // one (and never spuriously reads as dirty against `assessmentColumns ?? {}`).
   if (Object.keys(assessmentColumns).length > 0) {
     state.assessmentColumns = assessmentColumns;
+  }
+  // Omit an empty map so a view saved on a page with no custom columns stays byte-identical to a legacy
+  // one (and never spuriously reads as dirty against `customColumns ?? {}`).
+  if (Object.keys(customColumns).length > 0) {
+    state.customColumns = customColumns;
   }
   return state;
 };

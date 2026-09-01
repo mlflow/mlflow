@@ -15,13 +15,15 @@ import {
 import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 // Reuse the generic (branding-free) datasets-v2 helpers.
 import { useDebouncedSearchInput } from './useDebouncedSearchInput';
+import type { TracesV4CustomColumns } from './useTracesV4CustomColumns';
 import { useTracesV4UrlState } from './useTracesV4UrlState';
 import { useTracesV4TimeRange } from './useTracesV4TimeRange';
 import { useTracesV4Columns } from './useTracesV4Columns';
 import { useTracesV4AssessmentColumns } from './useTracesV4AssessmentColumns';
 import { useTracesV4ColumnSizing } from './useTracesV4ColumnSizing';
 import { useTracesV4TraceCount } from './useTracesV4TraceCount';
-import { buildFilter, buildOrderBy } from '../utils/buildTracesV4SearchParams';
+import { useTracesV4CustomColumns } from './useTracesV4CustomColumns';
+import { buildFilter, buildOrderBy, isExactTraceIdSearch } from '../utils/buildTracesV4SearchParams';
 import { compileFilterModel, compileTagFilters } from '../utils/filterModel';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 
@@ -42,6 +44,7 @@ export interface UseTracesV4ControllerResult {
   columnSizing: ReturnType<typeof useTracesV4ColumnSizing>;
   /** "{n} of {total}" footer count — current page rows out of the experiment total. */
   traceCount: ReturnType<typeof useTracesV4TraceCount>;
+  customColumns: TracesV4CustomColumns;
   bulk: ReturnType<typeof useBulkTraceSelection>;
   searchInput: ReturnType<typeof useDebouncedSearchInput>;
   filterModel: TraceFilterModel;
@@ -177,7 +180,18 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
   const columns = useTracesV4Columns(experimentId, { hasSessionOnPage });
   const assessments = useTracesV4AssessmentColumns(experimentId, page.traces);
   const columnSizing = useTracesV4ColumnSizing(experimentId);
-  const traceCount = useTracesV4TraceCount(experimentId, page.traces.length, timeRange);
+  const traceCount = useTracesV4TraceCount(experimentId, page.traces.length, timeRange, {
+    isExactTraceIdSearch: isExactTraceIdSearch(url.search),
+    // The page's row count is the exact-id result only once the row query has settled on the current
+    // filter. `isPreviousData` covers the tick where `url.search` has committed the trace-id but the
+    // row query is still serving the prior page's rows and hasn't flipped `isFetching` yet.
+    isResultLoading: page.isLoading || page.isFetching || page.isPreviousData,
+  });
+  const customColumns = useTracesV4CustomColumns(
+    page.traces,
+    columns.dynamicVisibilityById,
+    columns.setDynamicVisibility,
+  );
 
   const bulk = useBulkTraceSelection(page.traces);
 
@@ -211,6 +225,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     assessments,
     columnSizing,
     traceCount,
+    customColumns,
     bulk,
     searchInput,
     filterModel,

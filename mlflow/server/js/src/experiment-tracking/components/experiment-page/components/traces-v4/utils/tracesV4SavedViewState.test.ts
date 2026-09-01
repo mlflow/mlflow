@@ -101,6 +101,25 @@ describe('captureV4ViewState', () => {
     expect(noAssessments.assessmentColumns).toBeUndefined();
   });
 
+  test('captures custom-column visibility, omitting an empty map', () => {
+    // An empty map is omitted so a view saved with no custom columns stays byte-identical to a legacy one.
+    const withCustom = captureV4ViewState(
+      params('q=x'),
+      ['start_time'],
+      [],
+      {},
+      {
+        'tag:environment': true,
+        'custom_metadata:region': false,
+      },
+    );
+    expect(withCustom.customColumns).toEqual({ 'tag:environment': true, 'custom_metadata:region': false });
+    expect(params(buildV4ViewQuery(withCustom, 'view-1')).has('customColumns')).toBe(false);
+
+    const noCustom = captureV4ViewState(params('q=x'), ['start_time'], [], {}, {});
+    expect(noCustom.customColumns).toBeUndefined();
+  });
+
   test('never captures an incoming share key or cols param from the URL (only the live columns)', () => {
     // Opening view A then saving must not leak A's share key / cols into view B.
     const state = captureV4ViewState(params(`q=x&cols=tokens,cost&${TRACE_V4_SHARE_URL_PARAM_KEY}=other-view`), [

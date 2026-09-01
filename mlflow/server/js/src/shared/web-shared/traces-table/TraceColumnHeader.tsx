@@ -12,7 +12,7 @@ import {
   VisibleOffIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import type { SortDirection } from './types';
+import type { SortDirection, TraceColumnHeaderAction } from './types';
 
 // Static componentId prefix — the `@databricks/no-dynamic-property-value` rule needs static literals.
 const COMPONENT_ID = 'web-shared.traces-table.header-menu';
@@ -27,6 +27,7 @@ interface TraceColumnHeaderMenuProps {
   onSortDescending: () => void;
   /** Omit → no Hide item (and, on a non-sortable column, no menu at all). */
   onHide?: () => void;
+  action?: TraceColumnHeaderAction;
   triggerLabel: string;
 }
 
@@ -37,6 +38,7 @@ export const TraceColumnHeaderMenu = ({
   onSortAscending,
   onSortDescending,
   onHide,
+  action,
   triggerLabel,
 }: TraceColumnHeaderMenuProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
@@ -81,9 +83,16 @@ export const TraceColumnHeaderMenu = ({
                 </DropdownMenu.HintColumn>
               )}
             </DropdownMenu.Item>
-            {onHide && <DropdownMenu.Separator />}
           </>
         )}
+        {sortable && action && <DropdownMenu.Separator />}
+        {action && (
+          <DropdownMenu.Item componentId={`${COMPONENT_ID}.action`} onClick={action.onClick}>
+            <DropdownMenu.IconWrapper>{action.icon}</DropdownMenu.IconWrapper>
+            {action.label}
+          </DropdownMenu.Item>
+        )}
+        {onHide && (sortable || action) && <DropdownMenu.Separator />}
         {onHide && (
           <DropdownMenu.Item componentId={`${COMPONENT_ID}.hide-column`} onClick={onHide}>
             <VisibleOffIcon css={iconCss} />
@@ -108,6 +117,7 @@ export interface TraceColumnHeaderProps {
   onSortAscending: () => void;
   onSortDescending: () => void;
   onHide?: () => void;
+  action?: TraceColumnHeaderAction;
 }
 
 /**
@@ -123,6 +133,7 @@ export const TraceColumnHeader = ({
   onSortAscending,
   onSortDescending,
   onHide,
+  action,
 }: TraceColumnHeaderProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -140,7 +151,7 @@ export const TraceColumnHeader = ({
         description: 'Accessible label for the per-column options menu button in the traces table header',
       });
 
-  const showMenu = sortable || Boolean(onHide);
+  const showMenu = sortable || Boolean(onHide) || Boolean(action);
 
   const columnIcon =
     columnId === 'input' ? (
@@ -218,6 +229,7 @@ export const TraceColumnHeader = ({
             onSortAscending={onSortAscending}
             onSortDescending={onSortDescending}
             onHide={onHide}
+            action={action}
             triggerLabel={triggerLabel}
           />
         </span>

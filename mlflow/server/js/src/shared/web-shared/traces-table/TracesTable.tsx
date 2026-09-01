@@ -35,6 +35,7 @@ import type {
   SessionSelectionHandler,
   SortDirection,
   TraceColumnId,
+  TraceColumnHeaderAction,
   TraceHrefGetter,
   TraceTableColumn,
 } from './types';
@@ -130,6 +131,7 @@ export interface TracesTableProps {
   renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
   /** Hides the column with the given id — wired to the per-header menu's "Hide column" item. */
   onHideColumn: (columnId: string) => void;
+  columnHeaderActions?: Readonly<Partial<Record<string, TraceColumnHeaderAction>>>;
   /** Groups traces with a session id into collapsible session rows. Standalone traces remain rows. */
   isGroupedBySession?: boolean;
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
@@ -187,6 +189,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     onFilterByTag,
     renderRunName,
     onHideColumn,
+    columnHeaderActions,
     isGroupedBySession = false,
     previewLineClamp = 1,
   }: TracesTableProps) {
@@ -580,6 +583,9 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                     onSortDescending: () => onSort(columnId, 'desc'),
                   }
                 : { onSortAscending: noop, onSortDescending: noop };
+              // Prefer explicit labelText on the column def (for a11y on JSX headers), fall back to string headers.
+              const columnDef = header.column.columnDef as TraceTableColumn;
+              const labelText = columnDef.labelText ?? (typeof labelNode === 'string' ? labelNode : undefined);
               return (
                 <TableHeader
                   key={header.id}
@@ -593,10 +599,11 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                   <TraceColumnHeader
                     columnId={columnId}
                     label={labelNode}
-                    labelText={typeof labelNode === 'string' ? labelNode : undefined}
+                    labelText={labelText}
                     sortable={isSortableTraceColumn(columnId)}
                     sortDirection={sort === columnId ? dir : 'none'}
                     onHide={() => onHideColumn(columnId)}
+                    action={columnHeaderActions?.[columnId]}
                     {...sortHandlers}
                   />
                 </TableHeader>

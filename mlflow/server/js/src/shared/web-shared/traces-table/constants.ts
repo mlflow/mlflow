@@ -26,6 +26,7 @@ export const TRACE_COLUMN_IDS = [
   'tokens',
   'cost',
   'tags',
+  'metadata',
 ] as const;
 
 /**
@@ -73,4 +74,5 @@ export const COLUMN_SIZES: Record<TraceColumnId, ColumnSizeSpec> = {
   tokens: { size: 110, minSize: 80, maxSize: 220 },
   cost: { size: 110, minSize: 80, maxSize: 220 },
   tags: { size: 200, minSize: 120, maxSize: 600 },
+  metadata: { size: 160, minSize: 120, maxSize: 600 },
 };

@@ -236,6 +236,8 @@ interface TraceCellProps {
 interface TraceTagsCellProps extends TraceCellProps {
   /** Toggle a filter when a tag pill is clicked. Absent → pills render as plain (non-clickable) tags. */
   onFilterByTag?: (key: string, value: string) => void;
+  /** Override the key/value entries rendered by the shared pill layout. */
+  entries?: Array<[string, string]>;
 }
 
 /** Trace id — monospace text that links when a destination is provided, with the full id in a tooltip. */
@@ -739,10 +741,18 @@ const TagPill = ({
  * siblings, and each clickable pill `stopPropagation`s so a filter click never also opens the drawer.
  */
 export const TraceTagsCell: React.MemoExoticComponent<(props: TraceTagsCellProps) => JSX.Element> = memo(
-  function TraceTagsCell({ trace, onSelect, accessibleLabel, onFilterByTag }: TraceTagsCellProps) {
+  function TraceTagsCell({
+    trace,
+    onSelect,
+    accessibleLabel,
+    onFilterByTag,
+    entries: entriesOverride,
+  }: TraceTagsCellProps) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const entries = Object.entries(trace.tags ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX));
+    const entries =
+      entriesOverride ??
+      Object.entries(trace.tags ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX));
     const containerRef = useRef<HTMLSpanElement>(null);
     const pillRefs = useRef<Array<HTMLSpanElement | null>>([]);
     const overflowRefs = useRef<Array<HTMLSpanElement | null>>([]);
@@ -858,4 +868,14 @@ export const TraceTagsCell: React.MemoExoticComponent<(props: TraceTagsCellProps
       </span>
     );
   },
+);
+
+/** User-authored metadata rendered with the same compact pill layout as aggregate tags. */
+export const TraceMetadataCell = ({ trace, onSelect, accessibleLabel }: TraceCellProps): JSX.Element => (
+  <TraceTagsCell
+    trace={trace}
+    onSelect={onSelect}
+    accessibleLabel={accessibleLabel}
+    entries={Object.entries(trace.trace_metadata ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX))}
+  />
 );

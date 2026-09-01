@@ -2159,6 +2159,7 @@ module.exports = {
   "mlflow.traces-v4.column-selector.item.cost": "",
   "mlflow.traces-v4.column-selector.item.duration": "",
   "mlflow.traces-v4.column-selector.item.input": "",
+  "mlflow.traces-v4.column-selector.item.metadata": "",
   "mlflow.traces-v4.column-selector.item.output": "",
   "mlflow.traces-v4.column-selector.item.run_name": "",
   "mlflow.traces-v4.column-selector.item.session": "",
