@@ -108,7 +108,6 @@ class TruLensAgentScorer(Scorer):
             )
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class LogicalConsistency(TruLensAgentScorer):
     """
@@ -136,7 +135,6 @@ class LogicalConsistency(TruLensAgentScorer):
     metric_name: ClassVar[str] = "logical_consistency"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class ExecutionEfficiency(TruLensAgentScorer):
     """
@@ -164,7 +162,6 @@ class ExecutionEfficiency(TruLensAgentScorer):
     metric_name: ClassVar[str] = "execution_efficiency"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class PlanAdherence(TruLensAgentScorer):
     """
@@ -192,7 +189,6 @@ class PlanAdherence(TruLensAgentScorer):
     metric_name: ClassVar[str] = "plan_adherence"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class PlanQuality(TruLensAgentScorer):
     """
@@ -220,7 +216,6 @@ class PlanQuality(TruLensAgentScorer):
     metric_name: ClassVar[str] = "plan_quality"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolSelection(TruLensAgentScorer):
     """
@@ -248,7 +243,6 @@ class ToolSelection(TruLensAgentScorer):
     metric_name: ClassVar[str] = "tool_selection"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCalling(TruLensAgentScorer):
     """

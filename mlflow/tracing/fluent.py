@@ -1224,7 +1224,6 @@ def search_traces(
     return results
 
 
-@experimental(version="3.10.0")
 def search_sessions(
     max_results: int = 100,
     run_id: str | None = None,
