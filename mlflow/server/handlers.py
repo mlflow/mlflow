@@ -76,6 +76,7 @@ from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACTS_ONLY_PRESIGNED,
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_AI_GATEWAY,
@@ -110,6 +111,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     NOT_IMPLEMENTED,
+    RESOURCE_CONFLICT,
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.issues_pb2 import (
@@ -391,6 +393,7 @@ from mlflow.utils.providers import (
 )
 from mlflow.utils.server_info import (
     SERVER_INFO_FEATURES_ENABLED,
+    SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_STORE_TYPE,
@@ -3703,6 +3706,23 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
     return posixpath.join(base, normalized)
 
 
+_PRESIGNED_ONLY_UPLOAD_MESSAGE = (
+    "This server requires presigned artifact uploads and does not accept artifact bytes through "
+    "the legacy proxy endpoint. Upgrade your MLflow client to a version that supports "
+    "presigned-only artifact servers."
+)
+_PRESIGNED_ONLY_DOWNLOAD_MESSAGE = (
+    "This server requires presigned artifact downloads and does not serve artifact bytes through "
+    "the legacy proxy endpoint. Upgrade your MLflow client to a version that supports "
+    "presigned-only artifact servers."
+)
+
+
+def _reject_legacy_artifact_transfer(message: str) -> None:
+    if MLFLOW_ARTIFACTS_ONLY_PRESIGNED.get():
+        raise MlflowException(message, error_code=RESOURCE_CONFLICT)
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _download_artifact(artifact_path):
@@ -3710,6 +3730,7 @@ def _download_artifact(artifact_path):
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
     """
+    _reject_legacy_artifact_transfer(_PRESIGNED_ONLY_DOWNLOAD_MESSAGE)
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -3733,6 +3754,7 @@ def _upload_artifact(artifact_path):
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
+    _reject_legacy_artifact_transfer(_PRESIGNED_ONLY_UPLOAD_MESSAGE)
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     head, tail = posixpath.split(artifact_path)
@@ -7083,6 +7105,7 @@ def _get_server_info():
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },
+        SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED: MLFLOW_ARTIFACTS_ONLY_PRESIGNED.get(),
     })
 
 
