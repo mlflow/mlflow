@@ -116,6 +116,20 @@ def test_iter_stdout_lines_splits_streamed_chunks():
     assert lines == [b'{"a":1}', b'{"b":2}', b"last"]
 
 
+def test_iter_stdout_lines_aborts_on_oversized_line(monkeypatch):
+    # A single unterminated line over the per-line byte cap kills the container and surfaces an
+    # error instead of buffering without bound (the memory-safety guarantee of the byte cap).
+    import mlflow.server.sandbox.streaming as streaming_mod
+
+    monkeypatch.setattr(streaming_mod, "_MAX_LINE_BYTES", 8)
+    client, container = _streaming_container([b"0123456789ABCDEF"])  # 16 bytes, no newline
+    with mock.patch("docker.from_env", return_value=client):
+        proc = start_sandbox_process(["x"])
+        with pytest.raises(SandboxUnavailableError, match="over the 8-byte cap"):
+            _run(_collect(proc.iter_stdout_lines()))
+    container.kill.assert_called_once()
+
+
 def test_iter_stdout_lines_propagates_stream_error():
     client, container = _streaming_container([])
 

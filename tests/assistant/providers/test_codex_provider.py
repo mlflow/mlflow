@@ -1080,3 +1080,15 @@ async def test_astream_in_sandbox_forwards_registry_uri(monkeypatch):
     monkeypatch.setenv("MLFLOW_REGISTRY_URI", f"postgresql://{creds}@db.internal/registry")
     env = await _capture_sandbox_env(provider)
     assert "MLFLOW_REGISTRY_URI" not in env
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_rewrites_loopback_base_url(monkeypatch):
+    # A loopback OPENAI_BASE_URL is rewritten so the CLI can reach the host from the container;
+    # the API key passes through unchanged.
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:4000/v1")
+    env = await _capture_sandbox_env(CodexProvider())
+    assert env["OPENAI_BASE_URL"] == "http://host.docker.internal:4000/v1"
+    assert env["OPENAI_API_KEY"] == "sk-test"

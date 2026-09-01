@@ -154,6 +154,10 @@ class SandboxProcess:
                     if stop_watchdog.is_set():
                         return False
                     budget.wait(timeout=1.0)
+                    # Blocking here means the container produced this line and we are waiting on a
+                    # slow consumer — that is backpressure, not an idle container, so keep the idle
+                    # watchdog from killing a live turn. A truly gone consumer sets stop_watchdog.
+                    _bump()
                 buffered_bytes += len(line)
             _safe_put(line)
             return True

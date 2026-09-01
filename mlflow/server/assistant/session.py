@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import signal
 import tempfile
@@ -8,6 +9,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from mlflow.assistant.types import Message
+
+_logger = logging.getLogger(__name__)
 
 SESSION_DIR = Path(tempfile.gettempdir()) / "mlflow-assistant-sessions"
 
@@ -333,4 +336,11 @@ def terminate_session_container(session_id: str) -> bool:
         clear_container_id(session_id)
         return True
     except Exception:
+        # Keep the id (a retry can still reach a possibly-live container) but log it — otherwise a
+        # failed kill is invisible while the cancel endpoint reports the session as cancelled.
+        _logger.warning(
+            "Failed to terminate sandbox container for session %s; leaving its id for retry.",
+            session_id,
+            exc_info=True,
+        )
         return False

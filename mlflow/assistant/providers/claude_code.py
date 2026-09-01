@@ -50,6 +50,12 @@ from mlflow.server.assistant.session import (
 # outside this allowlist are intentionally NOT passed through; logged-in credentials otherwise
 # persist in the per-session HOME directory. The list covers the CLI's supported auth backends
 # (direct Anthropic API, Amazon Bedrock, Google Vertex) plus outbound proxy configuration.
+# Host provider credentials forwarded into the sandbox so the CLI can authenticate. The
+# container still has unrestricted outbound network access; restricting egress (a dedicated
+# network + optional proxy) is a planned follow-up (see the network-posture note in
+# mlflow/server/sandbox/container.py), and until then the sandbox stays off by default.
+# Both proxy-var cases are forwarded so an operator's interim egress proxy is honored whether
+# it is set upper- or lower-case (lowercase is conventional on Linux).
 _SANDBOX_AUTH_ENV_PASSTHROUGH = (
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_AUTH_TOKEN",
@@ -68,6 +74,9 @@ _SANDBOX_AUTH_ENV_PASSTHROUGH = (
     "HTTP_PROXY",
     "HTTPS_PROXY",
     "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
 )
 
 _logger = logging.getLogger(__name__)
