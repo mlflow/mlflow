@@ -4110,6 +4110,11 @@ message GetTrace {
   // Whether to allow partial traces. Default to False.
   optional bool allow_partial = 2 [default = false];
 
+  // Case-insensitive text filter applied to span name and content.
+  // When set, only spans whose name or serialized content contains
+  // this substring are returned.
+  optional string filter = 3;
+
   message Response {
     // The fetched trace including spans.
     optional Trace trace = 1;

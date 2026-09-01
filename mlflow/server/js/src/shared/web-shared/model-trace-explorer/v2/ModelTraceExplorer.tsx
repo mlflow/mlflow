@@ -103,6 +103,7 @@ export const ModelTraceExplorerImpl = ({
         initialShowTimelineTreeGantt={initialShowTimelineTreeGantt}
         refreshTrace={refreshTrace}
         isRefreshingTrace={isRefreshingTrace}
+        isVirtualized={modelTrace._paginatedResult?.isVirtualized}
       >
         {showLoadingState ? (
           <ModelTraceExplorerSkeleton />

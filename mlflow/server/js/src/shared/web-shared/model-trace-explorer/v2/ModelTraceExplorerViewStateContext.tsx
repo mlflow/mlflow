@@ -52,6 +52,7 @@ export type ModelTraceExplorerViewState = {
   highlightAssessment: (assessmentId: string) => void;
   refreshTrace?: () => Promise<void>;
   isRefreshingTrace?: boolean;
+  isVirtualized?: boolean;
 };
 
 export const ModelTraceExplorerViewStateContext: React.Context<ModelTraceExplorerViewState> =
@@ -80,6 +81,7 @@ export const ModelTraceExplorerViewStateContext: React.Context<ModelTraceExplore
     highlightAssessment: () => {},
     refreshTrace: undefined,
     isRefreshingTrace: false,
+    isVirtualized: false,
   });
 
 export const useModelTraceExplorerViewState = (): ModelTraceExplorerViewState => {
@@ -102,6 +104,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   initialShowTimelineTreeGantt = false,
   refreshTrace,
   isRefreshingTrace = false,
+  isVirtualized = false,
 }: {
   modelTrace: ModelTrace;
   selectedSpanIdOnRender?: string;
@@ -113,6 +116,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   initialShowTimelineTreeGantt?: boolean;
   refreshTrace?: () => Promise<void>;
   isRefreshingTrace?: boolean;
+  isVirtualized?: boolean;
 }): JSX.Element => {
   const topLevelNodes = useMemo(() => parseModelTraceToTreeWithMultipleRoots(modelTrace), [modelTrace]);
   const rootNode = topLevelNodes.length === 1 ? topLevelNodes[0] : null;
@@ -231,6 +235,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       highlightAssessment,
       refreshTrace,
       isRefreshingTrace,
+      isVirtualized,
     }),
     [
       activeView,
@@ -252,6 +257,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       topLevelNodes,
       refreshTrace,
       isRefreshingTrace,
+      isVirtualized,
       subscribeToHighlightEvent,
       highlightAssessment,
     ],

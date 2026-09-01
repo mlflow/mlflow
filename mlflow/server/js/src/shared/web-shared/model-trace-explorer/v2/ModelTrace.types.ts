@@ -2,7 +2,7 @@ import type { TimelineTreeNode } from './timeline-tree/TimelineTree.types';
 import type { SpanTokenUsage } from './ModelTraceTokenUsage.utils';
 // Reuse the shared OTLP value shape so a v1-typed ModelTrace (what OSS consumers hold) is
 // structurally assignable to v2's ModelTrace at the entrypoint boundary.
-import type { ModelTraceOtelAnyValue } from '../ModelTrace.types';
+import type { ModelTraceOtelAnyValue, PaginatedTraceResult } from '../ModelTrace.types';
 
 export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 
@@ -143,6 +143,7 @@ export type ModelTrace = {
   trace_info?: ModelTraceInfo;
   data: ModelTraceData;
   info: ModelTraceInfoV3 | ModelTraceInfo | NotebookModelTraceInfo;
+  _paginatedResult?: PaginatedTraceResult;
 };
 
 /**

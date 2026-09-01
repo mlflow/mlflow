@@ -913,6 +913,24 @@ def test_get_trace_is_workspace_scoped(workspace_tracking_store):
         assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
+def test_get_filtered_trace_spans_is_workspace_scoped(workspace_tracking_store):
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(trace_id=trace_id, name="matching span")
+
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_tracking_store.create_experiment("filtered-trace-exp-a")
+        workspace_tracking_store.log_spans(exp_id, [span])
+        filtered_spans = workspace_tracking_store.get_filtered_trace_spans(trace_id, "matching")
+        assert [span.name for span in filtered_spans] == ["matching span"]
+
+    with WorkspaceContext("team-b"):
+        with pytest.raises(
+            MlflowException, match=f"Trace with ID '{trace_id}' not found."
+        ) as excinfo:
+            workspace_tracking_store.get_filtered_trace_spans(trace_id, "matching")
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
 @pytest.mark.asyncio
 async def test_log_spans_async_is_workspace_scoped(workspace_tracking_store):
     trace_id = f"tr-{uuid.uuid4().hex}"

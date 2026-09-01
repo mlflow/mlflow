@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useQuery, useQueryClient, type UseQueryResult } from '../../query-client/queryClient';
 import { doesTraceSupportV4API } from '../../genai-traces-table/utils/TraceLocationUtils';
+import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../../genai-traces-table/utils/TraceUtils';
 
 import { shouldUseTracesV4API } from '../FeatureUtils';
 import type { ModelTrace } from '../ModelTrace.types';
 import { FETCH_TRACE_INFO_QUERY_KEY, getModelTraceId, isV3ModelTraceInfo } from '../ModelTraceExplorer.utils';
 import type { ModelTraceInfoQueryResponse } from '../api';
-import { fetchTraceInfoV3, TracesServiceV3, TracesServiceV4 } from '../api';
+import { fetchTraceInfoV3, getExperimentTraceV3, TracesServiceV3, TracesServiceV4 } from '../api';
 import { useModelTraceExplorerUpdateTraceContext } from '../contexts/UpdateTraceContext';
 
 export const useGetModelTraceInfo = ({
@@ -76,9 +77,15 @@ export const useGetModelTraceInfo = ({
       setModelTrace((prevModelTrace: ModelTrace) => ({
         data: prevModelTrace.data,
         info: traceInfo ?? {},
+        _paginatedResult: prevModelTrace._paginatedResult,
       }));
     }
   }, [query.data, query.isFetching, setModelTrace]);
+
+  const queriedTraceInfo = isV3ModelTraceInfo(query.data) ? query.data : query.data?.trace?.trace_info;
+  const refreshTraceInfo = traceInfoContext.modelTraceInfo ?? queriedTraceInfo;
+  const isTrackingStoreTrace =
+    isV3ModelTraceInfo(refreshTraceInfo) && getSpansLocation(refreshTraceInfo) === TRACKING_STORE_SPANS_LOCATION;
 
   const performRefresh = useCallback((): Promise<void> => {
     if (refreshPromiseRef.current?.traceId === traceId) return refreshPromiseRef.current.promise;
@@ -86,10 +93,21 @@ export const useGetModelTraceInfo = ({
     setIsRefreshingTrace(true);
     const requestToken = Symbol(traceId);
     const refreshPromise = (async () => {
-      const refreshedTrace =
-        shouldUseV4API && traceInfoContext.modelTraceInfo && isV3ModelTraceInfo(traceInfoContext.modelTraceInfo)
-          ? await TracesServiceV4.getTraceV4(traceInfoContext.modelTraceInfo)
-          : await TracesServiceV3.getTraceV3(traceId);
+      let refreshedTrace: ModelTrace;
+      if (shouldUseV4API && traceInfoContext.modelTraceInfo && isV3ModelTraceInfo(traceInfoContext.modelTraceInfo)) {
+        refreshedTrace = await TracesServiceV4.getTraceV4(traceInfoContext.modelTraceInfo);
+      } else if (isTrackingStoreTrace) {
+        const response = await getExperimentTraceV3({ traceId });
+        if (!response.trace) {
+          throw new Error(`Trace '${traceId}' was not found`);
+        }
+        refreshedTrace = {
+          info: response.trace.trace_info ?? refreshTraceInfo,
+          data: { spans: response.trace.spans ?? [] },
+        };
+      } else {
+        refreshedTrace = await TracesServiceV3.getTraceV3(traceId);
+      }
       if (currentTraceIdRef.current !== traceId || refreshPromiseRef.current?.token !== requestToken) return;
 
       if (!shouldUseV4API) {
@@ -106,9 +124,15 @@ export const useGetModelTraceInfo = ({
             return isModelTrace(cachedTrace) && getModelTraceId(cachedTrace) === traceId;
           },
         },
-        refreshedTrace,
+        (cachedTrace) => ({
+          ...refreshedTrace,
+          _paginatedResult: cachedTrace?._paginatedResult,
+        }),
       );
-      setModelTrace(refreshedTrace);
+      setModelTrace((prevModelTrace) => ({
+        ...refreshedTrace,
+        _paginatedResult: prevModelTrace._paginatedResult,
+      }));
       setAssessmentsPaneEnabled(true);
     })();
     refreshPromiseRef.current = { traceId, promise: refreshPromise, token: requestToken };
@@ -125,6 +149,8 @@ export const useGetModelTraceInfo = ({
     queryKey,
     setAssessmentsPaneEnabled,
     setModelTrace,
+    isTrackingStoreTrace,
+    refreshTraceInfo,
     shouldUseV4API,
     traceId,
     traceInfoContext.modelTraceInfo,
