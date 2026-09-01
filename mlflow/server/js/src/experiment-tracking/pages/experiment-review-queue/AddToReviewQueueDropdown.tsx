@@ -96,6 +96,12 @@ export const AddToReviewQueueDropdown = ({
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : internalOpen;
+  const hasRequestedDrawerCloseRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      hasRequestedDrawerCloseRef.current = false;
+    }
+  }, [isOpen]);
   const setOpen = useCallback(
     (next: boolean) => {
       if (isControlled) {
@@ -265,7 +271,10 @@ export const AddToReviewQueueDropdown = ({
   const showSuccessToast = useCallback(
     (queueId: string) => {
       const reviewQueuePath = getReviewQueuePageRoute(experimentId, queueId);
-      onCloseDrawer?.();
+      if (onCloseDrawer && !hasRequestedDrawerCloseRef.current) {
+        hasRequestedDrawerCloseRef.current = true;
+        onCloseDrawer();
+      }
       Utils.displayGlobalInfoNotification(
         <span css={{ whiteSpace: 'nowrap' }}>
           {intl.formatMessage(

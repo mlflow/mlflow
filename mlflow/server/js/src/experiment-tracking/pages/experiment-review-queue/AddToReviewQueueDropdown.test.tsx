@@ -282,7 +282,8 @@ describe('AddToReviewQueueDropdown', () => {
   });
 
   it('allows adding to multiple queues sequentially', async () => {
-    renderDropdown({ open: true });
+    const onCloseDrawer = jest.fn();
+    renderDropdown({ open: true, onCloseDrawer });
 
     // Add to a custom queue.
     fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
@@ -293,6 +294,7 @@ describe('AddToReviewQueueDropdown', () => {
     await waitFor(() => expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-default', item_ids: ['tr-1'] }));
 
     expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledTimes(2);
+    expect(onCloseDrawer).toHaveBeenCalledTimes(1);
   });
 
   it('hides the New-queue link for a READ-only user', () => {
