@@ -22,6 +22,7 @@ from mlflow import ai_commands, projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACTS_ONLY_PRESIGNED,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
@@ -54,6 +55,7 @@ from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
+    artifacts_only_presigned_config_validation,
     assert_server_workspace_env_unset,
     resolve_default_artifact_root,
 )
@@ -427,6 +429,17 @@ def _validate_static_prefix(ctx, param, value):
     "endpoints for uploading, downloading, and listing artifacts. "
     "Default: False",
 )
+@click.option(
+    "--artifacts-only-presigned",
+    envvar=MLFLOW_ARTIFACTS_ONLY_PRESIGNED.name,
+    is_flag=True,
+    default=False,
+    help=(
+        "Disable legacy proxied artifact upload and download byte-stream endpoints and require "
+        "clients to transfer artifact bytes through presigned URLs. Older clients receive an "
+        "actionable upgrade error. Default: False"
+    ),
+)
 @cli_args.ARTIFACTS_DESTINATION
 @cli_args.HOST
 @cli_args.PORT
@@ -546,6 +559,7 @@ def server(
     default_artifact_root,
     serve_artifacts,
     artifacts_only,
+    artifacts_only_presigned,
     artifacts_destination,
     host,
     port,
@@ -635,6 +649,8 @@ def server(
         and ctx.get_parameter_source("enable_workspaces") != ParameterSource.COMMANDLINE
     ):
         enable_workspaces = MLFLOW_ENABLE_WORKSPACES.get()
+    if ctx and ctx.get_parameter_source("artifacts_only_presigned") != ParameterSource.COMMANDLINE:
+        artifacts_only_presigned = MLFLOW_ARTIFACTS_ONLY_PRESIGNED.get()
     assert_server_workspace_env_unset()
 
     if disable_security_middleware:
@@ -677,6 +693,12 @@ def server(
         enable_workspaces,
         workspace_store_uri=workspace_store_uri,
         trace_archival_config_path=str(trace_archival_config) if trace_archival_config else None,
+    )
+    artifacts_only_presigned_config_validation(
+        artifacts_only_presigned,
+        serve_artifacts=serve_artifacts,
+        artifacts_only=artifacts_only,
+        artifacts_destination=artifacts_destination,
     )
     if trace_archival_config is not None:
         try:
@@ -768,6 +790,7 @@ def server(
             default_artifact_root=default_artifact_root,
             serve_artifacts=serve_artifacts,
             artifacts_only=artifacts_only,
+            artifacts_only_presigned=artifacts_only_presigned,
             artifacts_destination=artifacts_destination,
             host=host,
             port=port,
