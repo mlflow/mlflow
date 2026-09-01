@@ -1,3 +1,4 @@
+/* eslint-disable @databricks/no-mock-location */
 import { describe, it, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { renderHook, act, cleanup, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -16,8 +17,8 @@ import {
 } from './AssistantContext';
 import * as AssistantService from './AssistantService';
 import type { SendMessageStreamCallbacks } from './AssistantService';
-import { GatewayApi } from '../gateway/api';
-import type { AssistantConfig, ProviderConfig, AssistantPart, ChatMessage } from './types';
+import { registerClientToolHandler } from './clientToolHandlers';
+import type { AssistantPart, ChatMessage, ProviderInfo, ResolvedProviderInfo } from './types';
 
 const EMPTY_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0, cacheReadTokens: 0, costUsd: null };
 
@@ -31,24 +32,50 @@ const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
   ...overrides,
 });
 
+const resolvedProvider = (overrides: Partial<ResolvedProviderInfo> = {}): ResolvedProviderInfo => ({
+  name: 'claude_code',
+  model: null,
+  auto_selected: true,
+  requires_api_key: false,
+  has_api_key: false,
+  client_tool_delivery: 'unsupported',
+  ...overrides,
+});
+
+const providerInfo = (overrides: Partial<ProviderInfo> & { name: string }): ProviderInfo => ({
+  display_name: overrides.name,
+  description: '',
+  available: true,
+  selected: false,
+  requires_api_key: false,
+  has_api_key: false,
+  allows_remote_access: false,
+  client_tool_delivery: 'unsupported',
+  model_options: [],
+  ...overrides,
+});
+
 jest.mock('./AssistantService', () => ({
   __esModule: true,
   sendMessageStream: jest.fn(),
   getConfig: jest.fn(),
-  cancelSession: jest.fn(),
+  getProviders: jest.fn(),
+  updateConfig: jest.fn(() => Promise.resolve({})),
+  cancelSession: jest.fn(() => Promise.resolve({ message: 'cancelled' })),
+  submitClientToolResult: jest.fn(),
 }));
 
-jest.mock('../gateway/api', () => ({
-  GatewayApi: { listEndpoints: jest.fn() },
-}));
-
+let mockPageContext: Record<string, unknown> = {};
 jest.mock('./AssistantPageContext', () => ({
-  useAssistantPageContextActions: () => ({ getContext: () => ({}) }),
+  useAssistantPageContextActions: () => ({ getContext: () => mockPageContext }),
 }));
 
 const mockSendMessageStream = jest.mocked(AssistantService.sendMessageStream);
 const mockGetConfig = jest.mocked(AssistantService.getConfig);
-const mockListEndpoints = jest.mocked(GatewayApi.listEndpoints);
+const mockGetProviders = jest.mocked(AssistantService.getProviders);
+const mockUpdateConfig = jest.mocked(AssistantService.updateConfig);
+const mockSubmitClientToolResult = jest.mocked(AssistantService.submitClientToolResult);
+const originalLocation = window.location;
 
 // A fake EventSource — the real one is created inside sendMessageStream, which we mock,
 // so the context only ever calls .close() on what we hand back here.
@@ -69,8 +96,14 @@ beforeEach(() => {
   localStorage.clear();
   fakeEventSource = { close: jest.fn() };
   capturedCallbacks = undefined;
+  mockPageContext = {};
   mockGetConfig.mockResolvedValue({ providers: {}, projects: {} });
+  mockGetProviders.mockResolvedValue({ providers: [], resolved: null });
   mockSendMessageStream.mockImplementation(async (_req, callbacks) => {
+    capturedCallbacks = callbacks;
+    return { eventSource: fakeEventSource as unknown as EventSource };
+  });
+  mockSubmitClientToolResult.mockImplementation(async (_sessionId, _requestId, _content, _isError, callbacks) => {
     capturedCallbacks = callbacks;
     return { eventSource: fakeEventSource as unknown as EventSource };
   });
@@ -81,6 +114,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
   jest.restoreAllMocks();
   jest.clearAllMocks();
 });
@@ -139,6 +173,35 @@ describe('AssistantContext — reset() tears down the active stream', () => {
 
     expect(result.current.sessionId).toBeNull();
     expect(result.current.messages).toHaveLength(0);
+  });
+
+  it('atomically sends a new-session message without reusing the current session id', async () => {
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('old turn');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-OLD');
+      result.current.prefillPrompt('stale composer prompt');
+    });
+    expect(result.current.sessionId).toBe('session-OLD');
+
+    mockSendMessageStream.mockClear();
+    fakeEventSource.close.mockClear();
+    await act(async () => {
+      result.current.sendMessage('fresh turn', { newSession: true });
+    });
+
+    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(mockSendMessageStream.mock.calls[0][0]).not.toHaveProperty('session_id');
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({ message: 'fresh turn' });
+    expect(result.current.pendingPrompt).toBeNull();
+    expect(result.current.messages.map(({ role, content }) => ({ role, content }))).toEqual([
+      { role: 'user', content: 'fresh turn' },
+      { role: 'assistant', content: '' },
+    ]);
   });
 });
 
@@ -268,9 +331,34 @@ describe('AssistantContext — pendingPrompt seed', () => {
     expect(result.current.pendingPrompt).toBeNull();
   });
 
+  it('direct send clears a queued pendingPrompt when continuing an established session', async () => {
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('first turn');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+      capturedCallbacks?.onDone();
+      result.current.prefillPrompt('STALE SEED');
+    });
+    expect(result.current.pendingPrompt).toBe('STALE SEED');
+
+    mockSendMessageStream.mockClear();
+    await act(async () => {
+      result.current.sendMessage('direct follow-up');
+    });
+
+    expect(result.current.pendingPrompt).toBeNull();
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({
+      session_id: 'session-1',
+      message: 'direct follow-up',
+    });
+  });
+
   // completing setup must NOT drop a queued prompt, so it can be
   // consumed once the chat input appears post-setup.
-  it('keeps pendingPrompt across completeSetup() (seed survives the setup wizard)', async () => {
+  it('keeps pendingPrompt across completeSetup() (seed survives setup refresh)', async () => {
     const { result } = await renderAssistant();
 
     act(() => {
@@ -278,12 +366,12 @@ describe('AssistantContext — pendingPrompt seed', () => {
     });
     expect(result.current.pendingPrompt).toBe('SEED');
 
-    // completeSetup() re-fetches config; mirror a finished wizard where a provider is selected
+    // completeSetup() re-fetches config; mirror a finished setup where a provider is selected
     // so setupComplete stays true after the refresh lands.
-    mockGetConfig.mockResolvedValue({
-      providers: { anthropic: { model: 'm', selected: true, permissions: {} } },
-      projects: {},
-    } as unknown as Awaited<ReturnType<typeof AssistantService.getConfig>>);
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'claude_code', auto_selected: false }),
+    });
 
     await act(async () => {
       result.current.completeSetup();
@@ -291,6 +379,130 @@ describe('AssistantContext — pendingPrompt seed', () => {
 
     expect(result.current.setupComplete).toBe(true);
     expect(result.current.pendingPrompt).toBe('SEED');
+  });
+});
+
+describe('AssistantContext — composer focus request', () => {
+  it('sets and clears a focus-only request', async () => {
+    const { result } = await renderAssistant();
+    expect(result.current.pendingComposerFocus).toBe(false);
+
+    act(() => {
+      result.current.requestComposerFocus();
+    });
+    expect(result.current.pendingComposerFocus).toBe(true);
+
+    act(() => {
+      result.current.clearComposerFocusRequest();
+    });
+    expect(result.current.pendingComposerFocus).toBe(false);
+  });
+
+  it('abandons an unconsumed focus request when the panel closes', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.requestComposerFocus();
+      result.current.closePanel();
+    });
+
+    expect(result.current.pendingComposerFocus).toBe(false);
+  });
+
+  it('preserves a focus request across a fresh-session reset', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.requestComposerFocus();
+      result.current.reset();
+    });
+
+    expect(result.current.pendingComposerFocus).toBe(true);
+  });
+});
+
+describe('AssistantContext — automatic message delivery', () => {
+  it('sends immediately when a configured provider is ready', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'ollama', auto_selected: false }),
+    });
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessageWhenReady('build a view', { newSession: true });
+    });
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(result.current.pendingAutomaticMessage).toBeNull();
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({ message: 'build a view' });
+    expect(mockSendMessageStream.mock.calls[0][0]).not.toHaveProperty('session_id');
+  });
+
+  it('queues during setup and drains automatically after a provider resolves', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.sendMessageWhenReady('build after setup', { newSession: true });
+    });
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(result.current.pendingAutomaticMessage).toEqual({
+      message: 'build after setup',
+      options: { newSession: true },
+    });
+
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'ollama', auto_selected: false }),
+    });
+    await act(async () => {
+      await result.current.refreshConfig();
+    });
+
+    await waitFor(() => expect(mockSendMessageStream).toHaveBeenCalledTimes(1));
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({ message: 'build after setup' });
+    expect(mockSendMessageStream.mock.calls[0][0]).not.toHaveProperty('session_id');
+    expect(result.current.pendingAutomaticMessage).toBeNull();
+  });
+
+  it('keeps a missing-key message queued until explicitly released after key setup', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({
+        name: 'mlflow_gateway',
+        requires_api_key: true,
+        has_api_key: false,
+        client_tool_delivery: 'tool',
+      }),
+    });
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.sendMessageWhenReady('build after key', { newSession: true });
+    });
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(result.current.pendingAutomaticMessage?.message).toBe('build after key');
+
+    await act(async () => {
+      result.current.forceSendPendingAutomaticMessage();
+    });
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(mockSendMessageStream.mock.calls[0][0]).toMatchObject({ message: 'build after key' });
+    expect(mockSendMessageStream.mock.calls[0][0]).not.toHaveProperty('session_id');
+    expect(result.current.pendingAutomaticMessage).toBeNull();
+  });
+
+  it('abandons a queued automatic message when the panel closes', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.sendMessageWhenReady('abandon me', { newSession: true });
+      result.current.closePanel();
+    });
+
+    expect(result.current.pendingAutomaticMessage).toBeNull();
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
   });
 });
 
@@ -343,65 +555,230 @@ describe('applyToolResult', () => {
   });
 });
 
-const providerConfig = (overrides: Partial<ProviderConfig>): ProviderConfig => ({
-  model: 'default',
-  selected: false,
-  permissions: { allow_edit_files: true, allow_read_docs: true, full_access: false },
-  ...overrides,
-});
-
-const config = (providers: AssistantConfig['providers']): AssistantConfig => ({
-  providers,
-  projects: {},
-});
-
-describe('AssistantProvider setup completeness', () => {
+describe('AssistantProvider setup state from provider discovery', () => {
   const renderAndWaitForConfig = async () => {
     const { result } = renderHook(() => useAssistant(), { wrapper: AssistantProvider });
     await waitFor(() => expect(result.current.isLoadingConfig).toBe(false));
     return result;
   };
 
-  beforeEach(() => {
-    mockGetConfig.mockReset();
-    mockListEndpoints.mockReset();
-  });
-
-  test('gateway selected but no endpoints exist => setup incomplete', async () => {
-    mockGetConfig.mockResolvedValue(config({ mlflow_gateway: providerConfig({ model: 'assistant', selected: true }) }));
-    mockListEndpoints.mockResolvedValue({ endpoints: [] });
+  test('no resolved provider => setup incomplete, nothing surfaced', async () => {
+    mockGetProviders.mockResolvedValue({ providers: [], resolved: null });
 
     const result = await renderAndWaitForConfig();
 
     expect(result.current.setupComplete).toBe(false);
+    expect(result.current.activeProvider).toBeNull();
+    expect(result.current.needsApiKey).toBe(false);
   });
 
-  test('gateway selected but configured endpoint is missing from the list => setup incomplete', async () => {
-    mockGetConfig.mockResolvedValue(config({ mlflow_gateway: providerConfig({ model: 'assistant', selected: true }) }));
-    mockListEndpoints.mockResolvedValue({ endpoints: [{ name: 'some-other-endpoint' }] as any });
+  test('explicitly selected provider => setup complete with its model', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', model: 'chat-endpoint', auto_selected: false }),
+    });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(true);
+    expect(result.current.activeProvider).toMatchObject({
+      name: 'mlflow_gateway',
+      model: 'chat-endpoint',
+      auto_selected: false,
+    });
+  });
+
+  test('auto-resolved default provider => chat is ready without any setup', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+    });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(true);
+    expect(result.current.activeProvider).toMatchObject({ name: 'claude_code', model: null, auto_selected: true });
+    expect(result.current.needsApiKey).toBe(false);
+  });
+
+  test('resolved provider missing its API key => needsApiKey so the first send prompts for it', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({
+        name: 'mlflow_gateway',
+        model: 'mlflow-assistant-openai',
+        auto_selected: true,
+        requires_api_key: true,
+        has_api_key: false,
+        model_provider: 'openai',
+        provider_model: 'gpt-5',
+        model_options: ['gpt-5.5', 'gpt-5'],
+      }),
+    });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(true);
+    expect(result.current.needsApiKey).toBe(true);
+  });
+
+  test('switching provider is optimistic: chip and needsApiKey update without a config write', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5', 'gpt-5-mini'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+    expect(result.current.activeProvider?.name).toBe('claude_code');
+    expect(result.current.needsApiKey).toBe(false);
+
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5', 'gpt-5-mini'],
+        requiresApiKey: true,
+        hasApiKey: false,
+      });
+    });
+
+    expect(result.current.activeProvider?.name).toBe('mlflow_gateway');
+    expect(result.current.activeProvider?.model).toBe('mlflow-assistant-openai');
+    expect(result.current.activeProvider?.provider_model).toBe('gpt-5.5');
+    expect(result.current.needsApiKey).toBe(true);
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+  });
+
+  test('a pending provider pick is persisted on the next send, then synced', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5'],
+        requiresApiKey: false,
+        hasApiKey: true,
+      });
+    });
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+
+    await act(async () => {
+      result.current.sendMessage('hi');
+    });
+
+    expect(mockUpdateConfig).toHaveBeenCalledWith({
+      providers: {
+        mlflow_gateway: {
+          selected: true,
+          model: 'mlflow-assistant-openai',
+        },
+      },
+    });
+  });
+
+  test('ignores provider selection on remote clients because config updates are local-only', async () => {
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, hostname: 'remote.example.com' },
+      writable: true,
+    });
+    mockGetConfig.mockResolvedValue({ providers: {}, projects: {}, remote_access_allowed: true });
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5'],
+        requiresApiKey: false,
+        hasApiKey: true,
+      });
+    });
+
+    expect(result.current.isLocalServer).toBe(false);
+    expect(result.current.activeProvider?.name).toBe('claude_code');
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+  });
+
+  test('a failed pending provider pick closes the established-session placeholder as failed', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'claude_code' }), providerInfo({ name: 'mlflow_gateway' })],
+      resolved: resolvedProvider({ name: 'claude_code', model: null, auto_selected: true }),
+      gateway_vendor_options: { openai: ['gpt-5.5'] },
+    });
+
+    const result = await renderAndWaitForConfig();
+    await act(async () => {
+      result.current.sendMessage('first');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+      capturedCallbacks?.onDone();
+    });
+    expect(result.current.isStreaming).toBe(false);
+    mockSendMessageStream.mockClear();
+
+    act(() => {
+      result.current.selectProvider({
+        kind: 'gateway',
+        endpointName: 'mlflow-assistant-openai',
+        gatewayVendor: 'openai',
+        providerModel: 'gpt-5.5',
+        modelOptions: ['gpt-5.5'],
+        requiresApiKey: false,
+        hasApiKey: true,
+      });
+    });
+    mockUpdateConfig.mockRejectedValueOnce(new Error('could not save provider'));
+
+    await act(async () => {
+      result.current.sendMessage('second');
+    });
+
+    const failedAssistantTurn = result.current.messages[result.current.messages.length - 1];
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(result.current.isStreaming).toBe(false);
+    expect(result.current.error).toBe('could not save provider');
+    expect(failedAssistantTurn).toMatchObject({ role: 'assistant', isStreaming: false });
+    expect(failedAssistantTurn.content).toContain('Error: could not save provider');
+
+    await waitFor(() => expect(result.current.activeProvider?.name).toBe('claude_code'));
+
+    mockUpdateConfig.mockClear();
+    mockSendMessageStream.mockClear();
+    await act(async () => {
+      result.current.sendMessage('third');
+    });
+
+    expect(mockUpdateConfig).not.toHaveBeenCalled();
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+  });
+
+  test('discovery failure => setup treated as incomplete', async () => {
+    mockGetProviders.mockRejectedValue(new Error('boom'));
 
     const result = await renderAndWaitForConfig();
 
     expect(result.current.setupComplete).toBe(false);
-  });
-
-  test('gateway selected and configured endpoint exists => setup complete', async () => {
-    mockGetConfig.mockResolvedValue(config({ mlflow_gateway: providerConfig({ model: 'assistant', selected: true }) }));
-    mockListEndpoints.mockResolvedValue({ endpoints: [{ name: 'assistant' }] as any });
-
-    const result = await renderAndWaitForConfig();
-
-    expect(result.current.setupComplete).toBe(true);
-    expect(mockListEndpoints).toHaveBeenCalled();
-  });
-
-  test('non-gateway provider selected => setup complete without querying gateway endpoints', async () => {
-    mockGetConfig.mockResolvedValue(config({ claude_code: providerConfig({ model: 'default', selected: true }) }));
-
-    const result = await renderAndWaitForConfig();
-
-    expect(result.current.setupComplete).toBe(true);
-    expect(mockListEndpoints).not.toHaveBeenCalled();
+    expect(result.current.activeProvider).toBeNull();
   });
 });
 
@@ -456,6 +833,308 @@ describe('AssistantContext — a new message supersedes a pending permission pro
     });
 
     expect(result.current.pendingPermission).toBeNull();
+  });
+});
+
+describe('AssistantContext — client_tool_call auto-resume', () => {
+  const pauseAtClientTool = (
+    overrides: Partial<{
+      toolName: string;
+      toolInput: Record<string, unknown>;
+      continuation: 'resume' | 'terminal';
+    }> = {},
+  ) => {
+    return capturedCallbacks?.onClientToolCall?.({
+      sessionId: 'session-1',
+      requestId: 'req-1',
+      toolName: overrides.toolName ?? 'render_custom_view',
+      toolInput: overrides.toolInput ?? { title: 'Trace Summary', messages: [] },
+      ...(overrides.continuation ? { continuation: overrides.continuation } : {}),
+    });
+  };
+
+  it('executes a terminal structured-output call without posting a result', async () => {
+    const unregister = registerClientToolHandler('render_custom_view', async () => ({
+      content: 'rendered terminal output',
+      isError: false,
+    }));
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+
+    await act(async () => {
+      await pauseAtClientTool({ continuation: 'terminal' });
+    });
+
+    expect(mockSubmitClientToolResult).not.toHaveBeenCalled();
+    expect(fakeEventSource.close).not.toHaveBeenCalled();
+    expect(result.current.pendingClientToolCall).toBeNull();
+    expect(result.current.isStreaming).toBe(true);
+
+    unregister();
+  });
+
+  it('completes a terminal call with no registered handler without posting a result', async () => {
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+
+    const callbacks = capturedCallbacks;
+    await act(async () => {
+      await callbacks?.onClientToolCall?.({
+        sessionId: 'session-1',
+        requestId: 'req-1',
+        toolName: 'unregistered_tool',
+        toolInput: {},
+        continuation: 'terminal',
+      });
+      callbacks?.onDone();
+    });
+
+    expect(mockSubmitClientToolResult).not.toHaveBeenCalled();
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(result.current.pendingClientToolCall).toBeNull();
+    expect(result.current.isStreaming).toBe(false);
+  });
+
+  it('completes a terminal non-retryable handler error without starting a repair', async () => {
+    const unregister = registerClientToolHandler('render_custom_view', async () => ({
+      content: 'Custom View rendering failed',
+      isError: true,
+      retryable: false,
+    }));
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+
+    const callbacks = capturedCallbacks;
+    await act(async () => {
+      await callbacks?.onClientToolCall?.({
+        sessionId: 'session-1',
+        requestId: 'req-1',
+        toolName: 'render_custom_view',
+        toolInput: { title: 'Trace Summary', messages: [] },
+        continuation: 'terminal',
+      });
+      callbacks?.onDone();
+    });
+
+    expect(mockSubmitClientToolResult).not.toHaveBeenCalled();
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    expect(result.current.pendingClientToolCall).toBeNull();
+    expect(result.current.isStreaming).toBe(false);
+
+    unregister();
+  });
+
+  it('starts a hidden structured repair turn with the validation error and original context', async () => {
+    const originalContext = {
+      experimentId: 'exp-1',
+      customTraceView: { guide: 'structured guide', currentTemplate: [{ id: 'existing-root' }] },
+    };
+    mockPageContext = originalContext;
+    const unregister = registerClientToolHandler('render_custom_view', async () => ({
+      content: 'Unknown component "Widget"',
+      isError: true,
+      retryable: true,
+    }));
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    mockPageContext = {
+      experimentId: 'exp-1',
+      customTraceView: { guide: 'different view', currentTemplate: [{ id: 'different-root' }] },
+    };
+
+    await act(async () => {
+      await pauseAtClientTool({ continuation: 'terminal' });
+    });
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(2);
+    const repairRequest = mockSendMessageStream.mock.calls[1][0];
+    expect(repairRequest).toMatchObject({
+      session_id: 'session-1',
+      experiment_id: 'exp-1',
+      context: originalContext,
+    });
+    expect(repairRequest.message).toContain('Unknown component \\"Widget\\"');
+    expect(repairRequest.message).toContain('automatic repair 1/2');
+    expect(result.current.isStreaming).toBe(true);
+
+    unregister();
+  });
+
+  it('bounds structured Custom View repair to two attempts', async () => {
+    mockPageContext = { customTraceView: { guide: 'structured guide' } };
+    const unregister = registerClientToolHandler('render_custom_view', async () => ({
+      content: 'Invalid component',
+      isError: true,
+      retryable: true,
+    }));
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const callbacks = capturedCallbacks;
+      await act(async () => {
+        await callbacks?.onClientToolCall?.({
+          sessionId: 'session-1',
+          requestId: `req-${attempt}`,
+          toolName: 'render_custom_view',
+          toolInput: { title: 'Trace Summary', messages: [] },
+          continuation: 'terminal',
+        });
+        callbacks?.onDone();
+      });
+      expect(result.current.isStreaming).toBe(attempt < 2);
+    }
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(3);
+    expect(mockSendMessageStream.mock.calls[2][0].message).toContain('automatic repair 2/2');
+
+    unregister();
+  });
+
+  it('does not start a repair after cancellation while browser validation is pending', async () => {
+    mockPageContext = { customTraceView: { guide: 'structured guide' } };
+    let finishValidation!: (result: { content: string; isError: true; retryable: true }) => void;
+    const unregister = registerClientToolHandler(
+      'render_custom_view',
+      () =>
+        new Promise((resolve) => {
+          finishValidation = resolve;
+        }),
+    );
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+    });
+
+    let terminalExecution: void | Promise<void> = undefined;
+    act(() => {
+      terminalExecution = pauseAtClientTool({ continuation: 'terminal' });
+    });
+    act(() => {
+      result.current.cancelSession();
+    });
+    await act(async () => {
+      finishValidation({ content: 'Invalid component', isError: true, retryable: true });
+      await terminalExecution;
+    });
+
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+    unregister();
+  });
+
+  it('runs the registered handler and submits its result to resume the stream', async () => {
+    const handler = jest.fn(async (toolInput: Record<string, any>) => ({
+      content: `applied: ${toolInput['title']}`,
+      isError: false,
+    }));
+    const unregister = registerClientToolHandler('render_custom_view', handler);
+
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    await act(async () => {
+      pauseAtClientTool();
+    });
+
+    expect(handler).toHaveBeenCalledWith({ title: 'Trace Summary', messages: [] });
+    await waitFor(() =>
+      expect(mockSubmitClientToolResult).toHaveBeenCalledWith(
+        'session-1',
+        'req-1',
+        'applied: Trace Summary',
+        false,
+        expect.anything(),
+      ),
+    );
+    expect(result.current.pendingClientToolCall).toBeNull();
+
+    unregister();
+  });
+
+  it('submits an error result when no handler is registered for the tool name', async () => {
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    await act(async () => {
+      pauseAtClientTool({ toolName: 'unregistered_tool' });
+    });
+
+    await waitFor(() =>
+      expect(mockSubmitClientToolResult).toHaveBeenCalledWith(
+        'session-1',
+        'req-1',
+        'No handler is registered for client tool "unregistered_tool".',
+        true,
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('submits an error result when the registered handler rejects', async () => {
+    const unregister = registerClientToolHandler('render_custom_view', async () => {
+      throw new Error('failed to apply spec');
+    });
+
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    await act(async () => {
+      pauseAtClientTool();
+    });
+
+    await waitFor(() =>
+      expect(mockSubmitClientToolResult).toHaveBeenCalledWith(
+        'session-1',
+        'req-1',
+        'failed to apply spec',
+        true,
+        expect.anything(),
+      ),
+    );
+
+    unregister();
+  });
+
+  it('clears pendingClientToolCall when a new message supersedes the paused turn', async () => {
+    const unregister = registerClientToolHandler(
+      'render_custom_view',
+      // Never resolves, so the effect stays pending and doesn't clear pendingClientToolCall itself.
+      () => new Promise(() => {}),
+    );
+
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('build me a view');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+      pauseAtClientTool();
+    });
+    expect(result.current.pendingClientToolCall).not.toBeNull();
+
+    await act(async () => {
+      result.current.sendMessage('never mind, what is 2+2');
+    });
+
+    expect(result.current.pendingClientToolCall).toBeNull();
+
+    unregister();
   });
 });
 

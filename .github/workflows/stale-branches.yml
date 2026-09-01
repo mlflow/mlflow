@@ -1,0 +1,76 @@
+name: Stale branches
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - .github/workflows/stale-branches.yml
+      - .github/workflows/stale-branches.js
+  schedule:
+    # Run weekly on Monday at 00:00 UTC
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Log the branches that would be deleted without deleting them"
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  # Runs the PR's own copy of the script, so the token is read-only: a preview
+  # must not delete a branch, however the script is edited.
+  preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows/stale-branches.js
+          sparse-checkout-cone-mode: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DRY_RUN: "true"
+        with:
+          retries: 3
+          script: |
+            const script = require(".github/workflows/stale-branches.js");
+            await script({ context, github });
+
+  # Deletes on the weekly schedule, and on a manual run with dry_run unchecked.
+  sweep:
+    if: github.event_name != 'pull_request' && github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/workflows/stale-branches.js
+          sparse-checkout-cone-mode: false
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        with:
+          retries: 3
+          script: |
+            const script = require(".github/workflows/stale-branches.js");
+            await script({ context, github });

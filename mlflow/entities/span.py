@@ -1040,6 +1040,17 @@ class LiveSpan(Span):
                 INVALID_PARAMETER_VALUE,
             )
 
+        # Span links are not supported for Unity Catalog (V4) traces. Warn and skip rather than
+        # silently normalizing the V4 trace ID to raw OTel hex (see #25080); this matches how
+        # V4-trace links are dropped at span construction.
+        if link.trace_id is not None and link.trace_id.startswith(TRACE_ID_V4_PREFIX):
+            _logger.warning(
+                "Span links are not currently supported for Unity Catalog traces. "
+                "The link to trace '%s' will be skipped.",
+                link.trace_id,
+            )
+            return
+
         # Validate and forward to the underlying OTel span so external exporters can see links
         try:
             link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
@@ -1050,7 +1061,7 @@ class LiveSpan(Span):
             trace_id_int.to_bytes(16, "big")
             span_id_int.to_bytes(8, "big")
             otel_context = build_otel_context(trace_id_int, span_id_int)
-        except (ValueError, OverflowError, MlflowException) as e:
+        except (ValueError, OverflowError, AttributeError, MlflowException) as e:
             raise MlflowException(
                 f"Invalid link: trace_id={link.trace_id!r}, span_id={link.span_id!r}. "
                 "trace_id must be a valid MLflow trace ID or hex string, and "

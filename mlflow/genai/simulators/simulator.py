@@ -368,7 +368,6 @@ def _validate_simulator_predict_fn_signature(
 
 
 @format_docstring(_MODEL_API_DOC)
-@experimental(version="3.9.0")
 class ConversationSimulator:
     """
     Generates multi-turn conversations by simulating user interactions with a target agent.

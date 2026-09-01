@@ -41,18 +41,19 @@ const CodeSnippetWithCopy = ({ code, language }: { code: string; language: CodeS
 export const OptimizeModal = ({ visible, promptName, promptVersion, onCancel }: Props) => {
   const { theme } = useDesignSystemTheme();
 
-  const bashCode = `pip install -U 'mlflow>=3.5.0' 'dspy>=3.0.0' openai databricks-agents`;
+  const bashCode = `pip install -U 'mlflow>=3.5.0' 'gepa>=0.0.26' openai`;
 
-  const pythonCode = `import os
-from typing import Any
-import openai
+  const pythonCode = `import openai
 import mlflow
 from mlflow.genai.scorers import Correctness, Safety
 from mlflow.genai.optimize import GepaPromptOptimizer
-from mlflow.genai import datasets
 
-EVAL_DATASET_NAME='<YOUR DATASET NAME>' # Replace with your dataset
-dataset = datasets.get_dataset(EVAL_DATASET_NAME)
+# Provide training examples inline (or load your own dataset).
+# Each example maps the prompt's input variables to an expected response.
+train_data = [
+    {"inputs": {"question": "..."}, "expectations": {"expected_response": "..."}},
+    # Add more examples here
+]
 
 # Define your prediction function
 def predict_fn(**kwargs) -> str:
@@ -66,10 +67,10 @@ def predict_fn(**kwargs) -> str:
 # Optimize your prompt
 result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
-    train_data=dataset,
+    train_data=train_data,
     prompt_uris=["prompts:/${promptName}/${promptVersion}"],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
-    scorers=[Correctness(model="openai:/gpt-5")), Safety(model="openai:/gpt-5"))],
+    scorers=[Correctness(model="openai:/gpt-5"), Safety(model="openai:/gpt-5")],
 )
 
 # Open the prompt registry page to check the new prompt

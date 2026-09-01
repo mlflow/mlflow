@@ -81,6 +81,7 @@ function GenAiTracesTableImpl({
   onTraceTagsEdit,
   traceActions,
   initialSelectedColumns,
+  scorerDescriptionsByName,
 }: {
   experimentId: string;
   currentEvaluationResults: RunEvaluationTracesDataEntry[];
@@ -103,6 +104,13 @@ function GenAiTracesTableImpl({
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
   traceActions?: TraceActions;
   initialSelectedColumns?: (allColumns: TracesTableColumn[]) => TracesTableColumn[];
+  /**
+   * Optional map from scorer name to description string. When provided, custom scorers
+   * (source_type === 'CODE') will display their description in the column tooltip instead
+   * of the generic "This assessment is produced by a custom metric." message.
+   * Keys are scorer names (matching assessment source.sourceId).
+   */
+  scorerDescriptionsByName?: Record<string, string>;
 }) {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -126,8 +134,8 @@ function GenAiTracesTableImpl({
   const [searchQuery, setSearchQuery] = useEvaluationsSearchQuery();
 
   const assessmentInfos = useMemo(() => {
-    return getAssessmentInfos(intl, currentEvaluationResults, compareToEvaluationResults);
-  }, [intl, currentEvaluationResults, compareToEvaluationResults]);
+    return getAssessmentInfos(intl, currentEvaluationResults, compareToEvaluationResults, scorerDescriptionsByName);
+  }, [intl, currentEvaluationResults, compareToEvaluationResults, scorerDescriptionsByName]);
 
   const allColumns: TracesTableColumn[] = useTableColumns(intl, currentEvaluationResults, assessmentInfos, runUuid);
 

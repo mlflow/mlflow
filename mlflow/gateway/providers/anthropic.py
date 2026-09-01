@@ -364,7 +364,17 @@ class AnthropicAdapter(ProviderAdapter):
         prompt_tokens_details = None
         if cache_read is not None:
             prompt_tokens_details = chat.PromptTokensDetails(cached_tokens=cache_read)
-        extra = {}
+        extra = {
+            key: value
+            for key, value in usage_data.items()
+            if key
+            not in {
+                "input_tokens",
+                "output_tokens",
+                "cache_read_input_tokens",
+                "cache_creation_input_tokens",
+            }
+        }
         if cache_creation is not None:
             extra["cache_creation_input_tokens"] = cache_creation
         return chat.ChatUsage(

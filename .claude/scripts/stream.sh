@@ -3,13 +3,24 @@
 
 tee "${1:-/dev/null}" \
   | jq --unbuffered -r '
-    if .type == "assistant" then
+    {
+      Bash: "💻", Read: "📖", Write: "📝", Edit: "✏️",
+      NotebookEdit: "✏️", Glob: "📁", Grep: "🔬",
+      WebSearch: "🔍", WebFetch: "🌐", Task: "🤝",
+      Agent: "🤝", Skill: "🎓", TodoWrite: "☑️"
+    } as $tools
+    | if .type == "assistant" then
       .message.content[] |
       if .type == "text" then
         "🤖 \(.text)"
       elif .type == "tool_use" then
-        "🔧 \(.name)\(if .input then ": \(.input | tostring | .[0:200])" else "" end)"
-      elif .type == "thinking" then
+        (if .name == "Bash" and (.input | type == "object") and (.input | has("description")) then
+          .input | {description} + del(.description)
+        else
+          .input
+        end) as $input
+        | "\($tools[.name] // "🔧") \(.name)\(if $input then ": \($input | tostring | .[0:200])" else "" end)"
+      elif .type == "thinking" and (.thinking | length) > 0 then
         "🧠 thinking (\(.thinking | length) chars)"
       else
         empty
@@ -17,7 +28,12 @@ tee "${1:-/dev/null}" \
     elif .type == "user" then
       .message.content[]?
       | select(.type == "tool_result")
-      | "📥 tool_result (\(.content | tostring | length) chars)\(if .is_error then " ❌" else "" end)"
+      | (.content | tostring) as $c
+      | if .is_error then
+          "❌ tool_result error: \($c[0:200])"
+        else
+          "📥 tool_result (\($c | length) chars)"
+        end
     elif .type == "system" and .subtype == "init" then
       "🚀 init: \(.model) (v\(.claude_code_version), session \(.session_id[0:8]))"
     elif .type == "result" then
