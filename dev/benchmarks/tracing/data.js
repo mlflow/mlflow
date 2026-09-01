@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788239940696,
+  "lastUpdate": 1788246007368,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -25541,6 +25541,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 3.7287518571409755,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "2sumtech@gmail.com",
+            "name": "2sumtech",
+            "username": "2sumtech"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5da919ba9e99013a38048ec12c6d26f743714f49",
+          "message": "Fix proto conversion of `DatasetRecordSourceType.UNSPECIFIED` dataset record sources (#25230)\n\nSigned-off-by: 2sumtech <2sumtech@gmail.com>\nCo-authored-by: Tomu Hirata <tomu.hirata@gmail.com>",
+          "timestamp": "2026-09-01T06:58:44Z",
+          "tree_id": "6b0454196e2a01116613ec38edccf44627c41e63",
+          "url": "https://github.com/mlflow/mlflow/commit/5da919ba9e99013a38048ec12c6d26f743714f49"
+        },
+        "date": 1788246006000,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 47.15455909999946,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.880230811319434,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.946851318840135,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.11132426999967,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.4265228400005014,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 36.545237600000746,
             "unit": "ms"
           }
         ]
