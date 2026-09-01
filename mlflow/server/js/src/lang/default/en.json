@@ -7295,6 +7295,10 @@
     "defaultMessage": "Close",
     "description": "Aria label for the close button on the V2 dataset record side panel"
   },
+  "RyJesT": {
+    "defaultMessage": "Expectation name",
+    "description": "Placeholder for the expectation-name key input in the traces filter"
+  },
   "RyNXc+": {
     "defaultMessage": "Loading endpoint...",
     "description": "Loading message for endpoint"
@@ -7638,6 +7642,10 @@
   "TQ3N+4": {
     "defaultMessage": "Select",
     "description": "Label for the checkbox column in the evaluation runs table"
+  },
+  "TQY108": {
+    "defaultMessage": "Expectation",
+    "description": "Trace filter field: expectation name"
   },
   "TQeU/X": {
     "defaultMessage": "Username",
@@ -13682,6 +13690,10 @@
   "qhgn2K": {
     "defaultMessage": ".mcp.json",
     "description": "mcp.json install format label"
+  },
+  "qj+LhB": {
+    "defaultMessage": "Name",
+    "description": "Label for the name field for expectations in the GenAI Traces Table Filter form"
   },
   "qkRBUr": {
     "defaultMessage": "Line smoothing",
