@@ -54,7 +54,7 @@ receivers:
 
 exporters:
   otlphttp:
-    endpoint: http://localhost:5000
+    endpoint: http://host.docker.internal:5000
     headers:
       x-mlflow-experiment-id: "0"
 
@@ -73,6 +73,7 @@ Run the collector:
 
 ```bash
 docker run --rm -p 4318:4318 \
+  --add-host=host.docker.internal:host-gateway \
   -v $(pwd)/otel-collector-config.yaml:/etc/otelcol/config.yaml \
   otel/opentelemetry-collector:latest \
   --config=/etc/otelcol/config.yaml
@@ -99,13 +100,11 @@ const client = new CopilotClient({
   <TabItem value="python" label="Python">
 
 ```python
-from copilot import CopilotClient, SubprocessConfig
+from copilot import CopilotClient, TelemetryConfig
 
 client = CopilotClient(
-    SubprocessConfig(
-        telemetry={
-            "otlp_endpoint": "http://localhost:4318",
-        },
+    telemetry=TelemetryConfig(
+        otlp_endpoint="http://localhost:4318",
     )
 )
 ```
@@ -157,7 +156,7 @@ The collector bridge is useful because it can normalize OTLP encoding and centra
 **Trace payloads are rejected**
 
 - Verify that the collector is using the `otlphttp` exporter and forwarding to the MLflow server URL.
-- If you send telemetry directly to MLflow without a collector, point the OTLP endpoint at `http://localhost:5000/v1/traces` and include the `x-mlflow-experiment-id` header.
+- If you send telemetry directly to MLflow without a collector, point the OTLP endpoint at `http://localhost:5000` and include the `x-mlflow-experiment-id` header.
 
 ## References
 
