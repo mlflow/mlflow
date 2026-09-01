@@ -76,10 +76,11 @@ describe('buildFilter', () => {
 });
 
 describe('isExactTraceIdSearch', () => {
-  test("recognizes all three trace-id formats (matching buildFilter's request_id fast path)", () => {
+  test("recognizes every trace-id format (matching buildFilter's request_id fast path)", () => {
     expect(isExactTraceIdSearch('tr-0123456789ABCDEF0123456789abcdef')).toBe(true);
     expect(isExactTraceIdSearch('0123456789abcdef0123456789abcdef')).toBe(true);
     expect(isExactTraceIdSearch('  trace:/cat.sch/tr-0123456789abcdef0123456789abcdef  ')).toBe(true);
+    expect(isExactTraceIdSearch('trace:/cat.sch/0123456789ABCDEF0123456789abcdef')).toBe(true);
   });
 
   test('is false for free-text, empty, and undefined queries', () => {

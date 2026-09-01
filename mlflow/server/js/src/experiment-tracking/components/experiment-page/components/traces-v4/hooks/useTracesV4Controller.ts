@@ -177,12 +177,13 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
   const columns = useTracesV4Columns(experimentId, { hasSessionOnPage });
   const assessments = useTracesV4AssessmentColumns(experimentId, page.traces);
   const columnSizing = useTracesV4ColumnSizing(experimentId);
-  const traceCount = useTracesV4TraceCount(
-    experimentId,
-    page.traces.length,
-    timeRange,
-    isExactTraceIdSearch(url.search),
-  );
+  const traceCount = useTracesV4TraceCount(experimentId, page.traces.length, timeRange, {
+    isExactTraceIdSearch: isExactTraceIdSearch(url.search),
+    // Row query still resolving (or holding previous-page rows via keepPreviousData) — the page's
+    // row count isn't the exact-id result yet, so the count stays loading rather than flashing the
+    // stale previous total.
+    isResultLoading: page.isLoading || page.isFetching,
+  });
 
   const bulk = useBulkTraceSelection(page.traces);
 
