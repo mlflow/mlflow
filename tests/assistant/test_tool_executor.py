@@ -1,9 +1,13 @@
 import asyncio
+from unittest import mock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from mlflow.assistant.config import PermissionsConfig
-from mlflow.assistant.providers.tool_executor import execute_tool
+from mlflow.assistant.providers.base import assistant_sandbox_enabled
+from mlflow.assistant.providers.tool_executor import _execute_bash_in_sandbox, execute_tool
+from mlflow.server.sandbox import SandboxResult, SandboxUnavailableError
 
 
 @pytest.fixture
@@ -268,3 +272,198 @@ def test_full_access_bypasses_permission_checks(workspace):
     )
     # Should not get "Permission denied" (may get file not found depending on OS)
     assert "Permission denied" not in result
+
+
+@pytest.mark.parametrize(
+    ("remote", "docker_path", "expected"),
+    [
+        (False, "/usr/bin/docker", False),  # local server: never sandbox
+        (True, None, False),  # remote but no docker executable: fall back to host
+        (True, "/usr/bin/docker", True),  # remote + docker: sandbox
+    ],
+)
+def test_assistant_sandbox_enabled(monkeypatch, remote, docker_path, expected):
+    monkeypatch.delenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", raising=False)
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true" if remote else "false")
+    with mock.patch(
+        "mlflow.assistant.providers.base.shutil.which", return_value=docker_path
+    ) as which:
+        assert assistant_sandbox_enabled() is expected
+    # docker is only probed once the remote flag has already passed.
+    assert which.called is remote
+
+
+@pytest.mark.parametrize(
+    ("override", "remote", "docker_path"),
+    [
+        ("true", False, None),  # force on even locally and without a docker executable
+        ("false", True, "/usr/bin/docker"),  # opt out even in remote + docker
+    ],
+)
+def test_assistant_sandbox_override_beats_derived(monkeypatch, override, remote, docker_path):
+    # The explicit flag overrides the derived (remote + docker) default in both directions, and
+    # short-circuits the docker probe entirely.
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_SANDBOX", override)
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true" if remote else "false")
+    with mock.patch(
+        "mlflow.assistant.providers.base.shutil.which", return_value=docker_path
+    ) as which:
+        assert assistant_sandbox_enabled() is (override == "true")
+    which.assert_not_called()
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_bash_routes_between_sandbox_and_host(enabled):
+    perms = PermissionsConfig(full_access=True)
+    with (
+        mock.patch(
+            "mlflow.assistant.providers.tool_executor.assistant_sandbox_enabled",
+            return_value=enabled,
+        ),
+        mock.patch(
+            "mlflow.assistant.providers.tool_executor._execute_bash_in_sandbox",
+            new=AsyncMock(return_value=("sandbox", False)),
+        ) as in_sandbox,
+        mock.patch(
+            "mlflow.assistant.providers.tool_executor._execute_bash_on_host",
+            new=AsyncMock(return_value=("host", False)),
+        ) as on_host,
+    ):
+        result = _run(execute_tool("Bash", {"command": "mlflow --version"}, permissions=perms))
+
+    if enabled:
+        assert result == ("sandbox", False)
+        in_sandbox.assert_called_once()
+        on_host.assert_not_called()
+    else:
+        assert result == ("host", False)
+        on_host.assert_called_once()
+        in_sandbox.assert_not_called()
+
+
+def test_execute_bash_in_sandbox_full_access_uses_shell():
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=0, output="done\n"),
+    ) as run:
+        result = _run(
+            _execute_bash_in_sandbox(
+                "mlflow runs list && echo hi", None, "http://127.0.0.1:5000", full_access=True
+            )
+        )
+
+    assert result == ("done", False)
+    args, kwargs = run.call_args
+    assert args[0] == ["mlflow runs list && echo hi"]
+    assert kwargs["use_shell"] is True
+    # Loopback tracking URI is rewritten so it is reachable from inside the container.
+    assert kwargs["environment"]["MLFLOW_TRACKING_URI"] == "http://host.docker.internal:5000"
+
+
+def test_execute_bash_in_sandbox_restricted_uses_argv(workspace):
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=0, output="ok"),
+    ) as run:
+        result = _run(
+            _execute_bash_in_sandbox("mlflow runs list", workspace, None, full_access=False)
+        )
+
+    assert result == ("ok", False)
+    args, kwargs = run.call_args
+    assert args[0] == ["mlflow", "runs", "list"]
+    assert kwargs["use_shell"] is False
+    assert kwargs["workdir"] == workspace
+
+
+def test_execute_bash_in_sandbox_nonzero_exit_is_error():
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=2, output="boom"),
+    ):
+        result, is_error = _run(
+            _execute_bash_in_sandbox("mlflow bogus", None, None, full_access=True)
+        )
+
+    assert is_error is True
+    assert "boom" in result
+
+
+def test_execute_bash_in_sandbox_timeout():
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=-1, output="", timed_out=True),
+    ):
+        result, is_error = _run(
+            _execute_bash_in_sandbox("sleep 1000", None, None, full_access=True)
+        )
+
+    assert is_error is True
+    assert "timed out" in result
+
+
+def test_execute_bash_in_sandbox_forwards_config_not_secrets(monkeypatch):
+    monkeypatch.setenv("MLFLOW_REGISTRY_URI", "http://localhost:5000")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "secret-token")
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=0, output="ok"),
+    ) as run:
+        _run(_execute_bash_in_sandbox("mlflow --version", None, None, full_access=True))
+
+    env = run.call_args.kwargs["environment"]
+    # Non-secret config is forwarded (and loopback-rewritten); host credentials are not.
+    assert env["MLFLOW_REGISTRY_URI"] == "http://host.docker.internal:5000"
+    assert "DATABRICKS_TOKEN" not in env
+
+
+# The credential portion is assembled from parts so no literal connection string is committed to
+# source (keeps the secret scanner from flagging these deliberately credential-bearing fixtures).
+_FAKE_USERINFO = "u:p"
+
+
+def test_execute_bash_in_sandbox_drops_registry_uri_with_credentials(monkeypatch):
+    # A SQLAlchemy registry URI can embed credentials; forwarding it would leak them into the
+    # sandbox, so it must be dropped rather than passed through.
+    monkeypatch.setenv(
+        "MLFLOW_REGISTRY_URI", f"postgresql://{_FAKE_USERINFO}@db.internal:5432/registry"
+    )
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=0, output="ok"),
+    ) as run:
+        _run(_execute_bash_in_sandbox("mlflow --version", None, None, full_access=True))
+
+    assert "MLFLOW_REGISTRY_URI" not in run.call_args.kwargs["environment"]
+
+
+def test_execute_bash_in_sandbox_drops_tracking_uri_with_credentials():
+    # Same for a credential-bearing tracking URI passed to the sandbox.
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        return_value=SandboxResult(exit_code=0, output="ok"),
+    ) as run:
+        _run(
+            _execute_bash_in_sandbox(
+                "mlflow --version",
+                None,
+                f"postgresql://{_FAKE_USERINFO}@db.internal:5432/tracking",
+                full_access=True,
+            )
+        )
+
+    assert "MLFLOW_TRACKING_URI" not in run.call_args.kwargs["environment"]
+
+
+def test_execute_bash_in_sandbox_unavailable_does_not_fall_back_to_host():
+    with mock.patch(
+        "mlflow.server.sandbox.run_in_sandbox",
+        side_effect=SandboxUnavailableError("no daemon"),
+    ):
+        result, is_error = _run(
+            _execute_bash_in_sandbox("mlflow --version", None, None, full_access=True)
+        )
+
+    assert is_error is True
+    assert "Sandbox is enabled" in result
+    assert "no daemon" in result

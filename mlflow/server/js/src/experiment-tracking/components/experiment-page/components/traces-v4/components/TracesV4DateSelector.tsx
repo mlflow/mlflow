@@ -9,7 +9,6 @@ import {
   DialogComboboxOptionList,
   DialogComboboxOptionListSelectItem,
   RangePicker,
-  RefreshIcon,
   SyncIcon,
   Tooltip,
   Typography,
@@ -17,6 +16,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, FormattedRelativeTime, useIntl } from '@databricks/i18n';
+import { ToolbarCollapsibleLabel, TRACES_TOOLBAR_COLLAPSE_QUERY } from '@databricks/web-shared/traces-table';
 import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { useTracesV4TimeRange } from '../hooks/useTracesV4TimeRange';
 import { getNamedDateFilters } from '../utils/dateUtils';
@@ -126,7 +126,9 @@ export const TracesV4DateSelector = React.memo(function TracesV4DateSelector({
                 aria-label={timeRangeButtonLabel}
                 data-testid="time-range-select-dropdown"
               >
-                {selectedDateFilter?.triggerLabel ?? selectedDateFilter?.label ?? timeLabel}
+                <ToolbarCollapsibleLabel>
+                  {selectedDateFilter?.triggerLabel ?? selectedDateFilter?.label ?? timeLabel}
+                </ToolbarCollapsibleLabel>
               </Button>
             </DialogComboboxCustomButtonTriggerWrapper>
           )}
@@ -175,7 +177,6 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
   const button = (
     <Button
       type="tertiary"
-      icon={isFetching ? <SyncIcon spin /> : <RefreshIcon />}
       componentId="mlflow.traces-v4.refresh-date-button"
       disabled={isFetching}
       onClick={() => {
@@ -190,15 +191,37 @@ export const TracesV4RefreshButton = React.memo(function TracesV4RefreshButton({
         },
       }}
     >
-      {!isFetching && (
-        <Typography.Text color="secondary">
-          <FormattedRelativeTime
-            value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
-            numeric="auto"
-            updateIntervalInSeconds={10}
-          />
-        </Typography.Text>
-      )}
+      {/* One fixed-width slot for both states so the toolbar never shifts. Content (settled: refresh
+          icon + "X min ago"; fetching: the spinner) is pushed flush right so it hugs the toolbar's
+          right edge rather than leaving a gap. */}
+      <Typography.Text
+        color="secondary"
+        size="sm"
+        css={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          minWidth: theme.spacing.xl * 3,
+          justifyContent: 'flex-end',
+          // Drop the reserved slot when the label collapses, else a lone refresh icon leaves a gap.
+          [TRACES_TOOLBAR_COLLAPSE_QUERY]: { minWidth: 0 },
+        }}
+      >
+        {isFetching ? (
+          <SyncIcon spin css={{ fontSize: theme.typography.fontSizeSm }} />
+        ) : (
+          <>
+            <SyncIcon css={{ fontSize: theme.typography.fontSizeSm }} />
+            <ToolbarCollapsibleLabel>
+              <FormattedRelativeTime
+                value={(monitoringConfig.lastRefreshTime - Date.now()) / 1000}
+                numeric="auto"
+                updateIntervalInSeconds={10}
+              />
+            </ToolbarCollapsibleLabel>
+          </>
+        )}
+      </Typography.Text>
     </Button>
   );
 

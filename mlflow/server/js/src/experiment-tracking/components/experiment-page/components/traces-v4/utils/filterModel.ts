@@ -184,6 +184,21 @@ export const useMlflowTraceFilterFields = (assessmentNames: string[] = []): Filt
 };
 
 /**
+ * Validate a persisted filter clause against the current field set: the field still exists, still
+ * offers the clause's operator, and (for a `requiresKey` field) carries a non-blank key. Used when
+ * restoring a saved view so a clause referencing a field/operator that no longer exists is dropped
+ * rather than silently producing wrong results — and, symmetrically, so the dirty diff normalizes
+ * the stored baseline the same way (an unsupported clause can't strand a view permanently dirty).
+ */
+export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: FilterClause): boolean =>
+  fields.some(
+    (field) =>
+      field.id === clause.field &&
+      field.operators.includes(clause.operator) &&
+      (!field.requiresKey || (typeof clause.key === 'string' && clause.key.trim() !== '')),
+  );
+
+/**
  * Compile a text field where only `CONTAINS` needs translation (to `ILIKE '%value%'`, since the
  * backend has no `CONTAINS` token); every other operator passes through as `field OP 'value'`.
  */

@@ -11,7 +11,7 @@ spec:
       {{- include "mlflow.selectorLabels" . | nindent 6 }}
   endpoints:
     - port: {{ if .Values.tls.enabled }}https{{ else }}http{{ end }}
-      path: {{ .Values.metrics.path }}
+      path: {{ .Values.metrics.path | default "/metrics" }}
       {{- if .Values.tls.enabled }}
       scheme: https
       {{- with .Values.serviceMonitor.tlsConfig }}
