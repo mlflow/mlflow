@@ -621,6 +621,7 @@ class SqlAlchemyGatewayStoreMixin:
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool = True,
+        exclude_content: bool = False,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -638,6 +639,11 @@ class SqlAlchemyGatewayStoreMixin:
                           with name 'gateway/{endpoint_name}'.
             usage_tracking: Whether to enable usage tracking for this endpoint.
                            When True, traces will be logged for endpoint invocations.
+            exclude_content: Whether to exclude request/response content from traces.
+                            When True, prompts, messages, and model responses are dropped
+                            from traces while usage metadata (token counts, latency,
+                            status) is kept. Normalized to False when usage_tracking is
+                            False, since there are no traces to exclude content from.
 
         Returns:
             Endpoint entity with model_mappings populated.
@@ -651,6 +657,11 @@ class SqlAlchemyGatewayStoreMixin:
                 "Endpoint must have at least one model configuration",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+        # Excluding content is meaningless without tracing, and persisting it as True
+        # would silently activate redaction if usage tracking were enabled later.
+        if not usage_tracking:
+            exclude_content = False
 
         with self.ManagedSessionMaker(read_only=False) as session:
             # Validate all model definitions exist
@@ -711,6 +722,7 @@ class SqlAlchemyGatewayStoreMixin:
                     fallback_config_json=fallback_config_json,
                     experiment_id=int(experiment_id) if experiment_id else None,
                     usage_tracking=usage_tracking,
+                    exclude_content=exclude_content,
                 )
             )
             session.add(sql_endpoint)
@@ -779,6 +791,7 @@ class SqlAlchemyGatewayStoreMixin:
         model_configs: list[GatewayEndpointModelConfig] | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool | None = None,
+        exclude_content: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -792,6 +805,9 @@ class SqlAlchemyGatewayStoreMixin:
             model_configs: Optional new list of model configurations (replaces all linkages).
             experiment_id: Optional new experiment ID for tracing.
             usage_tracking: Optional flag to enable/disable usage tracking.
+            exclude_content: Optional flag to exclude request/response content from
+                            traces while keeping usage metadata. Cleared when the
+                            endpoint ends up with usage tracking disabled.
 
         Returns:
             Updated Endpoint entity.
@@ -807,6 +823,15 @@ class SqlAlchemyGatewayStoreMixin:
             # Handle usage_tracking update
             if usage_tracking is not None:
                 sql_endpoint.usage_tracking = usage_tracking
+
+            if exclude_content is not None:
+                sql_endpoint.exclude_content = exclude_content
+
+            # Keep exclude_content consistent with the resulting usage_tracking state:
+            # disabling tracing clears it, so re-enabling tracing later cannot silently
+            # resurrect redaction the caller never asked for.
+            if not sql_endpoint.usage_tracking:
+                sql_endpoint.exclude_content = False
 
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:

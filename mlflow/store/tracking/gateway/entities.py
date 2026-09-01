@@ -68,6 +68,9 @@ class GatewayEndpointConfig:
         routing_strategy: Optional routing strategy (e.g., FALLBACK).
         fallback_config: Optional fallback configuration from GatewayEndpoint entity.
         experiment_id: Optional experiment ID for tracing (if usage tracking is enabled).
+        usage_tracking: Whether usage tracking (tracing) is enabled for this endpoint.
+        exclude_content: Whether request/response content is redacted from traces
+            while usage metadata (token counts, latency, status) is kept.
     """
 
     endpoint_id: str
@@ -77,6 +80,7 @@ class GatewayEndpointConfig:
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
     usage_tracking: bool = False
+    exclude_content: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

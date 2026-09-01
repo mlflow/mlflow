@@ -1964,6 +1964,7 @@ def test_gateway_crud_telemetry(mock_requests, mock_telemetry_client: TelemetryC
             "routing_strategy": None,
             "num_model_configs": 1,
             "usage_tracking": True,
+            "exclude_content": False,
         },
     )
 
@@ -2003,6 +2004,7 @@ def test_gateway_crud_telemetry(mock_requests, mock_telemetry_client: TelemetryC
             "routing_strategy": None,
             "num_model_configs": None,
             "usage_tracking": None,
+            "exclude_content": None,
         },
     )
 
