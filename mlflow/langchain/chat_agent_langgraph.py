@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import importlib.metadata
 import json
 from typing import Annotated, Any, TypedDict
 from uuid import uuid4
 
 from packaging.version import Version
+
+from mlflow.utils import get_installed_version
 
 try:
     from langchain_core.messages import AnyMessage, BaseMessage, convert_to_messages
@@ -18,7 +19,8 @@ try:
     except ImportError as e:
         # If LangGraph 0.3.x is installed but langgraph_prebuilt is not,
         # show a friendlier error message
-        if Version(importlib.metadata.version("langgraph")) >= Version("0.3.0"):
+        langgraph_version = get_installed_version("langgraph")
+        if langgraph_version is not None and langgraph_version >= Version("0.3.0"):
             raise ImportError(
                 "Please install `langgraph-prebuilt>=0.1.2` to use MLflow LangGraph ChatAgent "
                 "helpers with LangGraph 0.3.x.\n"

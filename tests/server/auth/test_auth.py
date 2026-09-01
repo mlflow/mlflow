@@ -344,6 +344,37 @@ def test_is_unprotected_route_handles_static_prefix(monkeypatch):
     assert not auth_module.is_unprotected_route("/mlflow/api/2.0/mlflow/users/list")
 
 
+def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
+    monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
+    assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/v1/traces", "GET") is not None
+    assert _find_fastapi_validator("/ajax-api/3.0/jobs/search", "GET") is not None
+    assert _find_fastapi_validator("/ajax-api/3.0/mlflow/assistant/config", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/chat/completions", "GET") is None
+
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+    assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/v1/traces", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/ajax-api/3.0/jobs/search", "GET") is not None
+    assert (
+        _find_fastapi_validator("/mlflow/ajax-api/3.0/mlflow/assistant/config", "GET") is not None
+    )
+    # An unprefixed route root still resolves a validator: nothing serves that path
+    # once a prefix is configured, and this errs toward requiring auth.
+    assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/api/2.0/mlflow/experiments/search", "GET") is None
+
+
+def test_find_fastapi_validator_leaves_prefixed_artifact_paths_to_flask(monkeypatch):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
+    artifact_path = "/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl"
+
+    native = _find_fastapi_validator(artifact_path, "GET")
+    assert native.__qualname__ == "_get_fastapi_proxy_artifact_validator.<locals>.validator"
+
+    assert _find_fastapi_validator(f"/mlflow{artifact_path}", "GET") is None
+
+
 def test_proxy_artifact_mpu_path_detection():
     # MPU create/complete/abort paths should be recognized as proxy artifact paths
     for action in ("create", "complete", "abort"):
@@ -424,13 +455,24 @@ def test_proxy_artifact_presigned_validator_returns_read_for_get():
     assert validator is auth_module.validate_can_read_experiment_artifact_proxy
 
 
+def test_after_request_handlers_contains_only_declared_handlers():
+    declared = set(auth_module.AFTER_REQUEST_PATH_HANDLERS.values())
+
+    leaked = {
+        (path, method): handler
+        for (path, method), handler in auth_module.AFTER_REQUEST_HANDLERS.items()
+        if getattr(handler, "__module__", "") == "mlflow.server.handlers"
+        and handler not in declared
+    }
+
+    assert leaked == {}
+
+
 @pytest.mark.parametrize(
     ("path", "method"),
     [
-        ("/ajax-api/3.0/mlflow/issues/invoke", "POST"),
-        ("/ajax-api/3.0/mlflow/genai/evaluate/invoke", "POST"),
-        ("/ajax-api/3.0/mlflow/demo/generate", "POST"),
-        ("/ajax-api/3.0/mlflow/demo/delete", "POST"),
+        # invoke + demo gate via the exact-match table, so they leave this list. Jobs
+        # stay: they gate via the regex JOB_BEFORE_REQUEST_VALIDATORS map, not the table.
         ("/ajax-api/3.0/mlflow/jobs/<job_id>", "GET"),
         ("/ajax-api/3.0/mlflow/jobs/cancel/<job_id>", "PATCH"),
         ("/graphql", "GET"),
@@ -2467,13 +2509,26 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         )
         response.raise_for_status()
 
+    # Non-admin reads the config (UI needs secrets_available) but the using_default_passphrase
+    # server-posture signal is redacted for them.
     with User(user1, password1, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
             auth=(user1, password1),
         )
         response.raise_for_status()
-        assert "secrets_available" in response.json()
+        body = response.json()
+        assert "secrets_available" in body
+        assert "using_default_passphrase" not in body
+
+    # Admin sees the full config, including using_default_passphrase.
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/secrets/config",
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        )
+        response.raise_for_status()
+        assert "using_default_passphrase" in response.json()
 
     with User(user1, password1, monkeypatch):
         response = requests.delete(
@@ -4398,6 +4453,44 @@ def test_gateway_auth_header_honors_internal_token(mock_auth_store, mock_auth_co
     mock_auth_store.authenticate_user.assert_not_called()
 
 
+def test_gateway_auth_header_honored_under_static_prefix(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request(
+        "/myprefix/gateway/proxy/my-endpoint/v1/responses",
+        authorization="Bearer sk-provider-key",
+        mlflow_authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_gateway_internal_token_not_honored_on_non_gateway_prefixed_route(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # The internal token must not become a master password for non-gateway routes.
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
+    mock_auth_store.authenticate_user.return_value = False
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request(
+        "/myprefix/ajax-api/3.0/jobs/search",
+        authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+    mock_auth_store.get_user.assert_not_called()
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "internal-secret")
+
+
 def test_gateway_auth_header_malformed_returns_none(mock_auth_store, mock_auth_config):
     request = _make_request(
         "/gateway/proxy/my-endpoint/v1/responses",
@@ -6129,3 +6222,207 @@ def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch
             assert len(page) == 2
 
     assert {s["name"] for s in all_readable} == set(readable)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_evaluation_dataset_and_issue_apis_require_experiment_permission(client):
+    # A NO_PERMISSIONS user must not read/tamper/enumerate/delete another user's
+    # datasets or issues; both are gated on the associated experiment's permission.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+    owner_auth = (owner, owner_pw)
+    attacker_auth = (attacker, attacker_pw)
+
+    def post(path, auth, body):
+        return requests.post(f"{base}{path}", json=body, auth=auth)
+
+    # Owner creates an experiment (gaining MANAGE), a dataset with a record, and an issue.
+    exp_id = post("/api/2.0/mlflow/experiments/create", owner_auth, {"name": "owner-exp"}).json()[
+        "experiment_id"
+    ]
+    dataset_id = post(
+        "/api/3.0/mlflow/datasets/create",
+        owner_auth,
+        {"name": "owner-ds", "experiment_ids": [exp_id]},
+    ).json()["dataset"]["dataset_id"]
+    seed = post(
+        f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        owner_auth,
+        {"records": json.dumps([{"inputs": {"q": "secret"}, "expectations": {"a": "truth"}}])},
+    )
+    assert seed.status_code == 200
+    issue_id = post(
+        "/api/3.0/mlflow/issues",
+        owner_auth,
+        {"experiment_id": exp_id, "name": "sec", "description": "confidential"},
+    ).json()["issue"]["issue_id"]
+
+    # Control: the attacker genuinely lacks access to the experiment.
+    assert (
+        requests.get(
+            f"{base}/api/2.0/mlflow/experiments/get",
+            params={"experiment_id": exp_id},
+            auth=attacker_auth,
+        ).status_code
+        == 403
+    )
+
+    # Dataset reads and unscoped enumeration are denied.
+    assert (
+        requests.get(f"{base}/api/3.0/mlflow/datasets/{dataset_id}", auth=attacker_auth).status_code
+        == 403
+    )
+    assert (
+        requests.get(
+            f"{base}/api/3.0/mlflow/datasets/{dataset_id}/records", auth=attacker_auth
+        ).status_code
+        == 403
+    )
+    assert post("/api/3.0/mlflow/datasets/search", attacker_auth, {}).status_code == 403
+
+    # Dataset writes and deletes are denied.
+    assert (
+        post(
+            f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+            attacker_auth,
+            {"records": json.dumps([{"inputs": {"q": "x"}, "expectations": {"a": "poison"}}])},
+        ).status_code
+        == 403
+    )
+    assert (
+        requests.delete(
+            f"{base}/api/3.0/mlflow/datasets/{dataset_id}", auth=attacker_auth
+        ).status_code
+        == 403
+    )
+
+    # Issue create, read, update, and search are denied.
+    assert (
+        post(
+            "/api/3.0/mlflow/issues",
+            attacker_auth,
+            {"experiment_id": exp_id, "name": "injected", "description": "injected"},
+        ).status_code
+        == 403
+    )
+    assert (
+        requests.get(f"{base}/api/3.0/mlflow/issues/{issue_id}", auth=attacker_auth).status_code
+        == 403
+    )
+    assert (
+        requests.patch(
+            f"{base}/api/3.0/mlflow/issues/{issue_id}",
+            json={"issue_id": issue_id, "description": "tampered"},
+            auth=attacker_auth,
+        ).status_code
+        == 403
+    )
+    assert (
+        post("/api/3.0/mlflow/issues/search", attacker_auth, {"experiment_id": exp_id}).status_code
+        == 403
+    )
+
+    # The legitimate owner still has full access — the record survived the attempted delete.
+    assert (
+        requests.get(f"{base}/api/3.0/mlflow/datasets/{dataset_id}", auth=owner_auth).status_code
+        == 200
+    )
+    assert (
+        requests.get(f"{base}/api/3.0/mlflow/issues/{issue_id}", auth=owner_auth).status_code == 200
+    )
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_invoke_endpoints_require_experiment_update_permission(client):
+    # invoke routes create runs in an experiment -> a user without update on it is denied.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "invoke-owner-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+
+    for path in (
+        "/ajax-api/3.0/mlflow/issues/invoke",
+        "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+    ):
+        resp = requests.post(
+            f"{base}{path}",
+            json={
+                "experiment_id": exp_id,
+                "trace_ids": ["tr-1"],
+                "categories": ["x"],
+                "provider": "p",
+                "serialized_scorers": ["s"],
+            },
+            auth=(attacker, attacker_pw),
+        )
+        assert resp.status_code == 403, f"{path} -> {resp.status_code}"
+
+        # The owner (MANAGE on the experiment) passes the auth gate — non-403 confirms the
+        # validator is keyed to experiment update, not blanket-denying. The handler may still
+        # error (e.g. the invoke backend isn't wired in this test env).
+        resp = requests.post(
+            f"{base}{path}",
+            json={
+                "experiment_id": exp_id,
+                "trace_ids": ["tr-1"],
+                "categories": ["x"],
+                "provider": "p",
+                "serialized_scorers": ["s"],
+            },
+            auth=(owner, owner_pw),
+        )
+        assert resp.status_code != 403, f"{path} -> {resp.status_code}"
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_presigned_upload_url_requires_run_update_permission(client):
+    # Presigned upload URL grants direct artifact write -> denied without run update.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "presigned-owner-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    run_id = requests.post(
+        f"{base}/api/2.0/mlflow/runs/create",
+        json={"experiment_id": exp_id},
+        auth=(owner, owner_pw),
+    ).json()["run"]["info"]["run_id"]
+
+    resp = requests.post(
+        f"{base}/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(attacker, attacker_pw),
+    )
+    assert resp.status_code == 403
+
+    # The run owner (MANAGE) passes the auth gate; non-403 confirms the validator is keyed to
+    # run update, not blanket-denying (the local artifact repo handler then errors, as in the
+    # presigned-download twin).
+    resp = requests.post(
+        f"{base}/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "path": "model.pkl"},
+        auth=(owner, owner_pw),
+    )
+    assert resp.status_code != 403

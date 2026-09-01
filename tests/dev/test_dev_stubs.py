@@ -33,9 +33,13 @@ dev_stubs = _load("mlflow_dev_stubs", DEV_STUBS / "__init__.py")
 # --- claude CLI stub ---------------------------------------------------------
 
 
-def run_claude(*args: str) -> subprocess.CompletedProcess[str]:
+def run_claude(*args: str, stdin: str | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, CLAUDE_CLI, *args], capture_output=True, text=True, timeout=30
+        [sys.executable, CLAUDE_CLI, *args],
+        input=stdin,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
 
 
@@ -47,15 +51,21 @@ def test_claude_auth_probe_exits_zero_with_valid_json():
     assert payload["is_error"] is False
 
 
-def test_claude_stream_json_parses_into_message_and_done_events():
+def test_claude_stream_json_parses_into_message_and_done_events(tmp_path):
+    # Mirror the real provider's invocation: message via stdin (--input-format
+    # text) and the system prompt via --append-system-prompt-file.
+    system_prompt_file = tmp_path / "system_prompt.txt"
+    system_prompt_file.write_text("ignored prompt with --output-format text and --resume decoys")
     result = run_claude(
         "-p",
-        "hello",
+        "--input-format",
+        "text",
         "--output-format",
         "stream-json",
         "--verbose",
-        "--append-system-prompt",
-        "ignored prompt with --output-format text and --resume decoys",
+        "--append-system-prompt-file",
+        str(system_prompt_file),
+        stdin="hello",
     )
     assert result.returncode == 0
 

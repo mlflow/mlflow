@@ -7,9 +7,13 @@ from typing import Any
 from google.protobuf.json_format import MessageToDict
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
+from mlflow.entities.dataset_record_source import (
+    _PROTO_UNSPECIFIED_SOURCE_TYPE_NAME,
+    DatasetRecordSource,
+    DatasetRecordSourceType,
+    _source_type_to_proto,
+)
 from mlflow.protos.datasets_pb2 import DatasetRecord as ProtoDatasetRecord
-from mlflow.protos.datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
 
 # Reserved key for wrapping non-dict outputs when storing in SQL database
 DATASET_RECORD_WRAPPED_OUTPUT_KEY = "mlflow_wrapped"
@@ -73,7 +77,7 @@ class DatasetRecord(_MlflowObject):
         if self.source_id is not None:
             proto.source_id = self.source_id
         if self.source_type is not None:
-            proto.source_type = ProtoDatasetRecordSource.SourceType.Value(self.source_type)
+            proto.source_type = _source_type_to_proto(self.source_type)
         if self.created_by is not None:
             proto.created_by = self.created_by
         if self.last_updated_by is not None:
@@ -125,6 +129,8 @@ class DatasetRecord(_MlflowObject):
             d["tags"] = json.loads(d["tags"])
         if "source" in d:
             d["source"] = json.loads(d["source"])
+        if d.get("source_type") == _PROTO_UNSPECIFIED_SOURCE_TYPE_NAME:
+            d["source_type"] = DatasetRecordSourceType.UNSPECIFIED.value
         d["created_time"] = self.created_time
         d["last_update_time"] = self.last_update_time
         return d

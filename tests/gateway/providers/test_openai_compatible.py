@@ -206,6 +206,31 @@ async def test_chat_stream():
 
 
 @pytest.mark.asyncio
+async def test_chat_stream_missing_finish_reason():
+    # Anthropic-compatible upstreams omit finish_reason on intermediate streaming chunks.
+    # model_to_chat_streaming should not raise KeyError when the key is absent.
+    provider = _make_provider()
+    chunk_data = (
+        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'
+        b'"model":"test-model","choices":[{"index":0,"delta":{"role":"assistant",'
+        b'"content":"Hi"}}]}\x0a\x0a'
+    )
+    chunks = [chunk_data, b"data: [DONE]\x0a\x0a"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        responses = [chunk async for chunk in provider.chat_stream(payload)]
+
+    assert len(responses) == 1
+    result = jsonable_encoder(responses[0])
+    assert result["choices"][0]["delta"]["content"] == "Hi"
+    assert result["choices"][0]["finish_reason"] is None
+
+
+@pytest.mark.asyncio
 async def test_embeddings():
     provider = _make_provider()
     mock_client = mock_http_client(MockAsyncResponse(_embeddings_response()))
@@ -384,6 +409,39 @@ def test_model_to_chat():
     result = OpenAICompatibleAdapter.model_to_chat(resp, config)
     assert isinstance(result, chat.ResponsePayload)
     assert result.choices[0].message.content == "Hello!"
+
+
+def test_model_to_chat_preserves_provider_usage_fields():
+    config = _make_endpoint_config()
+    resp = {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "test-model",
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": "Hello!"},
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "total_tokens": 15,
+            "cost": 0.001,
+            "cost_details": {"upstream_inference_cost": 0.0008},
+            "prompt_tokens_details": {"cached_tokens": 2},
+        },
+    }
+
+    result = OpenAICompatibleAdapter.model_to_chat(resp, config)
+    usage = result.usage
+
+    assert usage.cost == 0.001
+    assert usage.cost_details == {"upstream_inference_cost": 0.0008}
+    assert usage.prompt_tokens_details is not None
+    assert usage.prompt_tokens_details.cached_tokens == 2
 
 
 def test_model_to_embeddings():

@@ -2,20 +2,6 @@
 name: ui-review
 description: Review a GitHub PR's UI/UX changes by launching the MLflow web app, driving a headless agent-browser over the changed surfaces, and writing a Markdown UI-review comment body (findings + screenshots) for the workflow to post.
 disable-model-invocation: true
-allowed-tools:
-  - Read
-  - Grep
-  - Glob
-  - Skill
-  - Bash(agent-browser:*)
-  - Bash(npx agent-browser:*)
-  - Bash(gh pr view:*)
-  - Bash(gh api:*)
-  - Bash(curl:*)
-  - Bash(git diff:*)
-  - Bash(git show:*)
-  - Bash(uv run --package skills skills:*)
-  - Edit(//tmp/ui-review-body.md)
 argument-hint: "<owner_repo> <pr_number> <app_url>"
 arguments: [owner_repo, pr_number, app_url]
 ---
@@ -50,8 +36,8 @@ These reads are independent. Issue them as parallel tool calls in a single turn.
 
 - **PR title/description and changed files**:
   `gh pr view <pr_number> --repo <owner>/<repo> --json title,body,files`
-- **Frontend diff** via the [`fetch-diff`](../fetch-diff/SKILL.md) skill, scoped to the UI:
-  `uv run --package skills skills fetch-diff <pr_url> --files 'mlflow/server/js/src/**'`
+- **Frontend diff**, scoped to the UI:
+  `git diff HEAD^1 HEAD | uv run --package skills skills annotate-diff --files 'mlflow/server/js/src/**'`
 - **Changed frontend files** (the working tree is `refs/pull/<pr>/merge`):
   `git diff --name-only HEAD^1 | grep '^mlflow/server/js/src/'`
 - **Existing review threads**, so you don't repeat feedback already on the PR (reuse the

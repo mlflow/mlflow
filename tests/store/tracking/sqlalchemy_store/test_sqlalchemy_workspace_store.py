@@ -44,7 +44,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import TraceArchivalConfig
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACE_ARCHIVAL_CONFIG
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
     SqlEntityAssociation,
@@ -59,7 +59,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -280,6 +280,66 @@ def test_search_datasets_is_workspace_scoped(workspace_tracking_store):
         assert workspace_tracking_store._search_datasets([exp_b_id]) == []
 
 
+def test_search_runs_datasets_in_clause_is_workspace_scoped(workspace_tracking_store):
+    exp_a_id, run_a = _create_run(workspace_tracking_store, "team-a", "exp-ds-a", "run-ds-a")
+    exp_b_id, run_b = _create_run(workspace_tracking_store, "team-b", "exp-ds-b", "run-ds-b")
+
+    dataset_a = Dataset(
+        name="123",
+        digest="06409663",
+        source_type="delta",
+        source="source-a",
+    )
+    dataset_b = Dataset(
+        name="MyDataset",
+        digest="A1B2C3D4",
+        source_type="delta",
+        source="source-b",
+    )
+
+    with WorkspaceContext("team-a"):
+        workspace_tracking_store.log_inputs(
+            run_a.info.run_id,
+            [DatasetInput(dataset_a, [InputTag(MLFLOW_DATASET_CONTEXT, "2024")])],
+        )
+
+    with WorkspaceContext("team-b"):
+        workspace_tracking_store.log_inputs(
+            run_b.info.run_id,
+            [DatasetInput(dataset_b, [InputTag(MLFLOW_DATASET_CONTEXT, "Train")])],
+        )
+
+    with WorkspaceContext("team-a"):
+        result = workspace_tracking_store.search_runs(
+            [exp_a_id],
+            filter_string="datasets.digest IN ('06409663')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert {r.info.run_id for r in result} == {run_a.info.run_id}
+
+        result = workspace_tracking_store.search_runs(
+            [exp_a_id],
+            filter_string="datasets.digest IN ('A1B2C3D4')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert result == []
+
+    with WorkspaceContext("team-b"):
+        result = workspace_tracking_store.search_runs(
+            [exp_b_id],
+            filter_string="datasets.context IN ('Train')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert {r.info.run_id for r in result} == {run_b.info.run_id}
+
+        result = workspace_tracking_store.search_runs(
+            [exp_b_id],
+            filter_string="datasets.context IN ('2024')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert result == []
+
+
 def test_search_datasets_public_api_is_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-a"):
         exp_a_id = workspace_tracking_store.create_experiment("search-exp-a")
@@ -371,6 +431,7 @@ def test_artifact_locations_are_scoped_to_workspace(workspace_tracking_store):
 
 
 def test_serving_artifacts_auto_scopes_workspace_paths(workspace_tracking_store, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     monkeypatch.setenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", "true")
     workspace_tracking_store.artifact_root_uri = "mlflow-artifacts:/artifacts"
 
@@ -396,9 +457,25 @@ def test_serving_artifacts_auto_scopes_workspace_paths(workspace_tracking_store,
     assert calls == [("mlflow-artifacts:/artifacts", "team-prefix")]
 
 
-def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, monkeypatch):
+def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, monkeypatch, tmp_path):
     monkeypatch.delenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", raising=False)
     workspace_tracking_store.artifact_root_uri = "mlflow-artifacts:/artifacts"
+
+    archive_path = tmp_path / "archive"
+    archive_path.mkdir()
+    config_path = tmp_path / "trace-archival.yaml"
+    config_path.write_text(
+        "\n".join([
+            "trace_archival:",
+            "  enabled: true",
+            f"  location: {archive_path.as_uri()}",
+            "  retention: 30d",
+        ])
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
+    trace_archival_config_calls = []
 
     class PrefixedProvider:
         def __init__(self, store):
@@ -407,6 +484,15 @@ def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, mon
         def resolve_artifact_root(self, artifact_root, workspace_name):
             scoped = append_to_uri_path(artifact_root, f"workspaces/{workspace_name}")
             return scoped, False
+
+        def resolve_trace_archival_config(
+            self, default_root: str, default_retention: str, workspace_name: str
+        ) -> ResolvedTraceArchivalConfig:
+            trace_archival_config_calls.append((default_root, default_retention, workspace_name))
+            return ResolvedTraceArchivalConfig(
+                config=TraceArchivalConfig(location=default_root, retention=default_retention),
+                append_workspace_prefix=True,
+            )
 
     provider = PrefixedProvider(workspace_tracking_store)
     monkeypatch.setattr(
@@ -419,9 +505,11 @@ def test_serving_artifacts_allows_pre_scoped_roots(workspace_tracking_store, mon
         exp_id = workspace_tracking_store.create_experiment("with-prefix")
         experiment = workspace_tracking_store.get_experiment(exp_id)
     assert "/workspaces/team-ready/" in experiment.artifact_location
+    assert trace_archival_config_calls == [(archive_path.as_uri(), "30d", "team-ready")]
 
 
 def test_serving_artifacts_honors_workspace_override(workspace_tracking_store, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     monkeypatch.setenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", "true")
     workspace_tracking_store.artifact_root_uri = "mlflow-artifacts:/artifacts"
 
@@ -446,6 +534,7 @@ def test_serving_artifacts_honors_workspace_override(workspace_tracking_store, m
 
 def test_create_experiment_requires_effective_artifact_root(workspace_tracking_store, monkeypatch):
     monkeypatch.delenv("_MLFLOW_SERVER_SERVE_ARTIFACTS", raising=False)
+    monkeypatch.delenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, raising=False)
     workspace_tracking_store.artifact_root_uri = None
 
     class EmptyProvider:
@@ -824,7 +913,82 @@ def test_get_trace_is_workspace_scoped(workspace_tracking_store):
         assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
-def test_start_trace_conflict_update_is_workspace_scoped(workspace_tracking_store):
+@pytest.mark.asyncio
+async def test_log_spans_async_is_workspace_scoped(workspace_tracking_store):
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(trace_id=trace_id)
+
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_tracking_store.create_experiment("trace-exp-a-async")
+        logged = await workspace_tracking_store.log_spans_async(exp_id, [span])
+        assert logged == [span]
+        trace = workspace_tracking_store.get_trace(trace_id)
+        assert trace.info.trace_id == trace_id
+
+    with WorkspaceContext("team-b"):
+        with pytest.raises(
+            MlflowException, match=f"Trace with ID {trace_id} is not found."
+        ) as excinfo:
+            workspace_tracking_store.get_trace(trace_id)
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_tracking_store):
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(span_id: int, total: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_tracking_store.create_experiment("trace-usage-lock-workspace")
+        workspace_tracking_store.log_spans(exp_id, [_span(1, 100)])
+
+        # The second batch hits the pre-existing trace path: it must lock the trace row and
+        # recompute the trace-level usage from stored plus batch spans under the workspace store.
+        with mock.patch.object(
+            workspace_tracking_store,
+            "_trace_row_lock_query",
+            wraps=workspace_tracking_store._trace_row_lock_query,
+        ) as mock_lock:
+            workspace_tracking_store.log_spans(exp_id, [_span(2, 200)])
+            mock_lock.assert_called_once()
+
+        trace_info = workspace_tracking_store.get_trace_info(trace_id)
+        assert trace_info.token_usage["total_tokens"] == 300
+
+
+def test_start_trace_conflict_update_is_workspace_scoped(
+    workspace_tracking_store, monkeypatch, tmp_path
+):
+    archive_path = tmp_path / "archive"
+    archive_path.mkdir()
+    config_path = tmp_path / "trace-archival.yaml"
+    # Enable archival so `get_experiment()` takes its broader-scope retention path,
+    # which adds the extra workspace lookup that made the old call-count assertion brittle.
+    config_path.write_text(
+        "\n".join([
+            "trace_archival:",
+            "  enabled: true",
+            f"  location: {archive_path.as_uri()}",
+            "  retention: 30d",
+        ])
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(MLFLOW_TRACE_ARCHIVAL_CONFIG.name, str(config_path))
+
     trace_id = f"tr-{uuid.uuid4().hex}"
     initial_span = create_test_span(
         trace_id=trace_id,
@@ -846,20 +1010,35 @@ def test_start_trace_conflict_update_is_workspace_scoped(workspace_tracking_stor
             trace_metadata={"source": "test"},
         )
 
-        call_state = {"count": 0}
+        original_trace_query = workspace_tracking_store._trace_query
+        conflict_workspace = None
 
-        def workspace_side_effect(*_args, **_kwargs):
-            call_state["count"] += 1
-            return "team-a" if call_state["count"] <= 2 else "team-b"
+        def trace_query_side_effect(session, for_update_or_delete=False, workspace=None):
+            nonlocal conflict_workspace
+            if for_update_or_delete:
+                conflict_workspace = workspace
+                # Simulate the active workspace changing after `start_trace()`
+                # snapshots it for the conflict reread.
+                with WorkspaceContext("team-b"):
+                    return original_trace_query(
+                        session,
+                        for_update_or_delete=for_update_or_delete,
+                        workspace=workspace,
+                    )
+            return original_trace_query(
+                session,
+                for_update_or_delete=for_update_or_delete,
+                workspace=workspace,
+            )
 
         with mock.patch.object(
-            WorkspaceAwareSqlAlchemyStore,
-            "_get_active_workspace",
-            side_effect=workspace_side_effect,
+            workspace_tracking_store,
+            "_trace_query",
+            side_effect=trace_query_side_effect,
         ):
             updated_trace = workspace_tracking_store.start_trace(trace_info)
 
-        assert call_state["count"] == 2
+        assert conflict_workspace == "team-a"
         fetched_trace = workspace_tracking_store.get_trace_info(trace_id)
         assert updated_trace.trace_id == trace_id
         assert fetched_trace.request_time == 1_000
@@ -927,6 +1106,76 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     workspace_store = tracking_utils._get_sqlalchemy_store(db_uri, base_root.as_uri())
     workspace_store._dispose_engine()
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+
+def test_workspace_startup_succeeds_when_default_experiment_renamed(tmp_path, db_uri, monkeypatch):
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        store.rename_experiment(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID, "renamed-default")
+    store._dispose_engine()
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+    # Re-initializing the store (simulating a server restart) must not crash on the renamed
+    # default experiment. The by-ID bootstrap guard should find experiment 0 and skip re-creating
+    # it, rather than colliding on the primary key.
+    restarted_store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    try:
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            default_experiment = restarted_store.get_experiment(
+                SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+            )
+        assert default_experiment.name == "renamed-default"
+        assert default_experiment.experiment_id == SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+    finally:
+        restarted_store._dispose_engine()
+        SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+
+def test_workspace_startup_reraises_when_default_slot_taken_and_id_zero_missing(
+    tmp_path, db_uri, monkeypatch
+):
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+
+    # Put the DB into a corrupt state: experiment 0 is gone, but a different experiment already
+    # occupies the (default workspace, "Default") slot. Re-creating experiment 0 will then trip
+    # the (workspace, name) unique constraint rather than the primary-key race, so the store must
+    # surface the error instead of silently starting up without a default experiment.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        default_experiment = (
+            session
+            .query(SqlExperiment)
+            .filter(SqlExperiment.experiment_id == int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID))
+            .one()
+        )
+        session.delete(default_experiment)
+        session.flush()
+        session.add(
+            SqlExperiment(
+                experiment_id=123,
+                name=Experiment.DEFAULT_EXPERIMENT_NAME,
+                workspace=DEFAULT_WORKSPACE_NAME,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+                creation_time=_now_ms(),
+                last_update_time=_now_ms(),
+            )
+        )
+        session.flush()
+    store._dispose_engine()
+    SqlAlchemyStore._engine_map.pop(db_uri, None)
+
+    # The wrapped message is the driver's error string, whose class name is dialect-specific:
+    # "IntegrityError" on sqlite/pymysql/pyodbc but "UniqueViolation" on psycopg2 (Postgres).
+    with pytest.raises(MlflowException, match="IntegrityError|UniqueViolation"):
+        tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
 

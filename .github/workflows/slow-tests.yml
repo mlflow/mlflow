@@ -8,6 +8,7 @@ on:
       - ".github/workflows/slow-tests.yml"
       - "tests/docker/**"
       - "tests/pyfunc/docker/**"
+      - "tests/assistant/**"
   workflow_dispatch:
     inputs:
       repository:
@@ -23,6 +24,11 @@ on:
            uses the default branch.
         required: false
         default: ""
+      windows_only:
+        description: Run only the Windows test job.
+        required: false
+        type: boolean
+        default: false
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -40,6 +46,7 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+  PYTHONUTF8: "1"
 
 permissions: {}
 
@@ -49,7 +56,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'workflow_dispatch' && !inputs.windows_only) || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     strategy:
       fail-fast: false
       matrix:
@@ -57,9 +64,11 @@ jobs:
         include:
           - splits: 3
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
@@ -79,3 +88,84 @@ jobs:
           GROUP: ${{ matrix.group }}
         run: |
           uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/docker tests/pyfunc/docker
+
+  windows:
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    runs-on: windows-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3]
+        include:
+          - splits: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: ${{ inputs.repository }}
+          ref: ${{ inputs.ref }}
+          submodules: true
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install python dependencies
+        run: |
+          uv sync --extra extras --extra genai --extra mcp
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            pyspark datasets tensorflow torch transformers openai \
+            tests/resources/mlflow-test-plugin
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/cache-hf
+      - name: Download Hadoop winutils for Spark
+        run: |
+          git clone https://github.com/cdarlint/winutils /tmp/winutils
+      - name: Run python tests
+        env:
+          # Set Hadoop environment variables required for testing Spark integrations on Windows
+          HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
+          # Use non-GUI matplotlib backend since Tkinter may not be installed properly on Windows runners
+          # https://github.com/stefmolin/data-morph/pull/273
+          MPLBACKEND: Agg
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
+        run: |
+          export PATH=$PATH:$HADOOP_HOME/bin
+          pytest_args=(--splits="$SPLITS" --group="$GROUP")
+          for attempt in 1 2 3; do
+            echo "Running Windows tests (attempt $attempt/3)"
+            if uv run --no-sync pytest tests \
+              "${pytest_args[@]}" \
+              --ignore-flavors \
+              --ignore=tests/projects \
+              --ignore=tests/examples \
+              --ignore=tests/evaluate \
+              --ignore=tests/optuna \
+              --ignore=tests/pyspark/optuna \
+              --ignore=tests/genai \
+              --ignore=tests/sagemaker \
+              --ignore=tests/gateway \
+              --ignore=tests/server/auth \
+              --ignore=tests/data/test_spark_dataset.py \
+              --ignore=tests/data/test_spark_dataset_source.py \
+              --ignore=tests/data/test_delta_dataset_source.py \
+              --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_spark_datasource \
+              --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource \
+              --ignore=tests/docker \
+              --ignore=tests/demo; then
+              exit 0
+            else
+              status=$?
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              exit "$status"
+            fi
+
+            pytest_args=(--lf)
+            echo "Windows tests failed on attempt $attempt; retrying failed tests"
+          done

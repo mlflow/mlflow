@@ -1223,7 +1223,13 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         model.predict(2, 5)
         time.sleep(0.1)
 
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+        # If the batch span processor happens to export during the sleep above, the trace
+        # info is already fetchable while the async span write (which adds the
+        # mlflow.trace.spansLocation tag) is still in flight, and get_trace(flush=True)
+        # would return the partial snapshot without flushing (it only flushes on a miss).
+        # Flush explicitly so the snapshot always reflects fully committed data.
+        mlflow.flush_trace_async_logging()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         expected_traces.append(trace)
 
     df = mlflow.search_traces(max_results=10, order_by=["timestamp ASC"], flush=True)
@@ -1324,6 +1330,23 @@ def test_search_traces_with_non_dict_span_inputs_outputs():
     assert df["non_dict_span.inputs"].tolist() == [["a", "b"]]
     assert df["non_dict_span.outputs"].tolist() == [[1, 2, 3]]
     assert df["non_dict_span.inputs.x"].isnull().all()
+
+
+@skip_when_testing_trace_sdk
+def test_trace_decorator_honors_explicit_set_outputs():
+    @mlflow.trace
+    def predict(x):
+        mlflow.get_current_active_span().set_outputs({"explicit": x * 2})
+        return {"returned": x * 10}
+
+    # The function's real return value is unchanged.
+    assert predict(3) == {"returned": 30}
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    # The explicit set_outputs() call wins over the auto-captured return value.
+    assert span.outputs == {"explicit": 6}
 
 
 @skip_when_testing_trace_sdk
