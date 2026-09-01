@@ -23,7 +23,7 @@ import { useTracesV4AssessmentColumns } from './useTracesV4AssessmentColumns';
 import { useTracesV4ColumnSizing } from './useTracesV4ColumnSizing';
 import { useTracesV4TraceCount } from './useTracesV4TraceCount';
 import { useTracesV4CustomColumns } from './useTracesV4CustomColumns';
-import { buildFilter, buildOrderBy } from '../utils/buildTracesV4SearchParams';
+import { buildFilter, buildOrderBy, isExactTraceIdSearch } from '../utils/buildTracesV4SearchParams';
 import { compileFilterModel, compileTagFilters } from '../utils/filterModel';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 
@@ -180,7 +180,13 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
   const columns = useTracesV4Columns(experimentId, { hasSessionOnPage });
   const assessments = useTracesV4AssessmentColumns(experimentId, page.traces);
   const columnSizing = useTracesV4ColumnSizing(experimentId);
-  const traceCount = useTracesV4TraceCount(experimentId, page.traces.length, timeRange);
+  const traceCount = useTracesV4TraceCount(experimentId, page.traces.length, timeRange, {
+    isExactTraceIdSearch: isExactTraceIdSearch(url.search),
+    // The page's row count is the exact-id result only once the row query has settled on the current
+    // filter. `isPreviousData` covers the tick where `url.search` has committed the trace-id but the
+    // row query is still serving the prior page's rows and hasn't flipped `isFetching` yet.
+    isResultLoading: page.isLoading || page.isFetching || page.isPreviousData,
+  });
   const customColumns = useTracesV4CustomColumns(
     page.traces,
     columns.dynamicVisibilityById,
