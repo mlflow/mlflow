@@ -15,7 +15,6 @@ on:
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
-      - ".github/workflows/review.yml"
   push:
     branches:
       - master
