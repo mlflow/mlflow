@@ -42,6 +42,7 @@ export interface TracesTableViewProps {
   traces: ModelTraceInfoV3[];
   visibleColumns: TraceColumnId[];
   extraColumns?: TraceTableColumn[];
+  columnOrder?: string[];
   initialColumnSizing: ColumnSizingState;
   onColumnSizingSettled: (sizing: ColumnSizingState) => void;
   isLoading: boolean;
@@ -72,6 +73,7 @@ export interface TracesTableViewProps {
   isGroupedBySession?: boolean;
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
   previewLineClamp?: number;
+  onReorderColumn?: (activeColumn: string, targetColumn: string) => void;
 
   // Toolbar passthrough.
   searchValue: string;
@@ -184,6 +186,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       traces={props.traces}
       visibleColumns={props.visibleColumns}
       extraColumns={props.extraColumns}
+      columnOrder={props.columnOrder}
       initialColumnSizing={props.initialColumnSizing}
       onColumnSizingSettled={props.onColumnSizingSettled}
       isLoading={props.isLoading}
@@ -209,6 +212,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       columnHeaderActions={props.columnHeaderActions}
       isGroupedBySession={props.isGroupedBySession}
       previewLineClamp={props.previewLineClamp}
+      onReorderColumn={props.onReorderColumn}
     />
   );
 

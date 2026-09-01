@@ -541,6 +541,7 @@ module.exports = {
   "web-shared.genai-traces-table.evaluations-review-assessment.tooltip": "",
   "web-shared.genai-traces-table.key-value-tag.full-view-tooltip": "",
   "web-shared.time-ago": "",
+  "web-shared.traces-table.column-reorder.handle": "",
   "workspace_selector": "",
   "workspace_selector.tooltip": "",
 

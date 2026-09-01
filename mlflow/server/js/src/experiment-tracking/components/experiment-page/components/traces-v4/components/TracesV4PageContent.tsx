@@ -84,6 +84,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     columnSizing,
     traceCount,
     customColumns,
+    columnOrder,
     bulk,
     searchInput,
     filterModel,
@@ -91,20 +92,28 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   } = controller;
   const { density, setDensity } = useTracesV4Density(experimentId);
 
-  // One "Reset to defaults" in the column selector clears standard, assessment, and custom overrides.
+  // One "Reset to defaults" in the column selector clears standard, assessment, and custom overrides
+  // plus the reordered column order.
   const resetColumns = useCallback(() => {
     columns.resetToDefaults();
     assessments.reset();
     customColumns.reset();
-  }, [columns, assessments, customColumns]);
+    columnOrder.reset();
+  }, [columns, assessments, customColumns, columnOrder]);
 
-  // Saved views (dirty model): the hook reads/writes view tags, restores a view's columns into the
-  // user's own column store on open, and reports whether the live table has diverged from the active
-  // view (dirty) so the Views menu can offer Overwrite / Reset. There is no read-only preview — the
-  // table always renders the user's real columns.
+  // What a view captures: visible standard + assessment ids in display order (from the reorder store),
+  // so a saved view's `cols` carries reordering, not just membership.
+  const effectiveVisibleColumns = useMemo(() => {
+    const visible = new Set<string>([...columns.visibleColumns, ...assessments.visibleIds]);
+    return columnOrder.columnOrder.filter((id) => visible.has(id));
+  }, [columnOrder.columnOrder, columns.visibleColumns, assessments.visibleIds]);
+
+  // Saved views (dirty model): the hook reads/writes view tags, restores a view's columns + order into
+  // the user's own store on open, and reports whether the live table has diverged (dirty) so the Views
+  // menu can offer Overwrite / Reset. No read-only preview — the table always renders the real columns.
   const savedViews = useTracesV4SavedViews({
     experimentId,
-    visibleColumns: columns.visibleColumns,
+    visibleColumns: effectiveVisibleColumns,
     filterModel,
     setColumns: columns.setColumns,
     resetColumns,
@@ -114,6 +123,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     setAssessmentVisibility: assessments.setVisibility,
     customVisibility: customColumns.visibilityById,
     setCustomVisibility: customColumns.setVisibility,
+    setColumnOrder: columnOrder.setColumnOrder,
   });
 
   const handleHideColumn = useCallback(
@@ -325,6 +335,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     visibleColumns: columns.visibleColumns,
     onToggleColumn: columns.toggleColumn,
     onResetColumns: resetColumns,
+    columnOrder: columnOrder.columnOrder,
+    onReorderColumn: columnOrder.reorderColumn,
     assessmentColumns: assessments,
     customColumns,
     sort: url.sort,
@@ -394,6 +406,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             visibleColumns={columns.visibleColumns}
             extraColumns={extraColumns}
             columnHeaderActions={columnHeaderActions}
+            columnOrder={columnOrder.columnOrder}
             initialColumnSizing={columnSizing.columnSizing}
             onColumnSizingSettled={columnSizing.setColumnSizing}
             isLoading={page.isFetching}
@@ -422,6 +435,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             renderRunName={renderRunName}
             onHideColumn={handleHideColumn}
             isGroupedBySession={controller.isGroupedBySession}
+            onReorderColumn={columnOrder.reorderColumn}
             // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
             searchValue={searchInput.input}
             onSearchChange={searchInput.setInput}
@@ -454,9 +468,9 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             hidePagination={controller.isGroupedBySession && !page.hasNext && !page.hasPrev}
             hidePageSizeSelector={controller.isGroupedBySession}
             // "{n} of {total}" footer count (bottom-left).
-            traceCount={traceCount.currentCount}
-            traceTotal={traceCount.totalCount}
-            isTraceCountLoading={traceCount.isTotalLoading}
+            traceCount={page.traces.length}
+            traceTotal={controller.traceCount.totalCount}
+            isTraceCountLoading={controller.traceCount.isTotalLoading}
             // Reserve the pinned pagination bar's height with the floating-obstruction store so the
             // Assistant FAB rises above it instead of overlapping the prev/next/page-size controls.
             PaginationBarWrapper={AssistantAwareActionBar}

@@ -3,7 +3,7 @@ import { capturedV4StatesMatch, __test__ } from './tracesV4DirtyState';
 import { captureV4ViewState } from './tracesV4SavedViewState';
 import { FilterOp, type TraceColumnId, type TraceFilterModel } from '@databricks/web-shared/traces-table';
 
-const { canonicalViewQuery, columnSetsEqual, assessmentVisibilityEqual, customVisibilityEqual } = __test__;
+const { canonicalViewQuery, columnListsEqual, assessmentVisibilityEqual, customVisibilityEqual } = __test__;
 
 const capture = (
   query: string,
@@ -26,9 +26,15 @@ describe('capturedV4StatesMatch', () => {
     expect(capturedV4StatesMatch(a, b)).toBe(false);
   });
 
-  test('columns are compared as a set — reordering is still clean', () => {
+  test('reordering the same columns is dirty (order is part of the diff)', () => {
     const a = capture('q=x', ['input', 'start_time']);
     const b = capture('q=x', ['start_time', 'input']);
+    expect(capturedV4StatesMatch(a, b)).toBe(false);
+  });
+
+  test('identical column order is clean', () => {
+    const a = capture('q=x', ['start_time', 'input', 'duration']);
+    const b = capture('q=x', ['start_time', 'input', 'duration']);
     expect(capturedV4StatesMatch(a, b)).toBe(true);
   });
 
@@ -73,6 +79,30 @@ describe('capturedV4StatesMatch', () => {
     expect(capturedV4StatesMatch(a, b)).toBe(false);
   });
 
+  test('a legacy view (assessment visibility stored separately) stays clean against the mixed live cols', () => {
+    // Legacy: standard-only `cols` + separate `assessmentColumns`. Must line up with the live mixed
+    // `cols` so the view isn't stranded permanently dirty.
+    const legacyStored = capture('q=x', ['start_time', 'input'], [], { relevance: true });
+    const liveMixed = capture('q=x', ['start_time', 'input', 'assessment:relevance'] as TraceColumnId[], [], {
+      relevance: true,
+    });
+    expect(capturedV4StatesMatch(liveMixed, legacyStored)).toBe(true);
+  });
+
+  test('a legacy view with a hidden assessment stays clean (nothing folded in)', () => {
+    const legacyStored = capture('q=x', ['start_time', 'input'], [], { relevance: false });
+    const live = capture('q=x', ['start_time', 'input'], [], { relevance: false });
+    expect(capturedV4StatesMatch(live, legacyStored)).toBe(true);
+  });
+
+  test('showing an assessment the legacy view had hidden is still dirty', () => {
+    const legacyStored = capture('q=x', ['start_time', 'input'], [], { relevance: false });
+    const live = capture('q=x', ['start_time', 'input', 'assessment:relevance'] as TraceColumnId[], [], {
+      relevance: true,
+    });
+    expect(capturedV4StatesMatch(live, legacyStored)).toBe(false);
+  });
+
   test('showing a custom column is dirty', () => {
     const a = capture('q=x', ['start_time'], [], {}, { 'tag:environment': true });
     const b = capture('q=x', ['start_time'], [], {}, { 'tag:environment': false });
@@ -115,11 +145,12 @@ describe('canonicalViewQuery', () => {
   });
 });
 
-describe('columnSetsEqual', () => {
-  test('true regardless of order, false on differing membership', () => {
-    expect(columnSetsEqual(['a', 'b'], ['b', 'a'])).toBe(true);
-    expect(columnSetsEqual(['a'], ['a', 'b'])).toBe(false);
-    expect(columnSetsEqual(['a', 'b'], ['a', 'c'])).toBe(false);
+describe('columnListsEqual', () => {
+  test('true only for same ids in the same order', () => {
+    expect(columnListsEqual(['a', 'b'], ['a', 'b'])).toBe(true);
+    expect(columnListsEqual(['a', 'b'], ['b', 'a'])).toBe(false); // reorder is a change
+    expect(columnListsEqual(['a'], ['a', 'b'])).toBe(false);
+    expect(columnListsEqual(['a', 'b'], ['a', 'c'])).toBe(false);
   });
 });
 

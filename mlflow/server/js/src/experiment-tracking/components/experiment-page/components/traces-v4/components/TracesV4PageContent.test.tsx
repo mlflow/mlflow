@@ -9,7 +9,11 @@ import {
   makeTrace,
   makeTraces,
 } from '../test-utils/mockTraces';
-import { TRACE_COLUMN_SIZES_STORAGE_KEY_PREFIX, TRACE_DENSITY_STORAGE_KEY_PREFIX } from '../utils/constants';
+import {
+  TRACE_COLUMN_SIZES_STORAGE_KEY_PREFIX,
+  TRACE_COLUMN_ORDER_STORAGE_KEY_PREFIX,
+  TRACE_DENSITY_STORAGE_KEY_PREFIX,
+} from '../utils/constants';
 import { COLUMN_SIZES_STORAGE_VERSION } from '../hooks/useTracesV4ColumnSizing';
 import { DENSITY_STORAGE_VERSION } from '../hooks/useTracesV4Density';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
@@ -741,6 +745,29 @@ describe('TracesV4PageContent', () => {
       // OSS always searches by experiment id; UC-schema locations are a Databricks-only concept.
       expect(location?.type).toBe('MLFLOW_EXPERIMENT');
       expect(location?.mlflow_experiment).toEqual({ experiment_id: EXPERIMENT_ID });
+    });
+  });
+
+  describe('column reordering', () => {
+    test('renders headers in the persisted column order', async () => {
+      // Seed the per-experiment order store (version 1) with Output moved before Input, then assert
+      // the table paints headers in that order on mount. Reorder mechanics are unit-tested in
+      // useTracesV4ColumnOrder / ReorderableTraceColumnList / TracesTable; this guards the wiring
+      // from the persisted order through the controller into the rendered table.
+      setLocalStorageItem(`${TRACE_COLUMN_ORDER_STORAGE_KEY_PREFIX}.${EXPERIMENT_ID}`, 1, true, [
+        'start_time',
+        'output',
+        'input',
+        'duration',
+        'state',
+      ]);
+      renderPage();
+      await findTraceRow('tr-000');
+
+      const output = screen.getByRole('columnheader', { name: 'Output' });
+      const input = screen.getByRole('columnheader', { name: 'Input' });
+      // Output now precedes Input (the reordered slot), inverting the default Input → Output order.
+      expect(output.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 });
