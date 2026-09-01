@@ -445,7 +445,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
   {
     id: 'github_copilot_sdk',
     name: 'GitHub Copilot SDK',
-    logoPath: '/images/intro/github-mark.svg',
+    logoPath: '/images/logos/github-mark.svg',
     link: '/genai/tracing/integrations/listing/github_copilot_sdk',
     category: 'Coding Agents & Long-Running Agents',
   },

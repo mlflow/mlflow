@@ -138,7 +138,7 @@ Enabling content capture may export prompts, responses, tool inputs, and tool ou
 3. The Copilot CLI sends OTLP/HTTP traces to the local collector.
 4. The collector forwards trace payloads to MLflow's `/v1/traces` endpoint with the `x-mlflow-experiment-id` header.
 
-The collector bridge is useful because it can normalize OTLP encoding and centralize additional processors before traces reach MLflow.
+The collector adds the required `x-mlflow-experiment-id` header. It can also normalize OTLP encoding and apply processors before traces reach MLflow.
 
 ## Troubleshooting
 
@@ -156,7 +156,6 @@ The collector bridge is useful because it can normalize OTLP encoding and centra
 **Trace payloads are rejected**
 
 - Verify that the collector is using the `otlphttp` exporter and forwarding to the MLflow server URL.
-- If you send telemetry directly to MLflow without a collector, point the OTLP endpoint at `http://localhost:5000` and include the `x-mlflow-experiment-id` header.
 
 ## References
 
