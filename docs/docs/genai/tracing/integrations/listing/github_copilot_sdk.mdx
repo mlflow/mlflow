@@ -26,7 +26,7 @@ This guide routes Copilot SDK telemetry through the OpenTelemetry Collector. The
 
 ### Requirements
 
-- MLflow 3.6.0 or newer
+- MLflow 3.7.0 or newer
 - An MLflow tracking server with a SQL-backed store
 - [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)
 - A GitHub Copilot SDK application
@@ -55,7 +55,6 @@ receivers:
 exporters:
   otlphttp:
     endpoint: http://host.docker.internal:5000
-    compression: none
     headers:
       x-mlflow-experiment-id: "0"
 
@@ -140,7 +139,6 @@ Enabling content capture may export prompts, responses, tool inputs, and tool ou
 4. The collector forwards trace payloads to MLflow's `/v1/traces` endpoint with the `x-mlflow-experiment-id` header.
 
 The collector bridge is useful because it can normalize OTLP encoding and centralize additional processors before traces reach MLflow.
-The exporter disables compression so the setup also works with MLflow 3.6.x; compressed OTLP ingestion is supported starting in MLflow 3.7.0.
 
 ## Troubleshooting
 
