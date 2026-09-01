@@ -83,6 +83,7 @@ def test_detect_environment_none():
     ("environment", "expected"),
     [
         ({"AI_AGENT": "custom-agent"}, "custom-agent"),
+        ({"AI_AGENT": "codex-custom"}, "codex-custom"),
         ({"AI_AGENT": "claude-code_2-1-232_agent"}, "claude-code"),
         ({"CODEX_THREAD_ID": "thread-id"}, "codex"),
         ({"GEMINI_CLI": "1"}, "gemini-cli"),

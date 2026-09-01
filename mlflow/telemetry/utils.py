@@ -98,7 +98,9 @@ def _detect_agent() -> str | None:
         if _AGENT_NAME_PATTERN.fullmatch(agent):
             agent = agent.lower()
             for known in sorted(CodingAgent, key=lambda a: len(a.value), reverse=True):
-                if agent.startswith(known.value):
+                if agent == known.value or (
+                    agent.startswith(f"{known.value}_") and agent.endswith("_agent")
+                ):
                     return known.value
             return agent
 
