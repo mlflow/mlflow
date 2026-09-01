@@ -32,7 +32,7 @@ interface TracesV4TabProps {
 export const TracesV4Tab = ({ experimentId, isLoadingExperiment }: TracesV4TabProps) => {
   const pageContent = <TracesV4PageContent experimentId={experimentId} />;
   const content = shouldEnableModelTraceExplorerCustomTraceView() ? (
-    <React.Suspense fallback={pageContent}>
+    <React.Suspense fallback={<GenericSkeleton css={{ flex: 1, margin: 16 }} />}>
       <LazyExperimentCustomViewProvider key={experimentId} experimentId={experimentId}>
         {pageContent}
       </LazyExperimentCustomViewProvider>
