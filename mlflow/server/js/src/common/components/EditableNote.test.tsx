@@ -101,4 +101,17 @@ describe('EditableNote', () => {
     rerender(<EditableNote {...minimalProps} defaultMarkdown="second description" />);
     expect(screen.getByText('second description')).toBeInTheDocument();
   });
+
+  test('sanitizes malicious script tags and event handlers in note content', () => {
+    const maliciousHtml = '<div>Safe note<script>alert("xss")</script><img src="x" onerror="alert(1)" /></div>';
+    renderWithIntl(
+      <DesignSystemProvider>
+        <EditableNote {...minimalProps} defaultMarkdown={maliciousHtml} />
+      </DesignSystemProvider>,
+    );
+    const preview = screen.getByTestId('note-editor-preview-content');
+    expect(preview.innerHTML).not.toContain('<script>');
+    expect(preview.innerHTML).not.toContain('onerror');
+    expect(preview.innerHTML).toContain('Safe note');
+  });
 });
