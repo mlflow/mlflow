@@ -48,7 +48,7 @@ jobs:
           # The dockerignore empties the build context, so this is all that is read.
           sparse-checkout: .claude/sandbox
 
-      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       # Loaded, not pushed, so nothing is published until it verifies below.
       # amd64 only: Chrome's dependencies do not cross-build under QEMU.
