@@ -105,10 +105,11 @@ The checkout is shallow, so nothing older than `HEAD^1` exists: `git log` and `g
 the shallow boundary rather than reaching the commit that actually introduced a line. Neither
 errors, so don't trust them for pre-change history.
 
-Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, or a
-web fetch of the upstream docs will settle most questions in seconds, and an unverified finding
-should be dropped rather than hedged. When the cheap checks don't settle it, escalate to the
-expensive ones: build the docs site, build and boot the UI, start the backend.
+Verify rather than infer. A `grep` through the installed package, a `uv run python -c '...'`, a web
+fetch, or a web search (`$base_dir/.claude/skills/pr-review/search-web.sh "<query>"`) will settle
+most questions in seconds, and an unverified finding should be dropped rather than hedged. When the
+cheap checks don't settle it, escalate to the expensive ones: build the docs site, build and boot
+the UI, start the backend.
 
 Node and `agent-browser` are on PATH for docs and UI changes. Capture to an absolute path named for
 what it shows: `agent-browser screenshot --full $media_dir/example.png`, and cite that same

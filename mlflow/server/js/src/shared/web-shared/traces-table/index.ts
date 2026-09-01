@@ -12,6 +12,7 @@ export type {
   SessionHrefGetter,
   SessionSelectionHandler,
   TraceHrefGetter,
+  TraceColumnHeaderAction,
 } from './types';
 
 // Constants
@@ -75,6 +76,7 @@ export {
   TraceTokensCell,
   TraceCostCell,
   TraceTagsCell,
+  TraceMetadataCell,
 } from './TraceCell';
 
 // Filter model (generic AST + UI helpers; API-specific compilation stays consumer-side)

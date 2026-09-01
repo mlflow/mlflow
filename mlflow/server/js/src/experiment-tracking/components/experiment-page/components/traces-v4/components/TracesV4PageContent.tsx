@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type InputRef, useDesignSystemTheme } from '@databricks/design-system';
-import { useIntl } from 'react-intl';
+import { type InputRef, ColumnSplitIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { useIntl, FormattedMessage } from 'react-intl';
 import {
   createTraceV4LongIdentifier,
   ModelTraceExplorerContextProvider,
@@ -33,6 +33,7 @@ import { SELECTED_TRACE_ID_QUERY_PARAM } from '@mlflow/mlflow/src/experiment-tra
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
+import { isCustomTraceColumnId } from '../utils/customColumns';
 import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
@@ -44,6 +45,7 @@ import { makeTracesV4ErrorDescription } from './TracesV4States';
 import { TracesV4EmptyState } from './TracesV4EmptyState';
 import { IssueDetectionModal } from '../../traces-v3/IssueDetectionModal';
 import { TracesV4SavedViewsButton, useTracesV4SavedViews } from './TracesV4SavedViews';
+import { type TraceColumnHeaderAction } from '@databricks/web-shared/traces-table';
 
 interface TracesV4PageContentProps {
   experimentId: string;
@@ -74,15 +76,27 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   useSlashFocusSearch(searchInputRef);
 
   const controller = useTracesV4Controller({ experimentId });
-  const { url, page, columns, assessments, columnSizing, traceCount, bulk, searchInput, filterModel, flags } =
-    controller;
+  const {
+    url,
+    page,
+    columns,
+    assessments,
+    columnSizing,
+    traceCount,
+    customColumns,
+    bulk,
+    searchInput,
+    filterModel,
+    flags,
+  } = controller;
   const { density, setDensity } = useTracesV4Density(experimentId);
 
-  // One "Reset to defaults" in the column selector clears both standard and assessment overrides.
+  // One "Reset to defaults" in the column selector clears standard, assessment, and custom overrides.
   const resetColumns = useCallback(() => {
     columns.resetToDefaults();
     assessments.reset();
-  }, [columns, assessments]);
+    customColumns.reset();
+  }, [columns, assessments, customColumns]);
 
   // Saved views (dirty model): the hook reads/writes view tags, restores a view's columns into the
   // user's own column store on open, and reports whether the live table has diverged from the active
@@ -98,18 +112,47 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     assessmentNames: assessments.candidateNames,
     assessmentVisibility: assessments.visibilityByName,
     setAssessmentVisibility: assessments.setVisibility,
+    customVisibility: customColumns.visibilityById,
+    setCustomVisibility: customColumns.setVisibility,
   });
 
   const handleHideColumn = useCallback(
     (columnId: string) => {
-      if (isAssessmentColumnId(columnId)) {
+      if (isCustomTraceColumnId(columnId)) {
+        customColumns.toggle(columnId);
+      } else if (isAssessmentColumnId(columnId)) {
         assessments.toggle(columnId);
       } else if (isStandardColumnId(columnId)) {
         columns.toggleColumn(columnId);
       }
     },
-    [assessments, columns],
+    [customColumns, assessments, columns],
   );
+
+  const columnHeaderActions = useMemo<Readonly<Partial<Record<string, TraceColumnHeaderAction>>>>(() => {
+    const actions: Partial<Record<string, TraceColumnHeaderAction>> = {};
+    if (customColumns.tags.selectorOptions.length > 0) {
+      actions['tags'] = {
+        label: intl.formatMessage({
+          defaultMessage: 'Expand tag columns',
+          description: 'Column header action for expanding tag columns',
+        }),
+        icon: <ColumnSplitIcon />,
+        onClick: () => customColumns.tags.setAllVisible(true),
+      };
+    }
+    if (customColumns.metadata.selectorOptions.length > 0) {
+      actions['metadata'] = {
+        label: intl.formatMessage({
+          defaultMessage: 'Expand metadata columns',
+          description: 'Column header action for expanding metadata columns',
+        }),
+        icon: <ColumnSplitIcon />,
+        onClick: () => customColumns.metadata.setAllVisible(true),
+      };
+    }
+    return actions;
+  }, [customColumns.tags, customColumns.metadata, intl]);
 
   const actions = useTracesV4TraceActions(experimentId, page.traces, page.refetch);
 
@@ -117,6 +160,14 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // cross-page selection — every bulk action (judges, Genie, add-to-dataset, labeling, review queue)
   // gets its expected input regardless of which page a trace was selected on.
   const selectedTraceInfos = useMemo(() => Array.from(bulk.selected.values()), [bulk.selected]);
+
+  // Combine custom (tag/metadata) and assessment column defs into one stable array — the table's
+  // `extraColumns` prop expects a stable reference, so building it inline would rebuild the columns
+  // every render.
+  const extraColumns = useMemo(
+    () => [...customColumns.columnDefs, ...assessments.columnDefs],
+    [customColumns.columnDefs, assessments.columnDefs],
+  );
 
   const deleteTracesMutation = useDeleteTracesMutation();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -275,6 +326,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     onToggleColumn: columns.toggleColumn,
     onResetColumns: resetColumns,
     assessmentColumns: assessments,
+    customColumns,
     sort: url.sort,
     dir: url.dir,
     onSort: url.setSort,
@@ -340,7 +392,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             // Table
             traces={page.traces}
             visibleColumns={columns.visibleColumns}
-            extraColumns={assessments.columnDefs}
+            extraColumns={extraColumns}
+            columnHeaderActions={columnHeaderActions}
             initialColumnSizing={columnSizing.columnSizing}
             onColumnSizingSettled={columnSizing.setColumnSizing}
             isLoading={page.isFetching}

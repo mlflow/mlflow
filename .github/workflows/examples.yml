@@ -15,7 +15,6 @@ on:
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
-      - ".github/workflows/review.yml"
   schedule:
     # Run this action daily at 13:00 UTC
     - cron: "0 13 * * *"
