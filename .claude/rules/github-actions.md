@@ -165,7 +165,7 @@ use for the secret never holds it.
   run: |
     TOKEN=$(curl -sS ... | jq -r .access_token)
     echo "::add-mask::$TOKEN"
-    echo "TOKEN=$TOKEN" &gt; "$GITHUB_ENV"
+    echo "TOKEN=$TOKEN" >> "$GITHUB_ENV"
 - run: uv run dev/deploy.py # needs $TOKEN
 - run: uv run pytest tests/ # doesn't, but gets it anyway
 
@@ -174,7 +174,7 @@ use for the secret never holds it.
   run: |
     TOKEN=$(curl -sS ... | jq -r .access_token)
     echo "::add-mask::$TOKEN"
-    echo "token=$TOKEN" &gt; "$GITHUB_OUTPUT"
+    echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 - env:
     TOKEN: ${{ steps.auth.outputs.token }}
   run: uv run dev/deploy.py
