@@ -14,6 +14,8 @@ import { COLUMN_SIZES_STORAGE_VERSION } from '../hooks/useTracesV4ColumnSizing';
 import { DENSITY_STORAGE_VERSION } from '../hooks/useTracesV4Density';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
 import { slowlyTypeEachKey } from '@databricks/web-shared/test-utils/slowlyTypeEachKey';
+import { TracesV4Tab } from '../TracesV4Tab';
+import { renderTracesV4Page } from '../test-utils/renderTracesV4Page';
 import {
   renderPage,
   findTraceRow,
@@ -25,6 +27,7 @@ import {
   server,
   state,
   env,
+  history,
   EXPERIMENT_ID,
   URL,
   SEARCH_ENDPOINT,
@@ -373,6 +376,37 @@ describe('TracesV4PageContent', () => {
       expect(await within(drawer).findByRole('button', { name: '000' })).toBeInTheDocument();
       expect(within(drawer).queryByText('trace:/cat.sch/tr-000')).not.toBeInTheDocument();
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+
+    test('the production V4 tab provides Custom view controls in the trace drawer', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      const trace = makeTaggedTrace('tr-000', {});
+      state.pages = { '': { traces: [trace], next_page_token: undefined } };
+      server.use(
+        rest.get('/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) =>
+          res(ctx.json({ experiment: { experiment_id: EXPERIMENT_ID, tags: [] } })),
+        ),
+        rest.get('/ajax-api/3.0/mlflow/traces/:traceId', (_req, res, ctx) =>
+          res(ctx.json({ trace: { trace_info: trace, spans: [] } })),
+        ),
+      );
+      renderTracesV4Page({
+        initialUrl: URL,
+        routes: [
+          {
+            path: '/ml/experiments/:experimentId/traces',
+            element: <TracesV4Tab experimentId={EXPERIMENT_ID} />,
+          },
+        ],
+        history,
+        experimentId: EXPERIMENT_ID,
+      });
+
+      await user.click(await findTraceRow('tr-000'));
+
+      const drawer = await screen.findByRole('dialog');
+      await user.click(within(drawer).getByRole('button', { name: 'Default view' }));
+      expect(await screen.findByRole('menuitem', { name: 'Create custom view' })).toBeInTheDocument();
+    }, 20000);
   });
 
   describe('session column', () => {
