@@ -40,7 +40,9 @@ from mlflow.server.sandbox.container import (
     _WORKSPACE_MOUNT,
     SandboxUnavailableError,
     _get_client,
+    ensure_sandbox_network,
     sandbox_container_labels,
+    sandbox_egress_env,
 )
 
 _logger = logging.getLogger(__name__)
@@ -323,6 +325,7 @@ def start_sandbox_process(
 
     env = dict(environment or {})
     env.setdefault("HOME", _HOME_MOUNT)
+    env.update(sandbox_egress_env())
 
     volumes = {
         str(io_dir): {"bind": _IO_MOUNT, "mode": "ro"},
@@ -344,7 +347,7 @@ def start_sandbox_process(
             command=command,
             detach=True,
             labels=sandbox_container_labels(),
-            network_mode="bridge",
+            network=ensure_sandbox_network(client),
             extra_hosts={"host.docker.internal": "host-gateway"},
             mem_limit=_MEMORY_LIMIT,
             memswap_limit=_MEMORY_LIMIT,

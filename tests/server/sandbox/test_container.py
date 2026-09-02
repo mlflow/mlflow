@@ -92,7 +92,7 @@ def test_run_in_sandbox_applies_hardening_flags():
     assert kwargs["cap_drop"] == ["ALL"]
     assert kwargs["security_opt"] == ["no-new-privileges:true"]
     assert kwargs["read_only"] is True
-    assert kwargs["network_mode"] == "bridge"
+    assert kwargs["network"] == container_mod.SANDBOX_NETWORK_NAME
     assert kwargs["pids_limit"] == container_mod._PIDS_LIMIT
     assert kwargs["mem_limit"] == container_mod._MEMORY_LIMIT
     assert kwargs["user"] == f"{os.getuid()}:{os.getgid()}"
@@ -162,6 +162,23 @@ def test_run_in_sandbox_non_timeout_wait_error_raises_unavailable():
     # distinct sandbox failure, and the container is still cleaned up.
     client, container = _mock_client()
     container.wait.side_effect = requests.exceptions.ConnectionError("daemon gone")
+    with mock.patch("docker.from_env", return_value=client):
+        with pytest.raises(SandboxUnavailableError, match="failed while waiting"):
+            run_in_sandbox(["mlflow", "--version"])
+
+    container.kill.assert_called_once()
+    container.remove.assert_called_once()
+
+
+def test_run_in_sandbox_connect_timeout_is_not_a_read_timeout():
+    # A connection-establishment timeout (daemon unreachable) is a ConnectionError whose message
+    # says "timed out" but NOT "read timed out". It must surface as a sandbox failure rather than
+    # be misreported as the command timing out, so the operator sees the daemon is down.
+    client, container = _mock_client()
+    container.wait.side_effect = requests.exceptions.ConnectionError(
+        "HTTPConnectionPool(host='localhost', port=2375): Max retries exceeded "
+        "(Caused by ConnectTimeoutError(...): Connection to localhost timed out.)"
+    )
     with mock.patch("docker.from_env", return_value=client):
         with pytest.raises(SandboxUnavailableError, match="failed while waiting"):
             run_in_sandbox(["mlflow", "--version"])
@@ -258,20 +275,40 @@ def test_reap_removes_previous_generation_only(monkeypatch):
     assert kwargs["filters"] == {"label": container_mod.SANDBOX_CONTAINER_LABEL}
 
 
-def test_reap_skips_running_container_from_other_generation(monkeypatch):
+@pytest.mark.parametrize("status", ["running", "created", "restarting", "paused", "removing"])
+def test_reap_skips_non_terminal_container_from_other_generation(monkeypatch, status):
     from mlflow.server.sandbox import reap_orphaned_sandbox_containers
 
-    # A different boot id does not prove a container is orphaned (a concurrent server sharing the
-    # daemon), so a still-running one is left alone rather than force-killed mid-turn.
+    # Only terminal-state (exited/dead) containers are reaped. A container in any live or
+    # transitional state — running, or still starting up (created/restarting) — may belong to a
+    # concurrent server sharing the daemon, so a different boot id does not prove it is orphaned
+    # and force-removing it could kill another server's turn. It is left for a later startup to
+    # reap once it reaches a terminal state.
     monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
-    other_running = mock.MagicMock()
-    other_running.labels = {container_mod.SANDBOX_BOOT_LABEL: "other-boot"}
-    other_running.status = "running"
+    other = mock.MagicMock()
+    other.labels = {container_mod.SANDBOX_BOOT_LABEL: "other-boot"}
+    other.status = status
     client = mock.MagicMock()
-    client.containers.list.return_value = [other_running]
+    client.containers.list.return_value = [other]
     with mock.patch("docker.from_env", return_value=client):
         assert reap_orphaned_sandbox_containers() == 0
-    other_running.remove.assert_not_called()
+    other.remove.assert_not_called()
+
+
+def test_reap_removes_dead_container_from_other_generation(monkeypatch):
+    from mlflow.server.sandbox import reap_orphaned_sandbox_containers
+
+    # "dead" is a terminal state (a container that could not be fully removed), so it is reaped
+    # alongside "exited".
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
+    dead = mock.MagicMock()
+    dead.labels = {container_mod.SANDBOX_BOOT_LABEL: "old-boot"}
+    dead.status = "dead"
+    client = mock.MagicMock()
+    client.containers.list.return_value = [dead]
+    with mock.patch("docker.from_env", return_value=client):
+        assert reap_orphaned_sandbox_containers() == 1
+    dead.remove.assert_called_once_with(force=True)
 
 
 def test_reap_skips_when_no_boot_id(monkeypatch):
@@ -291,8 +328,10 @@ def test_reap_counts_only_successful_removes(monkeypatch):
     monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
     ok = mock.MagicMock()
     ok.labels = {container_mod.SANDBOX_BOOT_LABEL: "old-boot"}
+    ok.status = "exited"
     fails = mock.MagicMock()
     fails.labels = {container_mod.SANDBOX_BOOT_LABEL: "old-boot"}
+    fails.status = "exited"
     fails.remove.side_effect = Exception("cannot remove")
     client = mock.MagicMock()
     client.containers.list.return_value = [ok, fails]
@@ -316,3 +355,81 @@ def test_reap_list_error_returns_zero(monkeypatch):
     client.containers.list.side_effect = Exception("api error")
     with mock.patch("docker.from_env", return_value=client):
         assert reap_orphaned_sandbox_containers() == 0
+
+
+def test_sandbox_egress_env_empty_when_unset(monkeypatch):
+    from mlflow.server.sandbox.container import sandbox_egress_env
+
+    monkeypatch.delenv("MLFLOW_SANDBOX_EGRESS_PROXY", raising=False)
+    assert sandbox_egress_env() == {}
+
+
+def test_sandbox_egress_env_injects_proxy_and_bypass(monkeypatch):
+    from mlflow.server.sandbox.container import sandbox_egress_env
+
+    monkeypatch.setenv("MLFLOW_SANDBOX_EGRESS_PROXY", "http://proxy.internal:3128")
+    env = sandbox_egress_env()
+    assert env["HTTP_PROXY"] == "http://proxy.internal:3128"
+    assert env["HTTPS_PROXY"] == "http://proxy.internal:3128"
+    # Lowercase variants for clients that only read them.
+    assert env["no_proxy"] == env["NO_PROXY"]
+    assert env["https_proxy"] == "http://proxy.internal:3128"
+    # The self-host bypass entries let the container reach a local tracking server...
+    assert "host.docker.internal" in env["NO_PROXY"]
+    assert "localhost" in env["NO_PROXY"]
+    assert "127.0.0.1" in env["NO_PROXY"]
+    # ...but the cloud metadata endpoint must NOT bypass the proxy.
+    assert "169.254.169.254" not in env["NO_PROXY"]
+
+
+def test_sandbox_egress_env_bypass_list_is_fixed_and_not_caller_controlled(monkeypatch):
+    from mlflow.server.sandbox.container import _EGRESS_PROXY_BYPASS_HOSTS, sandbox_egress_env
+
+    monkeypatch.setenv("MLFLOW_SANDBOX_EGRESS_PROXY", "http://proxy.internal:3128")
+    # NO_PROXY is exactly the fixed self-host bypass list. It is not derived from any request or
+    # caller-supplied value, so a remote caller cannot name an internal host (e.g. its own
+    # request-derived tracking URI) to carve that destination out of the proxy.
+    env = sandbox_egress_env()
+    assert env["NO_PROXY"].split(",") == list(_EGRESS_PROXY_BYPASS_HOSTS)
+
+
+def test_run_in_sandbox_injects_egress_proxy(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SANDBOX_EGRESS_PROXY", "http://proxy.internal:3128")
+    client, _ = _mock_client()
+    with mock.patch("docker.from_env", return_value=client):
+        run_in_sandbox(["echo", "hi"])
+    _, kwargs = client.containers.run.call_args
+    assert kwargs["environment"]["HTTPS_PROXY"] == "http://proxy.internal:3128"
+
+
+def test_ensure_sandbox_network_creates_when_missing():
+    import docker.errors
+
+    from mlflow.server.sandbox.container import SANDBOX_NETWORK_NAME, ensure_sandbox_network
+
+    client = mock.MagicMock()
+    client.networks.get.side_effect = docker.errors.NotFound("nope")
+    assert ensure_sandbox_network(client) == SANDBOX_NETWORK_NAME
+    client.networks.create.assert_called_once_with(
+        SANDBOX_NETWORK_NAME, driver="bridge", check_duplicate=True
+    )
+
+
+def test_ensure_sandbox_network_handles_create_race():
+    import docker.errors
+
+    from mlflow.server.sandbox.container import SANDBOX_NETWORK_NAME, ensure_sandbox_network
+
+    client = mock.MagicMock()
+    # First get: not found; create loses the race (409 duplicate); re-get: found.
+    client.networks.get.side_effect = [docker.errors.NotFound("no"), mock.MagicMock()]
+    client.networks.create.side_effect = docker.errors.APIError("network already exists")
+    assert ensure_sandbox_network(client) == SANDBOX_NETWORK_NAME
+
+
+def test_ensure_sandbox_network_falls_back_to_bridge_on_error():
+    from mlflow.server.sandbox.container import ensure_sandbox_network
+
+    client = mock.MagicMock()
+    client.networks.get.side_effect = Exception("permission denied")
+    assert ensure_sandbox_network(client) == "bridge"
