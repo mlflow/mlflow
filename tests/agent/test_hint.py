@@ -24,6 +24,7 @@ def clean_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         monkeypatch.delenv(marker, raising=False)
     monkeypatch.delenv("MLFLOW_DISABLE_AGENT_HINT", raising=False)
     hint._EMITTED_HINTS.clear()
+    hint._is_agent_driving.cache_clear()
 
     home = tmp_path / "home"
     home.mkdir()
@@ -128,6 +129,7 @@ def test_hints_for_value_specific_markers(
     assert hint_message() is not None
     # A different value for the same variable is an ordinary human environment.
     monkeypatch.setenv(name, "something-else")
+    hint._is_agent_driving.cache_clear()
     assert hint_message() is None
 
 
@@ -140,6 +142,7 @@ def test_tty_gated_markers_only_count_off_a_terminal(
     assert hint_message() is not None
     # The same variable in a human's terminal is not a detection.
     monkeypatch.setattr(hint.sys.stdout, "isatty", lambda: True, raising=False)
+    hint._is_agent_driving.cache_clear()
     assert hint_message() is None
 
 
@@ -245,6 +248,7 @@ def test_local_tracking_check_ignores_human_and_remote_tracking(
     with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
         hint.maybe_warn_local_tracking_for_databricks()
         monkeypatch.setenv("CLAUDECODE", "1")
+        hint._is_agent_driving.cache_clear()
         with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
             hint.maybe_warn_local_tracking_for_databricks()
     warn.assert_not_called()

@@ -15,6 +15,7 @@ import logging
 import os
 import sys
 import threading
+from functools import lru_cache
 from importlib import resources
 from pathlib import Path
 
@@ -100,6 +101,7 @@ def _bundled_skill_manifest() -> Path | None:
         return None
 
 
+@lru_cache(maxsize=1)
 def _is_agent_driving() -> bool:
     """Whether a coding agent is running this process."""
     if any(os.environ.get(marker) for marker in _AGENT_ENV_MARKERS):
