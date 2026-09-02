@@ -2,11 +2,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, TypedDict
+
+from typing_extensions import NotRequired
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
+
+
+class RegistryIcon(TypedDict):
+    """Icon descriptor for registry presentation metadata.
+
+    Same shape as RFC-0004's ``MCPIcon`` so UIs share one icon renderer
+    across the MCP, skill, and agent plugin registries.
+    """
+
+    src: str
+    sizes: NotRequired[list[str]]
+    mimeType: NotRequired[str]
+    theme: NotRequired[str]
 
 
 class SkillStatus(str, Enum):
@@ -25,6 +40,8 @@ class Skill:
     name: str
     organization: str = ""
     description: str | None = None
+    # mutable presentation metadata; returned as stored (null when unset)
+    icons: list[RegistryIcon] | None = None
     workspace: str | None = None
     status: SkillStatus | None = None  # read-only, derived by producers
     tags: dict[str, str] = field(default_factory=dict)
@@ -49,6 +66,7 @@ class Skill:
                 name=data["name"],
                 organization=data.get("organization", ""),
                 description=data.get("description"),
+                icons=data.get("icons"),
                 workspace=data.get("workspace"),
                 status=SkillStatus(data["status"]) if data.get("status") else None,
                 tags=data.get("tags") or {},

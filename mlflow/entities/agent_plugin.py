@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from mlflow.entities.skill import SkillStatus
+from mlflow.entities.skill import RegistryIcon, SkillStatus
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
@@ -15,6 +15,8 @@ class AgentPlugin:
     name: str
     organization: str = ""
     description: str | None = None
+    # mutable presentation metadata; returned as stored (null when unset)
+    icons: list[RegistryIcon] | None = None
     workspace: str | None = None
     status: SkillStatus | None = None  # read-only, derived by producers
     tags: dict[str, str] = field(default_factory=dict)
@@ -39,6 +41,7 @@ class AgentPlugin:
                 name=data["name"],
                 organization=data.get("organization", ""),
                 description=data.get("description"),
+                icons=data.get("icons"),
                 workspace=data.get("workspace"),
                 status=SkillStatus(data["status"]) if data.get("status") else None,
                 tags=data.get("tags") or {},
