@@ -46,8 +46,49 @@ server:
   flag_options: []
 
   # staticPrefix: path prefix when MLflow is served under a subpath (e.g. /mlflow).
-  # Aligns the --static-prefix server arg and liveness/readiness probe paths.
+  # Aligns the --static-prefix server arg and health probe paths.
   staticPrefix: ""
+
+# HTTP health probes for the MLflow server. The chart owns the request handler
+# and always probes the health endpoint on the server's named port.
+#
+# Default sequence:
+#
+#   MLflow container starts
+#     |
+#     |-- Startup probe immediately
+#     |   GET /health every 10s
+#     |   10s timeout
+#     |   up to 30 failures (~5 minutes)
+#     |
+#     |-- Once startup succeeds:
+#           Readiness starts after 5s, then every 10s
+#           Liveness starts after 15s, then every 20s
+#
+# Startup asks, "Has MLflow finished starting?" Failure eventually restarts
+# the container. Readiness asks, "Should this pod receive traffic?" Failure
+# removes it from service, but does not restart the container. Liveness asks,
+# "Is the running process still healthy?" Three consecutive failures restart
+# it. While startup is failing, readiness and liveness are held back.
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+  startup:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
 
 # Garbage collection via a CronJob that runs `mlflow gc`.
 # Permanently removes soft-deleted runs, experiments, and logged models
@@ -256,8 +297,6 @@ serviceMonitor:
 # Pod-level security context applied to all containers in the pod.
 podSecurityContext:
   runAsNonRoot: true
-  runAsUser: 1000
-  fsGroup: 1000
   seccompProfile:
     type: RuntimeDefault
 

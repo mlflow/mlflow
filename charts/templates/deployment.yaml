@@ -69,6 +69,7 @@ spec:
             - name: {{ $portName }}
               containerPort: {{ .Values.server.value_options.port }}
               protocol: TCP
+          {{- if .Values.probes.liveness.enabled }}
           livenessProbe:
             httpGet:
               path: {{ printf "%s/health" $healthPrefix }}
@@ -76,8 +77,12 @@ spec:
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
-            initialDelaySeconds: 15
-            periodSeconds: 20
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
           readinessProbe:
             httpGet:
               path: {{ printf "%s/health" $healthPrefix }}
@@ -85,8 +90,24 @@ spec:
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ printf "%s/health" $healthPrefix }}
+              port: {{ $portName }}
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          {{- end }}
           {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.mlflow.registryStoreUri .Values.mlflow.registryStoreUriFrom .Values.mlflow.defaultArtifactRoot .Values.mlflow.artifactsDestination .Values.env }}
           env:
             {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom }}

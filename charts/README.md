@@ -148,6 +148,45 @@ tls:
   secretName: mlflow-tls
 ```
 
+### Health probes
+
+The three probe types have different jobs:
+
+- **Startup** asks whether MLflow has finished starting. While it is failing,
+  liveness and readiness checks are held back. After 30 failed checks, the
+  container is restarted.
+- **Readiness** asks whether MLflow should receive traffic. A failed check
+  removes the pod from service endpoints, but does not restart the container.
+- **Liveness** asks whether a running MLflow process is healthy. Three failed
+  checks cause the container to restart.
+
+To use the older behavior without a startup probe, disable it explicitly:
+
+```yaml
+probes:
+  liveness:
+    initialDelaySeconds: 30
+    timeoutSeconds: 10
+  readiness:
+    initialDelaySeconds: 30
+    timeoutSeconds: 10
+  startup:
+    enabled: false
+```
+
+### Pod security context
+
+The default pod security context sets `runAsNonRoot: true` and
+`seccompProfile.type: RuntimeDefault`, while leaving `runAsUser` and `fsGroup`
+unset so OpenShift can assign namespace-compatible IDs. Explicit IDs remain
+supported when required by the deployment:
+
+```yaml
+podSecurityContext:
+  runAsUser: 1000
+  fsGroup: 1000
+```
+
 ### Ingress
 
 MLflow's host-validation middleware only allows `localhost` and private-IP hosts by default.
