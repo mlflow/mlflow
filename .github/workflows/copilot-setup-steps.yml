@@ -22,15 +22,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-node
-      - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
-      - uses: ./.github/actions/setup-java
-      - name: Install dependencies
-        run: |
-          uv sync --only-group lint
       - parallel:
+          - uses: ./.github/actions/setup-node
+          - uses: ./.github/actions/setup-python
+            with:
+              pin-micro-version: false
+          - uses: ./.github/actions/setup-java
           - name: Restore action pins
             uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
             with:
@@ -58,6 +55,9 @@ jobs:
               path: ~/.cache/pre-commit
               key: pre-commit-ubuntu-latest-${{ hashFiles('.pre-commit-config.yaml') }}
               restore-keys: pre-commit-ubuntu-latest-
+      - name: Install dependencies
+        run: |
+          uv sync --only-group lint
       - name: pre-commit setup
         run: |
           uv run --only-group lint pre-commit install --install-hooks
