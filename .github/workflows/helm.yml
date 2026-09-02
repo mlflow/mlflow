@@ -54,6 +54,37 @@ jobs:
           render | grep -q '^    - port: 5000$'
           render --set service.port=80 | grep -q '^    - port: 80$'
 
+      - name: Render CronJob with a decoupled Service port
+        run: |
+          render() {
+            helm template mlflow charts/ \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
+              --set garbageCollection.enabled=true \
+              --set fullnameOverride=mlflow "$@" \
+              -s templates/cronjob.yaml
+          }
+          # MLFLOW_TRACKING_URI must reach the Service on its own port, not
+          # the container port, once they're decoupled.
+          render | grep -q 'mlflow.default.svc.cluster.local:5000'
+          render --set service.port=80 | grep -q 'mlflow.default.svc.cluster.local:80'
+
+      - name: Render NOTES with a decoupled Service port
+        run: |
+          render() {
+            helm install mlflow charts/ --dry-run=client \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
+              --set fullnameOverride=mlflow "$@"
+          }
+          # The LoadBalancer hint must point at the Service port, not the
+          # container port, once they're decoupled.
+          render --set service.type=LoadBalancer | grep -q '^  http://<EXTERNAL-IP>:5000$'
+          render --set service.type=LoadBalancer --set service.port=80 | grep -q '^  http://<EXTERNAL-IP>:80$'
+          # The port-forward hint's local port must stay the (unprivileged)
+          # container port even when the Service port is decoupled and
+          # privileged (e.g. 80), while its remote port follows the Service.
+          render | grep -q 'svc/mlflow 5000:5000$'
+          render --set service.port=80 | grep -q 'svc/mlflow 5000:80$'
+
       - name: Render ServiceMonitor
         run: |
           render() {

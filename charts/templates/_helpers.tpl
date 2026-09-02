@@ -26,6 +26,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 {{- end }}
 
+{{- define "mlflow.servicePort" -}}
+{{- .Values.service.port | default .Values.server.value_options.port }}
+{{- end }}
+
 {{/*
 Build mlflow server args from .Values.server.
   value_options: map of key/value pairs rendered as --key=value
