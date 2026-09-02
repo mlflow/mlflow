@@ -96,6 +96,11 @@ service:
   # Service type: ClusterIP, NodePort, or LoadBalancer.
   type: ClusterIP
   annotations: {}
+  # Port the Service listens on. Defaults to server.value_options.port (i.e.
+  # the Service port matches the container port) when not set. Set this to
+  # decouple the two, e.g. to expose the server on the conventional port 80
+  # while it listens internally on 5000.
+  port: ""
 
 # Ingress for external access to the MLflow server.
 ingress:
