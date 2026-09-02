@@ -319,12 +319,17 @@ class DatabricksTracingRestStore(RestStore):
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. For example, "catalog.schema" or
                 "catalog.schema.table_prefix" for UC schema destinations.
-            experiment_ids: Unused. The Databricks-hosted backend's API has no
-                corresponding field for this scoping.
+            experiment_ids: Not supported by the Databricks-hosted backend. Passing a
+                non-None value raises ``MlflowException``.
 
         Returns:
             List of Trace objects.
         """
+        if experiment_ids is not None:
+            raise MlflowException.invalid_parameter_value(
+                "`experiment_ids` is not supported by `batch_get_traces` against the "
+                "Databricks-hosted backend."
+            )
         trace_ids = [parse_trace_id_v4(trace_id)[1] for trace_id in trace_ids]
         req_body = message_to_json(
             BatchGetTraces(

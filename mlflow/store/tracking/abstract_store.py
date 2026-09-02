@@ -392,8 +392,8 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
                 provided, only traces belonging to these experiments are returned.
                 ``SqlAlchemyStore`` enforces this directly against the database.
                 ``RestStore`` forwards it to the remote backend when explicitly set,
-                so it takes effect there if the remote server enforces it. It has no
-                effect against a Databricks-hosted backend, since that API has no
+                so it takes effect there if the remote server enforces it. Not
+                supported against a Databricks-hosted backend, since that API has no
                 corresponding field.
 
         Returns:
@@ -423,8 +423,8 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
                 provided, only traces belonging to these experiments are returned.
                 ``SqlAlchemyStore`` enforces this directly against the database.
                 ``RestStore`` forwards it to the remote backend when explicitly set,
-                so it takes effect there if the remote server enforces it. It has no
-                effect against a Databricks-hosted backend, since that API has no
+                so it takes effect there if the remote server enforces it. Not
+                supported against a Databricks-hosted backend, since that API has no
                 corresponding field.
 
         Returns:

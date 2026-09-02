@@ -384,6 +384,50 @@ def test_search_experiments_filter_by_experiment_id_in(store: SqlAlchemyStore):
         store.search_experiments(filter_string="name IN ('a', 'b')")
 
 
+def test_search_experiments_filter_by_experiment_id(store: SqlAlchemyStore):
+    id_a, id_b = _create_experiments(store, ["a", "b"])
+
+    experiments = store.search_experiments(filter_string=f"experiment_id = '{id_a}'")
+    assert {e.experiment_id for e in experiments} == {id_a}
+
+    experiments = store.search_experiments(filter_string=f"experiment_id != '{id_a}'")
+    assert {e.experiment_id for e in experiments} == {id_b, store.DEFAULT_EXPERIMENT_ID}
+
+
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE", "<", "<=", ">", ">="])
+def test_search_experiments_filter_by_experiment_id_rejects_invalid_comparators(
+    store: SqlAlchemyStore, comparator: str
+):
+    (id_a,) = _create_experiments(store, ["a"])
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid comparator for experiment_id",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string=f"experiment_id {comparator} '{id_a}'")
+
+
+def test_search_experiments_filter_by_experiment_id_rejects_non_integer(store: SqlAlchemyStore):
+    # `experiment_id` is an INTEGER column but filter values are always parsed as
+    # strings; a value that isn't a valid integer must fail with the same error
+    # contract as `_parse_experiment_id` (e.g. `get_experiment("invalid_id")`),
+    # not a raw `ValueError` or a silent psycopg type-mismatch at bind time.
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string="experiment_id = 'abc'")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string="experiment_id IN ('abc')")
+
+
 def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
     # Sleep to ensure that the first experiment has a different creation_time than the default
     # experiment and eliminate flakiness.

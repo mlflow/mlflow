@@ -1381,8 +1381,7 @@ List all scorers, optionally scoped to one or more experiments.
 |                |                        | ``experiment_ids`` -- specifying both is an error.                                                                                                         |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only scorers from these experiments are returned. Mutually exclusive with               |
-|                |                        | ``experiment_id`` -- specifying both is an error. Against a Databricks-hosted backend, this list is not sent as a single batched request; the client       |
-|                |                        | instead issues one legacy single- ``experiment_id`` request per ID, so scoping is preserved but the batching benefit is not.                               |
+|                |                        | ``experiment_id`` -- specifying both is an error. Not supported against a Databricks-hosted backend.                                                       |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowListScorersResponse:
@@ -7441,9 +7440,8 @@ BatchGetTraceInfos
 +================+========================+============================================================================================================================================================+
 | trace_ids      | An array of ``STRING`` | IDs of the traces to fetch. Must be provided.                                                                                                              |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only traces belonging to these experiments are returned. ``RestStore`` forwards this    |
-|                |                        | field to the remote backend when the caller explicitly sets it, so scoping is preserved when proxying between OSS servers. A Databricks-hosted backend's   |
-|                |                        | API has no corresponding field, so this scoping is not forwarded when proxying to that backend.                                                            |
+| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only traces belonging to these experiments are returned. Not supported when proxying to |
+|                |                        | a Databricks-hosted backend, since that API has no corresponding field.                                                                                    |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowBatchGetTraces:
@@ -7461,9 +7459,8 @@ BatchGetTraces
 +================+========================+============================================================================================================================================================+
 | trace_ids      | An array of ``STRING`` | ID of the traces to fetch. Must be provided.                                                                                                               |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only traces belonging to these experiments are returned. ``RestStore`` forwards this    |
-|                |                        | field to the remote backend when the caller explicitly sets it, so scoping is preserved when proxying between OSS servers. A Databricks-hosted backend's   |
-|                |                        | API has no corresponding field, so this scoping is not forwarded when proxying to that backend.                                                            |
+| experiment_ids | An array of ``STRING`` | Optional list of experiment IDs to scope the query. When provided, only traces belonging to these experiments are returned. Not supported when proxying to |
+|                |                        | a Databricks-hosted backend, since that API has no corresponding field.                                                                                    |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowBudgetDuration:

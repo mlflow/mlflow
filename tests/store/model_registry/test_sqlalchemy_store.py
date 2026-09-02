@@ -978,7 +978,13 @@ def test_search_model_versions(store):
     assert set(search_all_versions(f"name NOT IN ('{name}','{name_2}')")) == set()
 
     # name NOT IN is case sensitive
-    assert set(search_all_versions(f"name NOT IN ('{name}')")) == {(name_2, 1)}
+    assert set(search_all_versions(f"name NOT IN ('{name.upper()}')")) == {
+        (name, 1),
+        (name, 2),
+        (name, 3),
+        (name, 4),
+        (name_2, 1),
+    }
 
     # clean up: delete the extra model version so remaining tests are unaffected
     store.delete_model_version(name=name_2, version=mv5.version)

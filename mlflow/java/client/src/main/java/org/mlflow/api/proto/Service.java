@@ -94979,11 +94979,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -94994,11 +94992,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -95008,11 +95004,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -95023,11 +95017,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -96102,11 +96094,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -96119,11 +96109,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -96135,11 +96123,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -96152,11 +96138,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -96678,11 +96662,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -96695,11 +96677,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -96711,11 +96691,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -96728,11 +96706,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -96746,11 +96722,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -96771,11 +96745,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -96795,11 +96767,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -96817,11 +96787,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -96836,11 +96804,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -96958,11 +96924,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -96973,11 +96937,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -96987,11 +96949,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -97002,11 +96962,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -98081,11 +98039,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -98098,11 +98054,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -98114,11 +98068,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -98131,11 +98083,9 @@ public final class Service {
     /**
      * <pre>
      * Optional list of experiment IDs to scope the query. When provided, only
-     * traces belonging to these experiments are returned.
-     * ``RestStore`` forwards this field to the remote backend when the caller
-     * explicitly sets it, so scoping is preserved when proxying between OSS
-     * servers. A Databricks-hosted backend's API has no corresponding field,
-     * so this scoping is not forwarded when proxying to that backend.
+     * traces belonging to these experiments are returned. Not supported when
+     * proxying to a Databricks-hosted backend, since that API has no
+     * corresponding field.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -98657,11 +98607,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -98674,11 +98622,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -98690,11 +98636,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -98707,11 +98651,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -98725,11 +98667,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -98750,11 +98690,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -98774,11 +98712,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -98796,11 +98732,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -98815,11 +98749,9 @@ public final class Service {
       /**
        * <pre>
        * Optional list of experiment IDs to scope the query. When provided, only
-       * traces belonging to these experiments are returned.
-       * ``RestStore`` forwards this field to the remote backend when the caller
-       * explicitly sets it, so scoping is preserved when proxying between OSS
-       * servers. A Databricks-hosted backend's API has no corresponding field,
-       * so this scoping is not forwarded when proxying to that backend.
+       * traces belonging to these experiments are returned. Not supported when
+       * proxying to a Databricks-hosted backend, since that API has no
+       * corresponding field.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -197229,10 +197161,7 @@ public final class Service {
      * Optional list of experiment IDs to scope the query. When provided, only
      * scorers from these experiments are returned. Mutually exclusive with
      * ``experiment_id`` -- specifying both is an error.
-     * Against a Databricks-hosted backend, this list is not sent as a single
-     * batched request; the client instead issues one legacy single-
-     * ``experiment_id`` request per ID, so scoping is preserved but the
-     * batching benefit is not.
+     * Not supported against a Databricks-hosted backend.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -197245,10 +197174,7 @@ public final class Service {
      * Optional list of experiment IDs to scope the query. When provided, only
      * scorers from these experiments are returned. Mutually exclusive with
      * ``experiment_id`` -- specifying both is an error.
-     * Against a Databricks-hosted backend, this list is not sent as a single
-     * batched request; the client instead issues one legacy single-
-     * ``experiment_id`` request per ID, so scoping is preserved but the
-     * batching benefit is not.
+     * Not supported against a Databricks-hosted backend.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -197260,10 +197186,7 @@ public final class Service {
      * Optional list of experiment IDs to scope the query. When provided, only
      * scorers from these experiments are returned. Mutually exclusive with
      * ``experiment_id`` -- specifying both is an error.
-     * Against a Databricks-hosted backend, this list is not sent as a single
-     * batched request; the client instead issues one legacy single-
-     * ``experiment_id`` request per ID, so scoping is preserved but the
-     * batching benefit is not.
+     * Not supported against a Databricks-hosted backend.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -197276,10 +197199,7 @@ public final class Service {
      * Optional list of experiment IDs to scope the query. When provided, only
      * scorers from these experiments are returned. Mutually exclusive with
      * ``experiment_id`` -- specifying both is an error.
-     * Against a Databricks-hosted backend, this list is not sent as a single
-     * batched request; the client instead issues one legacy single-
-     * ``experiment_id`` request per ID, so scoping is preserved but the
-     * batching benefit is not.
+     * Not supported against a Databricks-hosted backend.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -198370,10 +198290,7 @@ public final class Service {
      * Optional list of experiment IDs to scope the query. When provided, only
      * scorers from these experiments are returned. Mutually exclusive with
      * ``experiment_id`` -- specifying both is an error.
-     * Against a Databricks-hosted backend, this list is not sent as a single
-     * batched request; the client instead issues one legacy single-
-     * ``experiment_id`` request per ID, so scoping is preserved but the
-     * batching benefit is not.
+     * Not supported against a Databricks-hosted backend.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -198388,10 +198305,7 @@ public final class Service {
      * Optional list of experiment IDs to scope the query. When provided, only
      * scorers from these experiments are returned. Mutually exclusive with
      * ``experiment_id`` -- specifying both is an error.
-     * Against a Databricks-hosted backend, this list is not sent as a single
-     * batched request; the client instead issues one legacy single-
-     * ``experiment_id`` request per ID, so scoping is preserved but the
-     * batching benefit is not.
+     * Not supported against a Databricks-hosted backend.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -198405,10 +198319,7 @@ public final class Service {
      * Optional list of experiment IDs to scope the query. When provided, only
      * scorers from these experiments are returned. Mutually exclusive with
      * ``experiment_id`` -- specifying both is an error.
-     * Against a Databricks-hosted backend, this list is not sent as a single
-     * batched request; the client instead issues one legacy single-
-     * ``experiment_id`` request per ID, so scoping is preserved but the
-     * batching benefit is not.
+     * Not supported against a Databricks-hosted backend.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -198423,10 +198334,7 @@ public final class Service {
      * Optional list of experiment IDs to scope the query. When provided, only
      * scorers from these experiments are returned. Mutually exclusive with
      * ``experiment_id`` -- specifying both is an error.
-     * Against a Databricks-hosted backend, this list is not sent as a single
-     * batched request; the client instead issues one legacy single-
-     * ``experiment_id`` request per ID, so scoping is preserved but the
-     * batching benefit is not.
+     * Not supported against a Databricks-hosted backend.
      * </pre>
      *
      * <code>repeated string experiment_ids = 2;</code>
@@ -198923,10 +198831,7 @@ public final class Service {
        * Optional list of experiment IDs to scope the query. When provided, only
        * scorers from these experiments are returned. Mutually exclusive with
        * ``experiment_id`` -- specifying both is an error.
-       * Against a Databricks-hosted backend, this list is not sent as a single
-       * batched request; the client instead issues one legacy single-
-       * ``experiment_id`` request per ID, so scoping is preserved but the
-       * batching benefit is not.
+       * Not supported against a Databricks-hosted backend.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -198941,10 +198846,7 @@ public final class Service {
        * Optional list of experiment IDs to scope the query. When provided, only
        * scorers from these experiments are returned. Mutually exclusive with
        * ``experiment_id`` -- specifying both is an error.
-       * Against a Databricks-hosted backend, this list is not sent as a single
-       * batched request; the client instead issues one legacy single-
-       * ``experiment_id`` request per ID, so scoping is preserved but the
-       * batching benefit is not.
+       * Not supported against a Databricks-hosted backend.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -198958,10 +198860,7 @@ public final class Service {
        * Optional list of experiment IDs to scope the query. When provided, only
        * scorers from these experiments are returned. Mutually exclusive with
        * ``experiment_id`` -- specifying both is an error.
-       * Against a Databricks-hosted backend, this list is not sent as a single
-       * batched request; the client instead issues one legacy single-
-       * ``experiment_id`` request per ID, so scoping is preserved but the
-       * batching benefit is not.
+       * Not supported against a Databricks-hosted backend.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -198976,10 +198875,7 @@ public final class Service {
        * Optional list of experiment IDs to scope the query. When provided, only
        * scorers from these experiments are returned. Mutually exclusive with
        * ``experiment_id`` -- specifying both is an error.
-       * Against a Databricks-hosted backend, this list is not sent as a single
-       * batched request; the client instead issues one legacy single-
-       * ``experiment_id`` request per ID, so scoping is preserved but the
-       * batching benefit is not.
+       * Not supported against a Databricks-hosted backend.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -198995,10 +198891,7 @@ public final class Service {
        * Optional list of experiment IDs to scope the query. When provided, only
        * scorers from these experiments are returned. Mutually exclusive with
        * ``experiment_id`` -- specifying both is an error.
-       * Against a Databricks-hosted backend, this list is not sent as a single
-       * batched request; the client instead issues one legacy single-
-       * ``experiment_id`` request per ID, so scoping is preserved but the
-       * batching benefit is not.
+       * Not supported against a Databricks-hosted backend.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -199021,10 +198914,7 @@ public final class Service {
        * Optional list of experiment IDs to scope the query. When provided, only
        * scorers from these experiments are returned. Mutually exclusive with
        * ``experiment_id`` -- specifying both is an error.
-       * Against a Databricks-hosted backend, this list is not sent as a single
-       * batched request; the client instead issues one legacy single-
-       * ``experiment_id`` request per ID, so scoping is preserved but the
-       * batching benefit is not.
+       * Not supported against a Databricks-hosted backend.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -199046,10 +198936,7 @@ public final class Service {
        * Optional list of experiment IDs to scope the query. When provided, only
        * scorers from these experiments are returned. Mutually exclusive with
        * ``experiment_id`` -- specifying both is an error.
-       * Against a Databricks-hosted backend, this list is not sent as a single
-       * batched request; the client instead issues one legacy single-
-       * ``experiment_id`` request per ID, so scoping is preserved but the
-       * batching benefit is not.
+       * Not supported against a Databricks-hosted backend.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -199069,10 +198956,7 @@ public final class Service {
        * Optional list of experiment IDs to scope the query. When provided, only
        * scorers from these experiments are returned. Mutually exclusive with
        * ``experiment_id`` -- specifying both is an error.
-       * Against a Databricks-hosted backend, this list is not sent as a single
-       * batched request; the client instead issues one legacy single-
-       * ``experiment_id`` request per ID, so scoping is preserved but the
-       * batching benefit is not.
+       * Not supported against a Databricks-hosted backend.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>
@@ -199089,10 +198973,7 @@ public final class Service {
        * Optional list of experiment IDs to scope the query. When provided, only
        * scorers from these experiments are returned. Mutually exclusive with
        * ``experiment_id`` -- specifying both is an error.
-       * Against a Databricks-hosted backend, this list is not sent as a single
-       * batched request; the client instead issues one legacy single-
-       * ``experiment_id`` request per ID, so scoping is preserved but the
-       * batching benefit is not.
+       * Not supported against a Databricks-hosted backend.
        * </pre>
        *
        * <code>repeated string experiment_ids = 2;</code>

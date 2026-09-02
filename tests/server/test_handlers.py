@@ -276,6 +276,7 @@ from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIEW_TAG_PREFIX
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.server_info import (
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
@@ -2776,6 +2777,25 @@ def test_list_scorers_rejects_both_experiment_id_and_experiment_ids(
     mock_tracking_store.list_scorers_across_experiments.assert_not_called()
 
 
+def test_list_scorers_with_experiment_ids_against_databricks_backend_not_supported(
+    mock_get_request_message,
+):
+    mock_get_request_message.return_value = ListScorers(experiment_ids=["123"])
+    creds = MlflowHostCreds("https://hello")
+    databricks_store = DatabricksTracingRestStore(lambda: creds)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store),
+        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
+    ):
+        resp = _list_scorers()
+
+    assert resp.status_code == 400
+    body = json.loads(resp.get_data())
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "experiment_ids" in body["message"]
+
+
 def test_list_scorers_with_empty_experiment_ids(mock_get_request_message, mock_tracking_store):
     mock_get_request_message.return_value = ListScorers(experiment_ids=[])
     mock_tracking_store.list_scorers_across_experiments.return_value = []
@@ -3476,6 +3496,25 @@ def test_batch_get_traces_handler_with_empty_experiment_ids(
     assert response.status_code == 200
 
 
+def test_batch_get_traces_with_experiment_ids_against_databricks_backend_not_supported(
+    mock_get_request_message,
+):
+    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"], experiment_ids=["123"])
+    creds = MlflowHostCreds("https://hello")
+    databricks_store = DatabricksTracingRestStore(lambda: creds)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store),
+        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
+    ):
+        resp = _batch_get_traces()
+
+    assert resp.status_code == 400
+    body = json.loads(resp.get_data())
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "experiment_ids" in body["message"]
+
+
 def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_store):
     trace_id_1 = "test-trace-123"
     trace_id_2 = "test-trace-456"
@@ -3544,6 +3583,21 @@ def test_batch_get_trace_infos_handler_with_empty_experiment_ids(
 
     mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["t1"], experiment_ids=[])
     assert response.status_code == 200
+
+
+def test_batch_get_trace_infos_against_databricks_backend_not_implemented(
+    mock_get_request_message,
+):
+    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=["t1"])
+    creds = MlflowHostCreds("https://hello")
+    databricks_store = DatabricksTracingRestStore(lambda: creds)
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store):
+        resp = _batch_get_trace_infos()
+
+    assert resp.status_code == 501
+    body = json.loads(resp.get_data())
+    assert body["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
 
 
 def test_raw_request_has_field_get_query_string():

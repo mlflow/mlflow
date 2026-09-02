@@ -780,7 +780,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         return experiment_ids
 
-    def _parse_experiment_id(self, experiment_id: str) -> int:
+    @staticmethod
+    def _parse_experiment_id(experiment_id: str) -> int:
         try:
             return int(experiment_id)
         except (ValueError, TypeError):
@@ -9602,18 +9603,37 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
         comparator = f["comparator"]
         value = f["value"]
         if type_ == "attribute":
-            if SearchExperimentsUtils.is_string_attribute(
-                type_, key, comparator
-            ) and comparator not in ("=", "!=", "LIKE", "ILIKE", "IN", "NOT IN"):
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for string attribute: {comparator}"
+            if key == "experiment_id":
+                # ``experiment_id`` is an INTEGER column but filter values are always
+                # parsed as strings; only allow comparators that make sense for a
+                # nominal identifier and coerce the value(s) to int before binding,
+                # matching ``_parse_experiment_id``'s error contract.
+                if comparator not in ("=", "!=", "IN", "NOT IN"):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparator for experiment_id: {comparator}"
+                    )
+                value = (
+                    tuple(SqlAlchemyStore._parse_experiment_id(v) for v in value)
+                    if isinstance(value, tuple)
+                    else SqlAlchemyStore._parse_experiment_id(value)
                 )
-            if SearchExperimentsUtils.is_numeric_attribute(
-                type_, key, comparator
-            ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for numeric attribute: {comparator}"
-                )
+            else:
+                if SearchExperimentsUtils.is_string_attribute(
+                    type_, key, comparator
+                ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparator for string attribute: {comparator}"
+                    )
+                # TODO: ``creation_time``/``last_update_time`` values are never coerced
+                # to int here either, which hits the same psycopg v3 VARCHAR-bind issue
+                # as experiment_id above. See
+                # https://github.com/mlflow/mlflow/issues/25574.
+                if SearchExperimentsUtils.is_numeric_attribute(
+                    type_, key, comparator
+                ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparator for numeric attribute: {comparator}"
+                    )
             attr = getattr(SqlExperiment, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
             attribute_filters.append(attr_filter)

@@ -4151,12 +4151,16 @@ def _batch_get_traces() -> Response:
             "experiment_ids": [_assert_array, _assert_item_type_string],
         },
     )
-    experiment_ids = (
-        list(request_message.experiment_ids) if _raw_request_has_field("experiment_ids") else None
-    )
-    traces = _get_tracking_store().batch_get_traces(
-        request_message.trace_ids, None, experiment_ids=experiment_ids
-    )
+    store = _get_tracking_store()
+    has_experiment_ids = _raw_request_has_field("experiment_ids")
+    if has_experiment_ids and isinstance(store, DatabricksTracingRestStore):
+        raise MlflowException(
+            "`experiment_ids` is not supported by `batch_get_traces` against the "
+            "Databricks-hosted backend.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    experiment_ids = list(request_message.experiment_ids) if has_experiment_ids else None
+    traces = store.batch_get_traces(request_message.trace_ids, None, experiment_ids=experiment_ids)
     response_message = BatchGetTraces.Response()
     response_message.traces.extend([t.to_proto() for t in traces])
     return _wrap_response(response_message, pretty=False)
@@ -4172,10 +4176,14 @@ def _batch_get_trace_infos() -> Response:
             "experiment_ids": [_assert_array, _assert_item_type_string],
         },
     )
-    experiment_ids = (
-        list(request_message.experiment_ids) if _raw_request_has_field("experiment_ids") else None
-    )
-    trace_infos = _get_tracking_store().batch_get_trace_infos(
+    store = _get_tracking_store()
+    if isinstance(store, DatabricksTracingRestStore):
+        raise MlflowNotImplementedException(
+            "`batch_get_trace_infos` is not implemented for the Databricks-hosted backend."
+        )
+    has_experiment_ids = _raw_request_has_field("experiment_ids")
+    experiment_ids = list(request_message.experiment_ids) if has_experiment_ids else None
+    trace_infos = store.batch_get_trace_infos(
         request_message.trace_ids, experiment_ids=experiment_ids
     )
     response_message = BatchGetTraceInfos.Response()
@@ -5829,6 +5837,12 @@ def _list_scorers():
             error_code=INVALID_PARAMETER_VALUE,
         )
     if has_experiment_ids:
+        if isinstance(store, DatabricksTracingRestStore):
+            raise MlflowException(
+                "`experiment_ids` is not supported by `list_scorers` against the "
+                "Databricks-hosted backend.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         if requested_experiment_ids := list(dict.fromkeys(request_message.experiment_ids)):
             for eid in requested_experiment_ids:
                 _validate_experiment_id(eid)
