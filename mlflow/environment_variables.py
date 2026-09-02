@@ -170,9 +170,11 @@ _MLFLOW_SERVER_BOOT_ID = _EnvironmentVariable("_MLFLOW_SERVER_BOOT_ID", str, Non
 #: **Experimental** — subject to change or removal in a future release.
 #: URL of an outbound proxy for sandbox container egress (e.g. ``http://proxy.internal:3128``).
 #: When set, it is injected as ``HTTP_PROXY``/``HTTPS_PROXY`` into every sandbox container, with
-#: the MLflow tracking host excluded via ``NO_PROXY`` so it stays directly reachable. Point this
-#: at a proxy that allowlists only the destinations the sandbox needs (e.g. the model provider
-#: API) to steer egress through an operator-controlled chokepoint. Note this only shapes egress
+#: only the fixed self-host bypass list (``host.docker.internal`` + loopback) excluded via
+#: ``NO_PROXY`` so a co-located tracking server stays reachable. A remote tracking host is NOT
+#: auto-exempted — it must be allowlisted in the proxy itself. Point this at a proxy that
+#: allowlists only the destinations the sandbox needs (e.g. the model provider API) to steer
+#: egress through an operator-controlled chokepoint. Note this only shapes egress
 #: from *cooperative* HTTP clients that honor the proxy env; it is not a hard boundary, since the
 #: container still has network access and code that ignores the proxy env or opens raw sockets
 #: can reach other hosts. Pair it with host-level firewalling for a true egress boundary. When

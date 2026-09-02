@@ -40,7 +40,6 @@ from mlflow.server.sandbox.container import (
     _WORKSPACE_MOUNT,
     SandboxUnavailableError,
     _get_client,
-    _uri_host,
     ensure_sandbox_network,
     sandbox_container_labels,
     sandbox_egress_env,
@@ -326,7 +325,7 @@ def start_sandbox_process(
 
     env = dict(environment or {})
     env.setdefault("HOME", _HOME_MOUNT)
-    env.update(sandbox_egress_env(no_proxy_hosts=[_uri_host(env.get("MLFLOW_TRACKING_URI"))]))
+    env.update(sandbox_egress_env())
 
     volumes = {
         str(io_dir): {"bind": _IO_MOUNT, "mode": "ro"},

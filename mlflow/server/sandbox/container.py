@@ -23,7 +23,6 @@ import logging
 import os
 import tempfile
 import urllib.parse
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -107,20 +106,22 @@ def ensure_sandbox_network(client) -> str:
         return "bridge"
 
 
-def sandbox_egress_env(no_proxy_hosts: Iterable[str] = ()) -> dict[str, str]:
+def sandbox_egress_env() -> dict[str, str]:
     """Environment that routes a sandbox container's HTTP(S) egress through the configured proxy.
 
     Empty when no proxy is configured (the container then has unrestricted egress). This only
     shapes egress for clients that honor the standard proxy env vars; it is not an enforcement
     boundary — code that opens raw sockets, or a runtime that ignores the proxy env (e.g. Node's
-    fetch), can still reach any host. The tracking host and loopback bypass the proxy so they
-    stay reachable; ``no_proxy_hosts`` adds the caller's tracking host for the non-loopback case.
+    fetch), can still reach any host. Only the fixed self-host bypass list (``host.docker.internal``
+    + loopback) is exempted. The caller's tracking host is deliberately NOT auto-exempted: it is
+    request-derived (from ``request.base_url``), so a remote caller could set it to an internal
+    host to carve that destination out of the proxy. A local tracking server is reached via
+    ``host.docker.internal`` (already exempt); a remote one must be allowlisted in the proxy itself.
     """
     proxy = MLFLOW_SANDBOX_EGRESS_PROXY.get()
     if not proxy:
         return {}
-    hosts = [*_EGRESS_PROXY_BYPASS_HOSTS, *(h for h in no_proxy_hosts if h)]
-    no_proxy = ",".join(dict.fromkeys(hosts))  # de-dupe, preserve order
+    no_proxy = ",".join(_EGRESS_PROXY_BYPASS_HOSTS)
     return {
         "HTTP_PROXY": proxy,
         "HTTPS_PROXY": proxy,
@@ -129,16 +130,6 @@ def sandbox_egress_env(no_proxy_hosts: Iterable[str] = ()) -> dict[str, str]:
         "NO_PROXY": no_proxy,
         "no_proxy": no_proxy,
     }
-
-
-def _uri_host(uri: str | None) -> str | None:
-    """Host component of a URI, or None if absent/unparseable (used to build NO_PROXY)."""
-    if not uri:
-        return None
-    try:
-        return urllib.parse.urlsplit(uri).hostname
-    except ValueError:
-        return None
 
 
 class SandboxUnavailableError(Exception):
@@ -280,7 +271,7 @@ def run_in_sandbox(
     # Read-only rootfs plus a writable /tmp: give the command a HOME it can write to
     # (the mlflow CLI and pip both write under HOME) without loosening the rootfs.
     env.setdefault("HOME", "/tmp")
-    env.update(sandbox_egress_env(no_proxy_hosts=[_uri_host(env.get("MLFLOW_TRACKING_URI"))]))
+    env.update(sandbox_egress_env())
 
     container_command = command
     if use_shell:
@@ -350,12 +341,17 @@ def _is_read_timeout(exc: Exception) -> bool:
 
     docker-py maps the deadline being exceeded to a requests ``ReadTimeout``, or — on the Unix-
     socket transport — a ``ConnectionError`` wrapping urllib3's ``ReadTimeoutError``; both carry
-    "read timed out" in their message. This distinguishes those from genuine daemon errors
-    (e.g. connection refused) so a timeout is not misreported as a sandbox failure.
+    "read timed out" in their message. Match that specific signal, not a bare "timed out": a
+    ``ConnectTimeout`` (connection-establishment failure, also a ``ConnectionError``) says "timed
+    out" too, and that is a genuine daemon-unreachable error that must surface as a sandbox failure
+    rather than be misreported as the command timing out.
     """
     if isinstance(exc, requests.exceptions.ReadTimeout):
         return True
-    return isinstance(exc, requests.exceptions.ConnectionError) and "timed out" in str(exc).lower()
+    return (
+        isinstance(exc, requests.exceptions.ConnectionError)
+        and "read timed out" in str(exc).lower()
+    )
 
 
 def _logs(container) -> str:
@@ -408,11 +404,16 @@ def reap_orphaned_sandbox_containers() -> int:
         if (container.labels or {}).get(SANDBOX_BOOT_LABEL) == current_boot:
             continue  # belongs to this server generation; may be actively serving a turn
         # A different boot id alone does not prove the container is orphaned: two servers can share
-        # one Docker daemon, and a rolling restart overlaps generations. So never force-remove a
-        # *running* container (it may be a live turn owned by a concurrent server) — reap only ones
-        # that have already stopped. A truly orphaned container that is still running is left for a
-        # later startup to reap once it exits, rather than risk killing another server's live turn.
-        if getattr(container, "status", None) == "running":
+        # one Docker daemon, and a rolling restart overlaps generations. So reap only containers in
+        # a terminal state (exited/dead); leave any live or transitional state
+        # (running/created/restarting/paused/removing) alone, since force-removing one could kill a
+        # concurrent server's live or still-starting turn. An orphaned container is reaped on a
+        # later startup once it reaches a terminal state, which is the common case. One wedged in a
+        # non-terminal state (e.g. a `created` container left by a crash between create and start)
+        # is knowingly left rather than risk force-removing a concurrent server's still-starting
+        # container; reclaiming those safely needs ownership/lease metadata, which is future
+        # multi-replica work.
+        if getattr(container, "status", None) not in ("exited", "dead"):
             continue
         if _remove_quietly(container):
             removed += 1
