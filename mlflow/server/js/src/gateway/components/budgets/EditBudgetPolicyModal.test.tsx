@@ -137,25 +137,25 @@ describe('EditBudgetPolicyModal', () => {
     });
   });
 
-  test('renders principal field populated for a USER-scoped policy', () => {
+  test('renders username field populated for a USER-scoped policy', () => {
     renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockUserPolicy} onClose={jest.fn()} />);
 
     expect(screen.getByText('Specific user')).toBeInTheDocument();
     expect(screen.getByDisplayValue('alice')).toBeInTheDocument();
   });
 
-  test('does not render principal field for a non-USER policy', () => {
+  test('does not render username field for a non-USER policy', () => {
     renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockPolicy} onClose={jest.fn()} />);
 
     expect(screen.queryByPlaceholderText('Username, e.g., alice')).not.toBeInTheDocument();
   });
 
-  test('preserves USER scope and submits edited principal', async () => {
+  test('preserves USER scope and submits edited username', async () => {
     renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockUserPolicy} onClose={jest.fn()} />);
 
-    const principalInput = screen.getByDisplayValue('alice');
-    await userEvent.clear(principalInput);
-    await userEvent.type(principalInput, 'bob');
+    const usernameInput = screen.getByDisplayValue('alice');
+    await userEvent.clear(usernameInput);
+    await userEvent.type(usernameInput, 'bob');
 
     await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
@@ -170,7 +170,7 @@ describe('EditBudgetPolicyModal', () => {
     });
   });
 
-  test('disables save when the principal of a USER policy is cleared', async () => {
+  test('disables save when the username of a USER policy is cleared', async () => {
     renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockUserPolicy} onClose={jest.fn()} />);
 
     await userEvent.clear(screen.getByDisplayValue('alice'));

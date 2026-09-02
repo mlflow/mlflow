@@ -163,7 +163,7 @@ describe('CreateBudgetPolicyModal', () => {
     expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled();
   });
 
-  test('submits USER-scoped payload with principal as target_value', async () => {
+  test('submits USER-scoped payload with username as target_value', async () => {
     const onClose = jest.fn();
     const onSuccess = jest.fn();
 

@@ -39,7 +39,7 @@ interface FormData {
   budgetAction: BudgetAction;
   scope: BudgetScopeChoice;
   endpointId: string;
-  principal: string;
+  username: string;
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -48,7 +48,7 @@ const INITIAL_FORM_DATA: FormData = {
   budgetAction: 'REJECT',
   scope: 'ALL',
   endpointId: '',
-  principal: '',
+  username: '',
 };
 
 export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudgetPolicyModalProps) => {
@@ -81,8 +81,8 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     const amount = parseFloat(formData.budgetAmount);
     if (isNaN(amount) || amount <= 0) return false;
     if (formData.scope === 'ENDPOINT') return Boolean(formData.endpointId);
-    return formData.scope !== 'USER' || formData.principal.trim().length > 0;
-  }, [formData.budgetAmount, formData.scope, formData.endpointId, formData.principal]);
+    return formData.scope !== 'USER' || formData.username.trim().length > 0;
+  }, [formData.budgetAmount, formData.scope, formData.endpointId, formData.username]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid) return;
@@ -98,7 +98,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
         ...(formData.scope === 'ENDPOINT'
           ? { target_scope: 'ENDPOINT' as const, target_value: formData.endpointId }
           : isUserScope
-            ? { target_scope: 'USER' as const, target_value: formData.principal.trim() }
+            ? { target_scope: 'USER' as const, target_value: formData.username.trim() }
             : { target_scope: getWorkspacesEnabledSync() ? ('WORKSPACE' as const) : ('GLOBAL' as const) }),
         budget_action: formData.budgetAction,
       });
@@ -213,12 +213,12 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           {formData.scope === 'USER' && (
             <>
               <Input
-                componentId="mlflow.gateway.create-budget-policy-modal.principal"
-                value={formData.principal}
-                onChange={(e) => handleFieldChange('principal', e.target.value)}
+                componentId="mlflow.gateway.create-budget-policy-modal.username"
+                value={formData.username}
+                onChange={(e) => handleFieldChange('username', e.target.value)}
                 placeholder={intl.formatMessage({
                   defaultMessage: 'Username, e.g., alice',
-                  description: 'Budget principal (username) placeholder',
+                  description: 'Budget username placeholder',
                 })}
               />
               <Typography.Text color="secondary" size="sm">

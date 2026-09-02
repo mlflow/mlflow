@@ -320,7 +320,7 @@ export interface BudgetPolicy {
   created_by?: string | null;
   last_updated_by?: string | null;
   workspace?: string | null;
-  // Endpoint ID for ENDPOINT scope, principal (username) for USER scope.
+  // Endpoint ID for ENDPOINT scope, username for USER scope.
   target_value?: string | null;
 }
 

@@ -45,7 +45,7 @@ interface FormData {
   budgetAction: BudgetAction;
   scope: BudgetScopeChoice;
   endpointId: string;
-  principal: string;
+  username: string;
 }
 
 export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: EditBudgetPolicyModalProps) => {
@@ -57,7 +57,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     budgetAction: 'REJECT',
     scope: 'ALL',
     endpointId: '',
-    principal: '',
+    username: '',
   });
   const {
     mutateAsync: updateBudgetPolicy,
@@ -75,7 +75,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
         budgetAction: policy.budget_action,
         scope: policy.target_scope === 'ENDPOINT' ? 'ENDPOINT' : policy.target_scope === 'USER' ? 'USER' : 'ALL',
         endpointId: policy.target_scope === 'ENDPOINT' ? (policy.target_value ?? '') : '',
-        principal: policy.target_scope === 'USER' ? (policy.target_value ?? '') : '',
+        username: policy.target_scope === 'USER' ? (policy.target_value ?? '') : '',
       });
       resetMutation();
     }
@@ -100,8 +100,8 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     const amount = parseFloat(formData.budgetAmount);
     if (isNaN(amount) || amount <= 0) return false;
     if (formData.scope === 'ENDPOINT') return Boolean(formData.endpointId);
-    return !isUserScope || formData.principal.trim().length > 0;
-  }, [formData.budgetAmount, formData.scope, formData.endpointId, formData.principal, isUserScope]);
+    return !isUserScope || formData.username.trim().length > 0;
+  }, [formData.budgetAmount, formData.scope, formData.endpointId, formData.username, isUserScope]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid || !policy) return;
@@ -117,7 +117,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
         ...(formData.scope === 'ENDPOINT'
           ? { target_scope: 'ENDPOINT' as const, target_value: formData.endpointId }
           : isUserScope
-            ? { target_scope: 'USER' as const, target_value: formData.principal.trim() }
+            ? { target_scope: 'USER' as const, target_value: formData.username.trim() }
             : { target_scope: getWorkspacesEnabledSync() ? ('WORKSPACE' as const) : ('GLOBAL' as const) }),
         budget_action: formData.budgetAction,
       });
@@ -228,18 +228,18 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
           {isUserScope && (
             <>
               <Input
-                componentId="mlflow.gateway.edit-budget-policy-modal.principal"
-                value={formData.principal}
-                onChange={(e) => handleFieldChange('principal', e.target.value)}
+                componentId="mlflow.gateway.edit-budget-policy-modal.username"
+                value={formData.username}
+                onChange={(e) => handleFieldChange('username', e.target.value)}
                 placeholder={intl.formatMessage({
                   defaultMessage: 'Username, e.g., alice',
-                  description: 'Budget principal (username) placeholder',
+                  description: 'Budget username placeholder',
                 })}
               />
               <Typography.Text color="secondary" size="sm">
                 <FormattedMessage
                   defaultMessage="The budget applies only to requests made by this authenticated user. Requires server authentication to be enabled."
-                  description="Helper text for per-user budget principal in edit modal"
+                  description="Helper text for per-user budget scope"
                 />
               </Typography.Text>
             </>

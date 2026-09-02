@@ -182,7 +182,7 @@ describe('BudgetsList', () => {
     );
 
     expect(screen.getByText('Applies to')).toBeInTheDocument();
-    // The GLOBAL policy applies to everyone; the USER policy shows its principal.
+    // The GLOBAL policy applies to everyone; the USER policy shows its username.
     expect(screen.getByText('All endpoints')).toBeInTheDocument();
     expect(screen.getByText('alice')).toBeInTheDocument();
   });

@@ -131,10 +131,6 @@
     "defaultMessage": "Are you sure you want to delete {count, plural, one {# trace} other {# traces}}? This action cannot be undone.",
     "description": "Body for the V4 traces bulk-delete confirmation modal"
   },
-  "+Z4/JQ": {
-    "defaultMessage": "The budget applies only to requests made by this authenticated user. Requires server authentication to be enabled.",
-    "description": "Helper text for per-user budget principal in edit modal"
-  },
   "+a87Om": {
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Queue settings: questions dropdown selected-count summary"
@@ -7635,6 +7631,10 @@
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
   },
+  "T5zZ1W": {
+    "defaultMessage": "Username, e.g., alice",
+    "description": "Budget username placeholder"
+  },
   "TBX+Gs": {
     "defaultMessage": "Add/Edit tags",
     "description": "Key-value tag editor modal > Title of the update tags modal"
@@ -11634,10 +11634,6 @@
   "iCdWsS": {
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > conversational guidelines assessment > positive value label. Displayed if the assistant adheres to guidelines throughout the conversation."
-  },
-  "iCiZbd": {
-    "defaultMessage": "Username, e.g., alice",
-    "description": "Budget principal (username) placeholder"
   },
   "iDpAK8": {
     "defaultMessage": "Add tags",
