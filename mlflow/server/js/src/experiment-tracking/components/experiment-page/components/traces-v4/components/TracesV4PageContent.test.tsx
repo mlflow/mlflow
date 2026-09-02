@@ -9,11 +9,17 @@ import {
   makeTrace,
   makeTraces,
 } from '../test-utils/mockTraces';
-import { TRACE_COLUMN_SIZES_STORAGE_KEY_PREFIX, TRACE_DENSITY_STORAGE_KEY_PREFIX } from '../utils/constants';
+import {
+  TRACE_COLUMN_SIZES_STORAGE_KEY_PREFIX,
+  TRACE_COLUMN_ORDER_STORAGE_KEY_PREFIX,
+  TRACE_DENSITY_STORAGE_KEY_PREFIX,
+} from '../utils/constants';
 import { COLUMN_SIZES_STORAGE_VERSION } from '../hooks/useTracesV4ColumnSizing';
 import { DENSITY_STORAGE_VERSION } from '../hooks/useTracesV4Density';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
 import { slowlyTypeEachKey } from '@databricks/web-shared/test-utils/slowlyTypeEachKey';
+import { TracesV4Tab } from '../TracesV4Tab';
+import { renderTracesV4Page } from '../test-utils/renderTracesV4Page';
 import {
   renderPage,
   findTraceRow,
@@ -25,6 +31,7 @@ import {
   server,
   state,
   env,
+  history,
   EXPERIMENT_ID,
   URL,
   SEARCH_ENDPOINT,
@@ -336,6 +343,18 @@ describe('TracesV4PageContent', () => {
       expect(link).toHaveAttribute('href', expect.stringContaining('traceId=trace%3A%2Fcat.sch%2Ftr-000'));
     });
 
+    test('the trace link preserves the current URL params (filters survive opening a trace)', async () => {
+      // Land on the page with an existing filter param already on the URL; opening a trace should
+      // add `traceId` without dropping it, so a filtered view (or a Cmd/Ctrl+click into a new tab)
+      // reopens with the same filters rather than resetting to a bare Traces route.
+      const filterParam = new URLSearchParams({ filter: "trace.status = 'OK'" }).toString();
+      renderPage({ initialUrl: `${URL}?${filterParam}` });
+      const link = await findTraceRow('tr-000');
+      const href = link.getAttribute('href') ?? '';
+      expect(href).toContain('traceId=trace%3A%2Fcat.sch%2Ftr-000');
+      expect(href).toContain(filterParam);
+    });
+
     test('clicking a UC-backed row opens the drawer with a V4 long identifier (not a bare hex id)', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
@@ -350,16 +369,48 @@ describe('TracesV4PageContent', () => {
       expect(new URLSearchParams(env.lastSearch).get('traceId')).toBe(longId);
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
 
-    test('the drawer header shows the trace input preview, not the raw id (matches v3)', async () => {
+    test('the drawer header shows the trace id as a copyable tag, not the raw long id', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       await user.click(await findTraceRow('tr-000'));
 
-      // v3-faithful: the header title heading is the input preview ("request for tr-000"), not the
-      // long id `trace:/cat.sch/tr-000` that the drawer previously showed.
+      // The redesigned (v2) header titles the drawer "Trace" and shows the id as a copyable tag (the
+      // `tr-` prefix stripped, truncated to 8 chars) — not the long id `trace:/cat.sch/tr-000`.
       const drawer = await screen.findByRole('dialog');
-      expect(await within(drawer).findByRole('heading', { name: 'request for tr-000' })).toBeInTheDocument();
+      expect(await within(drawer).findByRole('button', { name: '000' })).toBeInTheDocument();
+      expect(within(drawer).queryByText('trace:/cat.sch/tr-000')).not.toBeInTheDocument();
     }, 20000); // heavy full-page userEvent render — bump off the flaky 5s default under parallel jsdom load
+
+    test('the production V4 tab provides Custom view controls in the trace drawer', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
+      const trace = makeTaggedTrace('tr-000', {});
+      state.pages = { '': { traces: [trace], next_page_token: undefined } };
+      server.use(
+        rest.get('/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) =>
+          res(ctx.json({ experiment: { experiment_id: EXPERIMENT_ID, tags: [] } })),
+        ),
+        rest.get('/ajax-api/3.0/mlflow/traces/:traceId', (_req, res, ctx) =>
+          res(ctx.json({ trace: { trace_info: trace, spans: [] } })),
+        ),
+      );
+      renderTracesV4Page({
+        initialUrl: URL,
+        routes: [
+          {
+            path: '/ml/experiments/:experimentId/traces',
+            element: <TracesV4Tab experimentId={EXPERIMENT_ID} />,
+          },
+        ],
+        history,
+        experimentId: EXPERIMENT_ID,
+      });
+
+      await user.click(await findTraceRow('tr-000'));
+
+      const drawer = await screen.findByRole('dialog');
+      await user.click(within(drawer).getByRole('button', { name: 'Default view' }));
+      expect(await screen.findByRole('menuitem', { name: 'Create custom view' })).toBeInTheDocument();
+    }, 20000);
   });
 
   describe('session column', () => {
@@ -694,6 +745,29 @@ describe('TracesV4PageContent', () => {
       // OSS always searches by experiment id; UC-schema locations are a Databricks-only concept.
       expect(location?.type).toBe('MLFLOW_EXPERIMENT');
       expect(location?.mlflow_experiment).toEqual({ experiment_id: EXPERIMENT_ID });
+    });
+  });
+
+  describe('column reordering', () => {
+    test('renders headers in the persisted column order', async () => {
+      // Seed the per-experiment order store (version 1) with Output moved before Input, then assert
+      // the table paints headers in that order on mount. Reorder mechanics are unit-tested in
+      // useTracesV4ColumnOrder / ReorderableTraceColumnList / TracesTable; this guards the wiring
+      // from the persisted order through the controller into the rendered table.
+      setLocalStorageItem(`${TRACE_COLUMN_ORDER_STORAGE_KEY_PREFIX}.${EXPERIMENT_ID}`, 1, true, [
+        'start_time',
+        'output',
+        'input',
+        'duration',
+        'state',
+      ]);
+      renderPage();
+      await findTraceRow('tr-000');
+
+      const output = screen.getByRole('columnheader', { name: 'Output' });
+      const input = screen.getByRole('columnheader', { name: 'Input' });
+      // Output now precedes Input (the reordered slot), inverting the default Input → Output order.
+      expect(output.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 });

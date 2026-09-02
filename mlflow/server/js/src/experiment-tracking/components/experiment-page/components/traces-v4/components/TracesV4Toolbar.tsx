@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { SchemaIcon, ToggleButton, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
@@ -6,12 +7,15 @@ import {
   TraceFilterButton,
   type ColumnSelectorOption,
   type SortDirection,
+  type ReorderableTraceColumnOption,
   type TraceColumnId,
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
 import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { type TracesV4AssessmentColumns } from '../hooks/useTracesV4AssessmentColumns';
+import { type TracesV4CustomColumns } from '../hooks/useTracesV4CustomColumns';
 import { type TracesV4Density } from '../hooks/useTracesV4Density';
+import { isAssessmentColumnId } from '../utils/assessmentColumns';
 import { TracesV4DateSelector, TracesV4RefreshButton } from './TracesV4DateSelector';
 import { TracesV4DisplayButton, type TracesV4ColumnGroup } from './TracesV4DisplayButton';
 import { TracesV4ActionsButton } from './TracesV4ActionsButton';
@@ -27,8 +31,14 @@ export interface TracesV4ToolbarParams {
   visibleColumns: TraceColumnId[];
   onToggleColumn: (column: TraceColumnId) => void;
   onResetColumns: () => void;
+  /** Full display order across standard + assessment columns; drives the reorderable list order. */
+  columnOrder: string[];
+  /** Reorders a column (drag or Ctrl+Arrow) in the column selector; moves `active` to `target`. */
+  onReorderColumn: (activeColumn: string, targetColumn: string) => void;
   /** Assessment column selection (dynamic, per-page) rendered as a group in the column selector. */
   assessmentColumns: TracesV4AssessmentColumns;
+  /** Custom (tag + metadata) column selection (dynamic, per-page). */
+  customColumns: TracesV4CustomColumns;
   /** Active sort column + direction, and its setter — surfaced in the Display popover's Sort submenu. */
   sort: TraceColumnId;
   dir: SortDirection;
@@ -36,6 +46,10 @@ export interface TracesV4ToolbarParams {
   /** Row-height density + setter — surfaced in the Display popover's Row height submenu. */
   density: TracesV4Density;
   onDensityChange: (density: TracesV4Density) => void;
+  /** Whether traces are grouped into collapsible session rows. */
+  isGroupedBySession: boolean;
+  /** Toggle session grouping on/off. */
+  onToggleSessionGrouping: (next: boolean) => void;
   selectionCount: number;
   onBulkDelete: () => void;
   /** True while any trace-search query is fetching — drives the refresh button's spin state. */
@@ -49,9 +63,6 @@ export interface TracesV4ToolbarParams {
   onDetectIssues?: () => void;
   /** The "Views" saved-views dropdown, rendered far left (before the date selector). Omit to hide it. */
   savedViewsButton?: React.ReactNode;
-  /** Whether traces are grouped into collapsible session rows. */
-  isGroupedBySession: boolean;
-  onToggleSessionGrouping: (next: boolean) => void;
 }
 
 // Column-selector options: static componentIds (lint requires static ids) + localized labels. Adding
@@ -73,6 +84,9 @@ const COLUMN_LABELS: Record<TraceColumnId, React.ReactNode> = {
   tokens: <FormattedMessage defaultMessage="Tokens" description="Column selector label for the tokens column" />,
   cost: <FormattedMessage defaultMessage="Cost" description="Column selector label for the cost column" />,
   tags: <FormattedMessage defaultMessage="Tags" description="Column selector label for the tags column" />,
+  metadata: (
+    <FormattedMessage defaultMessage="Metadata" description="Column selector label for the aggregate metadata column" />
+  ),
 };
 
 // Static per-column componentIds (the lint rule requires static ids). Canonical render order.
@@ -103,6 +117,7 @@ const COLUMN_OPTIONS: ColumnSelectorOption[] = [
   { id: 'tokens', label: COLUMN_LABELS.tokens, componentId: 'mlflow.traces-v4.column-selector.item.tokens' },
   { id: 'cost', label: COLUMN_LABELS.cost, componentId: 'mlflow.traces-v4.column-selector.item.cost' },
   { id: 'tags', label: COLUMN_LABELS.tags, componentId: 'mlflow.traces-v4.column-selector.item.tags' },
+  { id: 'metadata', label: COLUMN_LABELS.metadata, componentId: 'mlflow.traces-v4.column-selector.item.metadata' },
 ];
 
 export interface TracesV4ToolbarSlots {
@@ -126,6 +141,7 @@ export const useTracesV4ToolbarSlots = ({
   onToggleColumn,
   onResetColumns,
   assessmentColumns,
+  customColumns,
   sort,
   dir,
   onSort,
@@ -141,6 +157,8 @@ export const useTracesV4ToolbarSlots = ({
   savedViewsButton,
   isGroupedBySession,
   onToggleSessionGrouping,
+  columnOrder,
+  onReorderColumn,
 }: TracesV4ToolbarParams): TracesV4ToolbarSlots => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -153,25 +171,126 @@ export const useTracesV4ToolbarSlots = ({
     ? COLUMN_OPTIONS.map((option) => (option.id === 'session' ? { ...option, disabled: true } : option))
     : COLUMN_OPTIONS;
 
-  // Assessment columns are dynamic (per-page), so they render as a labeled group under the standard
-  // columns in the Display → Columns submenu. Omitted entirely when the page has no assessments.
-  const columnGroups: TracesV4ColumnGroup[] | undefined =
-    assessmentColumns.selectorOptions.length > 0
-      ? [
-          {
-            label: (
-              <FormattedMessage
-                defaultMessage="Assessments"
-                description="Section label for assessment columns in the traces table column selector"
-              />
-            ),
-            options: assessmentColumns.selectorOptions,
-            visibleIds: assessmentColumns.visibleIds,
-            onToggle: assessmentColumns.toggle,
-            onToggleAll: assessmentColumns.setAllVisible,
-          },
-        ]
-      : undefined;
+  // Plain-text label per standard column for the drag handle's aria-label (a `reorderLabel` must be a
+  // string). Assessment columns use their name directly. Kept beside `COLUMN_LABELS` so both stay in
+  // sync when a column is added.
+  const columnDisplayText = useMemo<Record<TraceColumnId, string>>(
+    () => ({
+      start_time: intl.formatMessage({ defaultMessage: 'Time', description: 'Traces table start-time column name' }),
+      input: intl.formatMessage({ defaultMessage: 'Input', description: 'Traces table input column name' }),
+      output: intl.formatMessage({ defaultMessage: 'Output', description: 'Traces table output column name' }),
+      session: intl.formatMessage({ defaultMessage: 'Session', description: 'Traces table session column name' }),
+      duration: intl.formatMessage({ defaultMessage: 'Duration', description: 'Traces table duration column name' }),
+      state: intl.formatMessage({ defaultMessage: 'State', description: 'Traces table state column name' }),
+      trace_id: intl.formatMessage({ defaultMessage: 'Trace ID', description: 'Traces table trace-id column name' }),
+      trace_name: intl.formatMessage({
+        defaultMessage: 'Trace name',
+        description: 'Traces table trace-name column name',
+      }),
+      user: intl.formatMessage({ defaultMessage: 'User', description: 'Traces table user column name' }),
+      source: intl.formatMessage({ defaultMessage: 'Source', description: 'Traces table source column name' }),
+      run_name: intl.formatMessage({ defaultMessage: 'Run name', description: 'Traces table run-name column name' }),
+      tokens: intl.formatMessage({ defaultMessage: 'Tokens', description: 'Traces table tokens column name' }),
+      cost: intl.formatMessage({ defaultMessage: 'Cost', description: 'Traces table cost column name' }),
+      tags: intl.formatMessage({ defaultMessage: 'Tags', description: 'Traces table tags column name' }),
+      metadata: intl.formatMessage({ defaultMessage: 'Metadata', description: 'Traces table metadata column name' }),
+    }),
+    [intl],
+  );
+
+  // The unified reorderable list: standard + assessment columns in the persisted `columnOrder`, each
+  // carrying a localized reorder aria-label. Standard columns keep their rich `FormattedMessage`
+  // label; assessment columns use their name. Ids unknown on this page (a stored assessment not in the
+  // current data) are dropped by the flatMap.
+  const reorderableColumns = useMemo<ReorderableTraceColumnOption[]>(() => {
+    const standardById = new Map(COLUMN_OPTIONS.map((option) => [option.id, option]));
+    const assessmentById = new Map(assessmentColumns.selectorOptions.map((option) => [option.id, option]));
+    const reorderLabelFor = (name: string) =>
+      intl.formatMessage(
+        {
+          defaultMessage: 'Reorder {column} column',
+          description: 'Aria label for the drag handle that reorders a traces table column',
+        },
+        { column: name },
+      );
+    return columnOrder.flatMap((id) => {
+      const standard = standardById.get(id as TraceColumnId);
+      if (standard) {
+        return [{ ...standard, reorderLabel: reorderLabelFor(columnDisplayText[id as TraceColumnId]) }];
+      }
+      const assessment = assessmentById.get(id);
+      if (assessment) {
+        return [{ ...assessment, reorderLabel: reorderLabelFor(String(assessment.label)) }];
+      }
+      return [];
+    });
+  }, [columnOrder, assessmentColumns.selectorOptions, columnDisplayText, intl]);
+
+  // A single toggle that routes to the right handler by id: assessment ids go to the assessment
+  // toggle, standard ids to the column toggle. The reorderable list is a flat list of both.
+  const toggleAnyColumn = (id: string) =>
+    isAssessmentColumnId(id) ? assessmentColumns.toggle(id) : onToggleColumn(id as TraceColumnId);
+  const visibleAnyColumns = [...visibleColumns, ...assessmentColumns.visibleIds];
+
+  // Siloed copy of v3's UC-delete disabled reason.
+  const deleteDisabledReason = intl.formatMessage({
+    defaultMessage:
+      'Trace deletion is not supported for traces located in Unity Catalog schema. You can delete traces from corresponding Delta table.',
+    description:
+      'Trace deletion disabled reason. Displayed in a tooltip when a user attempts to delete a trace housed in the UC delta table.',
+  });
+
+  // Dynamic (per-page) columns render as labeled checkbox groups beneath the reorderable list in the
+  // Display → Columns submenu. Tags/metadata are toggle-only. Assessments ALSO appear in the
+  // reorderable list above (so they can be dragged + toggled individually); the group here adds only
+  // the bulk "show/hide all assessments" affordance via its toggle-all header. Each group is included
+  // only when the page has relevant candidates.
+  const columnGroups: TracesV4ColumnGroup[] = [];
+  if (customColumns.tags.selectorOptions.length > 0) {
+    columnGroups.push({
+      label: (
+        <FormattedMessage
+          defaultMessage="Tags"
+          description="Section label for tag columns in the traces table column selector"
+        />
+      ),
+      options: customColumns.tags.selectorOptions,
+      visibleIds: customColumns.tags.visibleIds,
+      onToggle: customColumns.tags.toggle,
+      onToggleAll: customColumns.tags.setAllVisible,
+    });
+  }
+  if (customColumns.metadata.selectorOptions.length > 0) {
+    columnGroups.push({
+      label: (
+        <FormattedMessage
+          defaultMessage="Metadata"
+          description="Section label for metadata columns in the traces table column selector"
+        />
+      ),
+      options: customColumns.metadata.selectorOptions,
+      visibleIds: customColumns.metadata.visibleIds,
+      onToggle: customColumns.metadata.toggle,
+      onToggleAll: customColumns.metadata.setAllVisible,
+    });
+  }
+  if (assessmentColumns.selectorOptions.length > 0) {
+    columnGroups.push({
+      label: (
+        <FormattedMessage
+          defaultMessage="Assessments"
+          description="Section label for assessment columns in the traces table column selector"
+        />
+      ),
+      options: assessmentColumns.selectorOptions,
+      visibleIds: assessmentColumns.visibleIds,
+      onToggle: assessmentColumns.toggle,
+      onToggleAll: assessmentColumns.setAllVisible,
+      // Assessments already appear (draggable + individually toggleable) in the reorderable list
+      // above; this group adds only the bulk "show/hide all" header, so skip its per-item checkboxes.
+      headerOnly: true,
+    });
+  }
 
   // Note: the Databricks build disables Delete for UC-backed traces (with a "delete from the Delta
   // table instead" tooltip). OSS traces are always deletable via the standard path, so that gate is
@@ -219,17 +338,20 @@ export const useTracesV4ToolbarSlots = ({
           </Tooltip>
         )}
         <TracesV4DisplayButton
-          columns={columnOptions}
-          visibleColumns={visibleColumns}
-          onToggleColumn={onToggleColumn}
           onResetColumns={onResetColumns}
-          columnGroups={columnGroups}
           sortColumnLabels={COLUMN_LABELS}
           sort={sort}
           dir={dir}
           onSort={onSort}
           density={density}
           onDensityChange={onDensityChange}
+          reorder={{
+            columns: reorderableColumns,
+            visibleColumns: visibleAnyColumns,
+            onToggleColumn: toggleAnyColumn,
+            onReorderColumn,
+          }}
+          columnGroups={columnGroups}
         />
         {hasSelection && (
           <TracesV4ActionsButton
@@ -241,10 +363,12 @@ export const useTracesV4ToolbarSlots = ({
           />
         )}
         <div css={{ flex: 1 }} />
-        <TracesV4RefreshButton isFetching={isRefreshing} />
-        {shouldEnableIssueDetection() && onDetectIssues && (
-          <DetectIssuesButton componentId="mlflow.traces-v4.detect-issues-button" onClick={onDetectIssues} />
-        )}
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <TracesV4RefreshButton isFetching={isRefreshing} />
+          {shouldEnableIssueDetection() && onDetectIssues && (
+            <DetectIssuesButton componentId="mlflow.traces-v4.detect-issues-button" onClick={onDetectIssues} />
+          )}
+        </div>
       </>
     ),
   };

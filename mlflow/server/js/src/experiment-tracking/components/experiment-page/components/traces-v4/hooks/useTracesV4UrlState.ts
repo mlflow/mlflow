@@ -19,6 +19,10 @@ const PAGE_SIZE_PARAM = 'pageSize';
 const SORT_PARAM = 'sort';
 const DIR_PARAM = 'dir';
 const TRACE_ID_PARAM = 'traceId';
+// v3 (and several still-live producers: the `/traces/:traceId` redirect, the issue-detection trace
+// picker, regression test-case links) open a trace by writing `?selectedEvaluationId=`. v4 reads
+// `traceId`, so honor the legacy param as a fallback and normalize it away on the next write.
+const LEGACY_TRACE_ID_PARAM = 'selectedEvaluationId';
 // Repeatable param (like v3's `filter`): each value is `encodeURIComponent(key)=encodeURIComponent(value)`.
 const TAG_PARAM = 'tag';
 // Present only when grouping is on; the single `session` value leaves room for other groupings later.
@@ -105,7 +109,7 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const pageSizeRaw = searchParams.get(PAGE_SIZE_PARAM);
   const sortRaw = searchParams.get(SORT_PARAM);
   const dirRaw = searchParams.get(DIR_PARAM);
-  const traceId = searchParams.get(TRACE_ID_PARAM) ?? undefined;
+  const traceId = searchParams.get(TRACE_ID_PARAM) ?? searchParams.get(LEGACY_TRACE_ID_PARAM) ?? undefined;
   const isGroupedBySession = searchParams.get(GROUP_BY_PARAM) === SESSION_GROUP_BY_VALUE;
   // getAll → the repeatable `tag` values. Memoize on the serialized params: `getAll().map().filter()`
   // returns a fresh array every render, and consumers use `tagFilters` as an effect dependency (e.g.
@@ -177,6 +181,8 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const setTraceId = useCallback(
     (next: string | undefined) => {
       setSearchParams((params) => {
+        // Always drop the legacy alias so it doesn't shadow future canonical writes or linger in the URL.
+        params.delete(LEGACY_TRACE_ID_PARAM);
         if (next) {
           params.set(TRACE_ID_PARAM, next);
         } else {

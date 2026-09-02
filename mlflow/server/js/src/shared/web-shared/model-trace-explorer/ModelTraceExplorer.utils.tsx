@@ -661,7 +661,11 @@ export const decodeLinkTraceId = (traceId: string | null | undefined): string =>
 };
 
 export function isV3ModelTraceInfo(
-  info: Pick<ModelTraceInfoV3, 'trace_location' | 'trace_id'> | ModelTrace['info'],
+  info:
+    | Pick<ModelTraceInfoV3, 'trace_location' | 'trace_id'>
+    | ModelTrace['info']
+    | { trace?: { trace_info?: ModelTrace['info'] } }
+    | undefined,
 ): info is ModelTraceInfoV3 {
   if (!info) {
     return false;

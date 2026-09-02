@@ -1,4 +1,5 @@
 import {
+  ArrowUpIcon,
   Button,
   CheckIcon,
   ChevronDownIcon,
@@ -6,11 +7,12 @@ import {
   SortAscendingIcon,
   SortDescendingIcon,
   Typography,
+  UserIcon,
   useDesignSystemTheme,
   VisibleOffIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import type { SortDirection } from './types';
+import type { SortDirection, TraceColumnHeaderAction } from './types';
 
 // Static componentId prefix — the `@databricks/no-dynamic-property-value` rule needs static literals.
 const COMPONENT_ID = 'web-shared.traces-table.header-menu';
@@ -25,6 +27,7 @@ interface TraceColumnHeaderMenuProps {
   onSortDescending: () => void;
   /** Omit → no Hide item (and, on a non-sortable column, no menu at all). */
   onHide?: () => void;
+  action?: TraceColumnHeaderAction;
   triggerLabel: string;
 }
 
@@ -35,6 +38,7 @@ export const TraceColumnHeaderMenu = ({
   onSortAscending,
   onSortDescending,
   onHide,
+  action,
   triggerLabel,
 }: TraceColumnHeaderMenuProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
@@ -46,7 +50,8 @@ export const TraceColumnHeaderMenu = ({
         <Button
           componentId={`${COMPONENT_ID}.trigger`}
           size="small"
-          icon={<ChevronDownIcon />}
+          type="tertiary"
+          icon={<ChevronDownIcon css={{ color: theme.colors.textSecondary }} />}
           aria-label={triggerLabel}
           onClick={stopPropagation}
         />
@@ -78,9 +83,16 @@ export const TraceColumnHeaderMenu = ({
                 </DropdownMenu.HintColumn>
               )}
             </DropdownMenu.Item>
-            {onHide && <DropdownMenu.Separator />}
           </>
         )}
+        {sortable && action && <DropdownMenu.Separator />}
+        {action && (
+          <DropdownMenu.Item componentId={`${COMPONENT_ID}.action`} onClick={action.onClick}>
+            <DropdownMenu.IconWrapper>{action.icon}</DropdownMenu.IconWrapper>
+            {action.label}
+          </DropdownMenu.Item>
+        )}
+        {onHide && (sortable || action) && <DropdownMenu.Separator />}
         {onHide && (
           <DropdownMenu.Item componentId={`${COMPONENT_ID}.hide-column`} onClick={onHide}>
             <VisibleOffIcon css={iconCss} />
@@ -96,6 +108,7 @@ export const TraceColumnHeaderMenu = ({
 };
 
 export interface TraceColumnHeaderProps {
+  columnId: string;
   label: React.ReactNode;
   /** Plain-text column name for the menu trigger's accessible label. */
   labelText?: string;
@@ -104,6 +117,7 @@ export interface TraceColumnHeaderProps {
   onSortAscending: () => void;
   onSortDescending: () => void;
   onHide?: () => void;
+  action?: TraceColumnHeaderAction;
 }
 
 /**
@@ -111,6 +125,7 @@ export interface TraceColumnHeaderProps {
  * inside its button trigger); sort moved into the menu dropdown.
  */
 export const TraceColumnHeader = ({
+  columnId,
   label,
   labelText,
   sortable,
@@ -118,6 +133,7 @@ export const TraceColumnHeader = ({
   onSortAscending,
   onSortDescending,
   onHide,
+  action,
 }: TraceColumnHeaderProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -135,7 +151,14 @@ export const TraceColumnHeader = ({
         description: 'Accessible label for the per-column options menu button in the traces table header',
       });
 
-  const showMenu = sortable || Boolean(onHide);
+  const showMenu = sortable || Boolean(onHide) || Boolean(action);
+
+  const columnIcon =
+    columnId === 'input' ? (
+      <UserIcon />
+    ) : columnId === 'output' ? (
+      <ArrowUpIcon css={{ transform: 'rotate(45deg)' }} />
+    ) : null;
 
   const sortToggleLabel = labelText
     ? intl.formatMessage(
@@ -151,8 +174,29 @@ export const TraceColumnHeader = ({
       });
 
   return (
-    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, width: '100%', minWidth: 0 }}>
-      <Typography.Text bold ellipsis className="table-header-text" css={{ minWidth: 0, flex: '0 1 auto' }}>
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        width: '100%',
+        minWidth: 0,
+      }}
+    >
+      {columnIcon && (
+        <span
+          aria-hidden
+          css={{
+            display: 'inline-flex',
+            flexShrink: 0,
+            color: theme.colors.textSecondary,
+            fontSize: theme.typography.fontSizeBase,
+          }}
+        >
+          {columnIcon}
+        </span>
+      )}
+      <Typography.Text bold size="sm" color="secondary" ellipsis css={{ minWidth: 0, flex: '0 1 auto' }}>
         {label}
       </Typography.Text>
       {sortable && sortDirection !== 'none' && (
@@ -175,13 +219,17 @@ export const TraceColumnHeader = ({
         </span>
       )}
       {showMenu && (
-        <span css={{ flexShrink: 0 }}>
+        <span
+          className="traces-table-header-menu-trigger"
+          css={{ display: 'inline-flex', flexShrink: 0, opacity: 0, transition: 'opacity 0.1s ease' }}
+        >
           <TraceColumnHeaderMenu
             sortable={sortable}
             sortDirection={sortDirection}
             onSortAscending={onSortAscending}
             onSortDescending={onSortDescending}
             onHide={onHide}
+            action={action}
             triggerLabel={triggerLabel}
           />
         </span>

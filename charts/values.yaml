@@ -232,9 +232,11 @@ networkPolicy:
   additionalEgressRules: []
 
 # Prometheus metrics configuration. When enabled, the MLflow server exposes
-# metrics at the specified HTTP path.
+# metrics at /metrics. Override path only for a custom image that serves them
+# elsewhere; the stock image always uses /metrics, even under staticPrefix.
 metrics:
   enabled: false
+  path: /metrics
 
 # Prometheus ServiceMonitor for metrics scraping (requires the Prometheus
 # Operator CRD to be installed in the cluster).

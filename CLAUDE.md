@@ -11,6 +11,7 @@ Claude's training data may lag behind current releases. When reviewing docs or c
 - Use top-level imports (only use lazy imports when necessary)
 - Only add docstrings in tests when they provide additional context
 - Only add comments that explain non-obvious logic or provide additional context
+- In source files, use full `https://github.com/<owner>/<repo>/issues/<number>` URLs for cross-repository issue references instead of `<owner>/<repo>#<number>`, because the shorthand does not autolink or identify the target type; it remains fine in PR descriptions and issue comments, where GitHub autolinks it.
 - When touching the SQLAlchemy tracking store, keep all workspace-aware paths and validations intact; never drop workspace plumbing even if the change focuses on single-tenant behavior
 - New functionality in the tracking layer should be mirrored by workspace-aware tests (e.g., add workspace variants in `tests/store/tracking/test_sqlalchemy_store_workspace.py` when applicable)
 

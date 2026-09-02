@@ -10,6 +10,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
 
+# The zero value of the proto enum is named ``SOURCE_TYPE_UNSPECIFIED``, while the Python
+# enum (and persisted source type strings) use ``UNSPECIFIED``. The two names must be
+# mapped onto each other whenever a source type crosses the proto boundary.
+_PROTO_UNSPECIFIED_SOURCE_TYPE_NAME = "SOURCE_TYPE_UNSPECIFIED"
+
 
 class DatasetRecordSourceType(str, Enum):
     """
@@ -74,8 +79,19 @@ class DatasetRecordSourceType(str, Enum):
         return DatasetRecordSourceType(parsed)
 
     @classmethod
-    def from_proto(cls, proto_source_type: int) -> str:
-        return cast(str, ProtoDatasetRecordSource.SourceType.Name(proto_source_type))
+    def from_proto(cls, proto_source_type) -> str:
+        name = cast(str, ProtoDatasetRecordSource.SourceType.Name(proto_source_type))
+        if name == _PROTO_UNSPECIFIED_SOURCE_TYPE_NAME:
+            return cls.UNSPECIFIED.value
+        return name
+
+
+def _source_type_to_proto(source_type: str | DatasetRecordSourceType) -> int:
+    """Convert a source type name to its proto enum value."""
+    name = source_type.value if isinstance(source_type, DatasetRecordSourceType) else source_type
+    if name == DatasetRecordSourceType.UNSPECIFIED.value:
+        name = _PROTO_UNSPECIFIED_SOURCE_TYPE_NAME
+    return ProtoDatasetRecordSource.SourceType.Value(name)
 
 
 @dataclass
@@ -100,7 +116,7 @@ class DatasetRecordSource(_MlflowObject):
 
     def to_proto(self) -> ProtoDatasetRecordSource:
         proto = ProtoDatasetRecordSource()
-        proto.source_type = ProtoDatasetRecordSource.SourceType.Value(self.source_type.value)
+        proto.source_type = _source_type_to_proto(self.source_type)
         if self.source_data:
             proto.source_data = json.dumps(self.source_data)
         return proto
@@ -111,7 +127,7 @@ class DatasetRecordSource(_MlflowObject):
         source_type = (
             DatasetRecordSourceType.from_proto(proto.source_type)
             if proto.HasField("source_type")
-            else None
+            else DatasetRecordSourceType.UNSPECIFIED
         )
 
         # NB: A str source_type is standardized to the enum in __post_init__, but an unset
