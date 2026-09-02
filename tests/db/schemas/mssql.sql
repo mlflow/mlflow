@@ -321,6 +321,7 @@ CREATE TABLE mcp_server_versions (
 	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('draft') NOT NULL,
 	tools NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	source VARCHAR(512) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	connect_options NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_at BIGINT NOT NULL,

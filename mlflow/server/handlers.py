@@ -6,6 +6,7 @@ import os
 import pathlib
 import posixpath
 import re
+import sys
 import tempfile
 import threading
 import time
@@ -6496,14 +6497,14 @@ def _delete_gateway_endpoint_tag():
 # =============================================================================
 
 
-_TARGETED_BUDGET_SCOPES = (BudgetTargetScope.ENDPOINT,)
+_TARGETED_BUDGET_SCOPES = (BudgetTargetScope.ENDPOINT, BudgetTargetScope.USER)
 
 
 def _validate_budget_target_scope(target_scope, target_value):
     """Validate the target_value / target_scope relationship for budget policies.
 
-    ENDPOINT-scoped policies must carry a ``target_value`` (the ID of the endpoint
-    to match); policies with any other scope must not.
+    ENDPOINT- and USER-scoped policies must carry a ``target_value`` (the endpoint ID
+    or username to match); policies with any other scope must not.
     """
     if target_scope in _TARGETED_BUDGET_SCOPES:
         if not target_value:
@@ -6513,7 +6514,36 @@ def _validate_budget_target_scope(target_scope, target_value):
             )
     elif target_value:
         raise MlflowException(
-            message="target_value can only be set when target_scope is ENDPOINT.",
+            message="target_value can only be set when target_scope is ENDPOINT or USER.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _is_server_auth_enabled() -> bool:
+    """Whether MLflow server authentication is active.
+
+    Checked without importing the auth app (mirrors ``gateway_api``): the gateway
+    only populates ``request.state.username`` when auth is initialized, so USER-scoped
+    budgets cannot attribute spend to a user unless this is True.
+    """
+    auth_mod = sys.modules.get("mlflow.server.auth")
+    return bool(auth_mod and auth_mod.is_auth_enabled())
+
+
+def _assert_user_scope_enforceable(target_scope: BudgetTargetScope) -> None:
+    """Reject USER-scoped budgets when auth is off, since they would never match.
+
+    Without authentication the gateway has no request username, so a USER-scoped
+    policy is silently inert (a REJECT cap never rejects, an ALERT never fires).
+    Fail loudly at write time rather than let an admin create a non-functional cap.
+    """
+    if target_scope == BudgetTargetScope.USER and not _is_server_auth_enabled():
+        raise MlflowException(
+            message=(
+                "USER-scoped budget policies require server authentication to be enabled. "
+                "Without auth the gateway cannot attribute requests to a user, so the "
+                "policy would never take effect."
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -6565,6 +6595,7 @@ def _create_budget_policy():
         )
     target_value = request_message.target_value or None
     _validate_budget_target_scope(target_scope, target_value)
+    _assert_user_scope_enforceable(target_scope)
     store = _get_tracking_store()
     policy = store.create_budget_policy(
         budget_unit=budget_unit,
@@ -6653,10 +6684,11 @@ def _update_budget_policy():
     target_value = (request_message.target_value or None) if target_value_provided else None
     store = _get_tracking_store()
     # Validate the *effective* scope/target_value after the partial update is applied,
-    # so clients that echo back the current scope (or update target_value alone on an
-    # ENDPOINT policy) are not rejected, while updates that would produce an ENDPOINT
-    # policy without a target_value (a silently non-enforcing policy) still are. A
-    # target only carries over within the same scope, so switching scope requires an
+    # mirroring the create-handler guards: clients that echo back the current scope (or
+    # update one field alone) are not rejected, while updates that would produce a
+    # targeted (ENDPOINT/USER) policy without a target_value — a silently non-enforcing
+    # policy — still are. A target only carries over within the same scope: an endpoint
+    # ID is meaningless as a username and vice versa, so switching scope requires an
     # explicit new target_value.
     if target_scope is not None or target_value_provided:
         existing = store.get_budget_policy(budget_policy_id=request_message.budget_policy_id)
@@ -6666,6 +6698,7 @@ def _update_budget_policy():
         )
         effective_target = target_value if target_value_provided else inherited_target
         _validate_budget_target_scope(effective_scope, effective_target)
+        _assert_user_scope_enforceable(effective_scope)
     policy = store.update_budget_policy(
         budget_policy_id=request_message.budget_policy_id,
         budget_unit=budget_unit,
@@ -6746,9 +6779,11 @@ def _list_budget_windows():
     maybe_refresh_budget_policies(store)
     windows = get_budget_tracker().get_all_windows()
     if workspace is not None:
-        # GLOBAL policies are always shown; WORKSPACE/ENDPOINT policies are shown
-        # only for the requesting workspace (ENDPOINT policies still carry an
-        # owning workspace even though enforcement matches on endpoint_id).
+        # GLOBAL policies are always shown. Every other scope is filtered to the
+        # requesting workspace by the policy's owning workspace, so current-spend
+        # figures never leak across workspaces. WORKSPACE/ENDPOINT/USER policies all
+        # carry an owning workspace even when enforcement matches on target_value
+        # (an endpoint ID or a username) rather than on the workspace itself.
         windows = [
             w
             for w in windows
