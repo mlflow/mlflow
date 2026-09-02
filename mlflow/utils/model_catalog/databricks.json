@@ -418,6 +418,50 @@
       },
       "last_updated_at": "2026-08-26"
     },
+    "databricks-deepseek-v4-flash-0731": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 393216,
+        "max_tokens": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.14,
+        "output_per_million_tokens": 0.28,
+        "cache_read_per_million_tokens": 0.028,
+        "cache_write_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-02"
+    },
+    "databricks-deepseek-v4-pro-0813": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 393216,
+        "max_tokens": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.31999,
+        "output_per_million_tokens": 3.95997,
+        "cache_read_per_million_tokens": 0.13202,
+        "cache_write_per_million_tokens": 1.31999
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-02"
+    },
     "databricks-gemini-2-5-flash": {
       "mode": "chat",
       "context_window": {
