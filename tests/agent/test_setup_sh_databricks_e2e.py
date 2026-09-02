@@ -38,7 +38,15 @@ from pathlib import Path
 args = sys.argv[1:]
 calls_path = Path(os.environ["DATABRICKS_TEST_CALLS"])
 with calls_path.open("a") as calls:
-    calls.write(json.dumps(args) + "\n")
+    calls.write(json.dumps({
+        "args": args,
+        "host": os.environ.get("DATABRICKS_HOST"),
+        "profile": os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+    }) + "\n")
+
+if "--host" in args and args[:2] != ["auth", "login"]:
+    print(f"unknown flag: --host for {' '.join(args[:2])}", file=sys.stderr)
+    raise SystemExit(2)
 
 routes = json.loads(Path(os.environ["DATABRICKS_TEST_ROUTES"]).read_text())
 state_path = Path(os.environ["DATABRICKS_TEST_STATE"])
@@ -225,6 +233,18 @@ def _read_calls(config: DatabricksTestConfig) -> list[list[str]]:
 
     Returns:
         One argument array for each Databricks CLI invocation.
+    """
+    return [invocation["args"] for invocation in _read_invocations(config)]
+
+
+def _read_invocations(config: DatabricksTestConfig) -> list[dict[str, object]]:
+    """Read CLI arguments and Databricks selector environment variables.
+
+    Args:
+        config: Test configuration containing the call log path.
+
+    Returns:
+        One invocation record for each Databricks CLI command.
     """
     return [json.loads(line) for line in config.calls_path.read_text().splitlines()]
 
@@ -510,6 +530,59 @@ def test_authentication_fallback_uses_host_and_profile_flags(
         "--profile",
         "DEFAULT",
     ] in _read_calls(databricks_config)
+
+
+@pytest.mark.timeout(30)
+def test_host_only_workspace_propagates_environment(databricks_config: DatabricksTestConfig):
+    routes = _base_routes(token_responses=[{"returncode": 1}, {"stdout": "{}"}])
+    routes[0]["stdout"] = "Name Host Valid\nDEFAULT https://other.example.com YES"
+    _set_routes(
+        databricks_config,
+        routes
+        + [
+            {"args": ["auth", "login"], "stdout": "{}"},
+            {
+                "args": ["experiments", "get-experiment"],
+                "stdout": _experiment_json(trace_destination=None),
+            },
+        ],
+    )
+    env = databricks_config.env | {"DATABRICKS_CONFIG_PROFILE": "AMBIENT"}
+
+    exit_code, output = run_interactive(
+        [
+            str(SETUP_SCRIPT),
+            "--workspace-url",
+            "https://workspace.example.com",
+            "--experiment-id",
+            "existing-id",
+            "--agent",
+            "codex",
+        ],
+        databricks_config.project,
+        env,
+        [],
+    )
+
+    assert exit_code == 0, output
+    invocations = _read_invocations(databricks_config)
+    token_calls = [call for call in invocations if call["args"][:2] == ["auth", "token"]]
+    assert token_calls
+    assert all(call["host"] == "https://workspace.example.com" for call in token_calls)
+    assert all(call["profile"] == "" for call in token_calls)
+    login_call = next(call for call in invocations if call["args"][:2] == ["auth", "login"])
+    assert login_call["args"] == [
+        "auth",
+        "login",
+        "--host",
+        "https://workspace.example.com",
+    ]
+    assert login_call["profile"] == ""
+    experiment_call = next(
+        call for call in invocations if call["args"][:2] == ["experiments", "get-experiment"]
+    )
+    assert experiment_call["host"] == "https://workspace.example.com"
+    assert experiment_call["profile"] == ""
 
 
 @pytest.mark.timeout(30)
