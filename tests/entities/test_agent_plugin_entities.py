@@ -32,6 +32,18 @@ def test_agent_plugin_from_dict():
     assert restored.latest_version == "1.2.0"
 
 
+def test_agent_plugin_from_dict_converts_alias_list_to_dict():
+    # REST responses expose aliases as a list of {alias, version} objects.
+    restored = AgentPlugin.from_dict({
+        "name": "pr-workflow",
+        "aliases": [
+            {"alias": "production", "version": "1.0.0"},
+            {"alias": "staging", "version": "1.2.0"},
+        ],
+    })
+    assert restored.aliases == {"production": "1.0.0", "staging": "1.2.0"}
+
+
 def test_agent_plugin_from_dict_parses_icons():
     icons = [
         {"src": "https://x/icon.png", "sizes": ["48x48"], "mimeType": "image/png", "theme": "dark"}

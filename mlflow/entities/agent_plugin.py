@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from mlflow.entities.skill import RegistryIcon, SkillStatus
+from mlflow.entities.skill import RegistryIcon, SkillStatus, _aliases_to_dict
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
@@ -45,7 +45,7 @@ class AgentPlugin:
                 workspace=data.get("workspace"),
                 status=SkillStatus(data["status"]) if data.get("status") else None,
                 tags=data.get("tags") or {},
-                aliases=data.get("aliases") or {},
+                aliases=_aliases_to_dict(data.get("aliases")),
                 latest_version=data.get("latest_version"),
                 created_by=data.get("created_by"),
                 last_updated_by=data.get("last_updated_by"),
