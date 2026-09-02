@@ -327,6 +327,13 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             # Objects listed directly will be files
             for obj in result.get("Contents", []):
                 file_path = obj.get("Key")
+                # Some S3-compatible backends (e.g. objects created via the AWS
+                # console "folder" feature, or implicitly by Hitachi HCP) expose
+                # 0-byte directory-marker objects whose key ends with "/". These
+                # aren't real artifact files - they duplicate the "directory" that
+                # is already reported via CommonPrefixes above - so skip them here.
+                if file_path.endswith("/"):
+                    continue
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path
                 )
