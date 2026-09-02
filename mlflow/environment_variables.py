@@ -151,6 +151,16 @@ MLFLOW_SANDBOX_DOCKER_IMAGE = _EnvironmentVariable(
     "MLFLOW_SANDBOX_DOCKER_IMAGE", str, "mlflow-sandbox:latest"
 )
 
+#: **Experimental** — subject to change or removal in a future release.
+#: Docker image used to run the MLflow Assistant's CLI providers (e.g. Claude Code) in a
+#: sandbox. Unlike ``MLFLOW_SANDBOX_DOCKER_IMAGE``, this image must additionally contain the
+#: provider CLI and its language runtime. Operators are expected to build/provide this image;
+#: there is no minimal auto-built fallback for it.
+#: (default: ``mlflow-assistant-sandbox:latest``)
+MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE = _EnvironmentVariable(
+    "MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE", str, "mlflow-assistant-sandbox:latest"
+)
+
 #: When true, newly created workspaces are seeded with two default RBAC roles
 #: (``admin``, ``user``) that super-admins can assign to other
 #: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already

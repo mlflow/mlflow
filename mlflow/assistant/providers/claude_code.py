@@ -26,6 +26,7 @@ from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
+    assistant_sandbox_enabled,
     load_config_or_default,
 )
 from mlflow.assistant.types import (
@@ -37,7 +38,46 @@ from mlflow.assistant.types import (
     ToolResultBlock,
     ToolUseBlock,
 )
-from mlflow.server.assistant.session import clear_process_pid, save_process_pid
+from mlflow.server.assistant.session import (
+    clear_container_id,
+    clear_process_pid,
+    get_session_sandbox_home,
+    save_container_id,
+    save_process_pid,
+)
+
+# Environment variables forwarded into the sandbox so the CLI can authenticate. Host secrets
+# outside this allowlist are intentionally NOT passed through; logged-in credentials otherwise
+# persist in the per-session HOME directory. The list covers the CLI's supported auth backends
+# (direct Anthropic API, Amazon Bedrock, Google Vertex) plus outbound proxy configuration.
+# Host provider credentials forwarded into the sandbox so the CLI can authenticate. The
+# container still has unrestricted outbound network access; restricting egress (a dedicated
+# network + optional proxy) is a planned follow-up (see the network-posture note in
+# mlflow/server/sandbox/container.py), and until then the sandbox stays off by default.
+# Both proxy-var cases are forwarded so an operator's interim egress proxy is honored whether
+# it is set upper- or lower-case (lowercase is conventional on Linux).
+_SANDBOX_AUTH_ENV_PASSTHROUGH = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_MODEL",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_REGION",
+    "AWS_PROFILE",
+    "ANTHROPIC_VERTEX_PROJECT_ID",
+    "CLOUD_ML_REGION",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -354,8 +394,17 @@ class ClaudeCodeProvider(AssistantProvider):
     def client_tool_delivery(self) -> Literal["structured"]:
         return "structured"
 
+    @property
+    def allows_remote_access(self) -> bool:
+        # In local mode the CLI runs on the host, so it must stay localhost-only. In sandbox mode
+        # it runs isolated in a container, so it can safely serve remote clients.
+        return assistant_sandbox_enabled()
+
     def is_available(self) -> bool:
-        return shutil.which("claude") is not None
+        # In sandbox mode the CLI runs inside the operator-provided image, not on the host, so
+        # availability follows the sandbox being active rather than a host binary the operator is
+        # not expected to install.
+        return assistant_sandbox_enabled() or shutil.which("claude") is not None
 
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         """
@@ -367,6 +416,13 @@ class ClaudeCodeProvider(AssistantProvider):
         Raises:
             ProviderNotConfiguredError: If CLI is not installed or not authenticated.
         """
+        if assistant_sandbox_enabled():
+            # The CLI runs inside the operator image, not on the host, so there is no host binary
+            # or host login to verify here; image presence and auth are checked when a turn starts
+            # the container.
+            if echo:
+                echo("Assistant sandbox enabled; the Claude Code CLI runs in the sandbox image.")
+            return
         claude_path = shutil.which("claude")
         if not claude_path:
             if echo:
@@ -441,6 +497,13 @@ class ClaudeCodeProvider(AssistantProvider):
         Yields:
             Event objects
         """
+        if assistant_sandbox_enabled():
+            async for event in self._astream_in_sandbox(
+                prompt, tracking_uri, session_id, mlflow_session_id, cwd, context
+            ):
+                yield event
+            return
+
         claude_path = shutil.which("claude")
         if not claude_path:
             yield Event.from_error(
@@ -643,6 +706,197 @@ class ClaudeCodeProvider(AssistantProvider):
                     _logger.warning(
                         "Failed to remove temp system prompt file %s", system_prompt_path
                     )
+
+    async def _astream_in_sandbox(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        session_id: str | None,
+        mlflow_session_id: str | None,
+        cwd: Path | None,
+        context: dict[str, Any] | None,
+    ) -> AsyncGenerator[Event, None]:
+        """Run the Claude Code CLI inside a hardened Docker container instead of on the host.
+
+        Mirrors ``astream``'s command construction and event parsing, but the CLI, the working
+        directory, and the CLI's ``--resume`` session state all live inside the container. The
+        host path is left unchanged; this runs only when the assistant sandbox is active (see
+        ``assistant_sandbox_enabled``). Runtime behavior (image contents, credentials, volume
+        permissions) is validated
+        against a live Docker daemon rather than in unit tests.
+        """
+        from mlflow.assistant.providers.tool_executor import _uri_without_credentials
+        from mlflow.server.sandbox import (
+            SandboxUnavailableError,
+            sandbox_input_path,
+            start_sandbox_process,
+            to_container_host_uri,
+        )
+
+        if context:
+            user_message = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
+        else:
+            user_message = prompt
+        structured_custom_view = is_custom_view_request(context)
+        if structured_custom_view:
+            user_message = f"{user_message}\n\n{CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS}"
+
+        config = load_config_or_default(self.name)
+        cmd = [
+            "claude",
+            "-p",
+            "--input-format",
+            "text",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+        ]
+        if structured_custom_view:
+            cmd.extend(["--json-schema", json.dumps(CUSTOM_VIEW_RESPONSE_SCHEMA)])
+        if config.permissions.full_access:
+            cmd.extend(["--permission-mode", "bypassPermissions"])
+        else:
+            allowed_tools = list(BASE_ALLOWED_TOOLS)
+            if config.permissions.allow_edit_files:
+                allowed_tools.extend(FILE_EDIT_TOOLS)
+            if config.permissions.allow_read_docs:
+                allowed_tools.extend(DOCS_TOOLS)
+            for tool in allowed_tools:
+                cmd.extend(["--allowed-tools", tool])
+        if config.model and config.model != "default":
+            cmd.extend(["--model", config.model])
+        if session_id:
+            cmd.extend(["--resume", session_id])
+        cmd.extend(["--append-system-prompt-file", sandbox_input_path("system_prompt.txt")])
+
+        input_files = {"system_prompt.txt": _build_system_prompt(tracking_uri)}
+        env = {"MLFLOW_TRACKING_URI": to_container_host_uri(tracking_uri)}
+        # Mirror the Bash sandbox: forward the registry URI too so `mlflow` registry commands in
+        # the container reach the same registry, credential-stripped and loopback-rewritten.
+        registry_uri = os.environ.get("MLFLOW_REGISTRY_URI")
+        if registry_uri and (safe := _uri_without_credentials("MLFLOW_REGISTRY_URI", registry_uri)):
+            env["MLFLOW_REGISTRY_URI"] = to_container_host_uri(safe)
+        for var in _SANDBOX_AUTH_ENV_PASSTHROUGH:
+            value = os.environ.get(var)
+            if not value:
+                continue
+            if var == "GOOGLE_APPLICATION_CREDENTIALS":
+                # This is a host file path the container cannot see. Copy the credentials file's
+                # contents into the read-only input mount and point the CLI at that in-container
+                # path, so Vertex auth via a service-account file actually works in the sandbox.
+                try:
+                    input_files["google-application-credentials.json"] = Path(value).read_text()
+                except OSError:
+                    _logger.warning(
+                        "GOOGLE_APPLICATION_CREDENTIALS points to an unreadable file; "
+                        "not forwarding it to the sandbox."
+                    )
+                    continue
+                env[var] = sandbox_input_path("google-application-credentials.json")
+            elif var == "ANTHROPIC_BASE_URL":
+                # A URL the CLI connects to from *inside* the container, so a loopback value must
+                # be rewritten to reach the host. A non-loopback endpoint (e.g. a host-only
+                # gateway) is forwarded as-is and must be reachable from the sandbox; if it is
+                # not, the idle timeout surfaces a failure instead of hanging.
+                env[var] = to_container_host_uri(value)
+            else:
+                env[var] = value
+
+        # Persist the CLI's HOME (its --resume session store and caches) across turns of the
+        # same session so multi-turn conversations resume correctly.
+        home_dir = get_session_sandbox_home(mlflow_session_id) if mlflow_session_id else None
+
+        try:
+            # start_sandbox_process uses the blocking docker-py client; keep it off the loop.
+            proc = await asyncio.to_thread(
+                start_sandbox_process,
+                cmd,
+                workdir=cwd,
+                environment=env,
+                stdin_data=user_message.encode("utf-8"),
+                input_files=input_files,
+                home_dir=home_dir,
+            )
+        except SandboxUnavailableError as e:
+            yield Event.from_error(f"Assistant sandbox is enabled but could not start: {e}")
+            return
+
+        structured_response: Any | None = None
+        structured_session_id: str | None = None
+        try:
+            # Recorded inside this try so a failure here still runs proc.cleanup() below,
+            # rather than leaking the started container and its scratch directories.
+            #
+            # A cancel that arrives while the container is still starting (before this line, and
+            # sandbox mode records no PID) finds nothing to kill, so that turn keeps running until
+            # the idle timeout reaps it; the container is not leaked (cleanup() still runs). Closing
+            # that startup window would take a per-session cancel flag checked here and is left as a
+            # follow-up.
+            if mlflow_session_id:
+                save_container_id(mlflow_session_id, proc.container_id)
+            try:
+                async for raw_line in proc.iter_stdout_lines():
+                    line_str = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line_str:
+                        continue
+                    try:
+                        data = json.loads(line_str)
+                        if self._should_filter_out_message(data):
+                            continue
+                        if structured_custom_view:
+                            data = self._filter_structured_output_text(data)
+                        if data is None:
+                            continue
+                        if data.get("type") == "result" and (usage := data.get("usage")):
+                            yield self._build_usage_event(usage, data.get("total_cost_usd"))
+                        if data.get("type") == "result" and structured_custom_view:
+                            structured_response = data.get("structured_output", data.get("result"))
+                            structured_session_id = data.get("session_id")
+                            continue
+                        if msg := self._parse_message_to_event(data):
+                            yield msg
+                    except json.JSONDecodeError:
+                        yield Event.from_message(Message(role="user", content=line_str))
+            finally:
+                if mlflow_session_id:
+                    clear_container_id(mlflow_session_id)
+
+            returncode = await proc.wait()
+            # The idle-timeout watchdog kills a stuck CLI; surface that as a clear error rather
+            # than a bare interrupt (both exit 137, so this must be checked first).
+            if proc.timed_out:
+                yield Event.from_error(
+                    "Claude Code produced no output for too long and was stopped. If a custom "
+                    "ANTHROPIC_BASE_URL is set, it may not be reachable from the sandbox."
+                )
+                return
+            # A killed container exits 137 (128 + SIGKILL), which is how cancellation surfaces.
+            if returncode == 137:
+                yield Event.from_interrupted()
+                return
+            if returncode != 0:
+                stderr = (await proc.read_stderr()).decode("utf-8", errors="replace").strip()
+                yield Event.from_error(stderr or f"Process exited with code {returncode}")
+            elif structured_custom_view:
+                if not structured_session_id:
+                    yield Event.from_error("Claude Code result did not include a session ID")
+                    return
+                try:
+                    response = parse_custom_view_response(structured_response)
+                except Exception as e:
+                    yield Event.from_error(
+                        f"Claude Code returned invalid Custom View output: {e}",
+                        session_id=structured_session_id,
+                    )
+                    return
+                for event in custom_view_response_events(response):
+                    yield event
+                yield Event.from_result(result=None, session_id=structured_session_id)
+        except Exception as e:
+            _logger.exception("Error running Claude Code CLI in sandbox")
+            yield Event.from_exception(e)
+        finally:
+            await proc.aclose()
 
     @staticmethod
     def _build_usage_event(usage: dict[str, Any], cost_usd: float | None = None) -> Event:

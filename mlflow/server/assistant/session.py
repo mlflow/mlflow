@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import signal
 import tempfile
@@ -8,6 +9,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from mlflow.assistant.types import Message
+
+_logger = logging.getLogger(__name__)
 
 SESSION_DIR = Path(tempfile.gettempdir()) / "mlflow-assistant-sessions"
 
@@ -217,7 +220,12 @@ def get_process_pid(session_id: str) -> int | None:
         return None
     if not process_file.exists():
         return None
-    data = json.loads(process_file.read_text())
+    try:
+        data = json.loads(process_file.read_text())
+    except (OSError, ValueError):
+        # A truncated/corrupt file (writes are not atomic) or one that vanished after the
+        # exists() check must not turn a cancel lookup into an error; treat it as absent.
+        return None
     return data.get("pid")
 
 
@@ -247,3 +255,92 @@ def terminate_session_process(session_id: str) -> bool:
         except (ProcessLookupError, PermissionError):
             clear_process_pid(session_id)
     return False
+
+
+def get_container_file(session_id: str) -> Path:
+    """Get the file path for storing a session's sandbox container id."""
+    SessionManager.validate_session_id(session_id)
+    return SESSION_DIR / f"{session_id}.container.json"
+
+
+def save_container_id(session_id: str, container_id: str) -> None:
+    """Record the sandbox container running a session's turn, for cancellation support."""
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    get_container_file(session_id).write_text(json.dumps({"container_id": container_id}))
+
+
+def get_container_id(session_id: str) -> str | None:
+    try:
+        container_file = get_container_file(session_id)
+    except ValueError:
+        return None
+    if not container_file.exists():
+        return None
+    try:
+        return json.loads(container_file.read_text()).get("container_id")
+    except (OSError, ValueError):
+        # A truncated/corrupt file (writes are not atomic) or one that vanished after the
+        # exists() check must not turn a cancel lookup into an error; treat it as absent.
+        return None
+
+
+def clear_container_id(session_id: str) -> None:
+    try:
+        container_file = get_container_file(session_id)
+    except ValueError:
+        return
+    # missing_ok: the stream's finally and a concurrent cancel can both clear the same id; tolerate
+    # the file already being gone rather than raising a spurious error on the losing path.
+    container_file.unlink(missing_ok=True)
+
+
+def get_session_sandbox_home(session_id: str) -> Path:
+    """Server-owned host directory bind-mounted as the sandbox container's ``$HOME``.
+
+    Persists the CLI's ``--resume`` state and caches across turns of a session. It is created
+    here (owned by the server user) so the container, which runs as that same uid:gid, can
+    write to it. These directories accumulate per session; reaping stale ones is handled by
+    the session-lifecycle work.
+    """
+    SessionManager.validate_session_id(session_id)
+    home = SESSION_DIR / "sandbox-home" / session_id
+    home.mkdir(parents=True, exist_ok=True)
+    # This HOME holds the CLI's login credentials and session state, so keep it private to the
+    # server user (0700). mkdir() above is subject to the process umask, and a pre-existing dir
+    # may have looser modes, so enforce it explicitly.
+    home.chmod(0o700)
+    return home
+
+
+def terminate_session_container(session_id: str) -> bool:
+    """Kill the sandbox container running a session's turn, if any.
+
+    Returns True only if a container was found and killed. A container that is already gone
+    clears the stored id and returns False. A transient failure (e.g. a daemon hiccup) against
+    a possibly-live container is left as-is — the id is kept so a retry can still reach it.
+    """
+    container_id = get_container_id(session_id)
+    if not container_id:
+        return False
+    try:
+        import docker
+        import docker.errors
+
+        client = docker.from_env()
+        try:
+            container = client.containers.get(container_id)
+        except docker.errors.NotFound:
+            clear_container_id(session_id)
+            return False
+        container.kill()
+        clear_container_id(session_id)
+        return True
+    except Exception:
+        # Keep the id (a retry can still reach a possibly-live container) but log it — otherwise a
+        # failed kill is invisible while the cancel endpoint reports the session as cancelled.
+        _logger.warning(
+            "Failed to terminate sandbox container for session %s; leaving its id for retry.",
+            session_id,
+            exc_info=True,
+        )
+        return False
