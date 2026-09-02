@@ -71,8 +71,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 python3
 # provider(s) you enable; both can coexist in one image.
 RUN npm install -g @anthropic-ai/claude-code @openai/codex
 
-# A home the non-root server user can write to (bind-mounted at runtime for --resume state).
-RUN mkdir -p /home/sandbox && chmod 0777 /home/sandbox
+# Mountpoint for the CLI's HOME. At runtime the server bind-mounts a private, server-owned
+# directory here (holding --resume state), so this only needs to exist.
+RUN mkdir -p /home/sandbox
 ```
 
 Build and point the server at it:
