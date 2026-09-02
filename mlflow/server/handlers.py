@@ -3585,14 +3585,16 @@ def _update_webhook(webhook_id: str):
     webhook = _get_model_registry_store().update_webhook(
         webhook_id=webhook_id,
         name=request_message.name or None,
-        description=request_message.description or None,
+        description=(
+            request_message.description if request_message.HasField("description") else None
+        ),
         url=request_message.url or None,
         events=(
             [WebhookEvent.from_proto(e) for e in request_message.events]
             if request_message.events
             else None
         ),
-        secret=request_message.secret or None,
+        secret=request_message.secret if request_message.HasField("secret") else None,
         status=(
             WebhookStatus.from_proto(request_message.status)
             if request_message.HasField("status")
