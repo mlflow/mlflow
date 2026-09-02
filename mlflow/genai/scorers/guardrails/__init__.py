@@ -37,7 +37,6 @@ from mlflow.genai.scorers.guardrails.utils import (
     check_guardrails_installed,
     map_scorer_inputs_to_text,
 )
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 

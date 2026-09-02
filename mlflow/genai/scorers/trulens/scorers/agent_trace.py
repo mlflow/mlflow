@@ -27,7 +27,6 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
 from mlflow.genai.scorers.trulens.registry import get_feedback_method_name
 from mlflow.genai.scorers.trulens.utils import format_rationale
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)

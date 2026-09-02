@@ -182,6 +182,7 @@ def _fetch_traces(all_trace_ids: list[list[str]]) -> list[list["Trace"]]:
     return all_traces
 
 
+@experimental(version="3.10.0", skip=True)
 @dataclass(frozen=True)
 class SimulatorContext:
     """
@@ -221,6 +222,7 @@ class SimulatorContext:
 
 
 @format_docstring(_MODEL_API_DOC)
+@experimental(version="3.10.0", skip=True)
 class BaseSimulatedUserAgent(ABC):
     """
     Abstract base class for simulated user agents.
@@ -290,6 +292,7 @@ class BaseSimulatedUserAgent(ABC):
 
 
 @format_docstring(_MODEL_API_DOC)
+@experimental(version="3.10.0", skip=True)
 class SimulatedUserAgent(BaseSimulatedUserAgent):
     """
     An LLM-powered agent that simulates user behavior in conversations.
@@ -592,6 +595,7 @@ class ConversationSimulator:
             return self._source_dataset.name
         return "conversational_dataset"
 
+    @experimental(version="3.10.0", skip=True)
     @record_usage_event(SimulateConversationEvent)
     def simulate(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list["Trace"]]:
         """

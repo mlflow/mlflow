@@ -34,7 +34,6 @@ from mlflow.genai.scorers.trulens.utils import (
     format_rationale,
     map_scorer_inputs_to_trulens_args,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)

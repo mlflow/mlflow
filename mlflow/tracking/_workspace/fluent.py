@@ -13,7 +13,6 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_context import set_workspace as set_context_workspace
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
