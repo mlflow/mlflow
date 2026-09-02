@@ -214,6 +214,11 @@ class Span:
         return SpanLogLevel(raw)
 
     @property
+    def description(self) -> str | None:
+        """The description of the span, or ``None`` if it was not set."""
+        return self.get_attribute(SpanAttributeKey.DESCRIPTION)
+
+    @property
     def model_name(self) -> str | None:
         """The model name used in the span."""
         return self.get_attribute(SpanAttributeKey.MODEL)
@@ -704,6 +709,10 @@ class LiveSpan(Span):
     def set_span_type(self, span_type: str):
         """Set the type of the span."""
         self.set_attribute(SpanAttributeKey.SPAN_TYPE, span_type)
+
+    def set_description(self, description: str):
+        """Set the description of the span."""
+        self.set_attribute(SpanAttributeKey.DESCRIPTION, description)
 
     def set_log_level(self, level: SpanLogLevel | str):
         """
@@ -1446,6 +1455,9 @@ class NoOpSpan(Span):
         pass
 
     def set_attribute(self, key: str, value: Any):
+        pass
+
+    def set_description(self, description: str):
         pass
 
     def set_log_level(self, level: SpanLogLevel | int | str):
