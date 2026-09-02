@@ -34,7 +34,6 @@ from mlflow.genai.scorers.trulens.utils import (
     format_rationale,
     map_scorer_inputs_to_trulens_args,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
@@ -43,7 +42,6 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_THRESHOLD = 0.5
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class TruLensScorer(Scorer):
     """
@@ -135,7 +133,6 @@ class TruLensScorer(Scorer):
             )
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
@@ -172,7 +169,6 @@ def get_scorer(
     )
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class Groundedness(TruLensScorer):
     """
@@ -197,7 +193,6 @@ class Groundedness(TruLensScorer):
     metric_name: ClassVar[str] = "Groundedness"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextRelevance(TruLensScorer):
     """
@@ -222,7 +217,6 @@ class ContextRelevance(TruLensScorer):
     metric_name: ClassVar[str] = "ContextRelevance"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class AnswerRelevance(TruLensScorer):
     """
@@ -246,7 +240,6 @@ class AnswerRelevance(TruLensScorer):
     metric_name: ClassVar[str] = "AnswerRelevance"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class Coherence(TruLensScorer):
     """

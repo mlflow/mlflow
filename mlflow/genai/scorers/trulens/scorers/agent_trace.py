@@ -27,7 +27,6 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
 from mlflow.genai.scorers.trulens.registry import get_feedback_method_name
 from mlflow.genai.scorers.trulens.utils import format_rationale
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
@@ -108,7 +107,6 @@ class TruLensAgentScorer(Scorer):
             )
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class LogicalConsistency(TruLensAgentScorer):
     """
@@ -136,7 +134,6 @@ class LogicalConsistency(TruLensAgentScorer):
     metric_name: ClassVar[str] = "logical_consistency"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class ExecutionEfficiency(TruLensAgentScorer):
     """
@@ -164,7 +161,6 @@ class ExecutionEfficiency(TruLensAgentScorer):
     metric_name: ClassVar[str] = "execution_efficiency"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class PlanAdherence(TruLensAgentScorer):
     """
@@ -192,7 +188,6 @@ class PlanAdherence(TruLensAgentScorer):
     metric_name: ClassVar[str] = "plan_adherence"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class PlanQuality(TruLensAgentScorer):
     """
@@ -220,7 +215,6 @@ class PlanQuality(TruLensAgentScorer):
     metric_name: ClassVar[str] = "plan_quality"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolSelection(TruLensAgentScorer):
     """
@@ -248,7 +242,6 @@ class ToolSelection(TruLensAgentScorer):
     metric_name: ClassVar[str] = "tool_selection"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCalling(TruLensAgentScorer):
     """
