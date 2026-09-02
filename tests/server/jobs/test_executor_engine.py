@@ -781,7 +781,11 @@ def test_submit_job_executor_engine_skips_huey(monkeypatch, registered_jobs, eng
         submit_job(executor_engine_add, {"x": 1, "y": 2})
 
     store.create_job.assert_called_once_with(
-        "executor_engine_add", json.dumps({"x": 1, "y": 2}), None, creator=None
+        "executor_engine_add",
+        json.dumps({"x": 1, "y": 2}),
+        None,
+        creator=None,
+        executor_backend="local",
     )
     get_huey.assert_not_called()
 

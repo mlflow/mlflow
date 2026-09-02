@@ -13,8 +13,10 @@ from mlflow.genai.scorers.scorer_utils import (
     get_tool_call_signature,
     is_gateway_model,
     normalize_tool_call_arguments,
+    params_contain_custom_scorer_code,
     parse_tool_call_expectations,
     recreate_function,
+    scorer_params_use_direct_provider_model,
     update_model_in_serialized_scorer,
 )
 from mlflow.genai.utils.type import FunctionCall
@@ -649,3 +651,143 @@ def test_get_tool_call_signature_sorts_arguments():
     sig1 = get_tool_call_signature(call1, include_arguments=True)
     sig2 = get_tool_call_signature(call2, include_arguments=True)
     assert sig1 == sig2
+
+
+# ============================================================================
+# CUSTOM-SCORER DETECTION AND REMOTE-COMPATIBILITY TESTS
+# ============================================================================
+
+
+def _custom_scorer_json():
+    return json.dumps({
+        "name": "c",
+        "call_source": "    return 1\n",
+        "call_signature": "(inputs, outputs)",
+        "original_func_name": "c",
+    })
+
+
+def _builtin_scorer_json():
+    return json.dumps({"name": "b", "builtin_scorer_class": "Safety"})
+
+
+def _judge_scorer_json(model_uri):
+    return json.dumps({"name": "j", "instructions_judge_pydantic_data": {"model": model_uri}})
+
+
+def test_invoke_scorer_custom_detected():
+    params = {"serialized_scorer": _custom_scorer_json(), "trace_ids": ["t1"]}
+    assert params_contain_custom_scorer_code("invoke_scorer", params) is True
+
+
+def test_invoke_scorer_builtin_not_custom():
+    params = {"serialized_scorer": _builtin_scorer_json(), "trace_ids": ["t1"]}
+    assert params_contain_custom_scorer_code("invoke_scorer", params) is False
+
+
+def test_online_scorers_custom_detected():
+    params = {
+        "experiment_id": "e",
+        "online_scorers": [
+            {"serialized_scorer": _builtin_scorer_json()},
+            {"serialized_scorer": _custom_scorer_json()},
+        ],
+    }
+    assert params_contain_custom_scorer_code("run_online_trace_scorer", params) is True
+
+
+def test_non_scorer_job_not_custom():
+    assert params_contain_custom_scorer_code("optimize_prompts", {"anything": 1}) is False
+
+
+def test_malformed_serialized_scorer_not_custom():
+    params = {"serialized_scorer": "not json"}
+    assert params_contain_custom_scorer_code("invoke_scorer", params) is False
+
+
+def test_direct_provider_model_flagged():
+    params = {"serialized_scorer": _judge_scorer_json("openai:/gpt-4")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is True
+
+
+def test_gateway_endpoint_model_ok():
+    params = {"serialized_scorer": _judge_scorer_json("endpoints:/my-endpoint")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_no_model_is_compatible():
+    params = {"serialized_scorer": _builtin_scorer_json()}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_online_scorers_direct_provider_flagged():
+    params = {"online_scorers": [{"serialized_scorer": _judge_scorer_json("anthropic:/claude")}]}
+    assert scorer_params_use_direct_provider_model("run_online_trace_scorer", params) is True
+
+
+def test_invoke_genai_evaluate_custom_detected():
+    # This job carries a plural `serialized_scorers` list, not a single `serialized_scorer`.
+    params = {
+        "serialized_scorers": [_builtin_scorer_json(), _custom_scorer_json()],
+        "trace_ids": ["t1"],
+    }
+    assert params_contain_custom_scorer_code("invoke_genai_evaluate", params) is True
+
+
+def test_invoke_genai_evaluate_builtin_not_custom():
+    params = {"serialized_scorers": [_builtin_scorer_json()], "trace_ids": ["t1"]}
+    assert params_contain_custom_scorer_code("invoke_genai_evaluate", params) is False
+
+
+def test_ensemble_nested_custom_detected():
+    # A decorator sub-scorer nested inside an ensemble must be detected even though the
+    # top-level scorer has no `call_source`.
+    ensemble = json.dumps({
+        "name": "e",
+        "ensemble_scorer_data": {
+            "scorers": [
+                {"name": "b", "builtin_scorer_class": "Safety"},
+                {
+                    "name": "c",
+                    "call_source": "    return 1\n",
+                    "call_signature": "(inputs, outputs)",
+                    "original_func_name": "c",
+                },
+            ]
+        },
+    })
+    assert (
+        params_contain_custom_scorer_code("invoke_scorer", {"serialized_scorer": ensemble}) is True
+    )
+
+
+def test_gateway_scheme_model_ok():
+    params = {"serialized_scorer": _judge_scorer_json("gateway:/my-endpoint")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_databricks_scheme_model_ok():
+    params = {"serialized_scorer": _judge_scorer_json("databricks:/my-endpoint")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
+def test_scorer_detection_job_names_match_registered_jobs():
+    # The detection job-name sets must stay in sync with the actual registered scorer job
+    # names; a rename that touches only one side would silently fail the gate open.
+    from mlflow.genai.evaluation.job import invoke_genai_evaluate_job
+    from mlflow.genai.scorers.job import (
+        invoke_scorer_job,
+        run_online_session_scorer_job,
+        run_online_trace_scorer_job,
+    )
+    from mlflow.genai.scorers.scorer_utils import _scorer_job_param_names
+
+    inline, inline_list, online = _scorer_job_param_names()
+    detected = inline | inline_list | online
+    registered = {
+        invoke_scorer_job._job_fn_metadata.name,
+        invoke_genai_evaluate_job._job_fn_metadata.name,
+        run_online_trace_scorer_job._job_fn_metadata.name,
+        run_online_session_scorer_job._job_fn_metadata.name,
+    }
+    assert detected == registered

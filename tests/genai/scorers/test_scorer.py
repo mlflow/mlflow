@@ -379,6 +379,38 @@ def test_custom_scorer_loading_allowed_for_databricks_remote_access():
         assert result.name == "test_scorer"
 
 
+def test_custom_scorer_loading_allowed_when_flag_enabled(monkeypatch):
+    serialized = SerializedScorer(
+        name="test_scorer",
+        is_session_level_scorer=False,
+        call_source="return len(outputs) > 0",
+        call_signature="(outputs)",
+        original_func_name="test_scorer",
+    )
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    result = Scorer._reconstruct_decorator_scorer(serialized)
+    assert result.name == "test_scorer"
+
+
+def test_custom_scorer_registration_allowed_when_flag_enabled(monkeypatch):
+    @scorer
+    def flagged_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    # Off by default: registration is rejected on a non-Databricks URI.
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    with pytest.raises(
+        mlflow.exceptions.MlflowException,
+        match="Custom scorer registration.*not supported outside of Databricks tracking",
+    ):
+        flagged_scorer._check_can_be_registered()
+
+    # Opted in: the decorator-scorer guard no longer blocks registration.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    flagged_scorer._check_can_be_registered()
+
+
 def test_custom_scorer_error_message_renders_code_snippet_legibly():
     serialized = SerializedScorer(
         name="complex_scorer",

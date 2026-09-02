@@ -20,8 +20,10 @@ from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 
 _logger = logging.getLogger(__name__)
 
+INVOKE_GENAI_EVALUATE_JOB_NAME = "invoke_genai_evaluate"
 
-@job(name="invoke_genai_evaluate", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
+
+@job(name=INVOKE_GENAI_EVALUATE_JOB_NAME, max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
 def invoke_genai_evaluate_job(
     trace_ids: list[str],
     serialized_scorers: list[str],
