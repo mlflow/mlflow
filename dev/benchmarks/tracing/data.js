@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788311597994,
+  "lastUpdate": 1788314753129,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -25865,6 +25865,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.85179160000098,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "97677340+CoralGarden52@users.noreply.github.com",
+            "name": "CoralGarden52",
+            "username": "CoralGarden52"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a79c7cb07e0f6915d935e14113b2d48c02f56804",
+          "message": "[BUGFIX] Preserve empty webhook fields in partial `update_webhook` calls (#25509)\n\nSigned-off-by: CoralGarden52 <2193436736@qq.com>",
+          "timestamp": "2026-09-02T02:04:41Z",
+          "tree_id": "61bb5c7beef52ea7b2e25674ad4c304c44fe34b3",
+          "url": "https://github.com/mlflow/mlflow/commit/a79c7cb07e0f6915d935e14113b2d48c02f56804"
+        },
+        "date": 1788314751953,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 32.75808330000132,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.81338476315853,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.162476749999685,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.792560662070071,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.126072481708204,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.6701498333305835,
             "unit": "ms"
           }
         ]
