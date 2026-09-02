@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788329056447,
+  "lastUpdate": 1788331437771,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -26027,6 +26027,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 27.433949200002417,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "76001552+joelrobin18@users.noreply.github.com",
+            "name": "Joel Robin P",
+            "username": "joelrobin18"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "86fcb2a0cfae9379dc4270e5d48f730c19a9eedd",
+          "message": "Support per-user budget policies in the AI Gateway (USER scope) (#24371)\n\nSigned-off-by: joelrobin18 <joelrobin1818@gmail.com>",
+          "timestamp": "2026-09-02T12:12:35+05:30",
+          "tree_id": "afb9a22ad6200c1c7391e0f5233b8132fc2d9e35",
+          "url": "https://github.com/mlflow/mlflow/commit/86fcb2a0cfae9379dc4270e5d48f730c19a9eedd"
+        },
+        "date": 1788331435692,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.182867350001516,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.183027599998543,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.364987006711294,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.190186572645898,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.651509790694956,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 16.997265000020434,
             "unit": "ms"
           }
         ]
