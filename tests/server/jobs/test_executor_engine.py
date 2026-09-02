@@ -22,6 +22,7 @@ from mlflow.server.jobs.utils import (
     _exec_job,
     _job_name_to_fn_fullname_map,
 )
+from mlflow.store.jobs.abstract_store import JobUpdateStatus
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
 from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
@@ -859,3 +860,173 @@ def test_launch_job_execution_runner_dispatch(monkeypatch, engine, expected):
     launchers.pop(expected).assert_called_once_with(env_map, 1234)
     for unused in launchers.values():
         unused.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Job-lease renewal
+# ---------------------------------------------------------------------------
+
+
+def test_lease_renewer_renews_while_running_then_stops():
+    store = mock.MagicMock()
+    calls = []
+    reached_two = threading.Event()
+
+    def _renew(job_id, lease_duration):
+        calls.append(job_id)
+        if len(calls) >= 2:
+            reached_two.set()
+        return JobUpdateStatus.APPLIED
+
+    store.renew_job_lease.side_effect = _renew
+    with runner._LeaseRenewer(store, "job-1", lease_duration=0.6, workspace=None):
+        # Wait for two renewals to fire, then exit; no wall-clock sleep drives the count.
+        assert reached_two.wait(timeout=5.0)
+    # __exit__ joins the renewer thread, so the count is final and no renewals fire after.
+    assert store.renew_job_lease.call_count >= 2
+    store.renew_job_lease.assert_called_with("job-1", 0.6)
+
+
+def test_lease_renewer_stops_when_lease_no_longer_renewable():
+    store = mock.MagicMock()
+    renewed = threading.Event()
+
+    def _renew(job_id, lease_duration):
+        renewed.set()
+        return JobUpdateStatus.WRONG_STATE
+
+    store.renew_job_lease.side_effect = _renew
+    with runner._LeaseRenewer(store, "job-1", lease_duration=0.6, workspace=None):
+        assert renewed.wait(timeout=5.0)
+    # A non-APPLIED status makes the renewer stop on its own after a single attempt.
+    assert store.renew_job_lease.call_count == 1
+
+
+def test_lease_renewer_survives_renew_error_and_keeps_renewing():
+    store = mock.MagicMock()
+    calls = []
+    reached_second = threading.Event()
+
+    def _renew(job_id, lease_duration):
+        calls.append(job_id)
+        if len(calls) == 1:
+            raise RuntimeError("transient store error")
+        reached_second.set()
+        return JobUpdateStatus.APPLIED
+
+    store.renew_job_lease.side_effect = _renew
+    with mock.patch.object(runner, "_logger") as mock_logger:
+        with runner._LeaseRenewer(store, "job-1", lease_duration=0.6, workspace=None):
+            # The first renewal raises; the renewer must log and keep going to a second.
+            assert reached_second.wait(timeout=5.0)
+    mock_logger.exception.assert_called()
+    assert store.renew_job_lease.call_count >= 2
+
+
+@pytest.mark.parametrize("lease_duration", [runner._MIN_LEASE_TTL, 60.0])
+def test_lease_renewer_interval_below_ttl_and_at_or_above_floor(lease_duration):
+    # For any accepted TTL (>= _MIN_LEASE_TTL) the renewal interval fires before the lease expires
+    # (strictly below the TTL) while never dropping below the busy-loop floor.
+    renewer = runner._LeaseRenewer(mock.MagicMock(), "job-1", lease_duration, workspace=None)
+    assert runner._MIN_LEASE_RENEW_INTERVAL <= renewer._interval < lease_duration
+
+
+def test_scheduler_rejects_lease_ttl_below_minimum():
+    # A configured TTL too small to renew before expiry is rejected at startup rather than left to
+    # busy-loop the store; the boundary value itself is accepted.
+    with pytest.raises(MlflowException, match="job lease TTL must be at least"):
+        runner._JobScheduler(mock.MagicMock(), mock.MagicMock(), lease_duration=0.1)
+    runner._JobScheduler(mock.MagicMock(), mock.MagicMock(), lease_duration=runner._MIN_LEASE_TTL)
+
+
+def test_lease_renewed_during_submit_job(registered_jobs, job_store, monkeypatch):
+    # Renewal must cover submit_job, not just wait_for_job: a submit_job that outlasts the lease
+    # (e.g. installing a job environment) must still see renewals. Prove it by blocking submit_job
+    # until a renewal has landed — which can only happen if the renewer started before submission.
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(created.job_id, lease_duration=60.0)
+    job = job_store.get_job(created.job_id)
+
+    renewed = threading.Event()
+    real_renew = job_store.renew_job_lease
+
+    def _spy(job_id, lease_duration):
+        renewed.set()
+        return real_renew(job_id, lease_duration)
+
+    monkeypatch.setattr(job_store, "renew_job_lease", _spy)
+
+    executor = mock.MagicMock()
+    executor.submit_job.side_effect = lambda **kwargs: renewed.wait(timeout=5.0)
+    executor.wait_for_job.return_value = JobResult(status=JobStatus.SUCCEEDED, result="ok")
+
+    runner._execute_claimed_job(
+        job_store, executor, job, lease_duration=runner._MIN_LEASE_TTL, workspace=None
+    )
+
+    executor.submit_job.assert_called_once()
+    executor.wait_for_job.assert_called_once()
+    assert renewed.is_set()
+
+
+def test_long_running_job_lease_is_renewed(registered_jobs, job_store, executor, monkeypatch):
+    created = job_store.create_job("executor_engine_sleep", json.dumps({"sleep_secs": 1.0}))
+    renewed_ok = []
+    real_renew = job_store.renew_job_lease
+
+    def _spy(job_id, lease_duration):
+        # Record only successful renewals, so the assertion proves renewal actually landed rather
+        # than merely that it was attempted.
+        status = real_renew(job_id, lease_duration)
+        renewed_ok.append(job_id)
+        return status
+
+    monkeypatch.setattr(job_store, "renew_job_lease", _spy)
+    # Short lease so renewal (~lease/3) fires several times during the ~1s job.
+    _run_to_completion(job_store, executor, lease_duration=0.6)
+
+    assert created.job_id in renewed_ok
+    assert job_store.get_job(created.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_long_running_job_lease_is_renewed_with_workspaces(registered_jobs, tmp_path, monkeypatch):
+    # The renewer runs on its own thread; with workspaces enabled it must rebind the workspace so
+    # renew_job_lease resolves the tenant instead of raising "Active workspace is required". Without
+    # the workspace threading this fails: no renewal lands and the job would still succeed, so the
+    # renewal assertion is what proves the cross-thread workspace fix.
+    from mlflow.entities import Workspace
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = WorkspaceAwareSqlAlchemyJobStore(f"sqlite:///{tmp_path / 'ws.db'}")
+    with WorkspaceContext("workspace-b"):
+        created = store.create_job("executor_engine_sleep", json.dumps({"sleep_secs": 1.0}))
+
+    renewed_ok = []
+    real_renew = store.renew_job_lease
+
+    def _spy(job_id, lease_duration):
+        # real_renew raises "Active workspace is required" if the renewer thread didn't rebind the
+        # workspace (the bug), so recording only after it returns makes this assertion prove the
+        # cross-thread workspace fix rather than just the attempt.
+        status = real_renew(job_id, lease_duration)
+        renewed_ok.append(job_id)
+        return status
+
+    monkeypatch.setattr(store, "renew_job_lease", _spy)
+
+    ex = LocalJobExecutor(JobExecutorConfig(default_timeout=60.0))
+    ex.start_executor()
+    mock_workspace_store = mock.MagicMock()
+    mock_workspace_store.list_workspaces.return_value = [Workspace(name="workspace-b")]
+    try:
+        with mock.patch(
+            "mlflow.server.workspace_helpers._get_workspace_store",
+            return_value=mock_workspace_store,
+        ):
+            _run_to_completion(store, ex, lease_duration=0.6)
+    finally:
+        ex.stop_executor()
+
+    assert created.job_id in renewed_ok
+    with WorkspaceContext("workspace-b"):
+        assert store.get_job(created.job_id).status == JobStatus.SUCCEEDED
