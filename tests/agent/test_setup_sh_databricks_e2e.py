@@ -34,6 +34,10 @@ calls_path = Path(os.environ["DATABRICKS_TEST_CALLS"])
 with calls_path.open("a") as calls:
     calls.write(json.dumps(args) + "\n")
 
+if "--host" in args and args[:2] != ["auth", "login"]:
+    print(f"unknown flag: --host for {' '.join(args[:2])}", file=sys.stderr)
+    raise SystemExit(2)
+
 routes = json.loads(Path(os.environ["DATABRICKS_TEST_ROUTES"]).read_text())
 state_path = Path(os.environ["DATABRICKS_TEST_STATE"])
 state = json.loads(state_path.read_text()) if state_path.exists() else {}
