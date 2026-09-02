@@ -324,8 +324,7 @@ resolve_databricks_profile
 def test_dbx_json_passes_host_through_environment(tmp_path: Path):
     databricks = tmp_path / "databricks"
     databricks.write_text(
-        "#!/bin/sh\n"
-        "printf '%s\\n' \"${DATABRICKS_HOST:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*\"\n"
+        "#!/bin/sh\nprintf '%s\\n' \"${DATABRICKS_HOST:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*\"\n"
     )
     databricks.chmod(0o755)
 
