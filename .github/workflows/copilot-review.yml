@@ -28,7 +28,8 @@ jobs:
     steps:
       - name: Mark ready for review
         if: >-
-          github.event.pull_request.draft == true
+          github.event.action == 'review_requested'
+          && github.event.pull_request.draft == true
           && github.event.pull_request.user.login == 'Copilot'
           && github.event.pull_request.user.type == 'Bot'
         env:
