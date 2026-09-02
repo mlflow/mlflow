@@ -27,7 +27,10 @@ jobs:
       pull-requests: write
     steps:
       - name: Mark ready for review
-        if: github.event.pull_request.draft == true
+        if: >-
+          github.event.pull_request.draft == true
+          && github.event.pull_request.user.login == 'Copilot'
+          && github.event.pull_request.user.type == 'Bot'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
