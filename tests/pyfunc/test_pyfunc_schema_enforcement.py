@@ -3081,3 +3081,36 @@ def test_schema_enforcement_for_anytype(input_example, expected_schema, payload_
     result = json.loads(response.content.decode("utf-8"))["predictions"]
     expected_result = df.to_dict(orient="records")
     np.testing.assert_equal(result, expected_result)
+
+
+@pytest.mark.parametrize(
+    ("dtype", "data_type", "expected_dtype"),
+    [
+        ("boolean", DataType.boolean, "boolean"),
+        ("Int8", DataType.integer, "Int32"),
+        ("Int32", DataType.integer, "Int32"),
+        ("Int64", DataType.long, "Int64"),
+        ("UInt8", DataType.integer, "Int32"),
+    ],
+)
+def test_schema_enforcement_keeps_missing_values_in_nullable_columns(
+    dtype, data_type, expected_dtype
+):
+    values = [True, None] if dtype == "boolean" else [1, None]
+    pf_input = pd.DataFrame({"a": pd.array(values, dtype=dtype)})
+    schema = Schema([ColSpec(data_type, name="a", required=False)])
+
+    result = _enforce_schema(pf_input, schema)
+
+    assert result["a"].dtype == expected_dtype
+    assert result["a"].isna().tolist() == [False, True]
+
+
+def test_schema_enforcement_accepts_inferred_nullable_schema():
+    pf_input = pd.DataFrame({"a": pd.array([1, 2, None], dtype="Int64")})
+    signature = infer_signature(pf_input)
+    assert signature.inputs == Schema([ColSpec(DataType.long, name="a", required=False)])
+
+    result = _enforce_schema(pf_input, signature.inputs)
+    assert result["a"].tolist()[:2] == [1, 2]
+    assert result["a"].isna().tolist() == [False, False, True]

@@ -736,6 +736,13 @@ def _enforce_tensor_spec(
     return values
 
 
+_NULLABLE_EQUIVALENT_DTYPES = {
+    DataType.boolean: "boolean",
+    DataType.integer: "Int32",
+    DataType.long: "Int64",
+}
+
+
 def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     """
     Enforce the input column type matches the declared in model input schema.
@@ -836,6 +843,14 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         is_upcast = False
 
     if is_upcast:
+        if (
+            numpy_type.kind in ("b", "i", "u")
+            and isinstance(values.dtype, pd.api.extensions.ExtensionDtype)
+            and values.isna().any()
+        ):
+            # numpy bool and integer dtypes cannot hold missing values, so cast within the
+            # nullable family to preserve them.
+            return values.astype(_NULLABLE_EQUIVALENT_DTYPES[t])
         return values.astype(numpy_type, errors="raise")
     else:
         # support converting long -> float/double for 0 and 1 values
