@@ -109,6 +109,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
+    NOT_IMPLEMENTED,
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.issues_pb2 import (
@@ -1353,7 +1354,7 @@ def _disable_if_gateway_disabled(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if not MLFLOW_ENABLE_AI_GATEWAY.get():
-            return jsonify(detail=GATEWAY_DISABLED_MESSAGE), 501
+            raise MlflowException(GATEWAY_DISABLED_MESSAGE, NOT_IMPLEMENTED)
         return func(*args, **kwargs)
 
     return wrapper
@@ -6553,6 +6554,7 @@ def _validate_budget_target_scope(target_scope, target_value):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_budget_policy():
     request_message = _get_request_message(
         CreateGatewayBudgetPolicy(),
@@ -6617,6 +6619,7 @@ def _create_budget_policy():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_budget_policy():
     request_message = _get_request_message(
         GetGatewayBudgetPolicy(),
@@ -6634,6 +6637,7 @@ def _get_budget_policy():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _update_budget_policy():
     request_message = _get_request_message(
         UpdateGatewayBudgetPolicy(),
@@ -6720,6 +6724,7 @@ def _update_budget_policy():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_budget_policy():
     request_message = _get_request_message(
         DeleteGatewayBudgetPolicy(),
@@ -6737,6 +6742,7 @@ def _delete_budget_policy():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_budget_policies():
     request_message = _get_request_message(
         ListGatewayBudgetPolicies(),
@@ -6772,6 +6778,7 @@ def _get_request_workspace_for_budget_windows():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_budget_windows():
     _get_request_message(ListGatewayBudgetWindows())
     workspace = _get_request_workspace_for_budget_windows()
@@ -6801,6 +6808,7 @@ def _list_budget_windows():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _create_gateway_guardrail():
     request_message = _get_request_message(
         CreateGatewayGuardrail(),
@@ -6843,6 +6851,7 @@ def _create_gateway_guardrail():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_gateway_guardrail():
     request_message = _get_request_message(
         GetGatewayGuardrail(),
@@ -6858,6 +6867,7 @@ def _get_gateway_guardrail():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _delete_gateway_guardrail():
     request_message = _get_request_message(
         DeleteGatewayGuardrail(),
@@ -6869,6 +6879,7 @@ def _delete_gateway_guardrail():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_gateway_guardrails():
     request_message = _get_request_message(
         ListGatewayGuardrails(),
@@ -6890,6 +6901,7 @@ def _list_gateway_guardrails():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _add_guardrail_to_endpoint():
     request_message = _get_request_message(
         AddGuardrailToEndpoint(),
@@ -6914,6 +6926,7 @@ def _add_guardrail_to_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _remove_guardrail_from_endpoint():
     request_message = _get_request_message(
         RemoveGuardrailFromEndpoint(),
@@ -6931,6 +6944,7 @@ def _remove_guardrail_from_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_endpoint_guardrail_configs():
     request_message = _get_request_message(
         ListEndpointGuardrailConfigs(),
@@ -6945,6 +6959,7 @@ def _list_endpoint_guardrail_configs():
 
 
 @catch_mlflow_exception
+@_disable_if_gateway_disabled
 def _update_endpoint_guardrail_config():
     request_message = _get_request_message(
         UpdateEndpointGuardrailConfig(),
@@ -7021,6 +7036,7 @@ def _get_server_info():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_supported_providers():
     try:
         providers = get_all_providers()
@@ -7031,6 +7047,7 @@ def _list_supported_providers():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _list_supported_models():
     try:
         provider_filter = request.args.get("provider")
@@ -7042,6 +7059,7 @@ def _list_supported_models():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_provider_config():
     try:
         provider = request.args.get("provider")
@@ -7053,6 +7071,7 @@ def _get_provider_config():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@_disable_if_gateway_disabled
 def _get_secrets_config():
     using_default_passphrase = not os.environ.get(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
     return jsonify({

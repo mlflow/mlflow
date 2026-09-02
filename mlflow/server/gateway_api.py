@@ -97,7 +97,7 @@ from mlflow.utils.workspace_context import get_request_workspace
 _logger = logging.getLogger(__name__)
 
 
-async def _check_gateway_disabled():
+async def _ensure_gateway_enabled():
     if not MLFLOW_ENABLE_AI_GATEWAY.get():
         raise HTTPException(status_code=501, detail=GATEWAY_DISABLED_MESSAGE)
 
@@ -105,7 +105,7 @@ async def _check_gateway_disabled():
 gateway_router = APIRouter(
     prefix="/gateway",
     tags=["gateway"],
-    dependencies=[Depends(_check_gateway_disabled)],
+    dependencies=[Depends(_ensure_gateway_enabled)],
 )
 
 

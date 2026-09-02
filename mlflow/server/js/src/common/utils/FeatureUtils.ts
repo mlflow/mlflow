@@ -3,7 +3,11 @@
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
 
-import { getFeatureEnabledSync, getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
+import {
+  getFeatureEnabledSync,
+  getWorkspacesEnabledSync,
+  SERVER_FEATURE_KEYS,
+} from '../../experiment-tracking/hooks/useServerInfo';
 
 // Returns the current workspaces enabled state from the cached server features.
 // This is synchronous and returns the cached value (false if not yet loaded).
@@ -51,9 +55,11 @@ export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 
 /**
  * Feature flag to enable Scorers UI tab in experiment page
+ * Scorers currently use AI Gateway endpoints and stored secrets, so they are hidden with Gateway
+ * until those dependencies are decoupled.
  */
 export const enableScorersUI = () => {
-  return shouldEnableAIGateway();
+  return getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY);
 };
 
 /**
@@ -234,9 +240,11 @@ export const isScorerModelSelectionEnabled = () => {
 
 /**
  * Determines if issue detection feature is enabled in the traces table toolbar.
+ * Issue detection currently uses AI Gateway endpoints and stored secrets, so it is hidden with
+ * Gateway until those dependencies are decoupled.
  */
 export const shouldEnableIssueDetection = () => {
-  return shouldEnableAIGateway();
+  return getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY);
 };
 
 /**
@@ -254,12 +262,4 @@ export const shouldShowEvalRunsIssuesPanel = () => {
  */
 export const shouldSupportRunningDatabricksProviderJudgesFromUI = () => {
   return false;
-};
-
-/**
- * Determines if the AI Gateway feature is enabled.
- * Reads the runtime value from the server-info endpoint (default: true).
- */
-export const shouldEnableAIGateway = () => {
-  return getFeatureEnabledSync('gateway');
 };
