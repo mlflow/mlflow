@@ -21,6 +21,7 @@ import random
 import signal
 import threading
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Callable
 
@@ -50,6 +51,87 @@ _logger = logging.getLogger("mlflow.server.jobs._executor_runner")
 _POLL_INTERVAL = 1.0
 # On shutdown, how long to wait for each in-flight worker before stopping the executor.
 _SHUTDOWN_JOIN_TIMEOUT = 5.0
+
+# How many times a running job's lease is renewed per lease TTL: the renew interval is the TTL
+# divided by this, so the lease is refreshed well before it expires. The interval is floored so a
+# short TTL cannot drive a busy renew loop.
+_LEASE_RENEWALS_PER_TTL = 3.0
+_MIN_LEASE_RENEW_INTERVAL = 0.2
+# Smallest lease TTL the executor accepts: the TTL at which the floored interval still fits the
+# designed renewals-per-TTL (i.e. _MIN_LEASE_RENEW_INTERVAL * _LEASE_RENEWALS_PER_TTL, written as a
+# literal to avoid float rounding rejecting the exact boundary). The scheduler rejects a configured
+# TTL below this at startup, so the renew interval is always strictly below the TTL (the floor
+# never reaches it) — no near-zero busy loop and no renewal that first fires after the lease has
+# already expired.
+_MIN_LEASE_TTL = 0.6
+
+
+class _LeaseRenewer:
+    """Keeps a running job's lease alive until the job finishes.
+
+    ``claim_job`` sets an initial lease when it moves a job to RUNNING. A job that runs longer than
+    the lease TTL would otherwise look abandoned to stale-job recovery, so while the job runs this
+    renews the lease on a daemon thread and stops as soon as the job returns. Used as a context
+    manager wrapping both ``submit_job`` and ``wait_for_job``, so the renewal also covers any
+    long synchronous setup ``submit_job`` performs (e.g. installing the job's environment).
+    """
+
+    def __init__(
+        self,
+        job_store: AbstractJobStore,
+        job_id: str,
+        lease_duration: float,
+        workspace: str | None,
+    ) -> None:
+        self._job_store = job_store
+        self._job_id = job_id
+        self._lease_duration = lease_duration
+        # The renewer runs on its own thread, which does not inherit the worker's workspace
+        # ContextVar. Rebind it here so the workspace-aware store resolves the right tenant;
+        # without it renew_job_lease would raise "Active workspace is required" on every tick.
+        self._workspace = workspace
+        # Renew at TTL/N, floored so a short TTL cannot drive a busy loop. The scheduler validates
+        # the configured TTL is >= _MIN_LEASE_TTL at startup, so this interval is always strictly
+        # below the lease (the floor never reaches the TTL) and fires before it expires.
+        self._interval = max(lease_duration / _LEASE_RENEWALS_PER_TTL, _MIN_LEASE_RENEW_INTERVAL)
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._renew_until_stopped,
+            name=f"mlflow-job-lease-renewer-{job_id}",
+            daemon=True,
+        )
+
+    def _renew_until_stopped(self) -> None:
+        # Event.wait returns True once stopped and False on each timeout; renew on timeout.
+        with ServerWorkspaceContext(self._workspace):
+            while not self._stop.wait(self._interval):
+                try:
+                    status = self._job_store.renew_job_lease(self._job_id, self._lease_duration)
+                except Exception:
+                    # A transient store error must not silently kill renewal: log and retry on the
+                    # next tick so the lease keeps being refreshed while the job runs.
+                    _logger.exception("Failed to renew lease for job %s; will retry", self._job_id)
+                    continue
+                if status != JobUpdateStatus.APPLIED:
+                    # The job row is no longer renewable (finalized or reset elsewhere); stop.
+                    return
+
+    def __enter__(self) -> "_LeaseRenewer":
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        # `_stop.set()` wakes the thread immediately even mid-interval, so it only needs time to
+        # finish an in-flight renew call — bound that by the fixed shutdown budget, not the
+        # (possibly large) renewal interval, so a big TTL can't stretch shutdown.
+        self._thread.join(timeout=_SHUTDOWN_JOIN_TIMEOUT)
+        if self._thread.is_alive():
+            # A renew call is wedged (e.g. a hung store); the daemon thread will not block process
+            # exit, but surface it rather than leaking silently.
+            _logger.warning(
+                "Lease renewer for job %s did not stop within the join budget", self._job_id
+            )
 
 
 def _select_executor() -> AbstractJobExecutor:
@@ -135,11 +217,16 @@ def _execute_claimed_job(
     executor: AbstractJobExecutor,
     job: Job,
     on_submitted: Callable[[], None] | None = None,
+    lease_duration: float | None = None,
+    workspace: str | None = None,
 ) -> None:
     """Execute a job that has already been claimed (moved to RUNNING) and record its result.
 
     ``on_submitted`` is invoked right after the job reaches the executor, so the scheduler can
     start forwarding cancellations only once there is a backend job to cancel.
+
+    While the job runs, its lease is renewed in the background (when ``lease_duration`` is set) so
+    a long-running job is not treated as abandoned by stale-job recovery.
     """
     from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
 
@@ -158,19 +245,31 @@ def _execute_claimed_job(
     backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
     _logger.info(f"Executor engine running job {job.job_id} ({job.job_name}) on backend {backend}")
 
-    # Contract: every submit_job pairs with exactly one wait_for_job.
-    executor.submit_job(
-        job_id=job.job_id,
-        job_name=job.job_name,
-        fn_fullname=fn_fullname,
-        params=params,
-        context=context,
-        python_env=python_env,
-        timeout=job.timeout,
+    # Renew the lease across both submission and the wait, starting BEFORE submission. submit_job
+    # can do long synchronous setup (e.g. installing a job's environment) that outlasts the lease
+    # TTL, which would let stale-job recovery reclaim healthy work; renewing from here covers it.
+    # Starting the renewer first also keeps the submit/wait contract intact: if the renewer thread
+    # fails to start, it fails before submission, so there is never a submit_job without a paired
+    # wait_for_job.
+    lease_renewer = (
+        _LeaseRenewer(job_store, job.job_id, lease_duration, workspace)
+        if lease_duration is not None
+        else nullcontext()
     )
-    if on_submitted is not None:
-        on_submitted()
-    result = executor.wait_for_job(job.job_id)
+    with lease_renewer:
+        # Contract: every submit_job pairs with exactly one wait_for_job.
+        executor.submit_job(
+            job_id=job.job_id,
+            job_name=job.job_name,
+            fn_fullname=fn_fullname,
+            params=params,
+            context=context,
+            python_env=python_env,
+            timeout=job.timeout,
+        )
+        if on_submitted is not None:
+            on_submitted()
+        result = executor.wait_for_job(job.job_id)
     _logger.info(f"Executor engine job {job.job_id} finished with status {result.status.value}")
     _record_result(job_store, job.job_id, job.job_name, result)
 
@@ -218,6 +317,12 @@ class _JobScheduler:
         executor: AbstractJobExecutor,
         lease_duration: float | None,
     ) -> None:
+        if lease_duration is not None and lease_duration < _MIN_LEASE_TTL:
+            raise MlflowException(
+                f"The job lease TTL must be at least {_MIN_LEASE_TTL} seconds so a running job's "
+                f"lease can be renewed before it expires, but got {lease_duration}. Set "
+                f"MLFLOW_SERVER_JOB_LEASE_TTL to a larger value."
+            )
         self._job_store = job_store
         self._executor = executor
         self._lease_duration = lease_duration
@@ -440,6 +545,8 @@ class _JobScheduler:
                     self._executor,
                     job,
                     on_submitted=lambda: self._mark_submitted(job.job_id),
+                    lease_duration=self._lease_duration,
+                    workspace=workspace,
                 )
         except Exception as exc:
             # A claimed job left RUNNING would be stuck; fail it so recovery is not needed.
