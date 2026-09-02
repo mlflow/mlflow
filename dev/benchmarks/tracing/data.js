@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788361449895,
+  "lastUpdate": 1788363045044,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -26189,6 +26189,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.539635799992084,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "93098657+IgorShishkin12@users.noreply.github.com",
+            "name": "IgorShishkin12",
+            "username": "IgorShishkin12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ea2778889f8a7061974fb6e3cce2baaa97a1fd2d",
+          "message": "Add public-API type annotations to medium mlflow.entities modules (2/??) (#25412)\n\nSigned-off-by: IgorShishkin12 <qwertyshishkin@yandex.ru>\nSigned-off-by: Tomu Hirata <tomu.hirata@gmail.com>\nCo-authored-by: Tomu Hirata <tomu.hirata@gmail.com>",
+          "timestamp": "2026-09-02T15:29:22Z",
+          "tree_id": "6a1797a2d5ab0fe0fe2e8b12cc2aca3ae6ea86f9",
+          "url": "https://github.com/mlflow/mlflow/commit/ea2778889f8a7061974fb6e3cce2baaa97a1fd2d"
+        },
+        "date": 1788363043477,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.978553349999316,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.2642918928573925,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.429398260000369,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.290516119658584,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.772356462809854,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 28.728304800003457,
             "unit": "ms"
           }
         ]
