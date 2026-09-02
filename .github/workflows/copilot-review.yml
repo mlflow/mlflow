@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
+      # `markPullRequestReadyForReview` rejects `pull-requests: write` alone.
+      # See https://github.com/cli/cli/issues/8910.
+      contents: write
       pull-requests: write
     steps:
       - name: Mark ready for review
