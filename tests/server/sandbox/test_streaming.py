@@ -246,3 +246,13 @@ def test_no_idle_timeout_when_disabled():
         lines = _run(_collect(proc.iter_stdout_lines()))
     assert lines == [b"a", b"b"]
     assert proc.timed_out is False
+
+
+def test_start_sandbox_process_labels_container():
+    from mlflow.server.sandbox.container import SANDBOX_CONTAINER_LABEL
+
+    client, _ = _streaming_container([])
+    with mock.patch("docker.from_env", return_value=client):
+        start_sandbox_process(["claude", "-p"])
+    _, kwargs = client.containers.run.call_args
+    assert kwargs["labels"] == {SANDBOX_CONTAINER_LABEL: "1"}

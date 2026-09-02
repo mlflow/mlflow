@@ -161,6 +161,12 @@ MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE = _EnvironmentVariable(
     "MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE", str, "mlflow-assistant-sandbox:latest"
 )
 
+#: Internal. A per-server-boot identifier set by the server on startup and inherited by all of
+#: its worker processes. Sandbox containers are labeled with it so startup cleanup can remove
+#: only containers left by a *previous* server generation, never one a sibling worker in the
+#: current generation just launched. Not intended to be set by users.
+_MLFLOW_SERVER_BOOT_ID = _EnvironmentVariable("_MLFLOW_SERVER_BOOT_ID", str, None)
+
 #: When true, newly created workspaces are seeded with two default RBAC roles
 #: (``admin``, ``user``) that super-admins can assign to other
 #: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already

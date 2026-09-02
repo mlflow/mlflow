@@ -1,8 +1,10 @@
 import json
 import logging
 import os
+import shutil
 import signal
 import tempfile
+import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,6 +15,9 @@ from mlflow.assistant.types import Message
 _logger = logging.getLogger(__name__)
 
 SESSION_DIR = Path(tempfile.gettempdir()) / "mlflow-assistant-sessions"
+
+# Per-session sandbox $HOME directories with no activity within this window are reaped.
+_SANDBOX_HOME_MAX_AGE_SECONDS = 24 * 60 * 60
 
 
 @dataclass
@@ -309,7 +314,56 @@ def get_session_sandbox_home(session_id: str) -> Path:
     # server user (0700). mkdir() above is subject to the process umask, and a pre-existing dir
     # may have looser modes, so enforce it explicitly.
     home.chmod(0o700)
+    # Bump the top-level mtime so reap_stale_sandbox_homes sees each turn as recent activity:
+    # the CLI writes --resume state into nested subdirs (e.g. .claude/), which does not advance
+    # the directory's own mtime.
+    os.utime(home, None)
     return home
+
+
+def reap_stale_sandbox_homes(max_age_seconds: float = _SANDBOX_HOME_MAX_AGE_SECONDS) -> int:
+    """Remove per-session sandbox ``$HOME`` directories untouched within the window.
+
+    These accumulate one per session (see ``get_session_sandbox_home``, which bumps a
+    directory's mtime on every turn); a directory whose mtime is older than ``max_age_seconds``
+    is treated as belonging to a finished session. Best-effort: returns the number removed.
+    """
+    base = SESSION_DIR / "sandbox-home"
+    if not base.exists():
+        return 0
+    cutoff = time.time() - max_age_seconds
+    removed = 0
+    try:
+        entries = list(base.iterdir())
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            # Skip symlinks (do not follow them out of the base dir) and non-directories.
+            if entry.is_symlink() or not entry.is_dir() or entry.stat().st_mtime >= cutoff:
+                continue
+        except OSError:
+            continue
+        shutil.rmtree(entry, ignore_errors=True)
+        if entry.exists():
+            # rmtree with ignore_errors swallows failures; note it rather than reap silently.
+            _logger.debug("Could not remove stale sandbox home directory %s", entry)
+            continue
+        removed += 1
+        # The reaped HOME held the CLI's --resume state; drop the stored provider session id so
+        # the next turn starts a fresh CLI session instead of resuming deleted state. The
+        # directory name is the session id (see get_session_sandbox_home). A corrupt/unreadable
+        # session file must not abort the whole sweep, so this is best-effort.
+        try:
+            session = SessionManager.load(entry.name)
+            if session and session.provider_session_id is not None:
+                session.provider_session_id = None
+                SessionManager.save(entry.name, session)
+        except Exception:
+            _logger.debug("Could not clear provider session id for reaped session %s", entry.name)
+    if removed:
+        _logger.info("Reaped %d stale sandbox home directories.", removed)
+    return removed
 
 
 def terminate_session_container(session_id: str) -> bool:

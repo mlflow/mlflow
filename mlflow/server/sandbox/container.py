@@ -25,7 +25,7 @@ from pathlib import Path
 
 import requests
 
-from mlflow.environment_variables import MLFLOW_SANDBOX_DOCKER_IMAGE
+from mlflow.environment_variables import _MLFLOW_SERVER_BOOT_ID, MLFLOW_SANDBOX_DOCKER_IMAGE
 
 _logger = logging.getLogger(__name__)
 
@@ -44,6 +44,19 @@ _WORKSPACE_MOUNT = "/workspace"
 
 # Marker exit code used when the container is killed for exceeding its timeout.
 _TIMEOUT_EXIT_CODE = -1
+
+# Labels stamped on every sandbox container. The first marks it as a sandbox container; the
+# second carries the server's boot id so startup cleanup removes only containers from a
+# previous server generation, never one a sibling worker in the current generation launched.
+SANDBOX_CONTAINER_LABEL = "mlflow.sandbox"
+SANDBOX_BOOT_LABEL = "mlflow.sandbox.boot"
+
+
+def sandbox_container_labels() -> dict[str, str]:
+    labels = {SANDBOX_CONTAINER_LABEL: "1"}
+    if boot_id := _MLFLOW_SERVER_BOOT_ID.get():
+        labels[SANDBOX_BOOT_LABEL] = boot_id
+    return labels
 
 
 class SandboxUnavailableError(Exception):
@@ -203,6 +216,7 @@ def run_in_sandbox(
             image,
             command=container_command,
             detach=True,
+            labels=sandbox_container_labels(),
             network_mode="bridge",
             extra_hosts={"host.docker.internal": "host-gateway"},
             mem_limit=_MEMORY_LIMIT,
@@ -230,22 +244,35 @@ def run_in_sandbox(
     try:
         try:
             outcome = container.wait(timeout=timeout)
-        except requests.exceptions.ReadTimeout:
-            # docker-py raises ReadTimeout when wait() exceeds `timeout`; the container is
-            # still running, so kill it and report the timeout.
-            _logger.info("Sandbox command exceeded %.0fs timeout", timeout)
-            _kill_quietly(container)
-            output = _logs(container)
-            return SandboxResult(exit_code=_TIMEOUT_EXIT_CODE, output=output, timed_out=True)
         except Exception as e:
-            # A non-timeout failure (daemon restart, connection drop, API error) is not a
-            # timeout; kill the container and surface it as a sandbox failure rather than
-            # mislabeling it.
+            if _is_read_timeout(e):
+                # A client-side read timeout means the command outran `timeout`; the container
+                # is still running, so kill it and report a timeout.
+                _logger.info("Sandbox command exceeded %.0fs timeout", timeout)
+                _kill_quietly(container)
+                return SandboxResult(
+                    exit_code=_TIMEOUT_EXIT_CODE, output=_logs(container), timed_out=True
+                )
+            # A genuine failure (daemon down, connection refused, API error) is not a timeout;
+            # kill the container and surface it as a sandbox failure rather than mislabeling it.
             _kill_quietly(container)
             raise SandboxUnavailableError(f"Sandbox execution failed while waiting: {e}") from e
         return SandboxResult(exit_code=outcome.get("StatusCode", 0), output=_logs(container))
     finally:
         _remove_quietly(container)
+
+
+def _is_read_timeout(exc: Exception) -> bool:
+    """Whether ``exc`` from ``container.wait(timeout=)`` is a client-side read timeout.
+
+    docker-py maps the deadline being exceeded to a requests ``ReadTimeout``, or — on the Unix-
+    socket transport — a ``ConnectionError`` wrapping urllib3's ``ReadTimeoutError``; both carry
+    "read timed out" in their message. This distinguishes those from genuine daemon errors
+    (e.g. connection refused) so a timeout is not misreported as a sandbox failure.
+    """
+    if isinstance(exc, requests.exceptions.ReadTimeout):
+        return True
+    return isinstance(exc, requests.exceptions.ConnectionError) and "timed out" in str(exc).lower()
 
 
 def _logs(container) -> str:
@@ -262,8 +289,54 @@ def _kill_quietly(container) -> None:
         pass
 
 
-def _remove_quietly(container) -> None:
+def _remove_quietly(container) -> bool:
     try:
         container.remove(force=True)
+        return True
     except Exception:
-        pass
+        return False
+
+
+def reap_orphaned_sandbox_containers() -> int:
+    """Remove sandbox containers left over from a *previous* server generation.
+
+    Sandbox containers are tied to an in-process stream/wait; once the server that started them
+    exits they are orphaned with no way to reattach. On startup they are force-removed by label,
+    but only those whose boot-id label differs from this server's boot id — so a sibling worker's
+    just-launched container (same boot id) is never removed. If this server has no boot id (e.g.
+    it was not started through the normal server entry point), reaping is skipped entirely rather
+    than risk removing a live container. Best-effort: returns the number removed, never raises.
+    """
+    current_boot = _MLFLOW_SERVER_BOOT_ID.get()
+    if not current_boot:
+        return 0
+    try:
+        client = _get_client()
+    except SandboxUnavailableError:
+        return 0
+    try:
+        containers = client.containers.list(all=True, filters={"label": SANDBOX_CONTAINER_LABEL})
+    except Exception as e:
+        _logger.debug("Could not list sandbox containers to reap: %s", e)
+        return 0
+    removed = 0
+    failed = 0
+    for container in containers:
+        if (container.labels or {}).get(SANDBOX_BOOT_LABEL) == current_boot:
+            continue  # belongs to this server generation; may be actively serving a turn
+        # A different boot id alone does not prove the container is orphaned: two servers can share
+        # one Docker daemon, and a rolling restart overlaps generations. So never force-remove a
+        # *running* container (it may be a live turn owned by a concurrent server) — reap only ones
+        # that have already stopped. A truly orphaned container that is still running is left for a
+        # later startup to reap once it exits, rather than risk killing another server's live turn.
+        if getattr(container, "status", None) == "running":
+            continue
+        if _remove_quietly(container):
+            removed += 1
+        else:
+            failed += 1
+    if removed:
+        _logger.info("Removed %d orphaned sandbox container(s) on startup.", removed)
+    if failed:
+        _logger.debug("%d orphaned sandbox container(s) could not be removed on startup.", failed)
+    return removed

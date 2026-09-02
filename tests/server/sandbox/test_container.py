@@ -142,6 +142,21 @@ def test_run_in_sandbox_timeout_kills_container():
     container.remove.assert_called_once()
 
 
+def test_run_in_sandbox_timeout_surfaced_as_connection_error():
+    # On the Unix-socket transport, docker-py surfaces a wait() read timeout as a
+    # ConnectionError wrapping urllib3's ReadTimeoutError ("Read timed out"), not ReadTimeout.
+    client, container = _mock_client()
+    container.wait.side_effect = requests.exceptions.ConnectionError(
+        "UnixHTTPConnectionPool(host='localhost', port=None): Read timed out."
+    )
+    with mock.patch("docker.from_env", return_value=client):
+        result = run_in_sandbox(["sleep", "1000"], timeout=0.1)
+
+    assert result.timed_out is True
+    assert result.exit_code == container_mod._TIMEOUT_EXIT_CODE
+    container.kill.assert_called_once()
+
+
 def test_run_in_sandbox_non_timeout_wait_error_raises_unavailable():
     # A non-timeout failure from wait() must not be reported as a timeout: it surfaces as a
     # distinct sandbox failure, and the container is still cleaned up.
@@ -206,3 +221,98 @@ def test_run_in_sandbox_image_build_failure_raises_unavailable():
     with mock.patch("docker.from_env", return_value=client):
         with pytest.raises(SandboxUnavailableError, match="Failed to prepare sandbox image"):
             run_in_sandbox(["echo", "hi"])
+
+
+def test_run_in_sandbox_labels_container(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "boot-xyz")
+    client, _ = _mock_client()
+    with mock.patch("docker.from_env", return_value=client):
+        run_in_sandbox(["echo", "hi"])
+    _, kwargs = client.containers.run.call_args
+    assert kwargs["labels"] == {
+        container_mod.SANDBOX_CONTAINER_LABEL: "1",
+        container_mod.SANDBOX_BOOT_LABEL: "boot-xyz",
+    }
+
+
+def test_reap_removes_previous_generation_only(monkeypatch):
+    from mlflow.server.sandbox import reap_orphaned_sandbox_containers
+
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
+    old = mock.MagicMock()
+    old.labels = {container_mod.SANDBOX_BOOT_LABEL: "old-boot"}
+    old.status = "exited"
+    mine = mock.MagicMock()
+    mine.labels = {container_mod.SANDBOX_BOOT_LABEL: "current-boot"}
+    mine.status = "running"
+    client = mock.MagicMock()
+    client.containers.list.return_value = [old, mine]
+    with mock.patch("docker.from_env", return_value=client):
+        removed = reap_orphaned_sandbox_containers()
+
+    # Only the previous generation's stopped container is removed; the current one is left running.
+    assert removed == 1
+    old.remove.assert_called_once_with(force=True)
+    mine.remove.assert_not_called()
+    _, kwargs = client.containers.list.call_args
+    assert kwargs["filters"] == {"label": container_mod.SANDBOX_CONTAINER_LABEL}
+
+
+def test_reap_skips_running_container_from_other_generation(monkeypatch):
+    from mlflow.server.sandbox import reap_orphaned_sandbox_containers
+
+    # A different boot id does not prove a container is orphaned (a concurrent server sharing the
+    # daemon), so a still-running one is left alone rather than force-killed mid-turn.
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
+    other_running = mock.MagicMock()
+    other_running.labels = {container_mod.SANDBOX_BOOT_LABEL: "other-boot"}
+    other_running.status = "running"
+    client = mock.MagicMock()
+    client.containers.list.return_value = [other_running]
+    with mock.patch("docker.from_env", return_value=client):
+        assert reap_orphaned_sandbox_containers() == 0
+    other_running.remove.assert_not_called()
+
+
+def test_reap_skips_when_no_boot_id(monkeypatch):
+    from mlflow.server.sandbox import reap_orphaned_sandbox_containers
+
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    client = mock.MagicMock()
+    with mock.patch("docker.from_env", return_value=client):
+        assert reap_orphaned_sandbox_containers() == 0
+    # Without a boot id we cannot distinguish generations, so we never even list containers.
+    client.containers.list.assert_not_called()
+
+
+def test_reap_counts_only_successful_removes(monkeypatch):
+    from mlflow.server.sandbox import reap_orphaned_sandbox_containers
+
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
+    ok = mock.MagicMock()
+    ok.labels = {container_mod.SANDBOX_BOOT_LABEL: "old-boot"}
+    fails = mock.MagicMock()
+    fails.labels = {container_mod.SANDBOX_BOOT_LABEL: "old-boot"}
+    fails.remove.side_effect = Exception("cannot remove")
+    client = mock.MagicMock()
+    client.containers.list.return_value = [ok, fails]
+    with mock.patch("docker.from_env", return_value=client):
+        assert reap_orphaned_sandbox_containers() == 1
+
+
+def test_reap_docker_unavailable_returns_zero(monkeypatch):
+    from mlflow.server.sandbox import reap_orphaned_sandbox_containers
+
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
+    with mock.patch("docker.from_env", side_effect=Exception("no daemon")):
+        assert reap_orphaned_sandbox_containers() == 0
+
+
+def test_reap_list_error_returns_zero(monkeypatch):
+    from mlflow.server.sandbox import reap_orphaned_sandbox_containers
+
+    monkeypatch.setenv("_MLFLOW_SERVER_BOOT_ID", "current-boot")
+    client = mock.MagicMock()
+    client.containers.list.side_effect = Exception("api error")
+    with mock.patch("docker.from_env", return_value=client):
+        assert reap_orphaned_sandbox_containers() == 0
