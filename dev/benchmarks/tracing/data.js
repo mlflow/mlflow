@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788372192642,
+  "lastUpdate": 1788372908130,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -26297,6 +26297,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.434589400011873,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "31463517+B-Step62@users.noreply.github.com",
+            "name": "Yuki Watanabe",
+            "username": "B-Step62"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "52fa09ea99d44faccd5d32c1b0b7b45883b26984",
+          "message": "Fix host-only Databricks CLI commands in tracing setup (#25529)\n\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>",
+          "timestamp": "2026-09-02T11:13:45-07:00",
+          "tree_id": "e9e0a239358a9d5447a4dcd7d0928c989bfd9e9f",
+          "url": "https://github.com/mlflow/mlflow/commit/52fa09ea99d44faccd5d32c1b0b7b45883b26984"
+        },
+        "date": 1788372906384,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 41.8527411999996,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.461004360655722,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.629599438847879,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.650073436363289,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.896122165289517,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.172231800001327,
             "unit": "ms"
           }
         ]
