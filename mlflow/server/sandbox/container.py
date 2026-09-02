@@ -320,6 +320,7 @@ def reap_orphaned_sandbox_containers() -> int:
         _logger.debug("Could not list sandbox containers to reap: %s", e)
         return 0
     removed = 0
+    failed = 0
     for container in containers:
         if (container.labels or {}).get(SANDBOX_BOOT_LABEL) == current_boot:
             continue  # belongs to this server generation; may be actively serving a turn
@@ -332,6 +333,10 @@ def reap_orphaned_sandbox_containers() -> int:
             continue
         if _remove_quietly(container):
             removed += 1
+        else:
+            failed += 1
     if removed:
         _logger.info("Removed %d orphaned sandbox container(s) on startup.", removed)
+    if failed:
+        _logger.debug("%d orphaned sandbox container(s) could not be removed on startup.", failed)
     return removed

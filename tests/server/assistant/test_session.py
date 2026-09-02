@@ -317,6 +317,22 @@ def test_reap_stale_sandbox_homes_clears_provider_session_id(monkeypatch, tmp_pa
     assert session_module.SessionManager.load(_VALID_SID).provider_session_id is None
 
 
+def test_reap_stale_sandbox_homes_survives_unreadable_session_file(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    # A corrupt session file must not abort the sweep: the stale HOME is still reaped.
+    (tmp_path / f"{_VALID_SID}.json").write_text("{ not valid json")
+
+    old = tmp_path / "sandbox-home" / _VALID_SID
+    old.mkdir(parents=True)
+    old_time = time.time() - 48 * 60 * 60
+    os.utime(old, (old_time, old_time))
+
+    assert session_module.reap_stale_sandbox_homes(max_age_seconds=24 * 60 * 60) == 1
+    assert not old.exists()
+
+
 def test_reap_stale_sandbox_homes_no_base_dir(monkeypatch, tmp_path):
     import mlflow.server.assistant.session as session_module
 
