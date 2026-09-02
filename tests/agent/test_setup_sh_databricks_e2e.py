@@ -9,6 +9,12 @@ import pytest
 
 from tests.agent.setup_sh_test_utils import run_interactive
 
+# These tests drive the interactive wizard through a POSIX pseudo-terminal (`pty`), which is
+# unavailable on Windows.
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32", reason="setup.sh wizard tests require a POSIX pseudo-terminal"
+)
+
 SETUP_SCRIPT = Path(__file__).parents[2] / "mlflow" / "agent" / "setup" / "setup.sh"
 
 
