@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788363045044,
+  "lastUpdate": 1788372192642,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -26243,6 +26243,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 28.728304800003457,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "james.fletcher@databricks.com",
+            "name": "James Fletcher",
+            "username": "james-fletcher-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eae5d26c0df1a9873cd41fee08146951255982f6",
+          "message": "Add mlflow skills agent hints for GenAI anti-patterns (#25496)\n\nSigned-off-by: James Fletcher <james.fletcher@databricks.com>",
+          "timestamp": "2026-09-02T18:01:09Z",
+          "tree_id": "c9d45fd68efafdd6544362cf46c9c25cba182421",
+          "url": "https://github.com/mlflow/mlflow/commit/eae5d26c0df1a9873cd41fee08146951255982f6"
+        },
+        "date": 1788372189706,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 48.467689700001415,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.890852627450095,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.992745525546495,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.0788324854380855,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.410937782608095,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.434589400011873,
             "unit": "ms"
           }
         ]
