@@ -690,7 +690,10 @@ def add_to_model(
     if model_config:
         params[MODEL_CONFIG] = model_config
     if model_code_path:
-        params[MODEL_CODE_PATH] = model_code_path
+        if isinstance(model_code_path, str):
+            params[MODEL_CODE_PATH] = Path(model_code_path).as_posix()
+        else:
+            params[MODEL_CODE_PATH] = model_code_path.as_posix()
     return model.add_flavor(FLAVOR_NAME, **params)
 
 
