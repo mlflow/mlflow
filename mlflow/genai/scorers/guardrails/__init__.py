@@ -37,14 +37,12 @@ from mlflow.genai.scorers.guardrails.utils import (
     check_guardrails_installed,
     map_scorer_inputs_to_text,
 )
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 _FRAMEWORK_NAME = "guardrails-ai"
 
 
-@experimental(version="3.10.0")
 class GuardrailsScorer(Scorer):
     """
     Base class for Guardrails AI validator scorers.
@@ -149,7 +147,6 @@ class GuardrailsScorer(Scorer):
             )
 
 
-@experimental(version="3.10.0")
 def get_scorer(
     validator_name: str,
     **validator_kwargs: Any,
@@ -179,7 +176,6 @@ def get_scorer(
     )
 
 
-@experimental(version="3.10.0")
 class ToxicLanguage(GuardrailsScorer):
     """
     Detects toxic language in text using Guardrails AI.
@@ -203,7 +199,6 @@ class ToxicLanguage(GuardrailsScorer):
     validator_name: ClassVar[str] = "ToxicLanguage"
 
 
-@experimental(version="3.10.0")
 class NSFWText(GuardrailsScorer):
     """
     Detects NSFW (Not Safe For Work) content in text.
@@ -226,7 +221,6 @@ class NSFWText(GuardrailsScorer):
     validator_name: ClassVar[str] = "NSFWText"
 
 
-@experimental(version="3.10.0")
 class DetectJailbreak(GuardrailsScorer):
     """
     Detects jailbreak or prompt injection attempts.
@@ -252,7 +246,6 @@ class DetectJailbreak(GuardrailsScorer):
     validator_name: ClassVar[str] = "DetectJailbreak"
 
 
-@experimental(version="3.10.0")
 class DetectPII(GuardrailsScorer):
     """
     Detects Personally Identifiable Information (PII) in text.
@@ -279,7 +272,6 @@ class DetectPII(GuardrailsScorer):
     validator_name: ClassVar[str] = "DetectPII"
 
 
-@experimental(version="3.10.0")
 class SecretsPresent(GuardrailsScorer):
     """
     Detects secrets and API keys in text.
@@ -299,7 +291,6 @@ class SecretsPresent(GuardrailsScorer):
     validator_name: ClassVar[str] = "SecretsPresent"
 
 
-@experimental(version="3.10.0")
 class GibberishText(GuardrailsScorer):
     """
     Detects gibberish or nonsensical text in LLM outputs.

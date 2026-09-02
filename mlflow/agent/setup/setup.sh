@@ -926,9 +926,9 @@ ensure_databricks_cli() {
 
 dbx_json() {
 	if [ -n "$PROFILE" ]; then
-		"$DATABRICKS_BIN" "$@" --output json --profile "$PROFILE"
+		DATABRICKS_HOST= "$DATABRICKS_BIN" "$@" --output json --profile "$PROFILE"
 	elif [ -n "$WORKSPACE_URL" ]; then
-		"$DATABRICKS_BIN" "$@" --output json --host "$WORKSPACE_URL"
+		DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" "$DATABRICKS_BIN" "$@" --output json
 	else
 		"$DATABRICKS_BIN" "$@" --output json
 	fi
@@ -938,7 +938,7 @@ databricks_token_user() {
 	if [ -n "$PROFILE" ]; then
 		token_json=$("$DATABRICKS_BIN" auth token "$PROFILE" --output json 2>/dev/null) || return
 	elif [ -n "$WORKSPACE_URL" ]; then
-		token_json=$("$DATABRICKS_BIN" auth token --host "$WORKSPACE_URL" --output json 2>/dev/null) || return
+		token_json=$(DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" "$DATABRICKS_BIN" auth token --output json 2>/dev/null) || return
 	else
 		token_json=$("$DATABRICKS_BIN" auth token --output json 2>/dev/null) || return
 	fi
@@ -973,7 +973,7 @@ databricks_auth_valid() {
 	if [ -n "$PROFILE" ]; then
 		"$DATABRICKS_BIN" auth token "$PROFILE" --output json >/dev/null 2>&1
 	elif [ -n "$WORKSPACE_URL" ]; then
-		"$DATABRICKS_BIN" auth token --host "$WORKSPACE_URL" --output json >/dev/null 2>&1
+		DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" "$DATABRICKS_BIN" auth token --output json >/dev/null 2>&1
 	else
 		"$DATABRICKS_BIN" auth token --output json >/dev/null 2>&1
 	fi
@@ -1072,7 +1072,7 @@ authenticate_databricks() {
 		if [ -n "$PROFILE" ]; then
 			"$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" --profile "$PROFILE" <"$TTY_DEVICE" || die "Databricks authentication failed."
 		else
-			"$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" <"$TTY_DEVICE" || die "Databricks authentication failed."
+			DATABRICKS_CONFIG_PROFILE= "$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" <"$TTY_DEVICE" || die "Databricks authentication failed."
 		fi
 		databricks_auth_valid || die "Databricks authentication could not be verified."
 	fi

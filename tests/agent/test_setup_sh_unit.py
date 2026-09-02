@@ -364,6 +364,61 @@ resolve_databricks_profile
     assert "points to https://workspace-a.example.com" in result.stderr
 
 
+def test_dbx_json_passes_host_through_environment(tmp_path: Path):
+    databricks = tmp_path / "databricks"
+    databricks.write_text(
+        r"""#!/bin/sh
+printf '%s\n' "${DATABRICKS_HOST:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*"
+"""
+    )
+    databricks.chmod(0o755)
+
+    result = run_shell(
+        """
+DATABRICKS_BIN=$1
+PROFILE=
+WORKSPACE_URL=https://workspace.example.com
+DATABRICKS_CONFIG_PROFILE=AMBIENT
+export DATABRICKS_CONFIG_PROFILE
+dbx_json experiments get-experiment 42
+""",
+        str(databricks),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == (
+        "https://workspace.example.com||experiments get-experiment 42 --output json"
+    )
+
+
+def test_dbx_json_clears_ambient_host_for_profile(tmp_path: Path):
+    databricks = tmp_path / "databricks"
+    databricks.write_text(
+        r"""#!/bin/sh
+printf '%s\n' "${DATABRICKS_HOST:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*"
+"""
+    )
+    databricks.chmod(0o755)
+
+    result = run_shell(
+        """
+DATABRICKS_BIN=$1
+PROFILE=selected
+WORKSPACE_URL=https://workspace.example.com
+DATABRICKS_HOST=https://ambient.example.com
+DATABRICKS_CONFIG_PROFILE=AMBIENT
+export DATABRICKS_HOST DATABRICKS_CONFIG_PROFILE
+dbx_json experiments get-experiment 42
+""",
+        str(databricks),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == (
+        "|AMBIENT|experiments get-experiment 42 --output json --profile selected"
+    )
+
+
 def test_validate_agent_name_rejects_unknown_agent():
     result = run_shell(
         """

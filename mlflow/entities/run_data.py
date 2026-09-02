@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
@@ -12,7 +16,12 @@ class RunData(_MlflowObject):
     Run data (metrics and parameters).
     """
 
-    def __init__(self, metrics=None, params=None, tags=None):
+    def __init__(
+        self,
+        metrics: list[Metric] | None = None,
+        params: list[Param] | None = None,
+        tags: list[RunTag] | None = None,
+    ) -> None:
         """Construct a new mlflow.entities.RunData instance.
 
         Args:
@@ -29,7 +38,7 @@ class RunData(_MlflowObject):
         self._tags = {tag.key: tag.value for tag in (tags or [])}
 
     @property
-    def metrics(self):
+    def metrics(self) -> dict[str, float]:
         """
         Dictionary of string key -> metric value for the current run.
         For each metric key, the metric value with the latest timestamp is returned. In case there
@@ -38,12 +47,12 @@ class RunData(_MlflowObject):
         return self._metrics
 
     @property
-    def params(self):
+    def params(self) -> dict[str, str]:
         """Dictionary of param key (string) -> param value for the current run."""
         return self._params
 
     @property
-    def tags(self):
+    def tags(self) -> dict[str, str]:
         """Dictionary of tag key (string) -> tag value for the current run."""
         return self._tags
 
@@ -57,14 +66,14 @@ class RunData(_MlflowObject):
     def _add_tag(self, tag):
         self._tags[tag.key] = tag.value
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoRunData:
         run_data = ProtoRunData()
         run_data.metrics.extend([m.to_proto() for m in self._metric_objs])
         run_data.params.extend([ProtoParam(key=key, value=val) for key, val in self.params.items()])
         run_data.tags.extend([ProtoRunTag(key=key, value=val) for key, val in self.tags.items()])
         return run_data
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> dict[str, Any]:
         return {
             "metrics": self.metrics,
             "params": self.params,
@@ -72,7 +81,7 @@ class RunData(_MlflowObject):
         }
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoRunData) -> RunData:
         run_data = cls()
         # iterate proto and add metrics, params, and tags
         for proto_metric in proto.metrics:
