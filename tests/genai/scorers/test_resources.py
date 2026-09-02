@@ -1,0 +1,278 @@
+import json
+from dataclasses import FrozenInstanceError
+from unittest.mock import patch
+
+import pytest
+
+from mlflow.entities import Feedback
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers import RequiredResource, scorer
+from mlflow.genai.scorers.base import Scorer
+
+
+def test_resource_construction():
+    r = RequiredResource(type="gateway_endpoint", name="my-ep")
+    assert r.type == "gateway_endpoint"
+    assert r.name == "my-ep"
+
+
+def test_resource_unknown_type_raises():
+    with pytest.raises(ValueError, match="Unknown required resource type"):
+        RequiredResource(type="unknown", name="x")
+
+
+def test_resource_empty_name_raises():
+    with pytest.raises(ValueError, match="name must not be empty"):
+        RequiredResource(type="gateway_endpoint", name="")
+
+
+def test_resource_immutable():
+    r = RequiredResource(type="gateway_endpoint", name="ep")
+    with pytest.raises(FrozenInstanceError, match="cannot assign to field"):
+        r.name = "other"
+
+
+@pytest.mark.parametrize("bad_type", [123, None, b"gateway_endpoint", ["gateway_endpoint"]])
+def test_resource_type_must_be_string(bad_type):
+    with pytest.raises(TypeError, match="type must be a string"):
+        RequiredResource(type=bad_type, name="ep")
+
+
+@pytest.mark.parametrize("bad_name", [123, None, b"ep", ["ep"]])
+def test_resource_name_must_be_string(bad_name):
+    # `bytes` in particular is truthy and has `.strip()`, so it would slip past the
+    # empty-name check and only fail later during JSON serialization.
+    with pytest.raises(TypeError, match="name must be a string"):
+        RequiredResource(type="gateway_endpoint", name=bad_name)
+
+
+def test_resource_to_dict():
+    assert RequiredResource(type="gateway_endpoint", name="ep-1").to_dict() == {
+        "type": "gateway_endpoint",
+        "name": "ep-1",
+    }
+    assert RequiredResource(type="prompt", name="prompts:/grading/1").to_dict() == {
+        "type": "prompt",
+        "name": "prompts:/grading/1",
+    }
+
+
+def test_resource_round_trip():
+    original = RequiredResource(type="gateway_endpoint", name="my-ep")
+    d = original.to_dict()
+    restored = RequiredResource.from_dict(d)
+    assert restored == original
+
+
+def test_resource_from_dict_unknown_type_raises():
+    with pytest.raises(ValueError, match="Unknown required resource type"):
+        RequiredResource.from_dict({"type": "unknown", "name": "x"})
+
+
+def test_resource_equality():
+    # Round-trip tests assert restored == original, so equality must work correctly
+    assert RequiredResource(type="gateway_endpoint", name="a") == RequiredResource(
+        type="gateway_endpoint", name="a"
+    )
+    assert RequiredResource(type="gateway_endpoint", name="a") != RequiredResource(
+        type="gateway_endpoint", name="b"
+    )
+    assert RequiredResource(type="gateway_endpoint", name="a") != RequiredResource(
+        type="prompt", name="a"
+    )
+
+
+def test_resource_hashable():
+    # Within a Job, Downstream permission extraction unions resources across multiple
+    # scorers of an experiment.
+    # using sets — hashability makes deduplication automatic
+    resources = {
+        RequiredResource(type="gateway_endpoint", name="a"),
+        RequiredResource(type="gateway_endpoint", name="a"),
+        RequiredResource(type="prompt", name="b"),
+    }
+    assert len(resources) == 2
+
+
+def test_scorer_rejects_non_required_resource():
+    with pytest.raises(ValueError, match="Expected RequiredResource"):
+
+        @scorer(required_resources=({"type": "gateway_endpoint", "name": "ep"},))
+        def s(outputs):
+            return True
+
+
+def test_decorator_scorer_serialization_with_resources():
+    @scorer(
+        required_resources=(
+            RequiredResource(type="gateway_endpoint", name="endpoint-1"),
+            RequiredResource(type="prompt", name="prompts:/grading/1"),
+        ),
+    )
+    def my_scorer(outputs):
+        return len(str(outputs)) > 0
+
+    serialized = my_scorer.model_dump()
+    assert serialized["required_resources"] == [
+        {"type": "gateway_endpoint", "name": "endpoint-1"},
+        {"type": "prompt", "name": "prompts:/grading/1"},
+    ]
+
+
+def test_scorer_without_resources_serializes_none():
+    @scorer
+    def plain(outputs):
+        return True
+
+    serialized = plain.model_dump()
+    assert serialized["required_resources"] is None
+
+
+def test_scorer_json_round_trip():
+    @scorer(
+        required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),),
+    )
+    def s(outputs):
+        return True
+
+    json_str = json.dumps(s.model_dump())
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        from mlflow.genai.scorers.base import Scorer
+
+        restored = Scorer.model_validate(json.loads(json_str))
+        assert restored.required_resources == (
+            RequiredResource(type="gateway_endpoint", name="ep"),
+        )
+
+
+def test_scorer_json_round_trip_multiple_resources():
+    @scorer(
+        required_resources=(
+            RequiredResource(type="gateway_endpoint", name="ep-1"),
+            RequiredResource(type="gateway_endpoint", name="ep-2"),
+            RequiredResource(type="prompt", name="prompts:/tool/1"),
+        ),
+    )
+    def s(outputs):
+        return True
+
+    json_str = json.dumps(s.model_dump())
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        from mlflow.genai.scorers.base import Scorer
+
+        restored = Scorer.model_validate(json.loads(json_str))
+        assert len(restored.required_resources) == 3
+        assert restored.required_resources[0].type == "gateway_endpoint"
+        assert restored.required_resources[2].type == "prompt"
+
+
+def test_scorer_json_round_trip_no_resources():
+    @scorer
+    def plain(outputs):
+        return True
+
+    json_str = json.dumps(plain.model_dump())
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        from mlflow.genai.scorers.base import Scorer
+
+        restored = Scorer.model_validate(json.loads(json_str))
+        assert restored.required_resources is None
+
+
+def test_serialized_scorer_forward_compat():
+    from mlflow.genai.scorers.base import SerializedScorer
+
+    payload = {
+        "name": "test",
+        "call_source": "return True",
+        "call_signature": "(outputs)",
+        "original_func_name": "test",
+        "required_resources": [{"type": "gateway_endpoint", "name": "ep"}],
+        "future_field": "should be ignored",
+    }
+    serialized = SerializedScorer.from_dict(payload)
+    assert serialized.required_resources == [{"type": "gateway_endpoint", "name": "ep"}]
+
+
+def test_resource_types_match_rbac():
+    from mlflow.server.auth.permissions import (
+        RESOURCE_TYPE_GATEWAY_ENDPOINT,
+        RESOURCE_TYPE_PROMPT,
+    )
+
+    assert (
+        RequiredResource(type="gateway_endpoint", name="x").type == RESOURCE_TYPE_GATEWAY_ENDPOINT
+    )
+    assert RequiredResource(type="prompt", name="x").type == RESOURCE_TYPE_PROMPT
+
+
+# --- required_resources is only supported on @scorer-decorated scorers ---
+
+
+def test_required_resources_rejected_on_builtin_scorer():
+    from mlflow.genai.scorers.builtin_scorers import Safety
+
+    with pytest.raises(ValueError, match="only supported on @scorer-decorated"):
+        Safety(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+
+
+def test_required_resources_rejected_on_class_based_scorer():
+    class MyScorer(Scorer):
+        name: str = "my_scorer"
+
+        def __call__(self, outputs) -> Feedback:
+            return Feedback(value=True)
+
+    with pytest.raises(ValueError, match="only supported on @scorer-decorated"):
+        MyScorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+
+
+def test_decorator_scorer_allows_required_resources():
+    @scorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+    def s(outputs):
+        return True
+
+    assert s.required_resources == (RequiredResource(type="gateway_endpoint", name="ep"),)
+
+
+# --- required_resources is immutable after construction (declared once, via the decorator) ---
+
+
+def test_required_resources_immutable_after_construction():
+    @scorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+    def s(outputs):
+        return True
+
+    with pytest.raises(MlflowException, match="immutable after construction"):
+        s.required_resources = (RequiredResource(type="gateway_endpoint", name="new-ep"),)
+
+
+def test_loaded_scorer_required_resources_immutable():
+    @scorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+    def s(outputs):
+        return True
+
+    json_str = json.dumps(s.model_dump())
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        restored = Scorer.model_validate(json.loads(json_str))
+
+    assert restored.required_resources == (RequiredResource(type="gateway_endpoint", name="ep"),)
+    with pytest.raises(MlflowException, match="immutable after construction"):
+        restored.required_resources = (RequiredResource(type="gateway_endpoint", name="new-ep"),)
+
+
+def test_required_resources_serialize_mutate_serialize_stays_consistent():
+    # Regression: the serialized resource set can never drift from what was declared, because
+    # reassignment is rejected rather than silently dropped on the next serialization.
+    @scorer(required_resources=(RequiredResource(type="gateway_endpoint", name="ep"),))
+    def s(outputs):
+        return True
+
+    first = s.model_dump()
+    with pytest.raises(MlflowException, match="immutable after construction"):
+        s.required_resources = (RequiredResource(type="gateway_endpoint", name="new-ep"),)
+    assert s.model_dump() == first
+    assert s.model_dump()["required_resources"] == [{"type": "gateway_endpoint", "name": "ep"}]

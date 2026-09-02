@@ -671,6 +671,7 @@ mlflow.entities.Workspace.from_proto
 mlflow.entities.Workspace.to_dict
 mlflow.entities.Workspace.to_proto
 mlflow.entities.WorkspaceDeletionMode
+mlflow.entities._required_resource.RequiredResource
 mlflow.entities.assessment.Assessment
 mlflow.entities.assessment.Expectation
 mlflow.entities.assessment.Feedback
@@ -1116,6 +1117,9 @@ mlflow.genai.scorers.RegexMatch.model_post_init
 mlflow.genai.scorers.RelevanceToQuery
 mlflow.genai.scorers.RelevanceToQuery.get_input_fields
 mlflow.genai.scorers.RelevanceToQuery.model_post_init
+mlflow.genai.scorers.RequiredResource
+mlflow.genai.scorers.RequiredResource.from_dict
+mlflow.genai.scorers.RequiredResource.to_dict
 mlflow.genai.scorers.ResponseLength
 mlflow.genai.scorers.ResponseLength.get_input_fields
 mlflow.genai.scorers.ResponseLength.model_post_init

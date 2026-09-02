@@ -8,10 +8,11 @@ from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, field_validator, model_validator
 
 import mlflow
 from mlflow.entities import Assessment, Feedback
+from mlflow.entities._required_resource import RequiredResource
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -122,6 +123,9 @@ class SerializedScorer:
     #   {"module": ..., "class": ..., "metric_name": ..., "model": ..., "kwargs": {...}}
     third_party_scorer_data: dict[str, Any] | None = None
 
+    # MLflow-managed resources the scorer needs at runtime (gateway endpoints, prompts).
+    required_resources: list[dict[str, str]] | None = None
+
     def __post_init__(self):
         """Validate that exactly one type of scorer fields is present."""
         has_builtin_fields = self.builtin_scorer_class is not None
@@ -219,6 +223,7 @@ class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
     description: str | None = None
+    required_resources: tuple[RequiredResource, ...] | None = None
 
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
@@ -229,6 +234,47 @@ class Scorer(BaseModel):
     # testing concern and is intentionally not serialized. ``None`` falls back to
     # the default rule (yes/no or bool).
     _pass_if: Callable[[Any], bool] | None = PrivateAttr(default=None)
+
+    @field_validator("required_resources", mode="before")
+    @classmethod
+    def _validate_required_resources(cls, v):
+        if v is None:
+            return None
+        result = []
+        for item in v:
+            if isinstance(item, RequiredResource):
+                result.append(item)
+            else:
+                raise ValueError(f"Expected RequiredResource, got {type(item).__name__}")
+        return tuple(result)
+
+    @model_validator(mode="after")
+    def _resources_only_on_decorator(self):
+        # Design choice: only @scorer-decorated scorers may carry a `required_resources` field;
+        # reject it on every other Scorer kind at construction.
+        if self.required_resources is not None and self.kind != ScorerKind.DECORATOR:
+            raise ValueError(
+                f"required_resources is only supported on @scorer-decorated scorers, "
+                f"not {self.kind.value} scorers."
+            )
+        return self
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # `required_resources` is declared once (in `@scorer(...)`) and is immutable after: we
+        # reject reassignment, so to change it you re-author the scorer. This also avoids a stale
+        # dump — `model_dump()` replays the cached `_cached_dump`, so a later reassignment would
+        # never reach the serialized form.
+        #
+        # Construction and deserialization are unaffected: pydantic's __init__ writes fields
+        # directly (not `self.x = ...`), and `_reconstruct_decorator_scorer` reattaches via
+        # `object.__setattr__` — neither routes through this override.
+        if name == "required_resources":
+            raise MlflowException.invalid_parameter_value(
+                "`required_resources` is immutable after construction. Declare it in the "
+                "`@scorer(...)` decorator; to change it, re-author the scorer with `@scorer(...)` "
+                "and register it under the same name to create a new version."
+            )
+        super().__setattr__(name, value)
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -300,9 +346,15 @@ class Scorer(BaseModel):
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
 
-        # Return cached dump if available (prevents re-serialization issues with dynamic functions)
+        # Return cached dump if available. Serializing a scorer requires its function's source
+        # code, but a loaded scorer's function was rebuilt with `exec()` and has no source file
+        # to read back — so we replay the dict we saved when we loaded it from the store instead.
         if self._cached_dump is not None:
             return self._cached_dump
+
+        serialized_resources = (
+            [r.to_dict() for r in self.required_resources] if self.required_resources else None
+        )
 
         if self.kind == ScorerKind.THIRD_PARTY:
             serialized = SerializedScorer(
@@ -319,6 +371,7 @@ class Scorer(BaseModel):
                     "model": self._model,
                     "kwargs": dict(self._metric_kwargs),
                 },
+                required_resources=serialized_resources,
             )
             self._cached_dump = asdict(serialized)
             return self._cached_dump
@@ -350,6 +403,7 @@ class Scorer(BaseModel):
             call_source=source_info.get("call_source"),
             call_signature=source_info.get("call_signature"),
             original_func_name=source_info.get("original_func_name"),
+            required_resources=serialized_resources,
         )
         self._cached_dump = asdict(serialized)
         return self._cached_dump
@@ -608,6 +662,16 @@ class Scorer(BaseModel):
             description=serialized.description,
             aggregations=serialized.aggregations,
         )
+        if serialized.required_resources:
+            # Attach resources here, rather than passing them to the scorer built above: that
+            # path would internally run `scorer_instance.required_resources = ...`, which hits
+            # our `Scorer.__setattr__` guard and raises. That guard exists to block a user from
+            # reassigning the field on a live scorer, so we bypass it with `object.__setattr__`.
+            object.__setattr__(
+                scorer_instance,
+                "required_resources",
+                tuple(RequiredResource.from_dict(r) for r in serialized.required_resources),
+            )
         # Cache the serialized data to prevent re-serialization issues with dynamic functions
         original_serialized_data = asdict(serialized)
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
@@ -1146,6 +1210,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    required_resources: tuple[RequiredResource, ...] | None = None,
 ) -> Scorer: ...
 
 
@@ -1157,6 +1222,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    required_resources: tuple[RequiredResource, ...] | None = None,
 ) -> Callable[[_F], Scorer]: ...
 
 
@@ -1167,6 +1233,7 @@ def scorer(
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
     pass_if: Callable[[Any], bool] | None = None,
+    required_resources: tuple[RequiredResource, ...] | None = None,
 ) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -1253,13 +1320,19 @@ def scorer(
             Use it for scorers whose value is not a ``yes``/``no`` rating or a ``bool``
             (e.g. a numeric score): ``@scorer(pass_if=lambda v: v >= 0.8)``. When omitted,
             the default rule applies (a ``yes`` rating or ``True`` passes).
+        required_resources: A tuple of :class:`RequiredResource` declarations
+            for custom ``@scorer`` functions that access MLflow-managed resources
+            (gateway endpoints, prompts, etc.) at runtime. Built-in and
+            ``make_judge`` scorers don't need this — the framework infers
+            their resources from parameters provided during creation
+            (e.g. the ``model`` argument).
 
     Example:
 
         .. code-block:: python
 
             import json
-            from mlflow.genai.scorers import scorer
+            from mlflow.genai.scorers import scorer, RequiredResource
             from mlflow.entities import AssessmentSource, Feedback
 
 
@@ -1327,6 +1400,21 @@ def scorer(
                 )
 
 
+            # Declare the MLflow-managed resources a scorer touches at runtime (a gateway
+            # endpoint, a prompt, etc.). The job execution framework reads these to mint a
+            # scoped token limited to just those resources. They are declared once here and
+            # immutable afterward — to change them, re-author the scorer with a new @scorer(...).
+            @scorer(
+                required_resources=(
+                    RequiredResource(type="gateway_endpoint", name="my-judge-endpoint"),
+                    RequiredResource(type="prompt", name="prompts:/grading/1"),
+                ),
+            )
+            def relevance(inputs, outputs) -> Feedback:
+                # ... call the gateway endpoint / load the prompt to grade the output ...
+                return Feedback(value=True)
+
+
             # Use the scorer in an evaluation
             mlflow.genai.evaluate(
                 data=data,
@@ -1341,6 +1429,7 @@ def scorer(
             description=description,
             aggregations=aggregations,
             pass_if=pass_if,
+            required_resources=required_resources,
         )
 
     func_params = set(inspect.signature(func).parameters.keys())
@@ -1394,4 +1483,5 @@ def scorer(
         name=name or func.__name__,
         description=description,
         aggregations=aggregations,
+        required_resources=required_resources,
     )

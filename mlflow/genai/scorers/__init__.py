@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from mlflow.entities._required_resource import RequiredResource
 from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, scorer
 from mlflow.genai.scorers.registry import delete_scorer, get_scorer, list_scorers
 
@@ -135,6 +136,7 @@ __all__ = [
     "ToolCallCorrectness",
     "ToolCallEfficiency",
     "UserFrustration",
+    "RequiredResource",
     "Scorer",
     "scorer",
     "ScorerSamplingConfig",
