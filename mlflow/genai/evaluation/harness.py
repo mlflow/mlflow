@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import queue
 import threading
@@ -974,7 +975,13 @@ def _compute_eval_scores(
         max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
-        futures = {executor.submit(run_scorer, scorer): scorer for scorer in scorers}
+        # Carry the caller's context (e.g. eval_retry_context() flags) into each
+        # worker; a fresh copy per submit is required since a Context can't be
+        # entered by two threads at once.
+        futures = {
+            executor.submit(contextvars.copy_context().run, run_scorer, scorer): scorer
+            for scorer in scorers
+        }
 
         try:
             results = []

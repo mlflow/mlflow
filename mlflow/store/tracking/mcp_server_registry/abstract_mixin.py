@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 from typing_extensions import NotRequired
 
 from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
@@ -14,12 +14,18 @@ NOT_SET = object()
 
 
 class MCPIcon(TypedDict):
-    """Icon following the upstream MCP server.json icon schema."""
+    """Icon following the upstream MCP server.json icon schema.
+
+    The read path may also annotate resolved server icons with a response-only
+    ``source`` field indicating whether the icon came from the server override
+    or the resolved latest version.
+    """
 
     src: str
     sizes: NotRequired[list[str]]
     mimeType: NotRequired[str]
     theme: NotRequired[str]
+    source: NotRequired[Literal["server", "version"]]
 
 
 class MCPServerRegistryMixin:
@@ -122,24 +128,34 @@ class MCPServerRegistryMixin:
     def create_mcp_server_version(
         self,
         server_json: dict[str, Any],
-        display_name: str | None = None,
         source: str | None = None,
         status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        tools: list[MCPTool] | None = NOT_SET,
         created_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
         """Create a new version of an MCP server.
 
         The parent MCPServer is auto-created from server_json["name"] if it
         does not already exist.
 
+        ``tools`` uses the same value space as update (``NOT_SET``, ``None``,
+        ``[]``, or a list), but ``NOT_SET`` means different things:
+
+        * **create:** ``NOT_SET`` / JSON field omitted → store ``None``.
+          Explicit ``None`` / JSON null also stores no tools. ``[]`` / a list
+          are stored as-is.
+        * **update:** ``NOT_SET`` / omitted → leave unchanged; ``None`` / null
+          clears tools.
+
         Args:
             server_json: The server.json payload (must contain "name" and "version").
-            display_name: Human-readable display name.
             source: Origin URL or identifier for this version.
             status: Initial status (defaults to DRAFT).
-            tools: List of MCPTool definitions.
+            tools: ``NOT_SET`` or ``None`` to store null, ``[]`` / a list to
+                store as-is.
             created_by: Authenticated username of the creator.
+            connect_options: Per-key settings for connect options (e.g. visibility).
 
         Returns:
             The created MCPServerVersion entity.
@@ -215,21 +231,22 @@ class MCPServerRegistryMixin:
         self,
         name: str,
         version: str,
-        display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         """Update a version's metadata or status.
 
         Args:
             name: Server name.
             version: Version string.
-            display_name: New display name. Omit to leave unchanged; pass None to set null.
             status: New status. Omit to leave unchanged; non-null values update the status.
                 Non-null values are validated against transition rules.
             tools: New tool definitions. Omit to leave unchanged; pass None to set null.
             last_updated_by: Authenticated username of the updater.
+            connect_options: Per-key settings for connect options (e.g. visibility).
+                Omit to leave unchanged; pass None to clear.
 
         Returns:
             The updated MCPServerVersion entity.

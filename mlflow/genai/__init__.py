@@ -5,6 +5,7 @@ from mlflow.genai import (
 )
 from mlflow.genai.agent_tester import test_agent
 from mlflow.genai.datasets import (
+    EvaluationDatasetVersion,
     create_dataset,
     delete_dataset,
     delete_dataset_tag,
@@ -38,6 +39,7 @@ from mlflow.genai.mcp_servers import (
     get_mcp_server,
     get_mcp_server_version,
     get_mcp_server_version_by_alias,
+    refresh_mcp_server_version_tools,
     register_mcp_server,
     register_mcp_server_from_url,
     search_mcp_access_endpoints,
@@ -68,7 +70,14 @@ from mlflow.genai.prompts import (
 from mlflow.genai.scheduled_scorers import (
     ScorerScheduleConfig,
 )
-from mlflow.genai.scorers import Scorer, delete_scorer, get_scorer, list_scorers, scorer
+from mlflow.genai.scorers import (
+    Scorer,
+    delete_scorer,
+    get_scorer,
+    list_scorers,
+    make_scorer_ensemble,
+    scorer,
+)
 from mlflow.genai.simulators import ConversationSimulator
 
 __all__ = [
@@ -78,12 +87,14 @@ __all__ = [
     "to_predict_fn",
     "Scorer",
     "scorer",
+    "make_scorer_ensemble",
     "get_scorer",
     "list_scorers",
     "delete_scorer",
     "judges",
     "make_judge",
     "scorers",
+    "EvaluationDatasetVersion",
     "create_dataset",
     "delete_dataset",
     "delete_dataset_tag",
@@ -130,6 +141,7 @@ __all__ = [
     "get_latest_mcp_server_version",
     "search_mcp_server_versions",
     "update_mcp_server_version",
+    "refresh_mcp_server_version_tools",
     "delete_mcp_server_version",
     "create_mcp_access_endpoint",
     "get_mcp_access_endpoint",

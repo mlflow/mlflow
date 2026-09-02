@@ -12,8 +12,7 @@ import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentE
 export const EvalRunsVisibilityHeaderCell = React.memo(function EvalRunsVisibilityHeaderCell() {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { visibilityMode, setVisibilityMode, usingCustomVisibility, allRunsHidden } =
-    useExperimentEvaluationRunsRowVisibility();
+  const { visibilityMode, setVisibilityMode, usingCustomVisibility } = useExperimentEvaluationRunsRowVisibility();
 
   return (
     <DropdownMenu.Root modal={false}>
@@ -27,8 +26,7 @@ export const EvalRunsVisibilityHeaderCell = React.memo(function EvalRunsVisibili
           })}
         >
           {visibilityMode === RUNS_VISIBILITY_MODE.HIDEALL ||
-          visibilityMode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS ||
-          allRunsHidden ? (
+          visibilityMode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS ? (
             <VisibleOffIcon />
           ) : (
             <VisibleIcon />

@@ -39,7 +39,7 @@ import {
   RunGroupingAggregateFunction,
   RunGroupingMode,
 } from '../../components/experiment-page/utils/experimentPage.row-types';
-import { getGroupByRunsData } from './ExperimentEvaluationRunsPage.utils';
+import { flattenRunEntityOrGroupData, getGroupByRunsData, getNestedRuns } from './ExperimentEvaluationRunsPage.utils';
 import {
   ExperimentEvaluationRunsPageMode,
   useExperimentEvaluationRunsPageMode,
@@ -281,7 +281,25 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const isEmpty = runUuids.length === 0 && !searchFilter && !isLoading;
 
-  const runsAndGroupValues = getGroupByRunsData(runs ?? [], groupBy);
+  // Prepare hierarchical data for table display (supports grouping, nesting, or flat view)
+  const runsWithHierarchy = useMemo(() => {
+    const runsArray = runs ?? [];
+
+    if (groupBy) return getGroupByRunsData(runsArray, groupBy);
+
+    // Similar to Model training mode, if there's grouping, parent-child view will be disabled.
+    const shouldNest = !groupBy;
+
+    if (shouldNest) {
+      return getNestedRuns(runsArray);
+    }
+
+    return runsArray;
+  }, [runs, groupBy]);
+
+  // Extract flat array from hierarchical structure for components that need simple arrays.
+  // Charts expect flat arrays with no nesting or grouping structure.
+  const flatRuns = useMemo(() => flattenRunEntityOrGroupData(runsWithHierarchy), [runsWithHierarchy]);
 
   const handleCompare = useCallback(
     (runUuid1: string, runUuid2: string) => {
@@ -300,10 +318,10 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const renderActiveTab = (selectedRunUuid: string) => {
     if (viewMode === ExperimentEvaluationRunsPageMode.CHARTS) {
-      return <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />;
+      return <ExperimentEvaluationRunsPageCharts runs={flatRuns} experimentId={experimentId} />;
     }
 
-    const selectedRun = runs?.find((run) => run.info.runUuid === selectedRunUuid);
+    const selectedRun = flatRuns?.find((run) => run.info.runUuid === selectedRunUuid);
     // Keyed by tag key so RunViewEvaluationsTab can detect regression-test runs
     // (mlflow.runType=test) and switch the result view accordingly.
     const selectedRunTags = keyBy(selectedRun?.data?.tags ?? [], 'key');
@@ -341,7 +359,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const renderTableControls = () => (
     <ExperimentEvaluationRunsTableControls
-      runs={runs ?? []}
+      runs={flatRuns ?? []}
       refetchRuns={refetchAll}
       isFetching={isFetching || isLoading}
       searchRunsError={error}
@@ -366,7 +384,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const renderTable = () => (
     <ExperimentEvaluationRunsTable
-      data={runsAndGroupValues}
+      data={runsWithHierarchy}
       uniqueColumns={uniqueColumns}
       selectedColumns={selectedColumns}
       selectedRunUuid={
@@ -579,7 +597,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
                 paddingLeft: theme.spacing.sm,
               }}
             >
-              <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />
+              <ExperimentEvaluationRunsPageCharts runs={flatRuns} experimentId={experimentId} />
             </div>
           ) : selectedRunUuid ? (
             <div

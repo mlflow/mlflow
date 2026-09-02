@@ -130,6 +130,7 @@ mlflow.client.MlflowClient.log_stream
 mlflow.client.MlflowClient.log_table
 mlflow.client.MlflowClient.log_text
 mlflow.client.MlflowClient.parse_prompt_uri
+mlflow.client.MlflowClient.refresh_mcp_server_version_tools
 mlflow.client.MlflowClient.register_prompt
 mlflow.client.MlflowClient.remove_dataset_from_experiments
 mlflow.client.MlflowClient.rename_experiment
@@ -362,6 +363,7 @@ mlflow.entities.BudgetTargetScope.to_proto
 mlflow.entities.BudgetUnit
 mlflow.entities.BudgetUnit.from_proto
 mlflow.entities.BudgetUnit.to_proto
+mlflow.entities.ConnectOptionSettings
 mlflow.entities.Dataset
 mlflow.entities.Dataset.from_proto
 mlflow.entities.Dataset.to_dictionary
@@ -727,6 +729,7 @@ mlflow.entities.mcp_server.MCPRemoteTransportType
 mlflow.entities.mcp_server.MCPServer
 mlflow.entities.mcp_server.MCPStatus
 mlflow.entities.mcp_server.MCPTool
+mlflow.entities.mcp_server_version.ConnectOptionSettings
 mlflow.entities.mcp_server_version.MCPServerVersion
 mlflow.entities.metric.Metric
 mlflow.entities.model_registry.ModelVersion
@@ -865,6 +868,8 @@ mlflow.gateway.config.OpenAIConfig.validate_field_compatibility
 mlflow.gateway.config.OpenAIConfig.validate_openai_api_key
 mlflow.gateway.config.PaLMConfig
 mlflow.gateway.config.PaLMConfig.validate_palm_api_key
+mlflow.gateway.config.PortkeyConfig
+mlflow.gateway.config.PortkeyConfig.validate_provider_api_key
 mlflow.gateway.config.Provider
 mlflow.gateway.config.Provider.values
 mlflow.gateway.config.RouteDestinationConfig
@@ -878,6 +883,7 @@ mlflow.gemini.autolog
 mlflow.genai.Agent
 mlflow.genai.ConversationSimulator
 mlflow.genai.ConversationSimulator.simulate
+mlflow.genai.EvaluationDatasetVersion
 mlflow.genai.LabelingSession
 mlflow.genai.LabelingSession.add_dataset
 mlflow.genai.LabelingSession.add_traces
@@ -915,6 +921,7 @@ mlflow.genai.datasets.EvaluationDataset.delete_records
 mlflow.genai.datasets.EvaluationDataset.from_dict
 mlflow.genai.datasets.EvaluationDataset.from_proto
 mlflow.genai.datasets.EvaluationDataset.has_records
+mlflow.genai.datasets.EvaluationDataset.list_versions
 mlflow.genai.datasets.EvaluationDataset.merge_records
 mlflow.genai.datasets.EvaluationDataset.set_profile
 mlflow.genai.datasets.EvaluationDataset.to_df
@@ -925,6 +932,7 @@ mlflow.genai.datasets.add_dataset_to_experiments
 mlflow.genai.datasets.create_dataset
 mlflow.genai.datasets.delete_dataset
 mlflow.genai.datasets.delete_dataset_tag
+mlflow.genai.datasets.entities.EvaluationDatasetVersion
 mlflow.genai.datasets.evaluation_dataset.EvaluationDataset
 mlflow.genai.datasets.get_dataset
 mlflow.genai.datasets.remove_dataset_from_experiments
@@ -1018,6 +1026,7 @@ mlflow.genai.labeling.labeling.ReviewApp
 mlflow.genai.list_scorers
 mlflow.genai.load_prompt
 mlflow.genai.make_judge
+mlflow.genai.make_scorer_ensemble
 mlflow.genai.optimize.BasePromptOptimizer
 mlflow.genai.optimize.BasePromptOptimizer.optimize
 mlflow.genai.optimize.GepaPromptOptimizer
@@ -1039,6 +1048,7 @@ mlflow.genai.optimize.types.PromptOptimizationResult
 mlflow.genai.optimize.types.PromptOptimizerOutput
 mlflow.genai.optimize_prompt
 mlflow.genai.optimize_prompts
+mlflow.genai.refresh_mcp_server_version_tools
 mlflow.genai.register_mcp_server
 mlflow.genai.register_mcp_server_from_url
 mlflow.genai.register_prompt
@@ -1145,6 +1155,8 @@ mlflow.genai.scorers.ToolCallEfficiency.get_input_fields
 mlflow.genai.scorers.ToolCallEfficiency.model_post_init
 mlflow.genai.scorers.UserFrustration
 mlflow.genai.scorers.UserFrustration.model_post_init
+mlflow.genai.scorers.agg_all
+mlflow.genai.scorers.agg_any
 mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Completeness
@@ -1280,6 +1292,11 @@ mlflow.genai.scorers.guardrails.ToxicLanguage
 mlflow.genai.scorers.guardrails.ToxicLanguage.model_post_init
 mlflow.genai.scorers.guardrails.get_scorer
 mlflow.genai.scorers.list_scorers
+mlflow.genai.scorers.majority_vote
+mlflow.genai.scorers.make_scorer_ensemble
+mlflow.genai.scorers.maximum
+mlflow.genai.scorers.mean
+mlflow.genai.scorers.minimum
 mlflow.genai.scorers.phoenix.Hallucination
 mlflow.genai.scorers.phoenix.Hallucination.model_post_init
 mlflow.genai.scorers.phoenix.QA
@@ -1290,6 +1307,7 @@ mlflow.genai.scorers.phoenix.Summarization
 mlflow.genai.scorers.phoenix.Summarization.model_post_init
 mlflow.genai.scorers.phoenix.Toxicity
 mlflow.genai.scorers.phoenix.Toxicity.model_post_init
+mlflow.genai.scorers.phoenix.experimental
 mlflow.genai.scorers.phoenix.get_scorer
 mlflow.genai.scorers.ragas.AgentGoalAccuracyWithReference
 mlflow.genai.scorers.ragas.AgentGoalAccuracyWithReference.model_post_init
@@ -1351,6 +1369,7 @@ mlflow.genai.scorers.ragas.ToolCallF1
 mlflow.genai.scorers.ragas.ToolCallF1.model_post_init
 mlflow.genai.scorers.ragas.TopicAdherence
 mlflow.genai.scorers.ragas.TopicAdherence.model_post_init
+mlflow.genai.scorers.ragas.experimental
 mlflow.genai.scorers.ragas.get_scorer
 mlflow.genai.scorers.ragas.scorers.AnswerAccuracy
 mlflow.genai.scorers.ragas.scorers.AspectCritic
@@ -1895,6 +1914,7 @@ mlflow.tracing.disable
 mlflow.tracing.disable_notebook_display
 mlflow.tracing.enable
 mlflow.tracing.enable_notebook_display
+mlflow.tracing.get_bridged_tracer_provider
 mlflow.tracing.get_tracing_context_headers_for_http_request
 mlflow.tracing.reset
 mlflow.tracing.set_databricks_monitoring_sql_warehouse_id

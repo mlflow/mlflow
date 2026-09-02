@@ -70,6 +70,7 @@ from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
@@ -126,6 +127,30 @@ class TracingClient:
             spans=spans,
             tracking_uri=self.tracking_uri if is_databricks_uri(self.tracking_uri) else None,
         )
+
+    def _resolve_uc_trace_location(self, experiment_id: str | None) -> str | None:
+        """
+        Resolve the Unity Catalog trace location string (``catalog.schema.table_prefix``) for an
+        experiment.
+
+        Traces stored in Unity Catalog are addressed by a location rather than a plain trace ID.
+        The location is not derivable from the trace ID alone, so it is resolved from the
+        experiment's trace destination tag (see ``Experiment.trace_location``). Returns ``None``
+        for non-UC / non-Databricks experiments or on resolution failure.
+        """
+        if experiment_id is None or not is_databricks_uri(self.tracking_uri):
+            return None
+        try:
+            # `full_table_prefix` raises if the location carries no table prefix, so it is
+            # resolved inside the try to keep this a best-effort lookup.
+            location = self.store.get_experiment(experiment_id).trace_location
+            return location.full_table_prefix if location is not None else None
+        except Exception as e:
+            _logger.debug(
+                f"Failed to resolve Unity Catalog trace location for experiment "
+                f"{experiment_id}: {e}"
+            )
+            return None
 
     def delete_traces(
         self,
@@ -435,7 +460,7 @@ class TracingClient:
 
         batch_size = _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE.get()
         batches = [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
-        for minibatch_traces in executor.map(_fetch_minibatch, batches):
+        for minibatch_traces in map_with_context(executor, _fetch_minibatch, batches):
             traces.extend(minibatch_traces)
         return traces
 
@@ -449,7 +474,8 @@ class TracingClient:
             if location == SpansLocation.ARTIFACT_REPO:
                 traces.extend(
                     tr
-                    for tr in executor.map(
+                    for tr in map_with_context(
+                        executor,
                         self._download_spans_from_artifact_repo,
                         location_trace_infos,
                     )

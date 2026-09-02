@@ -1637,3 +1637,61 @@ def test_anthropic_adapter_build_chat_usage_without_cached_tokens():
     assert usage.total_tokens == 70
     assert usage.prompt_tokens_details is None
     assert not hasattr(usage, "cache_creation_input_tokens")
+
+
+def test_anthropic_adapter_build_chat_usage_preserves_provider_specific_fields():
+    usage_data = {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "server_tool_use": {"web_search_requests": 1},
+        "service_tier": "standard_only",
+    }
+    usage = AnthropicAdapter._build_chat_usage(usage_data)
+
+    assert usage.model_dump()["server_tool_use"] == {"web_search_requests": 1}
+    assert usage.model_dump()["service_tier"] == "standard_only"
+    assert "input_tokens" not in usage.model_dump()
+
+
+def test_chat_to_model_translates_multimodal_image_content():
+    # A user message with OpenAI-format multimodal content (text + an image_url base64
+    # data URL) must be translated to Anthropic's native image block; the gateway path
+    # is how native anthropic:/ judge URIs reach the model.
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "what color?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,QUJD"},
+                    },
+                ],
+            }
+        ],
+    }
+
+    result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "what color?"},
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/png", "data": "QUJD"},
+                },
+            ],
+        }
+    ]
+
+
+def test_chat_to_model_string_content_unchanged():
+    # String content must remain a no-op (shared with non-judge gateway traffic).
+    payload = {"messages": [{"role": "user", "content": "just text"}]}
+
+    result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["messages"] == [{"role": "user", "content": "just text"}]

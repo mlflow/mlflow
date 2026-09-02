@@ -179,6 +179,7 @@ class Job(_MlflowObject):
         last_update_time: int,
         workspace: str | None = None,
         status_details: dict[str, Any] | None = None,
+        creator: str | None = None,
         error_message: str | None = None,
         executor_backend: str | None = None,
         lease_expires_at: int | None = None,
@@ -200,6 +201,7 @@ class Job(_MlflowObject):
         self._last_update_time = last_update_time
         self._workspace = resolve_entity_workspace_name(workspace)
         self._status_details = status_details
+        self._creator = creator
         self._error_message = error_message
         self._executor_backend = executor_backend
         self._lease_expires_at = lease_expires_at
@@ -285,6 +287,11 @@ class Job(_MlflowObject):
     def workspace(self) -> str | None:
         """Workspace associated with this job."""
         return self._workspace
+
+    @property
+    def creator(self) -> str | None:
+        """Username of the authenticated user who created the job, or ``None``."""
+        return self._creator
 
     @property
     def status_details(self) -> dict[str, Any] | None:

@@ -36,7 +36,7 @@ deny_unsafe_checkout contains msg if {
 	input["true"].pull_request_target
 	not safe_pull_request_target_workflow
 	some job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	startswith(step.uses, "actions/checkout@")
 	step["with"].ref
 	msg := concat("", [
@@ -53,7 +53,7 @@ safe_pull_request_target_workflow if {
 
 deny_create_app_token_without_permissions contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	startswith(step.uses, "actions/create-github-app-token@")
 	not step_has_app_token_permissions(step)
 	msg := sprintf(
@@ -69,7 +69,7 @@ deny_create_app_token_without_permissions contains msg if {
 
 deny_create_app_token_with_app_id contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	startswith(step.uses, "actions/create-github-app-token@")
 	step["with"]["app-id"]
 	msg := sprintf(
@@ -85,7 +85,7 @@ step_has_app_token_permissions(step) if {
 
 deny_unnecessary_github_token contains msg if {
 	some job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	startswith(step.uses, "actions/github-script@")
 	regex.match(`\$\{\{\s*(secrets\.GITHUB_TOKEN|github\.token)\s*\}\}`, step["with"]["github-token"])
 	msg := "Unnecessary use of github-token for actions/github-script."
@@ -93,7 +93,7 @@ deny_unnecessary_github_token contains msg if {
 
 deny_github_token_env_var contains msg if {
 	some job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	step.env.GITHUB_TOKEN
 	msg := "Use GH_TOKEN instead of GITHUB_TOKEN for environment variable names."
 }
@@ -106,7 +106,7 @@ deny_github_token_env_var contains msg if {
 
 deny_github_token_shorthand contains msg if {
 	some job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	some key, value in step["with"]
 	contains_github_token(value)
 	msg := sprintf(
@@ -117,7 +117,7 @@ deny_github_token_shorthand contains msg if {
 
 deny_github_token_shorthand contains msg if {
 	some job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	some key, value in step.env
 	contains_github_token(value)
 	msg := sprintf(
@@ -176,6 +176,20 @@ deny_unpinned_actions contains msg if {
 	)
 }
 
+deny_self_repo_actions contains msg if {
+	actions := self_repo_actions(input)
+	count(actions) > 0
+	msg := sprintf(
+		concat("", [
+			"The following actions are referenced with the self-repository '$/' syntax: %s. ",
+			"'$/' makes the runner download the whole repository tarball during 'Set up job', ",
+			"which costs ~20s per job in this repo. Use the workspace-relative './' syntax ",
+			"instead (e.g., ./.github/actions/setup-python), which resolves against the checkout.",
+		]),
+		[concat(", ", actions)],
+	)
+}
+
 deny_missing_shell_defaults contains msg if {
 	# Only check workflow files (not composite actions)
 	# Composite actions have 'runs' instead of 'jobs'
@@ -197,7 +211,7 @@ deny_wrong_shell_defaults contains msg if {
 
 deny_github_script_without_retries contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	startswith(step.uses, "actions/github-script@")
 	not step["with"].retries
 	msg := sprintf(
@@ -229,7 +243,7 @@ deny_push_without_branches contains msg if {
 
 deny_interpolation_in_run contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	regex.match(`\$\{\{`, step.run)
 	msg := sprintf(
 		concat("", [
@@ -256,7 +270,7 @@ deny_interpolation_in_run contains msg if {
 
 deny_interpolation_in_github_script contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	startswith(step.uses, "actions/github-script@")
 	regex.match(`\$\{\{`, step["with"].script)
 	msg := sprintf(
@@ -295,7 +309,7 @@ deny_interpolation_in_job_if contains msg if {
 
 deny_interpolation_in_step_if contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	is_string(step["if"])
 	regex.match(`\$\{\{`, step["if"])
 	msg := sprintf(
@@ -310,6 +324,13 @@ deny_interpolation_in_step_if contains msg if {
 contains_github_token(value) if {
 	regex.match(`\$\{\{\s*github\.token\s*\}\}`, value)
 }
+
+# All steps in a job, including steps nested inside `parallel` groups.
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsparallel
+job_steps(job) := array.concat(
+	[step | some step in job.steps],
+	[step | some group in job.steps; some step in group.parallel],
+)
 
 jobs_without_permissions(jobs) := {job_id |
 	some job_id, job in jobs
@@ -328,28 +349,38 @@ ubuntu_slim_jobs_with_long_timeout(jobs) := {job_id |
 }
 
 is_step_unpinned(step) if {
+	# Actions in this repository ('./' or '$/') have no ref to pin. '$/' is
+	# reported by deny_self_repo_actions instead, so it is exempt here to keep
+	# a single, actionable message per offending step.
 	not startswith(step.uses, "./")
+	not startswith(step.uses, "$/")
 	not regex.match(`^[^@]+@[0-9a-f]{40}$`, step.uses)
 }
 
-unpinned_actions(inp) := unpinned if {
+all_steps(inp) := steps if {
 	# For workflow files with jobs
 	inp.jobs
-	unpinned := {step.uses |
+	steps := {step |
 		some job in inp.jobs
-		some step in job.steps
-		is_step_unpinned(step)
+		some step in job_steps(job)
 	}
 }
 
-unpinned_actions(inp) := unpinned if {
+all_steps(inp) := steps if {
 	# For composite action files with runs
 	not inp.jobs
 	inp.runs.steps
-	unpinned := {step.uses |
-		some step in inp.runs.steps
-		is_step_unpinned(step)
-	}
+	steps := {step | some step in inp.runs.steps}
+}
+
+unpinned_actions(inp) := {step.uses |
+	some step in all_steps(inp)
+	is_step_unpinned(step)
+}
+
+self_repo_actions(inp) := {step.uses |
+	some step in all_steps(inp)
+	startswith(step.uses, "$/")
 }
 
 any_job_has_repo_check(jobs) if {
@@ -386,7 +417,7 @@ contains_secret(value) if {
 
 deny_checkout_missing_persist_credentials contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	startswith(step.uses, "actions/checkout@")
 	not has_explicit_persist_credentials(step)
 	msg := sprintf(
@@ -405,7 +436,7 @@ has_explicit_persist_credentials(step) if {
 
 deny_upload_artifact_without_retention contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	startswith(step.uses, "actions/upload-artifact@")
 	not step["with"]["retention-days"]
 	msg := sprintf(
@@ -416,7 +447,7 @@ deny_upload_artifact_without_retention contains msg if {
 
 deny_upload_artifact_without_if_no_files_found contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	startswith(step.uses, "actions/upload-artifact@")
 	not step["with"]["if-no-files-found"]
 	msg := sprintf(
@@ -445,7 +476,7 @@ has_explicit_fail_fast(strategy) if {
 
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	some line in split(step.run, "\n")
 	regex.match(`\bnpm install\b`, line)
 	not regex.match(`--package-lock-only\b`, line)
@@ -457,7 +488,7 @@ deny_mutable_install contains msg if {
 
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
-	some step in job.steps
+	some step in job_steps(job)
 	regex.match(`(?m)^\s*yarn(\s+install)?\s*(?:#.*)?$`, step.run)
 	not regex.match(`\byarn install\s+--immutable\b`, step.run)
 	msg := sprintf(

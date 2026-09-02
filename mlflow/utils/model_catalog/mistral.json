@@ -24,13 +24,14 @@
     "codestral-2508": {
       "mode": "chat",
       "context_window": {
-        "max_input": 256000,
-        "max_output": 256000,
-        "max_tokens": 256000
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
-        "output_per_million_tokens": 0.9
+        "output_per_million_tokens": 0.9,
+        "cache_read_per_million_tokens": 0.03
       },
       "capabilities": {
         "function_calling": true,
@@ -39,7 +40,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
     "codestral-embed": {
       "mode": "embedding",
@@ -48,7 +49,8 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 0.15
+        "input_per_million_tokens": 0.15,
+        "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
         "function_calling": false,
@@ -57,7 +59,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
     "codestral-embed-2505": {
       "mode": "embedding",
@@ -66,7 +68,8 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 0.15
+        "input_per_million_tokens": 0.15,
+        "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
         "function_calling": false,
@@ -75,27 +78,28 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
     "codestral-latest": {
       "mode": "chat",
       "context_window": {
-        "max_input": 32000,
-        "max_output": 8191,
-        "max_tokens": 8191
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 1.0,
-        "output_per_million_tokens": 3.0
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 0.9,
+        "cache_read_per_million_tokens": 0.03
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
     "codestral-mamba-latest": {
       "mode": "chat",
@@ -257,6 +261,27 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "glm-5-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-25"
+    },
     "labs-devstral-small-2512": {
       "mode": "chat",
       "context_window": {
@@ -276,6 +301,46 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-24"
+    },
+    "labs-leanstral-1-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.0,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-12"
+    },
+    "labs-leanstral-1-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.0,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
     },
     "magistral-medium-1-2-2509": {
       "mode": "chat",
@@ -417,7 +482,7 @@
       },
       "last_updated_at": "2026-04-24"
     },
-    "ministral-3-14b-2512": {
+    "ministral-14b-2512": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
@@ -435,9 +500,92 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
+    },
+    "ministral-14b-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "ministral-3-14b-2512": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.2,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
     },
     "ministral-3-3b-2512": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.1,
+        "cache_read_per_million_tokens": 0.01
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "ministral-3-8b-2512": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.15,
+        "cache_read_per_million_tokens": 0.015
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "ministral-3b-2512": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
@@ -455,18 +603,18 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
-    "ministral-3-8b-2512": {
+    "ministral-3b-latest": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144,
-        "max_output": 262144,
-        "max_tokens": 262144
+        "max_input": 131072,
+        "max_output": 131072,
+        "max_tokens": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0.15
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.1
       },
       "capabilities": {
         "function_calling": true,
@@ -475,7 +623,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
     "ministral-8b-2512": {
       "mode": "chat",
@@ -486,7 +634,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0.15
+        "output_per_million_tokens": 0.15,
+        "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
         "function_calling": true,
@@ -495,7 +644,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-27"
+      "last_updated_at": "2026-08-31"
     },
     "ministral-8b-latest": {
       "mode": "chat",
@@ -506,7 +655,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.15,
-        "output_per_million_tokens": 0.15
+        "output_per_million_tokens": 0.15,
+        "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
         "function_calling": true,
@@ -515,7 +665,69 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-08-31"
+    },
+    "mistral-code-agent-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 256000,
+        "max_tokens": 256000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.4,
+        "output_per_million_tokens": 2.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "mistral-code-fim-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 0.9,
+        "cache_read_per_million_tokens": 0.03
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "mistral-code-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 0.9,
+        "cache_read_per_million_tokens": 0.03
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
     },
     "mistral-embed": {
       "mode": "embedding",
@@ -534,6 +746,24 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "mistral-embed-2312": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
     },
     "mistral-large-2402": {
       "mode": "chat",
@@ -604,7 +834,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.5,
-        "output_per_million_tokens": 1.5
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.05
       },
       "capabilities": {
         "function_calling": true,
@@ -613,7 +844,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
     "mistral-large-3": {
       "mode": "chat",
@@ -624,7 +855,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.5,
-        "output_per_million_tokens": 1.5
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.05
       },
       "capabilities": {
         "function_calling": true,
@@ -633,7 +865,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
     "mistral-large-latest": {
       "mode": "chat",
@@ -644,7 +876,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.5,
-        "output_per_million_tokens": 1.5
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.05
       },
       "capabilities": {
         "function_calling": true,
@@ -653,7 +886,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
     "mistral-medium": {
       "mode": "chat",
@@ -713,7 +946,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-08-31",
+      "last_updated_at": "2026-08-12"
     },
     "mistral-medium-2508": {
       "mode": "chat",
@@ -733,9 +967,31 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-29"
+      "deprecation_date": "2026-08-31",
+      "last_updated_at": "2026-08-12"
     },
     "mistral-medium-2604": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "mistral-medium-3": {
       "mode": "chat",
       "context_window": {
         "max_input": 262144,
@@ -753,7 +1009,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-29"
+      "last_updated_at": "2026-08-31"
     },
     "mistral-medium-3-1-2508": {
       "mode": "chat",
@@ -773,7 +1029,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-08-31",
+      "last_updated_at": "2026-08-12"
     },
     "mistral-medium-3-5": {
       "mode": "chat",
@@ -784,7 +1041,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 7.5
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.15
       },
       "capabilities": {
         "function_calling": true,
@@ -793,7 +1051,28 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-29"
+      "last_updated_at": "2026-08-31"
+    },
+    "mistral-medium-3.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
     },
     "mistral-medium-latest": {
       "mode": "chat",
@@ -804,7 +1083,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 7.5
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.15
       },
       "capabilities": {
         "function_calling": true,
@@ -813,7 +1093,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-29"
+      "last_updated_at": "2026-08-31"
     },
     "mistral-small": {
       "mode": "chat",
@@ -834,6 +1114,27 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-24"
+    },
+    "mistral-small-2603": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.015
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
     },
     "mistral-small-3-2-2506": {
       "mode": "chat",
@@ -858,22 +1159,23 @@
     "mistral-small-latest": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131072,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 0.06,
-        "output_per_million_tokens": 0.18
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-31"
     },
     "mistral-tiny": {
       "mode": "chat",
@@ -894,6 +1196,69 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-24"
+    },
+    "mistral-vibe-cli-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.015
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "mistral-vibe-cli-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "mistral-vibe-cli-with-tools": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
     },
     "open-codestral-mamba": {
       "mode": "chat",
@@ -1074,6 +1439,67 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-24"
+    },
+    "voxtral-small-2507": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "voxtral-small-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "zai-glm-5-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-25"
     }
   }
 }

@@ -18,6 +18,7 @@ CREATE TABLE budget_policies (
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	target_value VARCHAR(255),
 	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
 )
 
@@ -93,6 +94,7 @@ CREATE TABLE jobs (
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	status_details JSON,
+	creator VARCHAR(255),
 	executor_backend VARCHAR(255),
 	lease_expires_at BIGINT,
 	status_message TEXT,
@@ -245,7 +247,7 @@ CREATE TABLE evaluation_dataset_tags (
 
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value TEXT,
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
@@ -344,10 +346,10 @@ CREATE TABLE mcp_server_versions (
 	version_patch INTEGER NOT NULL,
 	version_prerelease_sort_key VARCHAR(512) NOT NULL,
 	server_json JSON NOT NULL,
-	display_name VARCHAR(256),
 	status VARCHAR(20) DEFAULT 'draft' NOT NULL,
 	tools JSON,
 	source VARCHAR(512),
+	connect_options JSON,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
 	created_at BIGINT NOT NULL,
@@ -472,7 +474,7 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000),
 	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
-	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
 
 
@@ -615,7 +617,6 @@ CREATE TABLE logged_model_tags (
 	CONSTRAINT fk_logged_model_tags_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT fk_logged_model_tags_model_id FOREIGN KEY(model_id) REFERENCES logged_models (model_id) ON DELETE CASCADE
 )
-
 
 CREATE TABLE mcp_server_version_tags (
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,

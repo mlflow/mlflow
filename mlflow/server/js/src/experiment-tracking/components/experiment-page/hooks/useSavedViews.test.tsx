@@ -119,7 +119,7 @@ describe('useSavedViews', () => {
     expect(result.current.canModify).toBe(true);
   });
 
-  it('reports canModify=false when the experiment lacks MODIFIY_PERMISSION', () => {
+  it('reports canModify=false when the experiment lacks MODIFY_PERMISSION', () => {
     const { result } = renderUseSavedViews(makeState([]), makeExperiment(['READ']));
     expect(result.current.canModify).toBe(false);
   });
