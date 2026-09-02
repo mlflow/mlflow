@@ -28,6 +28,7 @@ import { RunsChartsTooltipBody } from '../../../components/runs-charts/component
 import { TableSkeleton } from '@databricks/design-system';
 import { useGetExperimentRunColor } from '../../../components/experiment-page/hooks/useExperimentRunColor';
 import { useExperimentEvaluationRunsRowVisibility } from '../hooks/useExperimentEvaluationRunsRowVisibility';
+import { SweepComparisonCharts } from '../../../components/sweep/SweepComparisonCharts';
 
 const SUPPORTED_CHART_TYPES = [
   RunsChartType.LINE,
@@ -162,6 +163,10 @@ export const ExperimentEvaluationRunsPageCharts = ({
 
   return (
     <RunsChartsUIConfigurationContextProvider updateChartsUIState={updateUIState}>
+      {/* Sweep runs hold every configuration's results in one run, so the generic runs charts (one
+          point per run) cannot compare them. These purpose-built charts render above, and only when
+          a sweep run is present. */}
+      <SweepComparisonCharts runs={runs} />
       <ExperimentEvaluationRunsPageChartsImpl runs={runs} chartUIState={chartUIState} />
     </RunsChartsUIConfigurationContextProvider>
   );
