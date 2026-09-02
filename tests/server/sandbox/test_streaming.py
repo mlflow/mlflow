@@ -256,3 +256,15 @@ def test_start_sandbox_process_labels_container():
         start_sandbox_process(["claude", "-p"])
     _, kwargs = client.containers.run.call_args
     assert kwargs["labels"] == {SANDBOX_CONTAINER_LABEL: "1"}
+
+
+def test_start_sandbox_process_uses_dedicated_network_and_egress(monkeypatch):
+    from mlflow.server.sandbox.container import SANDBOX_NETWORK_NAME
+
+    monkeypatch.setenv("MLFLOW_SANDBOX_EGRESS_PROXY", "http://proxy.internal:3128")
+    client, _ = _streaming_container([])
+    with mock.patch("docker.from_env", return_value=client):
+        start_sandbox_process(["claude", "-p"])
+    _, kwargs = client.containers.run.call_args
+    assert kwargs["network"] == SANDBOX_NETWORK_NAME
+    assert kwargs["environment"]["HTTPS_PROXY"] == "http://proxy.internal:3128"

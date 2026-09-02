@@ -349,6 +349,7 @@ CREATE TABLE mcp_server_versions (
 	status VARCHAR(20) DEFAULT 'draft'::character varying NOT NULL,
 	tools JSON,
 	source VARCHAR(512),
+	connect_options JSON,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
 	created_at BIGINT NOT NULL,
