@@ -34,6 +34,20 @@ class SkillStatus(str, Enum):
         return self.value
 
 
+def _aliases_to_dict(aliases: Any) -> dict[str, Any]:
+    """Normalize an aliases payload to an ``{alias: version}`` dict.
+
+    REST responses expose aliases as a list of ``{"alias": ..., "version": ...}``
+    objects; accept that list (and an already-normalized dict) and return the dict
+    shape the entity fields use.
+    """
+    if not aliases:
+        return {}
+    if isinstance(aliases, dict):
+        return aliases
+    return {a["alias"]: a["version"] for a in aliases}
+
+
 @experimental(version="3.16.0")
 @dataclass
 class Skill:
@@ -70,7 +84,7 @@ class Skill:
                 workspace=data.get("workspace"),
                 status=SkillStatus(data["status"]) if data.get("status") else None,
                 tags=data.get("tags") or {},
-                aliases=data.get("aliases") or {},
+                aliases=_aliases_to_dict(data.get("aliases")),
                 latest_version=data.get("latest_version"),
                 created_by=data.get("created_by"),
                 last_updated_by=data.get("last_updated_by"),

@@ -39,6 +39,15 @@ def test_skill_from_dict():
     assert restored.latest_version == 2
 
 
+def test_skill_from_dict_converts_alias_list_to_dict():
+    # REST responses expose aliases as a list of {alias, version} objects.
+    restored = Skill.from_dict({
+        "name": "code-review",
+        "aliases": [{"alias": "production", "version": 1}, {"alias": "staging", "version": 2}],
+    })
+    assert restored.aliases == {"production": 1, "staging": 2}
+
+
 def test_skill_from_dict_parses_icons():
     icons = [
         {"src": "https://x/icon.png", "sizes": ["48x48"], "mimeType": "image/png", "theme": "dark"}
