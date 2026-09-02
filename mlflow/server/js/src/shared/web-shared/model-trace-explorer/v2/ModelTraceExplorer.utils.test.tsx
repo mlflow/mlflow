@@ -45,6 +45,7 @@ import {
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
   getRootSpanTimeToFirstTokenMs,
+  tryDeserializeAttribute,
 } from './ModelTraceExplorer.utils';
 import { SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY } from '../constants';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
@@ -642,6 +643,22 @@ describe('normalizeNewSpanData', () => {
     const messages = ([...inputMessages, outputMessage] as ModelTraceChatMessage[]).map(prettyPrintChatMessage);
     expect(normalized.chatMessages).toEqual(messages);
     expect(normalized.chatTools).toEqual(MOCK_OPENAI_CHAT_INPUT.tools);
+  });
+
+  it('keeps a large int64-range numeric-string attribute as-is in the displayed attributes', () => {
+    // 2051281657916407550 is well beyond IEEE-754 double precision; JSON.parse would otherwise
+    // silently round it, corrupting the value shown on the Attributes tab.
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      attributes: {
+        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
+        'custom.large_id': '2051281657916407550',
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect((normalized.attributes as Record<string, unknown>)?.['custom.large_id']).toBe('2051281657916407550');
   });
 
   it('should keep the valid tools from mlflow.chat.tools when some are malformed', () => {
@@ -1773,5 +1790,15 @@ describe('getRootSpanTimeToFirstTokenMs', () => {
   it('returns null when V4 array-shaped attributes do not contain the key', () => {
     const node = makeNode([{ key: 'some.other.key', value: { string_value: 'value' } }]);
     expect(getRootSpanTimeToFirstTokenMs(node)).toBeNull();
+  });
+});
+
+describe('tryDeserializeAttribute', () => {
+  it('keeps a large int64-range numeric string as-is instead of losing precision', () => {
+    // 2051281657916407550 and 2051281657916407549 differ only in the last digit, well within
+    // IEEE-754 double's rounding granularity at this magnitude (~512) — JSON.parse would
+    // otherwise silently collapse both to the same corrupted number, 2051281657916407600.
+    expect(tryDeserializeAttribute('2051281657916407550')).toBe('2051281657916407550');
+    expect(tryDeserializeAttribute('2051281657916407549')).toBe('2051281657916407549');
   });
 });
