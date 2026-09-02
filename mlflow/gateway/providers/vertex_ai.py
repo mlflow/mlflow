@@ -25,8 +25,8 @@ from typing import Any
 
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.anthropic import AnthropicProvider
-from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.anthropic import AnthropicAdapter, AnthropicProvider
+from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
 
@@ -101,6 +101,35 @@ def _classify_model(model_name: str) -> str:
     return "gemini"
 
 
+class _VertexAIClaudeAdapter(AnthropicAdapter):
+    """Applies the Vertex-specific request shape for Anthropic partner models.
+
+    Vertex rejects Anthropic requests that omit ``anthropic_version`` and does not
+    accept ``model`` in the body (it is carried in the URL). Both transformations
+    live here, in the adapter, rather than only on the provider, because callers
+    reach Vertex through two different paths: the gateway's
+    ``AnthropicProvider._chat``/``._chat_stream``, and the judge path in
+    ``mlflow.genai.judges.adapters.gateway_adapter``, which builds its request from
+    ``adapter_class.chat_to_model`` and never calls provider hooks. Keeping the
+    transformation on the adapter means both paths get it, matching how
+    ``AmazonBedrockAnthropicAdapter`` already handles the equivalent Bedrock field.
+    """
+
+    @classmethod
+    def _apply_vertex_fields(cls, payload: dict[str, Any]) -> dict[str, Any]:
+        payload.pop("model", None)
+        payload["anthropic_version"] = _VERTEX_ANTHROPIC_VERSION
+        return payload
+
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        return cls._apply_vertex_fields(super().chat_to_model(payload, config))
+
+    @classmethod
+    def chat_streaming_to_model(cls, payload, config):
+        return cls._apply_vertex_fields(super().chat_streaming_to_model(payload, config))
+
+
 class _VertexAIClaudeProvider(AnthropicProvider):
     """AnthropicProvider adapted for Claude models hosted on Vertex AI.
 
@@ -142,10 +171,15 @@ class _VertexAIClaudeProvider(AnthropicProvider):
     def _get_chat_stream_path(self) -> str:
         return f"{self.config.model.name}:streamRawPredict"
 
+    @property
+    def adapter_class(self) -> type[ProviderAdapter]:
+        return _VertexAIClaudeAdapter
+
     def _prepare_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
-        payload.pop("model", None)
-        payload["anthropic_version"] = _VERTEX_ANTHROPIC_VERSION
-        return payload
+        # ``_chat``/``_chat_stream`` format through ``AnthropicAdapter`` directly rather
+        # than ``self.adapter_class``, so the Vertex fields are still applied here for
+        # the gateway path. Delegating keeps one definition of the transformation.
+        return _VertexAIClaudeAdapter._apply_vertex_fields(payload)
 
 
 class _VertexAIMaaSProvider(OpenAICompatibleProvider):
