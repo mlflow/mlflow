@@ -43,6 +43,17 @@ jobs:
       - name: Render templates
         run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
 
+      - name: Render Service port
+        run: |
+          render() {
+            helm template mlflow charts/ \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" "$@" \
+              -s templates/service.yaml
+          }
+          # Defaults to server.value_options.port when unset.
+          render | grep -q '^    - port: 5000$'
+          render --set service.port=80 | grep -q '^    - port: 80$'
+
       - name: Render ServiceMonitor
         run: |
           render() {
