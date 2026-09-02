@@ -11,6 +11,7 @@ def test_agent_plugin_defaults():
     assert plugin.organization == ""
     assert plugin.aliases == {}
     assert plugin.latest_version is None
+    assert plugin.icons is None
     assert plugin.workspace == resolve_entity_workspace_name(None)
 
 
@@ -29,6 +30,14 @@ def test_agent_plugin_from_dict():
     assert restored.status == SkillStatus.ACTIVE
     assert restored.aliases == {"production": "1.0.0"}
     assert restored.latest_version == "1.2.0"
+
+
+def test_agent_plugin_from_dict_parses_icons():
+    icons = [
+        {"src": "https://x/icon.png", "sizes": ["48x48"], "mimeType": "image/png", "theme": "dark"}
+    ]
+    plugin = AgentPlugin.from_dict({"name": "pr-workflow", "icons": icons})
+    assert plugin.icons == icons
 
 
 def test_agent_plugin_from_dict_missing_name():

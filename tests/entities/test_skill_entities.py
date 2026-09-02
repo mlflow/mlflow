@@ -17,6 +17,7 @@ def test_skill_defaults_and_workspace_resolution():
     assert skill.tags == {}
     assert skill.aliases == {}
     assert skill.latest_version is None
+    assert skill.icons is None
     assert skill.workspace == resolve_entity_workspace_name(None)
 
 
@@ -36,6 +37,14 @@ def test_skill_from_dict():
     assert restored.status == SkillStatus.ACTIVE
     assert restored.aliases == {"production": 1}
     assert restored.latest_version == 2
+
+
+def test_skill_from_dict_parses_icons():
+    icons = [
+        {"src": "https://x/icon.png", "sizes": ["48x48"], "mimeType": "image/png", "theme": "dark"}
+    ]
+    skill = Skill.from_dict({"name": "code-review", "icons": icons})
+    assert skill.icons == icons
 
 
 def test_skill_from_dict_requires_dict():
