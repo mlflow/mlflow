@@ -244,7 +244,7 @@ class RedisBudgetTracker(BudgetTracker):
         cost_usd: float,
         workspace: str | None = None,
         endpoint_id: str | None = None,
-        principal: str | None = None,
+        username: str | None = None,
     ) -> list[BudgetWindow]:
         now = datetime.now(timezone.utc)
         newly_exceeded: list[BudgetWindow] = []
@@ -258,7 +258,7 @@ class RedisBudgetTracker(BudgetTracker):
                     continue
                 policy = _deserialize_policy(policy_data)
 
-            if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, principal=principal):
+            if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, username=username):
                 continue
 
             window, _created = self._ensure_window(policy, now)
@@ -285,7 +285,7 @@ class RedisBudgetTracker(BudgetTracker):
         self,
         workspace: str | None = None,
         endpoint_id: str | None = None,
-        principal: str | None = None,
+        username: str | None = None,
     ) -> tuple[bool, BudgetWindow | None]:
         now = datetime.now(timezone.utc)
 
@@ -297,7 +297,7 @@ class RedisBudgetTracker(BudgetTracker):
                     continue
                 policy = _deserialize_policy(policy_data)
 
-            if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, principal=principal):
+            if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, username=username):
                 continue
 
             if policy.budget_action != BudgetAction.REJECT:

@@ -66,7 +66,7 @@ def test_update_budget_policy_omits_target_value_when_unset():
     assert "target_value" not in body
 
 
-def test_create_budget_policy_passes_principal_target():
+def test_create_budget_policy_passes_username_target():
     store = _StubRestStore()
     store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
@@ -81,7 +81,7 @@ def test_create_budget_policy_passes_principal_target():
     assert body["target_scope"] == "USER"
 
 
-def test_update_budget_policy_passes_principal_target():
+def test_update_budget_policy_passes_username_target():
     store = _StubRestStore()
     store.update_budget_policy(
         budget_policy_id="bp-1",

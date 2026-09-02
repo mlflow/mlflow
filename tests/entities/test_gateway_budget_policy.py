@@ -81,7 +81,7 @@ def test_budget_target_scope_user_proto_roundtrip():
     assert BudgetTargetScope.from_proto(BudgetTargetScope.USER.to_proto()) == BudgetTargetScope.USER
 
 
-def test_user_policy_proto_roundtrip_preserves_principal_target():
+def test_user_policy_proto_roundtrip_preserves_username_target():
     policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice@example.com")
     restored = GatewayBudgetPolicy.from_proto(policy.to_proto())
     assert restored.target_scope == BudgetTargetScope.USER

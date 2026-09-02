@@ -27,7 +27,7 @@ describe('SharedViewBanner', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^discard$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /exit shared view/i }));
 
     expect(onDiscard).toHaveBeenCalledTimes(1);
     expect(onOverride).not.toHaveBeenCalled();
@@ -56,6 +56,35 @@ describe('SharedViewBanner', () => {
     renderWithDesignSystem(<SharedViewBanner componentId="test.shared_view" message="msg" onDiscard={jest.fn()} />);
 
     expect(screen.queryByRole('button', { name: /override/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^discard$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /exit shared view/i })).toBeInTheDocument();
+  });
+
+  it('renders a dismiss button only when onDismiss is provided, and invokes only it', () => {
+    const onDismiss = jest.fn();
+    const onDiscard = jest.fn();
+    const onOverride = jest.fn();
+    renderWithDesignSystem(
+      <SharedViewBanner
+        componentId="test.shared_view"
+        message="msg"
+        overrideLabel="Override saved view"
+        onOverride={onOverride}
+        onDiscard={onDiscard}
+        onDismiss={onDismiss}
+      />,
+    );
+
+    const dismiss = screen.getByRole('button', { name: /hide banner/i });
+    fireEvent.click(dismiss);
+
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(onDiscard).not.toHaveBeenCalled();
+    expect(onOverride).not.toHaveBeenCalled();
+  });
+
+  it('does not render a dismiss button when onDismiss is omitted', () => {
+    renderWithDesignSystem(<SharedViewBanner componentId="test.shared_view" message="msg" onDiscard={jest.fn()} />);
+
+    expect(screen.queryByRole('button', { name: /hide banner/i })).not.toBeInTheDocument();
   });
 });

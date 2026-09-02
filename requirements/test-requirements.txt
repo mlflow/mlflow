@@ -20,7 +20,11 @@ kaleido
 shap
 # Required to evaluate language models in `mlflow.evaluate`
 evaluate
-nltk
+# 3.10.1 ships an import hook that blocks any module resolving under the CWD, so an
+# in-repo `.venv` breaks `import nltk`. Reverted upstream in 3.10.2 (released 2026-08-05,
+# so the 7-day cooldown admits it on 2026-08-12); until then this resolves to 3.10.0.
+# https://github.com/nltk/nltk/issues/3735
+nltk!=3.10.1
 rouge_score
 textstat
 tiktoken
@@ -42,11 +46,19 @@ polars>=1
 dspy
 # required for testing mlflow.genai.optimize.optimizers
 gepa
+# required for testing mlflow.optuna and mlflow.pyspark.optuna
+optuna
 # required for testing docker compose
 testcontainers
 # required for testing cost tracking
-litellm
+# 1.97.0 ships a broken `Message` pydantic model (unresolved forward ref
+# `ChatCompletionReasoningSummaryTextBlock`), see BerriAI/litellm#36384.
+# 1.98.0 onward does not import on the Python 3.10 we still support:
+# https://github.com/BerriAI/litellm/issues/38892
+litellm!=1.97.0,<1.98.0
 # required for testing Redis budget tracker
 fakeredis[lua]
 # required for testing claude_code tracing
 claude-agent-sdk
+# required for testing zstd-compressed gateway request bodies
+zstandard

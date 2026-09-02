@@ -1590,6 +1590,10 @@ public final class Service {
      */
     ENDPOINT(3),
     /**
+     * <pre>
+     * Applies only to requests made by a specific authenticated user
+     * </pre>
+     *
      * <code>USER = 4;</code>
      */
     USER(4),
@@ -1616,6 +1620,10 @@ public final class Service {
      */
     public static final int ENDPOINT_VALUE = 3;
     /**
+     * <pre>
+     * Applies only to requests made by a specific authenticated user
+     * </pre>
+     *
      * <code>USER = 4;</code>
      */
     public static final int USER_VALUE = 4;
@@ -23087,7 +23095,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -23099,7 +23107,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -23110,7 +23118,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -23121,7 +23129,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -23133,7 +23141,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -24031,7 +24039,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -24045,7 +24053,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -24060,7 +24068,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -24074,7 +24082,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -24088,7 +24096,7 @@ public final class Service {
      * <pre>
      * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
      * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-     * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+     * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
      * guaranteed to support up to 20 tags per request.
      * </pre>
      *
@@ -24734,7 +24742,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24751,7 +24759,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24768,7 +24776,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24785,7 +24793,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24809,7 +24817,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24830,7 +24838,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24853,7 +24861,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24877,7 +24885,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24898,7 +24906,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24919,7 +24927,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24941,7 +24949,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24961,7 +24969,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24981,7 +24989,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -24995,7 +25003,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -25012,7 +25020,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -25030,7 +25038,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -25044,7 +25052,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -25059,7 +25067,7 @@ public final class Service {
        * <pre>
        * A collection of tags to set on the experiment. Maximum tag size and number of tags per request
        * depends on the storage backend. All storage backends are guaranteed to support tag keys up
-       * to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+       * to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
        * guaranteed to support up to 20 tags per request.
        * </pre>
        *
@@ -43869,7 +43877,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -43879,7 +43887,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -43889,7 +43897,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -44544,7 +44552,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -44557,7 +44565,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -44581,7 +44589,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+     * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -45195,7 +45203,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -45207,7 +45215,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -45230,7 +45238,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -45252,7 +45260,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -45272,7 +45280,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -45287,7 +45295,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
+       * All storage backends are guaranteed to support tag values up to 20000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -260846,7 +260854,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -260857,7 +260865,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -260868,7 +260876,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -261441,7 +261449,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -261455,7 +261463,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -261480,7 +261488,7 @@ public final class Service {
     /**
      * <pre>
      * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-     * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+     * for ENDPOINT scope, a username for USER scope. Required for those
      * scopes; unset for GLOBAL and WORKSPACE.
      * </pre>
      *
@@ -262910,7 +262918,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -262923,7 +262931,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -262947,7 +262955,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -262970,7 +262978,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -262991,7 +262999,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -263007,7 +263015,7 @@ public final class Service {
       /**
        * <pre>
        * Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-       * for ENDPOINT scope, a principal (user identity) for USER scope. Required for those
+       * for ENDPOINT scope, a username for USER scope. Required for those
        * scopes; unset for GLOBAL and WORKSPACE.
        * </pre>
        *
@@ -263160,7 +263168,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -263170,7 +263178,7 @@ public final class Service {
     boolean hasTargetValue();
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -263180,7 +263188,7 @@ public final class Service {
     java.lang.String getTargetValue();
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -264126,7 +264134,7 @@ public final class Service {
     private volatile java.lang.Object targetValue_;
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -264139,7 +264147,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -264163,7 +264171,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -265034,7 +265042,7 @@ public final class Service {
       private java.lang.Object targetValue_ = "";
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265046,7 +265054,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265069,7 +265077,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265091,7 +265099,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265111,7 +265119,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -265126,7 +265134,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -266534,7 +266542,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -266544,7 +266552,7 @@ public final class Service {
     boolean hasTargetValue();
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -266554,7 +266562,7 @@ public final class Service {
     java.lang.String getTargetValue();
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -267555,7 +267563,7 @@ public final class Service {
     private volatile java.lang.Object targetValue_;
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -267568,7 +267576,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -267592,7 +267600,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+     * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
      * scope). Required for those scopes.
      * </pre>
      *
@@ -268573,7 +268581,7 @@ public final class Service {
       private java.lang.Object targetValue_ = "";
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268585,7 +268593,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268608,7 +268616,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268630,7 +268638,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268650,7 +268658,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *
@@ -268665,7 +268673,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Target the policy applies to (endpoint ID for ENDPOINT scope, principal for USER
+       * Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
        * scope). Required for those scopes.
        * </pre>
        *

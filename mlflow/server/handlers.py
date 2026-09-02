@@ -12,15 +12,19 @@ import threading
 import time
 import unicodedata
 import urllib
+from collections.abc import Iterable
 from functools import partial, wraps
 from typing import Any, Callable
+from zlib import adler32
 
 import requests
 from cachetools import TTLCache
 from flask import Request, Response, current_app, g, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
+from werkzeug.exceptions import RequestedRangeNotSatisfiable
 from werkzeug.http import quote_header_value
+from werkzeug.wsgi import wrap_file
 
 import mlflow
 from mlflow.client import MlflowClient
@@ -35,6 +39,7 @@ from mlflow.entities import (
     FileInfo,
     GatewayEndpointModelConfig,
     GatewayEndpointTag,
+    GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
     IssueSeverity,
@@ -323,12 +328,9 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartUploadMixin,
     PresignedUploadMixin,
     StreamUploadMixin,
+    _validate_attachment_path,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.mlflow_artifacts_repo import (
-    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
-    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
-)
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
@@ -368,6 +370,7 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
     MLFLOW_GENAI_EVALUATE_JOB_ID,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
@@ -384,10 +387,18 @@ from mlflow.utils.providers import (
     get_models,
     get_provider_config_response,
 )
+from mlflow.utils.server_info import (
+    SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
+    SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_STORE_TYPE,
+    SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
+    SERVER_INFO_WORKSPACES_ENABLED,
+)
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import (
+    MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
     _validate_batch_log_api_req,
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
@@ -423,6 +434,44 @@ _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
+
+
+def _is_custom_view_tag(key: str) -> bool:
+    return key.startswith(MLFLOW_CUSTOM_VIEW_TAG_PREFIX)
+
+
+def _count_custom_views(tags: Iterable[tuple[str, str]]) -> int:
+    return sum(_is_custom_view_tag(key) for key, _value in tags)
+
+
+def _raise_custom_view_limit_exceeded(experiment_id: str | None = None) -> None:
+    experiment_ref = f" for experiment {experiment_id}" if experiment_id else ""
+    raise MlflowException(
+        f"Unable to create another custom view{experiment_ref}; the maximum number of custom "
+        f"views per experiment is {MAX_CUSTOM_VIEWS_PER_EXPERIMENT}. Delete an existing custom "
+        "view before creating a new one.",
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
+def _validate_custom_view_count(tags: list[ExperimentTag]) -> None:
+    if _count_custom_views((tag.key, tag.value) for tag in tags) > MAX_CUSTOM_VIEWS_PER_EXPERIMENT:
+        _raise_custom_view_limit_exceeded()
+
+
+def _validate_custom_view_tag_write(experiment, tag: ExperimentTag) -> None:
+    if not _is_custom_view_tag(tag.key):
+        return
+
+    # Only writes that add a tag are capped. Overwriting an existing custom-view tag keeps the
+    # count flat, so edit and rename remain available when the experiment is at the limit. This
+    # uses a snapshot read, so concurrent saves at the boundary can exceed the cap, after which new
+    # saves are rejected until a view is deleted.
+    if tag.key in experiment.tags:
+        return
+
+    if _count_custom_views(experiment.tags.items()) >= MAX_CUSTOM_VIEWS_PER_EXPERIMENT:
+        _raise_custom_view_limit_exceeded(experiment.experiment_id)
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -1159,6 +1208,72 @@ def _create_artifact_file_response(file_path: str, artifact_name: str) -> Respon
     return _response_with_file_attachment_headers(file_path, file_sender_response)
 
 
+def _create_temp_artifact_file_response(
+    file_path: str, artifact_name: str, cleanup: Callable[[], None]
+) -> Response:
+    """Serve a temporary file and clean it up when the WSGI iterator closes."""
+    if os.path.isdir(file_path):
+        raise MlflowException.invalid_parameter_value(
+            f"Artifact path refers to a directory, not a file: '{artifact_name}'"
+        )
+
+    try:
+        file_handle = open(file_path, "rb")  # noqa: SIM115
+        file_stat = os.fstat(file_handle.fileno())
+        file_size = file_stat.st_size
+    except Exception:
+        cleanup()
+        raise
+
+    class _CleanupFileWrapper:
+        def __init__(self, handle, cleanup_callback: Callable[[], None]) -> None:
+            self._handle = handle
+            self._cleanup_callback = cleanup_callback
+            self._closed = False
+
+        def close(self) -> None:
+            if self._closed:
+                return
+            self._closed = True
+            self._handle.close()
+            self._cleanup_callback()
+
+        def __getattr__(self, name: str):
+            return getattr(self._handle, name)
+
+    wrapped_file = _CleanupFileWrapper(file_handle, cleanup)
+
+    try:
+        response = current_app.response_class(
+            wrap_file(
+                request.environ,
+                wrapped_file,
+                buffer_size=ARTIFACT_STREAM_CHUNK_SIZE,
+            ),
+            mimetype=_guess_mime_type(file_path),
+            direct_passthrough=True,
+        )
+        response.content_length = file_size
+        response.last_modified = file_stat.st_mtime
+        check = adler32(file_path.encode()) & 0xFFFFFFFF
+        response.set_etag(f"{file_stat.st_mtime}-{file_size}-{check}")
+        response.cache_control.no_cache = True
+        response = response.make_conditional(
+            request.environ, accept_ranges=True, complete_length=file_size
+        )
+    except RequestedRangeNotSatisfiable:
+        wrapped_file.close()
+        raise
+    except Exception:
+        wrapped_file.close()
+        raise
+
+    response.headers["Content-Disposition"] = _content_disposition_attachment(
+        pathlib.Path(artifact_name).name
+    )
+    return _response_with_file_attachment_headers(file_path, response)
+
+
 def _send_artifact(artifact_repository, path):
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
@@ -1170,9 +1285,7 @@ def _send_artifact(artifact_repository, path):
         file_path = os.path.abspath(
             artifact_repository.download_artifacts(path, dst_path=tmp_dir.name)
         )
-        response = _create_artifact_file_response(file_path, path)
-        response.call_on_close(tmp_dir.cleanup)
-        return response
+        return _create_temp_artifact_file_response(file_path, path, tmp_dir.cleanup)
     except Exception:
         tmp_dir.cleanup()
         raise
@@ -1579,6 +1692,7 @@ def _create_experiment():
     )
 
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
+    _validate_custom_view_count(tags)
 
     if request_message.artifact_location:
         _validate_storage_location_uri(request_message.artifact_location, "artifact_location")
@@ -1870,7 +1984,11 @@ def _set_experiment_tag():
         },
     )
     tag = ExperimentTag(request_message.key, request_message.value)
-    _get_tracking_store().set_experiment_tag(request_message.experiment_id, tag)
+    store = _get_tracking_store()
+    if _is_custom_view_tag(tag.key):
+        experiment = store.get_experiment(request_message.experiment_id)
+        _validate_custom_view_tag_write(experiment, tag)
+    store.set_experiment_tag(request_message.experiment_id, tag)
     response_message = SetExperimentTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -2626,9 +2744,20 @@ def _log_model():
     return response
 
 
-def _wrap_response(response_message):
+def _wrap_response(
+    response_message,
+    *,
+    pretty: bool = True,
+    convert_int64_to_number: bool = True,
+):
     response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
+    response.set_data(
+        message_to_json(
+            response_message,
+            pretty=pretty,
+            convert_int64_to_number=convert_int64_to_number,
+        )
+    )
     return response
 
 
@@ -3457,15 +3586,21 @@ def _update_webhook(webhook_id: str):
     webhook = _get_model_registry_store().update_webhook(
         webhook_id=webhook_id,
         name=request_message.name or None,
-        description=request_message.description or None,
+        description=(
+            request_message.description if request_message.HasField("description") else None
+        ),
         url=request_message.url or None,
         events=(
             [WebhookEvent.from_proto(e) for e in request_message.events]
             if request_message.events
             else None
         ),
-        secret=request_message.secret or None,
-        status=WebhookStatus.from_proto(request_message.status) if request_message.status else None,
+        secret=request_message.secret if request_message.HasField("secret") else None,
+        status=(
+            WebhookStatus.from_proto(request_message.status)
+            if request_message.HasField("status")
+            else None
+        ),
     )
     response_message = UpdateWebhook.Response(webhook=webhook.to_proto())
     return _wrap_response(response_message)
@@ -3572,22 +3707,10 @@ def _download_artifact(artifact_path):
     tmp_dir = tempfile.TemporaryDirectory()
     try:
         dst = os.path.abspath(artifact_repo.download_artifacts(artifact_path, tmp_dir.name))
-
-        # Ref: https://stackoverflow.com/a/24613980/6943581
-        file_handle = open(dst, "rb")  # noqa: SIM115
+        return _create_temp_artifact_file_response(dst, artifact_path, tmp_dir.cleanup)
     except Exception:
         tmp_dir.cleanup()
         raise
-
-    def stream_and_remove_file():
-        while chunk := file_handle.read(ARTIFACT_STREAM_CHUNK_SIZE):
-            yield chunk
-        file_handle.close()
-        tmp_dir.cleanup()
-
-    file_sender_response = current_app.response_class(stream_and_remove_file())
-
-    return _response_with_file_attachment_headers(artifact_path, file_sender_response)
 
 
 @catch_mlflow_exception
@@ -3951,6 +4074,19 @@ def _get_presigned_download_url(artifact_path):
 # MLflow Tracing APIs
 
 
+def _wrap_trace_info_response(response_message):
+    # JSON whitespace is not part of the API contract, so compact output reduces serialization
+    # work and payload size for trace-info responses, which can contain up to 500 traces per page.
+    # TraceInfo uses Timestamp/Duration messages, and assessment times use Timestamp, so these
+    # responses contain no raw int64 fields. Complete trace responses still use the default
+    # conversion because span start/end times are fixed64 nanosecond values.
+    return _wrap_response(
+        response_message,
+        pretty=False,
+        convert_int64_to_number=False,
+    )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _start_trace_v3():
@@ -3964,7 +4100,7 @@ def _start_trace_v3():
     trace_info = TraceInfo.from_proto(request_message.trace.trace_info)
     trace_info = _get_tracking_store().start_trace(trace_info)
     response_message = StartTraceV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -3976,7 +4112,7 @@ def _get_trace_info_v3(trace_id):
     """
     trace_info = _get_tracking_store().get_trace_info(trace_id)
     response_message = GetTraceInfoV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -3993,7 +4129,7 @@ def _batch_get_traces() -> Response:
     traces = _get_tracking_store().batch_get_traces(request_message.trace_ids, None)
     response_message = BatchGetTraces.Response()
     response_message.traces.extend([t.to_proto() for t in traces])
-    return _wrap_response(response_message)
+    return _wrap_response(response_message, pretty=False)
 
 
 @catch_mlflow_exception
@@ -4006,7 +4142,7 @@ def _batch_get_trace_infos() -> Response:
     trace_infos = _get_tracking_store().batch_get_trace_infos(request_message.trace_ids)
     response_message = BatchGetTraceInfos.Response()
     response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -4026,7 +4162,7 @@ def _get_trace() -> Response:
     allow_partial = request_message.allow_partial
     trace = _get_tracking_store().get_trace(trace_id, allow_partial=allow_partial)
     response_message = GetTrace.Response(trace=trace.to_proto())
-    return _wrap_response(response_message)
+    return _wrap_response(response_message, pretty=False)
 
 
 @catch_mlflow_exception
@@ -4065,7 +4201,7 @@ def _search_traces_v3():
     response_message.traces.extend([e.to_proto() for e in traces])
     if token:
         response_message.next_page_token = token
-    return _wrap_response(response_message)
+    return _wrap_trace_info_response(response_message)
 
 
 @catch_mlflow_exception
@@ -4307,6 +4443,7 @@ def get_trace_artifact_handler() -> Response:
 
     if path:
         path = validate_path_is_safe(path)
+        _validate_attachment_path(path)
         trace_info = store.get_trace_info(request_id)
         if trace_info is None:
             raise MlflowException(
@@ -4314,11 +4451,26 @@ def get_trace_artifact_handler() -> Response:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         repo = _get_trace_artifact_repo(trace_info)
+        attachment_artifact_path = posixpath.join("attachments", path)
+
         try:
-            content_bytes = repo.download_trace_attachment(path)
+            local_path = repo.get_local_path(attachment_artifact_path)
         except MlflowException:
+            local_path = None
+
+        if local_path is not None:
+            return _create_artifact_file_response(os.path.abspath(local_path), path)
+
+        tmp_dir = tempfile.TemporaryDirectory()
+        try:
+            dst = pathlib.Path(tmp_dir.name, path)
+            repo.download_trace_attachment_to_file(path, dst)
+            return _create_temp_artifact_file_response(str(dst), path, tmp_dir.cleanup)
+        except MlflowException:
+            tmp_dir.cleanup()
             raise
         except Exception:
+            tmp_dir.cleanup()
             _logger.warning(
                 "Failed to download attachment '%s' for trace '%s'",
                 path,
@@ -4329,14 +4481,6 @@ def get_trace_artifact_handler() -> Response:
                 f"Failed to download attachment '{path}' for trace '{request_id}'.",
                 error_code=INTERNAL_ERROR,
             )
-        buf = io.BytesIO(content_bytes)
-        file_sender_response = send_file(
-            buf,
-            mimetype="application/octet-stream",
-            as_attachment=True,
-            download_name=path,
-        )
-        return _response_with_file_attachment_headers(path, file_sender_response)
 
     trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
@@ -4346,9 +4490,29 @@ def get_trace_artifact_handler() -> Response:
                 _get_trace_archive_repo(trace_info).download_archived_trace_data().to_dict()
             )
         else:
-            trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
+            repo = _get_trace_artifact_repo(trace_info)
 
-    # Write data to a BytesIO buffer instead of needing to save a temp file
+            try:
+                local_path = repo.get_local_path(TRACE_DATA_FILE_NAME)
+            except MlflowException:
+                local_path = None
+
+            if local_path is not None:
+                return _create_artifact_file_response(
+                    os.path.abspath(local_path), TRACE_DATA_FILE_NAME
+                )
+
+            tmp_dir = tempfile.TemporaryDirectory()
+            try:
+                dst = pathlib.Path(tmp_dir.name, TRACE_DATA_FILE_NAME)
+                repo.download_trace_data_to_file(dst)
+                return _create_temp_artifact_file_response(
+                    str(dst), TRACE_DATA_FILE_NAME, tmp_dir.cleanup
+                )
+            except Exception:
+                tmp_dir.cleanup()
+                raise
+
     buf = io.BytesIO()
     buf.write(json.dumps(trace_data).encode())
     buf.seek(0)
@@ -5870,6 +6034,26 @@ def _list_gateway_secrets():
 # =============================================================================
 
 
+def _assert_linkage_type_specified(model_config, index: int | None = None) -> None:
+    """
+    Reject model configs whose ``linkage_type`` does not map to a known linkage type.
+
+    The proto marks ``linkage_type`` as optional and ``GatewayModelLinkageType.from_proto``
+    returns ``None`` for any value it cannot map, which the store would later dereference as
+    ``config.linkage_type.value``. Validating through ``from_proto`` rather than comparing
+    against ``LINKAGE_TYPE_UNSPECIFIED`` keeps a proto enum value that has no entity
+    counterpart from surfacing as a 500.
+    """
+    if GatewayModelLinkageType.from_proto(model_config.linkage_type) is not None:
+        return
+    location = "model_config" if index is None else f"model_configs[{index}]"
+    valid = ", ".join(t.value for t in GatewayModelLinkageType)
+    raise MlflowException.invalid_parameter_value(
+        f"Invalid or missing value for required parameter 'linkage_type' in {location}. "
+        f"Must be one of: {valid}."
+    )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_gateway_endpoint():
@@ -5898,6 +6082,9 @@ def _create_gateway_endpoint():
             if request_message.fallback_config.HasField("max_attempts")
             else None,
         )
+
+    for index, config in enumerate(request_message.model_configs):
+        _assert_linkage_type_specified(config, index)
 
     model_configs = [
         GatewayEndpointModelConfig.from_proto(config) for config in request_message.model_configs
@@ -5978,6 +6165,9 @@ def _update_gateway_endpoint():
     # Convert proto model_configs to entity GatewayEndpointModelConfig list
     model_configs = None
     if request_message.model_configs:
+        for index, config in enumerate(request_message.model_configs):
+            _assert_linkage_type_specified(config, index)
+
         model_configs = [
             GatewayEndpointModelConfig.from_proto(config)
             for config in request_message.model_configs
@@ -6163,6 +6353,8 @@ def _attach_model_to_gateway_endpoint():
         },
     )
 
+    _assert_linkage_type_specified(request_message.model_config)
+
     model_config = GatewayEndpointModelConfig.from_proto(request_message.model_config)
 
     mapping = _get_tracking_store().attach_model_to_endpoint(
@@ -6312,7 +6504,7 @@ def _validate_budget_target_scope(target_scope, target_value):
     """Validate the target_value / target_scope relationship for budget policies.
 
     ENDPOINT- and USER-scoped policies must carry a ``target_value`` (the endpoint ID
-    or principal to match); policies with any other scope must not.
+    or username to match); policies with any other scope must not.
     """
     if target_scope in _TARGETED_BUDGET_SCOPES:
         if not target_value:
@@ -6341,7 +6533,7 @@ def _is_server_auth_enabled() -> bool:
 def _assert_user_scope_enforceable(target_scope: BudgetTargetScope) -> None:
     """Reject USER-scoped budgets when auth is off, since they would never match.
 
-    Without authentication the gateway has no request principal, so a USER-scoped
+    Without authentication the gateway has no request username, so a USER-scoped
     policy is silently inert (a REJECT cap never rejects, an ALERT never fires).
     Fail loudly at write time rather than let an admin create a non-functional cap.
     """
@@ -6496,7 +6688,7 @@ def _update_budget_policy():
     # update one field alone) are not rejected, while updates that would produce a
     # targeted (ENDPOINT/USER) policy without a target_value — a silently non-enforcing
     # policy — still are. A target only carries over within the same scope: an endpoint
-    # ID is meaningless as a principal and vice versa, so switching scope requires an
+    # ID is meaningless as a username and vice versa, so switching scope requires an
     # explicit new target_value.
     if target_scope is not None or target_value_provided:
         existing = store.get_budget_policy(budget_policy_id=request_message.budget_policy_id)
@@ -6587,15 +6779,15 @@ def _list_budget_windows():
     maybe_refresh_budget_policies(store)
     windows = get_budget_tracker().get_all_windows()
     if workspace is not None:
-        # GLOBAL policies are always shown, and USER-scoped windows aren't
-        # workspace-bound so they also stay visible. WORKSPACE/ENDPOINT policies
-        # are shown only for the requesting workspace (ENDPOINT policies still
-        # carry an owning workspace even though enforcement matches on endpoint_id).
+        # GLOBAL policies are always shown. Every other scope is filtered to the
+        # requesting workspace by the policy's owning workspace, so current-spend
+        # figures never leak across workspaces. WORKSPACE/ENDPOINT/USER policies all
+        # carry an owning workspace even when enforcement matches on target_value
+        # (an endpoint ID or a username) rather than on the workspace itself.
         windows = [
             w
             for w in windows
-            if w.policy.target_scope in (BudgetTargetScope.GLOBAL, BudgetTargetScope.USER)
-            or w.policy.workspace == workspace
+            if w.policy.target_scope == BudgetTargetScope.GLOBAL or w.policy.workspace == workspace
         ]
     response_message = ListGatewayBudgetWindows.Response()
     for w in windows:
@@ -6818,9 +7010,9 @@ def _get_server_info():
             )
 
     return jsonify({
-        "store_type": store_type,
-        "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
-        "trace_archival_enabled": trace_archival_enabled,
+        SERVER_INFO_STORE_TYPE: store_type,
+        SERVER_INFO_WORKSPACES_ENABLED: MLFLOW_ENABLE_WORKSPACES.get(),
+        SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
         SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED: multipart_downloads_enabled,
     })

@@ -137,11 +137,24 @@ def job(
     return decorator
 
 
+def _current_authenticated_user() -> str | None:
+    # The basic-auth plugin stamps g.mlflow_authenticated_user; recorded as the job
+    # creator for per-job ownership. None when auth is off or no request context.
+    try:
+        from flask import g, has_request_context
+    except ImportError:
+        return None
+    if not has_request_context():
+        return None
+    return getattr(g, "mlflow_authenticated_user", None)
+
+
 def submit_job(
     function: Callable[..., Any],
     params: dict[str, Any],
     timeout: float | None = None,
     extra_envs: dict[str, str] | None = None,
+    creator: str | None = None,
 ) -> JobEntity:
     """
     Submit a job to the job queue. The job is executed at most once.
@@ -167,6 +180,8 @@ def submit_job(
         params: The params to be passed to the job function.
         timeout: (optional) The job execution timeout, default None (no timeout)
         extra_envs: (optional) Additional environment variables to set in the job subprocess.
+        creator: (optional) Username to record as the job creator. When omitted, falls back to
+            the authenticated user stamped on ``flask.g`` by the basic-auth plugin.
 
     Returns:
         The job entity. You can call `get_job` API by the job id to get
@@ -220,7 +235,10 @@ def submit_job(
 
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
-    job = job_store.create_job(fn_meta.name, serialized_params, timeout)
+    # FastAPI callers pass creator explicitly (no flask.g there); Flask callers fall back to g.
+    if creator is None:
+        creator = _current_authenticated_user()
+    job = job_store.create_job(fn_meta.name, serialized_params, timeout, creator=creator)
     # Only propagate workspace to subprocess when workspaces are enabled
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
 

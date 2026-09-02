@@ -2698,7 +2698,7 @@ def test_create_budget_policy_user_scope(store: SqlAlchemyStore):
 
 def test_update_scope_switch_never_adopts_previous_target(store: SqlAlchemyStore):
     # A target only makes sense within the scope it was written for: an endpoint ID
-    # is meaningless as a principal and vice versa. Switching scope without an
+    # is meaningless as a username and vice versa. Switching scope without an
     # explicit new target must fail instead of silently reinterpreting the old one.
     endpoint_id = _create_endpoint_for_budget(store, "budget-ep-adopt")
     created = store.create_budget_policy(
@@ -2729,7 +2729,7 @@ def test_update_scope_switch_never_adopts_previous_target(store: SqlAlchemyStore
 
 def test_update_user_to_endpoint_switch_validates_endpoint_exists(store: SqlAlchemyStore):
     # Switching a USER policy to ENDPOINT with a target that is not a real endpoint
-    # must fail the existence check rather than persist a principal as an endpoint ID.
+    # must fail the existence check rather than persist a username as an endpoint ID.
     created = store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
         budget_amount=25.0,
@@ -3541,36 +3541,36 @@ def test_sum_gateway_trace_cost_endpoint_filter(store: SqlAlchemyStore):
     assert abs(total_all - 0.35) < 1e-9
 
 
-def test_sum_gateway_trace_cost_principal_filter(store: SqlAlchemyStore):
-    exp = store.create_experiment("cost-test-principal")
+def test_sum_gateway_trace_cost_username_filter(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-username")
     exp_id = int(exp)
 
     with store.ManagedSessionMaker(read_only=False) as session:
         _insert_trace_with_cost(session, exp_id, "t-alice", 1000, [("s1", 0.10)], username="alice")
         _insert_trace_with_cost(session, exp_id, "t-bob", 1000, [("s1", 0.25)], username="bob")
         # A gateway trace without any recorded username should be excluded when
-        # filtering by principal.
+        # filtering by username.
         _insert_trace_with_cost(session, exp_id, "t-anon", 1000, [("s1", 0.99)])
 
-    total_alice = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, principal="alice")
+    total_alice = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, username="alice")
     assert abs(total_alice - 0.10) < 1e-9
 
-    total_bob = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, principal="bob")
+    total_bob = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, username="bob")
     assert abs(total_bob - 0.25) < 1e-9
 
-    # No principal filter includes every gateway trace.
+    # No username filter includes every gateway trace.
     total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
     assert abs(total_all - 1.34) < 1e-9
 
-    # Unknown principal matches nothing.
-    total_none = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, principal="carol")
+    # Unknown username matches nothing.
+    total_none = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, username="carol")
     assert total_none == 0.0
 
 
-def test_sum_gateway_trace_cost_principal_and_workspace(store: SqlAlchemyStore):
+def test_sum_gateway_trace_cost_username_and_workspace(store: SqlAlchemyStore):
     with store.ManagedSessionMaker(read_only=False) as session:
         exp_ws = SqlExperiment(
-            name=f"cost-principal-ws-{uuid.uuid4().hex}",
+            name=f"cost-username-ws-{uuid.uuid4().hex}",
             artifact_location="/tmp/pw",
             lifecycle_stage="active",
             workspace="workspace-p",
@@ -3586,6 +3586,6 @@ def test_sum_gateway_trace_cost_principal_and_workspace(store: SqlAlchemyStore):
         )
 
     total = store.sum_gateway_trace_cost(
-        start_time_ms=0, end_time_ms=5000, workspace="workspace-p", principal="alice"
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-p", username="alice"
     )
     assert abs(total - 0.10) < 1e-9

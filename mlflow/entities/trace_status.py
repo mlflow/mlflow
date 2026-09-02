@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import cast
 
 from opentelemetry import trace as trace_api
 
@@ -39,24 +40,25 @@ class TraceStatus(str, Enum):
             return cls.IN_PROGRESS
         raise ValueError(f"Unknown TraceState: {state}")
 
-    def to_proto(self):
-        return ProtoTraceStatus.Value(self)
+    def to_proto(self) -> int:
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(int, ProtoTraceStatus.Value(self))
 
     @staticmethod
-    def from_proto(proto_status):
+    def from_proto(proto_status: int) -> "TraceStatus":
         return TraceStatus(ProtoTraceStatus.Name(proto_status))
 
     @staticmethod
-    def from_otel_status(otel_status: trace_api.Status):
+    def from_otel_status(otel_status: trace_api.Status) -> "TraceStatus":
         return _OTEL_STATUS_CODE_TO_MLFLOW[otel_status.status_code]
 
     @classmethod
-    def pending_statuses(cls):
+    def pending_statuses(cls) -> set["TraceStatus"]:
         """Traces in pending statuses can be updated to any statuses."""
         return {cls.IN_PROGRESS}
 
     @classmethod
-    def end_statuses(cls):
+    def end_statuses(cls) -> set["TraceStatus"]:
         """Traces in end statuses cannot be updated to any statuses."""
         return {cls.UNSPECIFIED, cls.OK, cls.ERROR}
 
