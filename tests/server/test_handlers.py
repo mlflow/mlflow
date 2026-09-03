@@ -7738,7 +7738,9 @@ def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
     canonical_scorer = json.dumps(Completeness(name="registered-judge").model_dump())
-    mock_tracking_store.get_scorer.return_value = mock.MagicMock(serialized_scorer=canonical_scorer)
+    mock_tracking_store.get_scorer.return_value = mock.MagicMock(
+        serialized_scorer=canonical_scorer, scorer_version=4
+    )
     mock_run = mock.MagicMock()
     mock_run.info.run_id = "run-genai-1"
     mock_client = mock.MagicMock()
@@ -7763,7 +7765,7 @@ def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
     assert resp.status_code == 200, resp.get_json()
     mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "registered-judge", 3)
     assert mock_submit_job.call_args.kwargs["params"]["serialized_scorers"] == [canonical_scorer]
-    assert mock_submit_job.call_args.kwargs["params"]["scorer_versions"] == [3]
+    assert mock_submit_job.call_args.kwargs["params"]["scorer_versions"] == [4]
 
 
 def test_invoke_genai_evaluate_handler_rejects_empty_trace_ids(monkeypatch):

@@ -14,6 +14,7 @@ from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer
 from mlflow.server.jobs import job
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
@@ -49,7 +50,9 @@ def invoke_genai_evaluate_job(
         scorers = [Scorer.model_validate_json(s) for s in serialized_scorers]
         if scorer_versions is not None:
             if len(scorer_versions) != len(scorers):
-                raise ValueError("scorer_versions must have the same length as serialized_scorers")
+                raise MlflowException.invalid_parameter_value(
+                    "scorer_versions must have the same length as serialized_scorers"
+                )
             for scorer, scorer_version in zip(scorers, scorer_versions, strict=True):
                 if scorer_version is not None:
                     scorer._set_registration_metadata(
