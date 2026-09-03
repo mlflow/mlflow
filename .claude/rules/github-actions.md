@@ -1,5 +1,7 @@
 ---
-paths: ".github/workflows/**/*.yml"
+paths:
+  - ".github/workflows/**/*.yml"
+  - ".github/actions/**/*.yml"
 ---
 
 # GitHub Actions Workflow Guidelines

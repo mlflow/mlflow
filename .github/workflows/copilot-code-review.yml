@@ -1,0 +1,25 @@
+name: copilot-code-review
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/copilot-code-review.yml
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  # Must be named `copilot-setup-steps` even in this file, otherwise Copilot
+  # ignores it and falls back to `copilot-setup-steps.yml`.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Complete setup
+        run: echo "No additional setup required."

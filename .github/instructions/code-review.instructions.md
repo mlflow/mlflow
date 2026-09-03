@@ -1,6 +1,6 @@
 ---
 applyTo: "**"
-excludeAgent: ["coding-agent"]
+excludeAgent: "cloud-agent"
 ---
 
 # Code Review Instructions
