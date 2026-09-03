@@ -13,7 +13,8 @@ from sklearn.datasets import load_diabetes
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow import MlflowClient
+from mlflow import MlflowClient, pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -512,3 +513,13 @@ def test_model_log_with_metadata(shap_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+@pytest.mark.parametrize("load_fn", [mlflow.shap.load_explainer, pyfunc.load_model])
+def test_load_disallows_pickle_deserialization(shap_model, tmp_path, monkeypatch, load_fn):
+    model_path = str(tmp_path.joinpath("shap_model"))
+    mlflow.shap.save_explainer(shap_model, model_path)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        load_fn(model_path)
