@@ -3,6 +3,7 @@ import uuid
 
 import pytest
 
+from mlflow.genai.scorers.base import ScorerStatus
 from mlflow.genai.scorers.builtin_scorers import Completeness, ConversationCompleteness
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -35,11 +36,25 @@ def test_group_scorers_by_filter_empty():
 
 
 def test_group_scorers_preserves_registered_version():
-    sampler = OnlineScorerSampler([make_online_scorer(Completeness(), scorer_version=4)])
+    sampler = OnlineScorerSampler(
+        [
+            make_online_scorer(
+                Completeness(),
+                sample_rate=0.5,
+                filter_string="tags.environment = 'production'",
+                scorer_version=4,
+            )
+        ]
+    )
 
-    scorers = sampler.group_scorers_by_filter(session_level=False)[None]
+    scorers = sampler.group_scorers_by_filter(session_level=False)[
+        "tags.environment = 'production'"
+    ]
 
     assert scorers[0].scorer_version == 4
+    assert scorers[0].sample_rate == 0.5
+    assert scorers[0].filter_string == "tags.environment = 'production'"
+    assert scorers[0].status == ScorerStatus.STARTED
 
 
 def test_group_scorers_by_filter_no_filters():

@@ -5291,12 +5291,14 @@ def _invoke_genai_evaluate_handler():
             "experiment_id": [_assert_required, _assert_string],
             "trace_ids": [_assert_required, _assert_array],
             "serialized_scorers": [_assert_required, _assert_array],
+            "scorer_versions": [_assert_array],
         }
     )
 
     experiment_id = request_json["experiment_id"]
     trace_ids = request_json["trace_ids"]
     serialized_scorers = request_json["serialized_scorers"]
+    scorer_versions = request_json.get("scorer_versions", [None] * len(serialized_scorers))
 
     if not trace_ids:
         raise MlflowException(
@@ -5308,6 +5310,29 @@ def _invoke_genai_evaluate_handler():
             "Please select at least one judge.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    if len(scorer_versions) != len(serialized_scorers):
+        raise MlflowException.invalid_parameter_value(
+            "scorer_versions must have the same length as serialized_scorers"
+        )
+
+    tracking_store = _get_tracking_store()
+    for index, (serialized_scorer, scorer_version) in enumerate(
+        zip(serialized_scorers, scorer_versions, strict=True)
+    ):
+        if scorer_version is None:
+            continue
+        if not isinstance(scorer_version, int) or isinstance(scorer_version, bool):
+            raise MlflowException.invalid_parameter_value(
+                "Each scorer version must be an integer or null"
+            )
+        try:
+            scorer_name = json.loads(serialized_scorer)["name"]
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            raise MlflowException.invalid_parameter_value(
+                "A registered scorer must contain a valid name"
+            ) from e
+        registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
+        serialized_scorers[index] = registered_scorer.serialized_scorer
 
     # Create the run upfront so we can return run_id immediately, so the run
     # shows up on /evaluation-runs even before the job has produced artifacts.
@@ -5324,6 +5349,8 @@ def _invoke_genai_evaluate_handler():
             params={
                 "trace_ids": trace_ids,
                 "serialized_scorers": serialized_scorers,
+                "scorer_versions": scorer_versions,
+                "experiment_id": experiment_id,
                 "run_id": run_id,
                 "username": username,
             },
@@ -7073,6 +7100,8 @@ def _invoke_scorer_handler():
     args = request.json
     experiment_id = args.get("experiment_id")
     serialized_scorer = args.get("serialized_scorer")
+    scorer_name = args.get("scorer_name")
+    scorer_version = args.get("scorer_version")
     trace_ids = args.get("trace_ids", [])
     log_assessments = args.get("log_assessments", False)
 
@@ -7090,6 +7119,18 @@ def _invoke_scorer_handler():
         raise MlflowException(
             "Please select at least one trace to evaluate.",
             error_code=INVALID_PARAMETER_VALUE,
+        )
+    if (scorer_name is None) != (scorer_version is None):
+        raise MlflowException.invalid_parameter_value(
+            "scorer_name and scorer_version must be specified together"
+        )
+    if scorer_name is not None and (
+        not isinstance(scorer_name, str)
+        or not isinstance(scorer_version, int)
+        or isinstance(scorer_version, bool)
+    ):
+        raise MlflowException.invalid_parameter_value(
+            "scorer_name must be a string and scorer_version must be an integer"
         )
 
     # Decorator scorers carry a `call_source` field that is executed via exec() when the
@@ -7109,9 +7150,12 @@ def _invoke_scorer_handler():
     from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
     from mlflow.server.jobs import submit_job
 
-    scorer = Scorer.model_validate_json(serialized_scorer)
-
     tracking_store = _get_tracking_store()
+    if scorer_name is not None:
+        registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
+        serialized_scorer = registered_scorer.serialized_scorer
+
+    scorer = Scorer.model_validate_json(serialized_scorer)
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
     # Extract the authenticated username so that job subprocesses can make
@@ -7125,6 +7169,7 @@ def _invoke_scorer_handler():
             params={
                 "experiment_id": experiment_id,
                 "serialized_scorer": serialized_scorer,
+                "scorer_version": scorer_version,
                 "trace_ids": batch_trace_ids,
                 "log_assessments": log_assessments,
                 "username": username,
