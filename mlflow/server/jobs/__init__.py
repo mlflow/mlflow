@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 from dataclasses import dataclass
 from types import FunctionType
@@ -257,6 +258,23 @@ def submit_job(
             "use the huey engine (unset MLFLOW_SERVER_JOB_EXECUTION_ENGINE) instead."
         )
 
+    if (
+        engine == "executor"
+        and fn_meta.exclusive
+        and not (timeout is not None and math.isfinite(timeout) and timeout > 0)
+    ):
+        # The executor engine deduplicates exclusive jobs with a database lock
+        # (mlflow.server.jobs.lock_manager). That lock is reclaimed once its age exceeds the job's
+        # timeout, so the timeout must be a positive, finite number -- a missing, zero, negative,
+        # NaN, or infinite value would make the lock immediately (or never) stale, letting a second
+        # same-key job run. Require a usable value up front. (The Huey engine uses its own
+        # in-process lock and does not need this.)
+        raise MlflowException.invalid_parameter_value(
+            "An exclusive job requires a positive, finite timeout when the executor job-execution "
+            "engine is enabled (MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor). Pass a timeout to "
+            "submit_job."
+        )
+
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     # FastAPI callers pass creator explicitly (no flask.g there); Flask callers fall back to g.
@@ -268,8 +286,8 @@ def submit_job(
     if engine == "executor":
         # Executor engine: the job is persisted as PENDING and the executor runner loop
         # (mlflow.server.jobs._executor_runner) claims and runs it. Nothing to enqueue here.
-        # NOTE: exclusive-job dedup is not yet honored on this path (a follow-up). The default
-        # Huey path is unchanged.
+        # Exclusive-job dedup is enforced there at claim time via a per-key database lock. The
+        # default Huey path is unchanged.
         return job
 
     # Huey engine (default): enqueue to the per-job Huey execution pool.
