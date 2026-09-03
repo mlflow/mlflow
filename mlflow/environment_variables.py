@@ -1787,3 +1787,11 @@ MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK = _BooleanEnvironmentVariable(
 MLFLOW_READ_REPLICA_BACKEND_STORE_URI = _EnvironmentVariable(
     "MLFLOW_READ_REPLICA_BACKEND_STORE_URI", str, None
 )
+
+#: Specifies the maximum decompressed size in bytes of skill content handled by the skill
+#: registry client and server: uploaded skill archives, fetched ZIP and OCI sources, and
+#: cloned or downloaded skill trees. Content larger than this limit is rejected.
+#: (default: ``26214400``, 25 MiB)
+MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE = _EnvironmentVariable(
+    "MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE", int, 25 * 1024**2
+)
