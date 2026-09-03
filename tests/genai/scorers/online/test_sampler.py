@@ -12,6 +12,7 @@ def make_online_scorer(
     scorer,
     sample_rate: float = 1.0,
     filter_string: str | None = None,
+    scorer_version: int | None = None,
 ) -> OnlineScorer:
     return OnlineScorer(
         name=scorer.name,
@@ -23,6 +24,7 @@ def make_online_scorer(
             experiment_id="exp1",
             filter_string=filter_string,
         ),
+        scorer_version=scorer_version,
     )
 
 
@@ -30,6 +32,14 @@ def test_group_scorers_by_filter_empty():
     sampler = OnlineScorerSampler([])
 
     assert sampler.group_scorers_by_filter(session_level=False) == {}
+
+
+def test_group_scorers_preserves_registered_version():
+    sampler = OnlineScorerSampler([make_online_scorer(Completeness(), scorer_version=4)])
+
+    scorers = sampler.group_scorers_by_filter(session_level=False)[None]
+
+    assert scorers[0].scorer_version == 4
 
 
 def test_group_scorers_by_filter_no_filters():

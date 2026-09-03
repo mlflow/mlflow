@@ -72,6 +72,7 @@ from mlflow.genai.evaluation.session_utils import (
 from mlflow.genai.evaluation.telemetry import emit_metric_usage_event
 from mlflow.genai.evaluation.utils import (
     PGBAR_FORMAT,
+    add_scorer_metadata,
     is_none_or_nan,
     make_code_type_assessment_source,
     standardize_scorer_value,
@@ -952,6 +953,8 @@ def _compute_eval_scores(
                     ),
                 )
             ]
+
+        add_scorer_metadata(scorer, feedbacks)
 
         # Record the trace ID for the scorer function call.
         if should_trace and (trace_id := mlflow.get_last_active_trace_id(thread_local=True)):
