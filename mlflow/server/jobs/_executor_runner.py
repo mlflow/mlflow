@@ -39,6 +39,7 @@ from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR, MLFLOW_SERVER_UP_TIME
 from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutionContext, JobResult
 from mlflow.server.jobs.executor_registry import get_executor_registry
+from mlflow.server.jobs.lock_manager import JobLock, JobLockManager
 from mlflow.store.jobs.abstract_store import AbstractJobStore, JobUpdateStatus
 from mlflow.utils.workspace_context import ServerWorkspaceContext
 
@@ -294,6 +295,9 @@ class _InFlightJob:
     # Set once a store-side cancellation has been successfully forwarded to the executor, so it is
     # forwarded at most once (AbstractJobExecutor.cancel_job is not required to be idempotent).
     cancel_forwarded: bool = False
+    # The exclusive lock this job holds while it runs, released when the worker finishes. None for
+    # a non-exclusive job.
+    job_lock: JobLock | None = None
 
 
 class _JobScheduler:
@@ -326,6 +330,9 @@ class _JobScheduler:
         self._job_store = job_store
         self._executor = executor
         self._lease_duration = lease_duration
+        # Coordinates exclusive-job locks (job_locks table) so that, across replicas, only one
+        # job per exclusive key runs at a time.
+        self._lock_manager = JobLockManager(job_store)
         # One semaphore per job_name (value = that function's max_workers).
         self._slots: dict[str, threading.Semaphore] = {}
         self._slots_lock = threading.Lock()
@@ -351,6 +358,33 @@ class _JobScheduler:
         with self._in_flight_lock:
             if (handle := self._in_flight.get(job_id)) is not None:
                 handle.submitted = True
+
+    def _exclusive_lock_key(self, job: Job, workspace: str | None) -> str | None:
+        """Return the exclusive lock key for a job, or None if the job is not exclusive.
+
+        Uses the shared ``_compute_job_lock_key`` so the executor and Huey engines derive the same
+        key from a job's ``@job(exclusive=...)`` metadata.
+        """
+        from mlflow.server.jobs.utils import (
+            _compute_job_lock_key,
+            _load_function,
+            get_job_fn_fullname,
+        )
+
+        exclusive = _load_function(get_job_fn_fullname(job.job_name))._job_fn_metadata.exclusive
+        if not exclusive:
+            return None
+        return _compute_job_lock_key(job.job_name, json.loads(job.params), exclusive, workspace)
+
+    def _release_lock(self, job_lock: JobLock | None) -> None:
+        if job_lock is None:
+            return
+        try:
+            self._lock_manager.release_exclusive_lock(job_lock)
+        except Exception:
+            # Best effort: a lock left behind is reclaimed once it goes stale (an exclusive job
+            # always has a timeout), so a failed release cannot wedge the key permanently.
+            _logger.exception("Failed to release exclusive lock %s", job_lock.lock_key)
 
     def tick(self) -> int:
         """Run one scheduler iteration. Returns the number of jobs newly scheduled."""
@@ -414,9 +448,6 @@ class _JobScheduler:
         scheduled = 0
         for workspace_ctx in workspace_contexts:
             with workspace_ctx as workspace:
-                # TODO (follow-up): exclusive job-locking by key (e.g. keeping online scoring
-                # exclusive per experiment) is not enforced here; it builds on the job-lock work
-                # in #25200 and lands once that is available.
                 for job in list(self._job_store.list_jobs(statuses=[JobStatus.PENDING])):
                     with self._in_flight_lock:
                         already_in_flight = job.job_id in self._in_flight
@@ -439,6 +470,15 @@ class _JobScheduler:
                         # This job type is already at max_workers; leave it PENDING for a
                         # later tick, once a slot frees.
                         continue
+                    # Compute the exclusive key (if any) before claiming. A job whose key cannot be
+                    # derived can never be scheduled, so fail it like an unresolvable function
+                    # rather than leave it PENDING and retry every tick.
+                    try:
+                        lock_key = self._exclusive_lock_key(job, workspace)
+                    except Exception as exc:
+                        sem.release()
+                        self._fail_unschedulable_job(job, workspace, exc)
+                        continue
                     try:
                         claimed = (
                             self._job_store.claim_job(job.job_id, self._lease_duration)
@@ -452,17 +492,63 @@ class _JobScheduler:
                         # A concurrent worker claimed it first, or its status changed.
                         sem.release()
                         continue
+                    # Acquire the exclusive lock AFTER claiming, so the lock always references a
+                    # RUNNING job. A lock on a still-PENDING job is treated as stale (and stealable)
+                    # by other replicas, so acquiring before the claim would let a second same-key
+                    # job steal it and run too. The job is RUNNING now, so if we do not run it we
+                    # cancel or fail it rather than leave it stranded.
+                    job_lock = None
+                    if lock_key is not None:
+                        try:
+                            job_lock = self._lock_manager.acquire_exclusive_lock(
+                                lock_key, job.job_id
+                            )
+                        except Exception:
+                            sem.release()
+                            _logger.exception(
+                                "Failed to acquire exclusive lock for job %s", job.job_id
+                            )
+                            self._fail_claimed_job(
+                                job.job_id, workspace, "Failed to acquire exclusive job lock"
+                            )
+                            continue
+                        if job_lock is None:
+                            # Another live job holds the key; this is a duplicate. Cancel it
+                            # (matching the Huey engine) rather than run it.
+                            sem.release()
+                            self._cancel_duplicate_job(job, workspace, lock_key)
+                            continue
                     try:
-                        started = self._start_worker(job, workspace, sem)
+                        started = self._start_worker(job, workspace, sem, job_lock)
                     except Exception:
-                        # _start_worker owns releasing the slot on the failure paths it handles;
-                        # this guards the unexpected case so the slot is not leaked if it raises.
+                        # _start_worker owns releasing the slot and lock on the failure paths it
+                        # handles; this guards the unexpected case so neither leaks if it raises.
                         sem.release()
+                        self._release_lock(job_lock)
                         _logger.exception("Failed to start worker for job %s", job.job_id)
                         continue
                     if started:
                         scheduled += 1
         return scheduled
+
+    def _cancel_duplicate_job(self, job: Job, workspace: str | None, lock_key: str) -> None:
+        """Cancel a just-claimed exclusive job whose lock is already held by another live job.
+
+        The job has been claimed (RUNNING) but not started, so cancelling moves it to CANCELED
+        without a worker ever running it. Runs inside the job's workspace context (the caller holds
+        it), matching the Huey engine, which cancels a duplicate rather than leaving it to run.
+        """
+        _logger.info("Skipping job %s - exclusive lock %s already held", job.job_id, lock_key)
+        try:
+            self._job_store.cancel_job(job.job_id)
+        except Exception:
+            # The job is already RUNNING with no worker and no in-flight entry, so if the cancel
+            # cannot be recorded it would be stranded until a restart. Fail it terminally instead
+            # (the helper retries a transient store error once) so this runner finalizes the row.
+            _logger.exception("Failed to cancel duplicate exclusive job %s; failing it", job.job_id)
+            self._fail_claimed_job(
+                job.job_id, workspace, "Duplicate of a running exclusive job; cancellation failed"
+            )
 
     def _fail_claimed_job(self, job_id: str, workspace: str | None, error: str) -> None:
         """Transition a claimed (RUNNING) job to FAILED, retrying once on a transient store error.
@@ -511,12 +597,18 @@ class _JobScheduler:
         _logger.error("Job %s (%s) is not runnable: %r", job.job_id, job.job_name, exc)
         self._fail_claimed_job(job.job_id, workspace, repr(exc))
 
-    def _start_worker(self, job: Job, workspace: str | None, sem: threading.Semaphore) -> bool:
+    def _start_worker(
+        self,
+        job: Job,
+        workspace: str | None,
+        sem: threading.Semaphore,
+        job_lock: JobLock | None,
+    ) -> bool:
         """Start the worker thread for a claimed job. Returns whether it started.
 
         If the thread cannot be started (e.g. the OS thread limit is hit), the claim's effects are
-        undone — the slot is released and the job is failed — so the slot is not leaked and the job
-        does not stay RUNNING with nothing running it.
+        undone — the slot and any exclusive lock are released and the job is failed — so nothing is
+        leaked and the job does not stay RUNNING with nothing running it.
         """
         thread = threading.Thread(
             target=self._run_worker,
@@ -525,7 +617,9 @@ class _JobScheduler:
             daemon=True,
         )
         with self._in_flight_lock:
-            self._in_flight[job.job_id] = _InFlightJob(workspace=workspace, thread=thread)
+            self._in_flight[job.job_id] = _InFlightJob(
+                workspace=workspace, thread=thread, job_lock=job_lock
+            )
         try:
             thread.start()
         except Exception:
@@ -533,6 +627,7 @@ class _JobScheduler:
             with self._in_flight_lock:
                 self._in_flight.pop(job.job_id, None)
             sem.release()
+            self._release_lock(job_lock)
             self._fail_claimed_job(job.job_id, workspace, "Failed to start executor worker thread")
             return False
         return True
@@ -561,7 +656,12 @@ class _JobScheduler:
         finally:
             sem.release()
             with self._in_flight_lock:
-                self._in_flight.pop(job.job_id, None)
+                handle = self._in_flight.pop(job.job_id, None)
+            # Release the exclusive lock once the worker finishes so a later job with the same key
+            # can run. (This also covers a transient retry, which re-pends the job and re-acquires
+            # on a subsequent tick.)
+            if handle is not None:
+                self._release_lock(handle.job_lock)
 
     def join(self, timeout: float | None = None) -> None:
         """Best-effort wait for in-flight workers to finish.
@@ -587,6 +687,11 @@ class _JobScheduler:
         Workers are daemon threads: if any are still running when the process exits, their
         ``finally`` blocks may not run, leaving the store row RUNNING with nothing executing it.
         Marking those rows NEEDS_RECOVERY lets startup recovery re-queue them on the next launch.
+
+        An orphan's exclusive lock (if any) is intentionally NOT released here: a daemon worker may
+        still be executing during this best-effort shutdown, and releasing the lock could let a
+        duplicate start alongside it. The lock is dropped instead by startup recovery, which runs
+        only once the previous generation's workers are gone (``_recover_orphaned_executor_jobs``).
         """
         with self._in_flight_lock:
             orphans = [(job_id, handle.workspace) for job_id, handle in self._in_flight.items()]
@@ -681,8 +786,16 @@ def _recover_orphaned_executor_jobs(job_store: AbstractJobStore) -> None:
         )
         return
 
+    lock_manager = JobLockManager(job_store)
+
     def _reset(job: Job, _workspace: str | None) -> None:
         try:
+            # Drop any exclusive lock this job was left holding by the dead generation BEFORE
+            # resetting it, so a failure here leaves the job in its unfinished status (which the
+            # next recovery retries) rather than PENDING with a stale same-job lock that would make
+            # its re-acquisition raise and fail the job. Safe because this generation's workers are
+            # gone before recovery runs.
+            lock_manager.release_locks_for_job(job.job_id)
             job_store.reset_job(job.job_id)
             _logger.info("Recovered orphaned job %s (%s) to PENDING", job.job_id, job.job_name)
         except Exception:

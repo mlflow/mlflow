@@ -72,12 +72,37 @@ def executor_engine_flaky(marker_path):
     return attempts
 
 
+@job(name="executor_engine_exclusive", max_workers=2, exclusive=True)
+def executor_engine_exclusive(sleep_secs, key):
+    # max_workers=2 so two same-key jobs are both attempted in one tick; the exclusive lock
+    # (not the worker-slot limit) is what keeps the duplicate from running.
+    time.sleep(sleep_secs)
+    return key
+
+
+@job(
+    name="executor_engine_exclusive_flaky",
+    max_workers=1,
+    exclusive=True,
+    transient_error_classes=[_EngineTransientError],
+)
+def executor_engine_exclusive_flaky(marker_path, key):
+    marker = Path(marker_path)
+    attempts = (int(marker.read_text()) if marker.exists() else 0) + 1
+    marker.write_text(str(attempts))
+    if attempts < 2:
+        raise _EngineTransientError("flaky")
+    return key
+
+
 _JOB_FULLNAMES = [
     "tests.server.jobs.test_executor_engine.executor_engine_add",
     "tests.server.jobs.test_executor_engine.executor_engine_boom",
     "tests.server.jobs.test_executor_engine.executor_engine_sleep",
     "tests.server.jobs.test_executor_engine.executor_engine_parallel",
     "tests.server.jobs.test_executor_engine.executor_engine_flaky",
+    "tests.server.jobs.test_executor_engine.executor_engine_exclusive",
+    "tests.server.jobs.test_executor_engine.executor_engine_exclusive_flaky",
 ]
 _JOB_NAMES = [
     "executor_engine_add",
@@ -85,6 +110,8 @@ _JOB_NAMES = [
     "executor_engine_sleep",
     "executor_engine_parallel",
     "executor_engine_flaky",
+    "executor_engine_exclusive",
+    "executor_engine_exclusive_flaky",
 ]
 
 
@@ -247,6 +274,157 @@ def test_loop_records_failure(registered_jobs, job_store, executor):
 
     updated = job_store.get_job(created.job_id)
     assert updated.status == JobStatus.FAILED
+
+
+def test_exclusive_job_skips_duplicate(registered_jobs, job_store, executor):
+    # Two jobs with the same exclusive key: the scheduler runs one under a per-key lock and
+    # cancels the other, so only one executes.
+    params = json.dumps({"sleep_secs": 2, "key": "k"})
+    j1 = job_store.create_job("executor_engine_exclusive", params, timeout=30.0)
+    j2 = job_store.create_job("executor_engine_exclusive", params, timeout=30.0)
+
+    _run_to_completion(job_store, executor, lease_duration=60.0)
+
+    statuses = {job_store.get_job(j1.job_id).status, job_store.get_job(j2.job_id).status}
+    assert statuses == {JobStatus.SUCCEEDED, JobStatus.CANCELED}
+
+
+def test_exclusive_duplicate_failed_when_cancel_errors(registered_jobs, job_store, executor):
+    # If cancelling the just-claimed duplicate cannot be recorded, it must be failed terminally
+    # rather than left RUNNING with no worker (which only a restart could recover).
+    params = json.dumps({"sleep_secs": 2, "key": "k"})
+    j1 = job_store.create_job("executor_engine_exclusive", params, timeout=30.0)
+    j2 = job_store.create_job("executor_engine_exclusive", params, timeout=30.0)
+
+    with mock.patch.object(job_store, "cancel_job", side_effect=RuntimeError("boom")):
+        _run_to_completion(job_store, executor, lease_duration=60.0)
+
+    # One runs; the duplicate, whose cancel failed, reaches FAILED (a terminal state) instead of
+    # being stranded RUNNING.
+    statuses = {job_store.get_job(j1.job_id).status, job_store.get_job(j2.job_id).status}
+    assert statuses == {JobStatus.SUCCEEDED, JobStatus.FAILED}
+
+
+def test_exclusive_job_allows_different_keys(registered_jobs, job_store, executor):
+    # Different exclusive keys => different locks => both run.
+    j1 = job_store.create_job(
+        "executor_engine_exclusive", json.dumps({"sleep_secs": 1, "key": "k1"}), timeout=30.0
+    )
+    j2 = job_store.create_job(
+        "executor_engine_exclusive", json.dumps({"sleep_secs": 1, "key": "k2"}), timeout=30.0
+    )
+
+    _run_to_completion(job_store, executor, lease_duration=60.0)
+
+    assert job_store.get_job(j1.job_id).status == JobStatus.SUCCEEDED
+    assert job_store.get_job(j2.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_exclusive_lock_released_after_completion(registered_jobs, job_store, executor):
+    # The lock is released when the job finishes, so a later job with the same key runs rather
+    # than being canceled as a duplicate.
+    params = json.dumps({"sleep_secs": 0, "key": "k"})
+    j1 = job_store.create_job("executor_engine_exclusive", params, timeout=30.0)
+    _run_to_completion(job_store, executor, lease_duration=60.0)
+    assert job_store.get_job(j1.job_id).status == JobStatus.SUCCEEDED
+
+    j2 = job_store.create_job("executor_engine_exclusive", params, timeout=30.0)
+    _run_to_completion(job_store, executor, lease_duration=60.0)
+    assert job_store.get_job(j2.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_exclusive_lock_namespaced_by_workspace(registered_jobs, tmp_path, executor, monkeypatch):
+    # With workspaces enabled the key is namespaced by workspace, so the same params in two
+    # different workspaces are NOT duplicates and both run.
+    from mlflow.entities import Workspace
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    store = WorkspaceAwareSqlAlchemyJobStore(f"sqlite:///{tmp_path / 'ws.db'}")
+    params = json.dumps({"sleep_secs": 0, "key": "k"})
+    with WorkspaceContext("workspace-a"):
+        ja = store.create_job("executor_engine_exclusive", params, timeout=30.0)
+    with WorkspaceContext("workspace-b"):
+        jb = store.create_job("executor_engine_exclusive", params, timeout=30.0)
+
+    mock_workspace_store = mock.MagicMock()
+    mock_workspace_store.list_workspaces.return_value = [
+        Workspace(name="workspace-a"),
+        Workspace(name="workspace-b"),
+    ]
+    with mock.patch(
+        "mlflow.server.workspace_helpers._get_workspace_store", return_value=mock_workspace_store
+    ):
+        _run_to_completion(store, executor, lease_duration=60.0)
+
+    with WorkspaceContext("workspace-a"):
+        assert store.get_job(ja.job_id).status == JobStatus.SUCCEEDED
+    with WorkspaceContext("workspace-b"):
+        assert store.get_job(jb.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_recovery_releases_orphaned_lock(registered_jobs, job_store, executor, monkeypatch):
+    # A job that crashed while holding its exclusive lock is reset to PENDING by recovery, which
+    # also drops the lock so the reclaimed job re-acquires it cleanly instead of colliding with
+    # its own stale lock (which would otherwise fail it).
+    from mlflow.server.jobs.lock_manager import JobLockManager
+    from mlflow.server.jobs.utils import _compute_job_lock_key
+
+    params = {"sleep_secs": 0, "key": "k"}
+    orphan = job_store.create_job("executor_engine_exclusive", json.dumps(params), timeout=30.0)
+    job_store.claim_job(orphan.job_id, lease_duration=60.0)
+    lock_key = _compute_job_lock_key("executor_engine_exclusive", params, True, None)
+    JobLockManager(job_store).acquire_exclusive_lock(lock_key, orphan.job_id)
+    monkeypatch.setenv("_MLFLOW_SERVER_UP_TIME", str(orphan.creation_time))
+
+    runner._recover_orphaned_executor_jobs(job_store)
+    assert job_store.get_job(orphan.job_id).status == JobStatus.PENDING
+
+    # The reclaimed job must run to success -- proving its stale lock was released (otherwise the
+    # re-acquire would collide with the same job_id and the job would fail).
+    _run_to_completion(job_store, executor, lease_duration=60.0)
+    assert job_store.get_job(orphan.job_id).status == JobStatus.SUCCEEDED
+
+
+def test_recovery_lock_release_failure_leaves_job_recoverable(
+    registered_jobs, job_store, monkeypatch
+):
+    # Recovery drops the lock BEFORE resetting the job, so if the lock delete fails the job is left
+    # in its unfinished (recoverable) status rather than PENDING with a stale same-job lock (which
+    # would be excluded from future recovery and then fail on re-acquire).
+    orphan = job_store.create_job(
+        "executor_engine_exclusive", json.dumps({"sleep_secs": 0, "key": "k"}), timeout=30.0
+    )
+    job_store.claim_job(orphan.job_id, lease_duration=60.0)
+    monkeypatch.setenv("_MLFLOW_SERVER_UP_TIME", str(orphan.creation_time))
+
+    with mock.patch(
+        "mlflow.server.jobs.lock_manager.JobLockManager.release_locks_for_job",
+        side_effect=RuntimeError("boom"),
+    ):
+        runner._recover_orphaned_executor_jobs(job_store)
+
+    # Still RUNNING (unfinished) -> the next recovery will retry it, rather than a stranded PENDING.
+    assert job_store.get_job(orphan.job_id).status == JobStatus.RUNNING
+
+
+def test_exclusive_lock_reacquired_after_transient_retry(
+    registered_jobs, job_store, executor, tmp_path, monkeypatch
+):
+    # A transient failure re-pends the job; its lock is released when the worker finishes, so the
+    # retry on the next tick re-acquires the same key and succeeds.
+    marker = tmp_path / "attempts.txt"
+    created = job_store.create_job(
+        "executor_engine_exclusive_flaky",
+        json.dumps({"marker_path": str(marker), "key": "k"}),
+        timeout=30.0,
+    )
+    monkeypatch.setattr(runner, "_backoff_after_transient_retry", lambda retry_count: None)
+
+    _run_to_completion(job_store, executor, lease_duration=60.0)
+    assert job_store.get_job(created.job_id).status == JobStatus.PENDING
+
+    _run_to_completion(job_store, executor, lease_duration=60.0)
+    assert job_store.get_job(created.job_id).status == JobStatus.SUCCEEDED
 
 
 def test_loop_no_pending_jobs_is_noop(registered_jobs, job_store, executor):
@@ -796,6 +974,26 @@ def test_submit_job_executor_engine_rejects_extra_envs(monkeypatch, registered_j
         pytest.raises(MlflowException, match="extra_envs is not yet supported"),
     ):
         submit_job(executor_engine_add, {"x": 1, "y": 2}, extra_envs={"TOKEN": "secret"})
+
+    # Rejected before persisting, so no runnable PENDING row is left behind.
+    store.create_job.assert_not_called()
+
+
+@pytest.mark.parametrize("timeout", [None, 0, -1.0, float("nan"), float("inf")])
+def test_submit_job_executor_engine_requires_timeout_for_exclusive(
+    monkeypatch, registered_jobs, timeout
+):
+    # A missing, zero, negative, NaN, or infinite timeout gives no usable stale-lock deadline, so
+    # each must be rejected for an exclusive job on the executor engine.
+    _submit_job_env(monkeypatch, engine="executor")
+    store = mock.MagicMock()
+    store.create_job.return_value = _make_job(status=JobStatus.PENDING)
+    with (
+        mock.patch("mlflow.server.jobs._get_job_store", return_value=store),
+        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+        pytest.raises(MlflowException, match="exclusive job requires a positive, finite timeout"),
+    ):
+        submit_job(executor_engine_exclusive, {"sleep_secs": 1, "key": "k"}, timeout=timeout)
 
     # Rejected before persisting, so no runnable PENDING row is left behind.
     store.create_job.assert_not_called()

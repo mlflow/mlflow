@@ -457,6 +457,27 @@ def _compute_exclusive_lock_key(job_name: str, params: dict[str, Any]) -> str:
     return f"{job_name}:{params_hash}"
 
 
+def _compute_job_lock_key(
+    job_name: str, params: dict[str, Any], exclusive: bool | list[str], workspace: str | None
+) -> str:
+    """Compute the exclusive lock key for a job.
+
+    Shared by both execution engines (the Huey ``_exec_job`` and the executor scheduler) so their
+    key derivation cannot drift: ``exclusive=True`` locks on all params, a list of names locks on
+    only those params, and the key is namespaced by workspace when workspaces are enabled. Callers
+    check ``exclusive`` is truthy before calling.
+    """
+    lock_params = (
+        {k: v for k, v in params.items() if k in exclusive}
+        if isinstance(exclusive, list)
+        else params
+    )
+    lock_key_job_name = job_name
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        lock_key_job_name = f"{workspace or DEFAULT_WORKSPACE_NAME}:{job_name}"
+    return _compute_exclusive_lock_key(lock_key_job_name, lock_params)
+
+
 def _exec_job(
     job_id: str,
     workspace: str | None,
@@ -494,17 +515,7 @@ def _exec_job(
             from huey.exceptions import TaskLockedException
 
             huey_instance = _get_or_init_huey_instance(job_name).instance
-            # If exclusive is a list, filter params to only those specified
-            lock_params = (
-                {k: v for k, v in params.items() if k in exclusive}
-                if isinstance(exclusive, list)
-                else params
-            )
-
-            lock_key_job_name = job_name
-            if MLFLOW_ENABLE_WORKSPACES.get():
-                lock_key_job_name = f"{workspace or DEFAULT_WORKSPACE_NAME}:{job_name}"
-            lock_key = _compute_exclusive_lock_key(lock_key_job_name, lock_params)
+            lock_key = _compute_job_lock_key(job_name, params, exclusive, workspace)
             lock = huey_instance.lock_task(lock_key)
             try:
                 lock.acquire()

@@ -529,3 +529,15 @@ class JobLockManager:
                     "Lock release was a no-op. The lock may have been released "
                     "or acquired by another job."
                 )
+
+    def release_locks_for_job(self, job_id: str) -> None:
+        """Delete any exclusive lock held by ``job_id``, regardless of ``acquired_at``.
+
+        Used by crash recovery: a job left holding a lock by a dead server generation is reset to
+        PENDING, and its lock must be dropped so the reclaimed job can re-acquire it rather than
+        collide with its own stale lock. This targets the row by ``job_id`` only (the recovering
+        caller does not have the original ``JobLock``), so it must be used only when that job's
+        worker is known dead -- recovery runs before the scheduler reclaims the job.
+        """
+        with self._session_maker(read_only=False) as session:
+            session.execute(delete(SqlJobLock).filter(SqlJobLock.job_id == job_id))
