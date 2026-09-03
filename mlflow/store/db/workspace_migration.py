@@ -1,10 +1,12 @@
 import sqlalchemy as sa
 
 from mlflow.store.db.workspace_utils import (
+    AGENT_PLUGIN_MEMBERS_TABLE,
     MODEL_CHILD_TABLES,
     OTHER_WORKSPACE_CHILD_TABLES,
     format_truncated_list,
     get_workspace_table,
+    reassign_agent_plugin_members,
 )
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -100,37 +102,6 @@ def _assert_no_workspace_conflicts(
         )
 
 
-# agent_plugin_version_members carries its workspace as ``plugin_workspace`` (shared
-# with its skill_versions FK), not ``workspace``, so it is deliberately absent from
-# _WORKSPACE_TABLES and the generic per-table loop below (which moves rows into the
-# default workspace) cannot move it. Moving its parent plugins would leave every member
-# row pointing at its old workspace (orphaned, or an FK failure), so migrate-to-default
-# of plugin members is deferred to the workspace-lifecycle branch; until then, fail
-# loudly instead of corrupting rows. See:
-# https://github.com/robinnarsinghranabhat/mlflow/tree/rhaieng-7108-workspace-lifecycle
-_PLUGIN_MEMBER_TABLE = "agent_plugin_version_members"
-
-
-def _assert_no_plugin_members_outside_default(conn) -> None:
-    try:
-        table = sa.Table(_PLUGIN_MEMBER_TABLE, sa.MetaData(), autoload_with=conn)
-    except sa.exc.NoSuchTableError:
-        return
-    count = conn.execute(
-        sa
-        .select(sa.func.count())
-        .select_from(table)
-        .where(table.c.plugin_workspace != DEFAULT_WORKSPACE_NAME)
-    ).scalar_one()
-    if count:
-        raise RuntimeError(
-            "Move aborted: migrating agent plugin members to the default workspace is not "
-            f"yet supported. {count} row(s) in {_PLUGIN_MEMBER_TABLE!r} live outside the "
-            f"'{DEFAULT_WORKSPACE_NAME}' workspace; moving their parent plugins would orphan "
-            "them. Remove or re-home the affected agent plugin versions first, then retry."
-        )
-
-
 def migrate_to_default_workspace(
     engine: sa.Engine,
     dry_run: bool = False,
@@ -143,12 +114,6 @@ def migrate_to_default_workspace(
     When verbose is True, conflict lists are not truncated.
     """
     with engine.begin() as conn:
-        # The loop below moves the parent skill and agent-plugin rows into the default
-        # workspace cleanly, but it never touches agent_plugin_version_members, so those
-        # member rows would be left silently pointing at their old workspace. Stop up
-        # front instead of corrupting them.
-        _assert_no_plugin_members_outside_default(conn)
-
         for table_name, columns, description in _CONFLICT_SPECS:
             _assert_no_workspace_conflicts(
                 conn,
@@ -159,23 +124,34 @@ def migrate_to_default_workspace(
             )
 
         counts = {}
-        for table_name in _WORKSPACE_TABLES:
-            table = get_workspace_table(conn, table_name)
-            stmt = (
-                sa
-                .select(sa.func.count())
-                .select_from(table)
-                .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
-            )
-            counts[table_name] = conn.execute(stmt).scalar_one()
+        # The link table is reassigned around the column rewrites: its rows are
+        # removed before the loop moves their parent plugin/skill versions and
+        # re-inserted at the default workspace afterward, so the non-cascading
+        # skill FK never sees a mid-move inconsistency (see the helper docstring).
+        with reassign_agent_plugin_members(
+            conn,
+            source_workspace=None,
+            target_workspace=DEFAULT_WORKSPACE_NAME,
+            dry_run=dry_run,
+        ) as member_count:
+            for table_name in _WORKSPACE_TABLES:
+                table = get_workspace_table(conn, table_name)
+                stmt = (
+                    sa
+                    .select(sa.func.count())
+                    .select_from(table)
+                    .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
+                )
+                counts[table_name] = conn.execute(stmt).scalar_one()
 
-            if dry_run or counts[table_name] == 0:
-                continue
-            conn.execute(
-                table
-                .update()
-                .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
-                .values(workspace=DEFAULT_WORKSPACE_NAME)
-            )
+                if dry_run or counts[table_name] == 0:
+                    continue
+                conn.execute(
+                    table
+                    .update()
+                    .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
+                    .values(workspace=DEFAULT_WORKSPACE_NAME)
+                )
 
+        counts[AGENT_PLUGIN_MEMBERS_TABLE] = member_count
         return counts

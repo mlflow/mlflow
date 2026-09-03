@@ -19,10 +19,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.db.workspace_utils import reassign_agent_plugin_members
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
-    SqlAgentPluginVersionMember,
     SqlEvaluationDataset,
     SqlExperiment,
     SqlGatewayBudgetPolicy,
@@ -238,35 +238,21 @@ class SqlAlchemyStore(AbstractStore):
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
                     self._check_set_default_conflicts(session, workspace_name)
-                    # The loop below moves this workspace's resources into the default
-                    # workspace -- it rewrites each root row's `workspace` to 'default',
-                    # and child rows follow via FK ON UPDATE CASCADE. That can't move
-                    # agent_plugin_version_members, which stores its workspace as
-                    # `plugin_workspace` (shared with the skill_versions FK): the cascaded
-                    # rewrite collides with that skill FK, so letting this proceed fails
-                    # with a confusing foreign-key error. Reassigning plugin members is
-                    # deferred to the workspace-lifecycle branch, so fail loudly with a
-                    # clear message here instead. See:
-                    # https://github.com/robinnarsinghranabhat/mlflow/tree/rhaieng-7108-workspace-lifecycle
-                    blocking_members = (
-                        session
-                        .query(SqlAgentPluginVersionMember)
-                        .filter(SqlAgentPluginVersionMember.plugin_workspace == workspace_name)
-                        .count()
-                    )
-                    if blocking_members:
-                        raise MlflowException(
-                            f"Cannot reassign workspace '{workspace_name}' to "
-                            f"'{DEFAULT_WORKSPACE_NAME}': it contains {blocking_members} agent "
-                            "plugin member row(s), whose reassignment is not yet supported. "
-                            "Delete the affected agent plugins first, then retry.",
-                            INVALID_STATE,
-                        )
-                    for model in _WORKSPACE_ROOT_MODELS:
-                        session.query(model).filter(model.workspace == workspace_name).update(
-                            {model.workspace: DEFAULT_WORKSPACE_NAME},
-                            synchronize_session=False,
-                        )
+                    # Reassign the agent_plugin_version_members link rows around the
+                    # root updates: remove them before the onupdate=CASCADE moves
+                    # their parent plugin/skill versions and re-insert them at the
+                    # default workspace afterward, so the non-cascading skill FK is
+                    # never violated mid-move (see the helper docstring).
+                    with reassign_agent_plugin_members(
+                        session.connection(),
+                        source_workspace=workspace_name,
+                        target_workspace=DEFAULT_WORKSPACE_NAME,
+                    ):
+                        for model in _WORKSPACE_ROOT_MODELS:
+                            session.query(model).filter(model.workspace == workspace_name).update(
+                                {model.workspace: DEFAULT_WORKSPACE_NAME},
+                                synchronize_session=False,
+                            )
                 else:
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid workspace deletion mode {mode!r}. "

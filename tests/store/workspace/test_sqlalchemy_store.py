@@ -19,6 +19,52 @@ from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS, SqlA
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
+def _seed_skill_plugin_graph(session, workspace: str):
+    """Seed a skill + an agent-plugin whose version has a member pinning that skill.
+
+    This is the cross-root link (agent_plugin_version_members -> skill_versions)
+    that shares a single ``plugin_workspace`` column and breaks naive re-homing.
+    """
+    session.add(SqlSkill(workspace=workspace, organization="", name="code-review"))
+    session.add(SqlAgentPlugin(workspace=workspace, organization="", name="pr-workflow"))
+    session.flush()
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="",
+            name="code-review",
+            version=1,
+            source_type="git",
+            source="https://github.com/acme/skills.git",
+            status="active",
+        )
+    )
+    session.add(
+        SqlAgentPluginVersion(
+            workspace=workspace,
+            organization="",
+            name="pr-workflow",
+            version="1.0.0",
+            plugin_json={"name": "pr-workflow", "version": "1.0.0"},
+            source_type="assembled",
+            status="active",
+        )
+    )
+    session.flush()
+    session.add(
+        SqlAgentPluginVersionMember(
+            plugin_workspace=workspace,
+            plugin_organization="",
+            plugin_name="pr-workflow",
+            plugin_version="1.0.0",
+            member_name="code-review",
+            member_organization="",
+            member_version=1,
+        )
+    )
+    session.flush()
+
+
 @pytest.fixture
 def workspace_store(db_uri, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
@@ -654,6 +700,38 @@ def test_delete_workspace_cascade_removes_skill_and_plugin_graph(workspace_store
             SqlAgentPluginVersionMember,
         ):
             assert session.query(model).count() == 0
+
+
+def test_delete_workspace_set_default_reassigns_agent_plugin_with_members(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_plugin_graph(session, "team-a")
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        for table, name_col, name in (
+            ("skills", "name", "code-review"),
+            ("skill_versions", "name", "code-review"),
+            ("agent_plugins", "name", "pr-workflow"),
+            ("agent_plugin_versions", "name", "pr-workflow"),
+        ):
+            workspace = session.execute(
+                sa.text(f"SELECT workspace FROM {table} WHERE {name_col} = :name"),
+                {"name": name},
+            ).scalar()
+            assert workspace == DEFAULT_WORKSPACE_NAME
+
+        member = session.execute(
+            sa.text(
+                "SELECT plugin_workspace, member_name, member_version "
+                "FROM agent_plugin_version_members WHERE plugin_name = 'pr-workflow'"
+            )
+        ).fetchone()
+        assert member == (DEFAULT_WORKSPACE_NAME, "code-review", 1)
+
+    with pytest.raises(MlflowException, match="not found"):
+        workspace_store.get_workspace("team-a")
 
 
 def test_delete_workspace_cascade_removes_resources(workspace_store):
