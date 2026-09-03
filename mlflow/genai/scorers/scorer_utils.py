@@ -414,7 +414,7 @@ def _iter_model_uris(obj) -> list[str]:
     found = []
     if isinstance(obj, dict):
         for key, value in obj.items():
-            if key == "model" and isinstance(value, str):
+            if key == "model" and isinstance(value, str) and value:
                 found.append(value)
             else:
                 found.extend(_iter_model_uris(value))
@@ -428,8 +428,9 @@ def scorer_params_use_direct_provider_model(job_name: str, params: dict[str, Any
     """Return True if any scorer in the job references a direct-provider (non-Gateway) model.
 
     A remote executor can only reach models routed through the Gateway (a ``gateway:/``,
-    ``endpoints:/``, or ``databricks:/`` URI). Any other scheme (e.g. ``openai:/``) is a
-    direct-provider URI it cannot resolve. Scorers with no model URI are compatible. Scans
+    ``endpoints:/``, or ``databricks:/`` URI). Anything else -- another scheme (e.g.
+    ``openai:/``) or a bare model name with no scheme (e.g. ``gpt-oss-120b``) -- is a
+    direct-provider model it cannot resolve. Scorers with no model are compatible. Scans
     recursively so it is agnostic to per-scorer-type nesting.
     """
     for serialized in _iter_serialized_scorers(job_name, params):
@@ -438,7 +439,10 @@ def scorer_params_use_direct_provider_model(job_name: str, params: dict[str, Any
         except (json.JSONDecodeError, TypeError):
             continue
         for uri in _iter_model_uris(data):
+            # Fail closed: only an explicit gateway-backed scheme is remote-safe. A bare model
+            # name with no "scheme:/" (e.g. "databricks" or "gpt-oss-120b") is a direct-provider
+            # model too, so treat a missing/other scheme as direct-provider rather than passing.
             match = _MODEL_URI_SCHEME_RE.match(uri)
-            if match and match.group(1) not in _GATEWAY_BACKED_SCHEMES:
+            if not match or match.group(1) not in _GATEWAY_BACKED_SCHEMES:
                 return True
     return False

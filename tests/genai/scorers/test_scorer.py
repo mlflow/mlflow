@@ -411,6 +411,21 @@ def test_custom_scorer_registration_allowed_when_flag_enabled(monkeypatch):
     flagged_scorer._check_can_be_registered()
 
 
+def test_custom_scorer_registration_deferred_to_remote_server(monkeypatch):
+    @scorer
+    def remote_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    # Against a remote HTTP server the server's own handler enforces the flag, so the
+    # client-side guard must not block (and must not require a remote client to set the
+    # server variable) even with the flag unset locally.
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    monkeypatch.setattr(
+        "mlflow.genai.scorers.base.get_tracking_uri", lambda: "http://localhost:5000"
+    )
+    remote_scorer._check_can_be_registered()
+
+
 def test_custom_scorer_error_message_renders_code_snippet_legibly():
     serialized = SerializedScorer(
         name="complex_scorer",

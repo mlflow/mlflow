@@ -771,6 +771,14 @@ def test_databricks_scheme_model_ok():
     assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
 
 
+@pytest.mark.parametrize("model", ["databricks", "gpt-oss-120b"])
+def test_bare_model_name_flagged(model):
+    # A model value with no "scheme:/" is a direct-provider model (not gateway-backed), so the
+    # check must fail closed and flag it rather than let it pass to a remote executor.
+    params = {"serialized_scorer": _judge_scorer_json(model)}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is True
+
+
 def test_scorer_detection_job_names_match_registered_jobs():
     # The detection job-name sets must stay in sync with the actual registered scorer job
     # names; a rename that touches only one side would silently fail the gate open.

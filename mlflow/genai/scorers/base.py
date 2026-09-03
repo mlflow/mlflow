@@ -34,6 +34,7 @@ from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_databricks_uri
+from mlflow.utils.uri import is_http_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -1240,14 +1241,18 @@ class Scorer(BaseModel):
             for sub_scorer in self._scorers:
                 sub_scorer._check_can_be_registered(error_message)
 
-        # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
-        # execution risk. Registration itself is safe (it just stores code), but we restrict it
-        # so stored scorers can only be executed in environments that accept that risk: a
-        # Databricks workspace (where registration is gated behind authentication) or a server
-        # whose operator has explicitly opted in via MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.
+        # NB: Custom (@scorer) scorers use exec() when they run, which poses a code execution
+        # risk, so registration is restricted to environments that accept that risk. Against a
+        # remote (HTTP) server the server's own `_register_scorer` handler enforces the flag, so
+        # we defer to it here -- a remote client should not have to set a server variable. This
+        # client-side guard therefore only blocks local, in-process registration (no server to
+        # defer to) that has not opted in via MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS; Databricks is
+        # always allowed (registration there is gated behind authentication).
+        tracking_uri = get_tracking_uri()
         if (
             self.kind == ScorerKind.DECORATOR
-            and not is_databricks_uri(get_tracking_uri())
+            and not is_databricks_uri(tracking_uri)
+            and not is_http_uri(tracking_uri)
             and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get()
         ):
             raise MlflowException.invalid_parameter_value(

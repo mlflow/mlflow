@@ -196,6 +196,7 @@ def submit_job(
         the updated job entity.
     """
     from mlflow.environment_variables import (
+        MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND,
         MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
         MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     )
@@ -282,18 +283,24 @@ def submit_job(
     # engine does not use a backend, so it is left unset there.
     executor_backend = None
     if engine == "executor":
+        # Persist the per-job backend for crash recovery and future per-job dispatch.
         executor_backend = select_executor_backend(is_custom_scorer=is_custom_scorer)
-        # A remote executor can only reach models through the gateway; reject scorers that
-        # reference a direct-provider model URI it could not resolve.
+        # Validate against the backend that will ACTUALLY run this job. The runner does not yet
+        # dispatch per job -- it runs every job on MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND -- so a
+        # remote default would run this job remotely regardless of the selection above. A remote
+        # executor can only reach models through the gateway, so reject a direct-provider model
+        # URI it could not resolve. TODO: check `executor_backend` once the runner dispatches
+        # per job.
         registry = get_executor_registry()
+        runner_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
         if registry.get(
-            executor_backend
+            runner_backend
         ).remote_execution and scorer_params_use_direct_provider_model(fn_meta.name, params):
             raise MlflowException(
-                f"The selected executor backend {executor_backend!r} runs jobs remotely and can "
-                "only reach models through the gateway, but this scorer references a "
-                "direct-provider model. Use a gateway-backed model URI (e.g. 'gateway:/', "
-                "'endpoints:/', or 'databricks:/') or a local executor backend."
+                f"The executor backend {runner_backend!r} runs jobs remotely and can only reach "
+                "models through the gateway, but this scorer references a direct-provider model. "
+                "Use a gateway-backed model URI (e.g. 'gateway:/', 'endpoints:/', or "
+                "'databricks:/') or a local executor backend."
             )
 
     job_store = _get_job_store()
