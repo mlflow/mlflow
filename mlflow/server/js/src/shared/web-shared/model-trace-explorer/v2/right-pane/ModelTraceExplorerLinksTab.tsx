@@ -73,9 +73,14 @@ const SpanLinkEntry = ({
   const [showAllAttributes, setShowAllAttributes] = useState(false);
   const attributeEntries = link.attributes ? Object.entries(link.attributes) : [];
   const hasHiddenAttributes = attributeEntries.length > MAX_VISIBLE_ATTRIBUTES;
-  const visibleAttributeEntries = showAllAttributes
-    ? attributeEntries
-    : attributeEntries.slice(0, MAX_VISIBLE_ATTRIBUTES);
+  const activeMatchEntry = attributeEntries.find(
+    ([key]) => isActiveMatchSpan && activeMatch?.section === 'links' && activeMatch.key === getLinkFieldKey(index, key),
+  );
+  const collapsedAttributeEntries = attributeEntries.slice(0, MAX_VISIBLE_ATTRIBUTES);
+  if (activeMatchEntry && !collapsedAttributeEntries.includes(activeMatchEntry)) {
+    collapsedAttributeEntries.push(activeMatchEntry);
+  }
+  const visibleAttributeEntries = showAllAttributes ? attributeEntries : collapsedAttributeEntries;
   const jumpButtonCss = {
     whiteSpace: 'nowrap' as const,
     '&:not(:hover):not(:focus-visible)': {
@@ -83,7 +88,13 @@ const SpanLinkEntry = ({
     },
   };
   const openButton = isSameTrace ? (
-    <Button componentId="mlflow.model_trace_explorer.span_link" size="small" css={jumpButtonCss} onClick={onSelectSpan}>
+    <Button
+      componentId="mlflow.model_trace_explorer.span_link"
+      size="small"
+      css={jumpButtonCss}
+      disabled={!linkedSpan || !onSelectSpan}
+      onClick={onSelectSpan}
+    >
       Jump to linked span
     </Button>
   ) : (

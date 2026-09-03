@@ -16,6 +16,7 @@ import {
 } from 'lodash';
 
 import Utils from '../../../../common/utils/Utils';
+import { decodeLinkTraceId } from '../ModelTraceExplorer.utils';
 
 import type {
   SearchMatch,
@@ -636,22 +637,6 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
 
   // new V2 span ids have the prefix stripped
   return spanId;
-};
-
-const decodeLinkTraceId = (traceId: string | null | undefined): string => {
-  if (!traceId) {
-    return '';
-  }
-
-  if (traceId.startsWith('tr-') || traceId.startsWith('trace:/')) {
-    return traceId;
-  }
-
-  try {
-    return `tr-${base64ToHex(traceId)}`;
-  } catch (e) {
-    return traceId;
-  }
 };
 
 export function isV3ModelTraceInfo(

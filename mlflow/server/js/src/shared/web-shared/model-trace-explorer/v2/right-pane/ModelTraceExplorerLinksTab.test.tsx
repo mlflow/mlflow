@@ -57,6 +57,7 @@ const createSpan = (overrides: Partial<ModelTraceSpanNode> = {}): ModelTraceSpan
 
 describe('ModelTraceExplorerLinksTab', () => {
   afterEach(() => {
+    window.localStorage.removeItem('mlflow.activeWorkspace');
     mockClipboardCopy.mockClear();
     mockUseSpanLinkHrefs.mockImplementation((traceIds: string[]) => {
       const hrefs: Record<string, string> = {};
@@ -98,6 +99,20 @@ describe('ModelTraceExplorerLinksTab', () => {
       `#/experiments/1/traces?traceId=${MOCK_SPAN_LINKS[0].trace_id}`,
     );
     expect(screen.getByRole('link', { name: 'Jump to linked span' })).toHaveAttribute('target', '_blank');
+  });
+
+  it('preserves the active workspace in a linked trace URL', () => {
+    window.localStorage.setItem('mlflow.activeWorkspace', 'workspace-a');
+    const span = createSpan({ links: [MOCK_SPAN_LINKS[0]] });
+
+    render(<ModelTraceExplorerLinksTab activeSpan={span} searchFilter="" activeMatch={null} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByRole('link', { name: 'Jump to linked span' })).toHaveAttribute(
+      'href',
+      `#/experiments/1/traces?traceId=${MOCK_SPAN_LINKS[0].trace_id}&workspace=workspace-a`,
+    );
   });
 
   it('copies the full linked trace and span IDs from their pills', async () => {
@@ -147,6 +162,19 @@ describe('ModelTraceExplorerLinksTab', () => {
     expect(onSelectSpan).toHaveBeenCalledWith(linkedSpanId);
   });
 
+  it('disables same-trace navigation when the linked span is unavailable', () => {
+    const span = createSpan({
+      links: [{ trace_id: 'tr-current', span_id: 'missing-span' }],
+    });
+
+    render(
+      <ModelTraceExplorerLinksTab activeSpan={span} searchFilter="" activeMatch={null} onSelectSpan={jest.fn()} />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByRole('button', { name: 'Jump to linked span' })).toBeDisabled();
+  });
+
   it('shows the first three attributes and expands the rest', async () => {
     const span = createSpan({
       links: [
@@ -171,6 +199,29 @@ describe('ModelTraceExplorerLinksTab', () => {
     expect(screen.getByText('fourth')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'See less' }));
     expect(screen.queryByText('fourth')).not.toBeInTheDocument();
+  });
+
+  it('shows an active search match beyond the first three attributes', () => {
+    const span = createSpan({
+      links: [
+        {
+          trace_id: 'tr-linked',
+          span_id: 'linked-span',
+          attributes: { first: 1, second: 2, third: 3, fourth: 4 },
+        },
+      ],
+    });
+
+    render(
+      <ModelTraceExplorerLinksTab
+        activeSpan={span}
+        searchFilter="fourth"
+        activeMatch={{ span, section: 'links', key: 'link-0-fourth', isKeyMatch: true, matchIndex: 0 }}
+      />,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByText('fourth')).toBeInTheDocument();
   });
 
   it('renders an unresolved trace with a disabled jump button', () => {

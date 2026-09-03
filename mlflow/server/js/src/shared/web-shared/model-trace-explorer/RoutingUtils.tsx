@@ -229,7 +229,7 @@ const useParams = useParamsDirect;
 
 const useLocation = useLocationDirect;
 
-const useHref = useHrefDirect;
+const useHref = (to: To) => useHrefDirect(prefixRouteWithWorkspaceForTo(to));
 
 const Link = React.forwardRef<
   HTMLAnchorElement,

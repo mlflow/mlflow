@@ -4979,6 +4979,10 @@
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected"
   },
+  "IQOP18": {
+    "defaultMessage": "Copy span ID",
+    "description": "Tooltip for copying a linked span ID"
+  },
   "ISy30V": {
     "defaultMessage": "Are you sure you want to delete the dataset \"{name}\"? This action cannot be undone.",
     "description": "Body for the V2 evaluation dataset delete confirmation modal"
@@ -7922,6 +7926,10 @@
   "UScoKM": {
     "defaultMessage": "No questions defined for this experiment yet.",
     "description": "Manage review questions: empty state"
+  },
+  "UW6FuF": {
+    "defaultMessage": "Copy trace ID",
+    "description": "Tooltip for copying a linked trace ID"
   },
   "UWHfmZ": {
     "defaultMessage": "Group:",

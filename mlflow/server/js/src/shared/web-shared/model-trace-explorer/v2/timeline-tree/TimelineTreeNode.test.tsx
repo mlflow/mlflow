@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { screen } from '@testing-library/react';
 import { render } from '@databricks/web-shared/test-utils/render';
 import userEvent from '@testing-library/user-event';
@@ -70,8 +70,18 @@ const ViewStateOverride = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
-const TestWrapper = ({ node = TEST_NODE, metrics }: { node?: ModelTraceSpanNode; metrics?: TimelineTreeMetric[] }) => {
-  const [selectedKey, setSelectedKey] = useState<string | number>(node.key);
+const TestWrapper = ({
+  node = TEST_NODE,
+  metrics,
+  initialSelectedKey = node.key,
+  onSelect,
+}: {
+  node?: ModelTraceSpanNode;
+  metrics?: TimelineTreeMetric[];
+  initialSelectedKey?: string | number;
+  onSelect?: (node: ModelTraceSpanNode) => void;
+}) => {
+  const [selectedKey, setSelectedKey] = useState<string | number>(initialSelectedKey);
   const [expandedKeys, setExpandedKeys] = useState<Set<string | number>>(new Set([]));
   const [queryClient] = useState(() => new QueryClient());
 
@@ -83,7 +93,10 @@ const TestWrapper = ({ node = TEST_NODE, metrics }: { node?: ModelTraceSpanNode;
       setExpandedKeys={setExpandedKeys}
       traceStartTime={0}
       traceEndTime={0}
-      onSelect={(selectedNode) => setSelectedKey(selectedNode.key)}
+      onSelect={(selectedNode) => {
+        setSelectedKey(selectedNode.key);
+        onSelect?.(selectedNode);
+      }}
       linesToRender={[]}
     />
   );
@@ -182,11 +195,12 @@ describe('TimelineTreeNode', () => {
   });
 
   it('shows a neutral link count indicator that opens the links tab', async () => {
+    const onSelect = jest.fn();
     const nodeWithLinks: ModelTraceSpanNode = {
       ...METRICS_NODE,
       links: [{ trace_id: 'tr-linked', span_id: 'linked-span' }],
     };
-    render(<TestWrapper node={nodeWithLinks} />);
+    render(<TestWrapper node={nodeWithLinks} initialSelectedKey="another-span" onSelect={onSelect} />);
 
     expect(screen.getByTestId('active-tab')).toHaveTextContent('content');
     expect(screen.getByTestId(`span-link-tag-${nodeWithLinks.key}`)).toHaveTextContent('1');
@@ -194,6 +208,7 @@ describe('TimelineTreeNode', () => {
     await userEvent.click(screen.getByTestId(`span-link-tag-${nodeWithLinks.key}`));
 
     expect(screen.getByTestId('active-tab')).toHaveTextContent('links');
+    expect(onSelect).toHaveBeenCalledWith(nodeWithLinks);
   });
 
   it('does not show a link indicator when the span has no links', () => {
