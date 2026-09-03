@@ -504,8 +504,6 @@ transformers:
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
-      # peft >= 0.14 relies on classes from newer versions of transformers
-      "< 4.45": ["peft<0.14.0"]
       # The TAPAS tokenizer raises "len() of unsized object" under pandas 3, fixed in 5.10.4.
       "< 5.10.4": ["pandas<3"]
       # peft >= 0.18 requires transformers.modeling_layers which was added in transformers 4.52.0
