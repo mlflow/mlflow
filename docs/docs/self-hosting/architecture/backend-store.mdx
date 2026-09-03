@@ -107,6 +107,42 @@ You can inject some [SQLAlchemy connection pooling options](https://docs.sqlalch
   </tbody>
 </Table>
 
+## Trace Analytics Daily Rollups
+
+Trace analytics queries (used by the traces dashboards) aggregate metrics such as trace counts, latency, token usage, and assessment values over a time range. On large trace tables these queries scan a lot of rows. MLflow can serve the whole-day portions of such queries from precomputed daily rollup tables, which is much faster than scanning raw traces and spans.
+
+Rollups are an **opt-in read acceleration**. They never change query results: any day that is not yet rolled up, and any partial day at the edges of a requested range, is served from the raw path, so enabling rollups only changes query speed. This feature requires a database backend (it is not available for the file store).
+
+To let the query planner serve eligible whole days from the rollup tables, set the following environment variable on the tracking server:
+
+<Table>
+  <thead>
+    <tr>
+      <th>MLflow Environment Variable</th>
+      <th>Description</th>
+      <th>Default</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>`MLFLOW_SQL_TRACE_ROLLUPS_ENABLED`</td>
+      <td>When `true`, trace analytics queries serve eligible whole days from precomputed rollup tables and fall back to the raw path for any day that is not covered. When `false`, all queries use the raw path.</td>
+      <td>`false`</td>
+    </tr>
+  </tbody>
+</Table>
+
+Enabling this variable does not populate the rollup tables by itself; a separate maintenance job builds and refreshes them. Until a day has been rolled up, queries for that day transparently use the raw path, so the feature is safe to turn on before any rollups exist.
+
+:::note[Backend-specific behavior]
+
+- **Percentiles** (p50/p90/p99) are served from rollups for trace metrics such as latency and token usage, and only on PostgreSQL. On other backends, and for assessment percentiles, percentile aggregations fall back to the raw path.
+- **Grouping** supports whole-experiment daily aggregates, trace-count breakdowns by trace status, and span-cost breakdowns by model and provider. Other dimension groupings use the raw path.
+- **Span cost** metrics use rollups for global, model, provider, and model/provider grouping sets. Both raw and rollup span-cost ranges use the span start timestamp so results remain identical.
+- **Unbucketed aggregates** such as whole-range trace counts and span-cost breakdowns combine daily rollup counts and sums with any raw partial-day contributions. Unbucketed percentiles remain on the exact raw path because daily percentiles are not composable.
+
+:::
+
 ## MySQL SSL Options
 
 When connecting to a MySQL database that requires SSL certificates, you can set the following environment variables:
