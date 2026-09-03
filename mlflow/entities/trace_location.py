@@ -1,11 +1,20 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
+from mlflow.protos.databricks_tracing_pb2 import (
+    TraceLocation as ProtoDatabricksTraceLocation,
+)
+from mlflow.protos.databricks_tracing_pb2 import (
+    UCSchemaLocation as ProtoUCSchemaLocation,
+)
+from mlflow.protos.databricks_tracing_pb2 import (
+    UcTablePrefixLocation as ProtoUcTablePrefixLocation,
+)
 from mlflow.utils.annotations import deprecated, experimental
 
 _UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = "mlflow_experiment_trace_otel_spans"
@@ -37,11 +46,13 @@ class MlflowExperimentLocation(TraceLocationBase):
 
     experiment_id: str
 
-    def to_proto(self):
+    def to_proto(self) -> "pb.TraceLocation.MlflowExperimentLocation":
         return pb.TraceLocation.MlflowExperimentLocation(experiment_id=self.experiment_id)
 
     @classmethod
-    def from_proto(cls, proto) -> "MlflowExperimentLocation":
+    def from_proto(
+        cls, proto: "pb.TraceLocation.MlflowExperimentLocation"
+    ) -> "MlflowExperimentLocation":
         return cls(experiment_id=proto.experiment_id)
 
     def to_dict(self) -> dict[str, Any]:
@@ -65,11 +76,13 @@ class InferenceTableLocation(TraceLocationBase):
 
     full_table_name: str
 
-    def to_proto(self):
+    def to_proto(self) -> "pb.TraceLocation.InferenceTableLocation":
         return pb.TraceLocation.InferenceTableLocation(full_table_name=self.full_table_name)
 
     @classmethod
-    def from_proto(cls, proto) -> "InferenceTableLocation":
+    def from_proto(
+        cls, proto: "pb.TraceLocation.InferenceTableLocation"
+    ) -> "InferenceTableLocation":
         return cls(full_table_name=proto.full_table_name)
 
     def to_dict(self) -> dict[str, Any]:
@@ -105,11 +118,13 @@ class UCSchemaLocation(TraceLocationBase):
     def full_otel_spans_table_name(self) -> str | None:
         if self._otel_spans_table_name:
             return f"{self.catalog_name}.{self.schema_name}.{self._otel_spans_table_name}"
+        return None
 
     @property
     def full_otel_logs_table_name(self) -> str | None:
         if self._otel_logs_table_name:
             return f"{self.catalog_name}.{self.schema_name}.{self._otel_logs_table_name}"
+        return None
 
     def to_dict(self) -> dict[str, Any]:
         d = {
@@ -132,7 +147,7 @@ class UCSchemaLocation(TraceLocationBase):
         return location
 
     @classmethod
-    def from_proto(cls, proto) -> "UCSchemaLocation":
+    def from_proto(cls, proto: ProtoUCSchemaLocation) -> "UCSchemaLocation":
         from mlflow.utils.databricks_tracing_utils import uc_schema_location_from_proto
 
         return uc_schema_location_from_proto(proto)
@@ -232,7 +247,7 @@ class UnityCatalog(TraceLocationBase):
         return location
 
     @classmethod
-    def from_proto(cls, proto) -> "UnityCatalog":
+    def from_proto(cls, proto: ProtoUcTablePrefixLocation) -> "UnityCatalog":
         from mlflow.utils.databricks_tracing_utils import uc_table_prefix_location_from_proto
 
         return uc_table_prefix_location_from_proto(proto)
@@ -245,8 +260,11 @@ class TraceLocationType(str, Enum):
     UC_SCHEMA = "UC_SCHEMA"
     UC_TABLE_PREFIX = "UC_TABLE_PREFIX"
 
-    def to_proto(self):
-        return pb.TraceLocation.TraceLocationType.Value(self)
+    def to_proto(self) -> pb.TraceLocation.TraceLocationType.ValueType:
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: int = pb.TraceLocation.TraceLocationType.Value(self)
+        return proto_value
 
     @classmethod
     def from_proto(cls, proto: int) -> "TraceLocationType":
@@ -314,7 +332,7 @@ class TraceLocation(_MlflowObject):
             )
 
     def to_dict(self) -> dict[str, Any]:
-        d = {"type": self.type.value}
+        d: dict[str, Any] = {"type": self.type.value}
         if self.mlflow_experiment:
             d["mlflow_experiment"] = self.mlflow_experiment.to_dict()
         elif self.inference_table:
@@ -342,28 +360,36 @@ class TraceLocation(_MlflowObject):
         )
 
     def to_proto(self) -> pb.TraceLocation:
+        # The proto enum field is typed as its EnumTypeWrapper class; cast the raw int
+        # produced by `TraceLocationType.to_proto()` back for the generated constructor.
         if self.mlflow_experiment:
             return pb.TraceLocation(
-                type=self.type.to_proto(),
+                type=cast("pb.TraceLocation.TraceLocationType", self.type.to_proto()),
                 mlflow_experiment=self.mlflow_experiment.to_proto(),
             )
         elif self.inference_table:
             return pb.TraceLocation(
-                type=self.type.to_proto(),
+                type=cast("pb.TraceLocation.TraceLocationType", self.type.to_proto()),
                 inference_table=self.inference_table.to_proto(),
             )
         elif self.uc_table_prefix:
-            return pb.TraceLocation(type=self.type.to_proto())
+            return pb.TraceLocation(
+                type=cast("pb.TraceLocation.TraceLocationType", self.type.to_proto())
+            )
         # uc schema is not supported in to_proto since it's databricks specific, should use
         # databricks_service_utils to convert to proto
         else:
-            return pb.TraceLocation(type=self.type.to_proto())
+            return pb.TraceLocation(
+                type=cast("pb.TraceLocation.TraceLocationType", self.type.to_proto())
+            )
 
     @classmethod
-    def from_proto(cls, proto) -> "TraceLocation":
+    def from_proto(cls, proto: pb.TraceLocation | ProtoDatabricksTraceLocation) -> "TraceLocation":
         from mlflow.utils.databricks_tracing_utils import trace_location_from_proto
 
-        return trace_location_from_proto(proto)
+        # The helper's signature only admits the Databricks module's proto, but it handles
+        # service trace locations at runtime as well.
+        return trace_location_from_proto(cast(ProtoDatabricksTraceLocation, proto))
 
     @classmethod
     def from_experiment_id(cls, experiment_id: str) -> "TraceLocation":

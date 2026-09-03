@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
-from google.protobuf.json_format import MessageToDict, ParseDict
-from google.protobuf.struct_pb2 import Value
+from google.protobuf.json_format import MessageToDict, ParseDict  # type: ignore[import-untyped]
+from google.protobuf.struct_pb2 import Value  # type: ignore[import-untyped]
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.assessment_error import AssessmentError
@@ -16,6 +16,10 @@ from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
 from mlflow.protos.assessments_pb2 import IssueReference as ProtoIssueReference
+
+# Assessments come from both the v3 (assessments) and v4 (Databricks tracing) APIs,
+# which define distinct proto messages for the Assessment entity itself.
+from mlflow.protos.databricks_tracing_pb2 import Assessment as ProtoDatabricksAssessment
 from mlflow.utils.exception_utils import get_stacktrace
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
@@ -77,7 +81,7 @@ class Assessment(_MlflowObject):
     # This should not be set by the user, it is automatically set by the backend.
     valid: bool | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         from mlflow.tracing.constant import AssessmentMetadataKey
 
         if (self.expectation is not None) + (self.feedback is not None) + (
@@ -119,7 +123,7 @@ class Assessment(_MlflowObject):
         ):
             self.run_id = self.metadata[AssessmentMetadataKey.SOURCE_RUN_ID]
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoAssessment:
         assessment = ProtoAssessment()
         assessment.assessment_name = self.name
         assessment.trace_id = self.trace_id or ""
@@ -155,22 +159,26 @@ class Assessment(_MlflowObject):
         return assessment
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(
+        cls, proto: ProtoAssessment | ProtoDatabricksAssessment
+    ) -> "Expectation | Feedback | IssueReference":
         if proto.WhichOneof("value") == "expectation":
             return Expectation.from_proto(proto)
         elif proto.WhichOneof("value") == "feedback":
             return Feedback.from_proto(proto)
         elif proto.WhichOneof("value") == "issue":
-            return IssueReference.from_proto(proto)
+            # Only the v3 proto can carry an issue reference.
+            return IssueReference.from_proto(cast("ProtoAssessment", proto))
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Unknown assessment type: {proto.WhichOneof('value')}"
             )
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> dict[str, Any]:
         # Note that MessageToDict excludes None fields. For example, if assessment_id is None,
         # it won't be included in the resulting dictionary.
-        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+        result: dict[str, Any] = MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+        return result
 
     @classmethod
     def from_dictionary(cls, d: dict[str, Any]) -> "Assessment":
@@ -292,15 +300,16 @@ class Feedback(Assessment):
         self.error = error
 
     @property
-    def value(self) -> FeedbackValueType:
-        return self.feedback.value
+    def value(self) -> FeedbackValueType | None:
+        # `feedback` is guaranteed to be set by `Assessment.__post_init__`
+        return cast("FeedbackValue", self.feedback).value
 
     @value.setter
-    def value(self, value: FeedbackValueType):
-        self.feedback.value = value
+    def value(self, value: FeedbackValueType | None) -> None:
+        cast("FeedbackValue", self.feedback).value = value
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoAssessment | ProtoDatabricksAssessment) -> "Feedback":
         from mlflow.utils.databricks_tracing_utils import get_trace_id_from_assessment_proto
 
         # Convert ScalarMapContainer to a normal Python dict
@@ -355,12 +364,14 @@ class Feedback(Assessment):
     @property
     def error_code(self) -> str | None:
         """The error code of the error that occurred when the feedback was created."""
-        return self.feedback.error.error_code if self.feedback.error else None
+        feedback = cast("FeedbackValue", self.feedback)
+        return feedback.error.error_code if feedback.error else None
 
     @property
     def error_message(self) -> str | None:
         """The error message of the error that occurred when the feedback was created."""
-        return self.feedback.error.error_message if self.feedback.error else None
+        feedback = cast("FeedbackValue", self.feedback)
+        return feedback.error.error_message if feedback.error else None
 
 
 @dataclass
@@ -431,14 +442,15 @@ class Expectation(Assessment):
 
     @property
     def value(self) -> Any:
-        return self.expectation.value
+        # `expectation` is guaranteed to be set by `Assessment.__post_init__`
+        return cast("ExpectationValue", self.expectation).value
 
     @value.setter
-    def value(self, value: Any):
-        self.expectation.value = value
+    def value(self, value: Any) -> None:
+        cast("ExpectationValue", self.expectation).value = value
 
     @classmethod
-    def from_proto(cls, proto) -> "Expectation":
+    def from_proto(cls, proto: ProtoAssessment | ProtoDatabricksAssessment) -> "Expectation":
         from mlflow.utils.databricks_tracing_utils import get_trace_id_from_assessment_proto
 
         # Convert ScalarMapContainer to a normal Python dict
@@ -544,19 +556,22 @@ class IssueReference(Assessment):
         return self.name
 
     @issue_id.setter
-    def issue_id(self, issue_id: str):
+    def issue_id(self, issue_id: str) -> None:
         self.name = issue_id
 
     @property
     def issue_name(self) -> str:
-        return self.issue.issue_name
+        # `issue` is guaranteed to be set by `Assessment.__post_init__`
+        return cast("IssueReferenceValue", self.issue).issue_name
 
     @issue_name.setter
-    def issue_name(self, issue_name: str):
-        self.issue.issue_name = issue_name
+    def issue_name(self, issue_name: str) -> None:
+        cast("IssueReferenceValue", self.issue).issue_name = issue_name
 
     @classmethod
-    def from_proto(cls, proto) -> "IssueReference":
+    def from_proto(cls, proto: ProtoAssessment) -> "IssueReference":
+        # NB: The v4 (Databricks tracing) Assessment proto does not carry issue
+        # references, so only the v3 proto can be converted here.
         from mlflow.utils.databricks_tracing_utils import get_trace_id_from_assessment_proto
 
         metadata = dict(proto.metadata) if proto.metadata else None
@@ -605,18 +620,18 @@ class IssueReferenceValue(_MlflowObject):
 
     issue_name: str
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoIssueReference:
         return ProtoIssueReference(issue_name=self.issue_name)
 
     @classmethod
-    def from_proto(cls, proto) -> "IssueReferenceValue":
+    def from_proto(cls, proto: ProtoIssueReference) -> "IssueReferenceValue":
         return cls(issue_name=proto.issue_name)
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> dict[str, str]:
         return {"issue_name": self.issue_name}
 
     @classmethod
-    def from_dictionary(cls, d):
+    def from_dictionary(cls, d: dict[str, Any]) -> "IssueReferenceValue":
         return cls(issue_name=d["issue_name"])
 
 
@@ -626,7 +641,7 @@ class ExpectationValue(_MlflowObject):
 
     value: Any
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoExpectation:
         if self._need_serialization():
             try:
                 serialized_value = json.dumps(self.value)
@@ -645,7 +660,7 @@ class ExpectationValue(_MlflowObject):
         return ProtoExpectation(value=ParseDict(self.value, Value()))
 
     @classmethod
-    def from_proto(cls, proto) -> "Expectation":
+    def from_proto(cls, proto: ProtoExpectation) -> "ExpectationValue":
         if proto.HasField("serialized_value"):
             if proto.serialized_value.serialization_format != _JSON_SERIALIZATION_FORMAT:
                 raise MlflowException.invalid_parameter_value(
@@ -656,11 +671,12 @@ class ExpectationValue(_MlflowObject):
         else:
             return cls(value=MessageToDict(proto.value))
 
-    def to_dictionary(self):
-        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+    def to_dictionary(self) -> dict[str, Any]:
+        result: dict[str, Any] = MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+        return result
 
     @classmethod
-    def from_dictionary(cls, d):
+    def from_dictionary(cls, d: dict[str, Any]) -> "ExpectationValue":
         if "value" in d:
             return cls(d["value"])
         elif "serialized_value" in d:
@@ -680,27 +696,29 @@ class ExpectationValue(_MlflowObject):
 class FeedbackValue(_MlflowObject):
     """Represents a feedback value."""
 
-    value: FeedbackValueType
+    # None is allowed when the feedback carries only an error.
+    value: FeedbackValueType | None
     error: AssessmentError | None = None
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoFeedback:
         return ProtoFeedback(
             value=ParseDict(self.value, Value(), ignore_unknown_fields=True),
             error=self.error.to_proto() if self.error else None,
         )
 
     @classmethod
-    def from_proto(cls, proto) -> "FeedbackValue":
+    def from_proto(cls, proto: ProtoFeedback) -> "FeedbackValue":
         return FeedbackValue(
             value=MessageToDict(proto.value),
             error=AssessmentError.from_proto(proto.error) if proto.HasField("error") else None,
         )
 
-    def to_dictionary(self):
-        return MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+    def to_dictionary(self) -> dict[str, Any]:
+        result: dict[str, Any] = MessageToDict(self.to_proto(), preserving_proto_field_name=True)
+        return result
 
     @classmethod
-    def from_dictionary(cls, d):
+    def from_dictionary(cls, d: dict[str, Any]) -> "FeedbackValue":
         return cls(
             value=d["value"],
             error=AssessmentError.from_dictionary(err) if (err := d.get("error")) else None,
