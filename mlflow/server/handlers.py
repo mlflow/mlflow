@@ -81,6 +81,7 @@ from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
+    MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -98,7 +99,10 @@ from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
-from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+from mlflow.genai.scorers.scorer_utils import (
+    DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
+    _obj_has_call_source,
+)
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
 from mlflow.protos import databricks_pb2
@@ -5730,16 +5734,17 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
-    # Decorator scorers contain a `call_source` field that is executed via exec() during
-    # deserialization. The Python client blocks this via `_check_can_be_registered()`, but
-    # that check is client-side only and can be bypassed by calling the REST API directly.
-    # Enforce the same restriction here in the server handler so it applies regardless of
-    # how the request arrives.
+    # Custom (@scorer) scorers carry a `call_source` that the server executes via exec() when
+    # the scorer runs. This server-side flag is the single control: block them unless an
+    # operator opted in with MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS. Enforcing it here (not only in
+    # the client's `_check_can_be_registered`) means the server is the authority, so a remote
+    # client never has to set a server variable. Recurse so a custom sub-scorer nested in an
+    # ensemble is caught too, not only a top-level one.
     try:
         serialized_data = json.loads(request_message.serialized_scorer)
     except json.JSONDecodeError as e:
         raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
+    if _obj_has_call_source(serialized_data) and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get():
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )
@@ -7101,15 +7106,15 @@ def _invoke_scorer_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    # Decorator scorers carry a `call_source` field that is executed via exec() when the
-    # scorer is deserialized. Reject such payloads before deserialization so this endpoint
-    # never reconstructs attacker-supplied source code, regardless of the server's tracking
-    # URI. This mirrors the server-side guard in `_register_scorer`.
+    # Custom (@scorer) scorers carry a `call_source` that the server executes via exec() when
+    # the scorer runs. Same single control as `_register_scorer`: block them (before any
+    # deserialization) unless an operator opted in with MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.
+    # Recurse so a custom sub-scorer nested in an ensemble is caught too.
     try:
         serialized_data = json.loads(serialized_scorer)
     except json.JSONDecodeError as e:
         raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
+    if _obj_has_call_source(serialized_data) and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get():
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )

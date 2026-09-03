@@ -1693,11 +1693,23 @@ MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND", str, "local"
 )
 
-#: Reserved for routing custom scorer jobs to a non-default backend. Validated
-#: at startup but not yet consulted by job submission until the executor router
-#: lands.
+#: Executor backend used for custom scorer jobs. When set, custom scorer jobs are routed to
+#: this backend instead of ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``; when unset, they use the
+#: default backend. Validated at startup.
+#: (default: unset, i.e. the default backend)
 MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None
+)
+
+#: Whether the server may run custom scorers defined with the ``@scorer`` decorator. A custom
+#: scorer carries its function source in its serialized form, and that source is executed (via
+#: ``exec()``) on the tracking server when the scorer is deserialized to run — i.e. it runs
+#: arbitrary user-provided code in the server process. This is off by default: the server does
+#: not yet run that code inside an isolation boundary, so custom scorer jobs are rejected unless
+#: an operator who explicitly accepts that trust boundary sets this to ``True``.
+#: (default: ``False``)
+MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", False
 )
 
 #: Opt-in switch for the executor job-execution engine. Leave unset to use the default engine
