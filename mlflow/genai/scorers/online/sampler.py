@@ -29,6 +29,7 @@ class OnlineScorerSampler:
         for online_scorer in online_scorers:
             try:
                 scorer = Scorer.model_validate_json(online_scorer.serialized_scorer)
+                scorer._scorer_version = online_scorer.scorer_version
                 self._sample_rates[scorer.name] = online_scorer.online_config.sample_rate
                 self._scorers[scorer.name] = scorer
             except Exception as e:

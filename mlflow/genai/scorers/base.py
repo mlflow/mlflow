@@ -296,6 +296,7 @@ class Scorer(BaseModel):
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
     _experiment_id: str | None = PrivateAttr(default=None)
+    _scorer_version: int | None = PrivateAttr(default=None)
     # Predicate deciding whether this scorer's value counts as passing in an
     # assertion (``EvaluationResult.passed``). In-process only: it is a local
     # testing concern and is intentionally not serialized. ``None`` falls back to
@@ -349,6 +350,11 @@ class Scorer(BaseModel):
         return self._sampling_config.filter_string if self._sampling_config else None
 
     @property
+    def scorer_version(self) -> int | None:
+        """Get the registered version of this scorer, if available."""
+        return self._scorer_version
+
+    @property
     def status(self) -> ScorerStatus:
         """Get the status of this scorer, using only the local state."""
 
@@ -363,10 +369,12 @@ class Scorer(BaseModel):
         backend: str,
         experiment_id: str | None,
         sampling_config: ScorerSamplingConfig | None,
+        scorer_version: int | None = None,
     ) -> "Scorer":
         self._registered_backend = backend
         self._experiment_id = experiment_id
         self._sampling_config = sampling_config
+        self._scorer_version = scorer_version
         return self
 
     def __repr__(self) -> str:

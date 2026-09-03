@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
@@ -17,9 +18,11 @@ from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
     _deserialize_trace_column_if_needed,
+    add_scorer_metadata,
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
 from tests.genai.conftest import databricks_only
@@ -50,6 +53,29 @@ def count_rows(data: Any) -> int:
         data = data.to_df()
 
     return len(data)
+
+
+def test_add_scorer_metadata_for_registered_scorer():
+    scorer = RelevanceToQuery(name="registered_scorer")
+    scorer._scorer_version = 3
+    feedback = Feedback(value=True, metadata={"user-key": "user-value"})
+
+    add_scorer_metadata(scorer, [feedback])
+
+    assert feedback.metadata == {
+        "user-key": "user-value",
+        AssessmentMetadataKey.SCORER_NAME: "registered_scorer",
+        AssessmentMetadataKey.SCORER_VERSION: "3",
+    }
+
+
+def test_add_scorer_metadata_ignores_unregistered_scorer():
+    scorer = RelevanceToQuery(name="unregistered_scorer")
+    feedback = Feedback(value=True)
+
+    add_scorer_metadata(scorer, [feedback])
+
+    assert feedback.metadata is None
 
 
 @pytest.fixture

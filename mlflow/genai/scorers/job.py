@@ -94,6 +94,7 @@ def run_online_trace_scorer_job(
             name=scorer_dict["name"],
             serialized_scorer=scorer_dict["serialized_scorer"],
             online_config=OnlineScoringConfig(**scorer_dict["online_config"]),
+            scorer_version=scorer_dict.get("scorer_version"),
         )
         for scorer_dict in online_scorers
     ]
@@ -128,6 +129,7 @@ def run_online_session_scorer_job(
             name=scorer_dict["name"],
             serialized_scorer=scorer_dict["serialized_scorer"],
             online_config=OnlineScoringConfig(**scorer_dict["online_config"]),
+            scorer_version=scorer_dict.get("scorer_version"),
         )
         for scorer_dict in online_scorers
     ]
