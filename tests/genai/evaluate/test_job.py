@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.entities.run_status import RunStatus
 from mlflow.genai.evaluation.job import invoke_genai_evaluate_job
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING
 
 
 def _serialized_scorer(name: str = "scorer") -> str:
@@ -23,12 +24,12 @@ def test_invoke_genai_evaluate_job_success():
     mock_client = mock.MagicMock()
     mock_trace = mock.MagicMock()
     mock_client._tracing_client.batch_get_traces.return_value = [mock_trace, mock_trace]
-    mock_scorer = mock.MagicMock()
+    mock_scorers = [mock.MagicMock(), mock.MagicMock()]
 
     with (
         mock.patch("mlflow.genai.evaluation.job.MlflowClient", return_value=mock_client),
         mock.patch(
-            "mlflow.genai.evaluation.job.Scorer.model_validate_json", return_value=mock_scorer
+            "mlflow.genai.evaluation.job.Scorer.model_validate_json", side_effect=mock_scorers
         ) as mock_validate,
         mock.patch("mlflow.start_run") as mock_start_run,
         mock.patch("mlflow.genai.evaluate") as mock_evaluate,
@@ -37,6 +38,8 @@ def test_invoke_genai_evaluate_job_success():
             trace_ids=["trace-1", "trace-2"],
             serialized_scorers=[_serialized_scorer("a"), _serialized_scorer("b")],
             run_id="run-123",
+            scorer_versions=[1, None],
+            experiment_id="exp-123",
         )
 
         mock_client.link_traces_to_run.assert_called_once_with(["trace-1", "trace-2"], "run-123")
@@ -51,7 +54,14 @@ def test_invoke_genai_evaluate_job_success():
         mock_evaluate.assert_called_once()
         evaluate_kwargs = mock_evaluate.call_args.kwargs
         assert evaluate_kwargs["data"] == [mock_trace, mock_trace]
-        assert evaluate_kwargs["scorers"] == [mock_scorer, mock_scorer]
+        assert evaluate_kwargs["scorers"] == mock_scorers
+        mock_scorers[0]._set_registration_metadata.assert_called_once_with(
+            backend=SCORER_BACKEND_TRACKING,
+            experiment_id="exp-123",
+            sampling_config=None,
+            scorer_version=1,
+        )
+        mock_scorers[1]._set_registration_metadata.assert_not_called()
 
         # On the happy path the ActiveRun context manager's __exit__ writes
         # FINISHED for us; the job must NOT also call set_terminated explicitly
