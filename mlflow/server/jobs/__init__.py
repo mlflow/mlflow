@@ -285,22 +285,25 @@ def submit_job(
     if engine == "executor":
         # Persist the per-job backend for crash recovery and future per-job dispatch.
         executor_backend = select_executor_backend(is_custom_scorer=is_custom_scorer)
-        # Validate against the backend that will ACTUALLY run this job. The runner does not yet
-        # dispatch per job -- it runs every job on MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND -- so a
-        # remote default would run this job remotely regardless of the selection above. A remote
-        # executor can only reach models through the gateway, so reject a direct-provider model
-        # URI it could not resolve. TODO: check `executor_backend` once the runner dispatches
-        # per job.
+        # A remote executor can only reach models through the gateway, so reject a scorer that
+        # references a direct-provider model URI it could not resolve. Two backends may run this
+        # job: MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND, which the runner uses today (it does not
+        # dispatch per job yet), and the per-job backend selected above, which is persisted and a
+        # future dispatch/crash-recovery will honor. Both must reach the model, so reject if
+        # either runs remotely -- otherwise a job could be persisted with a remote backend it was
+        # never validated against.
         registry = get_executor_registry()
         runner_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
-        if registry.get(
-            runner_backend
-        ).remote_execution and scorer_params_use_direct_provider_model(fn_meta.name, params):
+        runs_remotely = (
+            registry.get(runner_backend).remote_execution
+            or registry.get(executor_backend).remote_execution
+        )
+        if runs_remotely and scorer_params_use_direct_provider_model(fn_meta.name, params):
             raise MlflowException(
-                f"The executor backend {runner_backend!r} runs jobs remotely and can only reach "
-                "models through the gateway, but this scorer references a direct-provider model. "
-                "Use a gateway-backed model URI (e.g. 'gateway:/', 'endpoints:/', or "
-                "'databricks:/') or a local executor backend."
+                "The executor backend runs jobs remotely and can only reach models through the "
+                "gateway, but this scorer references a direct-provider model. Use a gateway-backed "
+                "model URI (e.g. 'gateway:/', 'endpoints:/', or 'databricks:/') or a local "
+                "executor backend."
             )
 
     job_store = _get_job_store()

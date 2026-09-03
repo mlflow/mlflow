@@ -2706,7 +2706,9 @@ def test_register_scorer_allows_decorator_scorer_when_flag_enabled(
     )
     resp = _register_scorer()
     assert resp.status_code == 200
-    mock_tracking_store.register_scorer.assert_called_once()
+    mock_tracking_store.register_scorer.assert_called_once_with(
+        "123", "my_scorer", serialized_scorer
+    )
 
 
 def test_list_scorers(mock_get_request_message, mock_tracking_store):

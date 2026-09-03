@@ -779,6 +779,13 @@ def test_bare_model_name_flagged(model):
     assert scorer_params_use_direct_provider_model("invoke_scorer", params) is True
 
 
+def test_empty_model_is_compatible():
+    # An empty model string means no model was specified (not a direct-provider URI), so it is
+    # treated as compatible rather than flagged.
+    params = {"serialized_scorer": _judge_scorer_json("")}
+    assert scorer_params_use_direct_provider_model("invoke_scorer", params) is False
+
+
 def test_scorer_detection_job_names_match_registered_jobs():
     # The detection job-name sets must stay in sync with the actual registered scorer job
     # names; a rename that touches only one side would silently fail the gate open.

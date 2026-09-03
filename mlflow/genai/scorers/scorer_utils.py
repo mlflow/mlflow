@@ -414,6 +414,8 @@ def _iter_model_uris(obj) -> list[str]:
     found = []
     if isinstance(obj, dict):
         for key, value in obj.items():
+            # An empty `model` string means no model was specified (not a direct-provider URI),
+            # so skip it -- flagging every stray empty "model" key would be a false positive.
             if key == "model" and isinstance(value, str) and value:
                 found.append(value)
             else:
