@@ -625,16 +625,19 @@ dspy:
       uv pip install --system git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "3.0.0"
-    maximum: "3.2.1"
+    maximum: "3.3.1"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "3.0.0"
-    maximum: "3.2.1"
+    maximum: "3.3.1"
     requirements:
       ">= 0.0.0": ["openai"]
+      # dspy >= 3.3.0 pulls in litellm>=1.98.0 which uses NotRequired from typing (Python 3.11+);
+      # cap it for Python 3.10 CI. litellm 1.97.0 is also excluded (see test-requirements.txt).
+      ">= 3.3.0": ["litellm!=1.97.0,<1.98.0"]
     run: |
       pytest tests/dspy/test_dspy_autolog.py
     test_tracing_sdk: true
@@ -925,8 +928,11 @@ crewai:
       uv pip install --system git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.152.0"
-    maximum: "1.15.5"
+    maximum: "1.15.17"
     requirements:
+      # crewai tests import litellm directly (ModelResponse, litellm.completion mock).
+      # The tracing-sdk install path skips test-requirements.txt, so litellm must be listed here.
+      ">= 0.0.0": ["litellm!=1.97.0,<1.98.0"]
     run: pytest tests/crewai
     test_tracing_sdk: true
     test_every_n_versions: 20

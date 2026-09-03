@@ -541,6 +541,7 @@ module.exports = {
   "web-shared.genai-traces-table.evaluations-review-assessment.tooltip": "",
   "web-shared.genai-traces-table.key-value-tag.full-view-tooltip": "",
   "web-shared.time-ago": "",
+  "web-shared.traces-table.column-reorder.handle": "",
   "workspace_selector": "",
   "workspace_selector.tooltip": "",
 
@@ -2159,6 +2160,7 @@ module.exports = {
   "mlflow.traces-v4.column-selector.item.cost": "",
   "mlflow.traces-v4.column-selector.item.duration": "",
   "mlflow.traces-v4.column-selector.item.input": "",
+  "mlflow.traces-v4.column-selector.item.metadata": "",
   "mlflow.traces-v4.column-selector.item.output": "",
   "mlflow.traces-v4.column-selector.item.run_name": "",
   "mlflow.traces-v4.column-selector.item.session": "",

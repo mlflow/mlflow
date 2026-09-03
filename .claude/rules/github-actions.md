@@ -1,5 +1,7 @@
 ---
-paths: ".github/workflows/**/*.yml"
+paths:
+  - ".github/workflows/**/*.yml"
+  - ".github/actions/**/*.yml"
 ---
 
 # GitHub Actions Workflow Guidelines
@@ -119,3 +121,67 @@ Set `sparse-checkout-cone-mode: false` only when you need to target individual f
 ## `pipefail` Is Already On
 
 Every workflow in this repo sets top-level `defaults.run.shell: bash` (enforced by [`.github/policy.rego`](../../.github/policy.rego)). GitHub Actions runs `shell: bash` as `bash --noprofile --norc -eo pipefail {0}`, so `pipefail` is already enabled. Don't ask for `set -o pipefail` in workflow `run:` steps. ([docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#defaultsrunshell))
+
+## Mask Secrets Generated Mid-Job
+
+Values that come from `secrets.*` are masked automatically. Anything a step
+mints at runtime (an OAuth token exchanged over `curl`, a random passphrase, a
+value decoded out of another secret) is not, so the first command that echoes it
+prints it in clear text. Emit
+[`::add-mask::`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#masking-a-value-in-a-log)
+the moment the value exists, before it reaches `$GITHUB_OUTPUT` or any other
+command.
+
+```yaml
+# Bad: nothing stops a later command from printing the token
+- run: |
+    TOKEN=$(curl -sS ... | jq -r .access_token)
+    echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+# Good
+- run: |
+    TOKEN=$(curl -sS ... | jq -r .access_token)
+    echo "::add-mask::$TOKEN"
+    echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+```
+
+`set -x` needs separate care: xtrace prints the assignment itself, so the value
+is in the log before the mask can register. Don't enable it in a step that mints
+a secret.
+
+The mask covers only the job that registered it, and a masked value cannot be
+handed to another job through job-level `outputs`: GitHub redacts it on the
+runner. Mint and mask it again in the job that needs it.
+
+## Never Write Secrets to `$GITHUB_ENV`
+
+`$GITHUB_ENV` promotes a value into the environment of every later step in the
+job, and of every process those steps spawn (third-party actions, `npm install`
+lifecycle scripts, the test suite). Hand it to the consuming step through
+`$GITHUB_OUTPUT` and a step-level `env:` block instead, so a step that has no
+use for the secret never holds it.
+
+```yaml
+# Bad: the test step inherits a token it never asked for
+- id: auth
+  run: |
+    TOKEN=$(curl -sS ... | jq -r .access_token)
+    echo "::add-mask::$TOKEN"
+    echo "TOKEN=$TOKEN" >> "$GITHUB_ENV"
+- run: uv run dev/deploy.py # needs $TOKEN
+- run: uv run pytest tests/ # doesn't, but gets it anyway
+
+# Good: the token reaches only the step that consumes it
+- id: auth
+  run: |
+    TOKEN=$(curl -sS ... | jq -r .access_token)
+    echo "::add-mask::$TOKEN"
+    echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+- env:
+    TOKEN: ${{ steps.auth.outputs.token }}
+  run: uv run dev/deploy.py
+- run: uv run pytest tests/ # no $TOKEN in its environment
+```
+
+The same holds for a secret that comes straight from `secrets.*`: put it in the
+consuming step's `env:` block rather than exporting it job-wide.

@@ -822,6 +822,50 @@ def test_start_span_context_manager(async_logging_enabled):
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
+def test_successful_genai_span_without_inputs_or_outputs_warns_agent(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        with mlflow.start_span(name="empty_tool", span_type=SpanType.TOOL):
+            pass
+
+    assert warn.call_args_list == [
+        mock.call(
+            "genai-span-missing-inputs",
+            "The successful TOOL span 'empty_tool' has no recorded inputs.",
+        ),
+        mock.call(
+            "genai-span-missing-outputs",
+            "The successful TOOL span 'empty_tool' has no recorded outputs.",
+        ),
+    ]
+
+
+def test_error_genai_span_without_outputs_does_not_warn_agent(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        with mlflow.start_span(name="failed_tool", span_type=SpanType.TOOL) as span:
+            span.set_status(SpanStatusCode.ERROR)
+
+    warn.assert_not_called()
+
+
+def test_local_tracking_check_runs_independently_of_span_type_and_status(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_local_tracking_for_databricks") as check:
+        with mlflow.start_span(name="failed_unknown") as span:
+            span.set_status(SpanStatusCode.ERROR)
+
+    check.assert_called_once()
+
+
+def test_agent_hint_failure_does_not_prevent_span_finalization(async_logging_enabled):
+    span = start_span_no_context(name="empty_tool", span_type=SpanType.TOOL)
+    with (
+        mock.patch("mlflow.agent.hint.maybe_warn_agent", side_effect=RuntimeError("hint failed")),
+        mock.patch.object(span._span, "end", wraps=span._span.end) as end,
+    ):
+        span.end()
+
+    end.assert_called_once()
+
+
 @pytest.mark.skipif(
     IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
 )

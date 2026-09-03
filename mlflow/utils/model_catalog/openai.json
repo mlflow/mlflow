@@ -57,7 +57,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-12-01",
+      "last_updated_at": "2026-08-31"
     },
     "1024-x-1536/gpt-image-1": {
       "mode": "image_generation",
@@ -104,7 +105,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-12-01",
+      "last_updated_at": "2026-08-31"
     },
     "1024-x-1792/dall-e-3": {
       "mode": "image_generation",
@@ -162,7 +164,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "deprecation_date": "2026-12-01",
+      "last_updated_at": "2026-08-31"
     },
     "1792-x-1024/dall-e-3": {
       "mode": "image_generation",

@@ -36,6 +36,10 @@ import { formatTraceDuration } from './formatTraceDuration';
 // possible — an in-file const (resolved to a literal) is how these cells share a namespace.
 const COMPONENT_ID = 'web-shared.traces-table';
 const CELL_OVERLAY_MAX_WIDTH = 300;
+// Input/output previews carry long request/response bodies, so they get a wider hover overlay than
+// the short-text cells (id / name): a wider box means fewer wrapped lines, so the preview stops
+// running off the bottom of the tooltip.
+const CELL_PREVIEW_MAX_WIDTH = 560;
 // DuBois icons are 16px by default and look oversized beside the small cell text. Size them via
 // `fontSize` (their SVG is 1em, so this scales the glyph and its line-box together — width/height
 // alone shrinks the glyph but leaves a 16px box, dropping it below the text).
@@ -54,6 +58,16 @@ const truncateCss: CSSObject = {
   maxWidth: '100%',
   verticalAlign: 'middle',
 };
+
+const getMultilineTruncateCss = (lineClamp: number): CSSObject => ({
+  display: '-webkit-box',
+  whiteSpace: 'normal',
+  WebkitBoxOrient: 'vertical',
+  WebkitLineClamp: lineClamp,
+  maxWidth: '100%',
+  overflow: 'hidden',
+  overflowWrap: 'anywhere',
+});
 
 const ACTIVATOR_BASE_CSS: CSSObject = {
   display: 'inline-block',
@@ -222,6 +236,8 @@ interface TraceCellProps {
 interface TraceTagsCellProps extends TraceCellProps {
   /** Toggle a filter when a tag pill is clicked. Absent → pills render as plain (non-clickable) tags. */
   onFilterByTag?: (key: string, value: string) => void;
+  /** Override the key/value entries rendered by the shared pill layout. */
+  entries?: Array<[string, string]>;
 }
 
 /** Trace id — monospace text that links when a destination is provided, with the full id in a tooltip. */
@@ -297,22 +313,28 @@ const TracePreviewCell = ({
   accessibleLabel,
   componentId,
   to,
+  previewLineClamp,
+  textColor = 'primary',
 }: {
   value: string;
   onActivate: () => void;
   accessibleLabel: string;
   componentId: string;
   to?: To;
+  previewLineClamp: number;
+  textColor?: 'primary' | 'secondary';
 }) => {
   const { theme } = useDesignSystemTheme();
   if (!value) {
     return <EmptyValue />;
   }
+  const multilinePreviewStyle: React.CSSProperties | undefined =
+    previewLineClamp > 1 ? { WebkitLineClamp: previewLineClamp, whiteSpace: 'normal' } : undefined;
   return (
     <Tooltip
       componentId={`${componentId}-tooltip`}
       content={<WrappedTooltipText>{value}</WrappedTooltipText>}
-      maxWidth={CELL_OVERLAY_MAX_WIDTH}
+      maxWidth={CELL_PREVIEW_MAX_WIDTH}
     >
       <TraceActivator
         to={to}
@@ -322,15 +344,27 @@ const TracePreviewCell = ({
         css={{ display: 'block', width: '100%' }}
       >
         {/* Plain text color, not link-blue: the whole row is the click target, so the preview reads as
-          content rather than a link. */}
-        <span css={[truncateCss, { color: theme.colors.textPrimary }]}>{value}</span>
+          content rather than a link (still keyboard/right-click navigable via the underlying anchor). */}
+        <span
+          style={multilinePreviewStyle}
+          css={[
+            previewLineClamp > 1 ? getMultilineTruncateCss(previewLineClamp) : truncateCss,
+            { color: textColor === 'secondary' ? theme.colors.textSecondary : theme.colors.textPrimary },
+          ]}
+        >
+          {value}
+        </span>
       </TraceActivator>
     </Tooltip>
   );
 };
 
-export const TraceInputCell: React.MemoExoticComponent<(props: TraceCellProps) => JSX.Element> = memo(
-  function TraceInputCell({ trace, onSelect, accessibleLabel, to }: TraceCellProps) {
+interface TracePreviewCellProps extends TraceCellProps {
+  previewLineClamp: number;
+}
+
+export const TraceInputCell: React.MemoExoticComponent<(props: TracePreviewCellProps) => JSX.Element> = memo(
+  function TraceInputCell({ trace, onSelect, accessibleLabel, to, previewLineClamp }: TracePreviewCellProps) {
     return (
       <TracePreviewCell
         value={getTraceInfoInputs(trace)}
@@ -338,13 +372,15 @@ export const TraceInputCell: React.MemoExoticComponent<(props: TraceCellProps) =
         accessibleLabel={accessibleLabel}
         componentId={`${COMPONENT_ID}.cell.input`}
         to={to}
+        previewLineClamp={previewLineClamp}
+        textColor="secondary"
       />
     );
   },
 );
 
-export const TraceOutputCell: React.MemoExoticComponent<(props: TraceCellProps) => JSX.Element> = memo(
-  function TraceOutputCell({ trace, onSelect, accessibleLabel, to }: TraceCellProps) {
+export const TraceOutputCell: React.MemoExoticComponent<(props: TracePreviewCellProps) => JSX.Element> = memo(
+  function TraceOutputCell({ trace, onSelect, accessibleLabel, to, previewLineClamp }: TracePreviewCellProps) {
     return (
       <TracePreviewCell
         value={getTraceInfoOutputs(trace)}
@@ -352,6 +388,7 @@ export const TraceOutputCell: React.MemoExoticComponent<(props: TraceCellProps) 
         accessibleLabel={accessibleLabel}
         componentId={`${COMPONENT_ID}.cell.output`}
         to={to}
+        previewLineClamp={previewLineClamp}
       />
     );
   },
@@ -704,10 +741,18 @@ const TagPill = ({
  * siblings, and each clickable pill `stopPropagation`s so a filter click never also opens the drawer.
  */
 export const TraceTagsCell: React.MemoExoticComponent<(props: TraceTagsCellProps) => JSX.Element> = memo(
-  function TraceTagsCell({ trace, onSelect, accessibleLabel, onFilterByTag }: TraceTagsCellProps) {
+  function TraceTagsCell({
+    trace,
+    onSelect,
+    accessibleLabel,
+    onFilterByTag,
+    entries: entriesOverride,
+  }: TraceTagsCellProps) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
-    const entries = Object.entries(trace.tags ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX));
+    const entries =
+      entriesOverride ??
+      Object.entries(trace.tags ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX));
     const containerRef = useRef<HTMLSpanElement>(null);
     const pillRefs = useRef<Array<HTMLSpanElement | null>>([]);
     const overflowRefs = useRef<Array<HTMLSpanElement | null>>([]);
@@ -823,4 +868,14 @@ export const TraceTagsCell: React.MemoExoticComponent<(props: TraceTagsCellProps
       </span>
     );
   },
+);
+
+/** User-authored metadata rendered with the same compact pill layout as aggregate tags. */
+export const TraceMetadataCell = ({ trace, onSelect, accessibleLabel }: TraceCellProps): JSX.Element => (
+  <TraceTagsCell
+    trace={trace}
+    onSelect={onSelect}
+    accessibleLabel={accessibleLabel}
+    entries={Object.entries(trace.trace_metadata ?? {}).filter(([key]) => !key.startsWith(MLFLOW_INTERNAL_TAG_PREFIX))}
+  />
 );

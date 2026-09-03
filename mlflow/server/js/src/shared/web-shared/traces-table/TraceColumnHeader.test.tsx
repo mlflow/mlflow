@@ -7,6 +7,7 @@ import { renderWithProviders } from './test-utils/renderWithProviders';
 const renderHeader = (over: Partial<React.ComponentProps<typeof TraceColumnHeader>> = {}) =>
   renderWithProviders(
     <TraceColumnHeader
+      columnId="input"
       label="Input"
       labelText="Input"
       sortable={false}

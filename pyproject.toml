@@ -178,7 +178,7 @@ dev = [
   "mlflow-test-plugin",
 ]
 lint = [
-  "ruff==0.16.0",
+  "ruff==0.16.4",
   "pre-commit==4.6.1",
   "toml==0.10.2",
   "types-toml",
@@ -209,6 +209,7 @@ test = [
   { include-group = "pytest" },
   "psutil",
   "pyspark",
+  "texttable",
   "opentelemetry-exporter-otlp-proto-grpc",
   "opentelemetry-exporter-otlp-proto-http",
 ]
@@ -289,7 +290,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.16.0"
+required-version = "0.16.4"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extension = { mdx = "markdown" }
