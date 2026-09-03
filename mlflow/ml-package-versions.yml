@@ -580,7 +580,10 @@ openai:
       uv pip install --system git+https://github.com/openai/openai-python
   models:
     minimum: "1.105.0"
-    maximum: "3.5.0"
+    # openai 3.x switched its internal HTTP client from httpx to httpx2, which
+    # breaks the autolog tests' mocking. Hold the max at the last known-good
+    # release until the openai integration is updated for 3.x.
+    maximum: "2.47.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -598,7 +601,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.105.0"
-    maximum: "3.5.0"
+    maximum: "2.47.0"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -844,8 +847,10 @@ ag2:
     pip_release: "ag2"
     module_name: "autogen"
   autologging:
+    # ag2 1.x removed the top-level `autogen` module the tests import, so hold
+    # the max at the last known-good release until the integration supports 1.x.
     minimum: "0.9.10"
-    maximum: "1.0.2"
+    maximum: "0.14.0"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
@@ -1102,7 +1107,7 @@ johnsnowlabs:
   package_info:
     pip_release: "johnsnowlabs"
   models:
-    minimum: "5.4.4"
+    minimum: "5.4.0"
     maximum: "6.4.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]

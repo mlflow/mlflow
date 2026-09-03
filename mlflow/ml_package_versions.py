@@ -17,11 +17,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.105.0",
-            "maximum": "3.5.0"
+            "maximum": "2.47.0"
         },
         "autologging": {
             "minimum": "1.105.0",
-            "maximum": "3.5.0"
+            "maximum": "2.47.0"
         }
     },
     "dspy": {
@@ -84,7 +84,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.9.10",
-            "maximum": "1.0.2"
+            "maximum": "0.14.0"
         }
     },
     "autogen": {
@@ -437,7 +437,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "johnsnowlabs"
         },
         "models": {
-            "minimum": "5.4.4",
+            "minimum": "5.4.0",
             "maximum": "6.4.1"
         }
     }
