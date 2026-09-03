@@ -64,12 +64,29 @@ def test_inspect_skill_dir_keywords_from_string_and_nested_metadata(tmp_path):
     assert inspect_skill_dir(nested).keywords == ("q",)
 
 
-def test_inspect_skill_dir_name_falls_back_to_directory(tmp_path):
-    root = _skill_dir(tmp_path, "fallback-name", "# no frontmatter\n")
-    manifest = inspect_skill_dir(root)
-    assert manifest.name == "fallback-name"
+def test_inspect_skill_dir_requires_declared_name(tmp_path):
+    # Fetched content lands in an arbitrary directory such as ``content``, so the directory
+    # name is never an acceptable identity.
+    root = _skill_dir(tmp_path, "content", "# no frontmatter\n")
+    with pytest.raises(MlflowException, match="must declare a 'name'"):
+        inspect_skill_dir(root)
+    manifest = inspect_skill_dir(root, fallback_name="legacy-skill")
+    assert manifest.name == "legacy-skill"
     assert manifest.description is None
     assert manifest.keywords == ()
+
+
+def test_inspect_skill_dir_declared_name_beats_fallback(tmp_path):
+    root = _skill_dir(tmp_path, "dir", "---\nname: declared\n---\n")
+    assert inspect_skill_dir(root, fallback_name="other").name == "declared"
+
+
+def test_inspect_skill_dir_accepts_utf8_bom(tmp_path):
+    root = tmp_path / "demo"
+    root.mkdir()
+    (root / SKILL_MANIFEST_FILE).write_bytes(b"\xef\xbb\xbf---\nname: demo\ndescription: d\n---\n")
+    manifest = inspect_skill_dir(root)
+    assert (manifest.name, manifest.description) == ("demo", "d")
 
 
 @pytest.mark.parametrize("name", ["Bad_Name", "-lead", "trail-", "a--b", "x" * 65])

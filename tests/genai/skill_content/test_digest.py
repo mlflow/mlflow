@@ -1,11 +1,20 @@
 import hashlib
-import struct
 import unicodedata
 
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.digest import compute_tree_digest
+
+# Independently computed from the RFC serialization rule (sorted UTF-8 paths, u64 big-endian
+# length framing of path and content) for the tree in ``_KNOWN_TREE``. A coordinated change to
+# the framing or ordering in the implementation cannot pass this test silently.
+_KNOWN_TREE = {
+    "SKILL.md": b"---\nname: demo\n---\n",
+    unicodedata.normalize("NFC", "nested/café.md"): b"x",
+    "z.bin": bytes(range(8)),
+}
+_KNOWN_DIGEST = "919556464589004679eb085de455d49f75f9f5408d986f2e7cf490e3f38888d6"
 
 
 def _write_tree(root, files):
@@ -15,23 +24,10 @@ def _write_tree(root, files):
         target.write_bytes(content)
 
 
-def _expected_digest(files):
-    hasher = hashlib.sha256()
-    for path in sorted(files, key=lambda p: p.encode("utf-8")):
-        path_bytes = path.encode("utf-8")
-        content = files[path]
-        hasher.update(struct.pack(">Q", len(path_bytes)))
-        hasher.update(path_bytes)
-        hasher.update(struct.pack(">Q", len(content)))
-        hasher.update(content)
-    return hasher.hexdigest()
-
-
-def test_digest_matches_canonical_serialization(tmp_path):
-    files = {"SKILL.md": b"---\nname: demo\n---\nbody", "scripts/run.py": b"print(1)\n"}
-    _write_tree(tmp_path, files)
+def test_digest_known_answer(tmp_path):
+    _write_tree(tmp_path, _KNOWN_TREE)
     digest = compute_tree_digest(tmp_path)
-    assert digest == _expected_digest(files)
+    assert digest == _KNOWN_DIGEST
     assert len(digest) == 64
     assert digest == digest.lower()
 

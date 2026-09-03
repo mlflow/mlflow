@@ -71,28 +71,35 @@ def _extract_keywords(metadata: dict[str, Any]) -> tuple[str, ...]:
     return tuple(keywords)
 
 
-def inspect_skill_dir(root: str | os.PathLike[str]) -> SkillManifest:
+def inspect_skill_dir(
+    root: str | os.PathLike[str], *, fallback_name: str | None = None
+) -> SkillManifest:
     """
     Read the content-derived fields of the skill rooted at ``root``.
 
-    The directory must contain a ``SKILL.md`` regular file. The skill name comes from the
-    frontmatter ``name`` field and falls back to the directory name, then is validated against
-    the Agent Skills naming rules. ``description`` and ``keywords`` are read from the
-    frontmatter when present.
+    The directory must contain a ``SKILL.md`` regular file. The skill name is declared in the
+    frontmatter ``name`` field; the directory name is never used because fetched content lands
+    in an arbitrary temporary directory. Import adapters that synthesize names for legacy
+    layouts may pass ``fallback_name`` explicitly. The name is validated against the Agent
+    Skills naming rules, and ``description`` and ``keywords`` are read when present.
     """
     root_path = Path(root)
     manifest_path = root_path / SKILL_MANIFEST_FILE
     if manifest_path.is_symlink() or not manifest_path.is_file():
         raise invalid_content(f"'{root_path}' does not contain a {SKILL_MANIFEST_FILE} file.")
     try:
-        content = manifest_path.read_text(encoding="utf-8")
+        content = manifest_path.read_text(encoding="utf-8-sig")
     except UnicodeDecodeError as e:
         raise invalid_content(f"{SKILL_MANIFEST_FILE} in '{root_path}' is not valid UTF-8: {e}")
     metadata, _ = parse_skill_md(content)
 
     name = metadata.get("name")
     if name is None:
-        name = root_path.name
+        name = fallback_name
+    if name is None:
+        raise invalid_content(
+            f"{SKILL_MANIFEST_FILE} in '{root_path}' must declare a 'name' in its frontmatter."
+        )
     if not isinstance(name, str):
         raise invalid_content(f"{SKILL_MANIFEST_FILE} name must be a string, got {name!r}.")
     _validate_skill_name(name)

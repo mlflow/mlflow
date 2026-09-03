@@ -1,12 +1,17 @@
 import os
 import unicodedata
+from pathlib import Path
 
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.paths import (
+    PathCollisionGuard,
     assert_regular_tree,
+    canonical_relative_path,
     collect_tree,
+    ensure_within,
+    is_under_subpath,
     normalize_subpath,
     resolve_contained,
     tree_size,
@@ -30,7 +35,27 @@ def test_normalize_subpath_valid(raw, expected):
 
 @pytest.mark.parametrize(
     "raw",
-    ["/abs/path", "a/../b", "../x", "./a", "a/./b", "a\\b", "..", "."],
+    [
+        "/abs/path",
+        "a/../b",
+        "../x",
+        "./a",
+        "a/./b",
+        "a\\b",
+        "..",
+        ".",
+        "C:evil.txt",
+        "C:/evil.txt",
+        "C:",
+        "a/C:x",
+        "SKILL.md:zone",
+        "CON",
+        "nul.txt",
+        "a/com1/b",
+        "dir/LPT1.md",
+        "a\x00b",
+        "a\nb",
+    ],
 )
 def test_normalize_subpath_invalid(raw):
     with pytest.raises(MlflowException, match="Subpath"):
@@ -40,6 +65,39 @@ def test_normalize_subpath_invalid(raw):
 def test_normalize_subpath_rejects_non_string():
     with pytest.raises(MlflowException, match="must be a string"):
         normalize_subpath(3)
+
+
+def test_canonical_relative_path_preserves_exact_names():
+    assert canonical_relative_path(" a.md ") == " a.md "
+    assert canonical_relative_path("dir/ b ") == "dir/ b "
+    assert canonical_relative_path("dir//x/") == "dir/x"
+    assert canonical_relative_path("") is None
+    with pytest.raises(MlflowException, match="forward slashes"):
+        canonical_relative_path("a\\b")
+    with pytest.raises(MlflowException, match="reserved Windows device name"):
+        canonical_relative_path("prn")
+
+
+@pytest.mark.parametrize(
+    ("relative", "subpath", "expected"),
+    [
+        ("a/b", None, True),
+        ("a/b", "a", True),
+        ("a", "a", True),
+        ("ab/c", "a", False),
+        ("b", "a", False),
+    ],
+)
+def test_is_under_subpath(relative, subpath, expected):
+    assert is_under_subpath(relative, subpath) is expected
+
+
+def test_ensure_within(tmp_path):
+    inside = tmp_path / "a" / "b"
+    assert ensure_within(tmp_path, inside) == inside.resolve()
+    assert ensure_within(tmp_path, tmp_path) == tmp_path.resolve()
+    with pytest.raises(MlflowException, match="resolves outside"):
+        ensure_within(tmp_path, tmp_path.parent / "elsewhere")
 
 
 def test_resolve_contained(tmp_path):
@@ -66,6 +124,18 @@ def test_resolve_contained_rejects_symlink_traversal(tmp_path):
         resolve_contained(root, "link")
 
 
+def test_path_collision_guard():
+    guard = PathCollisionGuard()
+    assert guard.register("a/b.md") == "a/b.md"
+    with pytest.raises(MlflowException, match="appears more than once"):
+        guard.register("a/b.md")
+    with pytest.raises(MlflowException, match="differ only by letter case"):
+        guard.register("A/B.md")
+    guard.register(unicodedata.normalize("NFD", "café.md"))
+    with pytest.raises(MlflowException, match="normalize to the same path"):
+        guard.register(unicodedata.normalize("NFC", "café.md"))
+
+
 def test_collect_tree_orders_by_path_bytes_and_skips_links(tmp_path):
     (tmp_path / "b.txt").write_bytes(b"bb")
     (tmp_path / "a").mkdir()
@@ -82,22 +152,31 @@ def test_collect_tree_orders_by_path_bytes_and_skips_links(tmp_path):
     assert tree_size(tmp_path) == 4
 
 
+def _write_pair_or_skip(directory: Path, first: str, second: str) -> None:
+    (directory / first).write_bytes(b"1")
+    try:
+        (directory / second).write_bytes(b"2")
+    except FileExistsError:
+        pytest.skip("filesystem treats the two names as one file")
+    if len(list(directory.iterdir())) < 2:
+        pytest.skip("filesystem treats the two names as one file")
+
+
 def test_collect_tree_normalizes_nfc_and_rejects_collisions(tmp_path):
     nfd_name = unicodedata.normalize("NFD", "café.txt")
     nfc_name = unicodedata.normalize("NFC", "café.txt")
     (tmp_path / nfd_name).write_bytes(b"1")
-    files = collect_tree(tmp_path)
-    assert files[0].path == nfc_name
+    assert collect_tree(tmp_path)[0].path == nfc_name
 
     (tmp_path / "dir").mkdir()
-    (tmp_path / "dir" / nfd_name).write_bytes(b"1")
-    try:
-        (tmp_path / "dir" / nfc_name).write_bytes(b"2")
-    except FileExistsError:
-        pytest.skip("filesystem normalizes Unicode file names itself")
-    if len(list((tmp_path / "dir").iterdir())) < 2:
-        pytest.skip("filesystem normalizes Unicode file names itself")
+    _write_pair_or_skip(tmp_path / "dir", nfd_name, nfc_name)
     with pytest.raises(MlflowException, match="normalize to the same path"):
+        collect_tree(tmp_path)
+
+
+def test_collect_tree_rejects_case_only_collisions(tmp_path):
+    _write_pair_or_skip(tmp_path, "Readme.md", "readme.md")
+    with pytest.raises(MlflowException, match="differ only by letter case"):
         collect_tree(tmp_path)
 
 

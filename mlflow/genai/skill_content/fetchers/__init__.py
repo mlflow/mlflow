@@ -42,14 +42,15 @@ class FetchedContent:
 
 
 def _fetch_remote(resolved: ResolvedSource, dest: Path, limit: int) -> Path:
+    subpath = resolved.subpath
     if resolved.source_type == SkillSourceType.GIT:
-        return fetch_git(resolved.source, resolved.ref, dest, max_bytes=limit)
+        return fetch_git(resolved.source, resolved.ref, dest, max_bytes=limit, subpath=subpath)
     if resolved.source_type == SkillSourceType.OCI:
-        return fetch_oci(resolved.source, dest, max_bytes=limit)
+        return fetch_oci(resolved.source, dest, max_bytes=limit, subpath=subpath)
     if resolved.source_type == SkillSourceType.ZIP:
-        return fetch_zip(resolved.source, dest, max_bytes=limit)
+        return fetch_zip(resolved.source, dest, max_bytes=limit, subpath=subpath)
     if resolved.source_type == SkillSourceType.MLFLOW:
-        return fetch_mlflow_artifacts(resolved.source, dest, max_bytes=limit)
+        return fetch_mlflow_artifacts(resolved.source, dest, max_bytes=limit, subpath=subpath)
     raise invalid_content(f"Source type '{resolved.source_type}' cannot be fetched.")
 
 
@@ -63,10 +64,13 @@ def fetch_source(
     """
     Fetch skill content from a local path or a Git, OCI, ZIP, or MLflow artifact source.
 
-    Fetching uses the caller's own credentials (Git credential helpers, Docker config, MLflow
-    tracking credentials); ZIP sources must be publicly reachable. After the fetch, the subpath
-    is resolved with containment checks, the resulting tree is required to contain only regular
-    files and directories, and its total size is held to the decompressed size limit.
+    Fetching uses the caller's own credentials (Git credential helpers, Docker config and
+    credential helpers, MLflow tracking credentials); ZIP sources must be publicly reachable.
+    The decompressed size limit bounds the content at or beneath ``subpath``: archives and
+    images extract only that part, and Git checkouts are measured there. Downloads themselves
+    are bounded by the same limit on the wire so an oversized archive is cut off early. After
+    the fetch, the subpath is resolved with containment checks and the resulting tree is
+    required to contain only regular files and directories.
 
     Args:
         source: Typed source, remote URL or image reference, MLflow artifact URI, or local path.

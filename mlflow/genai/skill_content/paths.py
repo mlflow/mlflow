@@ -10,13 +10,57 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.errors import invalid_content
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
+# Names Windows refuses to create as regular files, with or without an extension. A tree
+# containing them cannot be materialized on every supported OS, so it is rejected everywhere.
+_WINDOWS_RESERVED_NAMES = frozenset({
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+})
+
+
+def _validate_segment(segment: str, original: str) -> None:
+    if segment in (".", ".."):
+        raise invalid_content(f"Path '{original}' must not contain '.' or '..' segments.")
+    if ":" in segment:
+        # Drive letters (``C:``) and NTFS alternate data streams (``file:stream``) both make a
+        # segment escape or alias the tree on Windows.
+        raise invalid_content(f"Path '{original}' must not contain ':' in a segment.")
+    if any(ord(ch) < 32 or ch == "\x7f" for ch in segment):
+        raise invalid_content(f"Path '{original}' must not contain control characters.")
+    if segment.split(".", 1)[0].upper() in _WINDOWS_RESERVED_NAMES:
+        raise invalid_content(f"Path '{original}' uses a reserved Windows device name.")
+
+
+def canonical_relative_path(value: str) -> str | None:
+    """
+    Validate an exact relative path and return it in canonical POSIX form.
+
+    Unlike ``normalize_subpath`` this never trims whitespace, so an archive entry named
+    ``"a.md "`` keeps its exact name and the extracted tree stays byte-identical to the tree
+    that was hashed. Returns ``None`` when the path names the root itself.
+    """
+    if "\\" in value:
+        raise invalid_content(f"Path '{value}' must use forward slashes as separators.")
+    if value.startswith("/"):
+        raise invalid_content(f"Path '{value}' must be relative to the content root.")
+    parts = [part for part in value.split("/") if part != ""]
+    for part in parts:
+        _validate_segment(part, value)
+    return "/".join(parts) if parts else None
+
 
 def normalize_subpath(subpath: str | None) -> str | None:
     """
-    Normalize a path within a fetched source to a POSIX relative path.
+    Normalize a caller-supplied path within a fetched source to a POSIX relative path.
 
-    Returns ``None`` for an empty subpath (the whole tree). Rejects backslashes, absolute paths,
-    and ``.`` or ``..`` segments so a subpath can never escape or alias the content root.
+    Returns ``None`` for an empty subpath (the whole tree). Surrounding whitespace is trimmed
+    because this is user input; backslashes, absolute paths, ``.`` or ``..`` segments, drive
+    or stream colons, and Windows reserved names are rejected so a subpath can never escape
+    or alias the content root on any supported OS.
     """
     if subpath is None:
         return None
@@ -25,14 +69,26 @@ def normalize_subpath(subpath: str | None) -> str | None:
     value = subpath.strip()
     if value == "":
         return None
-    if "\\" in value:
-        raise invalid_content(f"Subpath '{subpath}' must use forward slashes as separators.")
-    if value.startswith("/"):
-        raise invalid_content(f"Subpath '{subpath}' must be relative to the content root.")
-    parts = [part for part in value.split("/") if part != ""]
-    if any(part in (".", "..") for part in parts):
-        raise invalid_content(f"Subpath '{subpath}' must not contain '.' or '..' segments.")
-    return "/".join(parts) if parts else None
+    try:
+        return canonical_relative_path(value)
+    except MlflowException as e:
+        raise invalid_content(f"Subpath '{subpath}' is invalid: {e.message}")
+
+
+def is_under_subpath(relative: str, subpath: str | None) -> bool:
+    """Whether canonical path ``relative`` is ``subpath`` itself or lies beneath it."""
+    if subpath is None:
+        return True
+    return relative == subpath or relative.startswith(subpath + "/")
+
+
+def ensure_within(root: Path, target: Path) -> Path:
+    """Defence in depth: prove that ``target`` resolves inside ``root`` before touching it."""
+    resolved_root = root.resolve()
+    resolved_target = target.resolve()
+    if resolved_target != resolved_root and not resolved_target.is_relative_to(resolved_root):
+        raise invalid_content(f"Path '{target}' resolves outside of '{root}'.")
+    return resolved_target
 
 
 def resolve_contained(root: str | os.PathLike[str], subpath: str | None) -> Path:
@@ -60,6 +116,7 @@ def resolve_contained(root: str | os.PathLike[str], subpath: str | None) -> Path
             )
     if not current.is_dir():
         raise invalid_content(f"Subpath '{normalized}' must point to a directory.")
+    ensure_within(root_path, current)
     return current
 
 
@@ -72,9 +129,37 @@ class TreeFile:
     size: int
 
 
-def _canonical_relative_path(root: Path, file_path: Path) -> str:
-    relative = file_path.relative_to(root).as_posix()
-    return unicodedata.normalize("NFC", relative)
+class PathCollisionGuard:
+    """
+    Rejects paths that would alias each other on some supported filesystem.
+
+    Two names collide when they are byte-identical, differ only by Unicode normalization
+    form, or differ only by letter case. Any of these would make the same tree materialize
+    differently on macOS, Linux, and Windows, so the tree is rejected as ambiguous instead.
+    """
+
+    def __init__(self):
+        self._by_nfc: dict[str, str] = {}
+        self._by_casefold: dict[str, str] = {}
+
+    def register(self, raw_path: str) -> str:
+        nfc = unicodedata.normalize("NFC", raw_path)
+        if (previous := self._by_nfc.get(nfc)) is not None:
+            if previous == raw_path:
+                raise invalid_content(f"Path '{raw_path}' appears more than once.")
+            raise invalid_content(
+                f"Paths '{previous}' and '{raw_path}' normalize to the same path '{nfc}'; "
+                "the skill tree is ambiguous."
+            )
+        folded = nfc.casefold()
+        if (previous := self._by_casefold.get(folded)) is not None:
+            raise invalid_content(
+                f"Paths '{previous}' and '{raw_path}' differ only by letter case; "
+                "the skill tree is ambiguous on case-insensitive filesystems."
+            )
+        self._by_nfc[nfc] = raw_path
+        self._by_casefold[folded] = raw_path
+        return nfc
 
 
 def collect_tree(root: str | os.PathLike[str]) -> list[TreeFile]:
@@ -82,13 +167,13 @@ def collect_tree(root: str | os.PathLike[str]) -> list[TreeFile]:
     List the regular files under ``root`` in canonical digest order.
 
     Paths are POSIX, relative to ``root``, Unicode NFC-normalized, and sorted by their UTF-8
-    byte value. Symbolic links and other non-regular entries are excluded. Two files whose
-    names normalize to the same path make the tree ambiguous and are rejected.
+    byte value. Symbolic links and other non-regular entries are excluded. Files whose names
+    collide after normalization or case folding make the tree ambiguous and are rejected.
     """
     root_path = Path(root)
     if not root_path.is_dir():
         raise invalid_content(f"Content root '{root_path}' is not a directory.")
-    seen: dict[str, str] = {}
+    guard = PathCollisionGuard()
     files: list[TreeFile] = []
     for dirpath, dirnames, filenames in os.walk(root_path, followlinks=False):
         current = Path(dirpath)
@@ -99,14 +184,7 @@ def collect_tree(root: str | os.PathLike[str]) -> list[TreeFile]:
             info = os.lstat(file_path)
             if not stat.S_ISREG(info.st_mode):
                 continue
-            canonical = _canonical_relative_path(root_path, file_path)
-            raw = file_path.relative_to(root_path).as_posix()
-            if (previous := seen.get(canonical)) is not None:
-                raise invalid_content(
-                    f"Files '{previous}' and '{raw}' normalize to the same path '{canonical}'; "
-                    "the skill tree is ambiguous."
-                )
-            seen[canonical] = raw
+            canonical = guard.register(file_path.relative_to(root_path).as_posix())
             files.append(TreeFile(path=canonical, local_path=file_path, size=info.st_size))
     files.sort(key=lambda f: f.path.encode("utf-8"))
     return files

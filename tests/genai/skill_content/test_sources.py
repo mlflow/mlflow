@@ -39,7 +39,6 @@ def test_is_local_path(source, expected):
         ),
         ("git@github.com:acme/skills.git", SkillSourceType.GIT, "git@github.com:acme/skills.git"),
         ("git://host/repo", SkillSourceType.GIT, "git://host/repo"),
-        ("ssh://git@host/repo", SkillSourceType.GIT, "ssh://git@host/repo"),
         ("oci://ghcr.io/acme/skills:v1", SkillSourceType.OCI, "ghcr.io/acme/skills:v1"),
         (
             "https://example.com/skills.zip?x=1",
@@ -59,6 +58,23 @@ def test_resolve_source_type_infers_from_string(source, expected_type, expected_
     assert resolved.source_type == expected_type
     assert resolved.source == expected_value
     assert resolved.is_local is False
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "https://example.com/acme/skills",
+        "https://example.com/archive.tar.gz",
+        "ssh://git@host/repo",
+        "git+https://host/repo",
+        "user@host:path/without/suffix",
+        "oci://",
+    ],
+)
+def test_resolve_source_type_ambiguous_strings_are_rejected(source):
+    # Only the RFC inference table applies: ``.git`` suffix, ``git://``, ``oci://``, ``.zip``.
+    with pytest.raises(MlflowException, match="Cannot infer|must include an image reference"):
+        resolve_source_type(source)
 
 
 def test_resolve_source_type_typed_sources():
@@ -95,20 +111,46 @@ def test_resolve_source_type_local_path(tmp_path):
         resolve_source_type(str(tmp_path), ref="main")
 
 
-@pytest.mark.parametrize(
-    "source",
-    ["https://example.com/acme/skills", "https://example.com/archive.tar.gz", "oci://"],
-)
-def test_resolve_source_type_ambiguous(source):
-    with pytest.raises(MlflowException, match="Cannot infer|must include an image reference"):
-        resolve_source_type(source)
-
-
 def test_resolve_source_type_ref_only_for_git():
     with pytest.raises(MlflowException, match="'ref' applies to Git sources only"):
         resolve_source_type("https://example.com/skills.zip", ref="v1")
     resolved = resolve_source_type("https://example.com/skills.git", ref="v1", subpath="x")
     assert (resolved.ref, resolved.subpath) == ("v1", "x")
+
+
+@pytest.mark.parametrize(
+    ("source", "ref", "message"),
+    [
+        ("-oProxyCommand=x/repo.git", None, "must not start with '-'"),
+        ("https://h/r.git", "--upload-pack=evil", "must not start with '-'"),
+        ("https://h/r.git", "main branch", "whitespace"),
+        ("https://h/r.git", "", "must not be empty"),
+    ],
+)
+def test_resolve_source_type_rejects_option_like_git_values(source, ref, message):
+    with pytest.raises(MlflowException, match=message):
+        resolve_source_type(GitSource(url=source, ref=ref))
+    if source.startswith("-"):
+        # A bare string starting with '-' is a local path, so git never sees it.
+        assert resolve_source_type(source).is_local is True
+    else:
+        with pytest.raises(MlflowException, match=message):
+            resolve_source_type(source, ref=ref)
+
+
+@pytest.mark.parametrize(
+    ("url", "message"),
+    [
+        ("https://user:pw@example.com/skills.zip", "publicly accessible"),
+        ("https://token@example.com/skills.zip", "publicly accessible"),
+        ("ftp://example.com/skills.zip", "http\\(s\\) URL"),
+    ],
+)
+def test_resolve_source_type_zip_public_only(url, message):
+    with pytest.raises(MlflowException, match=message):
+        resolve_source_type(url)
+    with pytest.raises(MlflowException, match=message):
+        resolve_source_type(ZipSource(url=url))
 
 
 @pytest.mark.parametrize("source", ["", "   ", None, 5])
