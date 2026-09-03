@@ -57,6 +57,30 @@ jobs:
           # validation rejects as null.
           render --set metrics.path= | grep -q '^      path: /metrics$'
 
+      - name: Render probes
+        run: |
+          render() {
+            helm template mlflow charts/ \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" "$@"
+          }
+          # All three probes render by default, with the chart-owned /health path.
+          default=$(render)
+          echo "$default" | grep -q '^          livenessProbe:$'
+          echo "$default" | grep -q '^          readinessProbe:$'
+          echo "$default" | grep -q '^          startupProbe:$'
+          echo "$default" | grep -q '^              path: /health$'
+          # enabled: false cleanly omits a probe.
+          if render --set probes.startup.enabled=false | grep -q 'startupProbe:'; then
+            echo "startupProbe should have been omitted" >&2
+            exit 1
+          fi
+          # TLS and staticPrefix flow through to the probe's httpGet request.
+          tls=$(render --set tls.enabled=true --set server.staticPrefix=/mlflow)
+          echo "$tls" | grep -q '^              path: /mlflow/health$'
+          echo "$tls" | grep -q '^              scheme: HTTPS$'
+          # Threshold/timing overrides are honored.
+          render --set probes.readiness.failureThreshold=9 | grep -q '^            failureThreshold: 9$'
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
