@@ -498,6 +498,8 @@ def test_validate_webhook_url_rejects_invalid_input(url, expected_match):
         ("https://cgnat.internal/hook", "100.64.0.1"),
         ("https://ipv6-loopback.internal/hook", "::1"),
         ("https://ipv6-private.internal/hook", "fc00::1"),
+        ("https://nat64-metadata.internal/hook", "64:ff9b::169.254.169.254"),
+        ("https://ipv6-mapped-cgnat.internal/hook", "::ffff:100.64.0.1"),
     ],
 )
 def test_validate_webhook_url_rejects_private_ips(url, resolved_ip):
@@ -781,3 +783,37 @@ def test_validate_model_renaming_invalid_chars(invalid_name):
         check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
     ):
         _validate_model_renaming(invalid_name)
+
+
+@pytest.mark.parametrize(
+    "ipv6_transition_ip",
+    [
+        "64:ff9b::169.254.169.254",
+        "::ffff:100.64.0.1",
+        "2001:db8::ffff:169.254.169.254",
+    ],
+)
+def test_validate_public_https_url_rejects_ipv6_transition_addresses_with_private_ipv4(
+    ipv6_transition_ip: str,
+):
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo(ipv6_transition_ip),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_public_https_url("https://example.com/icon.png", field_name="Icon URL")
+
+
+@pytest.mark.parametrize(
+    "public_ipv6",
+    [
+        "2001:4860:4860::8888",
+        "::ffff:8.8.8.8",
+    ],
+)
+def test_validate_public_https_url_accepts_public_ipv6_addresses(public_ipv6: str):
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo(public_ipv6),
+    ):
+        _validate_public_https_url("https://example.com/icon.png", field_name="Icon URL")

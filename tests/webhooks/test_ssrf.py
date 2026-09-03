@@ -129,3 +129,20 @@ def test_getpeername_oserror_fails_closed(loopback_server: int):
     with mock.patch.object(socket.socket, "getpeername", side_effect=OSError("ENOTCONN")):
         with pytest.raises(SSRFProtectionError, match="peer address"):
             session.post(f"http://127.0.0.1:{loopback_server}/", timeout=10)
+
+
+@pytest.mark.parametrize(
+    "peer_ip",
+    [
+        "64:ff9b::169.254.169.254",
+        "::ffff:100.64.0.1",
+        "2001:db8::ffff:169.254.169.254",
+    ],
+)
+def test_ipv6_transition_addresses_embedding_private_ipv4_are_blocked(
+    loopback_server: int, peer_ip: str
+):
+    session = _create_webhook_session()
+    with mock.patch.object(socket.socket, "getpeername", return_value=(peer_ip, loopback_server)):
+        with pytest.raises(SSRFProtectionError, match="not a public IP"):
+            session.post(f"http://127.0.0.1:{loopback_server}/", timeout=10)

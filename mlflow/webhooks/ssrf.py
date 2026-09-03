@@ -27,6 +27,7 @@ from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 from urllib3.poolmanager import PoolManager, ProxyManager
 
 from mlflow.environment_variables import _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS
+from mlflow.utils.validation import _is_public_ip
 
 
 class SSRFProtectionError(Exception):
@@ -58,7 +59,7 @@ def _assert_public_peer(sock: socket.socket) -> None:
             f"Webhook connection resolved to an invalid IP address: {peer_ip!r}"
         ) from e
 
-    if not ip.is_global:
+    if not _is_public_ip(ip):
         sock.close()
         raise SSRFProtectionError(
             f"Webhook connection blocked: {ip} is not a public IP address. "
