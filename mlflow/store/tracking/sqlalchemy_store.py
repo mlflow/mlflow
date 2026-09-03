@@ -183,9 +183,11 @@ from mlflow.store.tracking.utils.sql_trace_rollups import (
     merge_unbucketed_data_points,
     order_and_limit_data_points,
     raw_aggregations_for_plan,
+    requires_sql_grouped_merge,
     resolve_rollup_read,
     rollup_read_is_current,
     serve_rollup_read,
+    serve_sql_grouped_span_cost_read,
 )
 from mlflow.store.tracking.utils.trace_analytics import (
     COST_COLUMN_BY_KEY,
@@ -4428,15 +4430,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 experiment_ids=experiment_ids_int,
                 db_type=self.db_type,
             )
-            served = serve_rollup_read(session, plan) if plan is not None else None
+            sql_grouped_merge = plan is not None and requires_sql_grouped_merge(plan)
+            if sql_grouped_merge:
+                served = serve_sql_grouped_span_cost_read(session, plan, self.db_type, max_results)
+            else:
+                served = serve_rollup_read(session, plan) if plan is not None else None
 
             if served is not None:
-                range_aggregations = raw_aggregations_for_plan(plan)
-                raw_points = (
-                    raw_range_points(served.raw_ranges, range_aggregations)
-                    if served.raw_ranges
-                    else []
-                )
                 if not rollup_read_is_current(session, plan, served.served_day_starts_ms):
                     _logger.debug(
                         "SQL trace rollup routing selected the full raw path for view=%s "
@@ -4446,7 +4446,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         metric_name,
                     )
                     data_points = raw_range_points(full_raw_range)
+                elif sql_grouped_merge:
+                    # This path already combined rollup and raw-gap contributions under the
+                    # database's string collation, including global ordering and limiting.
+                    data_points = served.data_points
                 elif plan.bucketed:
+                    range_aggregations = raw_aggregations_for_plan(plan)
+                    raw_points = (
+                        raw_range_points(served.raw_ranges, range_aggregations)
+                        if served.raw_ranges
+                        else []
+                    )
                     # Match the single-query raw path: order by time bucket (then grouping
                     # dimensions) and apply the global max_results after merging rollup and raw
                     # contributions.
@@ -4454,6 +4464,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         [*served.data_points, *raw_points], max_results
                     )
                 else:
+                    range_aggregations = raw_aggregations_for_plan(plan)
+                    raw_points = (
+                        raw_range_points(served.raw_ranges, range_aggregations)
+                        if served.raw_ranges
+                        else []
+                    )
                     data_points = merge_unbucketed_data_points(
                         plan, served.data_points, raw_points, max_results
                     )

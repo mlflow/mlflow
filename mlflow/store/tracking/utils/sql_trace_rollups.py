@@ -32,6 +32,17 @@ from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any
 
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    cast,
+    extract,
+    func,
+    literal,
+    literal_column,
+    or_,
+    select,
+)
 from sqlalchemy.orm import Session
 
 from mlflow.entities.trace_metrics import (
@@ -44,11 +55,17 @@ from mlflow.environment_variables import MLFLOW_SQL_TRACE_ROLLUPS_ENABLED
 from mlflow.store.db import db_types
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
+    SqlSpan,
     SqlSpanCostDailyRollup,
     SqlTraceMetricDailyRollup,
     SqlTraceRollupRebuild,
 )
-from mlflow.store.tracking.utils.sql_trace_metrics_utils import TIME_BUCKET_LABEL
+from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
+    TIME_BUCKET_LABEL,
+    _build_time_range_predicate,
+    convert_results_to_metric_data_points,
+    get_time_bucket_expression,
+)
 from mlflow.tracing.constant import (
     AssessmentMetricKey,
     SpanMetricDimensionKey,
@@ -163,11 +180,10 @@ SERVABLE_FAMILIES = frozenset(RollupFamily)
 # readable. Trace status additionally has a cheap global-count completeness check.
 SERVABLE_GROUPING_SETS = frozenset(GroupingSet)
 
-# Model/provider dimensions are user-controlled strings. Python equality and ordering cannot
-# reproduce an arbitrary database collation, which can change both grouping and the max_results
-# boundary. These shapes stay in SQL until merging, ordering, and limiting can all be performed
-# under the backend's own collation.
-COLLATION_SENSITIVE_GROUPING_SETS = frozenset({
+# Model/provider dimensions are user-controlled strings. Their rollup and raw-gap contributions
+# must be combined, grouped, ordered, and limited in SQL so the configured database collation is
+# preserved across the entire result.
+SQL_MERGED_GROUPING_SETS = frozenset({
     GroupingSet.MODEL,
     GroupingSet.PROVIDER,
     GroupingSet.MODEL_PROVIDER,
@@ -332,6 +348,11 @@ class RollupReadPlan:
     uses_percentiles: bool
 
 
+def requires_sql_grouped_merge(plan: RollupReadPlan) -> bool:
+    """Whether this plan must keep contribution merging under database collation semantics."""
+    return plan.family == RollupFamily.SPAN_COST and plan.grouping_set in SQL_MERGED_GROUPING_SETS
+
+
 def _aggregation_servable(
     aggregation: MetricAggregation, family: RollupFamily, db_type: str, bucketed: bool
 ) -> bool:
@@ -399,13 +420,6 @@ def resolve_rollup_read(
     if time_interval_seconds is not None and time_interval_seconds != DAILY_INTERVAL_SECONDS:
         return _raw_fallback(view_type, metric_name, "the time bucket is not one UTC day")
     bucketed = time_interval_seconds == DAILY_INTERVAL_SECONDS
-    if grouping_set in COLLATION_SENSITIVE_GROUPING_SETS:
-        return _raw_fallback(
-            view_type,
-            metric_name,
-            "string grouping and ordering require database collation semantics",
-        )
-
     if start_time_ms is None or end_time_ms is None:
         return _raw_fallback(view_type, metric_name, "the request has no bounded time range")
 
@@ -705,6 +719,238 @@ class RollupReadResult:
     data_points: list[MetricDataPoint]
     raw_ranges: list[tuple[int, int]]
     served_day_starts_ms: list[int]
+
+
+def _valid_sql_grouped_day_starts(
+    session: Session, plan: RollupReadPlan, covered_day_starts: list[int]
+) -> list[int]:
+    """Exclude covered days whose rows cannot supply every requested aggregation."""
+    nullable_columns = set()
+    for aggregation in plan.aggregations:
+        match aggregation.aggregation_type:
+            case AggregationType.SUM | AggregationType.AVG:
+                nullable_columns.add(SqlSpanCostDailyRollup.sum_value)
+            case AggregationType.MIN:
+                nullable_columns.add(SqlSpanCostDailyRollup.min_value)
+            case AggregationType.MAX:
+                nullable_columns.add(SqlSpanCostDailyRollup.max_value)
+
+    if not nullable_columns:
+        return covered_day_starts
+
+    date_to_ms = {_day_start_ms_to_date(ms): ms for ms in covered_day_starts}
+    invalid_dates = {
+        rollup_day
+        for (rollup_day,) in session.query(SqlSpanCostDailyRollup.rollup_day).filter(
+            SqlSpanCostDailyRollup.experiment_id == plan.experiment_id,
+            SqlSpanCostDailyRollup.metric_name == plan.metric_name,
+            SqlSpanCostDailyRollup.grouping_set == plan.grouping_set.value,
+            SqlSpanCostDailyRollup.rollup_day.in_(list(date_to_ms)),
+            or_(*(column.is_(None) for column in nullable_columns)),
+        )
+    }
+    return sorted(ms for rollup_day, ms in date_to_ms.items() if rollup_day not in invalid_dates)
+
+
+def _rollup_day_bucket_expression(db_type: str):
+    """Convert a SQL DATE rollup key to its UTC-midnight epoch-millisecond bucket."""
+    rollup_day = SqlSpanCostDailyRollup.rollup_day
+    epoch_day = literal(date(1970, 1, 1))
+    match db_type:
+        case db_types.POSTGRES:
+            return cast(extract("epoch", cast(rollup_day, DateTime)), BigInteger) * 1000
+        case db_types.MYSQL:
+            return cast(func.datediff(rollup_day, epoch_day), BigInteger) * MS_PER_DAY
+        case db_types.MSSQL:
+            return (
+                cast(func.datediff(literal_column("day"), epoch_day, rollup_day), BigInteger)
+                * MS_PER_DAY
+            )
+        case db_types.SQLITE:
+            return cast(func.strftime("%s", rollup_day), BigInteger) * 1000
+        case _:
+            raise ValueError(f"Unsupported database type: {db_type}")
+
+
+def _span_cost_columns(metric_name: str):
+    match metric_name:
+        case SpanMetricKey.INPUT_COST:
+            return SqlSpan.input_cost
+        case SpanMetricKey.OUTPUT_COST:
+            return SqlSpan.output_cost
+        case SpanMetricKey.TOTAL_COST:
+            return SqlSpan.total_cost
+        case _:
+            raise ValueError(f"Unsupported span cost metric: {metric_name}")
+
+
+def _sql_grouping_columns(plan: RollupReadPlan):
+    raw_columns = {
+        SpanMetricDimensionKey.SPAN_MODEL_NAME: SqlSpan.model_name,
+        SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: SqlSpan.model_provider,
+    }
+    rollup_columns = {
+        SpanMetricDimensionKey.SPAN_MODEL_NAME: SqlSpanCostDailyRollup.model_name,
+        SpanMetricDimensionKey.SPAN_MODEL_PROVIDER: SqlSpanCostDailyRollup.model_provider,
+    }
+    return (
+        [raw_columns[dimension] for dimension in plan.dimensions],
+        [rollup_columns[dimension] for dimension in plan.dimensions],
+    )
+
+
+def _build_sql_grouped_span_cost_query(
+    session: Session,
+    plan: RollupReadPlan,
+    db_type: str,
+    raw_ranges: list[tuple[int, int]],
+    served_day_starts: list[int],
+    max_results: int,
+):
+    """Build a database-collated aggregate over raw-gap and daily-rollup contributions."""
+    metric_column = _span_cost_columns(plan.metric_name)
+    raw_string_columns, rollup_group_columns = _sql_grouping_columns(plan)
+    raw_group_columns = list(raw_string_columns)
+    raw_dimension_columns = []
+    rollup_dimension_columns = []
+
+    if plan.bucketed:
+        raw_bucket = get_time_bucket_expression(
+            MetricViewType.SPANS, DAILY_INTERVAL_SECONDS, db_type
+        )
+        rollup_bucket = _rollup_day_bucket_expression(db_type)
+        raw_dimension_columns.append(raw_bucket.label(TIME_BUCKET_LABEL))
+        rollup_dimension_columns.append(rollup_bucket.label(TIME_BUCKET_LABEL))
+        raw_group_columns.insert(0, raw_bucket)
+
+    raw_dimension_columns.extend(
+        column.label(dimension) for column, dimension in zip(raw_string_columns, plan.dimensions)
+    )
+    rollup_dimension_columns.extend(
+        column.label(dimension) for column, dimension in zip(rollup_group_columns, plan.dimensions)
+    )
+
+    raw_contributions = (
+        select(
+            *raw_dimension_columns,
+            func.count(metric_column).label("_sample_count"),
+            func.sum(metric_column).label("_sum_value"),
+            func.min(metric_column).label("_min_value"),
+            func.max(metric_column).label("_max_value"),
+        )
+        .select_from(SqlSpan)
+        .where(
+            SqlSpan.experiment_id == plan.experiment_id,
+            metric_column.isnot(None),
+            _build_time_range_predicate(
+                SqlSpan.start_time_unix_nano,
+                raw_ranges,
+                nanosecond_column=True,
+            ),
+        )
+        .group_by(*raw_group_columns)
+    )
+
+    served_dates = [_day_start_ms_to_date(ms) for ms in served_day_starts]
+    rollup_contributions = select(
+        *rollup_dimension_columns,
+        SqlSpanCostDailyRollup.sample_count.label("_sample_count"),
+        SqlSpanCostDailyRollup.sum_value.label("_sum_value"),
+        SqlSpanCostDailyRollup.min_value.label("_min_value"),
+        SqlSpanCostDailyRollup.max_value.label("_max_value"),
+    ).where(
+        SqlSpanCostDailyRollup.experiment_id == plan.experiment_id,
+        SqlSpanCostDailyRollup.metric_name == plan.metric_name,
+        SqlSpanCostDailyRollup.grouping_set == plan.grouping_set.value,
+        SqlSpanCostDailyRollup.rollup_day.in_(served_dates),
+    )
+
+    # Put authoritative raw columns first so the UNION output uses their configured collation.
+    contributions = raw_contributions.union_all(rollup_contributions).subquery(
+        "span_cost_contributions"
+    )
+    dimension_names = ([TIME_BUCKET_LABEL] if plan.bucketed else []) + plan.dimensions
+    dimension_columns = [contributions.c[name] for name in dimension_names]
+
+    aggregate_columns = []
+    for aggregation in plan.aggregations:
+        match aggregation.aggregation_type:
+            case AggregationType.COUNT:
+                expression = func.sum(contributions.c["_sample_count"])
+            case AggregationType.SUM:
+                expression = func.sum(contributions.c["_sum_value"])
+            case AggregationType.AVG:
+                expression = func.sum(contributions.c["_sum_value"]) / func.nullif(
+                    func.sum(contributions.c["_sample_count"]), 0
+                )
+            case AggregationType.MIN:
+                expression = func.min(contributions.c["_min_value"])
+            case AggregationType.MAX:
+                expression = func.max(contributions.c["_max_value"])
+            case _:
+                raise ValueError(f"Unsupported grouped rollup aggregation: {aggregation}")
+        aggregate_columns.append(expression.label(str(aggregation)))
+
+    query = session.query(*dimension_columns, *aggregate_columns).select_from(contributions)
+    if dimension_columns:
+        query = query.group_by(*dimension_columns).order_by(*dimension_columns)
+    select_columns = [*dimension_columns, *aggregate_columns]
+    return query.limit(max_results), select_columns
+
+
+def serve_sql_grouped_span_cost_read(
+    session: Session, plan: RollupReadPlan, db_type: str, max_results: int
+) -> RollupReadResult | None:
+    """Serve grouped span cost with all collation-sensitive operations performed in SQL."""
+    if not requires_sql_grouped_merge(plan):
+        raise ValueError("SQL grouped rollup serving requires a grouped span-cost plan")
+
+    covered = compute_covered_day_starts(session, plan)
+    if not covered:
+        _logger.debug(
+            "SQL trace rollup routing selected the full raw path for grouped span cost: none of "
+            "%d candidate days has valid coverage",
+            len(plan.covered_day_starts_ms),
+        )
+        return None
+
+    served_day_starts = _valid_sql_grouped_day_starts(session, plan, covered)
+    if not served_day_starts:
+        _logger.debug(
+            "SQL trace rollup routing selected the full raw path for grouped span cost: covered "
+            "rows were incomplete for the requested aggregations"
+        )
+        return None
+
+    raw_ranges = remaining_raw_ranges(plan, served_day_starts)
+    if len(raw_ranges) > MAX_RAW_RANGES:
+        _logger.debug(
+            "SQL trace rollup routing selected the full raw path for grouped span cost: %d raw "
+            "ranges exceed the routing limit of %d",
+            len(raw_ranges),
+            MAX_RAW_RANGES,
+        )
+        return None
+
+    query, select_columns = _build_sql_grouped_span_cost_query(
+        session,
+        plan,
+        db_type,
+        raw_ranges,
+        served_day_starts,
+        max_results,
+    )
+    dimension_count = len(plan.dimensions) + int(plan.bucketed)
+    data_points = convert_results_to_metric_data_points(
+        query.all(), select_columns, dimension_count, plan.metric_name
+    )
+    _logger.debug(
+        "SQL trace rollup routing served grouped span cost using %d rollup days and %d raw ranges "
+        "with database-side grouping and ordering",
+        len(served_day_starts),
+        len(raw_ranges),
+    )
+    return RollupReadResult(data_points, raw_ranges, served_day_starts)
 
 
 def serve_rollup_read(session: Session, plan: RollupReadPlan) -> RollupReadResult | None:

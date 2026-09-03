@@ -12,6 +12,8 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy import event
+from sqlalchemy.dialects import mssql, mysql, postgresql
 
 from mlflow.entities import AssessmentSource, AssessmentSourceType, Feedback, trace_location
 from mlflow.entities.trace_info import TraceInfo
@@ -31,6 +33,7 @@ from mlflow.store.tracking.utils.sql_trace_rollups import (
     MAX_ROLLUP_DAYS,
     GroupingSet,
     RollupFamily,
+    _build_sql_grouped_span_cost_query,
     configure_rollup_read_snapshot,
     resolve_rollup_read,
     rollup_read_is_current,
@@ -139,6 +142,17 @@ def _seed(store) -> str:
 
 def _set_enabled(monkeypatch, enabled: bool):
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true" if enabled else "false")
+
+
+def _install_case_insensitive_binary_collation(store: SqlAlchemyStore):
+    def case_insensitive(left: str, right: str) -> int:
+        return (left.casefold() > right.casefold()) - (left.casefold() < right.casefold())
+
+    def install_case_insensitive_collation(dbapi_connection, _):
+        dbapi_connection.create_collation("BINARY", case_insensitive)
+
+    event.listen(store.engine, "connect", install_case_insensitive_collation)
+    store.engine.dispose()
 
 
 def _insert_trace_metric_rollup(
@@ -1125,7 +1139,7 @@ def test_span_raw_range_includes_fractional_nanoseconds_in_end_millisecond(
     ],
 )
 @pytest.mark.parametrize("time_interval", [DAILY_INTERVAL_SECONDS, None])
-def test_span_string_groupings_stay_on_raw_path(
+def test_span_string_groupings_are_served_from_rollups(
     store: SqlAlchemyStore, monkeypatch, grouping_set, dimensions, time_interval
 ):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
@@ -1148,11 +1162,9 @@ def test_span_string_groupings_stay_on_raw_path(
         model_provider="test-provider" if grouping_set != GroupingSet.MODEL else None,
     )
 
-    # Python cannot reproduce the database's string grouping or ordering semantics. A rollup read
-    # could therefore split one raw SQL group or select a different max_results boundary.
-    _assert_enabled_equals_raw(
+    _set_enabled(monkeypatch, True)
+    served = _query(
         store,
-        monkeypatch,
         exp_id,
         MetricViewType.SPANS,
         SpanMetricKey.TOTAL_COST,
@@ -1160,6 +1172,230 @@ def test_span_string_groupings_stay_on_raw_path(
         dimensions,
         time_interval=time_interval,
     )
+
+    assert len(served) == 1
+    assert dict(served[0][1]) == {"SUM": float(SENTINEL_COUNT)}
+
+
+@pytest.mark.parametrize("time_interval", [DAILY_INTERVAL_SECONDS, None])
+def test_span_string_grouping_merges_rollup_and_raw_gap_in_sql(
+    store: SqlAlchemyStore, monkeypatch, time_interval
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for day_start, cost in ((DAY_A_START, 0.75), (DAY_B_START, 1.25)):
+        _new_span_cost_trace(
+            store,
+            exp_id,
+            trace_time_ms=day_start + 5_000,
+            span_time_ms=day_start + 5_000,
+            total_cost=cost,
+        )
+    _insert_span_cost_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        SpanMetricKey.TOTAL_COST,
+        GroupingSet.MODEL_PROVIDER.value,
+        sample_count=1,
+        sum_value=0.75,
+        model_name="gpt-test",
+        model_provider="test-provider",
+    )
+
+    _assert_enabled_equals_raw(
+        store,
+        monkeypatch,
+        exp_id,
+        MetricViewType.SPANS,
+        SpanMetricKey.TOTAL_COST,
+        [*_SUM, *_AVG],
+        [
+            SpanMetricDimensionKey.SPAN_MODEL_NAME,
+            SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+        ],
+        end=DAY_B_START + 10_000,
+        time_interval=time_interval,
+    )
+
+
+def test_span_string_grouping_uses_database_collation_across_contributions(
+    store: SqlAlchemyStore, monkeypatch
+):
+    if store.engine.dialect.name != "sqlite":
+        pytest.skip("The test installs a SQLite collation to emulate a case-insensitive backend")
+
+    # SQLite normally uses binary string comparison. Override it on every new connection to
+    # reproduce the case-insensitive grouping behavior common on MySQL and MSSQL.
+    _install_case_insensitive_binary_collation(store)
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for day_start, model_name in ((DAY_A_START, "OpenAI"), (DAY_B_START, "openai")):
+        _new_span_cost_trace(
+            store,
+            exp_id,
+            trace_time_ms=day_start + 5_000,
+            span_time_ms=day_start + 5_000,
+            total_cost=1.0,
+            model_name=model_name,
+        )
+    _insert_span_cost_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        SpanMetricKey.TOTAL_COST,
+        GroupingSet.MODEL.value,
+        sample_count=1,
+        sum_value=1.0,
+        model_name="OpenAI",
+    )
+
+    _set_enabled(monkeypatch, False)
+    raw = _query(
+        store,
+        exp_id,
+        MetricViewType.SPANS,
+        SpanMetricKey.TOTAL_COST,
+        _SUM,
+        [SpanMetricDimensionKey.SPAN_MODEL_NAME],
+        end=DAY_B_START + 10_000,
+        time_interval=None,
+    )
+    _set_enabled(monkeypatch, True)
+    served = _query(
+        store,
+        exp_id,
+        MetricViewType.SPANS,
+        SpanMetricKey.TOTAL_COST,
+        _SUM,
+        [SpanMetricDimensionKey.SPAN_MODEL_NAME],
+        end=DAY_B_START + 10_000,
+        time_interval=None,
+    )
+
+    assert served == raw
+    assert len(served) == 1
+    assert dict(served[0][1]) == {"SUM": 2.0}
+
+
+def test_span_string_grouping_orders_and_limits_under_database_collation(
+    store: SqlAlchemyStore, monkeypatch
+):
+    if store.engine.dialect.name != "sqlite":
+        pytest.skip("The test installs a SQLite collation to emulate a case-insensitive backend")
+
+    _install_case_insensitive_binary_collation(store)
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for model_name in ("alpha", "Zed"):
+        _new_span_cost_trace(
+            store,
+            exp_id,
+            trace_time_ms=DAY_A_START + 5_000,
+            span_time_ms=DAY_A_START + 5_000,
+            total_cost=1.0,
+            model_name=model_name,
+        )
+        _insert_span_cost_rollup(
+            store,
+            exp_id,
+            DAY_A_START,
+            SpanMetricKey.TOTAL_COST,
+            GroupingSet.MODEL.value,
+            sample_count=1,
+            sum_value=1.0,
+            model_name=model_name,
+        )
+
+    query_args = (
+        store,
+        exp_id,
+        MetricViewType.SPANS,
+        SpanMetricKey.TOTAL_COST,
+        _SUM,
+        [SpanMetricDimensionKey.SPAN_MODEL_NAME],
+    )
+    _set_enabled(monkeypatch, False)
+    raw = _query(*query_args, time_interval=None, max_results=1)
+    _set_enabled(monkeypatch, True)
+    served = _query(*query_args, time_interval=None, max_results=1)
+
+    assert served == raw
+    assert len(served) == 1
+
+
+def test_incomplete_span_string_rollup_falls_back_to_raw(store: SqlAlchemyStore, monkeypatch):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    _new_span_cost_trace(
+        store,
+        exp_id,
+        trace_time_ms=DAY_A_START + 5_000,
+        span_time_ms=DAY_A_START + 5_000,
+        total_cost=0.75,
+    )
+    _insert_span_cost_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        SpanMetricKey.TOTAL_COST,
+        GroupingSet.MODEL.value,
+        sample_count=1,
+        sum_value=None,
+        model_name="gpt-test",
+    )
+
+    _assert_enabled_equals_raw(
+        store,
+        monkeypatch,
+        exp_id,
+        MetricViewType.SPANS,
+        SpanMetricKey.TOTAL_COST,
+        _SUM,
+        [SpanMetricDimensionKey.SPAN_MODEL_NAME],
+    )
+
+
+@pytest.mark.parametrize(
+    ("db_type", "dialect"),
+    [
+        ("postgresql", postgresql.dialect()),
+        ("mysql", mysql.dialect()),
+        ("mssql", mssql.dialect()),
+    ],
+)
+def test_span_string_grouping_sql_merges_before_order_and_limit(
+    store: SqlAlchemyStore, monkeypatch, db_type, dialect
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    _set_enabled(monkeypatch, True)
+    plan = resolve_rollup_read(
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=_SUM,
+        dimensions=[SpanMetricDimensionKey.SPAN_MODEL_NAME],
+        filters=None,
+        time_interval_seconds=None,
+        start_time_ms=DAY_A_START,
+        end_time_ms=DAY_A_START + MS_PER_DAY - 1,
+        experiment_ids=[int(exp_id)],
+        db_type=db_type,
+    )
+
+    with store.ManagedSessionMaker() as session:
+        query, _ = _build_sql_grouped_span_cost_query(
+            session,
+            plan,
+            db_type,
+            raw_ranges=[],
+            served_day_starts=[DAY_A_START],
+            max_results=1,
+        )
+        statement = str(
+            query.statement.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+        )
+
+    assert "UNION ALL" in statement
+    outer_query = statement.rsplit(") AS span_cost_contributions", maxsplit=1)[1]
+    assert "GROUP BY" in outer_query
+    assert "ORDER BY" in outer_query
+    assert "span_model_name" in outer_query
 
 
 def test_scattered_raw_gaps_are_queried_once(store: SqlAlchemyStore, monkeypatch):
