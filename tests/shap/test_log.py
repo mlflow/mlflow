@@ -518,7 +518,7 @@ def test_model_log_with_metadata(shap_model):
 @pytest.mark.parametrize("load_fn", [mlflow.shap.load_explainer, pyfunc.load_model])
 def test_load_disallows_pickle_deserialization(shap_model, tmp_path, monkeypatch, load_fn):
     model_path = str(tmp_path.joinpath("shap_model"))
-    mlflow.shap.save_explainer(shap_model, model_path)
+    mlflow.shap.save_explainer(shap_model, model_path, serialize_model_using_mlflow=False)
 
     monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
     with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
