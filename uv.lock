@@ -4247,6 +4247,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "alembic" },
+    { name = "anyio" },
     { name = "cachetools" },
     { name = "click" },
     { name = "cloudpickle" },
@@ -4479,6 +4480,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.7.0,<4" },
     { name = "alembic", specifier = "!=1.10.0,<2" },
     { name = "aliyunstoreplugin", marker = "extra == 'aliyun-oss'" },
+    { name = "anyio", specifier = ">=3.6.2,!=4.15.0,<5" },
     { name = "azure-identity", marker = "extra == 'azure'", specifier = ">=1.6.1" },
     { name = "azure-storage-blob", marker = "extra == 'azure'", specifier = ">=12" },
     { name = "azure-storage-file-datalake", marker = "extra == 'databricks'", specifier = ">12" },
