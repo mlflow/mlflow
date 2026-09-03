@@ -1549,6 +1549,15 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
 #: (default: ``None``)
 MLFLOW_TRACE_ARCHIVAL_CONFIG = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_CONFIG", str, None)
 
+#: Enables opt-in SQL daily rollups for trace analytics. When ``true``, the query planner serves
+#: eligible daily aggregate requests from precomputed rollup tables, falling back to the raw path
+#: for any day that is not covered. When ``false`` (the default), all trace analytics queries use
+#: the raw path.
+#: (default: ``False``)
+MLFLOW_SQL_TRACE_ROLLUPS_ENABLED = _BooleanEnvironmentVariable(
+    "MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", False
+)
+
 #: Specifies the maximum number of workers for async judge invocation jobs.
 #: (default: ``10``)
 MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS = _EnvironmentVariable(

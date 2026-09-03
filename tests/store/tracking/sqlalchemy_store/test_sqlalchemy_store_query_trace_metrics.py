@@ -28,6 +28,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
 from mlflow.store.db import db_types
+from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
     _apply_postgres_trace_first_span_query,
@@ -75,6 +76,110 @@ def test_postgres_span_query_materializes_trace_filters_before_span_join(
 
 
 @pytest.mark.parametrize(
+    ("metric_name", "aggregations", "filter_fragment", "uses_trace_cte"),
+    [
+        (
+            SpanMetricKey.SPAN_COUNT,
+            [MetricAggregation(aggregation_type=AggregationType.COUNT)],
+            "trace_info.timestamp_ms >= 1000",
+            True,
+        ),
+        (
+            SpanMetricKey.TOTAL_COST,
+            [MetricAggregation(aggregation_type=AggregationType.SUM)],
+            "spans.start_time_unix_nano >= 1000000000",
+            False,
+        ),
+    ],
+)
+def test_postgres_span_time_range_uses_metric_authoritative_timestamp(
+    store: SqlAlchemyStore,
+    monkeypatch: pytest.MonkeyPatch,
+    metric_name: str,
+    aggregations: list[MetricAggregation],
+    filter_fragment: str,
+    uses_trace_cte: bool,
+):
+    statements = []
+
+    def capture_statement(query):
+        statements.append(
+            str(
+                query.statement.compile(
+                    dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+                )
+            )
+        )
+        return []
+
+    monkeypatch.setattr(Query, "all", capture_statement)
+    with store.ManagedSessionMaker() as session:
+        query_metrics(
+            view_type=MetricViewType.SPANS,
+            db_type=db_types.POSTGRES,
+            query=store._trace_query(session).filter(SqlTraceInfo.experiment_id == 7),
+            metric_name=metric_name,
+            aggregations=aggregations,
+            dimensions=None,
+            filters=None if uses_trace_cte else ["span.status = 'ERROR'"],
+            time_interval_seconds=None,
+            max_results=1000,
+            time_ranges_ms=[(1000, 2000)],
+            accessible_experiment_ids=[7],
+        )
+
+    statement = statements[0]
+    filter_position = statement.index(filter_fragment)
+    if uses_trace_cte:
+        join_position = statement.index("FROM spans JOIN metric_trace_ids")
+        assert filter_position < join_position
+    else:
+        assert "metric_trace_ids" not in statement
+        assert "FROM spans" in statement
+        assert "spans.experiment_id IN (7)" in statement
+        assert "spans.status = 'ERROR'" in statement
+
+
+def test_postgres_span_cost_trace_filter_keeps_materialized_trace_ids(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch
+):
+    statements = []
+
+    def capture_statement(query):
+        statements.append(
+            str(
+                query.statement.compile(
+                    dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+                )
+            )
+        )
+        return []
+
+    monkeypatch.setattr(Query, "all", capture_statement)
+    with store.ManagedSessionMaker() as session:
+        query_metrics(
+            view_type=MetricViewType.SPANS,
+            db_type=db_types.POSTGRES,
+            query=store._trace_query(session).filter(SqlTraceInfo.experiment_id == 7),
+            metric_name=SpanMetricKey.TOTAL_COST,
+            aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+            dimensions=None,
+            filters=["trace.status = 'OK'"],
+            time_interval_seconds=None,
+            max_results=1000,
+            time_ranges_ms=[(1000, 2000)],
+            accessible_experiment_ids=[7],
+        )
+
+    statement = statements[0]
+    join_position = statement.index("FROM spans JOIN metric_trace_ids")
+    assert "WITH metric_trace_ids AS MATERIALIZED" in statement
+    assert statement.index("trace_info.experiment_id = 7") < join_position
+    assert statement.index("trace_info.status = 'OK'") < join_position
+    assert statement.index("spans.start_time_unix_nano >= 1000000000") > join_position
+
+
+@pytest.mark.parametrize(
     ("metric_name", "column_name"),
     [
         (SpanMetricKey.INPUT_COST, "input_cost"),
@@ -106,6 +211,7 @@ def test_postgres_span_cost_query_filters_null_metric_values(
             filters=None,
             time_interval_seconds=None,
             max_results=100,
+            accessible_experiment_ids=[7],
         )
 
     assert len(statements) == 1
