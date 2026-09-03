@@ -4,6 +4,7 @@ from unittest import mock
 import pytest
 
 from mlflow.entities.run_status import RunStatus
+from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.job import invoke_genai_evaluate_job
 from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING
 
@@ -96,6 +97,30 @@ def test_invoke_genai_evaluate_job_batches_large_trace_list():
         assert mock_client.link_traces_to_run.call_count == 3
         batch_sizes = [len(call.args[0]) for call in mock_client.link_traces_to_run.call_args_list]
         assert batch_sizes == [100, 100, 50]
+
+
+def test_invoke_genai_evaluate_job_rejects_mismatched_scorer_versions():
+    mock_client = mock.MagicMock()
+    mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
+
+    with (
+        mock.patch("mlflow.genai.evaluation.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.evaluation.job.Scorer.model_validate_json"),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="scorer_versions must have the same length as serialized_scorers",
+        ):
+            invoke_genai_evaluate_job(
+                trace_ids=["trace-1"],
+                serialized_scorers=[_serialized_scorer()],
+                scorer_versions=[1, 2],
+                run_id="run-123",
+            )
+
+    mock_client.set_terminated.assert_called_once_with(
+        "run-123", RunStatus.to_string(RunStatus.FAILED)
+    )
 
 
 def test_invoke_genai_evaluate_job_setup_failure_marks_run_failed():

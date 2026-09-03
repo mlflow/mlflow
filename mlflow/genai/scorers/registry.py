@@ -318,7 +318,7 @@ class MlflowTrackingStore(AbstractScorerStore):
             experiment_id, scorer.name, serialized_scorer
         )
         self._hydrate_scorer(scorer, scorer_version, online_config=None)
-        return scorer_version.scorer_version
+        return scorer_version
 
     def _hydrate_scorer(
         self,

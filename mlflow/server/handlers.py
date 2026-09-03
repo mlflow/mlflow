@@ -5333,6 +5333,7 @@ def _invoke_genai_evaluate_handler():
             ) from e
         registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
         serialized_scorers[index] = registered_scorer.serialized_scorer
+        scorer_versions[index] = registered_scorer.scorer_version
 
     # Create the run upfront so we can return run_id immediately, so the run
     # shows up on /evaluation-runs even before the job has produced artifacts.
