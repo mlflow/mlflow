@@ -19,6 +19,11 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
+    SqlAgentPluginAlias,
+    SqlAgentPluginTag,
+    SqlAgentPluginVersion,
+    SqlAgentPluginVersionTag,
     SqlAssessments,
     SqlEvaluationDataset,
     SqlExperiment,
@@ -46,6 +51,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
+    SqlSkill,
+    SqlSkillAlias,
+    SqlSkillTag,
+    SqlSkillVersion,
+    SqlSkillVersionTag,
     SqlTraceInfo,
 )
 from mlflow.store.tracking.sqlalchemy_store import (
@@ -165,6 +175,20 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             SqlMCPServerVersionTag,
             SqlMCPServerAlias,
             SqlMCPAccessEndpoint,
+        ):
+            return query.filter(model.workspace == workspace)
+
+        if model in (
+            SqlSkill,
+            SqlSkillVersion,
+            SqlSkillTag,
+            SqlSkillVersionTag,
+            SqlSkillAlias,
+            SqlAgentPlugin,
+            SqlAgentPluginVersion,
+            SqlAgentPluginTag,
+            SqlAgentPluginVersionTag,
+            SqlAgentPluginAlias,
         ):
             return query.filter(model.workspace == workspace)
 

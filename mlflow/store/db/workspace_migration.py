@@ -39,6 +39,12 @@ _CONFLICT_SPECS = [
     ("endpoints", ("name",), "endpoints with the same name"),
     ("model_definitions", ("name",), "model definitions with the same name"),
     ("mcp_servers", ("name",), "MCP servers with the same name"),
+    ("skills", ("organization", "name"), "skills with the same organization and name"),
+    (
+        "agent_plugins",
+        ("organization", "name"),
+        "agent plugins with the same organization and name",
+    ),
 ]
 
 

@@ -419,22 +419,32 @@ def test_move_all_resource_types(
 
 def test_all_workspace_root_models_have_spec():
     from mlflow.store.tracking.dbmodels.models import (
+        SqlAgentPlugin,
         SqlGatewayBudgetPolicy,
         SqlGatewayEndpoint,
         SqlGatewayGuardrail,
         SqlGatewayModelDefinition,
         SqlGatewaySecret,
+        SqlSkill,
     )
     from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 
     # Gateway resources are intentionally excluded due to inter-table FK
     # dependencies that make moving them independently unsafe.
+    #
+    # Skill registry roots are handled for workspace delete and
+    # migrate-to-default, but move support is deferred: agent_plugin_version_members
+    # carries its workspace as ``plugin_workspace`` (shared with its skill_versions
+    # FK), which the generic child-table mover (keyed on a ``workspace`` column)
+    # cannot retarget without dependency-aware handling.
     _INTENTIONALLY_OMITTED = {
         SqlGatewaySecret,
         SqlGatewayEndpoint,
         SqlGatewayModelDefinition,
         SqlGatewayBudgetPolicy,
         SqlGatewayGuardrail,
+        SqlSkill,
+        SqlAgentPlugin,
     }
 
     missing = {

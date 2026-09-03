@@ -469,6 +469,83 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "created_at": seed,
             "last_updated_at": seed,
         },
+        "skills": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "creation_timestamp": seed,
+            "last_updated_timestamp": seed,
+        },
+        "skill_versions": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "version": seed,
+            "status": "active",
+            "creation_timestamp": seed,
+            "last_updated_timestamp": seed,
+        },
+        "skill_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "key": f"tag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "skill_version_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "version": seed,
+            "key": f"vtag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "skill_aliases": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "alias": f"alias_{seed}",
+            "version": seed,
+        },
+        "agent_plugins": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "creation_timestamp": seed,
+            "last_updated_timestamp": seed,
+        },
+        "agent_plugin_versions": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "version": f"{seed}.0.0",
+            "plugin_json": "{}",
+            "status": "active",
+            "creation_timestamp": seed,
+            "last_updated_timestamp": seed,
+        },
+        "agent_plugin_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "key": f"tag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "agent_plugin_version_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "version": f"{seed}.0.0",
+            "key": f"vtag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "agent_plugin_aliases": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "alias": f"alias_{seed}",
+            "version": f"{seed}.0.0",
+        },
     }
     if table_name not in base_values:
         raise AssertionError(f"Unexpected table: {table_name}")
@@ -476,7 +553,7 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
     overrides = overrides or {}
     unknown = set(overrides) - set(table.c.keys())
     assert not unknown, f"Unknown columns for {table_name}: {unknown}"
-    if table_name == "mcp_server_versions":
+    if table_name in ("mcp_server_versions", "agent_plugin_versions"):
         parsed = parse_semver(values["version"])
         if "version_major" in table.c:
             values["version_major"] = parsed.major

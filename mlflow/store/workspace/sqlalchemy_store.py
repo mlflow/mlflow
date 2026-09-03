@@ -21,6 +21,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
     SqlEvaluationDataset,
     SqlExperiment,
     SqlGatewayBudgetPolicy,
@@ -30,6 +31,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewaySecret,
     SqlJob,
     SqlMCPServer,
+    SqlSkill,
 )
 from mlflow.store.workspace.abstract_store import (
     AbstractStore,
@@ -64,6 +66,12 @@ _WORKSPACE_ROOT_MODELS = [
     SqlGatewayGuardrail,
     SqlJob,
     SqlMCPServer,
+    # AgentPlugin is listed before Skill so that, on a cascade workspace delete,
+    # a plugin version's member rows are removed before the skill versions they
+    # reference, keeping the agent_plugin_version_members -> skill_versions
+    # RESTRICT foreign key from blocking the delete.
+    SqlAgentPlugin,
+    SqlSkill,
 ]
 
 
