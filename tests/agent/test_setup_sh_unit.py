@@ -93,6 +93,49 @@ build_agent_prompt
     assert "- Experiment name: tracing-test" in result.stdout
 
 
+def test_build_agent_prompt_requires_repo_summary_and_realistic_trace_input():
+    result = run_shell(
+        """
+backend=remote
+TRACKING_URI=http://localhost:5050
+EXPERIMENT_ID=42
+EXPERIMENT_NAME=tracing-test
+build_agent_prompt
+"""
+    )
+
+    assert result.returncode == 0, result.stderr
+    checklist = [
+        "## 1. Understand the application",
+        "## 2. Document the application",
+        "## 3. Configure MLflow Tracing",
+        "## 4. Instrument the application",
+        "## 5. Verify tracing with a realistic input",
+        "## 6. Validate trace quality",
+        "## 7. Report results",
+    ]
+    assert [result.stdout.index(item) for item in checklist] == sorted(
+        result.stdout.index(item) for item in checklist
+    )
+    assert "- Summarize what you learned in the MLflow experiment description" in result.stdout
+    assert "MlflowClient.set_experiment_tag" in result.stdout
+    assert "mlflow.note.content" in result.stdout
+    assert "interfaces to one application, not as separate instrumentation targets" in result.stdout
+    assert "Do not ask the user to choose among shared wrappers" in result.stdout
+    assert "Ask which application to instrument only when" in result.stdout
+    assert "multiple independent agents or applications" in result.stdout
+    assert "- Derive a realistic input from the README" in result.stdout
+    assert "Do not use a placeholder prompt whose only purpose is to produce" in result.stdout
+    assert "Prefer MLflow autologging" in result.stdout
+    assert "mlflow.update_current_trace(session_id=...)" in result.stdout
+    assert "request_preview and response_preview" in result.stdout
+    assert "deployment environment (dev, staging, or prod)" in result.stdout
+    assert "confirm input and output token counts, along with cost, are present" in result.stdout
+    assert "never fabricate values" in result.stdout
+    assert "Trace URL opens" not in result.stdout
+    assert "exercise one traced operation" not in result.stdout
+
+
 def test_build_remote_agent_prompt_includes_workspace():
     result = run_shell(
         """
@@ -319,6 +362,61 @@ resolve_databricks_profile
 
     assert result.returncode != 0
     assert "points to https://workspace-a.example.com" in result.stderr
+
+
+def test_dbx_json_passes_host_through_environment(tmp_path: Path):
+    databricks = tmp_path / "databricks"
+    databricks.write_text(
+        r"""#!/bin/sh
+printf '%s\n' "${DATABRICKS_HOST:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*"
+"""
+    )
+    databricks.chmod(0o755)
+
+    result = run_shell(
+        """
+DATABRICKS_BIN=$1
+PROFILE=
+WORKSPACE_URL=https://workspace.example.com
+DATABRICKS_CONFIG_PROFILE=AMBIENT
+export DATABRICKS_CONFIG_PROFILE
+dbx_json experiments get-experiment 42
+""",
+        str(databricks),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == (
+        "https://workspace.example.com||experiments get-experiment 42 --output json"
+    )
+
+
+def test_dbx_json_clears_ambient_host_for_profile(tmp_path: Path):
+    databricks = tmp_path / "databricks"
+    databricks.write_text(
+        r"""#!/bin/sh
+printf '%s\n' "${DATABRICKS_HOST:-}|${DATABRICKS_CONFIG_PROFILE:-}|$*"
+"""
+    )
+    databricks.chmod(0o755)
+
+    result = run_shell(
+        """
+DATABRICKS_BIN=$1
+PROFILE=selected
+WORKSPACE_URL=https://workspace.example.com
+DATABRICKS_HOST=https://ambient.example.com
+DATABRICKS_CONFIG_PROFILE=AMBIENT
+export DATABRICKS_HOST DATABRICKS_CONFIG_PROFILE
+dbx_json experiments get-experiment 42
+""",
+        str(databricks),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == (
+        "|AMBIENT|experiments get-experiment 42 --output json --profile selected"
+    )
 
 
 def test_validate_agent_name_rejects_unknown_agent():

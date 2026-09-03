@@ -134,6 +134,8 @@ from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
+    get_workspace_id,
+    get_workspace_url,
     is_in_databricks_runtime,
 )
 from mlflow.utils.logging_utils import eprint
@@ -757,7 +759,9 @@ class MlflowClient:
                 model_config=model_config,
             )
 
-            return registry_client.get_prompt_version(name, str(prompt_version.version))
+            prompt_version = registry_client.get_prompt_version(name, str(prompt_version.version))
+            self._log_prompt_ui_link(name, prompt_version.version)
+            return prompt_version
 
         # OSS approach using RegisteredModel with special tags
         is_new_prompt = False
@@ -840,6 +844,39 @@ class MlflowClient:
             self._link_prompt_to_experiment(prompt_version, experiment_id)
 
         return prompt_version
+
+    def _log_prompt_ui_link(self, name: str, version: int) -> None:
+        """Log the registered prompt in the active experiment's Prompts tab.
+
+        Emits an informational message only; never raises.
+        """
+        try:
+            workspace_url = get_workspace_url()
+            # Import here to avoid circular import.
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            experiment_id = _get_experiment_id()
+            if not workspace_url or not experiment_id:
+                return
+            parts = name.split(".")
+            if len(parts) != 3:
+                return
+            workspace_id = get_workspace_id()
+            query = (
+                f"?o={workspace_id}&promptVersion={version}"
+                if workspace_id
+                else f"?promptVersion={version}"
+            )
+            _logger.info(
+                "Prompt registered. View in experiment Prompts tab: "
+                "%s/ml/experiments/%s/prompts/%s%s",
+                workspace_url.rstrip("/"),
+                experiment_id,
+                name,
+                query,
+            )
+        except Exception:
+            _logger.debug("Failed to log prompt UI link", exc_info=True)
 
     def _link_prompt_to_experiment(self, prompt_version: PromptVersion, experiment_id: str) -> None:
         """
