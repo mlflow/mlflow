@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, and_, case, distinct, exists, func, literal_column, true
+from sqlalchemy import Column, and_, case, distinct, exists, false, func, literal_column, or_, true
 from sqlalchemy.orm.query import Query
 
 from mlflow.entities.entity_type import EntityAssociationType
@@ -150,6 +150,9 @@ VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
+_SQL_BIGINT_MIN = -(2**63)
+_SQL_BIGINT_MAX = 2**63 - 1
+_NANOSECONDS_PER_MILLISECOND = 1_000_000
 
 _TRACE_METRIC_COLUMNS = {
     TraceMetricKey.INPUT_TOKENS: SqlTraceInfo.input_tokens,
@@ -663,6 +666,46 @@ def _build_query_with_percentile_subquery(
     return outer_query, select_columns
 
 
+def _build_time_range_predicate(
+    timestamp_column: Column,
+    time_ranges_ms: list[tuple[int | None, int | None]],
+    *,
+    nanosecond_column: bool = False,
+):
+    range_predicates = []
+    for range_start_ms, range_end_ms in time_ranges_ms:
+        predicates = []
+        if nanosecond_column:
+            # Include every nanosecond in the caller's inclusive end millisecond while keeping the
+            # indexed span timestamp column bare. Bounds outside BIGINT become constant predicates
+            # instead of overflowing a DBAPI integer bind.
+            if range_start_ms is not None:
+                start_ns = range_start_ms * _NANOSECONDS_PER_MILLISECOND
+                if start_ns > _SQL_BIGINT_MAX:
+                    predicates.append(false())
+                elif start_ns > _SQL_BIGINT_MIN:
+                    predicates.append(timestamp_column >= start_ns)
+            if range_end_ms is not None:
+                end_ns_exclusive = (range_end_ms + 1) * _NANOSECONDS_PER_MILLISECOND
+                if end_ns_exclusive <= _SQL_BIGINT_MIN:
+                    predicates.append(false())
+                elif end_ns_exclusive <= _SQL_BIGINT_MAX:
+                    predicates.append(timestamp_column < end_ns_exclusive)
+        else:
+            if range_start_ms is not None:
+                if range_start_ms > _SQL_BIGINT_MAX:
+                    predicates.append(false())
+                elif range_start_ms > _SQL_BIGINT_MIN:
+                    predicates.append(timestamp_column >= range_start_ms)
+            if range_end_ms is not None:
+                if range_end_ms < _SQL_BIGINT_MIN:
+                    predicates.append(false())
+                elif range_end_ms < _SQL_BIGINT_MAX:
+                    predicates.append(timestamp_column <= range_end_ms)
+        range_predicates.append(and_(*predicates) if predicates else true())
+    return or_(*range_predicates) if range_predicates else false()
+
+
 def query_metrics(
     view_type: MetricViewType,
     db_type: str,
@@ -673,6 +716,8 @@ def query_metrics(
     filters: list[str] | None,
     time_interval_seconds: int | None,
     max_results: int,
+    time_ranges_ms: list[tuple[int | None, int | None]] | None = None,
+    accessible_experiment_ids: list[int] | None = None,
 ) -> list[MetricDataPoint]:
     """Unified query metrics function for all view types.
 
@@ -686,25 +731,76 @@ def query_metrics(
         filters: List of filter strings (each parsed by SearchTraceUtils), combined with AND
         time_interval_seconds: Time interval in seconds for time bucketing
         max_results: Maximum number of results to return
+        time_ranges_ms: Optional inclusive timestamp ranges to query. Multiple ranges are combined
+            into one SQL predicate. Span-cost ranges use span start time, preserving their rollup
+            day assignment. Span count and latency preserve the existing parent-trace timestamp
+            behavior. Trace and assessment ranges use their respective trace timestamps.
+        accessible_experiment_ids: Experiment IDs already filtered through the store's workspace
+            access checks. PostgreSQL span-cost queries without trace-level filters use these IDs
+            to query the denormalized span columns directly.
 
     Returns:
         List of MetricDataPoint objects
     """
+    span_uses_trace_time = (
+        view_type == MetricViewType.SPANS and metric_name not in _SPAN_COST_COLUMNS
+    )
+    if time_ranges_ms is not None and span_uses_trace_time:
+        # Apply trace-time bounds before PostgreSQL materializes trace IDs. This preserves the
+        # pre-rollup span count/latency behavior without adding trace_info back to the span query.
+        query = query.filter(_build_time_range_predicate(SqlTraceInfo.timestamp_ms, time_ranges_ms))
+
     if view_type == MetricViewType.SPANS and db_type == db_types.POSTGRES:
         trace_filters, span_filters = _partition_span_metric_filters(filters)
-        query = _apply_filters(query, trace_filters, view_type)
-        query = _apply_postgres_trace_first_span_query(query)
-        query = _apply_filters(query, span_filters, view_type)
+        if (
+            metric_name in _SPAN_COST_COLUMNS
+            and not trace_filters
+            and accessible_experiment_ids is not None
+        ):
+            # Span cost, model, provider, experiment, and start time are denormalized and indexed
+            # on SqlSpan. Avoid materializing every trace ID when no trace-level predicate needs
+            # trace_info; the caller supplies only workspace-authorized experiment IDs.
+            query = query.session.query(SqlSpan).filter(
+                SqlSpan.experiment_id.in_(accessible_experiment_ids)
+            )
+            query = _apply_filters(query, span_filters, view_type)
+        else:
+            query = _apply_filters(query, trace_filters, view_type)
+            query = _apply_postgres_trace_first_span_query(query)
+            query = _apply_filters(query, span_filters, view_type)
     else:
         # Apply view-specific initial join
         query = _apply_view_initial_join(query, view_type)
         query = _apply_filters(query, filters, view_type)
 
+    if time_ranges_ms is not None and not span_uses_trace_time:
+        match view_type:
+            case MetricViewType.TRACES:
+                timestamp_column = SqlTraceInfo.timestamp_ms
+                nanosecond_column = False
+            case MetricViewType.SPANS:
+                timestamp_column = SqlSpan.start_time_unix_nano
+                nanosecond_column = True
+            case MetricViewType.ASSESSMENTS:
+                timestamp_column = SqlAssessments.trace_timestamp_ms
+                nanosecond_column = False
+        query = query.filter(
+            _build_time_range_predicate(
+                timestamp_column,
+                time_ranges_ms,
+                nanosecond_column=nanosecond_column,
+            )
+        )
+
     if view_type == MetricViewType.TRACES and metric_name == TraceMetricKey.SESSION_COUNT:
         query = query.filter(SqlTraceInfo.session_id.isnot(None))
 
     agg_column = _get_column_to_aggregate(view_type, metric_name)
-    if view_type == MetricViewType.SPANS and metric_name in _SPAN_COST_COLUMNS:
+    # SQL aggregate functions ignore null inputs. Filtering them before grouping is equivalent for
+    # aggregate values, but prevents an all-null group from consuming SQL LIMIT and then being
+    # discarded by conversion. This keeps max_results semantics stable when raw and rollup rows
+    # are merged.
+    if not (view_type == MetricViewType.TRACES and metric_name == TraceMetricKey.SESSION_COUNT):
         query = query.filter(agg_column.isnot(None))
 
     # Group by dimension columns, labeled for SELECT
