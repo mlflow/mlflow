@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 from dataclasses import dataclass
 from types import FunctionType
@@ -157,6 +158,30 @@ def _current_authenticated_user() -> str | None:
     return getattr(g, "mlflow_authenticated_user", None)
 
 
+def _resolve_exclusive_job_timeout(timeout: float | None) -> float:
+    """Return a positive, finite timeout for an exclusive job on the executor engine.
+
+    A caller-supplied positive, finite timeout is used as-is; otherwise the selected executor's
+    configured ``default_timeout`` is used. The result bounds both job execution and the
+    exclusivity lock's staleness, so they always agree.
+    """
+    from mlflow.environment_variables import MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND
+    from mlflow.server.jobs.executor_registry import get_executor_registry
+
+    if timeout is not None and math.isfinite(timeout) and timeout > 0:
+        return timeout
+
+    backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+    default_timeout = get_executor_registry().get(backend).config.default_timeout
+    if not (default_timeout is not None and math.isfinite(default_timeout) and default_timeout > 0):
+        raise MlflowException.invalid_parameter_value(
+            "An exclusive job needs a positive, finite timeout, but none was given and the "
+            f"{backend!r} executor's configured default_timeout ({default_timeout!r}) is not "
+            "usable."
+        )
+    return default_timeout
+
+
 def submit_job(
     function: Callable[..., Any],
     params: dict[str, Any],
@@ -257,6 +282,16 @@ def submit_job(
             "use the huey engine (unset MLFLOW_SERVER_JOB_EXECUTION_ENGINE) instead."
         )
 
+    if engine == "executor" and fn_meta.exclusive:
+        # The executor engine deduplicates exclusive jobs with a database lock
+        # (mlflow.server.jobs.lock_manager) whose staleness is bounded by the job's timeout (plus a
+        # grace window), so an exclusive job must carry a positive, finite timeout. The RFC does not
+        # require callers to pass one -- the production online-scoring jobs do not -- so fall back
+        # to the selected executor's configured default_timeout and persist the effective value, so
+        # lock expiry and execution use the same number. (The Huey engine uses its own in-process
+        # lock and does not need this.)
+        timeout = _resolve_exclusive_job_timeout(timeout)
+
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     # FastAPI callers pass creator explicitly (no flask.g there); Flask callers fall back to g.
@@ -268,8 +303,8 @@ def submit_job(
     if engine == "executor":
         # Executor engine: the job is persisted as PENDING and the executor runner loop
         # (mlflow.server.jobs._executor_runner) claims and runs it. Nothing to enqueue here.
-        # NOTE: exclusive-job dedup is not yet honored on this path (a follow-up). The default
-        # Huey path is unchanged.
+        # Exclusive-job dedup is enforced there at claim time via a per-key database lock. The
+        # default Huey path is unchanged.
         return job
 
     # Huey engine (default): enqueue to the per-job Huey execution pool.
