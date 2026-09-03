@@ -98,7 +98,7 @@ export const TimelineTreeNode = ({
   const { theme } = useDesignSystemTheme();
   const { timelineTreeMetrics } = useModelTraceExplorerPreferences();
   const hasChildren = (node.children ?? []).length > 0;
-  const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+  const { setActiveTab, setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
 
   const isActive = selectedKey === node.key;
   const activeChildIndex = getActiveChildIndex(node, String(selectedKey));
@@ -316,6 +316,22 @@ export const TimelineTreeNode = ({
                         <Typography.Text css={{ marginLeft: theme.spacing.xs }}>
                           {node.assessments.length}
                         </Typography.Text>
+                      </Tag>
+                    )}
+                    {(node.links?.length ?? 0) > 0 && (
+                      <Tag
+                        color="teal"
+                        data-testid={`span-link-tag-${node.key}`}
+                        componentId="shared.model-trace-explorer.span-link-count"
+                        css={{
+                          margin: 0,
+                          marginLeft: theme.spacing.xs,
+                          borderRadius: theme.borders.borderRadiusSm,
+                        }}
+                        onClick={() => setActiveTab('links')}
+                      >
+                        <LinkIcon css={{ fontSize: theme.typography.fontSizeSm - 1 }} />
+                        <Typography.Text css={{ marginLeft: theme.spacing.xs }}>{node.links?.length}</Typography.Text>
                       </Tag>
                     )}
                     {inlineMetric && (

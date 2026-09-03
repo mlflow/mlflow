@@ -16,6 +16,7 @@ import React, { useCallback, useMemo } from 'react';
 import {
   generatePath,
   useParams as useParamsDirect,
+  useHref as useHrefDirect,
   Link as LinkDirect,
   useLocation as useLocationDirect,
   BrowserRouter,
@@ -228,6 +229,8 @@ const useParams = useParamsDirect;
 
 const useLocation = useLocationDirect;
 
+const useHref = useHrefDirect;
+
 const Link = React.forwardRef<
   HTMLAnchorElement,
   ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
@@ -256,4 +259,4 @@ export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
 };
 
-export { generatePath, useParams, Link, useLocation, BrowserRouter };
+export { generatePath, useParams, Link, useLocation, useHref, BrowserRouter };

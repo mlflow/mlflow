@@ -1795,6 +1795,10 @@ module.exports = {
   "mlflow.model_trace_explorer.header_details.tag-session-id": "",
   "mlflow.model_trace_explorer.linked_prompts.prompt_link": "",
   "mlflow.model_trace_explorer.span_link": "",
+  "mlflow.model_trace_explorer.span_link.attributes_toggle": "",
+  "mlflow.model_trace_explorer.span_link.card": "",
+  "mlflow.model_trace_explorer.span_link.id": "",
+  "mlflow.model_trace_explorer.span_link.id_tooltip": "",
   "mlflow.model_trace_explorer.span_link.tooltip": "",
   "mlflow.model_trace_explorer.timeline.gateway_trace_link": "",
 
@@ -2351,6 +2355,7 @@ module.exports = {
   "shared.model-trace-explorer.span-cost-hovercard.input-cost.tag": "",
   "shared.model-trace-explorer.span-cost-hovercard.output-cost.tag": "",
   "shared.model-trace-explorer.span-cost-hovercard.total-cost.tag": "",
+  "shared.model-trace-explorer.span-link-count": "",
   "shared.model-trace-explorer.span-model-badge": "",
   "shared.model-trace-explorer.span-name-tag": "",
   "shared.model-trace-explorer.span-name-tooltip": "",
