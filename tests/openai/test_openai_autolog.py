@@ -1389,7 +1389,7 @@ async def test_service_tier_stored_and_passed_to_cost_calculation(client, mock_l
     span = traces[0].data.spans[0]
 
     # service_tier must be stored as a span attribute
-    assert span.get_attribute(SpanAttributeKey.OPENAI_SERVICE_TIER) == "priority"
+    assert span.get_attribute(SpanAttributeKey.LLM_SERVICE_TIER) == "priority"
 
     if not IS_TRACING_SDK_ONLY:
         # litellm.cost_per_token must have been called with service_tier="priority"

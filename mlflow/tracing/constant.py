@@ -114,10 +114,10 @@ class SpanAttributeKey:
     # This attribute stores cost information calculated from token usage and model pricing.
     # Stored in {"input_cost": float, "output_cost": float, "total_cost": float} format (USD).
     LLM_COST = "mlflow.llm.cost"
-    # This attribute stores the OpenAI service tier used for the request (e.g.
+    # This attribute stores the service tier used for the request (e.g.
     # "default", "priority", "flex"). When present, it is factored into cost
     # estimation so that tier-specific pricing is used.
-    OPENAI_SERVICE_TIER = "mlflow.openai.service_tier"
+    LLM_SERVICE_TIER = "mlflow.llm.service_tier"
     # This attribute stores the model name extracted from span inputs/attributes.
     MODEL = "mlflow.llm.model"
     MODEL_PROVIDER = "mlflow.llm.provider"

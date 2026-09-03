@@ -48,7 +48,7 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
     # Extract service_tier from OpenAI response (e.g. "default", "priority", "flex").
     # LiteLLM uses this to apply tier-specific pricing when computing cost.
     if service_tier := _parse_service_tier(output):
-        span.set_attribute(SpanAttributeKey.OPENAI_SERVICE_TIER, service_tier)
+        span.set_attribute(SpanAttributeKey.LLM_SERVICE_TIER, service_tier)
 
 
 def _extract_tool_call_ids(output: Any) -> list[str]:

@@ -136,8 +136,8 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
                 else None
             )
             service_tier = (
-                json.loads(attributes[SpanAttributeKey.OPENAI_SERVICE_TIER])
-                if SpanAttributeKey.OPENAI_SERVICE_TIER in attributes
+                json.loads(attributes[SpanAttributeKey.LLM_SERVICE_TIER])
+                if SpanAttributeKey.LLM_SERVICE_TIER in attributes
                 else None
             )
             if cost := calculate_cost_by_model_and_token_usage(

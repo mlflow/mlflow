@@ -342,7 +342,7 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
     model_name = span.get_attribute(SpanAttributeKey.MODEL)
     usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
     model_provider = span.get_attribute(SpanAttributeKey.MODEL_PROVIDER)
-    service_tier = span.get_attribute(SpanAttributeKey.OPENAI_SERVICE_TIER)
+    service_tier = span.get_attribute(SpanAttributeKey.LLM_SERVICE_TIER)
     return calculate_cost_by_model_and_token_usage(model_name, usage, model_provider, service_tier)
 
 
