@@ -54,20 +54,11 @@ jobs:
           # we need to fetch enough history to include the base branch.
           fetch-depth: 300
       - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
-      - uses: ./.github/actions/setup-node
-      - name: Add problem matchers
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          for f in .github/workflows/matchers/*.json; do
-            echo "::add-matcher::$f"
-          done
-      - name: Install Python dependencies
-        run: |
-          uv sync --locked --only-group lint --only-group pytest
       - parallel:
+          - uses: ./.github/actions/setup-python
+            with:
+              pin-micro-version: false
+          - uses: ./.github/actions/setup-node
           - name: Cache action pins
             uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
             with:
@@ -95,6 +86,15 @@ jobs:
               path: ~/.cache/pre-commit
               key: pre-commit-${{ matrix.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
               restore-keys: pre-commit-${{ matrix.os }}-
+      - name: Add problem matchers
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          for f in .github/workflows/matchers/*.json; do
+            echo "::add-matcher::$f"
+          done
+      - name: Install Python dependencies
+        run: |
+          uv sync --locked --only-group lint --only-group pytest
       - name: Install pre-commit hooks
         run: |
           uv run --no-sync pre-commit install --install-hooks

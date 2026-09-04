@@ -75,6 +75,7 @@ export type ModelTraceSpanV2 = {
   outputs?: any;
   attributes?: Record<string, any>;
   events?: ModelTraceEvent[];
+  links?: ModelTraceSpanLink[];
   /* metadata for ui usage logging */
   type?: ModelSpanType;
 };
@@ -95,6 +96,7 @@ export type ModelTraceSpanV3 = {
   };
   attributes: Record<string, any>;
   events?: ModelTraceEvent[];
+  links?: ModelTraceSpanLink[];
   /* metadata for ui usage logging */
   type?: ModelSpanType;
 };
@@ -114,6 +116,7 @@ export type ModelTraceSpanV4 = {
   }>;
   status: { code: ModelSpanStatusCode };
   events?: ModelTraceEvent[];
+  links?: ModelTraceSpanLink[];
   /* metadata for ui usage logging */
   type?: ModelSpanType;
 };
@@ -126,6 +129,12 @@ export type ModelTraceEvent = {
   timestamp?: number;
   time_unix_nano?: number;
   attributes?: Record<string, any>;
+};
+
+export type ModelTraceSpanLink = {
+  trace_id: string;
+  span_id: string;
+  attributes?: Record<string, any> | null;
 };
 
 export type ModelTraceData = {
@@ -345,7 +354,8 @@ export interface SpanCostInfo {
 /**
  * Represents a single node in the model trace tree.
  */
-export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpan, 'attributes' | 'type' | 'events'> {
+export interface ModelTraceSpanNode
+  extends TimelineTreeNode, Pick<ModelTraceSpan, 'attributes' | 'type' | 'events' | 'links'> {
   assessments: Assessment[];
   inputs?: any;
   outputs?: any;
@@ -361,7 +371,7 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   tokenUsage?: SpanTokenUsage;
 }
 
-export type ModelTraceExplorerTab = 'content' | 'attributes' | 'events';
+export type ModelTraceExplorerTab = 'content' | 'attributes' | 'events' | 'links';
 
 /** The top-level view tabs in the trace panel. */
 export type ModelTraceExplorerView = 'detail' | 'prompts' | 'custom';

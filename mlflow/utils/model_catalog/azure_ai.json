@@ -39,6 +39,28 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "DeepSeek-V4-Flash-0731": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.44,
+        "output_per_million_tokens": 1.32,
+        "cache_read_per_million_tokens": 0.014
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-12-03",
+      "last_updated_at": "2026-09-04"
+    },
     "FLUX-1.1-pro": {
       "mode": "image_generation",
       "capabilities": {
@@ -498,7 +520,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2026-10-01",
+      "last_updated_at": "2026-09-04"
     },
     "MAI-Image-2.5-Flash": {
       "mode": "image_generation",
@@ -518,7 +541,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2026-10-01",
+      "last_updated_at": "2026-09-04"
     },
     "MAI-Image-2e": {
       "mode": "image_generation",
@@ -1356,17 +1380,18 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.19,
-        "output_per_million_tokens": 0.51
+        "output_per_million_tokens": 0.51,
+        "cache_read_per_million_tokens": 0.028
       },
       "capabilities": {
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
       },
       "deprecation_date": "2028-02-20",
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-04"
     },
     "deepseek-v4-flash-0731": {
       "mode": "chat",
@@ -1399,17 +1424,18 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.74,
-        "output_per_million_tokens": 3.48
+        "output_per_million_tokens": 3.48,
+        "cache_read_per_million_tokens": 0.145
       },
       "capabilities": {
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
       },
       "deprecation_date": "2028-02-20",
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-04"
     },
     "embed-v-4-0": {
       "mode": "embedding",
@@ -1994,17 +2020,18 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
-        "output_per_million_tokens": 3.0
+        "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.1
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
       },
       "deprecation_date": "2027-01-26",
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-04"
     },
     "kimi-k2.6": {
       "mode": "chat",
@@ -2015,17 +2042,40 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.95,
-        "output_per_million_tokens": 4.0
+        "output_per_million_tokens": 4.0,
+        "cache_read_per_million_tokens": 0.16
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
       },
       "deprecation_date": "2027-04-16",
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-04"
+    },
+    "kimi-k2.7-code": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.95,
+        "output_per_million_tokens": 4.0,
+        "cache_read_per_million_tokens": 0.19
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-10-03",
+      "last_updated_at": "2026-09-04"
     },
     "ministral-3b": {
       "mode": "chat",
