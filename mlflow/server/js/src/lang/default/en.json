@@ -2495,6 +2495,10 @@
     "defaultMessage": "None",
     "description": "Cell value when there's no content"
   },
+  "8GlhpA": {
+    "defaultMessage": "No attributes",
+    "description": "Empty state shown when a span link has no attributes"
+  },
   "8GmtjT": {
     "defaultMessage": "Clear the search",
     "description": "Link text to clear the search filter on the V2 dataset records list"
@@ -6582,6 +6586,10 @@
   "Op12zG": {
     "defaultMessage": "Assess trace",
     "description": "Accessible label and tooltip for assessing a trace"
+  },
+  "OpP4RM": {
+    "defaultMessage": "Attributes",
+    "description": "Label for the attributes section of a span link"
   },
   "Ortr1x": {
     "defaultMessage": "<link>Add user feedback</link> to traces so real failures stand out",
@@ -11511,6 +11519,10 @@
     "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
     "description": "Hint explaining how to use other providers via Gateway"
   },
+  "ht/qId": {
+    "defaultMessage": "See more",
+    "description": "Button that expands the span link attributes to show all of them"
+  },
   "hv0wlb": {
     "defaultMessage": "Select or create review queues",
     "description": "Add to review queue: destination dropdown label"
@@ -12050,6 +12062,10 @@
   "jkeYf8": {
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"
+  },
+  "jlGW/p": {
+    "defaultMessage": "Linked span",
+    "description": "Label for the span referenced by a same-trace span link"
   },
   "jo4LfR": {
     "defaultMessage": "Pending",
@@ -13507,6 +13523,10 @@
     "defaultMessage": "Metric",
     "description": "Run page > Overview > Metrics table > Key column header"
   },
+  "pkhZzA": {
+    "defaultMessage": "Span ID",
+    "description": "Label for the span ID of a cross-trace span link"
+  },
   "pl1bdY": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to models page under the header on the model version\n             view page"
@@ -14154,6 +14174,10 @@
   "sEheG0": {
     "defaultMessage": "Key Name",
     "description": "Key name label"
+  },
+  "sFqnju": {
+    "defaultMessage": "Trace ID",
+    "description": "Label for the trace ID of a cross-trace span link"
   },
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
@@ -14855,6 +14879,10 @@
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
     "description": "A descriptive tooltip for the \"Models\" column header in the runs table on the MLflow experiment detail page"
   },
+  "vVsrrj": {
+    "defaultMessage": "See less",
+    "description": "Button that collapses the span link attributes back to the first few"
+  },
   "vWf6fP": {
     "defaultMessage": "Processing",
     "description": "Processing indicator while Assistant is streaming a response"
@@ -15218,6 +15246,10 @@
   "wx0s66": {
     "defaultMessage": "Select a provider and model to configure API key",
     "description": "Message when no provider selected for API key form"
+  },
+  "wxlu/9": {
+    "defaultMessage": "Jump to linked span",
+    "description": "Button that navigates to the span referenced by a span link"
   },
   "wxq/qM": {
     "defaultMessage": "Set as baseline",
