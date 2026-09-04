@@ -43,7 +43,9 @@ jobs:
           # rerun workflow itself (to prevent recursion). Always rerun "protect";
           # otherwise only rerun jobs that took <= 60s (e.g. the approval check).
           # Each row is "<run id> <check name>"; the name goes last because it can
-          # contain spaces (e.g. "python (1)").
+          # contain spaces (e.g. "python (1)"). A workflow run emits one check run
+          # per job, so `sort -u -k1,1` dedupes on the run ID: without -k1,1 two
+          # failed jobs from the same run would be reran twice.
           rows=$(
             gh api --paginate "repos/$GH_REPO/commits/$head_sha/check-runs?per_page=100" \
               --jq '.check_runs[]
@@ -56,7 +58,7 @@ jobs:
                     or ((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601)) <= 60
                   )
                 | "\(.html_url | capture("/actions/runs/(?<id>[0-9]+)").id) \(.name | ascii_downcase)"' \
-              | sort -u
+              | sort -u -k1,1
           )
 
           # Hold "protect" back: it polls every other check and fails on the first
