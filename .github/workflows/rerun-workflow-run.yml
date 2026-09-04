@@ -27,18 +27,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          gh run download "$RUN_ID" -n pr_number -D /tmp/pr
-          pr_number=$(cat /tmp/pr/pr_number)
-
-          head_sha=$(gh pr view "$pr_number" --json headRefOid --jq .headRefOid)
-
           # Rerun failed github-actions check runs on the PR head, excluding the
           # rerun workflow itself (to prevent recursion). Always rerun "protect";
           # otherwise only rerun jobs that took <= 60s (e.g. the approval check).
           run_ids=$(
-            gh api --paginate "repos/$GH_REPO/commits/$head_sha/check-runs?per_page=100" \
+            gh api --paginate "repos/$GH_REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
               --jq '.check_runs[]
                 | select(.app.slug == "github-actions")
                 | select(.status == "completed")
