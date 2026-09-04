@@ -154,7 +154,11 @@ def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
         if fatal_errors := [e for e in data["errors"] if e.get("type") != "NOT_FOUND"]:
             raise Exception(f"GraphQL errors: {fatal_errors}")
         for error in data["errors"]:
-            print(f"Warning: {error.get('message', 'Unknown error')} (not a PR, skipping)")
+            path = ".".join(str(p) for p in error.get("path", []))
+            print(
+                f"Warning: skipping unresolved reference [{path}]: "
+                f"{error.get('message', 'Unknown error')}"
+            )
 
     # Extract PR data from response and create PullRequest objects
     repository_data = data["data"]["repository"]
