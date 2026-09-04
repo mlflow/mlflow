@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
@@ -12,7 +13,8 @@ from sklearn.datasets import load_diabetes
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow import MlflowClient
+from mlflow import MlflowClient, pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -294,7 +296,7 @@ def test_merge_environment_with_duplicates():
 
 def test_log_model_with_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
@@ -333,7 +335,7 @@ def test_log_model_with_pip_requirements(shap_model, tmp_path):
 def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     shap_default_reqs = mlflow.shap.get_default_pip_requirements()
-    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
@@ -373,6 +375,24 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
             ],
             ["a"],
         )
+
+
+def test_log_model_serializes_underlying_model_with_skops(shap_model):
+    # Guard that the underlying sklearn model is serialized with skops (not cloudpickle) by
+    # default. The serialization artifact is the only discriminating signal: both skops and
+    # cloudpickle appear in the auto-inferred pip requirements regardless of format, so the
+    # requirements can't guard this default.
+    with mlflow.start_run():
+        model_info = mlflow.shap.log_explainer(shap_model, "model")
+
+    underlying_model_path = Path(
+        _download_artifact_from_uri(model_info.model_uri), "underlying_model"
+    )
+    sklearn_conf = _get_flavor_configuration(
+        model_path=underlying_model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+    )
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
+    assert (underlying_model_path / "model.skops").exists()
 
 
 def create_identity_function():
@@ -493,3 +513,13 @@ def test_model_log_with_metadata(shap_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+@pytest.mark.parametrize("load_fn", [mlflow.shap.load_explainer, pyfunc.load_model])
+def test_load_disallows_pickle_deserialization(shap_model, tmp_path, monkeypatch, load_fn):
+    model_path = str(tmp_path.joinpath("shap_model"))
+    mlflow.shap.save_explainer(shap_model, model_path, serialize_model_using_mlflow=False)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        load_fn(model_path)

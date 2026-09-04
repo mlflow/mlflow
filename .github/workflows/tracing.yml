@@ -47,7 +47,7 @@ jobs:
     timeout-minutes: 30
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python
@@ -60,7 +60,10 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          uv pip install --system pytest pytest-asyncio pytest-timeout litellm
+          # litellm pinned as in `requirements/test-requirements.txt`, which
+          # this install path does not read.
+          # https://github.com/BerriAI/litellm/issues/38892
+          uv pip install --system pytest pytest-asyncio pytest-timeout 'litellm!=1.97.0,<1.98.0'
 
       - name: Run core tracing tests
         # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job

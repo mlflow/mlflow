@@ -191,6 +191,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
           <FormattedMessage defaultMessage="Evaluate traces" description="Title for the run evaluation modal dialog" />
         }
         visible={isOpen}
+        destroyOnClose
         cancelText={intl.formatMessage({
           defaultMessage: 'Cancel',
           description: 'Cancel button text in the run evaluation modal',

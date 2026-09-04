@@ -30,18 +30,32 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Helm
-        uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
 
       - name: Lint
         run: helm lint charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
 
       - name: Render templates
         run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
+
+      - name: Render ServiceMonitor
+        run: |
+          render() {
+            helm template mlflow charts/ \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
+              --set metrics.enabled=true \
+              --set serviceMonitor.enabled=true "$@"
+          }
+          render | grep -q '^      path: /metrics$'
+          render --set metrics.path=/custom | grep -q '^      path: /custom$'
+          # An unset path must not render as an empty value, which strict schema
+          # validation rejects as null.
+          render --set metrics.path= | grep -q '^      path: /metrics$'
 
   e2e:
     runs-on: ubuntu-latest
@@ -54,7 +68,7 @@ jobs:
         tls: [false, true]
     name: e2e (tls=${{ matrix.tls }})
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 

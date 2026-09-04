@@ -39,6 +39,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
+    TokenUsageKey,
     TraceMetadataKey,
     TraceTagKey,
 )
@@ -271,6 +272,51 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"t": 8},
         "mlflow.spanOutputs": 64,
+    }
+
+
+def test_deep_trace_is_not_corrupted_by_aggregation(async_logging_enabled):
+    # Regression test for #24344: a trace nested deeper than the recursion limit used to
+    # raise RecursionError while aggregating token usage during root-span finalization,
+    # aborting export and leaving the trace permanently stuck IN_PROGRESS with corrupted
+    # span data. The trace must (a) finalize to a terminal state and be loadable, and
+    # (b) still aggregate token usage correctly across multiple LLM spans.
+    depth = 1100  # > sys.getrecursionlimit() default of 1000
+
+    # A deep backbone (no usage) that exceeds the recursion limit...
+    spans = [start_span_no_context("root", span_type=SpanType.AGENT)]
+    for i in range(depth):
+        spans.append(start_span_no_context(f"level_{i}", parent_span=spans[-1]))
+
+    # ...ending in a fan of sibling LLM leaves that each carry usage. None is an ancestor
+    # of another, so aggregation must SUM all of them (3 * {10, 5, 15}).
+    backbone_leaf = spans[-1]
+    for j in range(3):
+        leaf = start_span_no_context(f"llm_{j}", span_type=SpanType.LLM, parent_span=backbone_leaf)
+        leaf.set_attribute(
+            SpanAttributeKey.CHAT_USAGE,
+            {
+                TokenUsageKey.INPUT_TOKENS: 10,
+                TokenUsageKey.OUTPUT_TOKENS: 5,
+                TokenUsageKey.TOTAL_TOKENS: 15,
+            },
+        )
+        leaf.end()
+
+    for s in reversed(spans):
+        s.end()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    trace_id = spans[0].trace_id
+    trace = mlflow.get_trace(trace_id)
+    assert trace is not None
+    assert trace.info.state == TraceState.OK
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 30,
+        TokenUsageKey.OUTPUT_TOKENS: 15,
+        TokenUsageKey.TOTAL_TOKENS: 45,
     }
 
 
@@ -776,6 +822,50 @@ def test_start_span_context_manager(async_logging_enabled):
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
+def test_successful_genai_span_without_inputs_or_outputs_warns_agent(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        with mlflow.start_span(name="empty_tool", span_type=SpanType.TOOL):
+            pass
+
+    assert warn.call_args_list == [
+        mock.call(
+            "genai-span-missing-inputs",
+            "The successful TOOL span 'empty_tool' has no recorded inputs.",
+        ),
+        mock.call(
+            "genai-span-missing-outputs",
+            "The successful TOOL span 'empty_tool' has no recorded outputs.",
+        ),
+    ]
+
+
+def test_error_genai_span_without_outputs_does_not_warn_agent(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        with mlflow.start_span(name="failed_tool", span_type=SpanType.TOOL) as span:
+            span.set_status(SpanStatusCode.ERROR)
+
+    warn.assert_not_called()
+
+
+def test_local_tracking_check_runs_independently_of_span_type_and_status(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_local_tracking_for_databricks") as check:
+        with mlflow.start_span(name="failed_unknown") as span:
+            span.set_status(SpanStatusCode.ERROR)
+
+    check.assert_called_once()
+
+
+def test_agent_hint_failure_does_not_prevent_span_finalization(async_logging_enabled):
+    span = start_span_no_context(name="empty_tool", span_type=SpanType.TOOL)
+    with (
+        mock.patch("mlflow.agent.hint.maybe_warn_agent", side_effect=RuntimeError("hint failed")),
+        mock.patch.object(span._span, "end", wraps=span._span.end) as end,
+    ):
+        span.end()
+
+    end.assert_called_once()
+
+
 @pytest.mark.skipif(
     IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
 )
@@ -1177,7 +1267,13 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         model.predict(2, 5)
         time.sleep(0.1)
 
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+        # If the batch span processor happens to export during the sleep above, the trace
+        # info is already fetchable while the async span write (which adds the
+        # mlflow.trace.spansLocation tag) is still in flight, and get_trace(flush=True)
+        # would return the partial snapshot without flushing (it only flushes on a miss).
+        # Flush explicitly so the snapshot always reflects fully committed data.
+        mlflow.flush_trace_async_logging()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         expected_traces.append(trace)
 
     df = mlflow.search_traces(max_results=10, order_by=["timestamp ASC"], flush=True)
@@ -1278,6 +1374,23 @@ def test_search_traces_with_non_dict_span_inputs_outputs():
     assert df["non_dict_span.inputs"].tolist() == [["a", "b"]]
     assert df["non_dict_span.outputs"].tolist() == [[1, 2, 3]]
     assert df["non_dict_span.inputs.x"].isnull().all()
+
+
+@skip_when_testing_trace_sdk
+def test_trace_decorator_honors_explicit_set_outputs():
+    @mlflow.trace
+    def predict(x):
+        mlflow.get_current_active_span().set_outputs({"explicit": x * 2})
+        return {"returned": x * 10}
+
+    # The function's real return value is unchanged.
+    assert predict(3) == {"returned": 30}
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    # The explicit set_outputs() call wins over the auto-captured return value.
+    assert span.outputs == {"explicit": 6}
 
 
 @skip_when_testing_trace_sdk

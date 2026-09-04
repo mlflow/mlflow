@@ -3,23 +3,25 @@ import inspect
 import logging
 import typing
 
+from packaging.version import Version
+
 from mlflow.pydantic_ai.autolog import (
     patched_agent_init,
     patched_async_class_call,
     patched_async_stream_call,
+    patched_capability_model_request,
     patched_class_call,
     patched_sync_stream_call,
 )
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.utils import get_installed_version
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
-from mlflow.utils.autologging_utils.safety import (
-    _AUTOLOGGING_CLEANUP_CALLBACKS,
-    _store_patch,
-    _wrap_patch,
-)
+from mlflow.utils.autologging_utils.safety import _store_patch, _wrap_patch
 
 FLAVOR_NAME = "pydantic_ai"
+_PYDANTIC_AI_V2_MIN_VERSION = Version("2.5.0")
+
 _logger = logging.getLogger(__name__)
 
 
@@ -107,16 +109,59 @@ def _tool_manager_uses_execute_tool_call() -> bool:
         return False
 
 
+def _has_instrumentation_capability() -> bool:
+    """Return True if pydantic-ai routes model calls through the Instrumentation capability.
+
+    pydantic-ai >= 1.95 replaced the ``InstrumentedModel`` wrapper with a capabilities
+    system: model requests funnel through ``Instrumentation.wrap_model_request`` instead of
+    ``InstrumentedModel.request``/``request_stream``. When this module is importable we
+    instrument that hook and skip the ``InstrumentedModel`` patch, so exactly one path
+    produces the LLM span (never both).
+    """
+    try:
+        import pydantic_ai.capabilities.instrumentation  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def _get_pydantic_ai_version() -> Version | None:
+    return get_installed_version("pydantic-ai") or get_installed_version("pydantic-ai-slim")
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """
     Enable (or disable) autologging for Pydantic_AI.
+
+    Pydantic AI 2.x requires version 2.5.0 or newer.
 
     Args:
         log_traces: If True, capture spans for agent + model calls.
         disable:   If True, disable the autologging patches.
         silent:    If True, suppress MLflow warnings/info.
     """
+    version = _get_pydantic_ai_version()
+    if version is not None and version.major >= 2:
+        if version >= _PYDANTIC_AI_V2_MIN_VERSION:
+            from mlflow.pydantic_ai.autolog_v2 import setup_autologging as setup_v2_autologging
+
+            setup_v2_autologging()
+        elif not disable:
+            _logger.warning(
+                "MLflow Pydantic AI autologging requires pydantic-ai >= %s for Pydantic AI "
+                "2.x, but version %s is installed. Autologging has not been enabled. Please "
+                "upgrade pydantic-ai.",
+                _PYDANTIC_AI_V2_MIN_VERSION,
+                version,
+            )
+        _record_event(
+            AutologgingEvent,
+            {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable},
+        )
+        return
+
     # Base methods that exist in all supported versions
     agent_methods = ["run", "run_sync", "run_stream"]
 
@@ -129,13 +174,14 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
     except ImportError:
         pass
 
+    # On pydantic-ai >= 1.95 the Instrumentation capability (patched below) is the model
+    # request funnel; on older versions it's InstrumentedModel. Instrument exactly one of
+    # them so a single LLM span is produced per model call, never two overlapping spans.
+    has_instrumentation_capability = _has_instrumentation_capability()
+
     tool_manager_path = f"{_get_tool_manager_module_path()}.ToolManager"
     class_map = {
         "pydantic_ai.Agent": agent_methods,
-        "pydantic_ai.models.instrumented.InstrumentedModel": [
-            "request",
-            "request_stream",
-        ],
         # In pydantic-ai >= 1.63.0, _agent_graph calls execute_tool_call directly,
         # bypassing handle_call. Patch execute_tool_call when available; fall back to
         # handle_call for older versions where execute_tool_call doesn't exist.
@@ -144,6 +190,11 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
         else ["handle_call"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
     }
+    if not has_instrumentation_capability:
+        class_map["pydantic_ai.models.instrumented.InstrumentedModel"] = [
+            "request",
+            "request_stream",
+        ]
 
     try:
         from pydantic_ai import Tool
@@ -154,38 +205,21 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
     except ImportError:
         pass
 
-    # Auto-enable instrument=True so LLM spans are captured without requiring users
-    # to explicitly set it. pydantic-ai >= 1.0 exposes Agent.instrument_all() to toggle
-    # instrumentation globally, which also restores request/tool spans that the older
-    # per-instance Agent.__init__ patch no longer captures. Fall back to patching
-    # Agent.__init__ on older versions that don't have instrument_all.
+    # Patch Agent.__init__ to auto-enable instrument=True so LLM spans
+    # are captured without requiring users to explicitly set it
     try:
         from pydantic_ai import Agent
 
-        if hasattr(Agent, "instrument_all"):
-            if log_traces:
-                # Capture the prior global instrumentation default so disabling
-                # autologging restores it instead of unconditionally turning it off.
-                previous_state = Agent._instrument_default
-                Agent.instrument_all(True)
+        original_init = Agent.__init__
 
-                def cleanup_instrumentation():
-                    Agent.instrument_all(previous_state)
+        @functools.wraps(original_init)
+        def patched_init(self, *args, **kwargs):
+            return patched_agent_init(original_init, self, *args, **kwargs)
 
-                _AUTOLOGGING_CLEANUP_CALLBACKS.setdefault(FLAVOR_NAME, []).append(
-                    cleanup_instrumentation
-                )
-        else:
-            original_init = Agent.__init__
-
-            @functools.wraps(original_init)
-            def patched_init(self, *args, **kwargs):
-                return patched_agent_init(original_init, self, *args, **kwargs)
-
-            patch = _wrap_patch(Agent, "__init__", patched_init)
-            _store_patch(FLAVOR_NAME, patch)
+        patch = _wrap_patch(Agent, "__init__", patched_init)
+        _store_patch(FLAVOR_NAME, patch)
     except (ImportError, AttributeError) as e:
-        _logger.error("Error enabling Agent instrumentation: %s", e)
+        _logger.error("Error patching Agent.__init__: %s", e)
 
     for cls_path, methods in class_map.items():
         module_name, class_name = cls_path.rsplit(".", 1)
@@ -201,6 +235,23 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
                 _patch_method(cls, method)
             except AttributeError as e:
                 _logger.error("Error patching %s.%s: %s", cls_path, method, e)
+
+    # pydantic-ai >= 1.95 routes both streaming and non-streaming model requests through
+    # the Instrumentation capability's wrap_model_request instead of InstrumentedModel.
+    # Patch it (and only it, since InstrumentedModel is excluded from class_map above) so a
+    # single provider-agnostic LLM span is produced per model request on modern versions.
+    if has_instrumentation_capability:
+        try:
+            from pydantic_ai.capabilities.instrumentation import Instrumentation
+
+            safe_patch(
+                FLAVOR_NAME,
+                Instrumentation,
+                "wrap_model_request",
+                patched_capability_model_request,
+            )
+        except (ImportError, AttributeError) as e:
+            _logger.error("Error patching Instrumentation.wrap_model_request: %s", e)
 
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}

@@ -34,6 +34,7 @@ export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
 export const shouldUseRunRowsVisibilityMap = () => true;
 export const isUnstableNestedComponentsMigrated = () => true;
 export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
+export const shouldUseTracesV4Tab = () => true;
 
 /**
  * Determines if logged models UI (part of model-centric IA shift) is enabled

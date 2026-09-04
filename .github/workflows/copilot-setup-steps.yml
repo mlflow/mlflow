@@ -19,12 +19,41 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
       - uses: ./.github/actions/setup-java
+      - name: Restore action pins
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/action-pins.json
+          key: action-pins-${{ hashFiles('dev/check_actions.py') }}
+      - name: Restore mypy cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .mypy_cache
+          key: mypy-ubuntu-latest-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+          restore-keys: mypy-ubuntu-latest-
+      - name: Restore install-bin tools
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            bin/*
+            !bin/install.py
+            !bin/README.md
+            !bin/.gitignore
+          key: install-bin-ubuntu-latest-${{ hashFiles('bin/install.py') }}
+          restore-keys: install-bin-ubuntu-latest-
+      - name: Restore pre-commit hooks
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-ubuntu-latest-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: pre-commit-ubuntu-latest-
       - name: Install dependencies
         run: |
           uv sync --only-group lint

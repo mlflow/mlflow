@@ -1,6 +1,7 @@
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
 import {
+  CreateAssessment,
   CreateExperiment,
   CreateTraceInfoV4,
   DeleteExperiment,
@@ -9,16 +10,52 @@ import {
   GetExperiment,
   GetExperimentByName,
   GetTraceInfoV3,
+  SearchTracesV3,
   StartTraceV3,
 } from './spec';
+import {
+  AssessmentSourceType,
+  assertFeedbackPayload,
+  assertMetadataStringMap,
+  Feedback,
+  standardizeSourceType,
+  type AssessmentError,
+  type AssessmentSource,
+  type FeedbackValueType,
+} from '../core/entities/assessment';
 import { makeRawRequest, makeRequest, MlflowHttpError } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
 import { DATABRICKS_UC_TABLE_HEADER, MLFLOW_EXPERIMENT_ID_HEADER } from '../core/constants';
+import { serializeTraceLocation, type TraceLocation } from '../core/entities/trace_location';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import type { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
 import { ExportResultCode, type ExportResult } from '@opentelemetry/core';
+
+export interface SearchTracesOptions {
+  /** Trace locations (e.g. MLflow experiments) to search over. */
+  locations: TraceLocation[];
+  /** Search filter string, e.g. `"tags.env = 'prod'"`. */
+  filter?: string;
+  /** Maximum number of traces to return in a single page. */
+  maxResults?: number;
+  /** List of order-by clauses, e.g. `['timestamp_ms DESC']`. */
+  orderBy?: string[];
+  /** Pagination token obtained from a previous searchTraces call. */
+  pageToken?: string;
+  /**
+   * Whether to fetch span data for each matching trace. Defaults to `true`.
+   * When `false`, only trace metadata is returned and the traces have empty
+   * span data.
+   */
+  includeSpans?: boolean;
+}
+
+export interface SearchTracesResult {
+  traces: Trace[];
+  nextPageToken?: string;
+}
 
 /**
  * Client for MLflow tracing operations.
@@ -206,10 +243,142 @@ export class MlflowClient {
   }
 
   /**
+   * Search for traces that match the given search criteria.
+   * Corresponding to the Python SDK's search_traces() method.
+   *
+   * By default the span data of each matching trace is fetched with one
+   * download per trace; traces whose span data cannot be downloaded are
+   * skipped, matching the Python SDK's behavior. Pass `includeSpans: false`
+   * to return trace metadata only, with empty span data.
+   *
+   * Locations are passed through to the tracking server, which validates
+   * that it supports the requested location types.
+   *
+   * @param options.locations Trace locations (e.g. MLflow experiments) to search over.
+   * @param options.filter Search filter string, e.g. `"tags.env = 'prod'"`.
+   * @param options.maxResults Maximum number of traces to return in a single page.
+   * @param options.orderBy List of order-by clauses, e.g. `['timestamp_ms DESC']`.
+   * @param options.pageToken Pagination token obtained from a previous searchTraces call.
+   * @param options.includeSpans Whether to fetch span data for each trace. Defaults to `true`.
+   * @returns The matching traces and, when more results are available, a token for the next page.
+   *
+   * @example
+   * ```typescript
+   * const { traces, nextPageToken } = await client.searchTraces({
+   *   locations: [
+   *     { type: TraceLocationType.MLFLOW_EXPERIMENT, mlflowExperiment: { experimentId: '123' } },
+   *   ],
+   *   filter: "tags.env = 'prod'",
+   *   maxResults: 10,
+   *   orderBy: ['timestamp_ms DESC'],
+   * });
+   * ```
+   */
+  async searchTraces(options: SearchTracesOptions): Promise<SearchTracesResult> {
+    const { locations, includeSpans = true } = options;
+    if (!locations?.length) {
+      throw new Error('At least one location must be specified for searching traces.');
+    }
+
+    const url = SearchTracesV3.getEndpoint(this.hostUrl);
+    const payload: SearchTracesV3.Request = {
+      locations: locations.map(serializeTraceLocation),
+      filter: options.filter,
+      max_results: options.maxResults,
+      order_by: options.orderBy,
+      page_token: options.pageToken,
+    };
+    const response = await makeRequest<SearchTracesV3.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload,
+    );
+    const traceInfos = (response.traces ?? []).map((trace) => TraceInfo.fromJson(trace));
+
+    let traces: Trace[];
+    if (includeSpans) {
+      const results = await Promise.all(
+        traceInfos.map((traceInfo) => this.downloadTraceDataForSearch(traceInfo)),
+      );
+      traces = results.filter((trace): trace is Trace => trace !== undefined);
+    } else {
+      traces = traceInfos.map((traceInfo) => new Trace(traceInfo, new TraceData()));
+    }
+
+    return {
+      traces,
+      nextPageToken: response.next_page_token || undefined,
+    };
+  }
+
+  /**
+   * Fetch span data for a search result. Returns undefined when the data
+   * cannot be downloaded (e.g. missing or corrupted) so the trace is dropped
+   * from the results with a warning, matching the Python SDK.
+   */
+  private async downloadTraceDataForSearch(traceInfo: TraceInfo): Promise<Trace | undefined> {
+    try {
+      const traceData = await this.artifactsClient.downloadTraceData(traceInfo);
+      return new Trace(traceInfo, traceData);
+    } catch (error) {
+      console.warn(`Failed to download trace data for trace ${traceInfo.traceId}:`, error);
+      return undefined;
+    }
+  }
+
+  /**
    * Upload trace data to the artifact store.
    */
   async uploadTraceData(traceInfo: TraceInfo, traceData: TraceData): Promise<void> {
     await this.artifactsClient.uploadTraceData(traceInfo, traceData);
+  }
+
+  /**
+   * Log feedback on a persisted trace via the V3 assessments API.
+   * Corresponds to Python `mlflow.log_feedback`.
+   *
+   * Databricks Unity Catalog V4 assessment posting is not included in this method.
+   */
+  async logFeedback(params: {
+    traceId: string;
+    name?: string;
+    value?: FeedbackValueType;
+    error?: AssessmentError | string;
+    source?: AssessmentSource;
+    rationale?: string;
+    metadata?: Record<string, string>;
+    spanId?: string;
+  }): Promise<Feedback> {
+    assertFeedbackPayload({ value: params.value, error: params.error });
+    const metadata = assertMetadataStringMap(params.metadata);
+    const source = params.source
+      ? {
+          sourceType: standardizeSourceType(params.source.sourceType),
+          sourceId: params.source.sourceId || 'default',
+        }
+      : { sourceType: AssessmentSourceType.CODE, sourceId: 'default' };
+
+    const feedback = new Feedback({
+      name: params.name,
+      value: params.value,
+      error: params.error,
+      source,
+      rationale: params.rationale,
+      metadata,
+      spanId: params.spanId,
+      traceId: params.traceId,
+    });
+
+    const url = CreateAssessment.getEndpoint(this.hostUrl, params.traceId);
+    const payload: CreateAssessment.Request = { assessment: feedback.toJson() };
+    const response = await makeRequest<CreateAssessment.Response>(
+      'POST',
+      url,
+      this.headersProvider,
+      payload,
+    );
+    return Feedback.fromJson(response.assessment);
   }
 
   // === EXPERIMENT METHODS  ===

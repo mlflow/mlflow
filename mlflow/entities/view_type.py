@@ -13,7 +13,7 @@ class ViewType:
     _STRING_TO_VIEW = {value: key for key, value in _VIEW_TO_STRING.items()}
 
     @classmethod
-    def from_string(cls, view_str):
+    def from_string(cls, view_str: str) -> int:
         if view_str not in cls._STRING_TO_VIEW:
             raise Exception(
                 f"Could not get valid view type corresponding to string {view_str}. "
@@ -22,7 +22,7 @@ class ViewType:
         return cls._STRING_TO_VIEW[view_str]
 
     @classmethod
-    def to_string(cls, view_type):
+    def to_string(cls, view_type: int) -> str:
         if view_type not in cls._VIEW_TO_STRING:
             raise Exception(
                 f"Could not get valid view type corresponding to string {view_type}. "
@@ -31,7 +31,7 @@ class ViewType:
         return cls._VIEW_TO_STRING[view_type]
 
     @classmethod
-    def to_proto(cls, view_type):
+    def to_proto(cls, view_type: int) -> service_pb2.ViewType:
         if view_type == cls.ACTIVE_ONLY:
             return service_pb2.ACTIVE_ONLY
         elif view_type == cls.DELETED_ONLY:
@@ -41,7 +41,7 @@ class ViewType:
         raise ValueError(f"Unexpected view_type: {view_type}")
 
     @classmethod
-    def from_proto(cls, proto_view_type):
+    def from_proto(cls, proto_view_type: service_pb2.ViewType) -> int:
         if proto_view_type == service_pb2.ACTIVE_ONLY:
             return cls.ACTIVE_ONLY
         elif proto_view_type == service_pb2.DELETED_ONLY:

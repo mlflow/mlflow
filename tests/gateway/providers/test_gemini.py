@@ -1640,3 +1640,74 @@ def test_gemini_adapter_build_chat_usage_without_cached_tokens():
     assert usage.completion_tokens == 20
     assert usage.total_tokens == 70
     assert usage.prompt_tokens_details is None
+
+
+def test_gemini_adapter_build_chat_usage_preserves_provider_specific_fields():
+    usage_metadata = {
+        "promptTokenCount": 50,
+        "candidatesTokenCount": 20,
+        "totalTokenCount": 70,
+        "thoughtsTokenCount": 12,
+        "trafficType": "ON_DEMAND",
+    }
+    usage = GeminiAdapter._build_chat_usage(usage_metadata)
+
+    assert usage.model_dump()["thoughtsTokenCount"] == 12
+    assert usage.model_dump()["trafficType"] == "ON_DEMAND"
+    assert "promptTokenCount" not in usage.model_dump()
+
+
+def test_chat_to_model_translates_multimodal_image_content():
+    # A user message with OpenAI-format multimodal content (text + an image_url base64
+    # data URL) must be translated to Gemini inlineData parts; the gateway path is how
+    # native gemini:/ judge URIs reach the model.
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "what color?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,QUJD"},
+                    },
+                ],
+            }
+        ],
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"] == [
+        {
+            "role": "user",
+            "parts": [
+                {"text": "what color?"},
+                {"inlineData": {"mimeType": "image/png", "data": "QUJD"}},
+            ],
+        }
+    ]
+
+
+def test_chat_to_model_string_content_unchanged():
+    # String content must remain a no-op (shared with non-judge gateway traffic).
+    payload = {"messages": [{"role": "user", "content": "just text"}]}
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"] == [{"role": "user", "parts": [{"text": "just text"}]}]
+
+
+def test_chat_to_model_unknown_content_part_passed_through():
+    # A non-text, non-image_url part (e.g. input_audio) must be preserved, not coerced to
+    # an empty {"text": ""} part which would silently drop its content.
+    audio_part = {"type": "input_audio", "input_audio": {"data": "QUJD", "format": "wav"}}
+    payload = {
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": "transcribe"}, audio_part]}
+        ]
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"] == [{"role": "user", "parts": [{"text": "transcribe"}, audio_part]}]

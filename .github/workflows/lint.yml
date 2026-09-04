@@ -47,17 +47,45 @@ jobs:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     name: ${{ matrix.os == 'ubuntu-latest' && 'lint' || 'lint-macos' }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           # To ensure `git diff` works correctly in dev/check_function_signatures.py,
           # we need to fetch enough history to include the base branch.
           fetch-depth: 300
       - uses: ./.github/actions/untracked
-      - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
-      - uses: ./.github/actions/setup-node
+      - parallel:
+          - uses: ./.github/actions/setup-python
+            with:
+              pin-micro-version: false
+          - uses: ./.github/actions/setup-node
+          - name: Cache action pins
+            uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+            with:
+              path: .cache/action-pins.json
+              key: action-pins-${{ hashFiles('dev/check_actions.py') }}
+          - name: Cache mypy
+            uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+            with:
+              path: .mypy_cache
+              key: mypy-${{ matrix.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+              restore-keys: mypy-${{ matrix.os }}-
+          - name: Cache install-bin tools
+            uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+            with:
+              path: |
+                bin/*
+                !bin/install.py
+                !bin/README.md
+                !bin/.gitignore
+              key: install-bin-${{ matrix.os }}-${{ hashFiles('bin/install.py') }}
+              restore-keys: install-bin-${{ matrix.os }}-
+          - name: Cache pre-commit hooks
+            uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+            with:
+              path: ~/.cache/pre-commit
+              key: pre-commit-${{ matrix.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+              restore-keys: pre-commit-${{ matrix.os }}-
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -67,33 +95,6 @@ jobs:
       - name: Install Python dependencies
         run: |
           uv sync --locked --only-group lint --only-group pytest
-      - name: Cache action pins
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: .cache/action-pins.json
-          key: action-pins-${{ hashFiles('dev/check_actions.py') }}
-      - name: Cache mypy
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: .mypy_cache
-          key: mypy-${{ matrix.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
-          restore-keys: mypy-${{ matrix.os }}-
-      - name: Cache install-bin tools
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: |
-            bin/*
-            !bin/install.py
-            !bin/README.md
-            !bin/.gitignore
-          key: install-bin-${{ matrix.os }}-${{ hashFiles('bin/install.py') }}
-          restore-keys: install-bin-${{ matrix.os }}-
-      - name: Cache pre-commit hooks
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-${{ matrix.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
-          restore-keys: pre-commit-${{ matrix.os }}-
       - name: Install pre-commit hooks
         run: |
           uv run --no-sync pre-commit install --install-hooks
@@ -113,6 +114,10 @@ jobs:
       - name: Test pypi
         run: |
           uv run --no-sync pytest dev/pypi
+
+      - name: Test skills
+        run: |
+          uv run --no-sync pytest .claude/skills
 
       - name: Check function signatures
         if: matrix.os == 'ubuntu-latest'

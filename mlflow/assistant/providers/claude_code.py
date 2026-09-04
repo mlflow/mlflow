@@ -11,14 +11,23 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, AsyncGenerator, Callable, Literal
 
+from mlflow.assistant.custom_view import (
+    CUSTOM_VIEW_RESPONSE_SCHEMA,
+    CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS,
+    custom_view_response_events,
+    is_custom_view_request,
+    parse_custom_view_response,
+)
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
-    load_config,
+    assistant_sandbox_enabled,
+    load_config_or_default,
 )
 from mlflow.assistant.types import (
     ContentBlock,
@@ -29,7 +38,46 @@ from mlflow.assistant.types import (
     ToolResultBlock,
     ToolUseBlock,
 )
-from mlflow.server.assistant.session import clear_process_pid, save_process_pid
+from mlflow.server.assistant.session import (
+    clear_container_id,
+    clear_process_pid,
+    get_session_sandbox_home,
+    save_container_id,
+    save_process_pid,
+)
+
+# Environment variables forwarded into the sandbox so the CLI can authenticate. Host secrets
+# outside this allowlist are intentionally NOT passed through; logged-in credentials otherwise
+# persist in the per-session HOME directory. The list covers the CLI's supported auth backends
+# (direct Anthropic API, Amazon Bedrock, Google Vertex) plus outbound proxy configuration.
+# Host provider credentials forwarded into the sandbox so the CLI can authenticate. The
+# container still has unrestricted outbound network access; restricting egress (a dedicated
+# network + optional proxy) is a planned follow-up (see the network-posture note in
+# mlflow/server/sandbox/container.py), and until then the sandbox stays off by default.
+# Both proxy-var cases are forwarded so an operator's interim egress proxy is honored whether
+# it is set upper- or lower-case (lowercase is conventional on Linux).
+_SANDBOX_AUTH_ENV_PASSTHROUGH = (
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_MODEL",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_REGION",
+    "AWS_PROFILE",
+    "ANTHROPIC_VERTEX_PROJECT_ID",
+    "CLOUD_ML_REGION",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -47,8 +95,7 @@ FILE_EDIT_TOOLS = [
     "Read(*)",
     "Write(*)",
     # Allow writing large command output to files in /tmp so it
-    # can be analyzed with bash commands (e.g. grep, jq) without
-    # loading full contents into context
+    # can be analyzed with bash commands without loading full contents into context
     "Edit(//tmp/**)",
     "Read(//tmp/**)",
     "Write(//tmp/**)",
@@ -74,6 +121,46 @@ You MUST always try to minimize the number of steps the user has to take manuall
 is relying on you to accelerate their workflows. For example, if the user asks for a tutorial on
 how to do something, find the answer and then offer to do it for them using MLflow commands or code,
 rather than just telling them how to do it themselves.
+
+## CRITICAL: Stay In Scope and Refuse Harmful Requests
+
+You are an MLflow assistant. Your remit is MLflow and the user's MLflow projects.
+
+- If a request is unrelated to MLflow (e.g. general trivia, writing an essay, coding
+  help unrelated to MLflow, personal advice), do NOT answer it. Briefly decline and
+  redirect the user to ask an MLflow-related question.
+- Refuse destructive or harmful requests — for example, deleting the user's data,
+  dropping databases, or running destructive shell commands (`rm -rf`, etc.). Do NOT
+  comply even when the request is phrased as a direct instruction, and explain why you
+  will not proceed.
+- If a request is genuinely ambiguous, ask a clarifying question instead of guessing.
+
+## CRITICAL: Match Response Length to the Question
+
+Answer the specific question asked, then stop. Do NOT pad conceptual or how-to answers.
+
+- For a "how do I X" question, give the ONE canonical way to do X in a short code
+  snippet, and stop. Do NOT enumerate alternative APIs, every configuration parameter,
+  or "advanced options" the user did not ask about.
+- Provide exactly ONE runnable example, not one per variant. If several items share an
+  API (e.g. log_figure/log_dict/log_table), show them together in one example.
+- Do NOT add "Key Features", "Why Use Them", "Benefits", "When to Use", or "Pro Tips"
+  sections, and do NOT add comparison tables, unless the user explicitly asks to compare
+  or asks why.
+- Do NOT restate in prose what a code comment already conveys.
+- For troubleshooting questions, ask for the specific missing detail (error message,
+  model type, payload) before enumerating every possible cause.
+
+## Answer Modality: SDK first, UI when simplest, CLI last
+
+When showing a user how to accomplish a task, default to the Python SDK
+(`import mlflow; ...`). The MLflow CLI is YOUR OWN tool for querying the user's data
+(see "Command Preferences" below) — it is NOT the preferred thing to show users. Only
+show CLI commands when the user explicitly asks about the CLI.
+
+When a task is fastest in the MLflow UI the user is already viewing (e.g. sorting runs by
+a metric, comparing runs, registering a model), say so first, then give the SDK
+equivalent if useful.
 
 ## CRITICAL: Using Skills
 
@@ -202,6 +289,45 @@ let the server handle storage. Specifically:
 - NEVER read the filesystem or cloud storage to access MLflow artifact storage directly.
 - ALWAYS let the MLflow server handle all storage operations through its APIs.
 
+## Analysis Best Practices
+
+When the user asks you to analyze their own MLflow DATA (traces, runs, experiments) — NOT
+when answering conceptual or how-to questions — follow this approach:
+
+1. **Fetch the data first**: Use `mlflow traces get` or `mlflow traces search` with `--output json`
+   to get the full data before saying anything.
+
+2. **For trace analysis**, always examine:
+   - Overall status (OK vs ERROR) and execution duration
+   - Span hierarchy: parent-child relationships and span types (AGENT, TOOL, LLM, RETRIEVER, etc.)
+   - Per-span timing: which spans are slowest, where bottlenecks are
+   - Token usage: input tokens, output tokens, total cost implications
+   - Input/output content: what was asked and what was returned
+   - Error details: if any spans failed, what were the error messages
+   - Assessments: any existing feedback or expectations logged
+   - Present span hierarchy as a tree diagram
+   - Present timing data as ASCII bar charts
+
+3. **For run analysis**, always examine:
+   - All logged parameters and their values (present as a table)
+   - All metrics and their progression over time (present as a table with trends)
+   - Tags and metadata
+   - Artifacts that were logged
+   - Compare with other runs in the experiment when possible
+
+4. **For comparisons** (multiple traces or runs):
+   - Calculate statistics (min, max, avg, median, p95) for timing and metrics
+   - Present comparison data in side-by-side tables
+   - Use ASCII charts to visualize distributions
+   - Identify outliers and anomalies
+   - Highlight differences in parameters or configurations
+   - Suggest what might explain performance differences
+
+5. **Provide actionable insights**: Don't just describe what you see — tell the user what it
+   means and what they should do about it, and end that analysis with a "Recommendations"
+   section containing specific, prioritized action items. This applies to data analysis only;
+   for conceptual or how-to answers, follow "Match Response Length to the Question" above.
+
 ## MLflow Documentation
 
 If you have a permission to fetch MLflow documentation, use the WebFetch tool to fetch
@@ -264,8 +390,21 @@ class ClaudeCodeProvider(AssistantProvider):
     def description(self) -> str:
         return "AI-powered assistant using Claude Code CLI"
 
+    @property
+    def client_tool_delivery(self) -> Literal["structured"]:
+        return "structured"
+
+    @property
+    def allows_remote_access(self) -> bool:
+        # In local mode the CLI runs on the host, so it must stay localhost-only. In sandbox mode
+        # it runs isolated in a container, so it can safely serve remote clients.
+        return assistant_sandbox_enabled()
+
     def is_available(self) -> bool:
-        return shutil.which("claude") is not None
+        # In sandbox mode the CLI runs inside the operator-provided image, not on the host, so
+        # availability follows the sandbox being active rather than a host binary the operator is
+        # not expected to install.
+        return assistant_sandbox_enabled() or shutil.which("claude") is not None
 
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         """
@@ -277,6 +416,13 @@ class ClaudeCodeProvider(AssistantProvider):
         Raises:
             ProviderNotConfiguredError: If CLI is not installed or not authenticated.
         """
+        if assistant_sandbox_enabled():
+            # The CLI runs inside the operator image, not on the host, so there is no host binary
+            # or host login to verify here; image presence and auth are checked when a turn starts
+            # the container.
+            if echo:
+                echo("Assistant sandbox enabled; the Claude Code CLI runs in the sandbox image.")
+            return
         claude_path = shutil.which("claude")
         if not claude_path:
             if echo:
@@ -351,6 +497,13 @@ class ClaudeCodeProvider(AssistantProvider):
         Yields:
             Event objects
         """
+        if assistant_sandbox_enabled():
+            async for event in self._astream_in_sandbox(
+                prompt, tracking_uri, session_id, mlflow_session_id, cwd, context
+            ):
+                yield event
+            return
+
         claude_path = shutil.which("claude")
         if not claude_path:
             yield Event.from_error(
@@ -363,16 +516,31 @@ class ClaudeCodeProvider(AssistantProvider):
             user_message = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
         else:
             user_message = prompt
+        structured_custom_view = is_custom_view_request(context)
+        if structured_custom_view:
+            user_message = f"{user_message}\n\n{CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS}"
 
         # Build command
-        # Note: --verbose is required when using --output-format=stream-json with -p
-        cmd = [claude_path, "-p", user_message, "--output-format", "stream-json", "--verbose"]
+        # Note: --verbose is required when using --output-format=stream-json with -p.
+        # The user message is piped via stdin (--input-format text) rather than passed
+        # as a CLI arg. The system prompt (~10k chars) is written to a temp file and
+        # referenced with --append-system-prompt-file. Both avoid overflowing the
+        # Windows cmd.exe 8191-char command-line limit, which the npm `claude.CMD`
+        # shim is subject to (see https://github.com/mlflow/mlflow/issues/24406).
+        cmd = [
+            claude_path,
+            "-p",
+            "--input-format",
+            "text",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+        ]
 
-        # Add system prompt with tracking URI context
         system_prompt = _build_system_prompt(tracking_uri)
-        cmd.extend(["--append-system-prompt", system_prompt])
-
-        config = load_config(self.name)
+        config = load_config_or_default(self.name)
+        if structured_custom_view:
+            cmd.extend(["--json-schema", json.dumps(CUSTOM_VIEW_RESPONSE_SCHEMA)])
 
         # Handle permission mode
         if config.permissions.full_access:
@@ -396,9 +564,23 @@ class ClaudeCodeProvider(AssistantProvider):
             cmd.extend(["--resume", session_id])
 
         process = None
+        system_prompt_path: str | None = None
+        structured_response: Any | None = None
+        structured_session_id: str | None = None
         try:
+            # Write the system prompt to a temp file referenced with
+            # --append-system-prompt-file. mkstemp (rather than NamedTemporaryFile)
+            # lets us close the handle before the CLI opens the path, avoiding a
+            # Windows sharing violation. The file must outlive the streaming
+            # subprocess, so it is removed in the finally block below.
+            fd, system_prompt_path = tempfile.mkstemp(prefix="mlflow_assistant_", suffix=".txt")
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(system_prompt)
+            cmd.extend(["--append-system-prompt-file", system_prompt_path])
+
             process = await asyncio.create_subprocess_exec(
                 *cmd,
+                stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
@@ -415,6 +597,23 @@ class ClaudeCodeProvider(AssistantProvider):
             if mlflow_session_id and process.pid:
                 save_process_pid(mlflow_session_id, process.pid)
 
+            # Send the user message via stdin to keep it off the command line.
+            # If the CLI has already exited (e.g. bad --resume, auth failure), the
+            # pipe is broken; swallow the write error so the read loop below
+            # surfaces the CLI's actual stderr instead of a bare "Broken pipe".
+            # BrokenPipeError/ConnectionResetError are OSError subclasses; catch
+            # OSError broadly to also cover the POSIX EPIPE variant. Any write
+            # failure means the process is gone, which is exactly the case the
+            # stderr-reading path below handles.
+            if process.stdin is not None:
+                try:
+                    process.stdin.write(user_message.encode("utf-8"))
+                    await process.stdin.drain()
+                    process.stdin.close()
+                    await process.stdin.wait_closed()
+                except OSError:
+                    pass
+
             try:
                 if process.stdout is None:
                     raise RuntimeError("Claude CLI stdout pipe was not created")
@@ -428,6 +627,21 @@ class ClaudeCodeProvider(AssistantProvider):
                         data = json.loads(line_str)
 
                         if self._should_filter_out_message(data):
+                            continue
+                        if structured_custom_view:
+                            data = self._filter_structured_output_text(data)
+                        # Suppress the structured JSON envelope from the visible chat stream.
+                        if data is None:
+                            continue
+
+                        # Emit token usage before the result event, which closes
+                        # the stream on the client once received.
+                        if data.get("type") == "result" and (usage := data.get("usage")):
+                            yield self._build_usage_event(usage, data.get("total_cost_usd"))
+
+                        if data.get("type") == "result" and structured_custom_view:
+                            structured_response = data.get("structured_output", data.get("result"))
+                            structured_session_id = data.get("session_id")
                             continue
 
                         if msg := self._parse_message_to_event(data):
@@ -458,14 +672,262 @@ class ClaudeCodeProvider(AssistantProvider):
                     or f"Process exited with code {process.returncode}"
                 )
                 yield Event.from_error(error_msg)
+            elif structured_custom_view:
+                if not structured_session_id:
+                    yield Event.from_error("Claude Code result did not include a session ID")
+                    return
+                try:
+                    response = parse_custom_view_response(structured_response)
+                except Exception as e:
+                    yield Event.from_error(
+                        f"Claude Code returned invalid Custom View output: {e}",
+                        session_id=structured_session_id,
+                    )
+                    return
+                for event in custom_view_response_events(response):
+                    yield event
+                yield Event.from_result(result=None, session_id=structured_session_id)
 
         except Exception as e:
             _logger.exception("Error running Claude Code CLI")
-            yield Event.from_error(str(e))
+            yield Event.from_exception(e)
         finally:
             if process is not None and process.returncode is None:
                 process.kill()
                 await process.wait()
+            # Remove the system prompt temp file only after the process has
+            # exited, since the CLI reads it during startup. Cleanup is
+            # best-effort: a failure here (e.g. a lingering handle on Windows)
+            # must not mask the real error already propagating from the body.
+            if system_prompt_path is not None:
+                try:
+                    Path(system_prompt_path).unlink(missing_ok=True)
+                except OSError:
+                    _logger.warning(
+                        "Failed to remove temp system prompt file %s", system_prompt_path
+                    )
+
+    async def _astream_in_sandbox(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        session_id: str | None,
+        mlflow_session_id: str | None,
+        cwd: Path | None,
+        context: dict[str, Any] | None,
+    ) -> AsyncGenerator[Event, None]:
+        """Run the Claude Code CLI inside a hardened Docker container instead of on the host.
+
+        Mirrors ``astream``'s command construction and event parsing, but the CLI, the working
+        directory, and the CLI's ``--resume`` session state all live inside the container. The
+        host path is left unchanged; this runs only when the assistant sandbox is active (see
+        ``assistant_sandbox_enabled``). Runtime behavior (image contents, credentials, volume
+        permissions) is validated
+        against a live Docker daemon rather than in unit tests.
+        """
+        from mlflow.assistant.providers.tool_executor import _uri_without_credentials
+        from mlflow.server.sandbox import (
+            SandboxUnavailableError,
+            sandbox_input_path,
+            start_sandbox_process,
+            to_container_host_uri,
+        )
+
+        if context:
+            user_message = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
+        else:
+            user_message = prompt
+        structured_custom_view = is_custom_view_request(context)
+        if structured_custom_view:
+            user_message = f"{user_message}\n\n{CUSTOM_VIEW_STRUCTURED_OUTPUT_INSTRUCTIONS}"
+
+        config = load_config_or_default(self.name)
+        cmd = [
+            "claude",
+            "-p",
+            "--input-format",
+            "text",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+        ]
+        if structured_custom_view:
+            cmd.extend(["--json-schema", json.dumps(CUSTOM_VIEW_RESPONSE_SCHEMA)])
+        if config.permissions.full_access:
+            cmd.extend(["--permission-mode", "bypassPermissions"])
+        else:
+            allowed_tools = list(BASE_ALLOWED_TOOLS)
+            if config.permissions.allow_edit_files:
+                allowed_tools.extend(FILE_EDIT_TOOLS)
+            if config.permissions.allow_read_docs:
+                allowed_tools.extend(DOCS_TOOLS)
+            for tool in allowed_tools:
+                cmd.extend(["--allowed-tools", tool])
+        if config.model and config.model != "default":
+            cmd.extend(["--model", config.model])
+        if session_id:
+            cmd.extend(["--resume", session_id])
+        cmd.extend(["--append-system-prompt-file", sandbox_input_path("system_prompt.txt")])
+
+        input_files = {"system_prompt.txt": _build_system_prompt(tracking_uri)}
+        env = {"MLFLOW_TRACKING_URI": to_container_host_uri(tracking_uri)}
+        # Mirror the Bash sandbox: forward the registry URI too so `mlflow` registry commands in
+        # the container reach the same registry, credential-stripped and loopback-rewritten.
+        registry_uri = os.environ.get("MLFLOW_REGISTRY_URI")
+        if registry_uri and (safe := _uri_without_credentials("MLFLOW_REGISTRY_URI", registry_uri)):
+            env["MLFLOW_REGISTRY_URI"] = to_container_host_uri(safe)
+        for var in _SANDBOX_AUTH_ENV_PASSTHROUGH:
+            value = os.environ.get(var)
+            if not value:
+                continue
+            if var == "GOOGLE_APPLICATION_CREDENTIALS":
+                # This is a host file path the container cannot see. Copy the credentials file's
+                # contents into the read-only input mount and point the CLI at that in-container
+                # path, so Vertex auth via a service-account file actually works in the sandbox.
+                try:
+                    input_files["google-application-credentials.json"] = Path(value).read_text()
+                except OSError:
+                    _logger.warning(
+                        "GOOGLE_APPLICATION_CREDENTIALS points to an unreadable file; "
+                        "not forwarding it to the sandbox."
+                    )
+                    continue
+                env[var] = sandbox_input_path("google-application-credentials.json")
+            elif var == "ANTHROPIC_BASE_URL":
+                # A URL the CLI connects to from *inside* the container, so a loopback value must
+                # be rewritten to reach the host. A non-loopback endpoint (e.g. a host-only
+                # gateway) is forwarded as-is and must be reachable from the sandbox; if it is
+                # not, the idle timeout surfaces a failure instead of hanging.
+                env[var] = to_container_host_uri(value)
+            else:
+                env[var] = value
+
+        # Persist the CLI's HOME (its --resume session store and caches) across turns of the
+        # same session so multi-turn conversations resume correctly.
+        home_dir = get_session_sandbox_home(mlflow_session_id) if mlflow_session_id else None
+
+        try:
+            # start_sandbox_process uses the blocking docker-py client; keep it off the loop.
+            proc = await asyncio.to_thread(
+                start_sandbox_process,
+                cmd,
+                workdir=cwd,
+                environment=env,
+                stdin_data=user_message.encode("utf-8"),
+                input_files=input_files,
+                home_dir=home_dir,
+            )
+        except SandboxUnavailableError as e:
+            yield Event.from_error(f"Assistant sandbox is enabled but could not start: {e}")
+            return
+
+        structured_response: Any | None = None
+        structured_session_id: str | None = None
+        try:
+            # Recorded inside this try so a failure here still runs proc.cleanup() below,
+            # rather than leaking the started container and its scratch directories.
+            #
+            # A cancel that arrives while the container is still starting (before this line, and
+            # sandbox mode records no PID) finds nothing to kill, so that turn keeps running until
+            # the idle timeout reaps it; the container is not leaked (cleanup() still runs). Closing
+            # that startup window would take a per-session cancel flag checked here and is left as a
+            # follow-up.
+            if mlflow_session_id:
+                save_container_id(mlflow_session_id, proc.container_id)
+            try:
+                async for raw_line in proc.iter_stdout_lines():
+                    line_str = raw_line.decode("utf-8", errors="replace").strip()
+                    if not line_str:
+                        continue
+                    try:
+                        data = json.loads(line_str)
+                        if self._should_filter_out_message(data):
+                            continue
+                        if structured_custom_view:
+                            data = self._filter_structured_output_text(data)
+                        if data is None:
+                            continue
+                        if data.get("type") == "result" and (usage := data.get("usage")):
+                            yield self._build_usage_event(usage, data.get("total_cost_usd"))
+                        if data.get("type") == "result" and structured_custom_view:
+                            structured_response = data.get("structured_output", data.get("result"))
+                            structured_session_id = data.get("session_id")
+                            continue
+                        if msg := self._parse_message_to_event(data):
+                            yield msg
+                    except json.JSONDecodeError:
+                        yield Event.from_message(Message(role="user", content=line_str))
+            finally:
+                if mlflow_session_id:
+                    clear_container_id(mlflow_session_id)
+
+            returncode = await proc.wait()
+            # The idle-timeout watchdog kills a stuck CLI; surface that as a clear error rather
+            # than a bare interrupt (both exit 137, so this must be checked first).
+            if proc.timed_out:
+                yield Event.from_error(
+                    "Claude Code produced no output for too long and was stopped. If a custom "
+                    "ANTHROPIC_BASE_URL is set, it may not be reachable from the sandbox."
+                )
+                return
+            # A killed container exits 137 (128 + SIGKILL), which is how cancellation surfaces.
+            if returncode == 137:
+                yield Event.from_interrupted()
+                return
+            if returncode != 0:
+                stderr = (await proc.read_stderr()).decode("utf-8", errors="replace").strip()
+                yield Event.from_error(stderr or f"Process exited with code {returncode}")
+            elif structured_custom_view:
+                if not structured_session_id:
+                    yield Event.from_error("Claude Code result did not include a session ID")
+                    return
+                try:
+                    response = parse_custom_view_response(structured_response)
+                except Exception as e:
+                    yield Event.from_error(
+                        f"Claude Code returned invalid Custom View output: {e}",
+                        session_id=structured_session_id,
+                    )
+                    return
+                for event in custom_view_response_events(response):
+                    yield event
+                yield Event.from_result(result=None, session_id=structured_session_id)
+        except Exception as e:
+            _logger.exception("Error running Claude Code CLI in sandbox")
+            yield Event.from_exception(e)
+        finally:
+            await proc.aclose()
+
+    @staticmethod
+    def _build_usage_event(usage: dict[str, Any], cost_usd: float | None = None) -> Event:
+        """Translate Claude Code CLI token usage into a UI usage stream event.
+
+        The CLI splits input tokens across fresh input and prompt-cache
+        reads/writes, but the model processes all of them, so they're summed
+        into prompt_tokens to reflect the true context size. The CLI also
+        reports an authoritative dollar cost, which we pass through directly
+        rather than recomputing. The shape matches the usage event emitted by
+        the gateway provider so the UI handles both identically.
+        """
+        cache_read_tokens = usage.get("cache_read_input_tokens") or 0
+        prompt_tokens = (
+            (usage.get("input_tokens") or 0)
+            + (usage.get("cache_creation_input_tokens") or 0)
+            + cache_read_tokens
+        )
+        completion_tokens = usage.get("output_tokens") or 0
+        return Event.from_stream_event({
+            "type": "usage",
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+                # Subset of prompt_tokens re-read from the prompt cache (cheap). Surfaced
+                # so the UI can distinguish fresh input from resent, cached context.
+                "cache_read_tokens": cache_read_tokens,
+                "total_cost_usd": cost_usd,
+            },
+        })
 
     def _parse_message_to_event(self, data: dict[str, Any]) -> Event | None:
         """
@@ -623,3 +1085,21 @@ class ClaudeCodeProvider(AssistantProvider):
             and block.get("text", "").startswith("Base directory for this skill:")
             for block in content
         )
+
+    @staticmethod
+    def _filter_structured_output_text(data: dict[str, Any]) -> dict[str, Any] | None:
+        """Hide the JSON final answer; its parsed fields are emitted from the result event."""
+        if data.get("type") != "assistant":
+            return data
+
+        message = data.get("message", {})
+        content = message.get("content")
+        if not isinstance(content, list):
+            return data
+
+        filtered = [block for block in content if block.get("type") != "text"]
+        if len(filtered) == len(content):
+            return data
+        if not filtered:
+            return None
+        return {**data, "message": {**message, "content": filtered}}

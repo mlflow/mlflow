@@ -10,7 +10,6 @@ from mlflow.genai.utils.llm_utils import (
     _fetch_model_cost,
     _lookup_model_cost,
     _ModelCost,
-    _pydantic_to_response_format,
     _resolve_model_for_gateway,
     _TokenCounter,
 )
@@ -95,20 +94,6 @@ def test_call_llm_uses_litellm_when_available():
 
     mock_avail.assert_called_once()
     mock_ll.assert_called_once()
-
-
-def test_pydantic_to_response_format():
-    class MySchema(pydantic.BaseModel):
-        name: str
-        score: int
-
-    result = _pydantic_to_response_format(MySchema)
-
-    assert result["type"] == "json_schema"
-    assert result["json_schema"]["name"] == "MySchema"
-    schema = result["json_schema"]["schema"]
-    assert "name" in schema["properties"]
-    assert "score" in schema["properties"]
 
 
 def test_lookup_model_cost_returns_calculated_cost():

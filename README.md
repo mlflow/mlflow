@@ -296,6 +296,7 @@ MLflow can be used in a variety of environments, including your local environmen
     <td align="center" width="130"><a href="https://aws.amazon.com/sagemaker-ai/experiments/"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/amazon-sagemaker-logo.png" height="40"><br><sub><b>Amazon SageMaker</b></sub></a></td>
     <td align="center" width="130"><a href="https://learn.microsoft.com/en-us/azure/machine-learning/concept-mlflow?view=azureml-api-2"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/azure-ml-logo.png" height="40"><br><sub><b>Azure ML</b></sub></a></td>
     <td align="center" width="130"><a href="https://nebius.com/services/managed-mlflow"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/nebius-logo.png" height="40"><br><sub><b>Nebius</b></sub></a></td>
+    <td align="center" width="130"><a href="https://www.redhat.com/en/products/ai/openshift-ai"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/rhoai-logo.png" height="40"><br><sub><b>Red Hat OpenShift AI</b></sub></a></td>
     <td align="center" width="130"><a href="https://mlflow.org/docs/latest/ml/tracking/"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/kubernetes-logo.png" height="40"><br><sub><b>Self-Hosted</b></sub></a></td>
   </tr>
 </table>
@@ -342,8 +343,9 @@ MLflow is currently maintained by the following core members with significant co
 - [Daniel Lok](https://github.com/daniellok-db)
 - [Gabriel Fu](https://github.com/gabrielfu)
 - [Harutaka Kawamura](https://github.com/harupy)
+- [Humair Khan](https://github.com/HumairAK)
 - [Joel Robin P](https://github.com/joelrobin18)
-- [Matt Prahl](https://github.com/mprahl)
+- [Matthew Prahl](https://github.com/mprahl)
 - [Pat Sukprasert](https://github.com/PattaraS)
 - [Serena Ruan](https://github.com/serena-ruan)
 - [Tomu Hirata](https://github.com/TomeHirata)
