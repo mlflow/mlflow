@@ -147,7 +147,14 @@ def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
     resp.raise_for_status()
     data = resp.json()
     if "errors" in data:
-        raise Exception(f"GraphQL errors: {data['errors']}")
+        # A NOT_FOUND error is returned when a referenced number is an issue rather
+        # than a PR (e.g. an issue number in a commit message). GitHub still returns
+        # the remaining PRs in the same response, so skip those with a warning and
+        # only raise on genuinely unexpected errors.
+        if fatal_errors := [e for e in data["errors"] if e.get("type") != "NOT_FOUND"]:
+            raise Exception(f"GraphQL errors: {fatal_errors}")
+        for error in data["errors"]:
+            print(f"Warning: {error.get('message', 'Unknown error')} (not a PR, skipping)")
 
     # Extract PR data from response and create PullRequest objects
     repository_data = data["data"]["repository"]
