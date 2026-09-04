@@ -2,7 +2,7 @@ import { isNil } from 'lodash';
 import { useMemo, useState } from 'react';
 
 import { Button, Card, NewWindowIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import type { ModelTraceSpanLink, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { getIconTypeForSpan, getLinkFieldKey, getSpanExceptionCount } from '../ModelTraceExplorer.utils';
@@ -95,7 +95,10 @@ const SpanLinkEntry = ({
       disabled={!linkedSpan || !onSelectSpan}
       onClick={onSelectSpan}
     >
-      Jump to linked span
+      <FormattedMessage
+        defaultMessage="Jump to linked span"
+        description="Button that navigates to the span referenced by a span link"
+      />
     </Button>
   ) : (
     <Button
@@ -107,7 +110,10 @@ const SpanLinkEntry = ({
       endIcon={<NewWindowIcon css={{ fontSize: 12 }} />}
       css={jumpButtonCss}
     >
-      Jump to linked span
+      <FormattedMessage
+        defaultMessage="Jump to linked span"
+        description="Button that navigates to the span referenced by a span link"
+      />
     </Button>
   );
 
@@ -133,7 +139,12 @@ const SpanLinkEntry = ({
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, minWidth: 0 }}>
           {!isSameTrace && (
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <Typography.Hint>Trace ID</Typography.Hint>
+              <Typography.Hint>
+                <FormattedMessage
+                  defaultMessage="Trace ID"
+                  description="Label for the trace ID of a cross-trace span link"
+                />
+              </Typography.Hint>
               <CopyableIdTag
                 id={link.trace_id}
                 copyTooltip={intl.formatMessage({
@@ -145,7 +156,12 @@ const SpanLinkEntry = ({
           )}
           {linkedSpan ? (
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <Typography.Hint>Linked span</Typography.Hint>
+              <Typography.Hint>
+                <FormattedMessage
+                  defaultMessage="Linked span"
+                  description="Label for the span referenced by a same-trace span link"
+                />
+              </Typography.Hint>
               <div css={{ alignItems: 'center', display: 'flex', gap: theme.spacing.sm, minWidth: 0 }}>
                 <ModelTraceExplorerIcon
                   type={getIconTypeForSpan(linkedSpan.type ?? '')}
@@ -156,7 +172,12 @@ const SpanLinkEntry = ({
             </div>
           ) : (
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <Typography.Hint>Span ID</Typography.Hint>
+              <Typography.Hint>
+                <FormattedMessage
+                  defaultMessage="Span ID"
+                  description="Label for the span ID of a cross-trace span link"
+                />
+              </Typography.Hint>
               <CopyableIdTag
                 id={link.span_id}
                 copyTooltip={intl.formatMessage({
@@ -179,7 +200,9 @@ const SpanLinkEntry = ({
           paddingTop: theme.spacing.md,
         }}
       >
-        <Typography.Hint>Attributes</Typography.Hint>
+        <Typography.Hint>
+          <FormattedMessage defaultMessage="Attributes" description="Label for the attributes section of a span link" />
+        </Typography.Hint>
         {attributeEntries.length > 0 ? (
           <>
             {visibleAttributeEntries.map(([key, value]) => (
@@ -205,12 +228,27 @@ const SpanLinkEntry = ({
                 css={{ alignSelf: 'flex-start' }}
                 onClick={() => setShowAllAttributes((value) => !value)}
               >
-                {showAllAttributes ? 'See less' : 'See more'}
+                {showAllAttributes ? (
+                  <FormattedMessage
+                    defaultMessage="See less"
+                    description="Button that collapses the span link attributes back to the first few"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="See more"
+                    description="Button that expands the span link attributes to show all of them"
+                  />
+                )}
               </Button>
             )}
           </>
         ) : (
-          <Typography.Hint>No attributes</Typography.Hint>
+          <Typography.Hint>
+            <FormattedMessage
+              defaultMessage="No attributes"
+              description="Empty state shown when a span link has no attributes"
+            />
+          </Typography.Hint>
         )}
       </div>
     </Card>
