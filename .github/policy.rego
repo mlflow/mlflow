@@ -1,4 +1,4 @@
-# regal ignore:directory-package-mismatch
+# regal ignore:directory-package-mismatch,file-length
 package mlflow
 
 import rego.v1
@@ -26,6 +26,15 @@ deny_top_level_permissions contains msg if {
 	input.jobs
 	input.permissions != {}
 	msg := "Top-level 'permissions' must be empty ({}). Grant least-privilege permissions per job instead."
+}
+
+deny_job_permissions_shorthand contains msg if {
+	some job_id, job in input.jobs
+	job.permissions in {"read-all", "write-all"}
+	msg := sprintf(
+		"Job '%s' uses 'permissions: %s'. List the scopes it actually needs instead.",
+		[job_id, job.permissions],
+	)
 }
 
 deny_unsafe_checkout contains msg if {
