@@ -14,7 +14,7 @@ Your training data has a cutoff. Treat anything you don't recognize as **new, no
 
 ## Verify Rather Than Infer
 
-Prefer checking over reasoning whenever the check is cheap. The repo is checked out and you can run `bash`, `python3`, and `node`.
+Prefer checking over reasoning whenever the check is cheap. The repo is checked out and you can run whatever the runner provides. A quick command can confirm or kill a claim outright.
 
 ## Do NOT Comment On
 
