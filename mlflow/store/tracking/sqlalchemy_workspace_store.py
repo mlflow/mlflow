@@ -233,6 +233,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
     def _filter_experiment_ids(self, session, experiment_ids):
         workspace = self._get_active_workspace()
+        experiment_ids = [int(e) for e in experiment_ids]
         rows = (
             session
             .query(SqlExperiment.experiment_id)
@@ -259,7 +260,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 session
                 .query(SqlExperiment.experiment_id)
                 .filter(
-                    SqlExperiment.experiment_id.in_(entity_ids),
+                    SqlExperiment.experiment_id.in_([int(e) for e in entity_ids]),
                     SqlExperiment.workspace == workspace,
                 )
                 .all()

@@ -311,6 +311,10 @@
     "defaultMessage": "Git commit",
     "description": "Column label for the git commit hash the trace was produced on"
   },
+  "/H+bu1": {
+    "defaultMessage": "Time",
+    "description": "Traces table start-time column name"
+  },
   "/HeTx7": {
     "defaultMessage": "Create",
     "description": "Create webhook confirm button"
@@ -2075,6 +2079,10 @@
     "defaultMessage": "Comparing {numVersions} Versions",
     "description": "Text for main title for the model comparison page"
   },
+  "6ljc5f": {
+    "defaultMessage": "Run name",
+    "description": "Traces table run-name column name"
+  },
   "6nzd2s": {
     "defaultMessage": "Test",
     "description": "Test webhook button"
@@ -2162,6 +2170,10 @@
   "73ydH0": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
+  },
+  "78/HiZ": {
+    "defaultMessage": "Expand tag columns",
+    "description": "Column header action for expanding tag columns"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
@@ -2467,6 +2479,10 @@
     "defaultMessage": "Type a key",
     "description": "Key-value tag editor modal > Tag dropdown > Tag input placeholder"
   },
+  "8CgyA/": {
+    "defaultMessage": "Tags",
+    "description": "Section label for tag columns in the traces table column selector"
+  },
   "8DoNdT": {
     "defaultMessage": "Save",
     "description": "Save button text for edit endpoint name modal"
@@ -2478,6 +2494,10 @@
   "8EQFzg": {
     "defaultMessage": "None",
     "description": "Cell value when there's no content"
+  },
+  "8GlhpA": {
+    "defaultMessage": "No attributes",
+    "description": "Empty state shown when a span link has no attributes"
   },
   "8GmtjT": {
     "defaultMessage": "Clear the search",
@@ -2534,6 +2554,10 @@
   "8XrJnT": {
     "defaultMessage": "Delete section",
     "description": "Experiment page > compare runs > chart section > delete section label"
+  },
+  "8Y+yRh": {
+    "defaultMessage": "Expand metadata columns",
+    "description": "Column header action for expanding metadata columns"
   },
   "8YmId5": {
     "defaultMessage": "Y axis",
@@ -2774,6 +2798,10 @@
   "9QLHlI": {
     "defaultMessage": "Version status",
     "description": "Aria label for MCP server version status selector"
+  },
+  "9RoNrt": {
+    "defaultMessage": "Standard",
+    "description": "Traces table row-height option: taller rows with two-line text previews"
   },
   "9Sxo9h": {
     "defaultMessage": "Max length",
@@ -3094,6 +3122,10 @@
   "AeSuAy": {
     "defaultMessage": "Resize side panel",
     "description": "Aria label for the drag handle on the V2 dataset record side panel"
+  },
+  "Af/Gri": {
+    "defaultMessage": "Tokens",
+    "description": "Traces table tokens column name"
   },
   "AfYWI/": {
     "defaultMessage": "Tool call: {name}",
@@ -4143,6 +4175,10 @@
     "defaultMessage": "Path",
     "description": "Label for displaying the current experiment path"
   },
+  "F97lYw": {
+    "defaultMessage": "Metadata",
+    "description": "Traces table metadata column name"
+  },
   "F9Aau+": {
     "defaultMessage": "Table view",
     "description": "Label for the table view toggle button in the logged model list page"
@@ -4891,6 +4927,10 @@
     "defaultMessage": "Save prompt",
     "description": "Aria label for the playground top-bar button that opens the save-prompt-version modal"
   },
+  "IDyvje": {
+    "defaultMessage": "Duration",
+    "description": "Traces table duration column name"
+  },
   "IE+Vu1": {
     "defaultMessage": "Gateway endpoints",
     "description": "Provider picker section label for custom MLflow AI Gateway endpoints"
@@ -4942,6 +4982,10 @@
   "INrdWe": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected"
+  },
+  "IQOP18": {
+    "defaultMessage": "Copy span ID",
+    "description": "Tooltip for copying a linked span ID"
   },
   "ISy30V": {
     "defaultMessage": "Are you sure you want to delete the dataset \"{name}\"? This action cannot be undone.",
@@ -5178,6 +5222,10 @@
   "JQPGzx": {
     "defaultMessage": "Copy trace ID",
     "description": "Tooltip for copying the trace ID from the trace drawer header"
+  },
+  "JQuKlR": {
+    "defaultMessage": "Trace deletion is not supported for traces located in Unity Catalog schema. You can delete traces from corresponding Delta table.",
+    "description": "Trace deletion disabled reason. Displayed in a tooltip when a user attempts to delete a trace housed in the UC delta table."
   },
   "JUTcIz": {
     "defaultMessage": "Time created",
@@ -6123,6 +6171,10 @@
     "defaultMessage": "{fieldName} are identical",
     "description": "Default text in data table where items are identical in the model comparison page"
   },
+  "NJPvPG": {
+    "defaultMessage": "Metadata: {name}",
+    "description": "Accessible label qualifier for a custom trace metadata column header"
+  },
   "NKj5Xb": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}",
     "description": "Description of the empty state for the evaluation runs page"
@@ -6534,6 +6586,10 @@
   "Op12zG": {
     "defaultMessage": "Assess trace",
     "description": "Accessible label and tooltip for assessing a trace"
+  },
+  "OpP4RM": {
+    "defaultMessage": "Attributes",
+    "description": "Label for the attributes section of a span link"
   },
   "Ortr1x": {
     "defaultMessage": "<link>Add user feedback</link> to traces so real failures stand out",
@@ -6979,6 +7035,10 @@
     "defaultMessage": "Name",
     "description": "Header for the name column in the experiments table"
   },
+  "Qhtkvn": {
+    "defaultMessage": "Tag: {name}",
+    "description": "Accessible label qualifier for a custom trace tag column header"
+  },
   "Qi6Etm": {
     "defaultMessage": "Hide all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
@@ -7270,6 +7330,10 @@
   "RxR6Sn": {
     "defaultMessage": "Close",
     "description": "Aria label for the close button on the V2 dataset record side panel"
+  },
+  "RyJesT": {
+    "defaultMessage": "Expectation name",
+    "description": "Placeholder for the expectation-name key input in the traces filter"
   },
   "RyNXc+": {
     "defaultMessage": "Loading endpoint...",
@@ -7583,6 +7647,10 @@
     "defaultMessage": "Hide raw server.json",
     "description": "Toggle to hide raw server.json"
   },
+  "TKo/CQ": {
+    "defaultMessage": "Metadata",
+    "description": "Column selector label for the aggregate metadata column"
+  },
   "TKtJIK": {
     "defaultMessage": "Page not found",
     "description": "Error message shown to the user when they arrive at a non existent URL"
@@ -7610,6 +7678,10 @@
   "TQ3N+4": {
     "defaultMessage": "Select",
     "description": "Label for the checkbox column in the evaluation runs table"
+  },
+  "TQY108": {
+    "defaultMessage": "Expectation",
+    "description": "Trace filter field: expectation name"
   },
   "TQeU/X": {
     "defaultMessage": "Username",
@@ -7862,6 +7934,10 @@
   "UScoKM": {
     "defaultMessage": "No questions defined for this experiment yet.",
     "description": "Manage review questions: empty state"
+  },
+  "UW6FuF": {
+    "defaultMessage": "Copy trace ID",
+    "description": "Tooltip for copying a linked trace ID"
   },
   "UWHfmZ": {
     "defaultMessage": "Group:",
@@ -8695,6 +8771,10 @@
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
   },
+  "XQMnec": {
+    "defaultMessage": "Columns ({visible}/{total})",
+    "description": "Column-selector trigger label showing visible columns out of total available"
+  },
   "XR45oU": {
     "defaultMessage": "Inherited by {count, plural, one {# user queue} other {# user queues}}.",
     "description": "Manage review questions: note shown when no custom queue uses the question but user queues (which inherit every question) do"
@@ -8738,6 +8818,10 @@
   "XfsPd4": {
     "defaultMessage": "Save prompt",
     "description": "Label for the playground top-bar button that opens the save-prompt-version modal"
+  },
+  "XgQHZ4": {
+    "defaultMessage": "Cost",
+    "description": "Traces table cost column name"
   },
   "XiGiE1": {
     "defaultMessage": "Workspace",
@@ -9126,6 +9210,10 @@
   "ZH4G1j": {
     "defaultMessage": "Column options",
     "description": "Accessible label for the per-column options menu button in the traces table header"
+  },
+  "ZIR7dS": {
+    "defaultMessage": "Tall",
+    "description": "Traces table row-height option: tall rows with longer text previews"
   },
   "ZJK1e+": {
     "defaultMessage": "The Sessions view has moved to the Traces tab.",
@@ -10299,6 +10387,10 @@
     "defaultMessage": "Updated:",
     "description": "Endpoint expanded updated label"
   },
+  "dyC9k5": {
+    "defaultMessage": "User",
+    "description": "Traces table user column name"
+  },
   "dyvGJw": {
     "defaultMessage": "MLflow Assistant needs to be configured on the MLflow server host before remote clients can use it. Ask your server administrator to open MLflow locally and complete Assistant setup.",
     "description": "Message explaining that Assistant setup must be completed locally by a server admin"
@@ -10674,6 +10766,10 @@
   "fMf88R": {
     "defaultMessage": "Columns",
     "description": "Run page > artifact view > logged table view > columns selector label"
+  },
+  "fMsHva": {
+    "defaultMessage": "Metadata",
+    "description": "Header for the traces table metadata column"
   },
   "fMxD0i": {
     "defaultMessage": "Admin",
@@ -11155,6 +11251,10 @@
     "defaultMessage": "Instructions",
     "description": "Guardrail instructions label"
   },
+  "gupgRi": {
+    "defaultMessage": "State",
+    "description": "Traces table state column name"
+  },
   "gy4ziK": {
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
     "description": "Create review queue: reviewers field hint"
@@ -11419,6 +11519,10 @@
     "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
     "description": "Hint explaining how to use other providers via Gateway"
   },
+  "ht/qId": {
+    "defaultMessage": "See more",
+    "description": "Button that expands the span link attributes to show all of them"
+  },
   "hv0wlb": {
     "defaultMessage": "Select or create review queues",
     "description": "Add to review queue: destination dropdown label"
@@ -11682,6 +11786,10 @@
   "icBP3T": {
     "defaultMessage": "TRUE",
     "description": "Header label for boolean assessment type for the true rate"
+  },
+  "id3BVx": {
+    "defaultMessage": "Input",
+    "description": "Traces table input column name"
   },
   "ieY8lf": {
     "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
@@ -11954,6 +12062,10 @@
   "jkeYf8": {
     "defaultMessage": "Unpin group",
     "description": "A tooltip for the pin icon button in the runs table next to the pinned run group"
+  },
+  "jlGW/p": {
+    "defaultMessage": "Linked span",
+    "description": "Label for the span referenced by a same-trace span link"
   },
   "jo4LfR": {
     "defaultMessage": "Pending",
@@ -12243,6 +12355,10 @@
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
   },
+  "krNsnQ": {
+    "defaultMessage": "Trace name",
+    "description": "Traces table trace-name column name"
+  },
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
@@ -12482,6 +12598,10 @@
   "lyNyOH": {
     "defaultMessage": "Default queue",
     "description": "Add to review queue: the experiment default queue option"
+  },
+  "lzW28v": {
+    "defaultMessage": "Metadata",
+    "description": "Section label for metadata columns in the traces table column selector"
   },
   "m1Nb7W": {
     "defaultMessage": "Save",
@@ -13403,6 +13523,10 @@
     "defaultMessage": "Metric",
     "description": "Run page > Overview > Metrics table > Key column header"
   },
+  "pkhZzA": {
+    "defaultMessage": "Span ID",
+    "description": "Label for the span ID of a cross-trace span link"
+  },
   "pl1bdY": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to models page under the header on the model version\n             view page"
@@ -13514,6 +13638,10 @@
   "qEq4S6": {
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Guidance shown when no alternate endpoint exists for guardrail model selection"
+  },
+  "qFo+/P": {
+    "defaultMessage": "Session",
+    "description": "Traces table session column name"
   },
   "qGL2Jy": {
     "defaultMessage": "Settings",
@@ -13642,6 +13770,10 @@
   "qhgn2K": {
     "defaultMessage": ".mcp.json",
     "description": "mcp.json install format label"
+  },
+  "qj+LhB": {
+    "defaultMessage": "Name",
+    "description": "Label for the name field for expectations in the GenAI Traces Table Filter form"
   },
   "qkRBUr": {
     "defaultMessage": "Line smoothing",
@@ -13935,6 +14067,10 @@
     "defaultMessage": "Return a 400 error with the guardrail name and reason. The original request or response is not passed through.",
     "description": "Block action description"
   },
+  "ruFdDg": {
+    "defaultMessage": "Output",
+    "description": "Traces table output column name"
+  },
   "rvRhzv": {
     "defaultMessage": "Masked Key:",
     "description": "Masked API key label"
@@ -14038,6 +14174,10 @@
   "sEheG0": {
     "defaultMessage": "Key Name",
     "description": "Key name label"
+  },
+  "sFqnju": {
+    "defaultMessage": "Trace ID",
+    "description": "Label for the trace ID of a cross-trace span link"
   },
   "sGXhV4": {
     "defaultMessage": "Welcome to MLflow",
@@ -14503,6 +14643,10 @@
     "defaultMessage": "Guardrail: {name}",
     "description": "Title for guardrail detail modal"
   },
+  "uQEKQL": {
+    "defaultMessage": "Expected output for evaluation",
+    "description": "Tooltip description for the Expected response column in the traces table"
+  },
   "uSVfB9": {
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > retrieval grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
@@ -14675,6 +14819,10 @@
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the evaluation runs table"
   },
+  "vGJdix": {
+    "defaultMessage": "Tags",
+    "description": "Traces table tags column name"
+  },
   "vGf4dg": {
     "defaultMessage": "No custom LLM-as-a-judge scorers found",
     "description": "Hint indicating that no custom LLM-as-a-judge scorers were found"
@@ -14730,6 +14878,10 @@
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",
     "description": "A descriptive tooltip for the \"Models\" column header in the runs table on the MLflow experiment detail page"
+  },
+  "vVsrrj": {
+    "defaultMessage": "See less",
+    "description": "Button that collapses the span link attributes back to the first few"
   },
   "vWf6fP": {
     "defaultMessage": "Processing",
@@ -14947,6 +15099,10 @@
     "defaultMessage": "Budget exceeded: {spend} of {limit} spent",
     "description": "Tooltip shown when current spend exceeds the budget limit"
   },
+  "wOupuD": {
+    "defaultMessage": "Expected facts for evaluation",
+    "description": "Tooltip description for the Expected facts column in the traces table"
+  },
   "wSIkSJ": {
     "defaultMessage": "Select trace {traceId}",
     "description": "Aria label for the per-row select checkbox in the traces table"
@@ -15090,6 +15246,10 @@
   "wx0s66": {
     "defaultMessage": "Select a provider and model to configure API key",
     "description": "Message when no provider selected for API key form"
+  },
+  "wxlu/9": {
+    "defaultMessage": "Jump to linked span",
+    "description": "Button that navigates to the span referenced by a span link"
   },
   "wxq/qM": {
     "defaultMessage": "Set as baseline",
@@ -15323,6 +15483,10 @@
     "defaultMessage": "Run on all future traces",
     "description": "Label for toggle to enable automatic evaluation"
   },
+  "xjKcWt": {
+    "defaultMessage": "Trace ID",
+    "description": "Traces table trace-id column name"
+  },
   "xmPKKq": {
     "defaultMessage": "Model Version:",
     "description": "Text for model version row header in the main table in the model\n                comparison page"
@@ -15334,6 +15498,10 @@
   "xnBJe0": {
     "defaultMessage": "Remove icon",
     "description": "Tooltip for remove icon button in MCP server icon editor"
+  },
+  "xnJX7N": {
+    "defaultMessage": "Source",
+    "description": "Traces table source column name"
   },
   "xnr5KT": {
     "defaultMessage": "No events found",
@@ -15379,10 +15547,6 @@
     "defaultMessage": "No trace data recorded",
     "description": "Empty state in the v2 dataset record side-panel trace modal when the trace has no spans"
   },
-  "y4BFou": {
-    "defaultMessage": "Standard",
-    "description": "Traces table row-height option: standard (default) rows"
-  },
   "y4I2zP": {
     "defaultMessage": "Select all traces on this page",
     "description": "Aria label for the select-all checkbox in the traces table header"
@@ -15402,6 +15566,10 @@
   "y7+wS+": {
     "defaultMessage": "Relevance",
     "description": "Issue category title for relevance"
+  },
+  "y87tnU": {
+    "defaultMessage": "Reorder {column} column",
+    "description": "Aria label for the drag handle that reorders a traces table column"
   },
   "y8O4PM": {
     "defaultMessage": "Retrieval Groundedness",

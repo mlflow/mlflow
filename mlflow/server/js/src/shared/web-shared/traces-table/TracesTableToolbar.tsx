@@ -67,10 +67,13 @@ export const TracesTableToolbar: React.FC<TracesTableToolbarProps> = ({
 
   return (
     // Query container so the controls collapse on the toolbar's own width, not the viewport's.
+    // Wraps to a second row when the contents (e.g. the fixed-width CUSTOM-date RangePicker) can't
+    // fit on one line, rather than pushing the trailing controls off-screen (ML-68743/68769).
     <div
       css={{
         display: 'flex',
         alignItems: 'center',
+        flexWrap: 'wrap',
         gap: theme.spacing.sm,
         containerType: 'inline-size',
         containerName: TRACES_TOOLBAR_CONTAINER_NAME,

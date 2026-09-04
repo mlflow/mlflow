@@ -129,6 +129,7 @@ export const ModelTraceExplorerDetailView = ({
 
   const {
     rootNode,
+    nodeMap,
     activeTab,
     setActiveTab,
     showGraph,
@@ -167,12 +168,11 @@ export const ModelTraceExplorerDetailView = ({
 
   // The shared useModelTraceSearch hook drives node selection and tab activation together via a
   // single setSelectedNodeAndTab callback. v2's view state keeps these as separate setters, so
-  // bridge them here. The shared tab union carries 'chat' and 'links' tabs that v2 does not
-  // surface separately, so fold those onto 'content'.
+  // bridge them here. The shared tab union carries a separate chat tab that v2 renders as content.
   const setSearchSelectedNodeAndTab = useCallback(
     (node: ModelTraceSpanNode, tab: SharedModelTraceExplorerTab) => {
       setSelectedNode(node);
-      setActiveTab(tab === 'chat' || tab === 'links' ? 'content' : tab);
+      setActiveTab(tab === 'chat' ? 'content' : tab);
     },
     [setSelectedNode, setActiveTab],
   );
@@ -309,12 +309,25 @@ export const ModelTraceExplorerDetailView = ({
     }
   }, [isSearchVisible, setSearchFilter]);
 
-  const onSelectNode = (node?: ModelTraceSpanNode) => {
-    setSelectedNode(node);
-    if (isString(node?.key)) {
-      onSelectSpan?.(node?.key);
-    }
-  };
+  const onSelectNode = useCallback(
+    (node?: ModelTraceSpanNode) => {
+      setSelectedNode(node);
+      if (isString(node?.key)) {
+        onSelectSpan?.(node.key);
+      }
+    },
+    [onSelectSpan, setSelectedNode],
+  );
+
+  const handleSelectLinkedSpan = useCallback(
+    (spanId: string) => {
+      const linkedSpan = nodeMap[spanId];
+      if (linkedSpan) {
+        onSelectNode(linkedSpan);
+      }
+    },
+    [nodeMap, onSelectNode],
+  );
 
   useLayoutEffect(() => {
     const list = values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
@@ -511,6 +524,7 @@ export const ModelTraceExplorerDetailView = ({
             activeMatch={matchData.match}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+            onSelectSpan={handleSelectLinkedSpan}
           />
         }
         rightMinWidth={RIGHT_PANE_MIN_WIDTH}
