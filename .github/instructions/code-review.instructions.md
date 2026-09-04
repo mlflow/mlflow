@@ -14,7 +14,7 @@ Your training data has a cutoff. Treat anything you don't recognize as **new, no
 
 ## Verify Rather Than Infer
 
-Before claiming changed code misbehaves, run it: a scratch snippet through `python3` or `node` will settle most questions in seconds, and an unverified finding should be dropped rather than hedged. Dependencies are not installed, so keep the check self-contained; don't install packages or run the test suite.
+Before claiming changed code misbehaves, run it. A scratch snippet through `python3` or `node` will settle most questions in seconds; installing a dependency or running a single test is fine too when it's quick.
 
 ## Do NOT Comment On
 
