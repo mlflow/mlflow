@@ -17,9 +17,9 @@ defaults:
 permissions: {}
 
 jobs:
-  # This job exists only so that rerun-workflow-run.yml has a completed run to
-  # react to. It carries no payload: that workflow reads the PR head SHA from
-  # `github.event.workflow_run.head_sha`.
+  # rerun-workflow-run.yml triggers on `workflow_run`, so it needs a completed
+  # run to react to. This job is only that trigger and hands over no data:
+  # that workflow reads the PR head SHA from the event itself.
   approved:
     runs-on: ubuntu-slim
     timeout-minutes: 5
