@@ -228,3 +228,8 @@ resolve_client <- function(client) {
     client
   }
 }
+
+is_uc_registry_uri <- function(client) {
+  client <- resolve_client(client)
+  identical(client$registry_uri$scheme, "databricks-uc")
+}
