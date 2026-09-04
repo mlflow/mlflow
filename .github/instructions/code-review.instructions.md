@@ -14,7 +14,7 @@ Your training data has a cutoff. Treat anything you don't recognize as **new, no
 
 ## Verify When It's Cheap
 
-Prefer verifying over reasoning whenever it's cheap. The repo is checked out and you can run whatever the runner provides. A quick command can confirm or kill a claim outright.
+Prefer verifying over reasoning whenever it's cheap. The repo is checked out and you can run whatever is installed. A quick command can confirm or kill a claim outright.
 
 ## Do NOT Comment On
 
