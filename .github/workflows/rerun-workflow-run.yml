@@ -27,13 +27,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          gh run download "$RUN_ID" -n pr_number -D /tmp/pr
-          pr_number=$(cat /tmp/pr/pr_number)
-
-          head_sha=$(gh pr view "$pr_number" --json headRefOid --jq .headRefOid)
-
           rerun() {
             echo "Rerunning https://github.com/$GH_REPO/actions/runs/$1"
             gh run rerun "$1" --failed --repo "$GH_REPO" || echo "Failed to rerun $1"
@@ -47,7 +42,7 @@ jobs:
           # per job, so `sort -u -k1,1` dedupes on the run ID: without -k1,1 two
           # failed jobs from the same run would be reran twice.
           rows=$(
-            gh api --paginate "repos/$GH_REPO/commits/$head_sha/check-runs?per_page=100" \
+            gh api --paginate "repos/$GH_REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
               --jq '.check_runs[]
                 | select(.app.slug == "github-actions")
                 | select(.status == "completed")
