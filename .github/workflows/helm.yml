@@ -4,6 +4,7 @@ on:
   push:
     branches: [master, "branch-[0-9]+.[0-9]+"]
     paths:
+      - .github/workflows/helm.yml
       - charts/**
       - docker/Dockerfile
       - mlflow/server/**
@@ -11,6 +12,7 @@ on:
       - mlflow/cli/**
   pull_request:
     paths:
+      - .github/workflows/helm.yml
       - charts/**
       - docker/Dockerfile
       - mlflow/server/**
