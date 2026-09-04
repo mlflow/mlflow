@@ -44,6 +44,7 @@ import {
   getTraceCost,
   convertOtelAttributesToMap,
   decodeLinkTraceId,
+  getTraceHref,
   isSessionLevelAssessment,
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
@@ -1440,6 +1441,15 @@ describe('decodeLinkTraceId', () => {
   it('should return an empty string for nullish input', () => {
     expect(decodeLinkTraceId(undefined)).toBe('');
     expect(decodeLinkTraceId(null)).toBe('');
+  });
+});
+
+describe('getTraceHref', () => {
+  it('uses only the canonical trace ID query parameter', () => {
+    const href = getTraceHref('tr-linked', MOCK_TRACE_INFO_V3);
+
+    expect(href).toContain('traceId=tr-linked');
+    expect(href).not.toContain('selectedEvaluationId');
   });
 });
 
