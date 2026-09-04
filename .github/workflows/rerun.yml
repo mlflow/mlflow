@@ -17,11 +17,13 @@ defaults:
 permissions: {}
 
 jobs:
-  upload:
+  # This job exists only so that rerun-workflow-run.yml has a completed run to
+  # react to. It carries no payload: that workflow reads the PR head SHA from
+  # `github.event.workflow_run.head_sha`.
+  approved:
     runs-on: ubuntu-slim
     timeout-minutes: 5
-    permissions:
-      contents: read
+    permissions: {}
     if: >-
       github.event.review.state == 'approved' &&
       (
@@ -29,15 +31,4 @@ jobs:
         (github.event.review.user.type == 'Bot' && contains(fromJSON('["mlflow-app[bot]", "nailaopus[bot]"]'), github.event.review.user.login))
       )
     steps:
-      - name: Upload PR number
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          mkdir -p /tmp/pr
-          echo $PR_NUMBER > /tmp/pr/pr_number
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: pr_number
-          path: /tmp/pr/
-          retention-days: 1
-          if-no-files-found: error
+      - run: echo "Approved, triggering rerun-workflow-run.yml"
