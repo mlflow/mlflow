@@ -14,7 +14,7 @@ Your training data has a cutoff. Treat anything you don't recognize as **new, no
 
 ## Verify Rather Than Infer
 
-Prefer checking over reasoning whenever the check is cheap. Reserve inference for claims that cannot be settled here.
+Prefer checking over reasoning whenever the check is cheap. You have the repo checked out and a shell, so a command will settle most questions in seconds.
 
 ## Do NOT Comment On
 
