@@ -4437,6 +4437,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 served = serve_rollup_read(session, plan) if plan is not None else None
 
             if served is not None:
+                raw_points = []
+                if not sql_grouped_merge:
+                    range_aggregations = raw_aggregations_for_plan(plan)
+                    raw_points = (
+                        raw_range_points(served.raw_ranges, range_aggregations)
+                        if served.raw_ranges
+                        else []
+                    )
+
                 if not rollup_read_is_current(session, plan, served.served_day_starts_ms):
                     _logger.debug(
                         "SQL trace rollup routing selected the full raw path for view=%s "
@@ -4451,12 +4460,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     # database's string collation, including global ordering and limiting.
                     data_points = served.data_points
                 elif plan.bucketed:
-                    range_aggregations = raw_aggregations_for_plan(plan)
-                    raw_points = (
-                        raw_range_points(served.raw_ranges, range_aggregations)
-                        if served.raw_ranges
-                        else []
-                    )
                     # Match the single-query raw path: order by time bucket (then grouping
                     # dimensions) and apply the global max_results after merging rollup and raw
                     # contributions.
@@ -4464,12 +4467,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         [*served.data_points, *raw_points], max_results
                     )
                 else:
-                    range_aggregations = raw_aggregations_for_plan(plan)
-                    raw_points = (
-                        raw_range_points(served.raw_ranges, range_aggregations)
-                        if served.raw_ranges
-                        else []
-                    )
                     data_points = merge_unbucketed_data_points(
                         plan, served.data_points, raw_points, max_results
                     )
