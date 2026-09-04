@@ -809,6 +809,10 @@ def _validate_skill_artifact_path(path):
     # the segment checks on its decoded/normalized return value so URL-encoded traversals
     # (e.g. '%2e' or '%2f') can't slip past as empty or '.' segments.
     normalized = validate_path_is_safe(path)
+    if "\\" in normalized:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid artifact path {path!r}: backslashes are not allowed."
+        )
     for segment in normalized.split("/"):
         if segment in ("", "."):
             raise MlflowException.invalid_parameter_value(
