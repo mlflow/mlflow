@@ -446,8 +446,18 @@ def detach_span_from_context(token: SpanContextToken):
         finally:
             # Always detach MLflow's runtime context, even if the global detach above fails,
             # so the isolated runtime context is not leaked.
-            mlflow_runtime_context.detach(mlflow_token)
+            try:
+                mlflow_runtime_context.detach(mlflow_token)
+            except ValueError as e:
+                # mlflow_runtime_context.detach() calls ContextVar.reset(), which raises
+                # ValueError when a span is detached in a different async context than where
+                # it was attached. This happens with integrations like pydantic-ai that span
+                # async boundaries. Ignore only that cross-context error.
+                if "different Context" not in str(e):
+                    raise
     else:
+        # OpenTelemetry's context_api.detach() catches and logs exceptions internally,
+        # so it never propagates ValueError here.
         context_api.detach(token)
 
 
