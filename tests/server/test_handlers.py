@@ -2813,30 +2813,20 @@ def test_list_scorers_with_empty_experiment_ids(mock_get_request_message, mock_t
 def test_list_scorers_with_experiment_ids_batches_validation(
     mock_get_request_message, mock_tracking_store
 ):
-    # experiment_ids should be validated via a single batched search_experiments
-    # call (filtered on the requested ids) rather than one get_experiment call
-    # per id.
+    # experiment_ids should be validated via a single batched
+    # list_active_experiment_ids call rather than one get_experiment call per
+    # id, and must not go through the general-purpose search_experiments API
+    # (which risks the SQLite bound-parameter limit for large id lists).
     mock_get_request_message.return_value = ListScorers(experiment_ids=["123"])
-    mock_tracking_store.search_experiments.return_value = PagedList(
-        [
-            Experiment(
-                experiment_id="123", name="e-123", artifact_location="", lifecycle_stage="active"
-            )
-        ],
-        None,
-    )
+    mock_tracking_store.list_active_experiment_ids.return_value = ["123"]
     mock_tracking_store.list_scorers_across_experiments.return_value = []
 
     with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
         resp = _list_scorers()
 
     mock_tracking_store.get_experiment.assert_not_called()
-    mock_tracking_store.search_experiments.assert_called_once_with(
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=1000,
-        filter_string="experiment_id IN ('123')",
-        page_token=None,
-    )
+    mock_tracking_store.search_experiments.assert_not_called()
+    mock_tracking_store.list_active_experiment_ids.assert_called_once_with(["123"])
     mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(["123"])
     assert resp.status_code == 200
 
@@ -2858,24 +2848,18 @@ def test_list_scorers_with_invalid_experiment_id(mock_get_request_message, mock_
 def test_list_scorers_with_experiment_ids_drops_inactive_or_missing(
     mock_get_request_message, mock_tracking_store
 ):
-    # Simulates "456" being inactive or nonexistent: the batched search only
-    # resolves "123", and the handler passes along just the surviving id
+    # Simulates "456" being inactive or nonexistent: list_active_experiment_ids
+    # only resolves "123", and the handler passes along just the surviving id
     # instead of failing the whole request (best-effort scoping).
     mock_get_request_message.return_value = ListScorers(experiment_ids=["123", "456"])
-    mock_tracking_store.search_experiments.return_value = PagedList(
-        [
-            Experiment(
-                experiment_id="123", name="e-123", artifact_location="", lifecycle_stage="active"
-            )
-        ],
-        None,
-    )
+    mock_tracking_store.list_active_experiment_ids.return_value = ["123"]
     mock_tracking_store.list_scorers_across_experiments.return_value = []
 
     with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
         _list_scorers()
 
     mock_tracking_store.get_experiment.assert_not_called()
+    mock_tracking_store.list_active_experiment_ids.assert_called_once_with(["123", "456"])
     mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(["123"])
 
 

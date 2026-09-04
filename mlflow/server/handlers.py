@@ -5797,17 +5797,23 @@ def _register_scorer():
     return response
 
 
-def _search_active_experiment_ids(store, filter_string=None):
-    # Workspace-aware paginated walk of ACTIVE experiments. When ``filter_string``
-    # restricts to specific IDs, this also validates that each ID exists and is
-    # active in one batched query instead of N get_experiment calls.
+def _search_active_experiment_ids(store):
+    """
+    Workspace-aware paginated walk of ALL ACTIVE experiments via the general
+    ``search_experiments`` search API. Use this only for genuine open-ended
+    enumeration where the result size is unknown ahead of time and must be
+    discovered by paging. For validating a bounded, caller-supplied ID list,
+    use ``store.list_active_experiment_ids`` instead — stuffing an
+    arbitrarily large ID list into a ``search_experiments`` filter string
+    risks the SQLite bound-parameter limit that the narrow batch API avoids
+    by chunking.
+    """
     experiment_ids: list[str] = []
     page_token: str | None = None
     while True:
         page = store.search_experiments(
             view_type=ViewType.ACTIVE_ONLY,
             max_results=1000,
-            filter_string=filter_string,
             page_token=page_token,
         )
         experiment_ids.extend(e.experiment_id for e in page)
@@ -5846,10 +5852,7 @@ def _list_scorers():
         if requested_experiment_ids := list(dict.fromkeys(request_message.experiment_ids)):
             for eid in requested_experiment_ids:
                 _validate_experiment_id(eid)
-            quoted = ", ".join(f"'{eid}'" for eid in requested_experiment_ids)
-            valid_experiment_ids = _search_active_experiment_ids(
-                store, filter_string=f"experiment_id IN ({quoted})"
-            )
+            valid_experiment_ids = store.list_active_experiment_ids(requested_experiment_ids)
         else:
             valid_experiment_ids = []
         scorers = store.list_scorers_across_experiments(valid_experiment_ids)

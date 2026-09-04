@@ -2902,9 +2902,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return self.list_scorers_across_experiments([experiment.experiment_id])
 
     # SQLite caps bound parameters at 999 by default; pick a chunk size well
-    # below that so callers (e.g. the admin scorer picker passing up to 1000
-    # experiment ids per page) don't trip ``too many SQL variables``.
-    _LIST_SCORERS_CHUNK_SIZE = 500
+    # below that so callers passing large ID lists (e.g. the admin scorer
+    # picker passing up to 1000 experiment ids per page, or an authorization
+    # scope with hundreds of experiment ids) don't trip
+    # ``too many SQL variables``. Shared by every batch query in this class
+    # that chunks an ``IN (...)`` clause.
+    _ID_CHUNK_SIZE = 500
 
     def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
         """
@@ -2932,8 +2935,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
         with self.ManagedSessionMaker() as session:
             scorer_ids: list[str] = []
-            for chunk_start in range(0, len(experiment_ids), self._LIST_SCORERS_CHUNK_SIZE):
-                chunk = experiment_ids[chunk_start : chunk_start + self._LIST_SCORERS_CHUNK_SIZE]
+            for chunk_start in range(0, len(experiment_ids), self._ID_CHUNK_SIZE):
+                chunk = experiment_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
                 scorer_ids.extend(
                     row.scorer_id
                     for row in session
@@ -2946,8 +2949,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # ``scorer_ids`` is also chunked for the same reason; build the
             # latest-version subquery + final query per chunk and concat.
             sql_scorer_versions: list[SqlScorerVersion] = []
-            for chunk_start in range(0, len(scorer_ids), self._LIST_SCORERS_CHUNK_SIZE):
-                chunk = scorer_ids[chunk_start : chunk_start + self._LIST_SCORERS_CHUNK_SIZE]
+            for chunk_start in range(0, len(scorer_ids), self._ID_CHUNK_SIZE):
+                chunk = scorer_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
                 latest_versions = (
                     session
                     .query(
@@ -2989,6 +2992,34 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 for i, sv in enumerate(sql_scorer_versions)
             ]
+
+    def list_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+        if not experiment_ids:
+            return []
+        parsed_ids = [self._parse_experiment_id(e) for e in experiment_ids]
+        with self.ManagedSessionMaker() as session:
+            active_ids: list[str] = []
+            for chunk_start in range(0, len(parsed_ids), self._ID_CHUNK_SIZE):
+                # Chunk before calling ``_filter_experiment_ids`` so the
+                # workspace-scoping hook (which itself issues an unchunked
+                # ``IN (...)`` query in workspace-aware subclasses) never
+                # receives more than ``_ID_CHUNK_SIZE`` ids either.
+                chunk = self._filter_experiment_ids(
+                    session, parsed_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
+                )
+                if not chunk:
+                    continue
+                active_ids.extend(
+                    str(row.experiment_id)
+                    for row in session
+                    .query(SqlExperiment.experiment_id)
+                    .filter(
+                        SqlExperiment.experiment_id.in_(chunk),
+                        SqlExperiment.lifecycle_stage == LifecycleStage.ACTIVE,
+                    )
+                    .all()
+                )
+            return active_ids
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
@@ -5927,14 +5958,52 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             return Trace(info=trace_snapshot.trace_info, data=TraceData(spans=spans))
         return None
 
-    def _build_trace_batch_filters(self, session, trace_ids, experiment_ids):
-        filters = [SqlTraceInfo.request_id.in_(trace_ids)]
-        if experiment_ids is not None:
-            experiment_ids = self._filter_experiment_ids(
-                session, [self._parse_experiment_id(e) for e in experiment_ids]
+    def _query_trace_infos_in_batches(
+        self,
+        session,
+        trace_ids: list[str],
+        experiment_ids: list[str] | None,
+        order_case,
+        query_options=(),
+    ) -> list[SqlTraceInfo]:
+        """
+        Run the batch trace-info query, chunking ``experiment_ids`` (an
+        authorization scope that can hold hundreds of ids) to stay under
+        SQLite's bound-parameter cap. ``trace_ids`` is applied unchunked to
+        every chunk query, so splitting ``experiment_ids`` into
+        non-overlapping chunks and concatenating the per-chunk results is
+        equivalent to a single unchunked query — no dedup needed.
+        """
+        base_filter = SqlTraceInfo.request_id.in_(trace_ids)
+        if experiment_ids is None:
+            query = self._trace_query(session).options(*query_options).filter(base_filter)
+            return query.order_by(order_case).all()
+
+        parsed_ids = [self._parse_experiment_id(e) for e in experiment_ids]
+        sql_trace_infos: list[SqlTraceInfo] = []
+        for chunk_start in range(0, len(parsed_ids), self._ID_CHUNK_SIZE):
+            # Chunk before calling ``_filter_experiment_ids`` so the
+            # workspace-scoping hook (which itself issues an unchunked
+            # ``IN (...)`` query in workspace-aware subclasses) never
+            # receives more than ``_ID_CHUNK_SIZE`` ids either.
+            chunk = self._filter_experiment_ids(
+                session, parsed_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
             )
-            filters.append(SqlTraceInfo.experiment_id.in_(experiment_ids))
-        return filters
+            if not chunk:
+                continue
+            query = (
+                self
+                ._trace_query(session)
+                .options(*query_options)
+                .filter(base_filter, SqlTraceInfo.experiment_id.in_(chunk))
+            )
+            sql_trace_infos.extend(query.order_by(order_case).all())
+
+        # Merging separate per-chunk queries loses the global order guarantee
+        # ``order_case`` gives a single query, so restore it explicitly.
+        trace_id_order = {trace_id: idx for idx, trace_id in enumerate(trace_ids)}
+        sql_trace_infos.sort(key=lambda sti: trace_id_order[sti.request_id])
+        return sql_trace_infos
 
     def batch_get_traces(
         self,
@@ -5963,18 +6032,16 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         with self.ManagedSessionMaker() as session:
             # Load trace metadata first; DB-backed span rows are fetched separately only for traces
             # that still read from the tracking store.
-            filters = self._build_trace_batch_filters(session, trace_ids, experiment_ids)
-            sql_trace_infos = (
-                self
-                ._trace_query(session)
-                .options(
+            sql_trace_infos = self._query_trace_infos_in_batches(
+                session,
+                trace_ids,
+                experiment_ids,
+                order_case,
+                query_options=[
                     selectinload(SqlTraceInfo.tags),
                     selectinload(SqlTraceInfo.request_metadata),
                     selectinload(SqlTraceInfo.assessments),
-                )
-                .filter(*filters)
-                .order_by(order_case)
-                .all()
+                ],
             )
             trace_infos = [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
             tracking_store_trace_ids = [
@@ -6047,8 +6114,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             value=SqlTraceInfo.request_id,
         )
         with self.ManagedSessionMaker() as session:
-            filters = self._build_trace_batch_filters(session, trace_ids, experiment_ids)
-            sql_trace_infos = self._trace_query(session).filter(*filters).order_by(order_case).all()
+            sql_trace_infos = self._query_trace_infos_in_batches(
+                session, trace_ids, experiment_ids, order_case
+            )
 
             return [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
 

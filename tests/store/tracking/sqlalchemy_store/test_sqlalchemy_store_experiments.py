@@ -428,6 +428,41 @@ def test_search_experiments_filter_by_experiment_id_rejects_non_integer(store: S
         store.search_experiments(filter_string="experiment_id IN ('abc')")
 
 
+def test_list_active_experiment_ids(store: SqlAlchemyStore, monkeypatch):
+    """
+    Given a bounded batch of experiment ids, only the ones that exist and are
+    ACTIVE come back. Also exercises the IN-list chunking by forcing a tiny
+    chunk size, including a chunk boundary (exactly at, and just over, the
+    chunk size).
+    """
+    id_a, id_b, id_c = _create_experiments(store, ["a", "b", "c"])
+    store.delete_experiment(id_c)
+    nonexistent_id = "999999"
+
+    assert store.list_active_experiment_ids([]) == []
+    assert set(store.list_active_experiment_ids([id_a, id_b, id_c, nonexistent_id])) == {
+        id_a,
+        id_b,
+    }
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.list_active_experiment_ids(["abc"])
+
+    # Force a tiny chunk size to exercise the IN-list chunking loop end-to-end,
+    # including a chunk that lands exactly on the boundary (2 ids, chunk size 2)
+    # and one that spans multiple chunks (4 ids, chunk size 2).
+    monkeypatch.setattr(SqlAlchemyStore, "_ID_CHUNK_SIZE", 2)
+    assert set(store.list_active_experiment_ids([id_a, id_b])) == {id_a, id_b}
+    assert set(store.list_active_experiment_ids([id_a, id_b, id_c, nonexistent_id])) == {
+        id_a,
+        id_b,
+    }
+
+
 def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
     # Sleep to ensure that the first experiment has a different creation_time than the default
     # experiment and eliminate flakiness.

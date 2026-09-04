@@ -11,6 +11,7 @@ from mlflow.entities import (
     Issue,
     IssueSeverity,
     IssueStatus,
+    LifecycleStage,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -1700,6 +1701,28 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         result: list[ScorerVersion] = []
         for exp_id in experiment_ids:
             result.extend(self.list_scorers(exp_id))
+        return result
+
+    def list_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+        """
+        Given a bounded, caller-supplied batch of experiment IDs, return the
+        subset that exist and are ACTIVE. This is NOT a general-purpose search:
+        the caller must already know exactly which IDs it's asking about, and
+        the result size is capped by the input size. For open-ended enumeration
+        (e.g. "all active experiments in a workspace", where the result size is
+        unknown ahead of time), use ``search_experiments`` instead.
+
+        The default impl checks each ID individually via ``get_experiment``;
+        ``SqlAlchemyStore`` overrides with a chunked batch query.
+        """
+        result: list[str] = []
+        for exp_id in experiment_ids:
+            try:
+                experiment = self.get_experiment(exp_id)
+            except MlflowException:
+                continue
+            if experiment.lifecycle_stage == LifecycleStage.ACTIVE:
+                result.append(exp_id)
         return result
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
