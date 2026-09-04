@@ -14,7 +14,7 @@ Your training data has a cutoff. Treat anything you don't recognize as **new, no
 
 ## Verify Rather Than Infer
 
-Before claiming changed code misbehaves, run it. A scratch snippet through `python3` or `node` will settle most questions in seconds; installing a dependency or running a single test is fine too when it's quick.
+Prefer checking over reasoning whenever the check is cheap. Reserve inference for claims that cannot be settled here.
 
 ## Do NOT Comment On
 
