@@ -122,12 +122,12 @@ class _VertexAIClaudeAdapter(AnthropicAdapter):
         return payload
 
     @classmethod
-    def chat_to_model(cls, payload, config):
+    def chat_to_model(cls, payload: dict[str, Any], config) -> dict[str, Any]:
         return cls._apply_vertex_fields(super().chat_to_model(payload, config))
 
-    @classmethod
-    def chat_streaming_to_model(cls, payload, config):
-        return cls._apply_vertex_fields(super().chat_streaming_to_model(payload, config))
+    # No `chat_streaming_to_model` override: `AnthropicAdapter.chat_streaming_to_model`
+    # delegates to `cls.chat_to_model`, which already applies the Vertex fields above.
+    # Overriding it here too would apply them twice.
 
 
 class _VertexAIClaudeProvider(AnthropicProvider):

@@ -555,6 +555,31 @@ def test_claude_adapter_applies_vertex_fields_without_provider_hooks():
     assert "model" not in streamed
 
 
+def test_claude_adapter_applies_vertex_fields_via_judge_provider_resolution(monkeypatch):
+    """Same guarantee as above, but resolved the way the judge path actually does it.
+
+    ``mlflow.genai.judges.adapters.gateway_adapter`` resolves its provider via
+    ``_get_provider_instance("vertex_ai", model_name)``, not by constructing
+    ``VertexAIProvider`` directly. Going through that resolution function here pins
+    the regression at the exact seam that broke: if it ever stops routing Claude
+    models to ``_VertexAIClaudeAdapter``, this test -- not just the adapter-level one
+    above -- would catch it.
+    """
+    from mlflow.gateway.providers.vertex_ai import _VERTEX_ANTHROPIC_VERSION, _VertexAIClaudeAdapter
+    from mlflow.metrics.genai.model_utils import _get_provider_instance
+
+    monkeypatch.setenv("VERTEX_PROJECT", "my-gcp-project")
+    monkeypatch.setenv("VERTEX_LOCATION", "us-east5")
+
+    provider = _get_provider_instance("vertex_ai", "claude-sonnet-4-5@20251101")
+    assert provider.adapter_class is _VertexAIClaudeAdapter
+
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 16}
+    formatted = provider.adapter_class.chat_to_model(dict(payload), provider.config)
+    assert formatted["anthropic_version"] == _VERTEX_ANTHROPIC_VERSION
+    assert "model" not in formatted
+
+
 def _make_maas_provider(model_name: str, location: str = "us-central1") -> VertexAIProvider:
     endpoint_config = EndpointConfig(
         name="vertex-maas-endpoint",
