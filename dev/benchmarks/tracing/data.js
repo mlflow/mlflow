@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788489672293,
+  "lastUpdate": 1788495724783,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -26837,6 +26837,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.204922199978682,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tim-hendrik.maassen@blueforte.com",
+            "name": "TimMsnBlueforte",
+            "username": "TimMsnBlueforte"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d205b0802d079b66fdbbf130ea678f509b7241d3",
+          "message": "Release Databricks SDK connections in `rest_utils.http_request` (#25561)\n\nSigned-off-by: Tim-Hendrik Maassen <tim-hendrik.maassen@blueforte.com>\nCo-authored-by: Kris Concepcion <84737625+kriscon-db@users.noreply.github.com>",
+          "timestamp": "2026-09-04T00:20:36-04:00",
+          "tree_id": "fdff1805de89bdc0e496f35415581657d12a1040",
+          "url": "https://github.com/mlflow/mlflow/commit/d205b0802d079b66fdbbf130ea678f509b7241d3"
+        },
+        "date": 1788495721793,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.70252180000074,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.154490559322987,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.367552277026623,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.235119318965343,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.716045839695321,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 26.68196179999711,
             "unit": "ms"
           }
         ]
