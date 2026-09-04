@@ -9,6 +9,7 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
+from mlflow.models.signature import _infer_signature_from_type_hints, _TypeHints
 from mlflow.models.utils import PyFuncOutput, _enforce_schema
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
@@ -507,3 +508,15 @@ def test_dict_in_pyfunc_output():
         f"dict must be in PyFuncOutput for ResponsesAgent/ChatAgent/ChatModel. "
         f"Current types: {output_types}"
     )
+
+
+def test_infer_signature_from_type_hints_reports_the_underlying_error():
+    # The generic message must carry the specific reason from the type hint check,
+    # otherwise the user is told the hint is unsupported without being told why.
+    with pytest.raises(
+        MlflowException,
+        match=r"Error: Type hint `list` doesn.t contain a collection element type",
+    ):
+        _infer_signature_from_type_hints(
+            python_model=lambda x: x, context=None, type_hints=_TypeHints(input_=list)
+        )
