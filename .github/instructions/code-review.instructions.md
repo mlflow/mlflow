@@ -12,6 +12,10 @@ Your training data has a cutoff. Treat anything you don't recognize as **new, no
 - Model names (e.g., `gpt-5`)
 - GitHub runner types (e.g., `ubuntu-slim`)
 
+## Verify When It's Cheap
+
+Prefer verifying over reasoning whenever it's cheap. The repo is checked out and you can run whatever is installed. A quick command can confirm or kill a claim outright.
+
 ## Do NOT Comment On
 
 - Future dates, version numbers, model names, or runner types — your knowledge cutoff makes these unreliable
