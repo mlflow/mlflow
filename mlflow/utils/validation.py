@@ -732,6 +732,94 @@ def _validate_model_alias_name_reserved(model_alias_name):
         )
 
 
+MAX_SKILL_NAME_LENGTH = 64
+MAX_AGENT_PLUGIN_NAME_LENGTH = 64
+MAX_ORGANIZATION_NAME_LENGTH = 64
+
+# Skill names: lowercase ASCII letters, digits, and single hyphens; alphanumeric first
+# and last characters; no consecutive hyphens.
+_SKILL_NAME_REGEX = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+# Agent plugin (and organization) names: additionally allow single periods between
+# alphanumeric groups (so SemVer-looking names like "1.0.0" are permitted).
+_AGENT_PLUGIN_NAME_REGEX = re.compile(r"^[a-z0-9]+([-.][a-z0-9]+)*$")
+
+
+def _validate_skill_name(name):
+    if not name:
+        raise MlflowException.invalid_parameter_value("Skill name must not be empty.")
+    if _SKILL_NAME_REGEX.fullmatch(name) is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid skill name {name!r}. Names must be 1-64 lowercase ASCII letters, digits, "
+            "and hyphens; cannot begin or end with a hyphen; and cannot contain consecutive "
+            "hyphens."
+        )
+    _validate_length_limit("Skill name", MAX_SKILL_NAME_LENGTH, name)
+
+
+def _validate_agent_plugin_name(name):
+    if not name:
+        raise MlflowException.invalid_parameter_value("Agent plugin name must not be empty.")
+    if _AGENT_PLUGIN_NAME_REGEX.fullmatch(name) is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid agent plugin name {name!r}. Names must be 1-64 lowercase ASCII letters, "
+            "digits, hyphens, and periods; must have alphanumeric first and last characters; and "
+            "cannot contain consecutive hyphens or periods."
+        )
+    _validate_length_limit("Agent plugin name", MAX_AGENT_PLUGIN_NAME_LENGTH, name)
+
+
+def _validate_organization_name(organization):
+    if organization is None or organization == "":
+        return
+    if _AGENT_PLUGIN_NAME_REGEX.fullmatch(organization) is None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid organization name {organization!r}. Organizations must be 1-64 lowercase "
+            "ASCII letters, digits, hyphens, and periods; must have alphanumeric first and last "
+            "characters; and cannot contain consecutive hyphens or periods."
+        )
+    _validate_length_limit("Organization name", MAX_ORGANIZATION_NAME_LENGTH, organization)
+
+
+def _validate_skill_version(version):
+    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+        raise MlflowException.invalid_parameter_value(
+            f"Skill version must be a positive integer, got {version!r}."
+        )
+
+
+def _validate_skill_alias(alias):
+    _validate_model_alias_name(alias)
+    _validate_model_alias_name_reserved(alias)
+
+
+def _validate_skill_tag(key, value):
+    _validate_tag(key, value)
+
+
+def _validate_skill_artifact_path(path):
+    # Local import to avoid a circular import: mlflow.utils.uri imports from this module.
+    from mlflow.utils.uri import validate_path_is_safe
+
+    if not isinstance(path, str) or not path:
+        raise MlflowException.invalid_parameter_value(
+            f"Artifact path must be a non-empty string, got {path!r}."
+        )
+    # Delegates the security-critical checks (absolute, '..', backslash, url-encoded,
+    # windows-absolute, control chars, '#') to the shared path-safety helper, then runs
+    # the segment checks on its decoded/normalized return value so URL-encoded traversals
+    # (e.g. '%2e' or '%2f') can't slip past as empty or '.' segments.
+    normalized = validate_path_is_safe(path)
+    if "\\" in normalized:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid artifact path {path!r}: backslashes are not allowed."
+        )
+    for segment in normalized.split("/"):
+        if segment in ("", "."):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid artifact path {path!r}: empty or '.' segments are not allowed."
+            )
+
+
 def _validate_experiment_artifact_location(artifact_location):
     if artifact_location is not None and artifact_location.startswith("runs:"):
         raise MlflowException(
