@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788488144095,
+  "lastUpdate": 1788489672293,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -26783,6 +26783,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 23.03104649999928,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60318530+SahilKumar75@users.noreply.github.com",
+            "name": "Sahil Kumar Singh",
+            "username": "SahilKumar75"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e95527edc08482a9c020d828542fcca5d720b05e",
+          "message": "Ignore cross-async-context `ValueError` when detaching a span (#22945)\n\nSigned-off-by: Sahil Kumar Singh <sahilkumargreat12@gmail.com>\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: SahilKumar75 <SahilKumar75@users.noreply.github.com>",
+          "timestamp": "2026-09-03T22:39:51-04:00",
+          "tree_id": "a3737991efa017b7e5e698505f78cd06cf9ffbb1",
+          "url": "https://github.com/mlflow/mlflow/commit/e95527edc08482a9c020d828542fcca5d720b05e"
+        },
+        "date": 1788489670561,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.52984605000552,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.317971438592028,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.438286639456286,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.280960042019859,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.741244138463431,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.204922199978682,
             "unit": "ms"
           }
         ]
