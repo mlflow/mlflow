@@ -6,7 +6,7 @@ on:
       - labeled
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.run_id }}
   cancel-in-progress: false
 
 defaults:
