@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer, ScorerSamplingConfig
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScorer
@@ -29,6 +29,15 @@ class OnlineScorerSampler:
         for online_scorer in online_scorers:
             try:
                 scorer = Scorer.model_validate_json(online_scorer.serialized_scorer)
+                scorer._set_registration_metadata(
+                    backend=SCORER_BACKEND_TRACKING,
+                    experiment_id=online_scorer.online_config.experiment_id,
+                    sampling_config=ScorerSamplingConfig(
+                        sample_rate=online_scorer.online_config.sample_rate,
+                        filter_string=online_scorer.online_config.filter_string,
+                    ),
+                    scorer_version=online_scorer.scorer_version,
+                )
                 self._sample_rates[scorer.name] = online_scorer.online_config.sample_rate
                 self._scorers[scorer.name] = scorer
             except Exception as e:

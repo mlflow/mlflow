@@ -52,6 +52,7 @@ def test_mlflow_backend_scorer_operations():
         )
 
         assert registered_scorer_v1.status == ScorerStatus.STOPPED
+        assert registered_scorer_v1.scorer_version == 1
 
         # Register a second version of the scorer
         @scorer
@@ -61,11 +62,13 @@ def test_mlflow_backend_scorer_operations():
         # Register the scorer in the active experiment.
         registered_scorer_v2 = test_mlflow_scorer_v2.register(name="test_mlflow_scorer")
         assert registered_scorer_v2.name == "test_mlflow_scorer"
+        assert registered_scorer_v2.scorer_version == 2
 
         # Test list operation
         scorers = list_scorers(experiment_id=experiment_id)
         assert len(scorers) == 1
         assert scorers[0]._original_func.__name__ == "test_mlflow_scorer_v2"
+        assert scorers[0].scorer_version == 2
 
         # Test list versions
         scorer_versions = list_scorer_versions(
@@ -78,6 +81,7 @@ def test_mlflow_backend_scorer_operations():
             name="test_mlflow_scorer", experiment_id=experiment_id, version=1
         )
         assert retrieved_scorer_v1._original_func.__name__ == "test_mlflow_scorer_v1"
+        assert retrieved_scorer_v1.scorer_version == 1
 
         retrieved_scorer_v2 = get_scorer(
             name="test_mlflow_scorer", experiment_id=experiment_id, version=2
@@ -616,12 +620,14 @@ def test_databricks_backend_version_operations_use_managed_resource_endpoints():
         store.delete_scorer("exp_123", scorer_name, version=1)
 
     assert exact.name == scorer_name
+    assert exact.scorer_version == 1
     assert exact._sampling_config == ScorerSamplingConfig(
         sample_rate=0.5,
         filter_string="trace.status = 'OK'",
     )
     assert [version for _, version in versions] == [1, 2]
     assert [scorer.name for scorer, _ in versions] == [scorer_name, scorer_name]
+    assert [scorer.scorer_version for scorer, _ in versions] == [1, 2]
 
     scorer_key = "Zm9sZGVyL3Rlc3RfZGF0YWJyaWNrc19zY29yZXI"
     assert mock_http.call_args_list[0].kwargs["endpoint"] == (

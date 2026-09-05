@@ -3437,6 +3437,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         version.serialized_scorer
                     ),
                     online_config=config.to_mlflow_entity(),
+                    scorer_version=version.scorer_version,
                 )
                 for config, scorer, version in gateway_results
             ]

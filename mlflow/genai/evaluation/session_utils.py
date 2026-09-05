@@ -17,6 +17,7 @@ from mlflow.genai.evaluation.rate_limiter import (
     eval_retry_context,
 )
 from mlflow.genai.evaluation.utils import (
+    add_scorer_metadata,
     make_code_type_assessment_source,
     standardize_scorer_value,
 )
@@ -141,9 +142,11 @@ def evaluate_session_level_scorers(
                     feedback.metadata = {}
                 feedback.metadata[TraceMetadataKey.TRACE_SESSION] = session_id
 
+            add_scorer_metadata(scorer, feedbacks)
+
             return feedbacks
         except Exception as e:
-            return [
+            feedbacks = [
                 Feedback(
                     name=scorer.name,
                     source=make_code_type_assessment_source(scorer.name),
@@ -155,6 +158,8 @@ def evaluate_session_level_scorers(
                     metadata={TraceMetadataKey.TRACE_SESSION: session_id},
                 )
             ]
+            add_scorer_metadata(scorer, feedbacks)
+            return feedbacks
 
     # Run scorers in parallel (similar to _compute_eval_scores for single-turn)
     with ThreadPoolExecutor(
