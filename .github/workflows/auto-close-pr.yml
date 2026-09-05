@@ -6,6 +6,10 @@ on:
       - opened
       - reopened
 
+concurrency:
+  group: ${{ github.run_id }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash

@@ -28,6 +28,19 @@ deny_top_level_permissions contains msg if {
 	msg := "Top-level 'permissions' must be empty ({}). Grant least-privilege permissions per job instead."
 }
 
+deny_workflow_without_concurrency contains msg if {
+	# Workflow files only (composite actions have 'runs')
+	input.jobs
+	not input.concurrency
+	msg := concat("", [
+		"Workflow must declare 'concurrency' explicitly. Without it a new event never ",
+		"supersedes runs already in flight, so stale runs keep consuming runners and ",
+		"repo-mutating workflows can race. Use the standard group ",
+		"'${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}', or ",
+		"'${{ github.run_id }}' to opt out when runs must never be grouped.",
+	])
+}
+
 deny_job_permissions_shorthand contains msg if {
 	some job_id, job in input.jobs
 	job.permissions in {"read-all", "write-all"}

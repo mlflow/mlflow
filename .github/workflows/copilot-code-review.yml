@@ -6,6 +6,10 @@ on:
     paths:
       - .github/workflows/copilot-code-review.yml
 
+concurrency:
+  group: ${{ github.run_id }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash

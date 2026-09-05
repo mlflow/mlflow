@@ -4,6 +4,10 @@ on:
   pull_request_target:
     types: [opened, ready_for_review, review_requested]
 
+concurrency:
+  group: ${{ github.run_id }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash

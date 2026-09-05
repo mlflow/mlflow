@@ -10,6 +10,10 @@ on:
       - .github/workflows/auto-assign.yml
       - .github/workflows/auto-assign.js
 
+concurrency:
+  group: ${{ github.run_id }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash

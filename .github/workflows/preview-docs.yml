@@ -5,6 +5,10 @@ on:
     workflows: [docs]
     types: [completed]
 
+concurrency:
+  group: ${{ github.run_id }}
+  cancel-in-progress: false
+
 env:
   DOCS_BUILD_DIR: /tmp/docs-build
 
