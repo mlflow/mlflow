@@ -91,10 +91,25 @@ import {
   reconstructMessages,
 } from '../src/tracing';
 import { readTranscript, getLastTurnRecords } from '../src/transcript';
+import { calculateCost } from '../src/pricing';
 import { flushTraces } from '@mlflow/core';
 import type { NotifyPayload, RolloutLine } from '../src/types';
 
 const FIXTURES_DIR = resolve(__dirname, 'fixtures');
+
+// Disable remote catalog lookup so tests use the bundled snapshot only (no
+// network in the notify hook path).
+const ORIGINAL_CATALOG_URI = process.env.MLFLOW_MODEL_CATALOG_URI;
+beforeAll(() => {
+  process.env.MLFLOW_MODEL_CATALOG_URI = '';
+});
+afterAll(() => {
+  if (ORIGINAL_CATALOG_URI === undefined) {
+    delete process.env.MLFLOW_MODEL_CATALOG_URI;
+  } else {
+    process.env.MLFLOW_MODEL_CATALOG_URI = ORIGINAL_CATALOG_URI;
+  }
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getSpans(): any[] {
@@ -578,5 +593,55 @@ describe('tool span failure status', () => {
     // OK tool: setStatus should NOT have been called
     expect(ok.statusCode).toBeNull();
     expect(ok.setStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe('token usage and cost on LLM spans', () => {
+  beforeEach(() => {
+    spanCounter = 0;
+    Object.keys(mockSpans).forEach((key) => delete mockSpans[key]);
+    jest.clearAllMocks();
+  });
+
+  it('sets mlflow.llm.model on every LLM span', () => {
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'));
+    const turn = getLastTurnRecords(records);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = { spanId: 'root' } as any;
+
+    createChildSpans(parent, turn, 'gpt-4o');
+
+    const llmSpans = getSpansByType('LLM');
+    expect(llmSpans.length).toBe(2);
+    for (const span of llmSpans) {
+      expect(span.attributes['mlflow.llm.model']).toBe('gpt-4o');
+    }
+  });
+
+  it('attaches cumulative token usage and cost to the final LLM span only', () => {
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'));
+    const turn = getLastTurnRecords(records);
+    const usage = { input_tokens: 1000, output_tokens: 500, total_tokens: 1500 };
+    const cost = calculateCost('gpt-4o', usage);
+    expect(cost).not.toBeNull();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = { spanId: 'root' } as any;
+    createChildSpans(parent, turn, 'gpt-4o', usage, cost);
+
+    const llmSpans = getSpansByType('LLM');
+    expect(llmSpans.length).toBe(2);
+
+    // First (non-final) LLM span carries neither usage nor cost.
+    expect(llmSpans[0].attributes['mlflow.chat.tokenUsage']).toBeUndefined();
+    expect(llmSpans[0].attributes['mlflow.llm.cost']).toBeUndefined();
+
+    // Final LLM span carries the turn's cumulative usage and computed cost.
+    expect(llmSpans[1].attributes['mlflow.chat.tokenUsage']).toEqual({
+      input_tokens: 1000,
+      output_tokens: 500,
+      total_tokens: 1500,
+    });
+    expect(llmSpans[1].attributes['mlflow.llm.cost']).toEqual(cost);
   });
 });
