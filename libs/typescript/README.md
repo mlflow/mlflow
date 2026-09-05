@@ -159,11 +159,19 @@ await client.logFeedback({
   rationale: 'The answer matches the expected fact.',
 });
 
+await client.logExpectation({
+  traceId: '<trace-id>',
+  name: 'expected_answer',
+  value: { answer: 'Paris', sources: ['encyclopedia'] },
+  source: { sourceType: AssessmentSourceType.HUMAN, sourceId: 'reviewer@example.com' },
+});
+
 const info = await client.getTraceInfo('<trace-id>');
 console.log(info.assessments);
 ```
 
-Databricks Unity Catalog V4 assessment posting is not included in this first slice.
+For Databricks Unity Catalog traces, both methods automatically use the V4 assessments API when
+given a `trace:/<catalog>.<schema>[.<table-prefix>]/<trace-id>` trace ID.
 
 Tag spans with a severity level so users (or you) can filter by **Minimum log level** in the trace UI:
 
