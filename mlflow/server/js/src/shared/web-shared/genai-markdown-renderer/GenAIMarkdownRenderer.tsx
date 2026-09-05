@@ -85,7 +85,7 @@ const InlineCode = ({ children }: ReactMarkdownProps<'code'>) => (
  * code blocks are being rendered, we only update the code blocks with changing props
  */
 // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-const CodeBlock = React.memo(({ children, language }: ReactMarkdownProps<'code'> & { language?: string }) => {
+export const CodeBlock = React.memo(({ children, language }: ReactMarkdownProps<'code'> & { language?: string }) => {
   const { theme } = useDesignSystemTheme();
   const code = String(children).replace(/\n$/, '');
   return (
