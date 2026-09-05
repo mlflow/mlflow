@@ -21,6 +21,7 @@ from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
+    MLFLOW_ARTIFACTS_ONLY_PRESIGNED,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
 )
@@ -334,6 +335,7 @@ def _run_server(
     default_artifact_root,
     serve_artifacts,
     artifacts_only,
+    artifacts_only_presigned=False,
     artifacts_destination,
     host,
     port,
@@ -372,6 +374,8 @@ def _run_server(
         env_map[SERVE_ARTIFACTS_ENV_VAR] = "true"
     if artifacts_only:
         env_map[ARTIFACTS_ONLY_ENV_VAR] = "true"
+    if artifacts_only_presigned:
+        env_map[MLFLOW_ARTIFACTS_ONLY_PRESIGNED.name] = "true"
     if artifacts_destination:
         env_map[ARTIFACTS_DESTINATION_ENV_VAR] = artifacts_destination
     if static_prefix:

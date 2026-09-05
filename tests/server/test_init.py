@@ -8,7 +8,11 @@ from unittest import mock
 import pytest
 
 from mlflow import server
-from mlflow.environment_variables import _MLFLOW_SERVER_BOOT_ID, _MLFLOW_SGI_NAME
+from mlflow.environment_variables import (
+    _MLFLOW_SERVER_BOOT_ID,
+    _MLFLOW_SGI_NAME,
+    MLFLOW_ARTIFACTS_ONLY_PRESIGNED,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.utils import find_free_port
 from mlflow.utils.os import is_windows
@@ -193,6 +197,26 @@ def test_run_server(mock_exec_cmd, monkeypatch):
             port="",
         )
     mock_exec_cmd.assert_called_once()
+
+
+def test_run_server_propagates_presigned_only_mode(mock_exec_cmd, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    with mock.patch("sys.platform", return_value="linux"):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts=True,
+            artifacts_only=False,
+            artifacts_only_presigned=True,
+            artifacts_destination="s3://bucket",
+            host="",
+            port="",
+        )
+
+    assert (
+        mock_exec_cmd.call_args.kwargs["extra_env"][MLFLOW_ARTIFACTS_ONLY_PRESIGNED.name] == "true"
+    )
 
 
 def test_run_server_win32(mock_exec_cmd, monkeypatch):
