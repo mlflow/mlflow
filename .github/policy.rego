@@ -35,9 +35,11 @@ deny_workflow_without_concurrency contains msg if {
 	msg := concat("", [
 		"Workflow must declare 'concurrency' explicitly. Without it a new event never ",
 		"supersedes runs already in flight, so stale runs keep consuming runners and ",
-		"repo-mutating workflows can race. Use the standard group ",
-		"'${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}', or ",
-		"'${{ github.run_id }}' to opt out when runs must never be grouped.",
+		"repo-mutating workflows can race. To opt out of concurrency grouping and allow each ",
+		"run to proceed independently:\n",
+		"concurrency:\n",
+		"  group: ${{ github.run_id }}\n",
+		"  cancel-in-progress: false",
 	])
 }
 
