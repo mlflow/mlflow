@@ -24,9 +24,10 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.attachments import Attachment
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     build_otel_context,
+    construct_trace_id_v4,
     decode_id,
     dump_span_attribute_value,
     encode_span_id,
@@ -46,6 +47,25 @@ from mlflow.tracing.utils.otlp import (
 from mlflow.tracing.utils.processor import apply_span_processors
 
 _logger = logging.getLogger(__name__)
+
+
+def _normalize_link_trace_id(link_trace_id: str, source_trace_id: str | None) -> str | None:
+    if not isinstance(link_trace_id, str):
+        raise MlflowException.invalid_parameter_value("Link trace ID must be a string.")
+    source_location, _ = parse_trace_id_v4(source_trace_id)
+    link_location, trace_id = parse_trace_id_v4(link_trace_id)
+    if link_location:
+        return link_trace_id if link_location == source_location else None
+    return construct_trace_id_v4(source_location, trace_id) if source_location else link_trace_id
+
+
+def _link_from_otel_link(otel_link, source_trace_id: str | None) -> Link:
+    link_trace_id = f"tr-{otel_link.context.trace_id:032x}"
+    return Link(
+        trace_id=_normalize_link_trace_id(link_trace_id, source_trace_id),
+        span_id=f"{otel_link.context.span_id:016x}",
+        attributes=dict(otel_link.attributes) if otel_link.attributes else None,
+    )
 
 
 # Not using enum as we want to allow custom span type string.
@@ -121,24 +141,9 @@ class Span:
         self._attachments: dict[str, Attachment] = {}
         request_id = self._attributes.get(SpanAttributeKey.REQUEST_ID)
         otel_links = getattr(otel_span, "links", ())
-        if request_id and request_id.startswith(TRACE_ID_V4_PREFIX):
-            if otel_links:
-                _logger.warning(
-                    "Span links are not currently supported for Unity Catalog traces. "
-                    "%d link(s) on span '%s' will be dropped.",
-                    len(otel_links),
-                    otel_span.name,
-                )
-            self._links: list["Link"] = []
-        else:
-            self._links: list["Link"] = [
-                Link(
-                    trace_id=f"tr-{otel_link.context.trace_id:032x}",
-                    span_id=f"{otel_link.context.span_id:016x}",
-                    attributes=dict(otel_link.attributes) if otel_link.attributes else None,
-                )
-                for otel_link in otel_links
-            ]
+        self._links: list["Link"] = [
+            _link_from_otel_link(otel_link, request_id) for otel_link in otel_links
+        ]
 
     @cached_property
     def trace_id(self) -> str:
@@ -513,17 +518,9 @@ class Span:
         else:
             otel_resource = _OTelResource.get_empty()
 
-        links = []
-        if location_id:
-            if otel_proto_span.links:
-                _logger.warning(
-                    "Span links are not currently supported for Unity Catalog traces. "
-                    "%d link(s) on span '%s' will be dropped.",
-                    len(otel_proto_span.links),
-                    otel_proto_span.name,
-                )
-        else:
-            links = [Link.from_otel_proto(proto_link) for proto_link in otel_proto_span.links]
+        links = [Link.from_otel_proto(proto_link) for proto_link in otel_proto_span.links]
+        for link in links:
+            link.trace_id = _normalize_link_trace_id(link.trace_id, mlflow_trace_id)
 
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
@@ -676,24 +673,9 @@ class LiveSpan(Span):
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
         otel_links = getattr(otel_span, "links", ())
-        if trace_id.startswith(TRACE_ID_V4_PREFIX):
-            if otel_links:
-                _logger.warning(
-                    "Span links are not currently supported for Unity Catalog traces. "
-                    "%d link(s) on span '%s' will be dropped.",
-                    len(otel_links),
-                    otel_span.name,
-                )
-            self._links: list["Link"] = []
-        else:
-            self._links: list["Link"] = [
-                Link(
-                    trace_id=f"tr-{otel_link.context.trace_id:032x}",
-                    span_id=f"{otel_link.context.span_id:016x}",
-                    attributes=dict(otel_link.attributes) if otel_link.attributes else None,
-                )
-                for otel_link in otel_links
-            ]
+        self._links: list["Link"] = [
+            _link_from_otel_link(otel_link, trace_id) for otel_link in otel_links
+        ]
         # Track the original span name for deduplication purposes during span logging.
         # Why: When traces contain multiple spans with identical names (e.g., multiple "LLM"
         # or "query" spans), it's difficult for users to distinguish between them in the UI
@@ -1040,20 +1022,18 @@ class LiveSpan(Span):
                 INVALID_PARAMETER_VALUE,
             )
 
-        # Span links are not supported for Unity Catalog (V4) traces. Warn and skip rather than
-        # silently normalizing the V4 trace ID to raw OTel hex (see #25080); this matches how
-        # V4-trace links are dropped at span construction.
-        if link.trace_id is not None and link.trace_id.startswith(TRACE_ID_V4_PREFIX):
-            _logger.warning(
-                "Span links are not currently supported for Unity Catalog traces. "
-                "The link to trace '%s' will be skipped.",
-                link.trace_id,
-            )
-            return
-
         # Validate and forward to the underlying OTel span so external exporters can see links
         try:
-            link_trace_id_hex = parse_trace_id_v4(link.trace_id)[1].removeprefix(
+            normalized_trace_id = _normalize_link_trace_id(link.trace_id, self.trace_id)
+            if normalized_trace_id is None:
+                _logger.warning(
+                    "Cross-location span links are not supported. The link from trace '%s' "
+                    "to trace '%s' will be skipped.",
+                    self.trace_id,
+                    link.trace_id,
+                )
+                return
+            link_trace_id_hex = parse_trace_id_v4(normalized_trace_id)[1].removeprefix(
                 TRACE_REQUEST_ID_PREFIX
             )
             trace_id_int = decode_id(link_trace_id_hex)
@@ -1071,7 +1051,7 @@ class LiveSpan(Span):
 
         self._links.append(
             Link(
-                trace_id=link.trace_id,
+                trace_id=normalized_trace_id,
                 span_id=link.span_id,
                 attributes=dict(link.attributes) if link.attributes else None,
             )

@@ -601,8 +601,11 @@ def test_span_from_otel_proto_with_location():
     request_id = mlflow_span.get_attribute("mlflow.traceRequestId")
     assert request_id == expected_trace_id
 
-    # Links are skipped for v4 UC traces
-    assert len(mlflow_span.links) == 0
+    assert len(mlflow_span.links) == 1
+    assert (
+        mlflow_span.links[0].trace_id == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
+    )
+    assert mlflow_span.links[0].span_id == "1122334455667788"
 
 
 def test_span_from_otel_proto_with_pre_encoded_request_id():
@@ -995,10 +998,10 @@ def test_add_link_rejects_invalid_ids():
         assert len(span.links) == 0
 
 
-def test_add_link_skips_v4_trace_id():
+def test_add_link_skips_cross_location_v4_trace_id():
     from mlflow.entities.link import Link
 
-    trace_id = "tr-12345"
+    trace_id = "trace:/other.schema/12345"
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("test_span") as otel_span:
         span = create_mlflow_span(otel_span, trace_id=trace_id)
@@ -1006,12 +1009,38 @@ def test_add_link_skips_v4_trace_id():
         with mock.patch("mlflow.entities.span._logger.warning") as mock_warning:
             span.add_link(Link(trace_id="trace:/catalog.schema/abc123", span_id="aabbccddeeff0011"))
 
-        # V4/UC trace links are not supported: skipped, not normalized or stored.
         assert len(span.links) == 0
         assert len(otel_span.links) == 0
         mock_warning.assert_called_once()
-        assert "Unity Catalog" in mock_warning.call_args.args[0]
-        assert mock_warning.call_args.args[1] == "trace:/catalog.schema/abc123"
+        assert "Cross-location" in mock_warning.call_args.args[0]
+
+
+@pytest.mark.parametrize("link_trace_id", ["abc123", "tr-abc123"])
+def test_add_link_qualifies_unlocated_trace_id_for_uc_trace(link_trace_id):
+    from mlflow.entities.link import Link
+
+    trace_id = "trace:/catalog.schema/12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+        span.add_link(Link(trace_id=link_trace_id, span_id="aabbccddeeff0011"))
+
+        assert span.links[0].trace_id == f"trace:/catalog.schema/{link_trace_id}"
+        assert len(otel_span.links) == 1
+
+
+def test_add_link_accepts_same_location_v4_trace_id():
+    from mlflow.entities.link import Link
+
+    trace_id = "trace:/catalog.schema/12345"
+    linked_trace_id = "trace:/catalog.schema/abc123"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+        span.add_link(Link(trace_id=linked_trace_id, span_id="aabbccddeeff0011"))
+
+        assert span.links[0].trace_id == linked_trace_id
+        assert len(otel_span.links) == 1
 
 
 def test_span_seeds_links_from_otel_span():
@@ -1034,6 +1063,26 @@ def test_span_seeds_links_from_otel_span():
     assert immutable_span.links[0].trace_id == "tr-aabbccddeeff00112233445566778899"
     assert immutable_span.links[0].span_id == "aabbccddeeff0011"
     assert immutable_span.links[0].attributes == {"type": "causal"}
+
+
+def test_live_span_preserves_native_otel_links_for_uc_trace():
+    otel_link = trace_api.Link(
+        context=trace_api.SpanContext(
+            trace_id=0xAABBCCDDEEFF00112233445566778899,
+            span_id=0xAABBCCDDEEFF0011,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+        ),
+        attributes={"type": "causal"},
+    )
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span", links=[otel_link]) as otel_span:
+        span = create_mlflow_span(otel_span, trace_id="trace:/catalog.schema/12345")
+
+    assert len(span.links) == 1
+    assert span.links[0].trace_id == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
+    assert span.links[0].span_id == "aabbccddeeff0011"
+    assert span.links[0].attributes == {"type": "causal"}
 
 
 def test_span_to_dict_with_links():
@@ -1115,7 +1164,7 @@ def test_span_links_otel_proto_roundtrip():
     assert rt.links[0].span_id == link_span_bytes
 
 
-def test_span_skips_links_for_v4_traces():
+def test_span_preserves_links_for_v4_traces():
     otel_link = trace_api.Link(
         context=trace_api.SpanContext(
             trace_id=0xAABBCCDDEEFF00112233445566778899,
@@ -1136,7 +1185,8 @@ def test_span_skips_links_for_v4_traces():
 
     span = Span(otel_span)
     assert span.trace_id == v4_trace_id
-    assert len(span.links) == 0
+    assert len(span.links) == 1
+    assert span.links[0].trace_id == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
 
 
 def test_span_links_property_returns_deep_copy():
