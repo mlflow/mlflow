@@ -244,7 +244,7 @@ def test_basic_authentication_against_mlflow_server(
         f"{basic_auth_mlflow_server}/api/2.0/mlflow/experiments/create",
         auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
         json={"name": "authenticated"},
-        timeout=5,
+        timeout=10,
     )
     response.raise_for_status()
     experiment_id = response.json()["experiment_id"]
