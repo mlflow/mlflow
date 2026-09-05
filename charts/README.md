@@ -9,6 +9,7 @@ A production-ready Helm chart for deploying [MLflow](https://mlflow.org) on Kube
 - **External Secrets Operator integration** to create the backend store credential Secret from AWS Secrets Manager, GCP Secret Manager, Vault, or any other supported provider
 - **Persistent storage** with a PersistentVolumeClaim for SQLite or file-based artifact stores
 - **Ingress** for external access
+- **Gateway API** support via an optional `HTTPRoute` attached to an existing Gateway
 - **Prometheus metrics** and optional ServiceMonitor for the Prometheus Operator
 - **NetworkPolicy** restricting ingress and egress to required ports
 - **RBAC** with independent namespace-scoped (`namespace_rbac`) and cluster-scoped (`cluster_rbac`) rules
@@ -171,6 +172,44 @@ ingress:
     - secretName: mlflow-tls
       hosts:
         - mlflow.example.com
+```
+
+### Gateway API (HTTPRoute)
+
+On clusters that route with the [Gateway API](https://gateway-api.sigs.k8s.io/) instead of
+Ingress, set `httpRoute` to attach MLflow to an existing Gateway. The chart creates only the
+`HTTPRoute` — the Gateway API CRDs, a controller implementing them, and the parent Gateway must
+already exist in the cluster. When the Gateway lives in another namespace, its listener must also
+allow routes from the release namespace: `allowedRoutes.namespaces` defaults to `from: Same`, and
+a route from elsewhere is rejected with `NotAllowedByListeners`.
+
+As with an Ingress, set `allowed_hosts` to the hostname MLflow is served on, otherwise MLflow's
+host-validation middleware rejects requests with HTTP 403.
+
+```yaml
+server:
+  value_options:
+    allowed_hosts: "mlflow.example.com"
+
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: my-gateway
+      namespace: gateway-system
+      sectionName: https
+  hostnames:
+    - mlflow.example.com
+```
+
+TLS is terminated by the parent Gateway's listener, so `tls.enabled` is not required. Enable it
+only when the Gateway must also reach the pod over HTTPS, which additionally needs a
+`BackendTLSPolicy` for the MLflow Service.
+
+On clusters running older Gateway API CRDs, render the route against the `v1beta1` API:
+
+```yaml
+httpRoute:
+  apiVersion: gateway.networking.k8s.io/v1beta1
 ```
 
 ### Prometheus metrics

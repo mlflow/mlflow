@@ -60,6 +60,29 @@ jobs:
           # validation rejects as null.
           render --set metrics.path= | grep -q '^      path: /metrics$'
 
+      - name: Render HTTPRoute
+        run: |
+          render() {
+            helm template mlflow charts/ \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
+              --set httpRoute.enabled=true \
+              --set 'httpRoute.parentRefs[0].name=my-gateway' "$@"
+          }
+          render | grep -q '^apiVersion: gateway\.networking\.k8s\.io/v1$'
+          render --set httpRoute.apiVersion=gateway.networking.k8s.io/v1beta1 \
+            | grep -q '^apiVersion: gateway\.networking\.k8s\.io/v1beta1$'
+          # An unset apiVersion must not render as an empty value, which strict
+          # schema validation rejects as null.
+          render --set httpRoute.apiVersion= | grep -q '^apiVersion: gateway\.networking\.k8s\.io/v1$'
+          # parentRefs is required, otherwise the route attaches to no Gateway.
+          if err=$(helm template mlflow charts/ \
+            --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
+            --set httpRoute.enabled=true 2>&1 >/dev/null); then
+            echo "Expected rendering to fail when httpRoute.parentRefs is empty"
+            exit 1
+          fi
+          grep -q 'httpRoute.parentRefs is required' <<<"$err"
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
