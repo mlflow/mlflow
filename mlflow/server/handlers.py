@@ -34,7 +34,6 @@ from mlflow.entities import (
     Expectation,
     ExperimentTag,
     FallbackConfig,
-    FallbackStrategy,
     Feedback,
     FileInfo,
     GatewayEndpointModelConfig,
@@ -6072,16 +6071,11 @@ def _create_gateway_endpoint():
             "Name can only contain letters, numbers, underscores, hyphens, and dots."
         )
     # Convert proto fallback_config to entity FallbackConfig
-    fallback_config = None
-    if request_message.HasField("fallback_config"):
-        fallback_config = FallbackConfig(
-            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
-            if request_message.fallback_config.HasField("strategy")
-            else None,
-            max_attempts=request_message.fallback_config.max_attempts
-            if request_message.fallback_config.HasField("max_attempts")
-            else None,
-        )
+    fallback_config = (
+        FallbackConfig.from_proto(request_message.fallback_config)
+        if request_message.HasField("fallback_config")
+        else None
+    )
 
     for index, config in enumerate(request_message.model_configs):
         _assert_linkage_type_specified(config, index)
@@ -6151,16 +6145,11 @@ def _update_gateway_endpoint():
             "Name can only contain letters, numbers, underscores, hyphens, and dots."
         )
     # Convert proto fallback_config to entity FallbackConfig
-    fallback_config = None
-    if request_message.HasField("fallback_config"):
-        fallback_config = FallbackConfig(
-            strategy=FallbackStrategy.from_proto(request_message.fallback_config.strategy)
-            if request_message.fallback_config.HasField("strategy")
-            else None,
-            max_attempts=request_message.fallback_config.max_attempts
-            if request_message.fallback_config.HasField("max_attempts")
-            else None,
-        )
+    fallback_config = (
+        FallbackConfig.from_proto(request_message.fallback_config)
+        if request_message.HasField("fallback_config")
+        else None
+    )
 
     # Convert proto model_configs to entity GatewayEndpointModelConfig list
     model_configs = None
