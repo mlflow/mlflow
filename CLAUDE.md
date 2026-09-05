@@ -117,20 +117,6 @@ uv run --with transformers pytest tests/transformers
 uv run --extra gateway pytest tests/gateway
 ```
 
-### Code Quality
-
-```bash
-# Python linting and formatting with Ruff
-uv run ruff check . --fix         # Lint with auto-fix
-uv run ruff format .              # Format code
-
-# Custom MLflow linting with Clint
-uv run clint .                    # Run MLflow custom linter
-
-# Check for MLflow spelling typos
-uv run bash dev/mlflow-typo.sh .
-```
-
 ### Special Testing
 
 ```bash
@@ -229,21 +215,24 @@ gh run watch
 The repository uses pre-commit for code quality. Install hooks with:
 
 ```bash
-uv run pre-commit install --install-hooks
-uv run pre-commit run install-bin -a -v
+uv run --only-group lint pre-commit install --install-hooks
+uv run --only-group lint pre-commit run install-bin -a -v
 ```
 
 Run pre-commit manually:
 
 ```bash
 # Run on all files
-uv run pre-commit run --all-files
+uv run --only-group lint pre-commit run --all-files
 
 # Run on specific files
-uv run pre-commit run --files path/to/file.py
+uv run --only-group lint pre-commit run --files path/to/file.py
 
 # Run a specific hook
-uv run pre-commit run ruff --all-files
+uv run --only-group lint pre-commit run ruff --all-files
 ```
+
+`--only-group lint` keeps uv from syncing the full `dev` environment just to run
+the hooks.
 
 This runs Ruff, typos checker, and other tools automatically before commits.
