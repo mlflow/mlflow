@@ -5011,10 +5011,6 @@
     "defaultMessage": "404: Resource not found",
     "description": "Generic 404 user-friendly error for the MLflow UI"
   },
-  "IYeKVP": {
-    "defaultMessage": "Dataset record expectations",
-    "description": "Aria label for the dataset record expectations JSON editor"
-  },
   "IZ95jb": {
     "defaultMessage": "Datasets",
     "description": "Filtering label to filter runs based on datasets used"
@@ -5286,6 +5282,10 @@
   "Jfryx4": {
     "defaultMessage": "Top K",
     "description": "Label for the top-k input on the playground parameters panel"
+  },
+  "Jiydop": {
+    "defaultMessage": "Dataset record expectations",
+    "description": "Aria label for the dataset record expectations structured-data editor"
   },
   "Jj2kRy": {
     "defaultMessage": "No details for assessment",
@@ -6122,10 +6122,6 @@
   "N7KBFa": {
     "defaultMessage": "Create view",
     "description": "Menu item to create a new custom trace view"
-  },
-  "N8/kmr": {
-    "defaultMessage": "Invalid JSON",
-    "description": "Inline error shown under a dataset record JSON editor when the contents do not parse as a JSON object"
   },
   "N8YuIr": {
     "defaultMessage": "Error while loading metric page",
@@ -7715,6 +7711,10 @@
     "defaultMessage": "Retrieval Groundedness assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval Groundedness: moderately grounded\""
   },
+  "TXlV2z": {
+    "defaultMessage": "Invalid YAML",
+    "description": "Inline error shown when a dataset record editor does not contain a valid YAML object"
+  },
   "TXwmoT": {
     "defaultMessage": "Git branch",
     "description": "Usage overview > metrics filter > git branch column option label"
@@ -7722,10 +7722,6 @@
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
     "description": "Evaluation review > evaluations list > sample info tooltip"
-  },
-  "TbI+lg": {
-    "defaultMessage": "Dataset record inputs",
-    "description": "Aria label for the dataset record inputs JSON editor"
   },
   "TcNbWT": {
     "defaultMessage": "View dataset metadata",
@@ -8263,6 +8259,10 @@
     "defaultMessage": "Deleted traces cannot be restored. Are you sure you want to proceed?",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message"
   },
+  "ViKgvz": {
+    "defaultMessage": "YAML",
+    "description": "YAML dataset record editor format option"
+  },
   "ViqP7B": {
     "defaultMessage": "Traces",
     "description": "Label for the traces tab in the MLflow experiment navbar"
@@ -8298,6 +8298,10 @@
   "VmDLSS": {
     "defaultMessage": "Select a built-in judge or create a custom one.",
     "description": "Hint text for LLM judge selection"
+  },
+  "VnMYoP": {
+    "defaultMessage": "JSON",
+    "description": "JSON dataset record editor format option"
   },
   "VnnPrX": {
     "defaultMessage": "Enable Usage Tracking in the Overview tab to view usage metrics",
@@ -10594,6 +10598,10 @@
   "ecUdab": {
     "defaultMessage": "Usage",
     "description": "Label for the usage tab in the experiment overview page"
+  },
+  "eeGHh+": {
+    "defaultMessage": "Invalid JSON",
+    "description": "Inline error shown when a dataset record editor does not contain a valid JSON object"
   },
   "eeLqSn": {
     "defaultMessage": "Submit",
@@ -14794,6 +14802,10 @@
   "v5gzhw": {
     "defaultMessage": "Runtime arguments",
     "description": "Package runtime arguments label"
+  },
+  "v7GigW": {
+    "defaultMessage": "Dataset record inputs",
+    "description": "Aria label for the dataset record inputs structured-data editor"
   },
   "v8UFxB": {
     "defaultMessage": "No datasets were recorded for this experiment's runs.",
