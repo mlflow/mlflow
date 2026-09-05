@@ -731,7 +731,7 @@ class MlflowClient:
                 Using PromptModelConfig provides validation and type safety.
 
         Returns:
-            A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+            A :py:class:`PromptVersion <mlflow.entities.PromptVersion>` object that was created.
         """
         registry_client = self._get_registry_client()
 

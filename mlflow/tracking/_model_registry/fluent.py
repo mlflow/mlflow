@@ -638,7 +638,7 @@ def register_prompt(
             configuration. Using PromptModelConfig provides validation and type safety.
 
     Returns:
-        A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+        A :py:class:`PromptVersion <mlflow.entities.PromptVersion>` object that was created.
 
     Example:
 
