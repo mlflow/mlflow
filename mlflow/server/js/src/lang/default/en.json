@@ -4527,6 +4527,10 @@
     "defaultMessage": "Declined",
     "description": "Review queue status: declined"
   },
+  "GfrrrR": {
+    "defaultMessage": "Dataset ID",
+    "description": "Label for displaying the dataset ID"
+  },
   "Gg/vLZ": {
     "defaultMessage": "Delete Model",
     "description": "Title text for delete model modal on model view page"
@@ -13895,6 +13899,10 @@
     "defaultMessage": "Save",
     "description": "Save button in unified trace tag assignment modal"
   },
+  "r7bY37": {
+    "defaultMessage": "Dataset id copied",
+    "description": "Tooltip displayed after dataset id was successfully copied to clipboard"
+  },
   "r91Gz/": {
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
@@ -15526,6 +15534,10 @@
   "xw9qni": {
     "defaultMessage": "Duration",
     "description": "Column selector label for the duration column"
+  },
+  "xwW5nO": {
+    "defaultMessage": "Copy dataset id",
+    "description": "Copy tooltip to copy dataset id from dataset detail page header"
   },
   "xxWBKh": {
     "defaultMessage": "Created by",
