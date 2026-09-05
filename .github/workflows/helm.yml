@@ -4,6 +4,7 @@ on:
   push:
     branches: [master, "branch-[0-9]+.[0-9]+"]
     paths:
+      - .github/workflows/helm.yml
       - charts/**
       - docker/Dockerfile
       - mlflow/server/**
@@ -11,11 +12,16 @@ on:
       - mlflow/cli/**
   pull_request:
     paths:
+      - .github/workflows/helm.yml
       - charts/**
       - docker/Dockerfile
       - mlflow/server/**
       - mlflow/tracking/**
       - mlflow/cli/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -34,14 +40,25 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Helm
-        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
-
       - name: Lint
         run: helm lint charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
 
       - name: Render templates
         run: helm template mlflow charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
+
+      - name: Render ServiceMonitor
+        run: |
+          render() {
+            helm template mlflow charts/ \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" \
+              --set metrics.enabled=true \
+              --set serviceMonitor.enabled=true "$@"
+          }
+          render | grep -q '^      path: /metrics$'
+          render --set metrics.path=/custom | grep -q '^      path: /custom$'
+          # An unset path must not render as an empty value, which strict schema
+          # validation rejects as null.
+          render --set metrics.path= | grep -q '^      path: /metrics$'
 
   e2e:
     runs-on: ubuntu-latest

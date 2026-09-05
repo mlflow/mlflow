@@ -11,6 +11,7 @@ Claude's training data may lag behind current releases. When reviewing docs or c
 - Use top-level imports (only use lazy imports when necessary)
 - Only add docstrings in tests when they provide additional context
 - Only add comments that explain non-obvious logic or provide additional context
+- In source files, use full `https://github.com/<owner>/<repo>/issues/<number>` URLs for cross-repository issue references instead of `<owner>/<repo>#<number>`, because the shorthand does not autolink or identify the target type; it remains fine in PR descriptions and issue comments, where GitHub autolinks it.
 - When touching the SQLAlchemy tracking store, keep all workspace-aware paths and validations intact; never drop workspace plumbing even if the change focuses on single-tenant behavior
 - New functionality in the tracking layer should be mirrored by workspace-aware tests (e.g., add workspace variants in `tests/store/tracking/test_sqlalchemy_store_workspace.py` when applicable)
 
@@ -85,14 +86,6 @@ tail -f "$LOG"
 
 ## Development Commands
 
-### Offline / No-Network Usage
-
-If PyPI is unreachable, add `--frozen` to `uv run` commands that should use the existing `uv.lock` as-is without modifying the environment. This works when the required dependencies are already installed or available in the local cache:
-
-```bash
-uv run --frozen pytest tests/
-```
-
 ### Package Cooldown Period
 
 7-day cooldown on new package releases to guard against compromised or broken
@@ -122,20 +115,6 @@ uv run --with 'abc==1.2.3,xyz==4.5.6' pytest tests/test_version.py
 # Run tests with optional dependencies/extras
 uv run --with transformers pytest tests/transformers
 uv run --extra gateway pytest tests/gateway
-```
-
-### Code Quality
-
-```bash
-# Python linting and formatting with Ruff
-uv run ruff check . --fix         # Lint with auto-fix
-uv run ruff format .              # Format code
-
-# Custom MLflow linting with Clint
-uv run clint .                    # Run MLflow custom linter
-
-# Check for MLflow spelling typos
-uv run bash dev/mlflow-typo.sh .
 ```
 
 ### Special Testing
@@ -196,6 +175,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 git push origin <your-branch>
 ```
 
+### Keep Pull Requests to One Concern
+
+One PR = one concern. NEVER EVER bundle unrelated changes. They multiply review
+cost rather than adding to it, and since this repo squash-merges, they land as
+one commit that can't be reverted piece by piece and is hard to reason about
+later. When in doubt, split.
+
 ### Creating Pull Requests
 
 - Follow the instructions at the top of [the PR template](./.github/pull_request_template.md) carefully.
@@ -229,21 +215,22 @@ gh run watch
 The repository uses pre-commit for code quality. Install hooks with:
 
 ```bash
-uv run pre-commit install --install-hooks
-uv run pre-commit run install-bin -a -v
+uv run --only-group lint pre-commit install --install-hooks
+uv run --only-group lint pre-commit run install-bin -a -v
 ```
 
 Run pre-commit manually:
 
 ```bash
 # Run on all files
-uv run pre-commit run --all-files
+uv run --only-group lint pre-commit run --all-files
 
 # Run on specific files
-uv run pre-commit run --files path/to/file.py
+uv run --only-group lint pre-commit run --files path/to/file.py
 
 # Run a specific hook
-uv run pre-commit run ruff --all-files
+uv run --only-group lint pre-commit run ruff --all-files
 ```
 
-This runs Ruff, typos checker, and other tools automatically before commits.
+`--only-group lint` keeps uv from syncing the full `dev` environment just to run
+the hooks.

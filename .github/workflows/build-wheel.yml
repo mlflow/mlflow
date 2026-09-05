@@ -149,9 +149,10 @@ jobs:
       - name: Test installation from GitHub
         env:
           REPO: ${{ github.repository }}
-          REF: ${{ github.ref }}
           MATRIX_TYPE: ${{ matrix.type }}
         run: |
+          # Test the exact commit that was checked out and used to build the wheel.
+          REF=$(git rev-parse HEAD)
           if [ "$MATRIX_TYPE" == "skinny" ]; then
             URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/skinny"
           elif [ "$MATRIX_TYPE" == "tracing" ]; then
@@ -160,7 +161,14 @@ jobs:
             URL="git+https://github.com/${REPO}.git@${REF}"
           fi
 
-          uv run --isolated --no-project --with $URL python -I -c 'import mlflow; print(mlflow.__version__)'
+          for attempt in 1 2 3; do
+            if timeout -k 10 240 uv run --isolated --no-project --with "$URL" python -I -c 'import mlflow; print(mlflow.__version__)'; then
+              exit 0
+            fi
+            echo "::warning::Installation attempt ${attempt} failed or timed out"
+            [ "$attempt" -lt 3 ] && sleep 10
+          done
+          exit 1
 
       - name: Test dev/install-skinny.sh
         if: github.event_name == 'pull_request'

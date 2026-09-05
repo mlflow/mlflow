@@ -1,4 +1,6 @@
+import base64
 import json
+import zlib
 from pathlib import Path
 
 import pytest
@@ -23,6 +25,7 @@ from mlflow.demo.generators.issues import (
 )
 from mlflow.demo.generators.judges import DEMO_JUDGE_PREFIX, JudgesDemoGenerator
 from mlflow.demo.generators.prompts import PromptsDemoGenerator
+from mlflow.demo.generators.saved_views import DEMO_TRACE_SAVED_VIEWS
 from mlflow.demo.generators.traces import (
     DEMO_END_TIME_TAG,
     DEMO_START_TIME_TAG,
@@ -134,6 +137,24 @@ def test_generate_all_demos_seeds_custom_view(client):
     stored = json.loads(experiment.tags[DEMO_CUSTOM_VIEW_TAG_KEY])
     assert stored["id"] == DEMO_CUSTOM_VIEW_ID
     assert stored["template"][0]["version"] == "v0.9"
+
+
+def _inflate_saved_view_state(stored):
+    state = stored["state"]
+    assert state.startswith("deflate;"), f"expected deflate-compressed state, got: {state[:40]!r}"
+    compressed = base64.b64decode(state.removeprefix("deflate;"))
+    return json.loads(zlib.decompress(compressed).decode("utf-8"))
+
+
+def test_generate_all_demos_seeds_trace_saved_views(client):
+    generate_all_demos()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    for view in DEMO_TRACE_SAVED_VIEWS:
+        stored = json.loads(experiment.tags[view.tag_key])
+        assert stored["name"] == view.name
+        assert stored["state"].startswith("deflate;")
+        assert _inflate_saved_view_state(stored) == view.state
 
 
 def test_version_mismatch_triggers_cleanup_and_regeneration(client, traces_generator):

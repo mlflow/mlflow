@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 import pickle
@@ -4039,3 +4040,116 @@ def test_create_issue_with_all_fields(tmp_path: Path):
     assert issue.source_run_id == run.info.run_id
     assert issue.created_by == "monitoring_system"
     assert issue.created_timestamp > 0
+
+
+# register_prompt UI discoverability tests
+
+
+def _make_uc_prompt_version(name: str, version: int = 1):
+    """Return a minimal PromptVersion suitable for use as a UC registry stub return value."""
+    from mlflow.entities.model_registry.prompt_version import PromptVersion
+
+    return PromptVersion(name=name, version=version, template="stub {{var}}")
+
+
+def _uc_register_prompt_patches(name: str, tracking_uri: str):
+    """Context manager stack that makes register_prompt execute the UC branch.
+
+    Patches applied:
+    - is_databricks_unity_catalog_uri -> True (so the UC branch is entered)
+    - registry_client.create_prompt -> no-op
+    - registry_client.create_prompt_version -> Mock(version=1)
+    - registry_client.get_prompt_version -> minimal PromptVersion
+    """
+    fake_pv = _make_uc_prompt_version(name)
+    mock_version = Mock(version=1)
+    mock_registry_client = Mock()
+    mock_registry_client.create_prompt.return_value = None
+    mock_registry_client.create_prompt_version.return_value = mock_version
+    mock_registry_client.get_prompt_version.return_value = fake_pv
+
+    @contextlib.contextmanager
+    def _stack():
+        with (
+            mock.patch(
+                "mlflow.tracking.client.is_databricks_unity_catalog_uri",
+                return_value=True,
+            ),
+            mock.patch.object(
+                MlflowClient,
+                "_get_registry_client",
+                return_value=mock_registry_client,
+            ),
+        ):
+            yield mock_registry_client
+
+    return _stack()
+
+
+def test_register_prompt_uc_branch_logs_experiment_prompt_url(tracking_uri):
+    fake_workspace_url = "https://my-workspace.azuredatabricks.net/"
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
+        with (
+            mock.patch(
+                "mlflow.tracking.client.get_workspace_url",
+                return_value=fake_workspace_url,
+            ),
+            mock.patch(
+                "mlflow.tracking.client.get_workspace_id",
+                return_value="123456",
+                create=True,
+            ),
+            mock.patch(
+                "mlflow.tracking.fluent._get_experiment_id",
+                return_value="987654",
+            ),
+            mock.patch("mlflow.tracking.client._logger.info") as log_info,
+        ):
+            client.register_prompt(
+                name="catalog.schema.my_prompt",
+                template="Answer: {{question}}",
+            )
+
+    log_info.assert_called_once_with(
+        "Prompt registered. View in experiment Prompts tab: %s/ml/experiments/%s/prompts/%s%s",
+        fake_workspace_url.rstrip("/"),
+        "987654",
+        "catalog.schema.my_prompt",
+        "?o=123456&promptVersion=1",
+    )
+
+
+def test_register_prompt_uc_branch_no_ui_link_when_workspace_url_none(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with _uc_register_prompt_patches("catalog.schema.my_prompt", tracking_uri):
+        with (
+            mock.patch(
+                "mlflow.tracking.client.get_workspace_url",
+                return_value=None,
+            ),
+            mock.patch("mlflow.tracking.client._logger.info") as log_info,
+        ):
+            client.register_prompt(
+                name="catalog.schema.my_prompt",
+                template="Answer: {{question}}",
+            )
+
+    log_info.assert_not_called()
+
+
+def test_register_prompt_ui_link_logs_debug_on_error(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with (
+        mock.patch(
+            "mlflow.tracking.client.get_workspace_url",
+            side_effect=RuntimeError("workspace lookup failed"),
+        ),
+        mock.patch("mlflow.tracking.client._logger.debug") as log_debug,
+    ):
+        client._log_prompt_ui_link("catalog.schema.my_prompt", 1)
+
+    log_debug.assert_called_once_with("Failed to log prompt UI link", exc_info=True)

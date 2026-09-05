@@ -39,6 +39,28 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "DeepSeek-V4-Flash-0731": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.44,
+        "output_per_million_tokens": 1.32,
+        "cache_read_per_million_tokens": 0.014
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-12-03",
+      "last_updated_at": "2026-09-04"
+    },
     "FLUX-1.1-pro": {
       "mode": "image_generation",
       "capabilities": {
@@ -80,7 +102,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-25"
     },
     "FW-DeepSeek-V4-Pro": {
       "mode": "chat",
@@ -122,7 +145,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-25"
     },
     "FW-GLM-5.1": {
       "mode": "chat",
@@ -143,7 +167,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-25"
     },
     "FW-GLM-5.2": {
       "mode": "chat",
@@ -227,7 +252,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-25"
     },
     "FW-Kimi-K2.6": {
       "mode": "chat",
@@ -311,7 +337,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-07-01",
+      "last_updated_at": "2026-08-25"
     },
     "FW-MiniMax-M3": {
       "mode": "chat",
@@ -493,7 +520,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2026-10-01",
+      "last_updated_at": "2026-09-04"
     },
     "MAI-Image-2.5-Flash": {
       "mode": "image_generation",
@@ -513,7 +541,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2026-10-01",
+      "last_updated_at": "2026-09-04"
     },
     "MAI-Image-2e": {
       "mode": "image_generation",
@@ -926,7 +955,37 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-10"
+      "deprecation_date": "2027-12-05",
+      "last_updated_at": "2026-09-02"
+    },
+    "claude-fable-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 0.25,
+        "cache_write_per_million_tokens": 12.5,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-02"
     },
     "claude-haiku-4-5": {
       "mode": "chat",
@@ -948,7 +1007,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-19",
+      "last_updated_at": "2026-08-25"
     },
     "claude-opus-4-1": {
       "mode": "chat",
@@ -992,7 +1052,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-19",
+      "last_updated_at": "2026-08-25"
     },
     "claude-opus-4-6": {
       "mode": "chat",
@@ -1021,7 +1082,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-29"
+      "deprecation_date": "2027-02-02",
+      "last_updated_at": "2026-08-25"
     },
     "claude-opus-4-7": {
       "mode": "chat",
@@ -1050,7 +1112,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-29"
+      "deprecation_date": "2027-04-06",
+      "last_updated_at": "2026-08-25"
     },
     "claude-opus-4-8": {
       "mode": "chat",
@@ -1079,7 +1142,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-29"
+      "deprecation_date": "2027-09-01",
+      "last_updated_at": "2026-09-02"
     },
     "claude-opus-5": {
       "mode": "chat",
@@ -1108,7 +1172,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-27"
+      "deprecation_date": "2027-07-08",
+      "last_updated_at": "2026-09-02"
     },
     "claude-sonnet-4-5": {
       "mode": "chat",
@@ -1130,7 +1195,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2026-10-19",
+      "last_updated_at": "2026-08-25"
     },
     "claude-sonnet-4-6": {
       "mode": "chat",
@@ -1152,7 +1218,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "deprecation_date": "2027-02-10",
+      "last_updated_at": "2026-08-25"
     },
     "claude-sonnet-5": {
       "mode": "chat",
@@ -1181,7 +1248,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-06"
+      "deprecation_date": "2027-06-30",
+      "last_updated_at": "2026-09-02"
     },
     "deepseek-r1": {
       "mode": "chat",
@@ -1312,16 +1380,40 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.19,
-        "output_per_million_tokens": 0.51
+        "output_per_million_tokens": 0.51,
+        "cache_read_per_million_tokens": 0.028
       },
       "capabilities": {
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2028-02-20",
+      "last_updated_at": "2026-09-04"
+    },
+    "deepseek-v4-flash-0731": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.19,
+        "output_per_million_tokens": 0.51,
+        "cache_read_per_million_tokens": 0.028
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-12-03",
+      "last_updated_at": "2026-09-02"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
@@ -1332,16 +1424,18 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.74,
-        "output_per_million_tokens": 3.48
+        "output_per_million_tokens": 3.48,
+        "cache_read_per_million_tokens": 0.145
       },
       "capabilities": {
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2028-02-20",
+      "last_updated_at": "2026-09-04"
     },
     "embed-v-4-0": {
       "mode": "embedding",
@@ -1447,7 +1541,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-18"
+      "deprecation_date": "2027-09-02",
+      "last_updated_at": "2026-08-25"
     },
     "gpt-5.4-2026-03-05": {
       "mode": "chat",
@@ -1483,7 +1578,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-18"
+      "deprecation_date": "2027-09-02",
+      "last_updated_at": "2026-08-25"
     },
     "gpt-5.4-mini": {
       "mode": "chat",
@@ -1511,7 +1607,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2027-09-21",
+      "last_updated_at": "2026-08-25"
     },
     "gpt-5.4-mini-2026-03-17": {
       "mode": "chat",
@@ -1539,7 +1636,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2027-09-21",
+      "last_updated_at": "2026-08-25"
     },
     "gpt-5.4-nano": {
       "mode": "chat",
@@ -1567,7 +1665,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2027-09-21",
+      "last_updated_at": "2026-08-25"
     },
     "gpt-5.4-nano-2026-03-17": {
       "mode": "chat",
@@ -1595,7 +1694,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-31"
+      "deprecation_date": "2027-09-21",
+      "last_updated_at": "2026-08-25"
     },
     "gpt-5.5": {
       "mode": "chat",
@@ -1631,7 +1731,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-08-25"
     },
     "gpt-5.5-2026-04-23": {
       "mode": "chat",
@@ -1919,16 +2020,18 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.6,
-        "output_per_million_tokens": 3.0
+        "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.1
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "deprecation_date": "2027-01-26",
+      "last_updated_at": "2026-09-04"
     },
     "kimi-k2.6": {
       "mode": "chat",
@@ -1939,16 +2042,40 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.95,
-        "output_per_million_tokens": 4.0
+        "output_per_million_tokens": 4.0,
+        "cache_read_per_million_tokens": 0.16
       },
       "capabilities": {
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-09"
+      "deprecation_date": "2027-04-16",
+      "last_updated_at": "2026-09-04"
+    },
+    "kimi-k2.7-code": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.95,
+        "output_per_million_tokens": 4.0,
+        "cache_read_per_million_tokens": 0.19
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-10-03",
+      "last_updated_at": "2026-09-04"
     },
     "ministral-3b": {
       "mode": "chat",

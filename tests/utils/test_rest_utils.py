@@ -163,6 +163,36 @@ def test_http_request_with_basic_auth():
         )
 
 
+@pytest.mark.parametrize("auth", ["kubernetes", "kubernetes-namespaced"])
+@pytest.mark.parametrize(
+    ("token", "expected_authorization"),
+    [(None, None), ("my-token", "Bearer my-token")],
+)
+def test_http_request_with_kubernetes_auth_ignores_basic_auth(auth, token, expected_authorization):
+    host_creds = MlflowHostCreds(
+        "http://my-host",
+        username="user",
+        password="pass",
+        token=token,
+        auth=auth,
+    )
+    response = mock.MagicMock(status_code=200)
+    request_auth = mock.MagicMock()
+
+    with (
+        mock.patch("requests.Session.request", return_value=response) as mock_request,
+        mock.patch(
+            "mlflow.tracking.request_auth.registry.fetch_auth", return_value=request_auth
+        ) as mock_fetch_auth,
+    ):
+        http_request(host_creds, "/my/endpoint", "GET")
+
+    mock_fetch_auth.assert_called_once_with(auth)
+    headers = mock_request.call_args.kwargs["headers"]
+    assert headers.get("Authorization") == expected_authorization
+    assert mock_request.call_args.kwargs["auth"] is request_auth
+
+
 def test_http_request_with_aws_sigv4(monkeypatch):
     from requests_auth_aws_sigv4 import AWSSigV4
 
@@ -666,6 +696,23 @@ def test_suppress_databricks_retry_after_secs_warnings():
             _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING in str(w.message)
             for w in recorded_warnings
         )
+
+
+@pytest.mark.parametrize(("kwargs", "expected_reads"), [({}, 1), ({"stream": True}, 0)])
+def test_databricks_sdk_response_is_consumed_unless_streaming(kwargs, expected_reads):
+    host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
+    response = mock.MagicMock()
+    content = mock.PropertyMock(return_value=b"body")
+    type(response).content = content
+
+    with mock.patch("mlflow.utils.rest_utils.get_workspace_client") as get_client:
+        get_client.return_value.api_client.do.return_value = {
+            "contents": mock.MagicMock(_response=response)
+        }
+
+        assert http_request(host_creds, "/endpoint", "GET", **kwargs) is response
+
+    assert content.call_count == expected_reads
 
 
 def test_databricks_sdk_retry_on_transient_errors():

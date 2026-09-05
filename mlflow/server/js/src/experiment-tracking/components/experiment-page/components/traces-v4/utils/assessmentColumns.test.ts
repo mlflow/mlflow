@@ -1,10 +1,15 @@
 import { describe, expect, test } from '@jest/globals';
 import { ASSESSMENT_SESSION_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
-import { computeAssessmentColumns, pickCellAssessment } from './assessmentColumns';
-import { makeFeedbackAssessment, makeTrace } from '../test-utils/mockTraces';
+import type { Assessment } from '@databricks/web-shared/model-trace-explorer';
+import {
+  computeAssessmentColumns,
+  extractTraceIssues,
+  getAssessmentColumnType,
+  pickCellAssessment,
+} from './assessmentColumns';
+import { makeFeedbackAssessment, makeIssueAssessment, makeTrace } from '../test-utils/mockTraces';
 
-const traceWith = (id: string, assessments: ReturnType<typeof makeFeedbackAssessment>[]) =>
-  makeTrace(id, { assessments });
+const traceWith = (id: string, assessments: Assessment[]) => makeTrace(id, { assessments });
 
 describe('computeAssessmentColumns', () => {
   test('defaults to a column per assessment name on the page, sorted', () => {
@@ -60,6 +65,16 @@ describe('computeAssessmentColumns', () => {
     });
   });
 
+  test('excludes issue-reference assessments (they render in the dedicated Issues column)', () => {
+    const traces = [
+      traceWith('t1', [makeFeedbackAssessment('relevance', 'yes'), makeIssueAssessment('hallucination')]),
+    ];
+    expect(computeAssessmentColumns(traces, {})).toEqual({
+      candidateNames: ['relevance'],
+      visibleNames: ['relevance'],
+    });
+  });
+
   test('dedupes a name that appears across many traces', () => {
     const traces = [
       traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')]),
@@ -89,5 +104,78 @@ describe('pickCellAssessment', () => {
   test('skips non-displayable (invalid) assessments', () => {
     const trace = traceWith('t1', [makeFeedbackAssessment('relevance', 'yes', { valid: false })]);
     expect(pickCellAssessment(trace, 'relevance')).toBeUndefined();
+  });
+
+  test('does not surface an issue-reference assessment as a cell value', () => {
+    const issue = makeIssueAssessment('hallucination');
+    const trace = traceWith('t1', [issue]);
+    expect(pickCellAssessment(trace, issue.assessment_name)).toBeUndefined();
+  });
+});
+
+describe('extractTraceIssues', () => {
+  test('maps issue-reference assessments to {id, name} using assessment_name as the id', () => {
+    const trace = traceWith('t1', [
+      makeFeedbackAssessment('relevance', 'yes'),
+      makeIssueAssessment('hallucination'),
+      makeIssueAssessment('toxicity'),
+    ]);
+    expect(extractTraceIssues(trace)).toEqual([
+      { id: 'issue-hallucination', name: 'hallucination' },
+      { id: 'issue-toxicity', name: 'toxicity' },
+    ]);
+  });
+
+  test('falls back to the assessment name when issue_name is empty', () => {
+    const trace = traceWith('t1', [makeIssueAssessment('x', { issue: { issue_name: '' } })]);
+    expect(extractTraceIssues(trace)).toEqual([{ id: 'issue-x', name: 'issue-x' }]);
+  });
+
+  test('returns no issues for a trace with only feedback assessments', () => {
+    const trace = traceWith('t1', [makeFeedbackAssessment('relevance', 'yes')]);
+    expect(extractTraceIssues(trace)).toEqual([]);
+  });
+
+  test('skips invalid issue-reference assessments, matching the prior tab', () => {
+    const trace = traceWith('t1', [
+      makeIssueAssessment('hallucination', { valid: false }),
+      makeIssueAssessment('toxicity'),
+    ]);
+    expect(extractTraceIssues(trace)).toEqual([{ id: 'issue-toxicity', name: 'toxicity' }]);
+  });
+});
+
+describe('getAssessmentColumnType', () => {
+  test('returns "numeric" when any value is a non-integer', () => {
+    const traces = [
+      traceWith('t1', [makeFeedbackAssessment('score', 0.75)]),
+      traceWith('t2', [makeFeedbackAssessment('score', 1)]),
+    ];
+    expect(getAssessmentColumnType(traces, 'score')).toBe('numeric');
+  });
+
+  test('returns "categorical" when all values are integers or missing', () => {
+    const traces = [
+      traceWith('t1', [makeFeedbackAssessment('category', 1)]),
+      traceWith('t2', [makeFeedbackAssessment('category', 2)]),
+    ];
+    expect(getAssessmentColumnType(traces, 'category')).toBe('categorical');
+  });
+
+  test('returns "numeric" when mixed integer and non-integer values are present', () => {
+    const traces = [
+      traceWith('t1', [makeFeedbackAssessment('score', 0.5)]),
+      traceWith('t2', [makeFeedbackAssessment('score', 1)]),
+    ];
+    expect(getAssessmentColumnType(traces, 'score')).toBe('numeric');
+  });
+
+  test('returns "categorical" when traces list is empty', () => {
+    expect(getAssessmentColumnType([], 'score')).toBe('categorical');
+  });
+
+  test('returns "categorical" when no assessments match the name', () => {
+    const traces = [traceWith('t1', [makeFeedbackAssessment('other', 'yes')])];
+    expect(getAssessmentColumnType(traces, 'score')).toBe('categorical');
   });
 });

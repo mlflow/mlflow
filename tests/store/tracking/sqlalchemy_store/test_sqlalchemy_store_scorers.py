@@ -548,6 +548,39 @@ def test_list_scorers_across_experiments(store: SqlAlchemyStore, monkeypatch):
     assert [(s.experiment_id, s.scorer_name, s.scorer_version) for s in chunked] == expected
 
 
+def test_scorer_experiment_ids_are_coerced_to_int(store: SqlAlchemyStore):
+    """String experiment IDs must be bound as INTEGER, not VARCHAR.
+
+    ``experiments.experiment_id`` is an INTEGER column while the REST layer
+    hands IDs over as strings. SQLite (and psycopg2's untyped literals)
+    coerce silently, which is how the mismatch survived CI; psycopg v3 binds
+    typed VARCHAR parameters and PostgreSQL rejects the comparison with
+    ``operator does not exist: integer = character varying``. See
+    https://github.com/mlflow/mlflow/issues/25282 — this test pins the
+    coercion contract that keeps the PostgreSQL + psycopg v3 backend working.
+    """
+    exp_id = store.create_experiment("coercion_exp")
+    assert isinstance(exp_id, str)
+
+    registered = store.register_scorer(exp_id, "coerced", '{"v": 1}')
+    assert registered.experiment_id == exp_id
+    store.register_scorer(exp_id, "coerced", '{"v": 2}')
+
+    listed = store.list_scorers_across_experiments([exp_id])
+    assert [s.scorer_name for s in listed] == ["coerced"]
+    assert [s.scorer_name for s in store.list_scorers(exp_id)] == ["coerced"]
+
+    fetched = store.get_scorer(exp_id, "coerced")
+    assert fetched.scorer_version == 2
+    assert [v.scorer_version for v in store.list_scorer_versions(exp_id, "coerced")] == [1, 2]
+
+    store.delete_scorer(exp_id, "coerced", version=1)
+    assert [v.scorer_version for v in store.list_scorer_versions(exp_id, "coerced")] == [2]
+
+    with pytest.raises(MlflowException, match="must be valid integers"):
+        store.list_scorers_across_experiments(["not-a-number"])
+
+
 @pytest.mark.parametrize(
     ("name", "error_match"),
     [

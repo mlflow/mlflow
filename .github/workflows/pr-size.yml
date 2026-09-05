@@ -8,6 +8,10 @@ on:
       - ready_for_review
       - review_requested
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash

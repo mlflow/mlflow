@@ -280,6 +280,10 @@ def get_uri_scheme(uri_or_path):
     scheme = urllib.parse.urlparse(uri_or_path).scheme
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
+    # Windows absolute paths (e.g. C:\...) are parsed with a single-letter drive scheme.
+    # Treat them as local paths by returning an empty scheme.
+    if len(scheme) == 1 and scheme.isalpha():
+        return ""
     return scheme
 
 
