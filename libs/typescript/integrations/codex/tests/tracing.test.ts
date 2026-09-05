@@ -80,6 +80,17 @@ jest.mock('@mlflow/core', () => {
   };
 });
 
+// Wrap the transcript module so individual tests can point
+// findTranscriptForThread at a fixture; every other export stays real.
+jest.mock('../src/transcript', () => {
+  const actual = jest.requireActual('../src/transcript');
+  return {
+    __esModule: true,
+    ...actual,
+    findTranscriptForThread: jest.fn(actual.findTranscriptForThread),
+  };
+});
+
 import { resolve } from 'path';
 
 import {
@@ -90,7 +101,7 @@ import {
   processNotify,
   reconstructMessages,
 } from '../src/tracing';
-import { readTranscript, getLastTurnRecords } from '../src/transcript';
+import { readTranscript, getLastTurnRecords, findTranscriptForThread } from '../src/transcript';
 import { calculateCost } from '../src/pricing';
 import { flushTraces } from '@mlflow/core';
 import type { NotifyPayload, RolloutLine } from '../src/types';
@@ -643,5 +654,33 @@ describe('token usage and cost on LLM spans', () => {
       total_tokens: 1500,
     });
     expect(llmSpans[1].attributes['mlflow.llm.cost']).toEqual(cost);
+  });
+});
+
+describe('processNotify cost aggregation (end to end)', () => {
+  beforeEach(() => {
+    spanCounter = 0;
+    Object.keys(mockSpans).forEach((key) => delete mockSpans[key]);
+    mockTraceInfo.traceMetadata = {};
+    jest.clearAllMocks();
+  });
+
+  it('records mlflow.trace.cost and the LLM span cost from a priced transcript', async () => {
+    (findTranscriptForThread as jest.Mock).mockReturnValueOnce(
+      resolve(FIXTURES_DIR, 'priced-turn.jsonl'),
+    );
+
+    await processNotify(makeNotifyPayload({ 'thread-id': 'priced-session' }));
+
+    // gpt-4o priced at 2.5/MTok input + 10/MTok output; the fixture reports
+    // 1M input + 1M output, so total cost is 12.5.
+    expect(mockTraceInfo.traceMetadata['mlflow.trace.cost']).toBeDefined();
+    const traceCost = JSON.parse(mockTraceInfo.traceMetadata['mlflow.trace.cost']);
+    expect(traceCost.total_cost).toBeCloseTo(12.5, 6);
+
+    const llmSpans = getSpansByType('LLM');
+    const finalLlm = llmSpans[llmSpans.length - 1];
+    expect(finalLlm.attributes['mlflow.llm.model']).toBe('gpt-4o');
+    expect(finalLlm.attributes['mlflow.llm.cost'].total_cost).toBeCloseTo(12.5, 6);
   });
 });
