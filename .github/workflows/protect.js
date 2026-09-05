@@ -131,7 +131,7 @@ module.exports = async ({ github, context }) => {
         // Use run-level status directly (0 extra API calls).
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
-          url: run.html_url,
+          url: `${run.html_url}/attempts/${run.run_attempt}`,
           pendingJobs: 0,
           status:
             run.conclusion === "cancelled"
@@ -158,7 +158,7 @@ module.exports = async ({ github, context }) => {
         }
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
-          url: run.html_url,
+          url: `${run.html_url}/attempts/${run.run_attempt}`,
           pendingJobs: failed ? 0 : pendingJobs,
           status: failed ? STATE.failure : STATE.pending,
         });

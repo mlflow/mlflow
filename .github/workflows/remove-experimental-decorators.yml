@@ -23,8 +23,7 @@ jobs:
     # Only run on the main repository
     if: github.repository == 'mlflow/mlflow'
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     env:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:

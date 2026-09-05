@@ -11,6 +11,12 @@ on:
       - dev/update_model_catalog.py
       - libs/typescript/integrations/claude-code/scripts/sync-anthropic-pricing.mjs
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  # Only PR runs are safe to cancel. The `publish` job pushes tags and opens a
+  # PR, and it is skipped on `pull_request`.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 defaults:
   run:
     shell: bash
@@ -89,8 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: app-token
