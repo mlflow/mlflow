@@ -1,0 +1,179 @@
+name: NaiLaOpus Context
+
+on:
+  # `nailaopus-learn` is the only trigger. A maintainer comments
+  # `nailaopus-learn <freeform note>` on a PR or issue and the bot
+  # captures a context note into mlflow/internal.
+  issue_comment:
+    types: [created]
+
+concurrency:
+  # One group per source (PR/issue). cancel-in-progress is false so each
+  # nailaopus-learn invocation finishes; subsequent ones on the same source
+  # queue behind it (and re-count against the daily rate limit).
+  group: nailaopus-context-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  learn:
+    # The workflow never uses the default GITHUB_TOKEN — every `gh` call goes
+    # through the App installation token. `permissions:` is minimal purely to
+    # satisfy `.github/policy.rego`'s require-explicit-permissions rule.
+    permissions:
+      contents: read
+    # Job-level gating so non-maintainer comments never load the App token or
+    # run any step: comment author must be a maintainer, and the comment must
+    # start with `nailaopus-learn`. Both PR and issue comments are accepted.
+    if: |
+      github.event_name == 'issue_comment' &&
+      startsWith(github.event.comment.body, 'nailaopus-learn') &&
+      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Generate App installation token (multi-repo)
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.NAILAOPUS_APP_CLIENT_ID }}
+          private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
+          owner: mlflow
+          # Least-privilege: read source, write context PR + failure comment.
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - name: Enforce daily rate limit (20 per source)
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          SOURCE: ${{ github.event.issue.number }}
+        run: |
+          # Count today's (UTC) nailaopus-learn comments on this source and
+          # exit before any LLM spend when the 21st arrives.
+          today=$(date -u '+%Y-%m-%d')
+          count=$(gh api "repos/$REPO/issues/$SOURCE/comments" --paginate \
+            --jq "[.[] | select((.body | startswith(\"nailaopus-learn\")) and (.created_at | startswith(\"$today\")))] | length" \
+            | awk '{s+=$1} END {print s}')
+          echo "nailaopus-learn today on #$SOURCE: $count"
+          if [ "$count" -gt 20 ]; then
+            echo "Rate limit exceeded (>20/day for this source); exiting before LLM spend."
+            exit 1
+          fi
+
+      - name: Parse instruction and source type
+        id: parse
+        env:
+          BODY: ${{ github.event.comment.body }}
+          IS_PR: ${{ github.event.issue.pull_request != null }}
+        run: |
+          # Strip the leading command token; the rest is the freeform note.
+          instruction="${BODY#nailaopus-learn}"
+          instruction="${instruction# }"
+          # Multi-line-safe output.
+          {
+            echo "instruction<<INSTRUCTION_EOF"
+            echo "$instruction"
+            echo "INSTRUCTION_EOF"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$IS_PR" = "true" ]; then
+            echo "source_type=pr" >> "$GITHUB_OUTPUT"
+          else
+            echo "source_type=issue" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout mlflow/mlflow (for anchor resolution)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          path: mlflow
+          persist-credentials: false
+
+      - name: Checkout mlflow/internal (orchestrator code)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: mlflow/internal
+          # Pin to a specific commit so ingest behavior is reproducible and a
+          # bad orchestrator change can't silently break the bot. Bump by PR
+          # after reviewing the mlflow/internal diff (same policy as nailaopus.yml).
+          ref: REPLACE_WITH_INTERNAL_SHA_AFTER_MERGE
+          sparse-checkout: |
+            nailaopus
+          path: internal
+          token: ${{ steps.app_token.outputs.token }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
+
+      - name: Run nailaopus-context ingest
+        id: ingest
+        env:
+          # Namespaced key isolates the bot's spend (same pattern as nailaopus.yml,
+          # whose orchestrator also reads $ANTHROPIC_API_KEY).
+          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPO: ${{ github.repository }}
+          SOURCE_TYPE: ${{ steps.parse.outputs.source_type }}
+          SOURCE: ${{ github.event.issue.number }}
+          INSTRUCTION: ${{ steps.parse.outputs.instruction }}
+        run: |
+          # The CLI writes the note into the internal checkout and prints a
+          # run-record JSON block. --internal-root points at that checkout so
+          # the note lands where peter-evans will open the PR from; --mlflow-tree
+          # is the mlflow checkout used to resolve anchors. --no-dry-run enables
+          # the live decision (should_merge); the workflow performs the merge.
+          uv run --directory "$GITHUB_WORKSPACE/internal/nailaopus" \
+            nailaopus-context ingest \
+            --repo "$REPO" \
+            --source-type "$SOURCE_TYPE" \
+            --source-number "$SOURCE" \
+            --instruction "$INSTRUCTION" \
+            --internal-root "$GITHUB_WORKSPACE/internal" \
+            --mlflow-tree "$GITHUB_WORKSPACE/mlflow" \
+            --no-dry-run | tee /tmp/ingest.out
+          # Extract should_merge from the run-record JSON for the merge gate.
+          record=$(sed -n 's/.*<<<NAILAOPUS_RUN_JSON>>>\(.*\)<<<END_NAILAOPUS_RUN_JSON>>>.*/\1/p' /tmp/ingest.out)
+          should_merge=$(echo "$record" | jq -r '.should_merge // false')
+          echo "should_merge=$should_merge" >> "$GITHUB_OUTPUT"
+
+      - name: Open context PR
+        id: create_pr
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          path: internal
+          token: ${{ steps.app_token.outputs.token }}
+          branch: bot/context-${{ steps.parse.outputs.source_type }}-${{ github.event.issue.number }}
+          delete-branch: true
+          commit-message: "chore: ingest context from ${{ steps.parse.outputs.source_type }} #${{ github.event.issue.number }}"
+          title: "Auto-ingest context: ${{ steps.parse.outputs.source_type }} #${{ github.event.issue.number }}"
+          body: |
+            Context note captured from ${{ github.event.comment.html_url }}
+            via `nailaopus-learn`.
+
+            Instruction:
+            > ${{ steps.parse.outputs.instruction }}
+
+      - name: Auto-merge context PR on SANITY pass
+        if: steps.ingest.outputs.should_merge == 'true' && steps.create_pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          PR_NUMBER: ${{ steps.create_pr.outputs.pull-request-number }}
+        run: |
+          # Merge the context PR that peter-evans just created (in mlflow/internal),
+          # gated on the CLI's should_merge decision. This runs AFTER the PR exists.
+          echo "Merging context PR #$PR_NUMBER (should_merge=true from ingest)"
+          gh pr merge "$PR_NUMBER" --repo mlflow/internal --squash --admin
