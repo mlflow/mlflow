@@ -1,4 +1,4 @@
-# regal ignore:directory-package-mismatch
+# regal ignore:directory-package-mismatch,file-length
 package mlflow
 
 import rego.v1
@@ -26,6 +26,30 @@ deny_top_level_permissions contains msg if {
 	input.jobs
 	input.permissions != {}
 	msg := "Top-level 'permissions' must be empty ({}). Grant least-privilege permissions per job instead."
+}
+
+deny_workflow_without_concurrency contains msg if {
+	# Workflow files only (composite actions have 'runs')
+	input.jobs
+	not input.concurrency
+	msg := concat("", [
+		"Workflow must declare 'concurrency' explicitly. Without it a new event never ",
+		"supersedes runs already in flight, so stale runs keep consuming runners and ",
+		"repo-mutating workflows can race. To opt out of concurrency grouping and allow each ",
+		"run to proceed independently:\n",
+		"concurrency:\n",
+		"  group: ${{ github.run_id }}\n",
+		"  cancel-in-progress: false",
+	])
+}
+
+deny_job_permissions_shorthand contains msg if {
+	some job_id, job in input.jobs
+	job.permissions in {"read-all", "write-all"}
+	msg := sprintf(
+		"Job '%s' uses 'permissions: %s'. List the scopes it actually needs instead.",
+		[job_id, job.permissions],
+	)
 }
 
 deny_unsafe_checkout contains msg if {

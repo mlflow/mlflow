@@ -151,6 +151,37 @@ MLFLOW_SANDBOX_DOCKER_IMAGE = _EnvironmentVariable(
     "MLFLOW_SANDBOX_DOCKER_IMAGE", str, "mlflow-sandbox:latest"
 )
 
+#: **Experimental** — subject to change or removal in a future release.
+#: Docker image used to run the MLflow Assistant's CLI providers (e.g. Claude Code) in a
+#: sandbox. Unlike ``MLFLOW_SANDBOX_DOCKER_IMAGE``, this image must additionally contain the
+#: provider CLI and its language runtime. Operators are expected to build/provide this image;
+#: there is no minimal auto-built fallback for it.
+#: (default: ``mlflow-assistant-sandbox:latest``)
+MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE = _EnvironmentVariable(
+    "MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE", str, "mlflow-assistant-sandbox:latest"
+)
+
+#: Internal. A per-server-boot identifier set by the server on startup and inherited by all of
+#: its worker processes. Sandbox containers are labeled with it so startup cleanup can remove
+#: only containers left by a *previous* server generation, never one a sibling worker in the
+#: current generation just launched. Not intended to be set by users.
+_MLFLOW_SERVER_BOOT_ID = _EnvironmentVariable("_MLFLOW_SERVER_BOOT_ID", str, None)
+
+#: **Experimental** — subject to change or removal in a future release.
+#: URL of an outbound proxy for sandbox container egress (e.g. ``http://proxy.internal:3128``).
+#: When set, it is injected as ``HTTP_PROXY``/``HTTPS_PROXY`` into every sandbox container, with
+#: only the fixed self-host bypass list (``host.docker.internal`` + loopback) excluded via
+#: ``NO_PROXY`` so a co-located tracking server stays reachable. A remote tracking host is NOT
+#: auto-exempted — it must be allowlisted in the proxy itself. Point this at a proxy that
+#: allowlists only the destinations the sandbox needs (e.g. the model provider API) to steer
+#: egress through an operator-controlled chokepoint. Note this only shapes egress
+#: from *cooperative* HTTP clients that honor the proxy env; it is not a hard boundary, since the
+#: container still has network access and code that ignores the proxy env or opens raw sockets
+#: can reach other hosts. Pair it with host-level firewalling for a true egress boundary. When
+#: unset, sandbox containers have unrestricted egress.
+#: (default: ``None``)
+MLFLOW_SANDBOX_EGRESS_PROXY = _EnvironmentVariable("MLFLOW_SANDBOX_EGRESS_PROXY", str, None)
+
 #: When true, newly created workspaces are seeded with two default RBAC roles
 #: (``admin``, ``user``) that super-admins can assign to other
 #: users. ``CreateWorkspace`` is gated to super-admins, whose ``is_admin`` flag already

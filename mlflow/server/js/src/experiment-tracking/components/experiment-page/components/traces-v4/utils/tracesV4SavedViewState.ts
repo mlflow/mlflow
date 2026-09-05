@@ -20,8 +20,12 @@ import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/co
 export const TRACE_V4_SAVED_VIEW_TAG_PREFIX = 'mlflow.tracesV4ViewState.';
 export const TRACE_V4_SHARE_URL_PARAM_KEY = 'traceViewShareKey';
 
-// The key under which column visibility is stored inside the envelope's captured state. It is NOT a
-// URL param: columns are restored into the user's column store on open, not carried in the query.
+// The `cols` param carries column visibility AND order (the only view state not otherwise in the
+// URL). The captured list is the visible columns — standard AND assessment (`assessment:*`) ids — in
+// their live display order, so restoring it round-trips both which columns show and how they're
+// ordered. `decodeViewColumns` resolves the standard subset (for visibility); `decodeViewColumnOrder`
+// keeps every id (for the mixed reorder store). A legacy view whose `cols` was saved in a different
+// order simply opens in that stored order — no migration needed.
 export const TRACE_V4_COLS_PARAM_KEY = 'cols';
 
 const COLUMNS_SEPARATOR = ',';
@@ -53,6 +57,8 @@ export interface CapturedV4ViewState {
   // visible-id list, so a hidden column is recorded too — restoring a bare id list would lose explicit
   // hides. Absent in older stored views (treated as "capture nothing", i.e. clear overrides on restore).
   assessmentColumns?: Record<string, boolean>;
+  /** Custom tag/metadata column visibility. Optional for backward compatibility with older views. */
+  customColumns?: Record<string, boolean>;
 }
 
 export const getTraceV4SavedViewTagKey = (id: string): string => `${TRACE_V4_SAVED_VIEW_TAG_PREFIX}${id}`;
@@ -88,9 +94,11 @@ export const urlHasCapturedV4ViewState = (params: URLSearchParams): boolean =>
  */
 export const captureV4ViewState = (
   params: URLSearchParams,
-  visibleColumns: readonly TraceColumnId[],
+  // Standard + assessment ids in live display order (see the `cols` note above).
+  visibleColumns: readonly string[],
   filterModel: TraceFilterModel = [],
   assessmentColumns: Record<string, boolean> = {},
+  customColumns: Record<string, boolean> = {},
 ): CapturedV4ViewState => {
   const single: CapturedV4ViewState['single'] = {};
   SINGLE_VALUE_KEYS.forEach((key) => {
@@ -117,6 +125,11 @@ export const captureV4ViewState = (
   // one (and never spuriously reads as dirty against `assessmentColumns ?? {}`).
   if (Object.keys(assessmentColumns).length > 0) {
     state.assessmentColumns = assessmentColumns;
+  }
+  // Omit an empty map so a view saved on a page with no custom columns stays byte-identical to a legacy
+  // one (and never spuriously reads as dirty against `customColumns ?? {}`).
+  if (Object.keys(customColumns).length > 0) {
+    state.customColumns = customColumns;
   }
   return state;
 };
@@ -160,7 +173,8 @@ export const decodeViewColumns = (
   allColumns: readonly TraceColumnId[],
 ): TraceColumnId[] | undefined => {
   const raw = state.single?.[TRACE_V4_COLS_PARAM_KEY];
-  if (!raw) {
+  // `typeof` (not just falsy) so a hand-edited tag with a non-string `cols` can't reach `.split()`.
+  if (typeof raw !== 'string' || raw === '') {
     return undefined;
   }
   const known = new Set<string>(allColumns);
@@ -168,5 +182,21 @@ export const decodeViewColumns = (
     .split(COLUMNS_SEPARATOR)
     .filter(Boolean)
     .filter((id): id is TraceColumnId => known.has(id));
+  return resolved.length > 0 ? resolved : undefined;
+};
+
+/**
+ * Decode a view's stored `cols` into the full ordered id list for the mixed reorder store. Unlike
+ * {@link decodeViewColumns} (standard subset, for visibility), this keeps every id — including
+ * `assessment:*` — so a reordered assessment column round-trips; the order store drops unknowns on
+ * ingest. Returns undefined when `cols` is absent, leaving the user's order intact.
+ */
+export const decodeViewColumnOrder = (state: CapturedV4ViewState): string[] | undefined => {
+  const raw = state.single?.[TRACE_V4_COLS_PARAM_KEY];
+  // `typeof` (not just falsy) so a hand-edited tag with a non-string `cols` can't reach `.split()`.
+  if (typeof raw !== 'string' || raw === '') {
+    return undefined;
+  }
+  const resolved = raw.split(COLUMNS_SEPARATOR).filter(Boolean);
   return resolved.length > 0 ? resolved : undefined;
 };

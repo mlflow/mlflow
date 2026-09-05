@@ -510,4 +510,42 @@ describe('TracesTable', () => {
     const typography = previewText.closest('[class*="typography"]');
     expect(typography).not.toBeNull();
   });
+
+  test('columnOrder drives the rendered header order', async () => {
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          visibleColumns: ['start_time', 'input', 'duration'],
+          // Put duration first, then input, then time.
+          columnOrder: ['duration', 'input', 'start_time'],
+        })}
+      />,
+    );
+    const headers = screen.getAllByRole('columnheader').map((el) => el.textContent);
+    const orderOf = (label: string) => headers.findIndex((text) => text?.includes(label));
+    expect(orderOf('Duration')).toBeLessThan(orderOf('Input'));
+    expect(orderOf('Input')).toBeLessThan(orderOf('Time'));
+  });
+
+  test('with reordering enabled, sorting via the column menu still works (does not start a drag)', async () => {
+    const onSort = jest.fn();
+    const onReorderColumn = jest.fn();
+    await renderWithProviders(<TracesTable {...baseProps({ onSort, onReorderColumn })} />);
+    // Sort lives in the per-column options menu; the 8px pointer-activation guard means opening it
+    // and choosing a sort never becomes a reorder.
+    await openColumnMenu(/Duration/);
+    await userEvent.click(screen.getByText('Sort ascending'));
+    expect(onSort).toHaveBeenCalledWith('duration', 'asc');
+    expect(onReorderColumn).not.toHaveBeenCalled();
+  });
+
+  test('headers still render normally when reordering is enabled', async () => {
+    await renderWithProviders(<TracesTable {...baseProps({ onReorderColumn: jest.fn() })} />);
+    expect(screen.getByRole('columnheader', { name: /Time/ })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /Input/ })).toBeInTheDocument();
+    // Sort affordance survives the sortable-header wrapper: the column's options menu still offers it.
+    await openColumnMenu(/Duration/);
+    expect(screen.getByText('Sort ascending')).toBeInTheDocument();
+    expect(screen.getByText('Sort descending')).toBeInTheDocument();
+  });
 });

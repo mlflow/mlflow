@@ -8,6 +8,7 @@ import type {
   PageSize,
   SortDirection,
   TraceColumnId,
+  TraceColumnHeaderAction,
   TraceHrefGetter,
   TraceTableColumn,
 } from './types';
@@ -41,6 +42,7 @@ export interface TracesTableViewProps {
   traces: ModelTraceInfoV3[];
   visibleColumns: TraceColumnId[];
   extraColumns?: TraceTableColumn[];
+  columnOrder?: string[];
   initialColumnSizing: ColumnSizingState;
   onColumnSizingSettled: (sizing: ColumnSizingState) => void;
   isLoading: boolean;
@@ -66,10 +68,12 @@ export interface TracesTableViewProps {
   renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
   /** Hides the column with the given id — forwarded to the table's per-header menu. */
   onHideColumn: (columnId: string) => void;
+  columnHeaderActions?: Readonly<Partial<Record<string, TraceColumnHeaderAction>>>;
   /** Groups traces with a session id into collapsible session rows — forwarded to the table. */
   isGroupedBySession?: boolean;
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
   previewLineClamp?: number;
+  onReorderColumn?: (activeColumn: string, targetColumn: string) => void;
 
   // Toolbar passthrough.
   searchValue: string;
@@ -182,6 +186,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       traces={props.traces}
       visibleColumns={props.visibleColumns}
       extraColumns={props.extraColumns}
+      columnOrder={props.columnOrder}
       initialColumnSizing={props.initialColumnSizing}
       onColumnSizingSettled={props.onColumnSizingSettled}
       isLoading={props.isLoading}
@@ -204,8 +209,10 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onFilterByTag={props.onFilterByTag}
       renderRunName={props.renderRunName}
       onHideColumn={props.onHideColumn}
+      columnHeaderActions={props.columnHeaderActions}
       isGroupedBySession={props.isGroupedBySession}
       previewLineClamp={props.previewLineClamp}
+      onReorderColumn={props.onReorderColumn}
     />
   );
 

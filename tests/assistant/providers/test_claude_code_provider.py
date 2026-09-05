@@ -113,6 +113,15 @@ def test_check_connection_runs_auth_verification_prompt():
     )
 
 
+def test_check_connection_skips_host_probe_in_sandbox_mode(monkeypatch):
+    # In sandbox mode the CLI lives in the image, so a missing host binary must not fail the check.
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    with patch("mlflow.assistant.providers.claude_code.shutil.which", return_value=None):
+        ClaudeCodeProvider().check_connection()  # does not raise
+
+
 def test_check_connection_raises_not_authenticated_for_auth_error():
     completed = subprocess.CompletedProcess(
         args=["claude", "-p", "hi", "--max-turns", "1", "--output-format", "json"],
@@ -858,3 +867,331 @@ async def test_astream_skips_rate_limit_event():
     assert len(events) == 2
     assert events[0].type == EventType.MESSAGE
     assert events[1].type == EventType.DONE
+
+
+class _FakeSandboxProcess:
+    """Stand-in for mlflow.server.sandbox.SandboxProcess used to drive the sandbox path."""
+
+    def __init__(self, lines, returncode=0, stderr=b"", timed_out=False):
+        self._lines = lines
+        self._returncode = returncode
+        self._stderr = stderr
+        self.timed_out = timed_out
+        self.container_id = "container-abc"
+        self.cleaned_up = False
+
+    async def iter_stdout_lines(self):
+        for line in self._lines:
+            yield line
+
+    async def wait(self):
+        return self._returncode
+
+    async def read_stderr(self):
+        return self._stderr
+
+    def cleanup(self):
+        self.cleaned_up = True
+
+    async def aclose(self):
+        self.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_astream_uses_sandbox_when_flag_enabled(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    provider = ClaudeCodeProvider()
+    sentinel = MagicMock(name="sandbox-event")
+
+    async def fake_sandbox(self, *args, **kwargs):
+        yield sentinel
+
+    with patch.object(ClaudeCodeProvider, "_astream_in_sandbox", fake_sandbox):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert events == [sentinel]
+
+
+@pytest.mark.asyncio
+async def test_astream_does_not_use_sandbox_when_flag_off(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: False
+    )
+    provider = ClaudeCodeProvider()
+    with (
+        patch.object(ClaudeCodeProvider, "_astream_in_sandbox") as sandbox,
+        patch("mlflow.assistant.providers.claude_code.shutil.which", return_value=None),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    sandbox.assert_not_called()
+    # Host path with no CLI installed yields the not-found error.
+    assert any(e.type == EventType.ERROR for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    fake = _FakeSandboxProcess(
+        lines=[
+            b'{"type":"assistant","message":{"content":[{"type":"text","text":"hi"}]}}',
+            b'{"type":"result","session_id":"sess-1","usage":{"input_tokens":3,"output_tokens":5}}',
+        ]
+    )
+    provider = ClaudeCodeProvider()
+    sid = "11111111-1111-1111-1111-111111111111"
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake) as start,
+        patch("mlflow.assistant.providers.claude_code.save_container_id") as save_cid,
+        patch("mlflow.assistant.providers.claude_code.clear_container_id") as clear_cid,
+    ):
+        events = [
+            e async for e in provider.astream("hi", "http://localhost:5000", mlflow_session_id=sid)
+        ]
+
+    start.assert_called_once()
+    save_cid.assert_called_once_with(sid, "container-abc")
+    clear_cid.assert_called_once_with(sid)
+    assert fake.cleaned_up is True
+    assert events  # at least a usage event and a parsed message were produced
+    assert not any(e.type == EventType.ERROR for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_reports_nonzero_exit(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    fake = _FakeSandboxProcess(lines=[], returncode=2, stderr=b"kaboom")
+    provider = ClaudeCodeProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert any(e.type == EventType.ERROR for e in events)
+    assert fake.cleaned_up is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_unavailable_surfaces_error(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    from mlflow.server.sandbox import SandboxUnavailableError
+
+    provider = ClaudeCodeProvider()
+    with patch(
+        "mlflow.server.sandbox.start_sandbox_process",
+        side_effect=SandboxUnavailableError("no daemon"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert any(e.type == EventType.ERROR for e in events)
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_137_is_interrupted_not_error(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    # A killed container exits 137 (128 + SIGKILL); it must surface as interrupted, not error.
+    fake = _FakeSandboxProcess(lines=[], returncode=137)
+    provider = ClaudeCodeProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert not any(e.type == EventType.ERROR for e in events)
+    assert fake.cleaned_up is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_non_json_line_becomes_message(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    fake = _FakeSandboxProcess(lines=[b"this is not json"], returncode=0)
+    provider = ClaudeCodeProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert events
+    assert not any(e.type == EventType.ERROR for e in events)
+    assert fake.cleaned_up is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_timeout_surfaces_error(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    fake = _FakeSandboxProcess(lines=[], returncode=137, timed_out=True)
+    provider = ClaudeCodeProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    errored = [e for e in events if e.type == EventType.ERROR]
+    assert errored, "a timed-out sandbox turn should surface an error, not a bare interrupt"
+    assert "no output for too long" in errored[0].to_sse_event()
+    assert fake.cleaned_up is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_rewrites_loopback_base_url(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", "http://localhost:4000/v1")
+    fake = _FakeSandboxProcess(lines=[], returncode=0)
+    captured = {}
+
+    def _capture(*args, **kwargs):
+        captured["environment"] = kwargs.get("environment")
+        return fake
+
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", side_effect=_capture),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider_astream_once()]
+
+    env = captured["environment"]
+    # A loopback base URL is rewritten so the CLI can reach the host from inside the container.
+    assert env["ANTHROPIC_BASE_URL"] == "http://host.docker.internal:4000/v1"
+    assert env["ANTHROPIC_API_KEY"] == "sk-test"
+
+
+async def provider_astream_once():
+    provider = ClaudeCodeProvider()
+    async for event in provider.astream("hi", "http://localhost:5000"):
+        yield event
+
+
+def test_is_available_true_in_sandbox_mode(monkeypatch):
+    # With the sandbox enabled the CLI runs in the operator image, not on the host.
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    with patch("mlflow.assistant.providers.claude_code.shutil.which", return_value=None):
+        assert ClaudeCodeProvider().is_available() is True
+
+
+def test_allows_remote_access_follows_sandbox_mode(monkeypatch):
+    # The CLI provider serves remote clients only when sandboxed (isolated in a container);
+    # in local mode it runs on the host and must stay localhost-only.
+    provider = ClaudeCodeProvider()
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: False
+    )
+    assert provider.allows_remote_access is False
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    assert provider.allows_remote_access is True
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_mounts_google_credentials(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    creds = tmp_path / "gcp.json"
+    creds.write_text('{"type": "service_account"}')
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(creds))
+    fake = _FakeSandboxProcess(lines=[b'{"type":"result","session_id":"s1"}'])
+    provider = ClaudeCodeProvider()
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake) as start,
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    kwargs = start.call_args.kwargs
+    # The host cred file's contents are copied into the read-only input mount, and the env points
+    # at the in-container path rather than the (unmounted) host path.
+    mounted = kwargs["input_files"]["google-application-credentials.json"]
+    assert mounted == '{"type": "service_account"}'
+    assert kwargs["environment"]["GOOGLE_APPLICATION_CREDENTIALS"].startswith("/sandbox-io/")
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_does_not_forward_non_allowlisted_secret(monkeypatch):
+    # Only allowlisted vars reach the CLI sandbox env; an arbitrary host secret must not leak in.
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-super-secret")
+    fake = _FakeSandboxProcess(lines=[], returncode=0)
+    captured = {}
+
+    def _capture(*args, **kwargs):
+        captured["environment"] = kwargs.get("environment")
+        return fake
+
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", side_effect=_capture),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider_astream_once()]
+
+    env = captured["environment"]
+    assert env["ANTHROPIC_API_KEY"] == "sk-test"
+    assert "DATABRICKS_TOKEN" not in env
+
+
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_forwards_registry_uri(monkeypatch):
+    # A credential-free registry URI is forwarded (loopback-rewritten); one with embedded
+    # credentials is dropped rather than leaked into the container.
+    monkeypatch.setattr(
+        "mlflow.assistant.providers.claude_code.assistant_sandbox_enabled", lambda: True
+    )
+    monkeypatch.setenv("MLFLOW_REGISTRY_URI", "http://localhost:5000")
+    fake = _FakeSandboxProcess(lines=[], returncode=0)
+    captured = {}
+
+    def _capture(*args, **kwargs):
+        captured["environment"] = kwargs.get("environment")
+        return fake
+
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", side_effect=_capture),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider_astream_once()]
+    assert captured["environment"]["MLFLOW_REGISTRY_URI"] == "http://host.docker.internal:5000"
+
+    # Userinfo assembled from parts so no literal credential URI is committed to source.
+    creds = "u:p"
+    monkeypatch.setenv("MLFLOW_REGISTRY_URI", f"postgresql://{creds}@db.internal/registry")
+    with (
+        patch("mlflow.server.sandbox.start_sandbox_process", side_effect=_capture),
+        patch("mlflow.assistant.providers.claude_code.save_container_id"),
+        patch("mlflow.assistant.providers.claude_code.clear_container_id"),
+    ):
+        _ = [e async for e in provider_astream_once()]
+    assert "MLFLOW_REGISTRY_URI" not in captured["environment"]

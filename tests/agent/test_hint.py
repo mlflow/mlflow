@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from unittest import mock
 
@@ -22,6 +23,8 @@ def clean_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     ):
         monkeypatch.delenv(marker, raising=False)
     monkeypatch.delenv("MLFLOW_DISABLE_AGENT_HINT", raising=False)
+    hint._EMITTED_HINTS.clear()
+    hint._is_agent_driving.cache_clear()
 
     home = tmp_path / "home"
     home.mkdir()
@@ -36,10 +39,13 @@ def clean_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 @pytest.fixture(autouse=True)
 def bundled_skill(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Stand in for the skill copy that released MLflow packages ship."""
-    manifest = tmp_path / "bundled" / hint.TRACING_SKILL / "SKILL.md"
+    skills = tmp_path / "bundled"
+    manifest = skills / hint.TRACING_SKILL / "SKILL.md"
     manifest.parent.mkdir(parents=True)
     manifest.write_text("---\nname: tracing\n---\n")
+    (skills / "README.md").write_text("# MLflow skills\n")
     monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda: manifest)
+    monkeypatch.setattr(hint.resources, "files", lambda _package: skills)
     return manifest
 
 
@@ -123,6 +129,7 @@ def test_hints_for_value_specific_markers(
     assert hint_message() is not None
     # A different value for the same variable is an ordinary human environment.
     monkeypatch.setenv(name, "something-else")
+    hint._is_agent_driving.cache_clear()
     assert hint_message() is None
 
 
@@ -135,6 +142,7 @@ def test_tty_gated_markers_only_count_off_a_terminal(
     assert hint_message() is not None
     # The same variable in a human's terminal is not a detection.
     monkeypatch.setattr(hint.sys.stdout, "isatty", lambda: True, raising=False)
+    hint._is_agent_driving.cache_clear()
     assert hint_message() is None
 
 
@@ -145,3 +153,112 @@ def test_detects_agents_absent_from_the_setup_registry(
     assert "cursor" not in AGENTS
     monkeypatch.setenv("CURSOR_AGENT", "1")
     assert hint_message() is not None
+
+
+def test_antipattern_warning_names_issue_and_is_emitted_once(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("CLAUDECODE", "1")
+
+    with mock.patch.object(hint._logger, "warning") as warning:
+        hint.maybe_warn_agent("missing-inputs", "A tool span has no inputs.")
+        hint.maybe_warn_agent("missing-inputs", "A different instance has no inputs.")
+
+    warning.assert_called_once()
+    assert warning.call_args.args[1] == "A tool span has no inputs."
+    assert "different instance" not in str(warning.call_args)
+
+
+def test_antipattern_warning_is_emitted_once_across_threads(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch, bundled_skill: Path
+):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    barrier = threading.Barrier(2)
+
+    def find_skills(_package):
+        barrier.wait()
+        return bundled_skill.parent.parent
+
+    monkeypatch.setattr(hint.resources, "files", find_skills)
+    with mock.patch.object(hint._logger, "warning") as warning:
+        threads = [
+            threading.Thread(
+                target=hint.maybe_warn_agent,
+                args=("missing-inputs", "Missing."),
+                name=f"agent-hint-test-{index}",
+            )
+            for index in range(2)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    warning.assert_called_once()
+
+
+def test_antipattern_warning_is_silent_for_humans(clean_env: Path, caplog):
+    hint.maybe_warn_agent("missing-inputs", "A tool span has no inputs.")
+    assert not caplog.records
+
+
+def test_append_agent_hint_augments_existing_message_once(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch, bundled_skill: Path
+):
+    monkeypatch.setenv("CLAUDECODE", "1")
+
+    augmented = hint.maybe_append_agent_hint("deprecated-api", "Existing warning.")
+    repeated = hint.maybe_append_agent_hint("deprecated-api", "Existing warning.")
+
+    assert augmented.startswith("Existing warning.")
+    assert str(bundled_skill.parent.parent) in augmented
+    assert repeated == "Existing warning."
+
+
+def test_append_agent_hint_leaves_human_message_unchanged(clean_env: Path):
+    assert (
+        hint.maybe_append_agent_hint("deprecated-api", "Existing warning.") == "Existing warning."
+    )
+
+
+@pytest.mark.parametrize("intent_var", ["DATABRICKS_HOST", "DATABRICKS_CONFIG_PROFILE"])
+def test_local_tracking_warns_when_databricks_is_configured(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch, intent_var: str
+):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    monkeypatch.setenv(intent_var, "configured")
+
+    with (
+        mock.patch("mlflow.get_tracking_uri", return_value="file:///tmp/mlruns"),
+        mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn,
+    ):
+        hint.maybe_warn_local_tracking_for_databricks()
+
+    warn.assert_called_once_with(
+        "databricks-intent-with-local-tracking",
+        "A GenAI trace is being written to the local tracking URI 'file:///tmp/mlruns' even "
+        "though a Databricks environment or profile is configured.",
+    )
+
+
+def test_local_tracking_check_ignores_human_and_remote_tracking(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://example.databricks.com")
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        hint.maybe_warn_local_tracking_for_databricks()
+        monkeypatch.setenv("CLAUDECODE", "1")
+        hint._is_agent_driving.cache_clear()
+        with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+            hint.maybe_warn_local_tracking_for_databricks()
+    warn.assert_not_called()
+
+
+def test_local_tracking_check_stops_after_warning(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    hint._EMITTED_HINTS.add("databricks-intent-with-local-tracking")
+
+    with mock.patch("mlflow.get_tracking_uri") as get_tracking_uri:
+        hint.maybe_warn_local_tracking_for_databricks()
+
+    get_tracking_uri.assert_not_called()

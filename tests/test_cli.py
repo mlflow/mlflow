@@ -221,16 +221,16 @@ def test_server_gunicorn_options():
     assert "Cannot specify multiple server options" in result.output
 
 
-def test_server_initializes_backend_store_when_tracking_enabled():
+def test_server_initializes_backend_store_when_tracking_enabled(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     handlers._tracking_store = None
     handlers._model_registry_store = None
     runner = CliRunner()
-    with runner.isolated_filesystem():
-        with (
-            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
-            mock.patch("mlflow.server._run_server") as run_server_mock,
-        ):
-            result = runner.invoke(server)
+    with (
+        mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+    ):
+        result = runner.invoke(server)
     assert result.exit_code == 0
     init_backend_mock.assert_called_once_with(
         mock.ANY, mock.ANY, mock.ANY, workspace_store_uri=None, read_replica_backend_store_uri=None
@@ -238,41 +238,41 @@ def test_server_initializes_backend_store_when_tracking_enabled():
     run_server_mock.assert_called_once()
 
 
-def test_server_skips_backend_store_init_in_artifacts_only_mode():
+def test_server_skips_backend_store_init_in_artifacts_only_mode(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     handlers._tracking_store = None
     handlers._model_registry_store = None
     runner = CliRunner()
-    with runner.isolated_filesystem():
-        with (
-            mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
-            mock.patch("mlflow.server._run_server") as run_server_mock,
-        ):
-            result = runner.invoke(server, ["--artifacts-only"])
+    with (
+        mock.patch("mlflow.server.handlers.initialize_backend_stores") as init_backend_mock,
+        mock.patch("mlflow.server._run_server") as run_server_mock,
+    ):
+        result = runner.invoke(server, ["--artifacts-only"])
     assert result.exit_code == 0
     init_backend_mock.assert_not_called()
     run_server_mock.assert_called_once()
 
 
-def test_server_mlflow_artifacts_options():
+def test_server_mlflow_artifacts_options(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     handlers._tracking_store = None
     handlers._model_registry_store = None
     with mock.patch(
         "mlflow.tracking._tracking_service.utils._has_existing_mlruns_data", return_value=False
     ):
         runner = CliRunner()
-        with runner.isolated_filesystem():
-            with mock.patch("mlflow.server._run_server") as run_server_mock:
-                runner.invoke(server, ["--artifacts-only"])
-                run_server_mock.assert_called_once()
-            with mock.patch("mlflow.server._run_server") as run_server_mock:
-                runner.invoke(server, ["--serve-artifacts"])
-                run_server_mock.assert_called_once()
-            with mock.patch("mlflow.server._run_server") as run_server_mock:
-                runner.invoke(server, ["--no-serve-artifacts"])
-                run_server_mock.assert_called_once()
-            with mock.patch("mlflow.server._run_server") as run_server_mock:
-                runner.invoke(server, ["--artifacts-only"])
-                run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--artifacts-only"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--serve-artifacts"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--no-serve-artifacts"])
+            run_server_mock.assert_called_once()
+        with mock.patch("mlflow.server._run_server") as run_server_mock:
+            runner.invoke(server, ["--artifacts-only"])
+            run_server_mock.assert_called_once()
 
 
 def test_server_artifacts_only_with_workspaces_initializes_only_workspace_store(

@@ -1,3 +1,5 @@
+from typing import Any
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Dataset as ProtoDataset
 
@@ -21,7 +23,7 @@ class Dataset(_MlflowObject):
         self._schema = schema
         self._profile = profile
 
-    def __eq__(self, other: _MlflowObject) -> bool:
+    def __eq__(self, other: object) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False
@@ -47,16 +49,16 @@ class Dataset(_MlflowObject):
         return self._source
 
     @property
-    def schema(self) -> str:
+    def schema(self) -> str | None:
         """String schema of the dataset."""
         return self._schema
 
     @property
-    def profile(self) -> str:
+    def profile(self) -> str | None:
         """String profile of the dataset."""
         return self._profile
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoDataset:
         dataset = ProtoDataset()
         dataset.name = self.name
         dataset.digest = self.digest
@@ -69,7 +71,7 @@ class Dataset(_MlflowObject):
         return dataset
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoDataset) -> "Dataset":
         return cls(
             proto.name,
             proto.digest,
@@ -79,7 +81,7 @@ class Dataset(_MlflowObject):
             proto.profile if proto.HasField("profile") else None,
         )
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "digest": self.digest,

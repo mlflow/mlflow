@@ -5,6 +5,10 @@ on:
     - cron: "0 0 * * *" # Run daily at midnight UTC
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash

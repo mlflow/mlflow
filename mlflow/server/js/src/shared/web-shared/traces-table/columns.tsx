@@ -17,6 +17,7 @@ import {
   TraceStartTimeCell,
   TraceStateCell,
   TraceTagsCell,
+  TraceMetadataCell,
   TraceTokensCell,
   TraceUserCell,
 } from './TraceCell';
@@ -195,20 +196,46 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
       );
     },
   },
+  {
+    id: 'metadata',
+    ...COLUMN_SIZES.metadata,
+    header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.metadata} />,
+    cell: (ctx) => {
+      const { intl, onTraceSelected } = getTableMeta(ctx);
+      const trace = ctx.row.original;
+      return (
+        <TraceMetadataCell
+          trace={trace}
+          onSelect={onTraceSelected}
+          accessibleLabel={openLabel(intl, trace.trace_id, 'metadata')}
+        />
+      );
+    },
+  },
 ];
 
 const EMPTY_EXTRA_COLUMNS: TraceTableColumn[] = [];
 
 /**
- * The visible column defs, in canonical order: the standard columns filtered to `visibleColumns`
- * (order stays canonical — a membership set, not a reorderable list), followed by any consumer
- * `extraColumns`. Callers should memoize the result; `extraColumns` defaults to a stable module-scope
- * empty array so an omitted value doesn't churn the memo.
+ * The visible standard and consumer-provided column defs in `columnOrder`. Definitions absent from
+ * the order are appended, which keeps older consumers and newly discovered dynamic columns visible.
+ * When `columnOrder` is omitted the result follows `visibleColumns` order (standard columns first,
+ * then `extraColumns`) — the pre-reorder behavior, so existing callers are unaffected. Callers should
+ * memoize the result; `extraColumns` defaults to a stable module-scope empty array so an omitted value
+ * doesn't churn the memo.
  */
 export const getVisibleColumnDefs = (
   visibleColumns: TraceColumnId[],
   extraColumns: TraceTableColumn[] = EMPTY_EXTRA_COLUMNS,
+  columnOrder?: string[],
 ): TraceTableColumn[] => {
-  const visible = new Set<string>(visibleColumns);
-  return [...STANDARD_COLUMNS.filter((column) => visible.has(column.id)), ...extraColumns];
+  const columnsById = new Map(STANDARD_COLUMNS.map((column) => [column.id, column]));
+  const visibleColumnDefs = [...visibleColumns.flatMap((id) => columnsById.get(id) ?? []), ...extraColumns];
+  if (columnOrder === undefined) {
+    return visibleColumnDefs;
+  }
+  const visibleById = new Map(visibleColumnDefs.flatMap((column) => (column.id ? [[column.id, column] as const] : [])));
+  const ordered = columnOrder.flatMap((id) => visibleById.get(id) ?? []);
+  const orderedIds = new Set(ordered.flatMap((column) => (column.id ? [column.id] : [])));
+  return [...ordered, ...visibleColumnDefs.filter((column) => !column.id || !orderedIds.has(column.id))];
 };

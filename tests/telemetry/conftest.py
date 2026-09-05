@@ -1,3 +1,4 @@
+import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,6 +12,13 @@ from mlflow.telemetry.client import (
 )
 from mlflow.utils.server_info import _clear_server_info_cache
 from mlflow.version import VERSION
+
+
+@pytest.fixture
+def clear_os_environ(monkeypatch):
+    for name in tuple(os.environ):
+        monkeypatch.delenv(name)
+    return monkeypatch
 
 
 @pytest.fixture(autouse=True)

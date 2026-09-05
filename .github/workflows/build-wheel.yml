@@ -20,7 +20,6 @@ on:
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
-      - ".github/workflows/review.yml"
   workflow_dispatch:
     inputs:
       ref:

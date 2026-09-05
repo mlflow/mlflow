@@ -1749,6 +1749,26 @@
       },
       "last_updated_at": "2026-08-31"
     },
+    "accounts/fireworks/models/glm-5p3-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.03
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
+    },
     "accounts/fireworks/models/gpt-oss-120b": {
       "mode": "chat",
       "context_window": {
@@ -1850,6 +1870,26 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "accounts/fireworks/models/inkling": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 4.05,
+        "cache_read_per_million_tokens": 0.17
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
     },
     "accounts/fireworks/models/internvl3-38b": {
       "mode": "chat",
@@ -5617,9 +5657,9 @@
         "max_tokens": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 0.14,
-        "output_per_million_tokens": 0.28,
-        "cache_read_per_million_tokens": 0.028
+        "input_per_million_tokens": 0.22,
+        "output_per_million_tokens": 0.66,
+        "cache_read_per_million_tokens": 0.007
       },
       "capabilities": {
         "function_calling": true,
@@ -5628,7 +5668,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-02"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
