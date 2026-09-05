@@ -1,6 +1,9 @@
 import uuid
 
 from mlflow.entities.model_registry.model_version import ModelVersion
+from mlflow.entities.model_registry.model_version_deployment_job_state import (
+    ModelVersionDeploymentJobState,
+)
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.registered_model import RegisteredModel
@@ -212,3 +215,36 @@ def test_model_version_non_default_workspace_round_trip():
     hydrated = ModelVersion.from_dictionary(as_dict)
     assert hydrated.workspace == workspace
     assert workspace in str(hydrated)
+
+
+def test_model_version_deployment_job_state_proto_round_trip():
+    deployment_job_state = ModelVersionDeploymentJobState(
+        job_id="job-123",
+        run_id="run-456",
+        job_state="CONNECTED",
+        run_state="RUNNING",
+        current_task_name="Evaluation",
+    )
+    model_version = ModelVersion(
+        name="deployment-job-model",
+        version="1",
+        creation_timestamp=1,
+        deployment_job_state=deployment_job_state,
+    )
+
+    proto = model_version.to_proto()
+    assert proto.HasField("deployment_job_state")
+    assert proto.deployment_job_state.job_id == "job-123"
+    assert proto.deployment_job_state.run_id == "run-456"
+    assert proto.deployment_job_state.current_task_name == "Evaluation"
+
+    hydrated = ModelVersion.from_proto(proto)
+    assert hydrated.deployment_job_state == deployment_job_state
+
+
+def test_model_version_without_deployment_job_state_round_trip():
+    model_version = ModelVersion(name="deployment-job-model", version="1", creation_timestamp=1)
+
+    proto = model_version.to_proto()
+    assert not proto.HasField("deployment_job_state")
+    assert ModelVersion.from_proto(proto).deployment_job_state is None
