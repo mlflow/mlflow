@@ -21,7 +21,6 @@ from mlflow.environment_variables import MLFLOW_DISABLE_ENV_CREATION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pyfunc import _extract_conda_env, scoring_server
 from mlflow.utils import env_manager as em
 from mlflow.utils.environment import _PythonEnv
@@ -145,10 +144,9 @@ def _install_model_dependencies_to_env(model_path, env_manager) -> list[str]:
     # Checked before the environment file is copied below, so an unsupported manager fails
     # with this message rather than partway through a copy it was never going to use.
     if env_manager not in (em.CONDA, em.VIRTUALENV):
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             f"Invalid value for `env_manager`: {env_manager}. Building a model container "
             f"supports one of {[em.LOCAL, em.CONDA, em.VIRTUALENV]}.",
-            error_code=INVALID_PARAMETER_VALUE,
         )
 
     _logger.info("creating and activating custom environment")

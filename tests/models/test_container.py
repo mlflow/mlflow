@@ -233,5 +233,5 @@ def test_unsupported_env_manager_raises(tmp_path, env_manager):
     model_path = str(tmp_path)
     _create_model_artifact(model_path, dependencies=["pip"])
 
-    with pytest.raises(MlflowException, match=r"Invalid value for `env_manager`"):
+    with pytest.raises(MlflowException, match=r"Building a model container supports one of"):
         _install_model_dependencies_to_env(model_path, env_manager=env_manager)
