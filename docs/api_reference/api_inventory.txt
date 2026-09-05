@@ -1148,6 +1148,9 @@ mlflow.genai.scorers.ScorerSamplingConfig
 mlflow.genai.scorers.Summarization
 mlflow.genai.scorers.Summarization.get_input_fields
 mlflow.genai.scorers.Summarization.model_post_init
+mlflow.genai.scorers.TaskSuccess
+mlflow.genai.scorers.TaskSuccess.get_input_fields
+mlflow.genai.scorers.TaskSuccess.model_post_init
 mlflow.genai.scorers.ToolCallCorrectness
 mlflow.genai.scorers.ToolCallCorrectness.get_input_fields
 mlflow.genai.scorers.ToolCallCorrectness.model_post_init
@@ -1182,6 +1185,7 @@ mlflow.genai.scorers.builtin_scorers.RetrievalRelevance
 mlflow.genai.scorers.builtin_scorers.RetrievalSufficiency
 mlflow.genai.scorers.builtin_scorers.Safety
 mlflow.genai.scorers.builtin_scorers.Summarization
+mlflow.genai.scorers.builtin_scorers.TaskSuccess
 mlflow.genai.scorers.builtin_scorers.ToolCallCorrectness
 mlflow.genai.scorers.builtin_scorers.ToolCallEfficiency
 mlflow.genai.scorers.builtin_scorers.UserFrustration

@@ -37,6 +37,7 @@ from mlflow.genai.scorers import (
     RetrievalSufficiency,
     Safety,
     Summarization,
+    TaskSuccess,
     ToolCallCorrectness,
     ToolCallEfficiency,
     UserFrustration,
@@ -650,6 +651,7 @@ def test_get_all_scorers():
         "Equivalence",
         "Completeness",
         "Summarization",
+        "TaskSuccess",
         "UserFrustration",
         "ConversationCompleteness",
         "ConversationalSafety",
@@ -1649,6 +1651,67 @@ def test_completeness_with_trace():
         assert result.value == "yes"
         assert result.rationale == "Fully addressed"
         mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name", "rationale"),
+    [
+        (None, None, "task_success", "The agent completed the requested task"),
+        ("custom_task_check", "openai:/gpt-4", "custom_task_check", "Task was performed"),
+    ],
+)
+def test_task_success_with_inputs_outputs(name, model, expected_name, rationale):
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name=expected_name, value="yes", rationale=rationale),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = TaskSuccess(**kwargs)
+        result = scorer(
+            inputs={"request": "Book me a flight to NYC for Saturday"},
+            outputs="I've booked Flight A to NYC departing Saturday morning.",
+        )
+
+        assert result.name == expected_name
+        assert result.value == "yes"
+        assert result.rationale == rationale
+        mock_invoke_judge.assert_called_once()
+
+
+def test_task_success_with_trace():
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name="task_success", value="yes", rationale="Task completed"),
+    ) as mock_invoke_judge:
+        trace = create_simple_trace()
+        scorer = TaskSuccess()
+        result = scorer(trace=trace)
+
+        assert result.name == "task_success"
+        assert result.value == "yes"
+        assert result.rationale == "Task completed"
+        mock_invoke_judge.assert_called_once()
+        # The trace-based (agentic) judge passes the trace to the judge model
+        assert mock_invoke_judge.call_args.kwargs["trace"] is trace
+
+
+def test_task_success_without_trace_uses_field_based_judge():
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(name="task_success", value="yes", rationale="Task completed"),
+    ) as mock_invoke_judge:
+        scorer = TaskSuccess()
+        scorer(
+            inputs={"request": "Book me a flight to NYC for Saturday"},
+            outputs="I've booked Flight A to NYC departing Saturday morning.",
+        )
+
+        mock_invoke_judge.assert_called_once()
+        assert mock_invoke_judge.call_args.kwargs["trace"] is None
 
 
 def test_conversational_safety_with_session():
