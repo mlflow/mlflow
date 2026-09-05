@@ -24,7 +24,7 @@ on:
         required: false
 
 concurrency:
-  group: ${{ github.run_id }}
+  group: ${{ github.workflow }}
   cancel-in-progress: false
 
 # Deny all permissions by default; each job grants only what it needs.
