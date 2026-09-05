@@ -1,3 +1,4 @@
+import logging
 from unittest import mock
 
 import pytest
@@ -119,7 +120,7 @@ def test_does_not_sync_provider_or_set_active():
         assert fluent_module._active_experiment_id == original_active
 
 
-def test_link_failure_includes_retry_guidance():
+def test_link_failure_rolls_back_experiment():
     with (
         mock.patch("mlflow.tracking.fluent.MlflowClient") as mock_client_cls,
         mock.patch(
@@ -131,11 +132,37 @@ def test_link_failure_includes_retry_guidance():
         client.create_experiment.return_value = "456"
         client.get_experiment.return_value = _experiment(experiment_id="456")
 
-        with pytest.raises(MlflowException, match="delete the experiment and retry") as exc_info:
+        with pytest.raises(MlflowException, match="was rolled back") as exc_info:
             mlflow.create_experiment(
                 "new-exp",
                 trace_location=UnityCatalog("cat", "sch", "pfx"),
             )
 
+        # The just-created experiment is deleted so nothing dangling is left behind.
+        client.delete_experiment.assert_called_once_with("456")
         assert "was created" in exc_info.value.message
         assert "backend error" in exc_info.value.message
+
+
+def test_link_failure_rollback_failure_logs_warning(caplog):
+    with (
+        mock.patch("mlflow.tracking.fluent.MlflowClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            side_effect=MlflowException("backend error"),
+        ),
+    ):
+        client = mock_client_cls.return_value
+        client.create_experiment.return_value = "456"
+        client.get_experiment.return_value = _experiment(experiment_id="456")
+        client.delete_experiment.side_effect = MlflowException("cleanup failed")
+
+        with caplog.at_level(logging.WARNING, logger="mlflow.tracking.fluent"):
+            with pytest.raises(MlflowException, match="backend error"):
+                mlflow.create_experiment(
+                    "new-exp",
+                    trace_location=UnityCatalog("cat", "sch", "pfx"),
+                )
+
+        # Rollback failure is surfaced as a warning, not silently swallowed.
+        assert "Failed to roll back experiment" in caplog.text

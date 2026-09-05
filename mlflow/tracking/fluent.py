@@ -2384,10 +2384,23 @@ def create_experiment(
                 trace_location=trace_location,
             )
         except MlflowException as e:
+            # Roll back the experiment we just created so a failed trace-location
+            # link does not leave a dangling experiment behind.
+            try:
+                client.delete_experiment(experiment_id)
+            except Exception:
+                _logger.warning(
+                    "Failed to roll back experiment '%s' (ID: %s) after linking it to "
+                    "trace location '%s' failed. The experiment may be left behind.",
+                    name,
+                    experiment_id,
+                    trace_location.full_table_prefix,
+                    exc_info=True,
+                )
             raise MlflowException.invalid_parameter_value(
-                f"Experiment '{name}' (ID: {experiment_id}) was created "
-                f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
-                f"{e.message} Please delete the experiment and retry."
+                f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                f"trace location '{trace_location.full_table_prefix}' failed, so the "
+                f"created experiment was rolled back: {e.message}"
             ) from e
 
     return experiment_id
