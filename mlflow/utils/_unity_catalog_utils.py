@@ -19,8 +19,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     EmitModelVersionLineageRequest,
     EmitModelVersionLineageResponse,
-    IsDatabricksSdkModelsArtifactRepositoryEnabledRequest,
-    IsDatabricksSdkModelsArtifactRepositoryEnabledResponse,
     ModelVersionLineageInfo,
     SseEncryptionAlgorithm,
     TemporaryCredentials,
@@ -445,29 +443,9 @@ def split_uc_model_name(full_name: str) -> tuple[str, str, str]:
 
 
 def is_databricks_sdk_models_artifact_repository_enabled(host_creds):
-    # Return early if the environment variable is set to use the SDK models artifact repository
-    if MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.defined:
-        return MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get()
-
-    endpoint, method = _METHOD_TO_INFO[IsDatabricksSdkModelsArtifactRepositoryEnabledRequest]
-    req_body = message_to_json(IsDatabricksSdkModelsArtifactRepositoryEnabledRequest())
-    response_proto = IsDatabricksSdkModelsArtifactRepositoryEnabledResponse()
-
-    try:
-        resp = call_endpoint(
-            host_creds=host_creds,
-            endpoint=endpoint,
-            method=method,
-            json_body=req_body,
-            response_proto=response_proto,
-        )
-        return resp.is_databricks_sdk_models_artifact_repository_enabled
-    except Exception as e:
-        _logger.warning(
-            "Failed to confirm if DatabricksSDKModelsArtifactRepository should be used; "
-            f"falling back to default. Error: {e}"
-        )
-    return False
+    # The DatabricksSDKModelsArtifactRepository is used by default. Users can opt out by explicitly
+    # setting MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC to false.
+    return MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC.get()
 
 
 def emit_model_version_lineage(host_creds, name, version, entities, direction):
