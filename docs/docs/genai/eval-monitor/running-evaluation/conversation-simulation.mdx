@@ -424,6 +424,60 @@ def predict_fn(input: list[dict], **kwargs):
 ```
 
 </TabItem>
+<TabItem value="remote" label="Remote Agent (A2A / OTLP)">
+
+For agents that run out-of-process and push their own traces to MLflow via OpenTelemetry (e.g. an A2A server), MLflow cannot detect the trace they create in the local thread. Wrap your return value in `PredictResult` to pass the remote trace ID back to the simulator explicitly:
+
+```python
+import requests
+import mlflow
+from mlflow.genai.simulators import ConversationSimulator, PredictResult
+from mlflow.genai.scorers import ConversationCompleteness, UserFrustration
+
+
+def predict_fn(input: list[dict], **kwargs) -> PredictResult:
+    # Forward the session ID so the remote agent can tag its trace accordingly
+    session_id = kwargs.get("mlflow_session_id")
+
+    # Call your A2A agent server — it writes its own trace to the MLflow server via OTLP
+    result = requests.post(
+        "https://my-a2a-agent/v1/message:stream",
+        json={"messages": input, "session_id": session_id},
+    ).json()
+
+    # The remote agent returns the MLflow trace ID it created
+    remote_trace_id = result["trace_id"]
+
+    return PredictResult(
+        response=result["response"],
+        trace_id=remote_trace_id,
+    )
+
+
+simulator = ConversationSimulator(
+    test_cases=[
+        {
+            "goal": "Set up model versioning for a production ML pipeline",
+            "persona": "You are a beginner who needs step-by-step guidance",
+        }
+    ],
+    max_turns=5,
+)
+
+results = mlflow.genai.evaluate(
+    data=simulator,
+    predict_fn=predict_fn,
+    scorers=[ConversationCompleteness(), UserFrustration()],
+)
+```
+
+:::tip[When to use PredictResult]
+Use `PredictResult` whenever your agent runs in a separate process and writes its own MLflow trace — for example, an [A2A protocol](https://google.github.io/A2A/) agent server exporting traces via OTLP, a Databricks Model Serving endpoint, or any HTTP-based agent. Without it, the simulator cannot find the remote trace to attach assessments to and falls back to creating a thin local trace that lacks internal spans such as tool calls.
+
+If your agent runs in-process and is already decorated with `@mlflow.trace`, you do not need `PredictResult`.
+:::
+
+</TabItem>
 </Tabs>
 </TabsWrapper>
 
