@@ -101,6 +101,7 @@ describe('AgentActionCard', () => {
       </DesignSystemProvider>,
     );
     expect(screen.getByRole('tab', { name: /One-line setup/ })).toBeInTheDocument();
+    expect(screen.getByText(/with instructions to instrument your agent\./)).toBeInTheDocument();
   });
 
   it('clicking "Open assistant" opens the panel and prefills the chat input with the prompt', async () => {
