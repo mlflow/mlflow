@@ -34,6 +34,7 @@ import type {
   NotifyPayload,
   RolloutLine,
   ResponseItemPayload,
+  TokenUsage,
 } from './types.js';
 import {
   parseTimestampToNs,
@@ -45,6 +46,14 @@ import {
   getLastTurnRecords,
   readTranscript,
 } from './transcript.js';
+import {
+  LLM_COST_ATTRIBUTE,
+  TRACE_COST_METADATA,
+  calculateCost,
+  setModelRates,
+  type LlmCost,
+} from './pricing.js';
+import { loadCatalogRates } from './modelCatalog.js';
 
 /**
  * Process a Codex notify hook payload and create an MLflow trace.
@@ -77,6 +86,10 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     }
   }
 
+  // Prefer fresh rates from the published model catalog (filesystem TTL cache);
+  // calculateCost falls back to the bundled snapshot when unavailable.
+  setModelRates(await loadCatalogRates());
+
   // Root span bracket: use task_started / task_complete from the transcript
   // so the root span covers the full turn. Without this, the root span would
   // only cover the hook's own wall-clock execution time (a few ms), which is
@@ -98,21 +111,20 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     ...(rootStartNs != null ? { startTimeNs: rootStartNs } : {}),
   });
 
+  // Cost is computed once per turn from the cumulative token usage and attached
+  // to the final LLM span (token usage goes there too), then summed onto the
+  // trace below, matching the claude-code integration and the Python pipeline.
+  let turnCost: LlmCost | null = null;
+
   // If we have transcript data, create detailed child spans
   if (turnRecords && turnRecords.length > 0) {
-    createChildSpans(rootSpan, turnRecords, model);
-
     const tokenUsage = getTokenUsage(turnRecords);
-    if (tokenUsage) {
-      rootSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
-        [TokenUsageKey.INPUT_TOKENS]: tokenUsage.input_tokens,
-        [TokenUsageKey.OUTPUT_TOKENS]: tokenUsage.output_tokens,
-        [TokenUsageKey.TOTAL_TOKENS]: tokenUsage.total_tokens,
-      });
-    }
+    turnCost = calculateCost(model, tokenUsage ?? undefined);
+    createChildSpans(rootSpan, turnRecords, model, tokenUsage, turnCost);
   } else {
     // Fallback: create a simple LLM span from the notify data using the same
-    // OpenAI chat format the transcript path produces.
+    // OpenAI chat format the transcript path produces. The notify payload has
+    // no token usage, so this path reports the model but no cost.
     const llmSpan = startSpan({
       name: 'llm_call',
       parent: rootSpan,
@@ -121,7 +133,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
         model,
         messages: [{ role: 'user', content: userPrompt }],
       },
-      attributes: { model },
+      attributes: { model, 'mlflow.llm.model': model },
     });
     llmSpan.end({
       outputs: {
@@ -143,6 +155,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
         ...trace.info.traceMetadata,
         [TraceMetadataKey.TRACE_SESSION]: sessionId,
         [TraceMetadataKey.TRACE_USER]: process.env.USER ?? '',
+        ...(turnCost ? { [TRACE_COST_METADATA]: JSON.stringify(turnCost) } : {}),
       };
     }
   }
@@ -229,6 +242,8 @@ export function createChildSpans(
   parentSpan: LiveSpan,
   turnRecords: RolloutLine[],
   model: string,
+  tokenUsage: TokenUsage | null = null,
+  cost: LlmCost | null = null,
 ): void {
   const toolResults = buildToolResultMap(turnRecords);
   const toolEndTimes = buildToolEndTimes(turnRecords);
@@ -239,6 +254,22 @@ export function createChildSpans(
   let prevBoundaryNs: number | null = findTaskStartedNs(turnRecords);
 
   const responseItems = turnRecords.filter((record) => record.type === 'response_item');
+
+  // Codex reports usage cumulatively once per turn, so token usage and cost go
+  // on the final assistant LLM span. MLflow aggregates LLM-span usage/cost for
+  // the trace list's Tokens and Cost columns.
+  let lastAssistantIndex = -1;
+  for (let i = responseItems.length - 1; i >= 0; i--) {
+    const payload = responseItems[i].payload as ResponseItemPayload;
+    if (
+      payload.type === 'message' &&
+      payload.role === 'assistant' &&
+      extractTextFromContent(payload.content).trim()
+    ) {
+      lastAssistantIndex = i;
+      break;
+    }
+  }
 
   for (let i = 0; i < responseItems.length; i++) {
     const record = responseItems[i];
@@ -258,8 +289,20 @@ export function createChildSpans(
           spanType: SpanType.LLM,
           startTimeNs: prevBoundaryNs ?? timestampNs,
           inputs: { model, messages },
-          attributes: { model },
+          attributes: { model, 'mlflow.llm.model': model },
         });
+        if (i === lastAssistantIndex) {
+          if (tokenUsage) {
+            llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
+              [TokenUsageKey.INPUT_TOKENS]: tokenUsage.input_tokens,
+              [TokenUsageKey.OUTPUT_TOKENS]: tokenUsage.output_tokens,
+              [TokenUsageKey.TOTAL_TOKENS]: tokenUsage.total_tokens,
+            });
+          }
+          if (cost) {
+            llmSpan.setAttribute(LLM_COST_ATTRIBUTE, cost);
+          }
+        }
         llmSpan.end({
           outputs: {
             choices: [{ message: { role: 'assistant', content: text } }],

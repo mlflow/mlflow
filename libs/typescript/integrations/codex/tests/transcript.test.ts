@@ -11,6 +11,7 @@ import {
   getSessionId,
   buildToolResultMap,
 } from '../src/transcript';
+import type { RolloutLine } from '../src/types';
 
 const FIXTURES_DIR = resolve(__dirname, 'fixtures');
 
@@ -77,6 +78,50 @@ describe('readTranscript + parsing', () => {
     expect(usage!.input_tokens).toBe(100);
     expect(usage!.output_tokens).toBe(10);
     expect(usage!.total_tokens).toBe(110);
+  });
+
+  it('sums per-request usage across a multi-request turn', () => {
+    // A tool-using turn emits one token_count per model request; the turn's
+    // billed usage is the sum, not just the final request.
+    const records = [
+      {
+        timestamp: '2026-04-05T10:00:01Z',
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: {
+            last_token_usage: {
+              input_tokens: 100,
+              output_tokens: 10,
+              total_tokens: 110,
+              cached_input_tokens: 40,
+            },
+          },
+        },
+      },
+      {
+        timestamp: '2026-04-05T10:00:03Z',
+        type: 'event_msg',
+        payload: {
+          type: 'token_count',
+          info: {
+            last_token_usage: {
+              input_tokens: 250,
+              output_tokens: 30,
+              total_tokens: 280,
+              cached_input_tokens: 100,
+            },
+          },
+        },
+      },
+    ] as unknown as RolloutLine[];
+
+    expect(getTokenUsage(records)).toEqual({
+      input_tokens: 350,
+      output_tokens: 40,
+      total_tokens: 390,
+      cached_input_tokens: 140,
+    });
   });
 
   it('gets model from session meta', () => {
