@@ -3384,6 +3384,7 @@ def test_span_description_default_none():
         pass
 
     traces = get_traces()
+    assert len(traces) == 2
     for trace in traces:
         for span in trace.data.spans:
             assert span.description is None

@@ -215,7 +215,7 @@ class Span:
 
     @property
     def description(self) -> str | None:
-        """The description of the span, or ``None`` if it was not set."""
+        """The description of the span."""
         return self.get_attribute(SpanAttributeKey.DESCRIPTION)
 
     @property
