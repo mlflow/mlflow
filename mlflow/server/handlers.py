@@ -6098,6 +6098,10 @@ def _create_gateway_endpoint():
         request_message.usage_tracking if request_message.HasField("usage_tracking") else True
     )
 
+    prompt_caching = (
+        request_message.prompt_caching if request_message.HasField("prompt_caching") else False
+    )
+
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
         model_configs=model_configs,
@@ -6108,6 +6112,7 @@ def _create_gateway_endpoint():
         fallback_config=fallback_config,
         experiment_id=experiment_id,
         usage_tracking=usage_tracking,
+        prompt_caching=prompt_caching,
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
