@@ -148,6 +148,41 @@ tls:
   secretName: mlflow-tls
 ```
 
+### Health probes
+
+The chart configures liveness, readiness, and startup probes against MLflow's
+`/health` endpoint (under `server.staticPrefix` when set, and over HTTPS when
+`tls.enabled` is true). Timing and thresholds for each probe are configurable;
+set `enabled: false` on any of them to omit it from the rendered Deployment.
+
+The startup probe gates liveness and readiness until it succeeds, which is
+useful for slow-starting deployments (e.g. an external database or a sidecar
+proxy). Increase `timeoutSeconds` if your health endpoint can be slow to
+respond under load — the Kubernetes default of 1 second is often too
+aggressive for production environments.
+
+```yaml
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+  startup:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
+```
+
 ### Ingress
 
 MLflow's host-validation middleware only allows `localhost` and private-IP hosts by default.

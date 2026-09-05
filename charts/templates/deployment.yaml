@@ -69,24 +69,19 @@ spec:
             - name: {{ $portName }}
               containerPort: {{ .Values.server.value_options.port }}
               protocol: TCP
+          {{- $probeArgs := dict "path" (printf "%s/health" $healthPrefix) "port" $portName "tls" .Values.tls.enabled }}
+          {{- if .Values.probes.liveness.enabled }}
           livenessProbe:
-            httpGet:
-              path: {{ printf "%s/health" $healthPrefix }}
-              port: {{ $portName }}
-              {{- if .Values.tls.enabled }}
-              scheme: HTTPS
-              {{- end }}
-            initialDelaySeconds: 15
-            periodSeconds: 20
+            {{- include "mlflow.probe" (merge (dict "probe" .Values.probes.liveness) $probeArgs) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
           readinessProbe:
-            httpGet:
-              path: {{ printf "%s/health" $healthPrefix }}
-              port: {{ $portName }}
-              {{- if .Values.tls.enabled }}
-              scheme: HTTPS
-              {{- end }}
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            {{- include "mlflow.probe" (merge (dict "probe" .Values.probes.readiness) $probeArgs) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            {{- include "mlflow.probe" (merge (dict "probe" .Values.probes.startup) $probeArgs) | nindent 12 }}
+          {{- end }}
           {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.mlflow.registryStoreUri .Values.mlflow.registryStoreUriFrom .Values.mlflow.defaultArtifactRoot .Values.mlflow.artifactsDestination .Values.env }}
           env:
             {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom }}

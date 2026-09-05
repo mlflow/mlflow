@@ -49,6 +49,38 @@ server:
   # Aligns the --static-prefix server arg and liveness/readiness probe paths.
   staticPrefix: ""
 
+# Liveness, readiness, and startup probe configuration for the mlflow container.
+# The chart always generates the underlying httpGet request itself (the
+# server.staticPrefix + "/health" path, the dynamic http/https named port, and
+# the HTTPS scheme when tls.enabled is true) — these blocks only control
+# whether each probe is enabled and its timing/threshold behavior.
+#
+# The startup probe gates liveness and readiness until it succeeds, which is
+# useful for slow-starting deployments (e.g. external databases, sidecar
+# proxies). Set probes.startup.enabled: false to disable it explicitly.
+#
+# Set timeoutSeconds higher than the Kubernetes default (1s) if your
+# deployment's health endpoint can be slow to respond under load.
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+  startup:
+    enabled: true
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 30
+
 # Garbage collection via a CronJob that runs `mlflow gc`.
 # Permanently removes soft-deleted runs, experiments, and logged models
 # along with their artifacts. Resources must be soft-deleted first
