@@ -15,7 +15,8 @@ import {
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { enableScorersUI, shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../../hooks/useServerInfo';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
@@ -206,6 +207,8 @@ export const useExperimentPageSideNavConfig = ({
   hasTrainingRuns?: boolean;
   hasV4Location?: boolean;
 }): ExperimentPageSideNavConfig => {
+  const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
+
   if (
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
@@ -244,7 +247,13 @@ export const useExperimentPageSideNavConfig = ({
           : []),
       ],
       ...ExperimentPageSideNavGenAIConfig,
-      evaluation: enableScorersUI()
+      'prompts-versions': gatewayEnabled
+        ? ExperimentPageSideNavGenAIConfig['prompts-versions']
+        : ExperimentPageSideNavGenAIConfig['prompts-versions'].filter(
+            ({ tabName }) => tabName !== ExperimentPageTabName.Playground,
+          ),
+      // Scorers remain coupled to Gateway until those dependencies are decoupled.
+      evaluation: gatewayEnabled
         ? [
             {
               label: (
