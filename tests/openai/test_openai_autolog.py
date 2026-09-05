@@ -1335,6 +1335,23 @@ def test_parse_service_tier_none_when_absent():
     assert _parse_service_tier(completion) is None
 
 
+
+
+def test_parse_service_tier_from_dict():
+    """_parse_service_tier extracts service_tier from a plain dict response.
+
+    Any provider that serialises service_tier as a dict key is handled by the
+    generic path, not just OpenAI typed objects.
+    """
+    from mlflow.openai.utils.chat_schema import _parse_service_tier
+
+    assert _parse_service_tier({"service_tier": "flex"}) == "flex"
+    assert _parse_service_tier({"service_tier": "default"}) == "default"
+    assert _parse_service_tier({"service_tier": None}) is None
+    assert _parse_service_tier({}) is None
+    assert _parse_service_tier(None) is None
+
+
 @pytest.mark.asyncio
 async def test_service_tier_stored_and_passed_to_cost_calculation(client, mock_litellm_cost):
     """service_tier from the OpenAI response is stored on the span and forwarded to

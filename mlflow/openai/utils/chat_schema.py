@@ -45,7 +45,7 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
     if usage := _parse_usage(output):
         span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
-    # Extract service_tier from OpenAI response (e.g. "default", "priority", "flex").
+    # Extract service_tier if the provider exposes it (e.g. "default", "priority", "flex").
     # LiteLLM uses this to apply tier-specific pricing when computing cost.
     if service_tier := _parse_service_tier(output):
         span.set_attribute(SpanAttributeKey.LLM_SERVICE_TIER, service_tier)
@@ -237,17 +237,23 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
 
 
 def _parse_service_tier(output: Any) -> str | None:
-    """Extract service_tier from an OpenAI ChatCompletion response.
+    """Extract service_tier from an LLM response.
 
-    The ``service_tier`` field on the OpenAI response object reflects which tier
-    the request was actually processed on (e.g. ``"default"``, ``"priority"``,
-    ``"flex"``).  LiteLLM's ``cost_per_token`` accepts a ``service_tier`` kwarg
-    to apply tier-specific pricing, so surfacing this value enables accurate cost
-    reporting when callers use non-default tiers.
+    The ``service_tier`` field indicates which processing tier was used (e.g.
+    ``"default"``, ``"priority"``, ``"flex"``).  LiteLLM's ``cost_per_token``
+    accepts a ``service_tier`` kwarg to apply tier-specific pricing.
+
+    Handles both typed OpenAI response objects and dict-shaped responses so that
+    any provider serialising this field as a plain dict benefits from cost-tier
+    accounting automatically.
 
     Returns:
-        The service_tier string, or None if the output type does not carry one.
+        The service_tier string, or None if not present.
     """
+    # Generic dict path -- works for any provider that serialises service_tier.
+    if isinstance(output, dict):
+        return output.get("service_tier") or None
+
     try:
         from openai.types.chat import ChatCompletion
 
