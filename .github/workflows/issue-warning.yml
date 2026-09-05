@@ -5,7 +5,7 @@ on:
     types: [opened, edited]
 
 concurrency:
-  group: ${{ github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 defaults:
