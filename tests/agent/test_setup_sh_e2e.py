@@ -111,8 +111,6 @@ def mlflow_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
             f"--default-artifact-root={(tmp_path / 'artifacts').as_uri()}",
         ],
         cwd=tmp_path,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
     try:
