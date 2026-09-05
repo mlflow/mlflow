@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.run_id }}
+  group: ${{ github.workflow }}
   cancel-in-progress: false
 
 defaults:
