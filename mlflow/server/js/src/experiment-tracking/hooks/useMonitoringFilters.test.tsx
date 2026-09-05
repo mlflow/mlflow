@@ -1,7 +1,11 @@
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
 
-import { useMonitoringFilters, type MonitoringFilters } from './useMonitoringFilters';
+import {
+  startTimeLabelToStartEndTime,
+  useMonitoringFilters,
+  type MonitoringFilters,
+} from './useMonitoringFilters';
 import { useParams, useSearchParams } from '../../common/utils/RoutingUtils';
 
 jest.mock('../../common/utils/RoutingUtils', () => ({
@@ -82,6 +86,21 @@ describe('useMonitoringFilters - persistence', () => {
       renderHook(() => useMonitoringFilters({ loadPersistedValues: true }));
 
       expect(mockSetSearchParams).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('startTimeLabelToStartEndTime', () => {
+  it('anchors day-based ranges at midnight UTC', () => {
+    const dateNow = new Date('2025-01-15T18:30:00Z');
+
+    expect(startTimeLabelToStartEndTime(dateNow, 'LAST_7_DAYS')).toEqual({
+      startTime: '2025-01-08T00:00:00.000Z',
+      endTime: '2025-01-15T18:30:00.000Z',
+    });
+    expect(startTimeLabelToStartEndTime(dateNow, 'LAST_30_DAYS')).toEqual({
+      startTime: '2024-12-16T00:00:00.000Z',
+      endTime: '2025-01-15T18:30:00.000Z',
     });
   });
 });
