@@ -11,7 +11,7 @@ on:
       - .github/workflows/auto-assign.js
 
 concurrency:
-  group: ${{ github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 defaults:
