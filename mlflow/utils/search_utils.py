@@ -6,7 +6,7 @@ import operator
 import re
 import shlex
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 import sqlparse
 from packaging.version import Version
@@ -188,6 +188,7 @@ class SearchUtils:
         list(_BUILTIN_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
     )
     DATASET_ATTRIBUTES = {"name", "digest", "context"}
+    LIST_SUPPORTED_KEYS: ClassVar[frozenset[str] | None] = frozenset({"run_id"})
     VALID_SEARCH_ATTRIBUTE_KEYS = set(
         RunInfo.get_searchable_attributes()
         + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
@@ -301,6 +302,12 @@ class SearchUtils:
                 column = f"{column.class_.__tablename__}.{column.key}"
                 return sa.text(templates[comparator].format(column=column)).bindparams(
                     sa.bindparam("value", value=value, unique=True)
+                )
+
+            if comparator in ("IN", "NOT IN"):
+                column_ref = f"{column.class_.__tablename__}.{column.key}"
+                return sa.text(f"(BINARY {column_ref} {comparator} :values)").bindparams(
+                    sa.bindparam("values", value=list(value), expanding=True, unique=True)
                 )
 
             return comparison_func(column, value)
@@ -419,10 +426,10 @@ class SearchUtils:
 
     @classmethod
     def validate_list_supported(cls, key: str) -> None:
-        if key != "run_id":
+        if cls.LIST_SUPPORTED_KEYS is not None and key not in cls.LIST_SUPPORTED_KEYS:
             raise MlflowException(
-                "Only the 'run_id' attribute supports comparison with a list of quoted "
-                "string values.",
+                f"Only {sorted(cls.LIST_SUPPORTED_KEYS)} attributes support "
+                "comparison with a list of quoted string values.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -457,7 +464,7 @@ class SearchUtils:
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
                 cls.validate_list_supported(key)
-                return cls._parse_run_ids(token)
+                return cls._parse_list_from_sql_token(token)
             else:
                 raise MlflowException(
                     f"Expected a quoted string value for attributes. Got value {token.value}",
@@ -1042,19 +1049,13 @@ class SearchUtils:
         cls._check_valid_identifier_list(parsed)
         return parsed
 
-    @classmethod
-    def _parse_run_ids(cls, token):
-        run_id_list = cls._parse_list_from_sql_token(token)
-        # Because MySQL IN clause is case-insensitive, but all run_ids only contain lower
-        # case letters, so that we filter out run_ids containing upper case letters here.
-        return [run_id for run_id in run_id_list if run_id.islower()]
-
 
 class SearchExperimentsUtils(SearchUtils):
-    VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "creation_time", "last_update_time"}
+    VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "experiment_id", "creation_time", "last_update_time"}
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "experiment_id", "creation_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"creation_time", "last_update_time"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"}
+    LIST_SUPPORTED_KEYS = frozenset({"experiment_id"})
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):
@@ -1269,6 +1270,7 @@ class SearchModelUtils(SearchUtils):
     VALID_SEARCH_ATTRIBUTE_KEYS = {"name"}
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = {"name", "creation_timestamp", "last_updated_timestamp"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    LIST_SUPPORTED_KEYS = frozenset({"name"})
 
     @classmethod
     def _does_registered_model_match_clauses(cls, model, sed):
@@ -1417,13 +1419,8 @@ class SearchModelUtils(SearchUtils):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
-                if key != "run_id":
-                    raise MlflowException(
-                        "Only the 'run_id' attribute supports comparison with a list of quoted "
-                        "string values.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                return cls._parse_run_ids(token)
+                cls.validate_list_supported(key)
+                return cls._parse_list_from_sql_token(token)
             else:
                 raise MlflowException(
                     "Expected a quoted string value or a list of quoted string values for "
@@ -1463,8 +1460,9 @@ class SearchModelVersionUtils(SearchUtils):
         "creation_timestamp",
         "last_updated_timestamp",
     }
-    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IN"}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IN", "NOT IN"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    LIST_SUPPORTED_KEYS = frozenset({"name", "run_id"})
 
     @classmethod
     def _does_model_version_match_clauses(cls, mv, sed):
@@ -1608,13 +1606,8 @@ class SearchModelVersionUtils(SearchUtils):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
-                if key != "run_id":
-                    raise MlflowException(
-                        "Only the 'run_id' attribute supports comparison with a list of quoted "
-                        "string values.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                return cls._parse_run_ids(token)
+                cls.validate_list_supported(key)
+                return cls._parse_list_from_sql_token(token)
             elif token.ttype in cls.NUMERIC_VALUE_TYPES:
                 if key not in cls.NUMERIC_ATTRIBUTES:
                     raise MlflowException(
@@ -2561,11 +2554,7 @@ class SearchLoggedModelsUtils(SearchUtils):
 
         return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
-    @classmethod
-    def validate_list_supported(cls, key: str) -> None:
-        """
-        Override to allow logged model attributes to be used with IN/NOT IN.
-        """
+    LIST_SUPPORTED_KEYS = None
 
     @classmethod
     def filter_logged_models(
@@ -2778,13 +2767,7 @@ class SearchMCPServerUtils(SearchUtils):
     }
     NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
 
-    @classmethod
-    def validate_list_supported(cls, key: str) -> None:
-        if key not in ("status",):
-            raise MlflowException(
-                f"Only 'status' supports IN comparisons for MCP servers, got '{key}'.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+    LIST_SUPPORTED_KEYS = frozenset({"status", "name"})
 
 
 class SearchMCPServerVersionUtils(SearchUtils):
@@ -2792,14 +2775,7 @@ class SearchMCPServerVersionUtils(SearchUtils):
 
     VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "version", "status", "created_at", "last_updated_at"}
     NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
-
-    @classmethod
-    def validate_list_supported(cls, key: str) -> None:
-        if key not in ("status",):
-            raise MlflowException(
-                f"Only 'status' supports IN comparisons for MCP server versions, got '{key}'.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+    LIST_SUPPORTED_KEYS = frozenset({"status"})
 
 
 class SearchMCPAccessEndpointUtils(SearchUtils):
@@ -2813,6 +2789,7 @@ class SearchMCPAccessEndpointUtils(SearchUtils):
         "last_updated_at",
     }
     NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+    LIST_SUPPORTED_KEYS = frozenset({"server_name"})
 
 
 class SearchIssuesUtils(SearchUtils):

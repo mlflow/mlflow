@@ -4083,6 +4083,12 @@ message BatchGetTraces {
   // ID of the traces to fetch. Must be provided.
   repeated string trace_ids = 1;
 
+  // Optional list of experiment IDs to scope the query. When provided, only
+  // traces belonging to these experiments are returned. Not supported when
+  // proxying to a Databricks-hosted backend, since that API has no
+  // corresponding field.
+  repeated string experiment_ids = 2;
+
   message Response {
     // The fetched trace information.
     repeated Trace traces = 1;
@@ -4094,6 +4100,12 @@ message BatchGetTraceInfos {
 
   // IDs of the traces to fetch. Must be provided.
   repeated string trace_ids = 1;
+
+  // Optional list of experiment IDs to scope the query. When provided, only
+  // traces belonging to these experiments are returned. Not supported when
+  // proxying to a Databricks-hosted backend, since that API has no
+  // corresponding field.
+  repeated string experiment_ids = 2;
 
   message Response {
     // The fetched trace metadata.
@@ -5174,13 +5186,21 @@ message RegisterScorer {
   }
 }
 
-// List all scorers, optionally scoped to a single experiment.
+// List all scorers, optionally scoped to one or more experiments.
 message ListScorers {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // The experiment ID. If empty, returns scorers across all experiments
-  // in the active workspace (used by the admin-UI scorer picker).
+  // A single experiment ID. Kept for backward compatibility; prefer
+  // ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+  // with ``experiment_ids`` -- specifying both is an error.
   optional string experiment_id = 1;
+
+  // Optional list of experiment IDs to scope the query. When provided, only
+  // scorers from these experiments are returned. Mutually exclusive with
+  // ``experiment_id`` -- specifying both is an error.
+  //
+  // Not supported against a Databricks-hosted backend.
+  repeated string experiment_ids = 2;
 
   message Response {
     // List of scorer entities (latest version for each scorer name).

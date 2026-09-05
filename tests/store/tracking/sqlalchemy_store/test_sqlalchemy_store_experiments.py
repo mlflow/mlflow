@@ -350,6 +350,119 @@ def test_search_experiments_filter_by_attribute(store: SqlAlchemyStore):
     assert [e.name for e in experiments] == ["ab"]
 
 
+def test_search_experiments_filter_by_experiment_id_in(store: SqlAlchemyStore):
+    id_a, id_b, id_c = _create_experiments(store, ["a", "b", "c"])
+
+    experiments = store.search_experiments(filter_string=f"experiment_id IN ('{id_a}', '{id_b}')")
+    assert {e.experiment_id for e in experiments} == {id_a, id_b}
+
+    experiments = store.search_experiments(filter_string=f"experiment_id IN ('{id_a}')")
+    assert {e.experiment_id for e in experiments} == {id_a}
+
+    experiments = store.search_experiments(
+        filter_string=f"experiment_id IN ('{id_a}', '{id_b}') AND name = 'a'"
+    )
+    assert {e.experiment_id for e in experiments} == {id_a}
+
+    experiments = store.search_experiments(
+        filter_string=f"experiment_id NOT IN ('{id_a}', '{id_b}')"
+    )
+    assert {e.experiment_id for e in experiments} == {id_c, store.DEFAULT_EXPERIMENT_ID}
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            r"While parsing a list in the query, "
+            r"expected string value, punctuation, or whitespace, "
+            r"but got different type in list"
+        ),
+    ) as exception_context:
+        store.search_experiments(filter_string="experiment_id IN (1,2,3)")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match=r"support comparison with a list"):
+        store.search_experiments(filter_string="name IN ('a', 'b')")
+
+
+def test_search_experiments_filter_by_experiment_id(store: SqlAlchemyStore):
+    id_a, id_b = _create_experiments(store, ["a", "b"])
+
+    experiments = store.search_experiments(filter_string=f"experiment_id = '{id_a}'")
+    assert {e.experiment_id for e in experiments} == {id_a}
+
+    experiments = store.search_experiments(filter_string=f"experiment_id != '{id_a}'")
+    assert {e.experiment_id for e in experiments} == {id_b, store.DEFAULT_EXPERIMENT_ID}
+
+
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE", "<", "<=", ">", ">="])
+def test_search_experiments_filter_by_experiment_id_rejects_invalid_comparators(
+    store: SqlAlchemyStore, comparator: str
+):
+    (id_a,) = _create_experiments(store, ["a"])
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid comparator for experiment_id",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string=f"experiment_id {comparator} '{id_a}'")
+
+
+def test_search_experiments_filter_by_experiment_id_rejects_non_integer(store: SqlAlchemyStore):
+    # `experiment_id` is an INTEGER column but filter values are always parsed as
+    # strings; a value that isn't a valid integer must fail with the same error
+    # contract as `_parse_experiment_id` (e.g. `get_experiment("invalid_id")`),
+    # not a raw `ValueError` or a silent psycopg type-mismatch at bind time.
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string="experiment_id = 'abc'")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.search_experiments(filter_string="experiment_id IN ('abc')")
+
+
+def test_list_active_experiment_ids(store: SqlAlchemyStore, monkeypatch):
+    """
+    Given a bounded batch of experiment ids, only the ones that exist and are
+    ACTIVE come back. Also exercises the IN-list chunking by forcing a tiny
+    chunk size, including a chunk boundary (exactly at, and just over, the
+    chunk size).
+    """
+    id_a, id_b, id_c = _create_experiments(store, ["a", "b", "c"])
+    store.delete_experiment(id_c)
+    nonexistent_id = "999999"
+
+    assert store.list_active_experiment_ids([]) == []
+    assert set(store.list_active_experiment_ids([id_a, id_b, id_c, nonexistent_id])) == {
+        id_a,
+        id_b,
+    }
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.list_active_experiment_ids(["abc"])
+
+    # Force a tiny chunk size to exercise the IN-list chunking loop end-to-end,
+    # including a chunk that lands exactly on the boundary (2 ids, chunk size 2)
+    # and one that spans multiple chunks (4 ids, chunk size 2).
+    monkeypatch.setattr(SqlAlchemyStore, "_ID_CHUNK_SIZE", 2)
+    assert set(store.list_active_experiment_ids([id_a, id_b])) == {id_a, id_b}
+    assert set(store.list_active_experiment_ids([id_a, id_b, id_c, nonexistent_id])) == {
+        id_a,
+        id_b,
+    }
+
+
 def test_search_experiments_filter_by_time_attribute(store: SqlAlchemyStore):
     # Sleep to ensure that the first experiment has a different creation_time than the default
     # experiment and eliminate flakiness.
