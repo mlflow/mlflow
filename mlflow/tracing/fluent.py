@@ -880,6 +880,15 @@ def _resolve_uc_trace_id(trace_id: str) -> str:
     return construct_trace_id_v4(location, trace_id)
 
 
+def _maybe_hint_trace_reading_skill() -> None:
+    try:
+        from mlflow.agent.hint import maybe_hint_trace_reading_skill
+
+        maybe_hint_trace_reading_skill()
+    except Exception:
+        pass
+
+
 @deprecated_parameter("request_id", "trace_id")
 def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace | None:
     """
@@ -913,6 +922,8 @@ def get_trace(trace_id: str, silent: bool = False, flush: bool = False) -> Trace
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
+    _maybe_hint_trace_reading_skill()
+
     # Special handling for evaluation request ID.
     trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
 
@@ -1152,6 +1163,7 @@ def search_traces(
         mlflow.search_traces(run_id=run.info.run_id, return_type="list")
 
     """
+    _maybe_hint_trace_reading_skill()
 
     if sql_warehouse_id is not None:
         warnings.warn(
