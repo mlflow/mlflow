@@ -475,16 +475,14 @@ async def test_completions_throws_if_prompt_contains_non_string(prompt):
 
 def completions_stream_response():
     return [
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
-        b'"choices":[{"index":0,"finish_reason":null,'
-        b'"delta":{"role":"assistant", "content": ""}}]}\n',
+        b'data: {"id":"test-id","object":"text_completion","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,"text":""}]}\n',
         b"\n",
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
-        b'"choices":[{"index":0,"finish_reason":null,'
-        b'"delta":{"content":"test"}}]}\n',
+        b'data: {"id":"test-id","object":"text_completion","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,"text":"test"}]}\n',
         b"\n",
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
-        b'"choices":[{"index":0,"finish_reason":"length","delta":{}}]}\n',
+        b'data: {"id":"test-id","object":"text_completion","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":"length","text":""}]}\n',
         b"\n",
         b"data: [DONE]\n",
     ]
@@ -493,16 +491,16 @@ def completions_stream_response():
 def completions_stream_response_incomplete():
     return [
         # contains first half of a chunk
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test","choi',
+        b'data: {"id":"test-id","object":"text_completion","created":1,"model":"test","choi',
         # contains second half of first chunk and first half of second chunk
-        b'ces":[{"index":0,"finish_reason":null,"delta":{"role":"assistant", '
-        b'"content": ""}}]}\n\ndata: {"id":"test-id","object":"chat.comp',
+        b'ces":[{"index":0,"finish_reason":null,"text":""}]}\n\n'
+        b'data: {"id":"test-id","object":"text_comp',
         # contains second half of second chunk
-        b'letion.chunk","created":1,"model":"test","choices":[{"index":0,"finish_reason":null,'
-        b'"delta":{"content":"test"}}]}\n',
+        b'letion","created":1,"model":"test","choices":[{"index":0,"finish_reason":null,'
+        b'"text":"test"}]}\n',
         b"\n",
-        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
-        b'"choices":[{"index":0,"finish_reason":"length","delta":{}}]}\n',
+        b'data: {"id":"test-id","object":"text_completion","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":"length","text":""}]}\n',
         b"\n",
         b"data: [DONE]\n",
     ]
@@ -548,7 +546,7 @@ async def _run_test_completions_stream(resp, provider):
             {
                 "choices": [
                     {
-                        "text": None,
+                        "text": "",
                         "finish_reason": "length",
                         "index": 0,
                     }
