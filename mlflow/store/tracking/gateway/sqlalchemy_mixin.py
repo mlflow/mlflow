@@ -621,6 +621,7 @@ class SqlAlchemyGatewayStoreMixin:
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool = True,
+        prompt_caching: bool = False,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -711,6 +712,7 @@ class SqlAlchemyGatewayStoreMixin:
                     fallback_config_json=fallback_config_json,
                     experiment_id=int(experiment_id) if experiment_id else None,
                     usage_tracking=usage_tracking,
+                    prompt_caching=prompt_caching,
                 )
             )
             session.add(sql_endpoint)

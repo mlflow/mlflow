@@ -360,6 +360,7 @@ class GatewayEndpoint(_MlflowObject):
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
     usage_tracking: bool = True
+    prompt_caching: bool = False
     workspace: str | None = None
 
     def __post_init__(self):
@@ -386,6 +387,7 @@ class GatewayEndpoint(_MlflowObject):
             proto.experiment_id = self.experiment_id
 
         proto.usage_tracking = self.usage_tracking
+        proto.prompt_caching = self.prompt_caching
 
         return proto
 
@@ -405,6 +407,7 @@ class GatewayEndpoint(_MlflowObject):
             experiment_id = proto.experiment_id or None
 
         usage_tracking = proto.usage_tracking if proto.HasField("usage_tracking") else True
+        prompt_caching = proto.prompt_caching if proto.HasField("prompt_caching") else False
 
         return cls(
             endpoint_id=proto.endpoint_id,
@@ -421,6 +424,7 @@ class GatewayEndpoint(_MlflowObject):
             fallback_config=fallback_config,
             experiment_id=experiment_id,
             usage_tracking=usage_tracking,
+            prompt_caching=prompt_caching,
         )
 
 
