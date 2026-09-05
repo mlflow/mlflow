@@ -385,6 +385,60 @@ def test_endpoint_proto_round_trip():
     assert len(restored.model_mappings) == 0
 
 
+def test_endpoint_prompt_caching_default():
+    endpoint = GatewayEndpoint(
+        endpoint_id="endpoint-default",
+        name="Default Endpoint",
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+    )
+    assert endpoint.prompt_caching is False
+
+
+def test_endpoint_prompt_caching_enabled():
+    endpoint = GatewayEndpoint(
+        endpoint_id="endpoint-cached",
+        name="Cached Endpoint",
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+        prompt_caching=True,
+    )
+    assert endpoint.prompt_caching is True
+
+
+def test_endpoint_prompt_caching_proto_round_trip():
+    endpoint = GatewayEndpoint(
+        endpoint_id="endpoint-proto-cache",
+        name="Proto Cache Endpoint",
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        model_mappings=[],
+        prompt_caching=True,
+    )
+
+    proto = endpoint.to_proto()
+    restored = GatewayEndpoint.from_proto(proto)
+
+    assert restored.prompt_caching == endpoint.prompt_caching
+    assert restored.prompt_caching is True
+
+
+def test_endpoint_prompt_caching_false_proto_round_trip():
+    endpoint = GatewayEndpoint(
+        endpoint_id="endpoint-proto-no-cache",
+        name="Proto No Cache Endpoint",
+        created_at=1234567890000,
+        last_updated_at=1234567891000,
+        model_mappings=[],
+        prompt_caching=False,
+    )
+
+    proto = endpoint.to_proto()
+    restored = GatewayEndpoint.from_proto(proto)
+
+    assert restored.prompt_caching is False
+
+
 def test_endpoint_binding_proto_round_trip():
     binding = GatewayEndpointBinding(
         endpoint_id="endpoint-proto",
