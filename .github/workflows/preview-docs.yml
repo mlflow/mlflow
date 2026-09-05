@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 concurrency:
-  group: ${{ github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 env:

@@ -11,7 +11,7 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
   cancel-in-progress: false
 
 defaults:

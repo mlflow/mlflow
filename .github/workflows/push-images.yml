@@ -7,7 +7,7 @@ on:
       - edited
 
 concurrency:
-  group: ${{ github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
 defaults:
