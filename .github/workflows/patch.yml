@@ -8,8 +8,8 @@ on:
       - synchronize
 
 concurrency:
-  group: ${{ github.run_id }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 defaults:
   run:
