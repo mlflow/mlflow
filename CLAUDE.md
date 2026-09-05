@@ -234,5 +234,3 @@ uv run --only-group lint pre-commit run ruff --all-files
 
 `--only-group lint` keeps uv from syncing the full `dev` environment just to run
 the hooks.
-
-This runs Ruff, typos checker, and other tools automatically before commits.
