@@ -46,6 +46,7 @@ export interface CreateEndpointFormData {
     configFields: Record<string, string>;
   };
   usageTracking: boolean;
+  promptCaching: boolean;
   experimentId: string;
 }
 
@@ -102,6 +103,7 @@ export function useCreateEndpointForm({
         configFields: {},
       },
       usageTracking: true,
+      promptCaching: false,
       experimentId: '',
     },
   });
@@ -195,6 +197,7 @@ export function useCreateEndpointForm({
           },
         ],
         usage_tracking: values.usageTracking,
+        prompt_caching: values.promptCaching,
       });
 
       if (codingAgent) {

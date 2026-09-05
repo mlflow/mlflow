@@ -466,6 +466,7 @@ class EndpointConfig(AliasedConfigModel):
     endpoint_type: EndpointType
     model: Model
     limit: Limit | None = None
+    prompt_caching: bool | None = False
 
     @field_validator("name")
     def validate_endpoint_name(cls, route_name):

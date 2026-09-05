@@ -322,6 +322,7 @@ def _build_endpoint_config(
     endpoint_name: str,
     model_config: GatewayModelConfig,
     endpoint_type: EndpointType,
+    prompt_caching: bool = False,
 ) -> EndpointConfig:
     """
     Build an EndpointConfig from model configuration.
@@ -492,6 +493,7 @@ def _build_endpoint_config(
 
     # Build and return EndpointConfig
     return EndpointConfig(
+        prompt_caching=prompt_caching,
         name=endpoint_name,
         endpoint_type=endpoint_type,
         model={
@@ -546,6 +548,7 @@ def _create_provider(
                 endpoint_name=endpoint_config.endpoint_name,
                 model_config=model_config,
                 endpoint_type=endpoint_type,
+                prompt_caching=endpoint_config.prompt_caching,
             )
             configs.append(gateway_endpoint_config)
             weights.append(int(model_config.weight * 100))  # Convert to percentage
@@ -560,7 +563,7 @@ def _create_provider(
         # Default: use the first PRIMARY model
         model_config = primary_models[0]
         gateway_endpoint_config = _build_endpoint_config(
-            endpoint_config.endpoint_name, model_config, endpoint_type
+            endpoint_config.endpoint_name, model_config, endpoint_type, prompt_caching=endpoint_config.prompt_caching
         )
         provider_class = get_provider(model_config.provider)
         primary_provider = provider_class(gateway_endpoint_config, enable_tracing=enable_tracing)
@@ -591,6 +594,7 @@ def _create_provider(
                     endpoint_name=endpoint_config.endpoint_name,
                     model_config=model_config,
                     endpoint_type=endpoint_type,
+                    prompt_caching=endpoint_config.prompt_caching
                 ),
                 enable_tracing=enable_tracing,
             )

@@ -5353,6 +5353,7 @@ message GatewayEndpoint {
   // When true, an experiment will be auto-created if not provided,
   // and traces will be logged for endpoint invocations.
   optional bool usage_tracking = 12;
+  optional bool prompt_caching = 13;
 }
 
 // Tag associated with an endpoint
@@ -5648,6 +5649,7 @@ message CreateGatewayEndpoint {
   // Whether to enable usage tracking for this endpoint. Defaults to false.
   // When true, traces will be logged for endpoint invocations.
   optional bool usage_tracking = 7;
+  optional bool prompt_caching = 8;
 
   message Response {
     // The created endpoint with all model mappings
@@ -5685,7 +5687,7 @@ message UpdateGatewayEndpoint {
   // When set to true, traces will be logged for endpoint invocations.
   // When set to false, usage tracking is disabled and experiment_id is cleared.
   optional bool usage_tracking = 8;
-
+  optional bool prompt_caching = 9;
   message Response {
     // The updated endpoint
     optional GatewayEndpoint endpoint = 1;

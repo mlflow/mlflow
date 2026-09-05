@@ -172,6 +172,7 @@ export interface CreateEndpointRequest {
     max_attempts: number;
   };
   usage_tracking?: boolean;
+  prompt_caching?: boolean;
   experiment_id?: string;
 }
 

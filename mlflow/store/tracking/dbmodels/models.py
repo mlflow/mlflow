@@ -2637,6 +2637,12 @@ class SqlGatewayEndpoint(Base):
     Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
     When true, traces will be logged for endpoint invocations.
     """
+    prompt_caching = Column(Boolean, nullable=False, default=False)
+    """
+    prompt_caching: `Boolean`. Whether prompt caching is enabled for this endpoint.
+    When true, the provider sends a cache key to enable prompt caching (currently Mistral only).
+    """
+
     workspace = Column(
         String(63),
         nullable=False,
@@ -2687,6 +2693,7 @@ class SqlGatewayEndpoint(Base):
             fallback_config=fallback_config,
             experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
             usage_tracking=self.usage_tracking,
+            prompt_caching=self.prompt_caching,
             workspace=self.workspace,
         )
 

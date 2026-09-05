@@ -56,6 +56,7 @@ class MistralAdapter(ProviderAdapter):
                 prompt_tokens=resp["usage"]["prompt_tokens"],
                 completion_tokens=resp["usage"]["completion_tokens"],
                 total_tokens=resp["usage"]["total_tokens"],
+                cached_tokens=(resp["usage"].get("prompt_tokens_details") or {}).get("cached_tokens")
             ),
         )
 
@@ -86,6 +87,7 @@ class MistralAdapter(ProviderAdapter):
                 prompt_tokens=resp["usage"]["prompt_tokens"],
                 completion_tokens=resp["usage"]["completion_tokens"],
                 total_tokens=resp["usage"]["total_tokens"],
+                cached_tokens=(resp["usage"].get("prompt_tokens_details") or {}).get("cached_tokens")
             ),
         )
 
@@ -176,12 +178,13 @@ class MistralAdapter(ProviderAdapter):
         )
 
     @classmethod
-    def completions_to_model(cls, payload, config):
+    def completions_to_model(cls, payload, config: EndpointConfig):
         payload["model"] = config.model.name
         payload.pop("stop", None)
         payload.pop("n", None)
         payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
-
+        if config.prompt_caching:
+            payload["prompt_cache_key"] = config.name
         # The range of Mistral's temperature is 0-1, but ours is 0-2, so we scale it.
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
@@ -189,7 +192,9 @@ class MistralAdapter(ProviderAdapter):
         return payload
 
     @classmethod
-    def chat_to_model(cls, payload, config):
+    def chat_to_model(cls, payload, config: EndpointConfig):
+        if config.prompt_caching:
+            payload["prompt_cache_key"] = config.name
         return {"model": config.model.name, **payload}
 
     @classmethod
@@ -261,7 +266,6 @@ class MistralProvider(BaseProvider):
         self, payload: chat_schema.RequestPayload
     ) -> AsyncIterable[chat_schema.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
-
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
 

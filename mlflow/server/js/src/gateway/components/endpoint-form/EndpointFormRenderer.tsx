@@ -6,6 +6,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
 import { UsageTrackingConfigurator } from '../edit-endpoint/UsageTrackingConfigurator';
+import { PromptCachingConfigurator } from '../edit-endpoint/PromptCachingConfigurator';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/types';
@@ -324,6 +325,20 @@ export const EndpointFormRenderer = ({
                       componentId={`${componentId}.api-key`}
                     />
                   </div>
+                )}
+                {/* Prompt Caching Section (only for Mistral in create mode) */}
+                {mode === 'create' && provider === 'mistral' && (
+                    <Controller
+                      control={form.control}
+                      name="promptCaching"
+                      render={({ field }) => (
+                        <PromptCachingConfigurator
+                          value={field.value}
+                          onChange={field.onChange}
+                          componentId="mlflow.gateway.create-endpoint.prompt-caching"
+                        />
+                      )}
+                    />
                 )}
               </div>
             </LongFormSection>
