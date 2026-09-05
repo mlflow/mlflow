@@ -85,6 +85,7 @@ async def test_completions():
                 "prompt_tokens": 9,
                 "completion_tokens": 9,
                 "total_tokens": 18,
+                "cached_tokens": None,
             },
         }
         mock_post.assert_called_once_with(
@@ -444,3 +445,200 @@ async def test_chat_stream(resp):
     config = chat_config()
     provider = MistralProvider(EndpointConfig(**config))
     await _run_test_chat_stream(resp, provider)
+
+
+def completions_config_with_prompt_caching():
+    return {
+        "name": "completions-cached",
+        "endpoint_type": "llm/v1/completions",
+        "model": {
+            "provider": "mistral",
+            "name": "mistral-tiny",
+            "config": {
+                "mistral_api_key": "key",
+            },
+        },
+        "prompt_caching": True,
+    }
+
+
+def chat_config_with_prompt_caching():
+    return {
+        "name": "chat-cached",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "mistral",
+            "name": "mistral-large-latest",
+            "config": {
+                "mistral_api_key": "key",
+            },
+        },
+        "prompt_caching": True,
+    }
+
+
+def completions_response_with_cached_tokens():
+    return {
+        "id": "string",
+        "object": "string",
+        "create": "integer",
+        "model": "string",
+        "choices": [
+            {
+                "index": "integer",
+                "message": {"role": "user", "content": TEST_STRING},
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 9,
+            "total_tokens": 18,
+            "prompt_tokens_details": {"cached_tokens": 5},
+        },
+    }
+
+
+def chat_response_with_cached_tokens():
+    return {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "mistral-large-latest",
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": TEST_STRING},
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 50,
+            "total_tokens": 63,
+            "prompt_tokens_details": {"cached_tokens": 8},
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_completions_prompt_caching_sends_cache_key():
+    resp = completions_response()
+    config = completions_config_with_prompt_caching()
+    with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+        provider = MistralProvider(EndpointConfig(**config))
+        payload = {"prompt": TEST_STRING}
+        await provider.completions(completions.RequestPayload(**payload))
+        call_payload = mock_post.call_args[1]["json"]
+        assert call_payload["prompt_cache_key"] == "completions-cached"
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_completions_no_cache_key_when_prompt_caching_disabled():
+    resp = completions_response()
+    config = completions_config()
+    with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+        provider = MistralProvider(EndpointConfig(**config))
+        payload = {"prompt": TEST_STRING}
+        await provider.completions(completions.RequestPayload(**payload))
+        call_payload = mock_post.call_args[1]["json"]
+        assert "prompt_cache_key" not in call_payload
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_prompt_caching_sends_cache_key():
+    resp = chat_response_with_cached_tokens()
+    config = chat_config_with_prompt_caching()
+    with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+        provider = MistralProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_STRING}]}
+        await provider.chat(chat.RequestPayload(**payload))
+        call_payload = mock_post.call_args[1]["json"]
+        assert call_payload["prompt_cache_key"] == "chat-cached"
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_no_cache_key_when_prompt_caching_disabled():
+    resp = chat_response_with_cached_tokens()
+    config = chat_config()
+    with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+        provider = MistralProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_STRING}]}
+        await provider.chat(chat.RequestPayload(**payload))
+        call_payload = mock_post.call_args[1]["json"]
+        assert "prompt_cache_key" not in call_payload
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_completions_cached_tokens_in_response():
+    resp = completions_response_with_cached_tokens()
+    config = completions_config_with_prompt_caching()
+    with mock.patch("time.time", return_value=1677858242):
+        with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+            provider = MistralProvider(EndpointConfig(**config))
+            payload = {"prompt": TEST_STRING}
+            response = await provider.completions(completions.RequestPayload(**payload))
+            result = jsonable_encoder(response)
+            assert result["usage"]["cached_tokens"] == 5
+            mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_completions_cached_tokens_none_when_absent():
+    resp = completions_response()
+    config = completions_config()
+    with mock.patch("time.time", return_value=1677858242):
+        with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+            provider = MistralProvider(EndpointConfig(**config))
+            payload = {"prompt": TEST_STRING}
+            response = await provider.completions(completions.RequestPayload(**payload))
+            result = jsonable_encoder(response)
+            assert result["usage"].get("cached_tokens") is None
+            mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_cached_tokens_in_response():
+    resp = chat_response_with_cached_tokens()
+    config = chat_config_with_prompt_caching()
+    with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+        provider = MistralProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_STRING}]}
+        response = await provider.chat(chat.RequestPayload(**payload))
+        result = jsonable_encoder(response)
+        assert result["usage"]["cached_tokens"] == 8
+        mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_cached_tokens_none_when_absent():
+    resp = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "mistral-large-latest",
+        "choices": [
+            {
+                "message": {"role": "assistant", "content": TEST_STRING},
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 50,
+            "total_tokens": 63,
+        },
+    }
+    config = chat_config()
+    with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
+        provider = MistralProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_STRING}]}
+        response = await provider.chat(chat.RequestPayload(**payload))
+        result = jsonable_encoder(response)
+        assert result["usage"].get("cached_tokens") is None
+        mock_post.assert_called_once()
