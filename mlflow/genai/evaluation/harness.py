@@ -74,6 +74,7 @@ from mlflow.genai.evaluation.utils import (
     PGBAR_FORMAT,
     is_none_or_nan,
     make_code_type_assessment_source,
+    row_matches_scorer_filter,
     standardize_scorer_value,
     validate_tags,
 )
@@ -96,6 +97,43 @@ _logger = logging.getLogger(__name__)
 
 
 AUTO_INITIAL_RPS = 10.0
+
+
+def _scorers_for_item(eval_item: EvalItem, single_turn_scorers: list[Scorer]) -> list[Scorer]:
+    """Select the scorers that apply to one row.
+
+    A scorer scoped with ``.where(filter_string)`` runs only on rows whose tags match the
+    filter; an unscoped scorer runs on every row.
+    """
+    if not any(scorer.row_filter for scorer in single_turn_scorers):
+        return single_turn_scorers
+    return [
+        scorer
+        for scorer in single_turn_scorers
+        if scorer.row_filter is None or row_matches_scorer_filter(eval_item.tags, scorer.row_filter)
+    ]
+
+
+def _warn_unmatched_scoped_scorers(
+    eval_items: list[EvalItem], single_turn_scorers: list[Scorer]
+) -> None:
+    """Warn for each ``.where()``-scoped scorer that matches no row in the dataset.
+
+    A scoped scorer that matches zero rows produces no metric at all, so a typo in a tag key or
+    value would otherwise fail silently (``result.passed`` stays ``True`` with no indication the
+    scorer never ran). A legitimately empty match is possible, so this warns rather than raises.
+    """
+    for scorer in single_turn_scorers:
+        if scorer.row_filter is None:
+            continue
+        if not any(row_matches_scorer_filter(item.tags, scorer.row_filter) for item in eval_items):
+            _logger.warning(
+                "Scorer '%s' is scoped with where(%r) but no rows in the dataset match that "
+                "filter, so it produced no results. Check the filter's tag keys and values "
+                "against the tags on your dataset.",
+                scorer.name,
+                scorer.row_filter,
+            )
 
 
 def _merge_scorer_stats_dicts(target: dict[str, ScorerStat], source: dict[str, ScorerStat]) -> None:
@@ -445,10 +483,11 @@ class _ScoreSubmitter:
     def submit(self, idx: int) -> Future:
         """Submit a score task for eval item *idx* and return the future."""
         _logger.debug(f"Predict completed for item {idx}, submitting score")
+        eval_item = self._eval_items[idx]
         future = self._pool.submit(
             self._timed_score,
-            self._eval_items[idx],
-            self._single_turn_scorers,
+            eval_item,
+            _scorers_for_item(eval_item, self._single_turn_scorers),
             self._run_id,
             self._limiter,
             self._max_retries,
@@ -680,6 +719,7 @@ def run(
     experiment_id = mlflow.get_run(run_id).info.experiment_id
 
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
+    _warn_unmatched_scoped_scorers(eval_items, single_turn_scorers)
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
     # Every eval item goes through the score pool (even with no single-turn
     # scorers, _run_score still logs expectations and tags), so each item
