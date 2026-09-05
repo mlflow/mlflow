@@ -165,7 +165,18 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
 
 export function tryDeserializeAttribute(value: string): any {
   try {
-    return JSON.parse(value);
+    const parsed = JSON.parse(value);
+    // Guard against precision loss for a top-level integer-literal value (e.g. an int64-range
+    // ID like "2051281657916407550"): if re-stringifying the parsed number doesn't reproduce
+    // the exact original text, `JSON.parse` already rounded it past IEEE-754 double precision,
+    // so keep the original string instead of the corrupted number. Only integer literals are
+    // checked — floats like "1.0" or "1e-05" have non-canonical text but deserialize losslessly
+    // and are left alone. Numbers nested inside a JSON-encoded attribute value (e.g.
+    // `mlflow.spanInputs`) are out of scope here and can still lose precision.
+    if (typeof parsed === 'number' && /^-?\d+$/.test(value) && String(parsed) !== value) {
+      return value;
+    }
+    return parsed;
   } catch (e) {
     return value;
   }
