@@ -41,24 +41,22 @@ def test_trace_command_help(runner):
     assert "--status" in result.output
 
 
-def test_trace_status_with_no_config(runner):
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude", "--status"])
-        assert result.exit_code == 0
-        assert "Claude tracing is not enabled" in result.output
+def test_trace_status_with_no_config(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(commands, ["claude", "--status"])
+    assert result.exit_code == 0
+    assert "Claude tracing is not enabled" in result.output
 
 
-def test_trace_disable_with_no_config(runner):
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude", "--disable"])
-        assert result.exit_code == 0
+def test_trace_disable_with_no_config(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(commands, ["claude", "--disable"])
+    assert result.exit_code == 0
 
 
-def test_claude_setup_installs_plugin_and_writes_env(runner):
-    with (
-        runner.isolated_filesystem(),
-        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed") as mock_install,
-    ):
+def test_claude_setup_installs_plugin_and_writes_env(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    with mock.patch("mlflow.claude_code.cli.ensure_plugin_installed") as mock_install:
         result = runner.invoke(commands, ["claude", "-u", "http://localhost:5000", "-e", "123"])
         assert result.exit_code == 0
 
@@ -71,9 +69,9 @@ def test_claude_setup_installs_plugin_and_writes_env(runner):
         assert "hooks" not in config
 
 
-def test_claude_setup_prompts_for_missing_values_in_interactive_mode(runner):
+def test_claude_setup_prompts_for_missing_values_in_interactive_mode(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     with (
-        runner.isolated_filesystem(),
         mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
         mock.patch("mlflow.claude_code.cli._is_interactive_shell", return_value=True),
         mock.patch("mlflow.get_tracking_uri", return_value="http://localhost:5000"),
@@ -88,20 +86,18 @@ def test_claude_setup_prompts_for_missing_values_in_interactive_mode(runner):
         assert "MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID" in result.output
 
 
-def test_claude_setup_shows_plugin_install_message(runner):
-    with (
-        runner.isolated_filesystem(),
-        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
-    ):
+def test_claude_setup_shows_plugin_install_message(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    with mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"):
         result = runner.invoke(commands, ["claude", "-u", "http://localhost:5000", "-e", "123"])
         assert result.exit_code == 0
         assert "MLflow Claude plugin for Claude Code" in result.output
         assert "Claude Code plugin installed" in result.output
 
 
-def test_claude_setup_non_interactive_uses_defaults(runner):
+def test_claude_setup_non_interactive_uses_defaults(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     with (
-        runner.isolated_filesystem(),
         mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
         mock.patch("mlflow.get_tracking_uri", return_value="file:///tmp/mlruns"),
     ):
@@ -113,16 +109,16 @@ def test_claude_setup_non_interactive_uses_defaults(runner):
         assert config["env"]["MLFLOW_EXPERIMENT_ID"] == "0"
 
 
-def test_mlflow_cmd_empty_string_raises_error(runner):
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude", "--mlflow-cmd", ""])
-        assert result.exit_code != 0
-        assert "must not be empty or whitespace-only" in result.output
+def test_mlflow_cmd_empty_string_raises_error(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(commands, ["claude", "--mlflow-cmd", ""])
+    assert result.exit_code != 0
+    assert "must not be empty or whitespace-only" in result.output
 
 
-def test_claude_setup_surfaces_plugin_install_failure(runner):
+def test_claude_setup_surfaces_plugin_install_failure(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     with (
-        runner.isolated_filesystem(),
         mock.patch(
             "mlflow.claude_code.cli.ensure_plugin_installed",
             side_effect=RuntimeError("boom"),
@@ -133,31 +129,29 @@ def test_claude_setup_surfaces_plugin_install_failure(runner):
         assert "boom" in result.output
 
 
-def test_mlflow_cmd_whitespace_only_raises_error(runner):
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude", "--mlflow-cmd", "   "])
-        assert result.exit_code != 0
-        assert "must not be empty or whitespace-only" in result.output
+def test_mlflow_cmd_whitespace_only_raises_error(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(commands, ["claude", "--mlflow-cmd", "   "])
+    assert result.exit_code != 0
+    assert "must not be empty or whitespace-only" in result.output
 
 
-def test_setup_rejects_experiment_id_and_name_together(runner):
-    with runner.isolated_filesystem():
-        result = runner.invoke(
-            commands,
-            ["claude", "--experiment-id", "1", "--experiment-name", "my-exp"],
-        )
-        assert result.exit_code != 0
-        assert "Choose either --experiment-id or --experiment-name" in result.output
+def test_setup_rejects_experiment_id_and_name_together(runner, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        commands,
+        ["claude", "--experiment-id", "1", "--experiment-name", "my-exp"],
+    )
+    assert result.exit_code != 0
+    assert "Choose either --experiment-id or --experiment-name" in result.output
 
 
-def test_claude_setup_with_local_flag(runner, monkeypatch):
+def test_claude_setup_with_local_flag(runner, monkeypatch, tmp_path):
     monkeypatch.delenv("UV", raising=False)
     monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
-    with (
-        runner.isolated_filesystem(),
-        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
-    ):
+    monkeypatch.chdir(tmp_path)
+    with mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"):
         result = runner.invoke(commands, ["claude", "--local"])
         assert result.exit_code == 0
 
@@ -172,14 +166,12 @@ def test_claude_setup_with_local_flag(runner, monkeypatch):
         assert not settings_path.exists()
 
 
-def test_claude_setup_local_status(runner, monkeypatch):
+def test_claude_setup_local_status(runner, monkeypatch, tmp_path):
     monkeypatch.delenv("UV", raising=False)
     monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
-    with (
-        runner.isolated_filesystem(),
-        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
-    ):
+    monkeypatch.chdir(tmp_path)
+    with mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"):
         result = runner.invoke(commands, ["claude", "--local"])
         assert result.exit_code == 0
 
@@ -188,14 +180,12 @@ def test_claude_setup_local_status(runner, monkeypatch):
         assert "Claude tracing is enabled" in result.output
 
 
-def test_claude_disable_cleans_local_without_flag(runner, monkeypatch):
+def test_claude_disable_cleans_local_without_flag(runner, monkeypatch, tmp_path):
     monkeypatch.delenv("UV", raising=False)
     monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
-    with (
-        runner.isolated_filesystem(),
-        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
-    ):
+    monkeypatch.chdir(tmp_path)
+    with mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"):
         result = runner.invoke(commands, ["claude", "--local"])
         assert result.exit_code == 0
 
