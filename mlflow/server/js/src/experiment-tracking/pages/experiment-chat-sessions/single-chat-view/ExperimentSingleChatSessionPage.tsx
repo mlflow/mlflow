@@ -109,10 +109,16 @@ const ExperimentSingleChatSessionPageImpl = () => {
 
   const filters = useMemo(() => getChatSessionsFilter({ sessionId }), [sessionId]);
 
+  // A session's conversation view needs every turn up front (the sidebar indexes into the
+  // full array), not incremental scroll-loading. Infinite pagination only fetches its first
+  // page (100 traces) unless something calls fetchNextPage, which this page never does, so
+  // any session past 100 turns was silently truncated. Force the eager-fetch path instead,
+  // which loops through all pages internally (see useSearchMlflowTraces's enablePagination).
   const { data: traceInfos, isLoading: isLoadingTraceInfos } = useSearchMlflowTraces({
     locations: traceSearchLocations,
     filters,
     disabled: false,
+    enablePagination: false,
   });
 
   const sortedTraceInfos = useMemo(() => {
