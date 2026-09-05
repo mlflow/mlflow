@@ -62,6 +62,7 @@ class Provider(str, Enum):
     DEEPSEEK = "deepseek"
     XAI = "xai"
     OPENROUTER = "openrouter"
+    THEGRID = "thegrid"
     OLLAMA = "ollama"
     VERTEX_AI = "vertex_ai"
     PORTKEY = "portkey"
