@@ -54,15 +54,6 @@ export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 
 /**
- * Feature flag to enable Scorers UI tab in experiment page
- * Scorers currently use AI Gateway endpoints and stored secrets, so they are hidden with Gateway
- * until those dependencies are decoupled.
- */
-export const enableScorersUI = () => {
-  return getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY);
-};
-
-/**
  * Determines if the new GenAI experiment creation modal with table prefix onboarding is enabled.
  * When enabled, the observatory shows a create modal with UC storage selection and table prefix,
  * and the inline UC schema selector in the traces toolbar is hidden.
