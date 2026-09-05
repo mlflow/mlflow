@@ -10,6 +10,10 @@ on:
       - .github/workflows/remove-experimental-decorators.yml
       - dev/remove_experimental_decorators.py
 
+concurrency:
+  group: ${{ github.run_id }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash

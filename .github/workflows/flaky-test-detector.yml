@@ -24,6 +24,10 @@ on:
         required: false
 
 # Deny all permissions by default; each job grants only what it needs.
+concurrency:
+  group: ${{ github.run_id }}
+  cancel-in-progress: false
+
 permissions: {}
 
 defaults:
