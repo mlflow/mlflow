@@ -16,15 +16,21 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.assessment import FeedbackValue
-from mlflow.entities.gateway_endpoint import GatewayEndpoint
+from mlflow.entities.gateway_endpoint import GatewayEndpoint, GatewayResourceType
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig
+from mlflow.store.tracking.dbmodels.models import (
+    SqlGatewayEndpoint,
+    SqlGatewayEndpointBinding,
+    SqlOnlineScoringConfig,
+    SqlScorer,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
     _create_experiments,
@@ -510,6 +516,57 @@ def test_scorer_operations(store: SqlAlchemyStore):
     # Test list_scorer_versions for non-existent scorer
     with pytest.raises(MlflowException, match="Scorer with name 'non_existent_scorer' not found"):
         store.list_scorer_versions(experiment_id, "non_existent_scorer")
+
+
+def test_delete_scorer_removes_endpoint_binding(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_scorer_endpoint_binding")
+    store.register_scorer(experiment_id, "scorer", '{"data": "scorer"}')
+    endpoint_id = f"ep-{uuid.uuid4().hex}"
+
+    try:
+        with store.ManagedSessionMaker(read_only=False) as session:
+            scorer = session.query(SqlScorer).filter_by(experiment_id=experiment_id).one()
+            scorer_id = scorer.scorer_id
+            session.add(
+                SqlGatewayEndpoint(
+                    endpoint_id=endpoint_id,
+                    name=f"endpoint-{uuid.uuid4().hex}",
+                    created_at=0,
+                    last_updated_at=0,
+                    usage_tracking=False,
+                    workspace=DEFAULT_WORKSPACE_NAME,
+                )
+            )
+            session.flush()
+            session.add(
+                SqlGatewayEndpointBinding(
+                    endpoint_id=endpoint_id,
+                    resource_type=GatewayResourceType.SCORER.value,
+                    resource_id=scorer_id,
+                    created_at=0,
+                    last_updated_at=0,
+                )
+            )
+
+        store.delete_scorer(experiment_id, "scorer")
+
+        with store.ManagedSessionMaker() as session:
+            assert (
+                session
+                .query(SqlGatewayEndpointBinding)
+                .filter_by(
+                    resource_type=GatewayResourceType.SCORER.value,
+                    resource_id=scorer_id,
+                )
+                .count()
+                == 0
+            )
+            assert session.get(SqlGatewayEndpoint, endpoint_id) is not None
+    finally:
+        with store.ManagedSessionMaker(read_only=False) as session:
+            session.query(SqlGatewayEndpoint).filter_by(
+                endpoint_id=endpoint_id,
+            ).delete(synchronize_session=False)
 
 
 def test_list_scorers_across_experiments(store: SqlAlchemyStore, monkeypatch):
