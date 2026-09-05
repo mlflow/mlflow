@@ -91,7 +91,7 @@ const classNames = {
     background: 'white',
     minHeight: '100%',
   },
-  imageWrapper: { display: 'inline-block' },
+  imageWrapper: { display: 'inline-block', maxWidth: '100%' },
   image: {
     maxWidth: '100%',
     height: 'auto',
