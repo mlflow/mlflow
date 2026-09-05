@@ -83,7 +83,7 @@ jest.mock('@mlflow/core', () => {
 // Wrap the transcript module so individual tests can point
 // findTranscriptForThread at a fixture; every other export stays real.
 jest.mock('../src/transcript', () => {
-  const actual = jest.requireActual('../src/transcript');
+  const actual = jest.requireActual<typeof import('../src/transcript')>('../src/transcript');
   return {
     __esModule: true,
     ...actual,
