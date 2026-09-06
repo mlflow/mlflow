@@ -20,11 +20,15 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          sparse-checkout: |
-            .github
+      - name: Fetch script
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          mkdir -p .github/workflows
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+            "https://raw.githubusercontent.com/$REPO/$SHA/.github/workflows/approval.js" \
+            -o .github/workflows/approval.js
       - name: Fail without core maintainer approval
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
