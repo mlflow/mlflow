@@ -65,14 +65,29 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          issues=$(gh api graphql -F owner="$OWNER" -F name="${REPO#*/}" -F number="$PR_NUMBER" -f query='
+          marker="<!-- copilot-agent-pr:${PR_NUMBER} -->"
+          body=$(printf 'Copilot opened #%s for this issue.\n\n%s' "$PR_NUMBER" "$marker")
+          response=$(gh api graphql -F owner="$OWNER" -F name="${REPO#*/}" -F number="$PR_NUMBER" -f query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $number) {
-                  closingIssuesReferences(first: 10) { nodes { number } }
+                  closingIssuesReferences(first: 10) {
+                    nodes {
+                      number
+                      comments(last: 100) {
+                        nodes {
+                          body
+                        }
+                      }
+                    }
+                  }
                 }
               }
-            }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number')
+            }')
+          issues=$(printf '%s' "$response" | jq --arg marker "$marker" -r '
+            .data.repository.pullRequest.closingIssuesReferences.nodes[]
+            | select(any(.comments.nodes[]; .body | contains($marker)) | not)
+            | .number')
 
           if [ -z "$issues" ]; then
             echo "No linked issues."
@@ -81,5 +96,5 @@ jobs:
 
           for issue in $issues; do
             gh issue comment "$issue" --repo "$REPO" \
-              --body "Copilot opened #${PR_NUMBER} for this issue."
+              --body "$body"
           done
