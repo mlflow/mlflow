@@ -27,6 +27,7 @@ jobs:
         run: |
           mkdir -p .github/workflows
           curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+            --write-out 'curl: ttfb=%{time_starttransfer}s total=%{time_total}s size=%{size_download}B\n' \
             "https://raw.githubusercontent.com/$REPO/$SHA/.github/workflows/approval.js" \
             -o .github/workflows/approval.js
       - name: Fail without core maintainer approval
