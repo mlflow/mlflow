@@ -62,6 +62,28 @@ use `gh` CLI instead of `actions/github-script`. It avoids the need for
     gh pr comment ...
 ```
 
+## Prefer `GITHUB_TOKEN` Unless Triggering Another Workflow
+
+Use `${{ secrets.GITHUB_TOKEN }}` by default. Use
+`actions/create-github-app-token` when the resulting GitHub event must trigger
+another workflow, because events created with `GITHUB_TOKEN`
+<a href="https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow">generally do not trigger workflow runs</a>.
+
+```yaml
+# Bad: this comment does not need to trigger another workflow
+- uses: actions/create-github-app-token@...
+  id: app-token
+  ...
+- env:
+    GH_TOKEN: ${{ steps.app-token.outputs.token }}
+  run: gh issue comment ...
+
+# Good
+- env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: gh issue comment ...
+```
+
 ## Prefer the Shared Setup Actions
 
 Set up toolchains through the composite actions in `.github/actions/` rather than
