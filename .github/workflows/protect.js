@@ -1,8 +1,8 @@
 function getSleepLength(iterationCount, numPendingJobs) {
   if (iterationCount === 1) {
-    // Poll once after 10 seconds to detect early failures and completions promptly,
+    // Poll once after 15 seconds to detect early failures and completions promptly,
     // regardless of the number of pending jobs.
-    return 10 * 1000;
+    return 15 * 1000;
   }
   // If the number of pending jobs is small, poll more frequently to reduce wait time.
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
