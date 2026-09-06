@@ -22,6 +22,7 @@ jobs:
       github.event.pull_request.draft == true
       && github.event.pull_request.user.login == 'Copilot'
       && github.event.pull_request.user.type == 'Bot'
+      && github.event.sender.login == 'Copilot'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions: {}
