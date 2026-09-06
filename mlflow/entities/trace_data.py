@@ -40,6 +40,9 @@ class TraceData:
         raw DB string is emitted directly to avoid a ``json.dumps`` round-trip.
         When no ``LazySpan``s are present, falls back to a single dump of
         ``to_dict()`` so archived / eager-span traces avoid N separate dumps.
+
+        Call this before ``to_dict()``: ``LazySpan.to_dict()`` drops the raw
+        JSON, so spans touched by ``to_dict()`` are re-serialized instead.
         """
         if not any(isinstance(span, LazySpan) for span in self.spans):
             return json.dumps(self.to_dict(), separators=(",", ":")).encode("utf-8")

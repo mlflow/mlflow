@@ -619,6 +619,7 @@ mlflow.entities.TraceArchivalConfig
 mlflow.entities.TraceData
 mlflow.entities.TraceData.from_dict
 mlflow.entities.TraceData.to_dict
+mlflow.entities.TraceData.to_json_bytes
 mlflow.entities.TraceInfo
 mlflow.entities.TraceInfo.from_dict
 mlflow.entities.TraceInfo.from_proto
