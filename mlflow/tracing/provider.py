@@ -474,6 +474,11 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
             - :py:class:`~mlflow.entities.trace_location.MlflowExperimentLocation`: Logs traces to
                 an MLflow experiment.
+            - :py:class:`~mlflow.entities.trace_location.UnityCatalog`: Logs traces to a Databricks
+                Unity Catalog table-prefix location. Only available in Databricks. The location
+                must carry the table names assigned by the Databricks backend, e.g. the
+                ``trace_location`` of the experiment returned by :py:func:`mlflow.set_experiment`
+                or :py:func:`mlflow.get_experiment`.
 
         context_local: If False (default), the destination is set globally. If True, the destination
             is isolated per async task or thread, providing isolation in concurrent applications.
@@ -496,12 +501,20 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
         .. code-block:: python
 
-            from mlflow.tracing.destination import MlflowExperimentLocation
+            from mlflow.entities.trace_location import UnityCatalog
 
-            mlflow.tracing.set_destination(
-                MlflowExperimentLocation(experiment_id="123"),
-                context_local=True,
-            )
+            # Link the experiment to a Unity Catalog table-prefix location once, e.g. at
+            # application startup. The returned location carries the backend-assigned
+            # table names.
+            location = mlflow.set_experiment(
+                "my-experiment",
+                trace_location=UnityCatalog(
+                    catalog_name="catalog", schema_name="schema", table_prefix="prefix"
+                ),
+            ).trace_location
+
+            # Route the traces of the current async task or thread to that location.
+            mlflow.tracing.set_destination(location, context_local=True)
 
         The destination set with the ``context_local`` flag will only be effective within the
         current async task or thread. This is particularly useful when you want to send traces
@@ -525,11 +538,13 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
             "The destination must be an instance of TraceLocation."
         )
 
-    if isinstance(destination, UnityCatalog):
+    if isinstance(destination, UnityCatalog) and not destination.full_otel_spans_table_name:
         raise MlflowException.invalid_parameter_value(
-            "UnityCatalog table-prefix destinations are not supported by "
-            "`mlflow.tracing.set_destination`. Use `set_experiment` with a "
-            "UnityCatalog location instead."
+            "The `UnityCatalog` destination does not carry the table names assigned by the "
+            "Databricks backend, so traces cannot be exported to it. Pass a location resolved "
+            "by the backend, e.g. `mlflow.set_experiment(..., "
+            "trace_location=UnityCatalog(...)).trace_location` or "
+            "`mlflow.get_experiment(experiment_id).trace_location`."
         )
 
     if isinstance(destination, UCSchemaLocation):

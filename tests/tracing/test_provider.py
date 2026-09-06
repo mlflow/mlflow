@@ -1,3 +1,4 @@
+import asyncio
 import random
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -147,12 +148,26 @@ def test_set_destination_databricks_uc():
     assert get_active_spans_table_name() == "catalog.schema.mlflow_experiment_trace_otel_spans"
 
 
-def test_set_destination_databricks_unity_catalog_rejected(monkeypatch):
-    with pytest.raises(
-        MlflowException,
-        match=r"UnityCatalog table-prefix destinations are not supported by "
-        r"`mlflow\.tracing\.set_destination`",
-    ):
+def _resolved_unity_catalog(table_prefix: str) -> UnityCatalog:
+    # Mimics a location returned by the Databricks backend, which assigns the table names.
+    location = UnityCatalog("catalog", "schema", table_prefix=table_prefix)
+    location._otel_spans_table_name = f"catalog.schema.{table_prefix}_otel_spans"
+    return location
+
+
+def test_set_destination_databricks_unity_catalog():
+    mlflow.tracing.set_destination(destination=_resolved_unity_catalog("prefix"))
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+    assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
+    assert get_active_spans_table_name() == "catalog.schema.prefix_otel_spans"
+
+
+def test_set_destination_databricks_unity_catalog_without_table_names_rejected():
+    with pytest.raises(MlflowException, match=r"table names assigned by the Databricks backend"):
         mlflow.tracing.set_destination(
             destination=UnityCatalog(
                 catalog_name="catalog",
@@ -160,6 +175,49 @@ def test_set_destination_databricks_unity_catalog_rejected(monkeypatch):
                 table_prefix="prefix",
             )
         )
+
+
+def test_set_destination_databricks_unity_catalog_context_local():
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    mlflow.tracing.set_destination(destination=_resolved_unity_catalog("global"))
+
+    def resolve() -> tuple[str, str | None]:
+        tracer = _get_tracer("test")
+        assert isinstance(tracer.span_processor._span_processors[0], DatabricksUCTableSpanProcessor)
+        return _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix, get_active_spans_table_name()
+
+    # Threads: both destinations are set before either thread reads its own back.
+    barrier = threading.Barrier(2)
+
+    def route_in_thread(table_prefix: str) -> tuple[str, str | None]:
+        mlflow.tracing.set_destination(_resolved_unity_catalog(table_prefix), context_local=True)
+        barrier.wait()
+        return resolve()
+
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="test-uc-destination") as executor:
+        results = list(executor.map(route_in_thread, ["thread_a", "thread_b"]))
+    assert results == [
+        ("thread_a", "catalog.schema.thread_a_otel_spans"),
+        ("thread_b", "catalog.schema.thread_b_otel_spans"),
+    ]
+
+    # Async tasks: yield after setting so the tasks interleave before reading back.
+    async def route_in_task(table_prefix: str) -> tuple[str, str | None]:
+        mlflow.tracing.set_destination(_resolved_unity_catalog(table_prefix), context_local=True)
+        await asyncio.sleep(0)
+        return resolve()
+
+    async def run_tasks():
+        return await asyncio.gather(route_in_task("task_a"), route_in_task("task_b"))
+
+    assert asyncio.run(run_tasks()) == [
+        ("task_a", "catalog.schema.task_a_otel_spans"),
+        ("task_b", "catalog.schema.task_b_otel_spans"),
+    ]
+
+    # The context-local destinations do not leak into the caller's context.
+    assert resolve() == ("global", "catalog.schema.global_otel_spans")
 
 
 def test_set_destination_databricks_uc_with_oltp_env_no_dual_export(monkeypatch):
