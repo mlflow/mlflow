@@ -3296,3 +3296,96 @@ def test_flush_trace_async_logging_no_spurious_error_when_tracing_disabled():
     with mock.patch("mlflow.tracking.fluent._logger") as mock_logger:
         mlflow.flush_trace_async_logging(terminate=True)
     mock_logger.error.assert_not_called()
+
+
+def test_trace_decorator_with_description():
+    @mlflow.trace(description="Calculates sum of two integers")
+    def add(x, y):
+        return x + y
+
+    add(3, 4)
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.description == "Calculates sum of two integers"
+    assert span.attributes[SpanAttributeKey.DESCRIPTION] == "Calculates sum of two integers"
+
+
+def test_trace_decorator_with_description_async():
+    @mlflow.trace(description="Async square calculation")
+    async def square(x):
+        return x * x
+
+    asyncio.run(square(5))
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.description == "Async square calculation"
+    assert span.attributes[SpanAttributeKey.DESCRIPTION] == "Async square calculation"
+
+
+def test_trace_decorator_with_description_generator():
+    @mlflow.trace(description="Streams number range")
+    def number_stream(n):
+        for i in range(n):
+            yield i
+
+    list(number_stream(3))
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.description == "Streams number range"
+    assert span.attributes[SpanAttributeKey.DESCRIPTION] == "Streams number range"
+
+
+def test_start_span_with_description():
+    with mlflow.start_span("test_span", description="Validates transaction risk") as span:
+        assert span.description == "Validates transaction risk"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    root_span = traces[0].data.spans[0]
+    assert root_span.description == "Validates transaction risk"
+    assert root_span.attributes[SpanAttributeKey.DESCRIPTION] == "Validates transaction risk"
+
+
+def test_start_span_no_context_with_description():
+    span = mlflow.start_span_no_context("detached_span", description="Detached span task")
+    assert span.description == "Detached span task"
+    span.end()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    root_span = traces[0].data.spans[0]
+    assert root_span.description == "Detached span task"
+    assert root_span.attributes[SpanAttributeKey.DESCRIPTION] == "Detached span task"
+
+
+def test_span_set_description():
+    with mlflow.start_span("dynamic_desc_span") as span:
+        assert span.description is None
+        span.set_description("Dynamically updated description")
+        assert span.description == "Dynamically updated description"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    root_span = traces[0].data.spans[0]
+    assert root_span.description == "Dynamically updated description"
+    assert root_span.attributes[SpanAttributeKey.DESCRIPTION] == "Dynamically updated description"
+
+
+def test_span_description_default_none():
+    @mlflow.trace
+    def func_no_desc(x):
+        return x
+
+    func_no_desc(1)
+    with mlflow.start_span("span_no_desc") as span:
+        pass
+
+    traces = get_traces()
+    assert len(traces) == 2
+    for trace in traces:
+        for span in trace.data.spans:
+            assert span.description is None
+            assert SpanAttributeKey.DESCRIPTION not in span.attributes

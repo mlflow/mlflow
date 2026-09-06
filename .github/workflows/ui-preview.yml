@@ -173,7 +173,7 @@ jobs:
       - name: Install Databricks CLI
         run: |
           # https://github.com/databricks/setup-cli/releases/tag/v0.295.0
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 60 https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
           databricks --version
 
       - name: Create or update app
@@ -361,7 +361,7 @@ jobs:
       - name: Install Databricks CLI
         run: |
           # https://github.com/databricks/setup-cli/releases/tag/v0.295.0
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 60 https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
           databricks --version
 
       - name: Delete app

@@ -483,6 +483,7 @@ mlflow.entities.LiveSpan.from_dict
 mlflow.entities.LiveSpan.record_exception
 mlflow.entities.LiveSpan.set_attribute
 mlflow.entities.LiveSpan.set_attributes
+mlflow.entities.LiveSpan.set_description
 mlflow.entities.LiveSpan.set_inputs
 mlflow.entities.LiveSpan.set_log_level
 mlflow.entities.LiveSpan.set_outputs
@@ -539,6 +540,7 @@ mlflow.entities.NoOpSpan.end
 mlflow.entities.NoOpSpan.record_exception
 mlflow.entities.NoOpSpan.set_attribute
 mlflow.entities.NoOpSpan.set_attributes
+mlflow.entities.NoOpSpan.set_description
 mlflow.entities.NoOpSpan.set_inputs
 mlflow.entities.NoOpSpan.set_log_level
 mlflow.entities.NoOpSpan.set_outputs

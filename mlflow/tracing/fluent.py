@@ -103,6 +103,7 @@ def trace(
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
     links: list[Link] | None = None,
+    description: str | None = None,
 ) -> Callable[_P, _R]: ...
 
 
@@ -117,6 +118,7 @@ def trace(
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
     links: list[Link] | None = None,
+    description: str | None = None,
 ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
 
 
@@ -130,6 +132,7 @@ def trace(
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
     links: list[Link] | None = None,
+    description: str | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -240,6 +243,7 @@ def trace(
             (e.g. ``"INFO"``, ``"DEBUG"``). If not provided, the span level is
             resolved from the span type at end time.
         links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with the span.
+        description: An optional human-readable description of the span.
     """
 
     # Validate sampling_ratio_override
@@ -268,6 +272,7 @@ def trace(
                 sampling_ratio_override,
                 log_level,
                 links,
+                description,
             )
         else:
             if output_reducer is not None:
@@ -283,6 +288,7 @@ def trace(
                 sampling_ratio_override,
                 log_level,
                 links,
+                description,
             )
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
@@ -305,6 +311,7 @@ def _wrap_function(
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
     links: list[Link] | None = None,
+    description: str | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -320,6 +327,7 @@ def _wrap_function(
                 trace_destination=trace_destination,
                 log_level=log_level,
                 links=links,
+                description=description,
             ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 inputs = capture_function_input_args(fn, args, kwargs)
@@ -387,6 +395,7 @@ def _wrap_generator(
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
     links: list[Link] | None = None,
+    description: str | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -426,6 +435,7 @@ def _wrap_generator(
                 experiment_id=getattr(trace_destination, "experiment_id", None),
                 log_level=log_level,
                 links=links,
+                description=description,
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
@@ -539,6 +549,7 @@ def start_span(
     log_level: SpanLogLevel | str | None = None,
     run_id: str | None = None,
     links: list[Link] | None = None,
+    description: str | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -606,6 +617,7 @@ def start_span(
             precedence over the active run.
         links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
             the span.
+        description: An optional human-readable description of the span.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -643,6 +655,8 @@ def start_span(
             mlflow_span.set_span_type(span_type)
             attributes = dict(attributes) if attributes is not None else {}
             mlflow_span.set_attributes(attributes)
+            if description is not None:
+                mlflow_span.set_attribute(SpanAttributeKey.DESCRIPTION, description)
             if log_level is not None:
                 mlflow_span.set_log_level(log_level)
 
@@ -698,6 +712,7 @@ def start_span_no_context(
     start_time_ns: int | None = None,
     log_level: SpanLogLevel | str | None = None,
     links: list[Link] | None = None,
+    description: str | None = None,
 ) -> LiveSpan:
     """
     Start a span without attaching it to the global tracing context.
@@ -727,6 +742,7 @@ def start_span_no_context(
             resolved from the span type at end time.
         links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
             the span.
+        description: An optional human-readable description of the span.
 
     Returns:
         A :py:class:`mlflow.entities.Span` that represents the created span.
@@ -798,6 +814,8 @@ def start_span_no_context(
         if inputs is not None:
             mlflow_span.set_inputs(inputs)
         mlflow_span.set_attributes(attributes or {})
+        if description is not None:
+            mlflow_span.set_attribute(SpanAttributeKey.DESCRIPTION, description)
         if log_level is not None:
             mlflow_span.set_log_level(log_level)
 

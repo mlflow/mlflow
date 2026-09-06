@@ -4,8 +4,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ErrorBoundary } from 'react-error-boundary';
 import ExperimentScorersContentContainer from './ExperimentScorersContentContainer';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { enableScorersUI } from '../../../common/utils/FeatureUtils';
 import { isExperimentEvalResultsMonitoringUIEnabled } from '../../../common/utils/FeatureUtils';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../hooks/useServerInfo';
 import { usePrefetchTraces } from './useEvaluateTraces';
 import { DEFAULT_TRACE_COUNT } from './constants';
 import { useSqlWarehouseContextSafe } from '../experiment-page-tabs/SqlWarehouseContext';
@@ -56,7 +56,7 @@ const ExperimentScorersPage: React.FC<ExperimentScorersPageProps> = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { experimentId } = useParams();
-  const isFeatureEnabled = enableScorersUI();
+  const isFeatureEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
 
   const { warehouseId: selectedWarehouseId, traceSearchLocations = [] } = useSqlWarehouseContextSafe() ?? {};
 

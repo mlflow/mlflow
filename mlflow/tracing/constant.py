@@ -105,6 +105,7 @@ class SpanAttributeKey:
     # means the span was not classified.
     LOG_LEVEL = "mlflow.spanLogLevel"
     FUNCTION_NAME = "mlflow.spanFunctionName"
+    DESCRIPTION = "mlflow.spanDescription"
     START_TIME_NS = "mlflow.spanStartTimeNs"
     CHAT_TOOLS = "mlflow.chat.tools"
     # This attribute is used to store token usage information from LLM responses.
