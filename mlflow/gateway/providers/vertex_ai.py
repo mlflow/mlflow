@@ -102,17 +102,11 @@ def _classify_model(model_name: str) -> str:
 
 
 class _VertexAIClaudeAdapter(AnthropicAdapter):
-    """Applies the Vertex-specific request shape for Anthropic partner models.
+    """AnthropicAdapter for Claude on Vertex AI.
 
-    Vertex rejects Anthropic requests that omit ``anthropic_version`` and does not
-    accept ``model`` in the body (it is carried in the URL). Both transformations
-    live here, in the adapter, rather than only on the provider, because callers
-    reach Vertex through two different paths: the gateway's
-    ``AnthropicProvider._chat``/``._chat_stream``, and the judge path in
-    ``mlflow.genai.judges.adapters.gateway_adapter``, which builds its request from
-    ``adapter_class.chat_to_model`` and never calls provider hooks. Keeping the
-    transformation on the adapter means both paths get it, matching how
-    ``AmazonBedrockAnthropicAdapter`` already handles the equivalent Bedrock field.
+    Adds ``anthropic_version`` and drops ``model`` from the body, like
+    ``AmazonBedrockAnthropicAdapter`` does for Bedrock, so callers that format
+    through ``adapter_class`` alone still get a Vertex-valid payload.
     """
 
     @classmethod
@@ -176,9 +170,8 @@ class _VertexAIClaudeProvider(AnthropicProvider):
         return _VertexAIClaudeAdapter
 
     def _prepare_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
-        # ``_chat``/``_chat_stream`` format through ``AnthropicAdapter`` directly rather
-        # than ``self.adapter_class``, so the Vertex fields are still applied here for
-        # the gateway path. Delegating keeps one definition of the transformation.
+        # Still needed: `_chat`/`_chat_stream` format via `AnthropicAdapter` directly,
+        # not `self.adapter_class`.
         return _VertexAIClaudeAdapter._apply_vertex_fields(payload)
 
 
