@@ -72,6 +72,7 @@ Use `${{ secrets.GITHUB_TOKEN }}` by default for operations in the current repos
   id: app-token
   with:
     # ...
+- env:
     GH_TOKEN: ${{ steps.app-token.outputs.token }}
   run: gh issue comment ...
 
