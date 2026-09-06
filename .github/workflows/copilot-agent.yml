@@ -1,0 +1,48 @@
+name: Copilot Agent
+
+on:
+  pull_request_target:
+    types: [review_requested]
+
+concurrency:
+  group: ${{ github.run_id }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  # The coding agent signals it is done by requesting a review on its own PR
+  # while that PR is still a draft.
+  publish-draft:
+    if: >-
+      github.event.pull_request.draft == true
+      && github.event.pull_request.user.login == 'Copilot'
+      && github.event.pull_request.user.type == 'Bot'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      # An app token, not `secrets.GITHUB_TOKEN`: the `ready_for_review` this
+      # publish emits has to reach `copilot-review.yml`, and events created with
+      # `GITHUB_TOKEN` never trigger another workflow run.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          # `markPullRequestReadyForReview` rejects `pull-requests: write`
+          # alone. See https://github.com/cli/cli/issues/8910.
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Mark ready for review
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr ready "$PR_NUMBER" --repo "$REPO"
