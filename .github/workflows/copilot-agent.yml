@@ -46,3 +46,40 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           gh pr ready "$PR_NUMBER" --repo "$REPO"
+
+  # `closingIssuesReferences` is not in the webhook payload, so it has to be
+  # fetched. It covers both ways the link gets made: a closing keyword in the
+  # PR body, and the native link from assigning the issue to Copilot.
+  comment-on-linked-issues:
+    needs: publish-draft
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Comment on linked issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          issues=$(gh api graphql -F owner="$OWNER" -F name="${REPO#*/}" -F number="$PR_NUMBER" -f query='
+            query($owner: String!, $name: String!, $number: Int!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $number) {
+                  closingIssuesReferences(first: 10) { nodes { number } }
+                }
+              }
+            }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number')
+
+          if [ -z "$issues" ]; then
+            echo "No linked issues."
+            exit 0
+          fi
+
+          for issue in $issues; do
+            gh issue comment "$issue" --repo "$REPO" \
+              --body "Copilot opened #${PR_NUMBER} for this issue."
+          done
