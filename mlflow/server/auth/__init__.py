@@ -359,7 +359,9 @@ from mlflow.server.auth.routes import (
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
+    SERVER_VERSION,
     SIGNUP,
+    UI_TELEMETRY,
     UNASSIGN_ROLE,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
@@ -2990,6 +2992,21 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GATEWAY_SUPPORTED_MODELS, "GET"): _allow_authenticated,
     (GATEWAY_PROVIDER_CONFIG, "GET"): _allow_authenticated,
     (GATEWAY_SECRETS_CONFIG, "GET"): _allow_authenticated,
+    # The web UI itself, for any signed-in user: the SPA shell, the server version
+    # string the bundle reads, and the UI's own telemetry config. None carries
+    # tenant-scoped data, and none has a permission that could sensibly be checked.
+    # These are plain Flask routes on ``app`` rather than handler endpoints, so
+    # ``get_endpoints`` never surfaced them to the coverage guard and no decision was
+    # registered; the fail-closed net then denies them, and a non-admin's browser gets
+    # "Permission denied" instead of MLflow. ``/static-files/<path>`` already serves
+    # that same shell unauthenticated via ``_UNPROTECTED_PATH_PREFIXES``.
+    #
+    # HOME and SERVER_VERSION are bare paths and take the static prefix here;
+    # UI_TELEMETRY comes from ``_get_ajax_path``, which has already applied it.
+    (_add_static_prefix(HOME), "GET"): _allow_authenticated,
+    (_add_static_prefix(SERVER_VERSION), "GET"): _allow_authenticated,
+    (UI_TELEMETRY, "GET"): _allow_authenticated,
+    (UI_TELEMETRY, "POST"): _allow_authenticated,
     # Online scoring configuration (excluded from the auto generated map above).
     (ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
     (AJAX_ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
