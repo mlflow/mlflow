@@ -1217,21 +1217,27 @@ def validate_can_update_run_with_model_metrics():
     try:
         batch_msg = _get_request_message(LogBatch())
         model_ids |= {m.model_id for m in batch_msg.metrics if m.model_id}
-    except Exception:
-        pass
+    except MlflowException:
+        return False
 
     # Also try LogMetric (for top-level model_id)
     try:
         metric_msg = _get_request_message(LogMetric())
         if metric_msg.model_id:
             model_ids.add(metric_msg.model_id)
-    except Exception:
-        pass
+    except MlflowException:
+        return False
 
-    # Check UPDATE permission on each distinct model_id
+    # Check UPDATE permission on each distinct model_id.
+    # Catch RESOURCE_DOES_NOT_EXIST (nonexistent model_id) and deny uniformly with 403.
     for model_id in model_ids:
-        if not _get_permission_from_model_id(model_id=model_id).can_update:
-            return False
+        try:
+            if not _get_permission_from_model_id(model_id=model_id).can_update:
+                return False
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return False
+            raise
 
     return True
 

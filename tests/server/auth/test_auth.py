@@ -1771,6 +1771,22 @@ def test_log_batch_and_metric_require_update_on_model_ids(
     assert response.status_code == 403
     assert "Permission denied" in response.text
 
+    # Test 11: Nonexistent/garbage model_id should return 403 (not 404 oracle)
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/runs/log-metric",
+        json_payload={
+            "run_id": run_id,
+            "key": "metric_bogus_model",
+            "value": 13.0,
+            "timestamp": timestamp,
+            "model_id": "m-bogus-nonexistent-model-id",
+        },
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
 
 def _wait(url: str, timeout: int = 10) -> None:
     t = time.time()
