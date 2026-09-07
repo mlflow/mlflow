@@ -1198,6 +1198,31 @@ def test_load_table(file_type):
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny client does not support the np or pandas dependencies",
 )
+@pytest.mark.parametrize(
+    ("artifact_file", "similar_artifact_file"),
+    [
+        ("eval_results.json", "eval-results.json"),
+        ("eval%results.json", "evalXresults.json"),
+    ],
+)
+def test_load_table_matches_exact_artifact_file(artifact_file, similar_artifact_file):
+    table_dict = {"value": ["expected"]}
+
+    with mlflow.start_run():
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+
+    with mlflow.start_run():
+        mlflow.log_table(data={"value": ["other"]}, artifact_file=similar_artifact_file)
+
+    loaded_table = mlflow.load_table(artifact_file=artifact_file)
+
+    assert loaded_table["value"].tolist() == ["expected"]
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
 def test_log_table_with_datetime_columns(file_type):
     import pandas as pd

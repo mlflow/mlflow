@@ -3649,6 +3649,30 @@ class MlflowClient:
             filter_string += f" and attributes.run_id IN ({list_run_ids})"
 
         runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
+
+        # LIKE treats underscores and percent signs in artifact_file as wildcards. Filter the
+        # results against the parsed tag to make sure that the artifact path matches exactly.
+        logged_artifacts_column = f"tags.{MLFLOW_LOGGED_ARTIFACTS}"
+
+        def has_matching_table_artifact(tag_value):
+            if not isinstance(tag_value, str):
+                return False
+            try:
+                logged_artifacts = json.loads(tag_value)
+            except json.JSONDecodeError:
+                return False
+            return isinstance(logged_artifacts, list) and any(
+                isinstance(artifact, dict)
+                and artifact.get("path") == artifact_file
+                and artifact.get("type") == "table"
+                for artifact in logged_artifacts
+            )
+
+        if logged_artifacts_column in runs:
+            runs = runs[runs[logged_artifacts_column].apply(has_matching_table_artifact)]
+        else:
+            runs = runs.iloc[0:0]
+
         if run_ids and len(run_ids) != len(runs):
             _logger.warning(
                 "Not all runs have the specified table artifact. Some runs will be skipped."
