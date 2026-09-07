@@ -367,6 +367,7 @@ jobs:
 
   finalize:
     needs:
+      - notify
       - build
       - deploy
     if: >-
