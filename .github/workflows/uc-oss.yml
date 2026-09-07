@@ -2,10 +2,6 @@ name: uc-oss
 
 on:
   pull_request: # for testing
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - .github/workflows/uc-oss.yml
       - mlflow/protos/**

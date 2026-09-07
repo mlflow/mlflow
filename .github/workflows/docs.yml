@@ -13,10 +13,6 @@ on:
     branches:
       - master
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - pyproject.toml
       - uv.lock

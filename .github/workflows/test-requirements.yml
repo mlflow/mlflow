@@ -2,10 +2,6 @@ name: Test requirements
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - requirements/core-requirements.yaml
       - requirements/skinny-requirements.yaml

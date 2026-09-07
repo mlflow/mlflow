@@ -2,10 +2,6 @@ name: Protos
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - .github/workflows/protos.yml
       - dev/gen_rest_api.py
