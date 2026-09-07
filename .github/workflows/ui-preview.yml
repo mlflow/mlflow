@@ -35,7 +35,6 @@ jobs:
       github.event_name != 'push'
       && github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
-      && github.event.pull_request.draft == false
       && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     runs-on: ubuntu-slim
     permissions:
@@ -75,7 +74,6 @@ jobs:
       || (
         github.event.action != 'closed'
         && contains(github.event.pull_request.labels.*.name, 'ui-preview')
-        && github.event.pull_request.draft == false
         && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
       )
     runs-on: ubuntu-latest
