@@ -2,10 +2,6 @@ name: protobuf cross tests
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - "mlflow/protos/**"
       - .github/workflows/protobuf-cross-test.yml

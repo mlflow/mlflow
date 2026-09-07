@@ -11,10 +11,6 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - mlflow/server/js/**
       - .github/actions/check-component-ids/**

@@ -3,6 +3,21 @@ package mlflow
 
 import rego.v1
 
+default_pull_request_types := {"opened", "synchronize", "reopened"}
+
+# METADATA
+# entrypoint: true
+deny_redundant_default_pull_request_types contains msg if {
+	some event_name in {"pull_request", "pull_request_target"}
+	types := input["true"][event_name].types
+	provided_types := {activity_type | some activity_type in types}
+	provided_types == default_pull_request_types
+	msg := sprintf(
+		"The '%s' trigger lists GitHub's default activity types. Remove 'types' to use the defaults implicitly.",
+		[event_name],
+	)
+}
+
 deny_jobs_without_permissions contains msg if {
 	jobs := jobs_without_permissions(input.jobs)
 	count(jobs) > 0
