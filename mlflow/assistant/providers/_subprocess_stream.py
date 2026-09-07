@@ -1,7 +1,6 @@
 """Event-loop-independent subprocess streaming for Assistant CLI providers."""
 
 import asyncio
-import concurrent.futures
 import subprocess
 import threading
 from collections.abc import AsyncIterator
@@ -80,19 +79,10 @@ class SubprocessLineStream:
 
     def _safe_put(self, item: bytes | object | Exception) -> bool:
         try:
-            future = asyncio.run_coroutine_threadsafe(self._queue.put(item), self._loop)
+            self._loop.call_soon_threadsafe(self._queue.put_nowait, item)
         except RuntimeError:
             return False
-        while True:
-            try:
-                future.result(timeout=0.1)
-                return True
-            except concurrent.futures.TimeoutError:
-                if self._closed.is_set() or self._loop.is_closed() or not self._loop.is_running():
-                    future.cancel()
-                    return False
-            except (concurrent.futures.CancelledError, RuntimeError):
-                return False
+        return True
 
     def _put_line(self, line: bytes) -> bool:
         with self._budget:
