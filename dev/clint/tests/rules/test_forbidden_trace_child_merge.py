@@ -38,6 +38,17 @@ for k, v in metrics.items():
     assert len(results) == 1
 
 
+def test_flags_async_looped_trace_tag_merge(index: SymbolIndex) -> None:
+    code = """
+async for tag_key, tag_value in tags:
+    session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
+"""
+    config = Config(select={ForbiddenTraceChildMerge.name})
+    results = lint_file(Path("test.py"), code, config, index)
+    assert len(results) == 1
+    assert results[0].range == Range(Position(1, 0))
+
+
 def test_no_flag_single_row_merge(index: SymbolIndex) -> None:
     # set_trace_tag / archival single fixed-key merges are not in a loop and cannot
     # self-invert their own PK-lock order, so they are safe and must not be flagged.

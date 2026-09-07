@@ -10822,6 +10822,49 @@ def test_log_spans_merges_all_trace_tags_in_global_sorted_key_order(store: SqlAl
     assert store.get_trace_info(trace_id).tags["shared"] == "user"
 
 
+def test_log_spans_merges_trace_tags_in_sorted_order_across_traces(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("sorted-order-tags-across-traces")
+    trace_id_a = f"tr-a-{uuid.uuid4().hex}"
+    trace_id_b = f"tr-b-{uuid.uuid4().hex}"
+
+    def make_span(trace_id: str, span_id: int):
+        otel_span = create_test_otel_span(
+            trace_id=trace_id,
+            name="root",
+            trace_id_num=span_id,
+            span_id_num=span_id,
+        )
+        otel_span._attributes = {
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            f"{SpanAttributeKey.TRACE_TAG_PREFIX}zeta": json.dumps("z"),
+            f"{SpanAttributeKey.TRACE_TAG_PREFIX}alpha": json.dumps("a"),
+        }
+        return create_mlflow_span(otel_span, trace_id, "LLM")
+
+    merged_tag_pairs: list[tuple[str, str]] = []
+    real_merge = sqlalchemy.orm.Session.merge
+
+    def _spy_merge(self, instance, *args, **kwargs):
+        if isinstance(instance, SqlTraceTag):
+            merged_tag_pairs.append((instance.request_id, instance.key))
+        return real_merge(self, instance, *args, **kwargs)
+
+    with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
+        store.log_spans(
+            experiment_id,
+            [make_span(trace_id_b, 444), make_span(trace_id_a, 555)],
+        )
+
+    assert merged_tag_pairs == sorted({
+        (trace_id_a, TraceTagKey.SPANS_LOCATION),
+        (trace_id_a, "alpha"),
+        (trace_id_a, "zeta"),
+        (trace_id_b, TraceTagKey.SPANS_LOCATION),
+        (trace_id_b, "alpha"),
+        (trace_id_b, "zeta"),
+    })
+
+
 def test_start_trace_happy_path_assigns_tags_in_sorted_key_order(store: SqlAlchemyStore):
     """The happy INSERT path attaches tags via a relationship-collection cascade, not
     per-row merge, so the conflict-path spy test cannot cover it. Capture the constructed

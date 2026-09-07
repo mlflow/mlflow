@@ -5762,7 +5762,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # succeeds so
             # span writes, including span-only changes that did not update trace_info, commit
             # atomically with the new DB-backed payload generation.
-            for trace_id in all_trace_ids:
+            for trace_id in sorted(all_trace_ids):
                 agg = trace_aggregates[trace_id]
                 trace_tag_values = {TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE.value}
 

@@ -903,6 +903,11 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(node), rules.ForbiddenTraceChildMerge())
         self.generic_visit(node)
 
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        if rules.ForbiddenTraceChildMerge.check(node):
+            self._check(Range.from_node(node), rules.ForbiddenTraceChildMerge())
+        self.generic_visit(node)
+
     def visit_type_annotation(self, node: ast.expr) -> None:
         visitor = TypeAnnotationVisitor(self)
         visitor.visit(node)

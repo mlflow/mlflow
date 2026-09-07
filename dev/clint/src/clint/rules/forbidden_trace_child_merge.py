@@ -16,8 +16,8 @@ class ForbiddenTraceChildMerge(Rule):
         )
 
     @staticmethod
-    def check(node: ast.For) -> bool:
-        """Flag a `for` loop that merges a trace child model with a per-iteration key.
+    def check(node: ast.For | ast.AsyncFor) -> bool:
+        """Flag a loop that merges a trace child model with a per-iteration key.
 
         ``session.merge(SqlTrace{Tag,Metadata,Metrics}(request_id=..., key=<name>, ...))``
         inside a loop is the exact pattern that regresses the #24338 deadlock fix: the loop
@@ -35,7 +35,7 @@ class ForbiddenTraceChildMerge(Rule):
         no such site exists and broadening it would flag safe fixed-attribute merges.
 
         Only this loop's own body is inspected; a nested loop is judged by its own
-        ``visit_For`` so an offending inner loop is reported once, at the inner loop.
+        linter visitor so an offending inner loop is reported once, at the inner loop.
         """
         return any(
             ForbiddenTraceChildMerge._is_trace_child_merge(call)
@@ -43,10 +43,10 @@ class ForbiddenTraceChildMerge(Rule):
         )
 
     @staticmethod
-    def _calls_excluding_nested_loops(node: ast.For) -> Iterator[ast.Call]:
+    def _calls_excluding_nested_loops(node: ast.For | ast.AsyncFor) -> Iterator[ast.Call]:
         # Walk the loop body but prune nested loop subtrees at any depth, so a merge that
         # belongs to an inner loop is attributed only to that inner loop (which gets its
-        # own visit_For), never doubly reported on an enclosing loop.
+        # own linter visitor), never doubly reported on an enclosing loop.
         for child in ast.iter_child_nodes(node):
             stack = [child]
             while stack:
