@@ -7922,7 +7922,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             The updated TraceInfo object.
         """
         with self.ManagedSessionMaker(read_only=False) as session:
-            sql_trace_info = self._get_sql_trace_info(session, request_id)
+            sql_trace_info = (
+                self
+                ._trace_query(session, for_update_or_delete=True)
+                .filter(SqlTraceInfo.request_id == request_id)
+                .one_or_none()
+            )
+            if sql_trace_info is None:
+                raise MlflowException(
+                    f"Trace with ID '{request_id}' not found.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
             trace_start_time_ms = sql_trace_info.timestamp_ms
             execution_time_ms = timestamp_ms - trace_start_time_ms
             sql_trace_info.execution_time_ms = execution_time_ms

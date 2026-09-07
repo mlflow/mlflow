@@ -172,6 +172,70 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     assert trace_info.to_v3() == store.get_trace_info(request_id)
 
 
+def test_end_trace_v2_locks_parent_before_merging_children(
+    store: SqlAlchemyStore, workspaces_enabled: bool
+):
+    experiment_id = store.create_experiment("test_end_trace_v2_lock_order")
+    request_id = store.deprecated_start_trace_v2(
+        experiment_id=experiment_id,
+        timestamp_ms=1234,
+        request_metadata={},
+        tags={},
+    ).request_id
+    events = []
+    original_trace_query = store._trace_query
+    original_merge = sqlalchemy_store_module._merge_trace_child_rows_in_lock_order
+
+    def tracked_trace_query(session, for_update_or_delete=False, workspace=None):
+        events.append(("trace_query", for_update_or_delete))
+        return original_trace_query(
+            session,
+            for_update_or_delete=for_update_or_delete,
+            workspace=workspace,
+        )
+
+    def tracked_merge(session, model_class, request_id, values):
+        events.append(model_class)
+        return original_merge(session, model_class, request_id, values)
+
+    with (
+        mock.patch.object(store, "_trace_query", side_effect=tracked_trace_query),
+        mock.patch.object(
+            sqlalchemy_store_module,
+            "_merge_trace_child_rows_in_lock_order",
+            side_effect=tracked_merge,
+        ),
+    ):
+        store.deprecated_end_trace_v2(
+            request_id=request_id,
+            timestamp_ms=2345,
+            status=TraceStatus.OK,
+            request_metadata={"metadata": "value"},
+            tags={"tag": "value"},
+        )
+
+        assert events == [("trace_query", True), SqlTraceMetadata, SqlTraceTag]
+
+        if workspaces_enabled:
+            store._get_workspace_provider_instance().create_workspace(Workspace(name="team-b"))
+            events.clear()
+            with WorkspaceContext("team-b"):
+                with pytest.raises(
+                    MlflowException,
+                    match=f"Trace with ID '{request_id}' not found.",
+                ) as exc_info:
+                    store.deprecated_end_trace_v2(
+                        request_id=request_id,
+                        timestamp_ms=3456,
+                        status=TraceStatus.OK,
+                        request_metadata={"other": "metadata"},
+                        tags={"other": "tag"},
+                    )
+
+            assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+            assert events == [("trace_query", True)]
+
+
 def test_start_trace(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
     trace_info = TraceInfo(
