@@ -7880,8 +7880,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             # Build tags/metadata in sorted key order for deterministic PK-index lock
             # acquisition (see _merge_trace_child_rows_in_lock_order, #24338).
-            trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in sorted(tags.items())]
-            trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
+            artifact_location_tag = self._get_trace_artifact_location_tag(experiment, request_id)
+            combined_tags = {
+                **tags,
+                artifact_location_tag.key: artifact_location_tag.value,
+            }
+            trace_info.tags = [
+                SqlTraceTag(key=k, value=v) for k, v in sorted(combined_tags.items())
+            ]
             trace_info.request_metadata = [
                 SqlTraceMetadata(key=k, value=v) for k, v in sorted(request_metadata.items())
             ]

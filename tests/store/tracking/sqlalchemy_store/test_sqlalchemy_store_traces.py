@@ -10554,27 +10554,52 @@ def test_start_trace_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore)
     assert metadata_keys == sorted(metadata_keys)
 
 
-def test_deprecated_start_trace_v2_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
-    """The legacy V2 start-trace path must also write metadata in sorted key order, so it
-    keeps a consistent PK-index lock order with the other writers (issue #24332).
+def test_deprecated_start_trace_v2_writes_child_rows_in_sorted_key_order(
+    store: SqlAlchemyStore,
+):
+    """The legacy V2 start-trace path must also write metadata and tags in sorted key order,
+    so it keeps a consistent PK-index lock order with the other writers (issue #24332).
     """
     experiment_id = store.create_experiment("sorted-order-v2")
     # Metadata whose natural dict order is NOT sorted.
     request_metadata = {"rq_z": "z", "rq_a": "a", "rq_m": "m"}
+    tags = {
+        "zeta": "1",
+        MLFLOW_ARTIFACT_LOCATION: "user-supplied-location",
+        "alpha": "2",
+    }
+    captured_tags: list[tuple[str, str]] = []
+    real_add = sqlalchemy.orm.Session.add
+
+    def _spy_add(self, instance, *args, **kwargs):
+        if isinstance(instance, SqlTraceInfo):
+            captured_tags.extend((tag.key, tag.value) for tag in instance.tags)
+        return real_add(self, instance, *args, **kwargs)
+
     captured, remove = _capture_trace_metadata_write_keys(store)
     try:
-        store.deprecated_start_trace_v2(
-            experiment_id=experiment_id,
-            timestamp_ms=1234,
-            request_metadata=request_metadata,
-            tags={},
-        )
+        with mock.patch.object(sqlalchemy.orm.Session, "add", _spy_add):
+            trace_info = store.deprecated_start_trace_v2(
+                experiment_id=experiment_id,
+                timestamp_ms=1234,
+                request_metadata=request_metadata,
+                tags=tags,
+            )
     finally:
         remove()
 
     metadata_keys = [k for k in captured if k in request_metadata]
     assert metadata_keys, "expected trace_request_metadata writes to be captured"
     assert metadata_keys == sorted(metadata_keys)
+    artifact_location = dict(captured_tags)[MLFLOW_ARTIFACT_LOCATION]
+    assert artifact_location != "user-supplied-location"
+    assert artifact_location.endswith(f"/{trace_info.request_id}/artifacts")
+    assert captured_tags == sorted(
+        {
+            **tags,
+            MLFLOW_ARTIFACT_LOCATION: artifact_location,
+        }.items()
+    )
 
 
 def test_log_spans_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
