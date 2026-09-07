@@ -44,7 +44,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     name: ${{ matrix.os == 'ubuntu-latest' && 'lint' || 'lint-macos' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
