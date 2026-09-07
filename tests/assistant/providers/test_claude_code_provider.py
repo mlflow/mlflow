@@ -1,4 +1,3 @@
-import errno
 import json
 import subprocess
 import tempfile
@@ -503,40 +502,6 @@ async def test_astream_temp_file_cleanup_failure_does_not_mask_result():
 
     # The stream completes normally; the cleanup error is swallowed.
     assert events[-1].type == EventType.DONE
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "write_error",
-    [
-        BrokenPipeError("broken pipe"),
-        # POSIX EPIPE can surface as a bare OSError rather than BrokenPipeError.
-        OSError(errno.EPIPE, "broken pipe"),
-    ],
-)
-async def test_astream_surfaces_cli_error_when_stdin_pipe_breaks(write_error):
-    # If the CLI exits before reading stdin, writing the message raises a pipe
-    # error; the provider must swallow it and surface the CLI's real stderr
-    # instead of a bare "Broken pipe" message.
-    mock_process = _mock_process(stdout_lines=[], returncode=1, stderr=b"Invalid session id")
-    mock_process.stdin.write = MagicMock(side_effect=write_error)
-
-    with (
-        patch(
-            "mlflow.assistant.providers.claude_code.shutil.which",
-            return_value="/usr/bin/claude",
-        ),
-        patch(
-            "mlflow.assistant.providers.claude_code.SubprocessLineStream",
-            return_value=mock_process,
-        ),
-    ):
-        provider = ClaudeCodeProvider()
-        events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
-
-    assert events[-1].type == EventType.ERROR
-    assert "Invalid session id" in events[-1].data["error"]
-    assert "broken pipe" not in events[-1].data["error"].lower()
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,8 @@
 import asyncio
+import errno
 import sys
 import threading
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -51,6 +53,23 @@ async def test_large_stdin_does_not_deadlock():
 
     assert [line.strip() for line in await _collect(stream)] == [str(len(data)).encode()]
     assert await stream.wait() == 0
+
+
+@pytest.mark.parametrize(
+    "write_error",
+    [
+        BrokenPipeError("broken pipe"),
+        OSError(errno.EPIPE, "broken pipe"),
+    ],
+)
+def test_stdin_pipe_errors_are_ignored(write_error):
+    stream = object.__new__(SubprocessLineStream)
+    stream._proc = MagicMock()
+    stream._proc.stdin.write.side_effect = write_error
+
+    stream._write_stdin(b"prompt")
+
+    stream._proc.stdin.write.assert_called_once_with(b"prompt")
 
 
 @pytest.mark.asyncio
