@@ -87,8 +87,8 @@
         "max_tokens": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 10000.0,
-        "output_per_million_tokens": 10000.0
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.1
       },
       "capabilities": {
         "function_calling": false,
@@ -97,7 +97,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "Qwen/Qwen3-235B-A22B-Thinking-2507": {
       "mode": "chat",
@@ -107,8 +107,8 @@
         "max_tokens": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 10000.0,
-        "output_per_million_tokens": 10000.0
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.1
       },
       "capabilities": {
         "function_calling": false,
@@ -117,7 +117,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "Qwen/Qwen3-30B-A3B-Instruct-2507": {
       "mode": "chat",
@@ -244,8 +244,8 @@
         "max_tokens": 161000
       },
       "pricing": {
-        "input_per_million_tokens": 135000.0,
-        "output_per_million_tokens": 540000.0
+        "input_per_million_tokens": 1.35,
+        "output_per_million_tokens": 5.4
       },
       "capabilities": {
         "function_calling": false,
@@ -254,7 +254,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "deepseek-ai/DeepSeek-V3-0324": {
       "mode": "chat",
@@ -264,8 +264,8 @@
         "max_tokens": 161000
       },
       "pricing": {
-        "input_per_million_tokens": 114000.0,
-        "output_per_million_tokens": 275000.0
+        "input_per_million_tokens": 1.14,
+        "output_per_million_tokens": 2.75
       },
       "capabilities": {
         "function_calling": false,
@@ -274,7 +274,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "deepseek-ai/DeepSeek-V3.1": {
       "mode": "chat",
@@ -461,8 +461,8 @@
         "max_tokens": 64000
       },
       "pricing": {
-        "input_per_million_tokens": 17000.0,
-        "output_per_million_tokens": 66000.0
+        "input_per_million_tokens": 0.17,
+        "output_per_million_tokens": 0.66
       },
       "capabilities": {
         "function_calling": false,
@@ -471,7 +471,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "microsoft/Phi-4-mini-instruct": {
       "mode": "chat",
