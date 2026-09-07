@@ -945,10 +945,8 @@ def _get_permission_from_run_id() -> Permission:
     )
 
 
-def _get_permission_from_model_id(model_id: str | None = None) -> Permission:
+def _get_model_permission(model_id: str) -> Permission:
     # logged model permissions inherit from parent resource (experiment)
-    if model_id is None:
-        model_id = _get_request_param("model_id")
     model = _get_tracking_store().get_logged_model(model_id)
     experiment_id = model.experiment_id
     username = authenticate_request().username
@@ -962,6 +960,10 @@ def _get_permission_from_model_id(model_id: str | None = None) -> Permission:
             workspace_label="experiment",
         ),
     )
+
+
+def _get_permission_from_model_id() -> Permission:
+    return _get_model_permission(_get_request_param("model_id"))
 
 
 def _get_permission_from_prompt_optimization_job_id() -> Permission:
@@ -1200,39 +1202,18 @@ def validate_can_update_run():
     return _get_permission_from_run_id().can_update
 
 
-def validate_can_update_run_with_model_metrics():
-    # LogMetric/LogBatch can optionally write metrics to logged models via model_id.
-    # Require UPDATE on the run AND on any model_id present in the metrics to prevent
-    # a user with UPDATE on their own run from injecting metrics onto another user's models.
+def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
+    # Require UPDATE on the run AND on any model_id the metrics target, so a user with
+    # UPDATE on their own run cannot inject metrics onto another user's logged models.
     if not _get_permission_from_run_id().can_update:
         return False
 
-    # Parse request through proto to handle camelCase aliases and nested batch metrics.
-    # Extract model_ids from BOTH LogBatch and LogMetric shapes (union them).
-    # A LogMetric request parsed as LogBatch yields empty metrics (harmless).
-    # A LogBatch request parsed as LogMetric yields empty model_id (harmless).
-    model_ids: set[str] = set()
-
-    # Try LogBatch first (for nested metrics)
-    try:
-        batch_msg = _get_request_message(LogBatch())
-        model_ids |= {m.model_id for m in batch_msg.metrics if m.model_id}
-    except MlflowException:
-        return False
-
-    # Also try LogMetric (for top-level model_id)
-    try:
-        metric_msg = _get_request_message(LogMetric())
-        if metric_msg.model_id:
-            model_ids.add(metric_msg.model_id)
-    except MlflowException:
-        return False
-
-    # Check UPDATE permission on each distinct model_id.
-    # Catch RESOURCE_DOES_NOT_EXIST (nonexistent model_id) and deny uniformly with 403.
+    # Check UPDATE permission on each distinct model_id. Catch RESOURCE_DOES_NOT_EXIST
+    # (nonexistent model_id) and deny uniformly with 403 so the response can't be used
+    # as an oracle for which model_ids exist.
     for model_id in model_ids:
         try:
-            if not _get_permission_from_model_id(model_id=model_id).can_update:
+            if not _get_model_permission(model_id).can_update:
                 return False
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
@@ -1240,6 +1221,23 @@ def validate_can_update_run_with_model_metrics():
             raise
 
     return True
+
+
+def validate_can_log_metric():
+    # LogMetric can optionally write the metric to a logged model via model_id. Parse
+    # through the proto so the camelCase `modelId` alias is covered. Only the LogMetric
+    # shape is parsed so fields the endpoint ignores never affect authorization.
+    msg = _get_request_message(LogMetric())
+    model_ids = {msg.model_id} if msg.model_id else set()
+    return _validate_can_update_run_and_models(model_ids)
+
+
+def validate_can_log_batch():
+    # LogBatch can optionally write metrics to logged models via per-metric model_id.
+    # Parse through the proto (covers the camelCase `modelId` alias on nested metrics).
+    msg = _get_request_message(LogBatch())
+    model_ids = {m.model_id for m in msg.metrics if m.model_id}
+    return _validate_can_update_run_and_models(model_ids)
 
 
 def validate_can_delete_run():
@@ -2723,8 +2721,8 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteRun: validate_can_delete_run,
     RestoreRun: validate_can_delete_run,
     UpdateRun: validate_can_update_run,
-    LogMetric: validate_can_update_run_with_model_metrics,
-    LogBatch: validate_can_update_run_with_model_metrics,
+    LogMetric: validate_can_log_metric,
+    LogBatch: validate_can_log_batch,
     LogInputs: validate_can_update_run,
     LogModel: validate_can_update_run,
     LogOutputs: validate_can_update_run,

@@ -1755,6 +1755,34 @@ def test_log_batch_and_metric_require_update_on_model_ids(
     )
     assert response.status_code == 200
 
+    # Test 9b: mixed-permission batch - model_id1 is now authorized but model_id3 is not.
+    # Ordering the authorized model first ensures every distinct model_id is checked, not
+    # just the first one that passes.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        json_payload={
+            "run_id": run_id,
+            "metrics": [
+                {
+                    "key": "batch_authorized_model",
+                    "value": 11.5,
+                    "timestamp": timestamp,
+                    "model_id": model_id1,
+                },
+                {
+                    "key": "batch_unauthorized_model",
+                    "value": 11.6,
+                    "timestamp": timestamp,
+                    "model_id": model_id3,
+                },
+            ],
+        },
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
     # Test 10: But metrics with model_id3 (still no permission) should still fail
     response = _send_rest_tracking_post_request(
         client.tracking_uri,
