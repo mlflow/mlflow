@@ -5,8 +5,6 @@ import rego.v1
 
 default_pull_request_types := {"opened", "synchronize", "reopened"}
 
-# METADATA
-# entrypoint: true
 deny_redundant_default_pull_request_types contains msg if {
 	some event_name in {"pull_request", "pull_request_target"}
 	types := input["true"][event_name].types
