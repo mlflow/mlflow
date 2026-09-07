@@ -215,6 +215,24 @@ def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
     )
 
 
+def test_skops_load_blocked_when_pickle_deserialization_disallowed(
+    sklearn_knn_model, model_path, monkeypatch
+):
+    # skops must honor MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false too: its trusted-types allow-list
+    # is read from the (untrusted) MLmodel, so it is not a safe bypass of the deserialization guard.
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        serialization_format="skops",
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.sklearn.load_model(model_uri=model_path)
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        pyfunc.load_model(model_uri=model_path)
+
+
 def test_log_model_skops_no_pip_requirements_warning(sklearn_logreg_model, recwarn):
     with mlflow.start_run():
         mlflow.sklearn.log_model(
