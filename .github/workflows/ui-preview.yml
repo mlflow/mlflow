@@ -352,7 +352,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           RUN_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           APP_URL: ${{ needs.deploy.outputs.app-url }}
@@ -365,7 +365,7 @@ jobs:
           | | |
           |---|---|
           | **URL** | ${APP_URL} |
-          | **Commit** | ${COMMIT_SHA} |
+          | **Commit** | ${HEAD_SHA} |
           | **Run** | ${RUN_LINK} |
 
           > [!NOTE]
@@ -379,7 +379,7 @@ jobs:
           | | |
           |---|---|
           | **URL** | N/A |
-          | **Commit** | ${COMMIT_SHA} |
+          | **Commit** | ${HEAD_SHA} |
           | **Run** | ${RUN_LINK} |
 
           > Check the workflow run for details and retry it when the issue is resolved."
