@@ -10708,7 +10708,12 @@ def test_start_trace_conflict_path_merges_metadata_metrics_and_tags_in_sorted_ke
         "mlflow.traceInputs": "in",
     }
     # Tags in deliberately unsorted insertion order so a dropped sort is observable.
-    trace_tags = {"zeta": "1", "alpha": "2", "mid": "3"}
+    trace_tags = {
+        "zeta": "1",
+        MLFLOW_ARTIFACT_LOCATION: "user-supplied-location",
+        "alpha": "2",
+        "mid": "3",
+    }
     trace_info = TraceInfo(
         trace_id=trace_id,
         trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
@@ -10720,7 +10725,7 @@ def test_start_trace_conflict_path_merges_metadata_metrics_and_tags_in_sorted_ke
     )
 
     with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
-        store.start_trace(trace_info)
+        result = store.start_trace(trace_info)
 
     # Each loop must actually have merged multiple keys, else the ordering assertions
     # are vacuous (e.g. if start_trace took the happy path instead of the conflict path).
@@ -10730,6 +10735,7 @@ def test_start_trace_conflict_path_merges_metadata_metrics_and_tags_in_sorted_ke
     assert merged_metadata_keys == sorted(merged_metadata_keys)
     assert merged_metric_keys == sorted(merged_metric_keys)
     assert merged_tag_keys == sorted(merged_tag_keys)
+    assert result.tags[MLFLOW_ARTIFACT_LOCATION].endswith(f"/{trace_id}/artifacts")
 
 
 def test_log_spans_merges_user_trace_tags_in_sorted_key_order(store: SqlAlchemyStore):

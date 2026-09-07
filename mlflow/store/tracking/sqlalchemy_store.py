@@ -3755,10 +3755,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # Build user tags in sorted key order (matching the metadata/metrics cascade
             # below) so trace child cascades acquire PK-index locks deterministically; see
             # _merge_trace_child_rows_in_lock_order for the full deadlock rationale (#24338).
+            artifact_location_tag = self._get_trace_artifact_location_tag(experiment, trace_id)
+            tag_values = {
+                **trace_info.tags,
+                artifact_location_tag.key: artifact_location_tag.value,
+            }
             tags = [
                 SqlTraceTag(request_id=trace_id, key=k, value=v)
                 for k, v in sorted(trace_info.tags.items())
-            ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
+            ] + [artifact_location_tag]
             sql_trace_info.tags = tags
 
             # Build metadata and metrics but don't attach to sql_trace_info yet —
@@ -3814,11 +3819,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # that were already attached to the trace.
                 session.rollback()
                 session.expunge_all()
-                # Rebuild child rows after expunging the failed parent tree so later
-                # per-row merges cannot drag its stale trace_info state back in. Collect
-                # tag key/values into a dict so they can be merged in sorted lock order
-                # below (last write wins on any duplicate key; keys are unique here).
-                tag_values = {tag.key: tag.value for tag in tags}
+                # Rebuild assessments after expunging the failed parent tree so later
+                # merges cannot drag its stale trace_info state back in.
                 sql_assessments = []
                 for a in trace_info.assessments:
                     sql_assessment = SqlAssessments.from_mlflow_entity(a)
