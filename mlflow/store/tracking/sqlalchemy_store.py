@@ -3762,8 +3762,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             }
             tags = [
                 SqlTraceTag(request_id=trace_id, key=k, value=v)
-                for k, v in sorted(trace_info.tags.items())
-            ] + [artifact_location_tag]
+                for k, v in sorted(tag_values.items())
+            ]
             sql_trace_info.tags = tags
 
             # Build metadata and metrics but don't attach to sql_trace_info yet —

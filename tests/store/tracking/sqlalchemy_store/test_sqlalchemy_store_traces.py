@@ -10734,7 +10734,7 @@ def test_start_trace_conflict_path_merges_metadata_metrics_and_tags_in_sorted_ke
     assert len(merged_tag_keys) >= 2, merged_tag_keys
     assert merged_metadata_keys == sorted(merged_metadata_keys)
     assert merged_metric_keys == sorted(merged_metric_keys)
-    assert merged_tag_keys == sorted(merged_tag_keys)
+    assert merged_tag_keys == sorted(trace_tags)
     assert result.tags[MLFLOW_ARTIFACT_LOCATION].endswith(f"/{trace_id}/artifacts")
 
 
@@ -10874,8 +10874,8 @@ def test_log_spans_merges_trace_tags_in_sorted_order_across_traces(store: SqlAlc
 def test_start_trace_happy_path_assigns_tags_in_sorted_key_order(store: SqlAlchemyStore):
     """The happy INSERT path attaches tags via a relationship-collection cascade, not
     per-row merge, so the conflict-path spy test cannot cover it. Capture the constructed
-    ``sql_trace_info`` at ``session.add`` and assert the user tag rows were built in sorted
-    key order (excluding the trailing artifact-location tag appended after them).
+    ``sql_trace_info`` at ``session.add`` and assert all tag rows were built from the merged
+    tag values in global sorted key order.
 
     Mirrors #24338's sorted metadata cascade so all trace child cascades are deterministic.
     """
@@ -10887,26 +10887,35 @@ def test_start_trace_happy_path_assigns_tags_in_sorted_key_order(store: SqlAlche
         request_time=0,
         execution_duration=1,
         state=TraceState.OK,
-        tags={"zeta": "1", "alpha": "2", "mid": "3"},
+        tags={
+            "zeta": "1",
+            MLFLOW_ARTIFACT_LOCATION: "user-supplied-location",
+            "alpha": "2",
+            "mid": "3",
+        },
         trace_metadata={},
     )
 
-    captured_tag_keys: list[str] = []
+    captured_tags: list[tuple[str, str]] = []
     real_add = sqlalchemy.orm.Session.add
 
     def _spy_add(self, instance, *args, **kwargs):
         if isinstance(instance, SqlTraceInfo) and instance.request_id == trace_id:
-            # Exclude the artifact-location tag appended after the user tags.
-            captured_tag_keys.extend(
-                t.key for t in instance.tags if t.key != MLFLOW_ARTIFACT_LOCATION
-            )
+            captured_tags.extend((tag.key, tag.value) for tag in instance.tags)
         return real_add(self, instance, *args, **kwargs)
 
     with mock.patch.object(sqlalchemy.orm.Session, "add", _spy_add):
         store.start_trace(trace_info)
 
-    assert len(captured_tag_keys) >= 2, captured_tag_keys
-    assert captured_tag_keys == sorted(captured_tag_keys)
+    artifact_location = dict(captured_tags)[MLFLOW_ARTIFACT_LOCATION]
+    assert artifact_location != "user-supplied-location"
+    assert artifact_location.endswith(f"/{trace_id}/artifacts")
+    assert captured_tags == sorted(
+        {
+            **trace_info.tags,
+            MLFLOW_ARTIFACT_LOCATION: artifact_location,
+        }.items()
+    )
 
 
 @pytest.mark.parametrize(
