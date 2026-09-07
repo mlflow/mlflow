@@ -280,13 +280,15 @@ def test_scan_query_nested_fragment_spread():
     assert info.root_fields == 1
 
 
-def test_scan_query_circular_fragment_reference():
+def test_scan_query_circular_fragment_reference_with_fields():
     query = """
     fragment A on Query {
+        experiment { id }
         ...B
     }
 
     fragment B on Query {
+        run { id }
         ...A
     }
 
@@ -295,6 +297,56 @@ def test_scan_query_circular_fragment_reference():
     }
     """
     ast = parse(query)
-    # Should not crash or enter infinite loop with circular fragment references
+    # Should not crash and correctly count fields before the cycle
     info = scan_query(ast)
-    assert info.root_fields == 0
+    # A has 1 field (experiment), B has 1 field (run), but cycle prevents reprocessing
+    # So we should count: experiment (from A) + run (from B that A references)
+    assert info.root_fields == 2
+
+
+def test_check_query_safety_alias_split_across_inline_fragments(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", "10")
+
+    # PoC: distribute 100 aliases across 10 sibling inline fragments
+    # Each fragment has 10 aliases, which is within limit per-fragment,
+    # but total is 100 which exceeds limit
+    aliases = " ".join([f"name{i}: name {{ id }}" for i in range(10)])
+    fragments = " ".join([f"... on Query {{ {aliases} }}" for _ in range(10)])
+    query = f"{{ {fragments} }}"
+    ast = parse(query)
+    result = check_query_safety(ast)
+
+    # Should be rejected: 100 aliases total > 10 limit
+    assert result is not None
+    assert len(result.errors) == 1
+    assert "aliases" in result.errors[0].message
+
+
+def test_check_query_safety_alias_split_across_named_fragments(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", "10")
+
+    # Same PoC but using named fragment spreads instead of inline fragments
+    aliases = " ".join([f"name{j}: name {{ id }}" for j in range(10)])
+    frag_defs = "\n".join([f"fragment F{i} on Query {{ {aliases} }}" for i in range(10)])
+    spreads = " ".join([f"...F{i}" for i in range(10)])
+    query = f"{frag_defs}\n\n{{ {spreads} }}"
+    ast = parse(query)
+    result = check_query_safety(ast)
+
+    # Should be rejected: 100 aliases total > 10 limit
+    assert result is not None
+    assert len(result.errors) == 1
+    assert "aliases" in result.errors[0].message
+
+
+def test_scan_query_selections_across_fragments_exceed_max():
+    # Test that _MAX_SELECTIONS limit is enforced across fragment spreads
+    # Create fragments that together exceed _MAX_SELECTIONS (1000)
+    fields_per_frag = " ".join([f"field{j} {{ id }}" for j in range(100)])
+    frag_defs = "\n".join([f"fragment F{i} on Query {{ {fields_per_frag} }}" for i in range(11)])
+    spreads = " ".join([f"...F{i}" for i in range(11)])
+    query = f"{frag_defs}\n\n{{ {spreads} }}"
+    ast = parse(query)
+
+    with pytest.raises(GraphQLError, match="exceeds maximum total selections"):
+        scan_query(ast)

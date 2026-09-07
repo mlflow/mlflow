@@ -25,6 +25,50 @@ class QueryInfo(NamedTuple):
     max_aliases: int
 
 
+def _collect_fields_and_aliases(
+    selection_set,
+    fragment_defs: dict[str, FragmentDefinitionNode],
+    visited_fragments: frozenset[str],
+) -> tuple[list[FieldNode], int]:
+    """
+    Recursively collects all FieldNode selections and counts total aliases
+    from a selection set, including those nested in inline fragments and
+    fragment spreads at the same level. This ensures aliases from all
+    sibling fragments are aggregated into one alias count.
+
+    Returns (field_selections, total_aliases) where:
+    - field_selections: list of FieldNode selections to process
+    - total_aliases: count of all aliases from this level
+    """
+    field_selections = []
+    total_aliases = 0
+    selections_to_process = list(getattr(selection_set, "selections", []))
+    # Track fragments visited during this collection to prevent cycles
+    local_visited = set(visited_fragments)
+
+    while selections_to_process:
+        selection = selections_to_process.pop(0)
+
+        if isinstance(selection, FieldNode):
+            field_selections.append(selection)
+            if selection.alias:
+                total_aliases += 1
+        elif isinstance(selection, InlineFragmentNode):
+            # Inline fragment selections at this level merge into parent scope
+            if selection.selection_set:
+                selections_to_process.extend(selection.selection_set.selections)
+        elif isinstance(selection, FragmentSpreadNode):
+            # Fragment spread selections at this level merge into parent scope
+            fragment_name = selection.name.value
+            if fragment_name not in local_visited:
+                local_visited.add(fragment_name)
+                fragment_def = fragment_defs.get(fragment_name)
+                if fragment_def and fragment_def.selection_set:
+                    selections_to_process.extend(fragment_def.selection_set.selections)
+
+    return field_selections, total_aliases
+
+
 def scan_query(ast_node: DocumentNode) -> QueryInfo:
     """
     Scan a GraphQL query and return its information.
@@ -55,35 +99,25 @@ def scan_query(ast_node: DocumentNode) -> QueryInfo:
                 if depth > _MAX_DEPTH:
                     raise GraphQLError(f"Query exceeds maximum depth of {_MAX_DEPTH}")
 
-                selections = getattr(selection_set, "selections", [])
+                # Collect all fields and aggregate aliases from this level,
+                # including those inside inline fragments and fragment spreads.
+                # This prevents attackers from distributing aliases across multiple
+                # sibling fragments to bypass the alias limit.
+                field_selections, current_aliases = _collect_fields_and_aliases(
+                    selection_set, fragment_defs, visited_fragments
+                )
 
-                # check current level aliases
-                current_aliases = 0
-                for selection in selections:
-                    if isinstance(selection, FieldNode):
-                        if depth == 1:
-                            root_fields += 1
-                        if selection.alias:
-                            current_aliases += 1
-                        if selection.selection_set:
-                            stack.append((selection.selection_set, depth + 1, visited_fragments))
-                        total_selections += 1
-                        if total_selections > _MAX_SELECTIONS:
-                            raise GraphQLError(
-                                f"Query exceeds maximum total selections of {_MAX_SELECTIONS}"
-                            )
-                    elif isinstance(selection, InlineFragmentNode):
-                        # Inline fragments should have their selections counted at the current depth
-                        if selection.selection_set:
-                            stack.append((selection.selection_set, depth, visited_fragments))
-                    elif isinstance(selection, FragmentSpreadNode):
-                        # Fragment spreads: count selections at current depth, guard cycles
-                        fragment_name = selection.name.value
-                        if fragment_name not in visited_fragments:
-                            fragment_def = fragment_defs.get(fragment_name)
-                            if fragment_def and fragment_def.selection_set:
-                                new_visited = visited_fragments | {fragment_name}
-                                stack.append((fragment_def.selection_set, depth, new_visited))
+                for field in field_selections:
+                    if depth == 1:
+                        root_fields += 1
+                    if field.selection_set:
+                        stack.append((field.selection_set, depth + 1, visited_fragments))
+                    total_selections += 1
+                    if total_selections > _MAX_SELECTIONS:
+                        raise GraphQLError(
+                            f"Query exceeds maximum total selections of {_MAX_SELECTIONS}"
+                        )
+
                 max_aliases = max(max_aliases, current_aliases)
 
     return QueryInfo(root_fields, max_aliases)
