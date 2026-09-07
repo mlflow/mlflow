@@ -72,6 +72,7 @@ jobs:
 
           | | |
           |---|---|
+          | **URL** | N/A |
           | **Commit** | ${HEAD_SHA} |
           | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
 
