@@ -5,6 +5,7 @@ import concurrent.futures
 import subprocess
 import threading
 from collections.abc import AsyncIterator
+from contextlib import suppress
 from pathlib import Path
 
 _MAX_BUFFERED_BYTES = 256 * 1024 * 1024
@@ -137,9 +138,11 @@ class SubprocessLineStream:
         assert self._proc.stdin is not None
         try:
             self._proc.stdin.write(data)
-            self._proc.stdin.close()
         except OSError:
             pass
+        finally:
+            with suppress(OSError):
+                self._proc.stdin.close()
 
     async def lines(self) -> AsyncIterator[bytes]:
         try:

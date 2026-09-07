@@ -70,6 +70,7 @@ def test_stdin_pipe_errors_are_ignored(write_error):
     stream._write_stdin(b"prompt")
 
     stream._proc.stdin.write.assert_called_once_with(b"prompt")
+    stream._proc.stdin.close.assert_called_once_with()
 
 
 @pytest.mark.asyncio
