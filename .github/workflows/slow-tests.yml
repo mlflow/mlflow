@@ -56,7 +56,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'workflow_dispatch' && !inputs.windows_only)
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'workflow_dispatch' && !inputs.windows_only) || github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -90,7 +90,7 @@ jobs:
           uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/docker tests/pyfunc/docker
 
   windows:
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: windows-latest
     timeout-minutes: 120
     permissions:
