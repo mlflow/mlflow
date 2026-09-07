@@ -2,7 +2,7 @@ from typing import NamedTuple
 
 from graphql.error import GraphQLError
 from graphql.execution import ExecutionResult
-from graphql.language.ast import DocumentNode, FieldNode
+from graphql.language.ast import DocumentNode, FieldNode, InlineFragmentNode
 
 from mlflow.environment_variables import (
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
@@ -53,6 +53,10 @@ def scan_query(ast_node: DocumentNode) -> QueryInfo:
                             raise GraphQLError(
                                 f"Query exceeds maximum total selections of {_MAX_SELECTIONS}"
                             )
+                    elif isinstance(selection, InlineFragmentNode):
+                        # Inline fragments should have their selections counted at the current depth
+                        if selection.selection_set:
+                            stack.append((selection.selection_set, depth))
                 max_aliases = max(max_aliases, current_aliases)
 
     return QueryInfo(root_fields, max_aliases)
