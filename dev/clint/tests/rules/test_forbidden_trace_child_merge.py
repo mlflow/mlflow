@@ -28,6 +28,16 @@ for tag_key, tag_value in tags.items():
     assert len(results) == 1
 
 
+def test_flags_simple_loop_bound_key_name(index: SymbolIndex) -> None:
+    code = """
+for key in tag_keys:
+    session.merge(SqlTraceTag(request_id=trace_id, key=key, value=value))
+"""
+    config = Config(select={ForbiddenTraceChildMerge.name})
+    results = lint_file(Path("test.py"), code, config, index)
+    assert len(results) == 1
+
+
 def test_flags_looped_trace_metrics_merge(index: SymbolIndex) -> None:
     code = """
 for k, v in metrics.items():
@@ -78,6 +88,17 @@ for trace_id in all_trace_ids:
     session.merge(
         SqlTraceTag(request_id=trace_id, key=TraceTagKey.SPANS_LOCATION, value=loc)
     )
+"""
+    config = Config(select={ForbiddenTraceChildMerge.name})
+    results = lint_file(Path("test.py"), code, config, index)
+    assert len(results) == 0
+
+
+def test_no_flag_fixed_key_alias_in_outer_loop(index: SymbolIndex) -> None:
+    code = """
+fixed_key = TraceTagKey.SPANS_LOCATION
+for trace_id in all_trace_ids:
+    session.merge(SqlTraceTag(request_id=trace_id, key=fixed_key, value=loc))
 """
     config = Config(select={ForbiddenTraceChildMerge.name})
     results = lint_file(Path("test.py"), code, config, index)

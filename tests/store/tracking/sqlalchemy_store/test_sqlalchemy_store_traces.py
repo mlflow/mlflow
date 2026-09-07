@@ -5155,6 +5155,32 @@ def test_log_spans_locks_mssql_trace_rows_individually_in_sorted_order(
     ]
 
 
+def test_log_spans_reports_trace_deleted_before_mssql_parent_lock(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("mssql-parent-deleted-before-lock")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, experiment_id)
+    span = create_test_span(trace_id, name="span", span_id=1, span_type="LLM")
+    missing_lock_query = mock.MagicMock()
+    missing_lock_query.one_or_none.return_value = None
+
+    with (
+        mock.patch.object(store, "db_type", MSSQL),
+        mock.patch.object(store, "_trace_row_lock_query", return_value=missing_lock_query),
+        pytest.raises(
+            MlflowException,
+            match=f"Cannot log spans to traces that no longer exist: '{trace_id}'",
+        ) as exc_info,
+    ):
+        store.log_spans(experiment_id, [span])
+
+    assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    missing_lock_query.one_or_none.assert_called_once_with()
+    with store.ManagedSessionMaker() as session:
+        assert session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).count() == 0
+
+
 @pytest.mark.parametrize(
     ("db_type", "locking"),
     [

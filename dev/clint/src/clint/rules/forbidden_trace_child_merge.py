@@ -37,8 +37,13 @@ class ForbiddenTraceChildMerge(Rule):
         Only this loop's own body is inspected; a nested loop is judged by its own
         linter visitor so an offending inner loop is reported once, at the inner loop.
         """
+        loop_bound_names = {
+            child.id
+            for child in ast.walk(node.target)
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Store)
+        }
         return any(
-            ForbiddenTraceChildMerge._is_trace_child_merge(call)
+            ForbiddenTraceChildMerge._is_trace_child_merge(call, loop_bound_names)
             for call in ForbiddenTraceChildMerge._calls_excluding_nested_loops(node)
         )
 
@@ -60,7 +65,7 @@ class ForbiddenTraceChildMerge(Rule):
                 stack.extend(ast.iter_child_nodes(cur))
 
     @staticmethod
-    def _is_trace_child_merge(stmt: ast.AST) -> bool:
+    def _is_trace_child_merge(stmt: ast.AST, loop_bound_names: set[str]) -> bool:
         match stmt:
             case ast.Call(
                 func=ast.Attribute(attr="merge"),
@@ -69,6 +74,11 @@ class ForbiddenTraceChildMerge(Rule):
                 # Match only a bare loop-bound name key (the shape real sites use). A
                 # constant key is a single fixed row and is safe; see check() for the
                 # accepted attribute/subscript-key gap.
-                return any(kw.arg == "key" and isinstance(kw.value, ast.Name) for kw in keywords)
+                return any(
+                    kw.arg == "key"
+                    and isinstance(kw.value, ast.Name)
+                    and kw.value.id in loop_bound_names
+                    for kw in keywords
+                )
             case _:
                 return False

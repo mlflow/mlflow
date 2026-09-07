@@ -5494,13 +5494,23 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 if self.db_type == MSSQL:
                     # SQL Server does not guarantee that ORDER BY controls UPDLOCK acquisition.
                     # Single-row queries make the sorted Python order authoritative.
-                    locked_traces = [
-                        self._trace_row_lock_query(session, [trace_id]).one()
-                        for trace_id in sorted(preexisting_trace_ids)
-                    ]
+                    locked_traces = []
+                    for trace_id in sorted(preexisting_trace_ids):
+                        trace = self._trace_row_lock_query(session, [trace_id]).one_or_none()
+                        if trace is not None:
+                            locked_traces.append(trace)
                 else:
                     locked_traces = self._trace_row_lock_query(session, preexisting_trace_ids).all()
-                existing_traces.update({trace.request_id: trace for trace in locked_traces})
+                locked_traces_by_id = {trace.request_id: trace for trace in locked_traces}
+                missing_locked_trace_ids = sorted(
+                    set(preexisting_trace_ids) - locked_traces_by_id.keys()
+                )
+                if missing_locked_trace_ids:
+                    self._raise_log_spans_trace_write_conflict_error(
+                        blocked_trace_ids={},
+                        missing_trace_ids=missing_locked_trace_ids,
+                    )
+                existing_traces.update(locked_traces_by_id)
 
             # Fill in experiment_id on span rows now that we have trace infos
             for row in all_span_rows:
