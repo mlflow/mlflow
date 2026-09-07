@@ -6,6 +6,10 @@ on:
       - published
       - edited
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash

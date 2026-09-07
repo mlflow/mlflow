@@ -12,7 +12,18 @@ interface ServerInfoResponse {
   trace_archival_enabled: boolean;
   multipart_uploads_enabled: boolean;
   multipart_downloads_enabled: boolean;
+  features_enabled?: Record<FeatureKey, boolean>;
 }
+
+/**
+ * Valid keys for the `features_enabled` map in server-info.
+ * Add new entries here when introducing a new runtime feature toggle.
+ */
+export const SERVER_FEATURE_KEYS = {
+  GATEWAY: 'gateway',
+} as const;
+
+export type FeatureKey = (typeof SERVER_FEATURE_KEYS)[keyof typeof SERVER_FEATURE_KEYS];
 
 // Default response when the API call fails (e.g., older server without this endpoint)
 const DEFAULT_RESPONSE: ServerInfoResponse = {
@@ -122,6 +133,24 @@ export const getWorkspacesEnabledSync = (): boolean => {
 export const getMultipartDownloadsEnabledSync = (): boolean => {
   const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
   return cachedData?.multipart_downloads_enabled ?? false;
+};
+
+/**
+ * Subscribes React components to a server feature value and re-renders when server-info loads.
+ * Prefer this hook in React render paths.
+ */
+export const useFeatureEnabled = (key: FeatureKey, defaultValue = true): boolean => {
+  const { data } = useServerInfo();
+  return data?.features_enabled?.[key] ?? defaultValue;
+};
+
+/**
+ * Reads a server feature from the current cache without subscribing to updates.
+ * Use this accessor only where React hooks are unavailable.
+ */
+export const getFeatureEnabledSync = (key: FeatureKey, defaultValue = true): boolean => {
+  const cachedData = queryClientRef?.getQueryData<ServerInfoResponse>([SERVER_INFO_QUERY_KEY]);
+  return cachedData?.features_enabled?.[key] ?? defaultValue;
 };
 
 // For testing purposes - allows resetting the cached state

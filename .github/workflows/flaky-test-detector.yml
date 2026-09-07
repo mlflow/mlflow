@@ -23,6 +23,10 @@ on:
         description: "ISO date to scan from (default: 14 days ago)"
         required: false
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 # Deny all permissions by default; each job grants only what it needs.
 permissions: {}
 
