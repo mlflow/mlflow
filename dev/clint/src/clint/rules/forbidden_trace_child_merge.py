@@ -55,6 +55,8 @@ class ForbiddenTraceChildMerge(Rule):
                     continue
                 if isinstance(cur, ast.Call):
                     yield cur
+                    # Keep walking: a relevant merge may be nested in this call's arguments;
+                    # the harmless outer call is yielded first and rejected by the matcher.
                 stack.extend(ast.iter_child_nodes(cur))
 
     @staticmethod

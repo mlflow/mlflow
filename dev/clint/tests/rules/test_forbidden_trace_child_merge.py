@@ -38,6 +38,16 @@ for k, v in metrics.items():
     assert len(results) == 1
 
 
+def test_flags_trace_child_merge_nested_in_outer_call(index: SymbolIndex) -> None:
+    code = """
+for k, v in metadata.items():
+    print(session.merge(SqlTraceMetadata(request_id=trace_id, key=k, value=v)))
+"""
+    config = Config(select={ForbiddenTraceChildMerge.name})
+    results = lint_file(Path("test.py"), code, config, index)
+    assert len(results) == 1
+
+
 def test_flags_async_looped_trace_tag_merge(index: SymbolIndex) -> None:
     code = """
 async for tag_key, tag_value in tags:
