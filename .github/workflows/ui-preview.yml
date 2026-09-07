@@ -65,6 +65,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           BODY="${COMMENT_MARKER}
 
@@ -74,7 +75,7 @@ jobs:
           |---|---|
           | **URL** | N/A |
           | **Commit** | ${HEAD_SHA} |
-          | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
+          | **Run** | ${RUN_URL} |
 
           > Building and deploying... This comment will be updated with the preview URL."
 
@@ -353,7 +354,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          RUN_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           APP_URL: ${{ needs.deploy.outputs.app-url }}
         run: |
@@ -366,7 +367,7 @@ jobs:
           |---|---|
           | **URL** | ${APP_URL} |
           | **Commit** | ${HEAD_SHA} |
-          | **Run** | ${RUN_LINK} |
+          | **Run** | ${RUN_URL} |
 
           > [!NOTE]
           > This preview is only accessible to core maintainers with workspace access.
@@ -380,7 +381,7 @@ jobs:
           |---|---|
           | **URL** | N/A |
           | **Commit** | ${HEAD_SHA} |
-          | **Run** | ${RUN_LINK} |
+          | **Run** | ${RUN_URL} |
 
           > Check the workflow run for details and retry it when the issue is resolved."
           fi
