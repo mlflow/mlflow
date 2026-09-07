@@ -2,10 +2,6 @@ name: MLflow tests
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -50,7 +46,6 @@ jobs:
   # The python skinny tests cover the subset of mlflow functionality
   # while also verifying certain dependencies are omitted.
   python-skinny:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -69,7 +64,6 @@ jobs:
           ./dev/run-python-skinny-tests.sh
 
   python:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -134,7 +128,6 @@ jobs:
             pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
   database:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -191,7 +184,6 @@ jobs:
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
 
   java:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -215,7 +207,6 @@ jobs:
           uv run --no-dev mvn clean package -q
 
   flavors:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -243,7 +234,6 @@ jobs:
             tests/autologging
 
   models:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -278,7 +268,6 @@ jobs:
           uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/models
 
   evaluate:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -315,7 +304,6 @@ jobs:
           uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -376,7 +364,6 @@ jobs:
             --ignore tests/genai/evaluate/test_pytest_integration.py
 
   pyfunc:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
