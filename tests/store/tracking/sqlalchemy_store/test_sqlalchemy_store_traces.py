@@ -10812,13 +10812,13 @@ def test_log_spans_merges_all_trace_tags_in_global_sorted_key_order(store: SqlAl
     with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
         store.log_spans(experiment_id, [span])
 
-    assert merged_tag_keys == sorted({
+    assert merged_tag_keys == sorted([
         TraceTagKey.SPANS_LOCATION,
         "alpha",
         "omega",
         "shared",
         "zeta",
-    })
+    ])
     assert store.get_trace_info(trace_id).tags["shared"] == "user"
 
 
@@ -10855,14 +10855,14 @@ def test_log_spans_merges_trace_tags_in_sorted_order_across_traces(store: SqlAlc
             [make_span(trace_id_b, 444), make_span(trace_id_a, 555)],
         )
 
-    assert merged_tag_pairs == sorted({
+    assert merged_tag_pairs == sorted([
         (trace_id_a, TraceTagKey.SPANS_LOCATION),
         (trace_id_a, "alpha"),
         (trace_id_a, "zeta"),
         (trace_id_b, TraceTagKey.SPANS_LOCATION),
         (trace_id_b, "alpha"),
         (trace_id_b, "zeta"),
-    })
+    ])
 
 
 def test_start_trace_happy_path_assigns_tags_in_sorted_key_order(store: SqlAlchemyStore):
