@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    if: false && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -77,7 +77,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-    if: false && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    if: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

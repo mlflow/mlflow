@@ -22,7 +22,6 @@ permissions: {}
 
 jobs:
   labeling:
-    if: github.event.pull_request.draft == false
     runs-on: ubuntu-slim
     permissions:
       pull-requests: write
