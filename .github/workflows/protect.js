@@ -187,7 +187,11 @@ module.exports = async ({ github, context }) => {
       );
     }
 
-    if (checks.length > 0 && checks.every(({ status }) => status === STATE.success)) {
+    if (
+      checks.length > 0 &&
+      checks.every(({ status }) => status === STATE.success) &&
+      (context.payload.action !== "ready_for_review" || iterationCount > 1)
+    ) {
       console.log("All checks passed");
       return;
     }

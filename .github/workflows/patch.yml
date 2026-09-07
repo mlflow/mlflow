@@ -6,6 +6,7 @@ on:
       - opened
       - edited
       - synchronize
+      - ready_for_review
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -19,7 +20,7 @@ permissions: {}
 
 jobs:
   patch:
-    if: (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-slim
     permissions:
       issues: write

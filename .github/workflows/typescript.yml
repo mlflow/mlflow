@@ -6,6 +6,7 @@ on:
       - opened
       - synchronize
       - reopened
+      - ready_for_review
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -32,7 +33,7 @@ permissions: {}
 
 jobs:
   typescript-sdk:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
       contents: read
     timeout-minutes: 20
@@ -89,7 +90,7 @@ jobs:
   # -- which type-checks each integration against the published floor -- can see
   # it. Runs separately from typescript-sdk so it never gates the main matrix.
   min-version-check:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
       contents: read
     timeout-minutes: 15

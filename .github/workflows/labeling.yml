@@ -9,6 +9,7 @@ on:
     types:
       - opened
       - edited
+      - ready_for_review
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number }}
@@ -22,7 +23,7 @@ permissions: {}
 
 jobs:
   labeling:
-    if: (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-slim
     permissions:
       pull-requests: write
