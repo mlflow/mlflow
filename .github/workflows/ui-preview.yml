@@ -377,6 +377,7 @@ jobs:
 
           | | |
           |---|---|
+          | **URL** | N/A |
           | **Commit** | ${COMMIT_SHA} |
           | **Run** | ${RUN_LINK} |
 
