@@ -25,7 +25,6 @@ jobs:
       && github.event.sender.login == 'Copilot'
     runs-on: ubuntu-slim
     timeout-minutes: 5
-    permissions: {}
     steps:
       # An app token, not `secrets.GITHUB_TOKEN`: the `ready_for_review` this
       # publish emits has to reach `copilot-review.yml`, and events created with

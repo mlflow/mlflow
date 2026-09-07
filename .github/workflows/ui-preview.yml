@@ -182,7 +182,6 @@ jobs:
       app-url: ${{ steps.app.outputs.url }}
     # Static-IP runner required for IP allowlisting
     runs-on: ubuntu-ui-preview
-    permissions: {}
     timeout-minutes: 30
     steps:
       - name: Download app files

@@ -16,12 +16,12 @@ deny_redundant_default_pull_request_types contains msg if {
 	)
 }
 
-deny_jobs_without_permissions contains msg if {
-	jobs := jobs_without_permissions(input.jobs)
-	count(jobs) > 0
+deny_redundant_job_permissions contains msg if {
+	some job_id, job in input.jobs
+	job.permissions == {}
 	msg := sprintf(
-		"The following jobs are missing permissions: %s",
-		[concat(", ", jobs)],
+		"Job '%s' sets redundant 'permissions: {}'. Omit it to inherit the workflow's empty default permissions.",
+		[job_id],
 	)
 }
 
@@ -368,11 +368,6 @@ job_steps(job) := array.concat(
 	[step | some step in job.steps],
 	[step | some group in job.steps; some step in group.parallel],
 )
-
-jobs_without_permissions(jobs) := {job_id |
-	some job_id, job in jobs
-	not job.permissions
-}
 
 jobs_without_timeout(jobs) := {job_id |
 	some job_id, job in jobs
