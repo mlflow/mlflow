@@ -72,6 +72,7 @@ jobs:
 
           | | |
           |---|---|
+          | **URL** | N/A |
           | **Commit** | ${HEAD_SHA} |
           | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
 
@@ -176,10 +177,11 @@ jobs:
 
   deploy:
     needs: build
+    outputs:
+      app-url: ${{ steps.app.outputs.url }}
     # Static-IP runner required for IP allowlisting
     runs-on: ubuntu-ui-preview
-    permissions:
-      pull-requests: write
+    permissions: {}
     timeout-minutes: 30
     steps:
       - name: Download app files
@@ -326,30 +328,63 @@ jobs:
           APP_URL: ${{ steps.app.outputs.url }}
         run: echo "Deployed to $APP_URL" >> $GITHUB_STEP_SUMMARY
 
-      - name: Comment on PR
-        if: github.event_name != 'push'
+  finalize:
+    needs:
+      - notify
+      - build
+      - deploy
+    if: >-
+      always()
+      && !cancelled()
+      && github.event_name != 'push'
+      && (
+        needs.deploy.result == 'success'
+        || needs.build.result == 'failure'
+        || needs.deploy.result == 'failure'
+      )
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: write
+    timeout-minutes: 5
+    steps:
+      - name: Update preview comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APP_URL: ${{ steps.app.outputs.url }}
-          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUN_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          APP_URL: ${{ needs.deploy.outputs.app-url }}
         run: |
-          BODY="${COMMENT_MARKER}
+          if [ "$DEPLOY_RESULT" = "success" ]; then
+            BODY="${COMMENT_MARKER}
 
           **UI Preview** is ready for this PR :rocket:
 
           | | |
           |---|---|
           | **URL** | ${APP_URL} |
-          | **Commit** | $COMMIT_SHA |
-          | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
+          | **Commit** | ${HEAD_SHA} |
+          | **Run** | ${RUN_LINK} |
 
           > [!NOTE]
           > This preview is only accessible to core maintainers with workspace access.
           > The preview updates automatically when new commits are pushed."
+          else
+            BODY="${COMMENT_MARKER}
 
-          # Find existing comment
+          **UI Preview** deployment failed :x:
+
+          | | |
+          |---|---|
+          | **URL** | N/A |
+          | **Commit** | ${HEAD_SHA} |
+          | **Run** | ${RUN_LINK} |
+
+          > Check the workflow run for details and retry it when the issue is resolved."
+          fi
+
           COMMENT_ID=$(gh api --paginate \
             "repos/$REPO/issues/$PR_NUMBER/comments" \
             --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
@@ -360,8 +395,8 @@ jobs:
               "repos/$REPO/issues/comments/$COMMENT_ID" \
               -X PATCH -f body="$BODY"
           else
-            gh pr comment $PR_NUMBER \
-              --repo $REPO \
+            gh pr comment "$PR_NUMBER" \
+              --repo "$REPO" \
               --body "$BODY"
           fi
 
