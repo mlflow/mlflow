@@ -2,7 +2,7 @@ import pytest
 from graphql import parse
 from graphql.error import GraphQLError
 
-from mlflow.server.graphql.graphql_no_batching import check_query_safety, scan_query
+from mlflow.server.graphql.graphql_no_batching import _MAX_DEPTH, check_query_safety, scan_query
 
 
 def test_scan_query_root_fields():
@@ -141,9 +141,11 @@ def test_check_query_safety_inline_fragment_exceeds_aliases(monkeypatch):
 
 
 def test_scan_query_exceeds_max_depth():
-    # Build a query with depth > 10
-    query = "{ a { b { c { d { e { f { g { h { i { j { k { l } } } } } } } } } } }"
-    ast = parse(query)
+    # Build a query nested deeper than _MAX_DEPTH
+    inner = "id"
+    for _ in range(_MAX_DEPTH + 2):
+        inner = f"a {{ {inner} }}"
+    ast = parse(f"{{ {inner} }}")
 
     with pytest.raises(GraphQLError, match="exceeds maximum depth"):
         scan_query(ast)
@@ -306,6 +308,9 @@ def test_scan_query_circular_fragment_reference_with_fields():
 
 def test_check_query_safety_alias_split_across_inline_fragments(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", "10")
+    # Raise the root-field limit so the aggregated aliases (not the field count) are
+    # what trips the guard, isolating the alias-aggregation path under test.
+    monkeypatch.setenv("MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS", "1000")
 
     # PoC: distribute 100 aliases across 10 sibling inline fragments
     # Each fragment has 10 aliases, which is within limit per-fragment,
@@ -324,6 +329,9 @@ def test_check_query_safety_alias_split_across_inline_fragments(monkeypatch):
 
 def test_check_query_safety_alias_split_across_named_fragments(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", "10")
+    # Raise the root-field limit so the aggregated aliases (not the field count) are
+    # what trips the guard, isolating the alias-aggregation path under test.
+    monkeypatch.setenv("MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS", "1000")
 
     # Same PoC but using named fragment spreads instead of inline fragments
     aliases = " ".join([f"name{j}: name {{ id }}" for j in range(10)])

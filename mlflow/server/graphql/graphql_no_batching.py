@@ -1,3 +1,4 @@
+from collections import deque
 from typing import NamedTuple
 
 from graphql.error import GraphQLError
@@ -9,6 +10,7 @@ from graphql.language.ast import (
     FragmentSpreadNode,
     InlineFragmentNode,
     OperationDefinitionNode,
+    SelectionSetNode,
 )
 
 from mlflow.environment_variables import (
@@ -26,7 +28,7 @@ class QueryInfo(NamedTuple):
 
 
 def _collect_fields_and_aliases(
-    selection_set,
+    selection_set: SelectionSetNode,
     fragment_defs: dict[str, FragmentDefinitionNode],
     visited_fragments: frozenset[str],
 ) -> tuple[list[FieldNode], int]:
@@ -42,12 +44,13 @@ def _collect_fields_and_aliases(
     """
     field_selections = []
     total_aliases = 0
-    selections_to_process = list(getattr(selection_set, "selections", []))
+    # deque so popleft is O(1); order does not affect the field/alias counts.
+    selections_to_process = deque(selection_set.selections)
     # Track fragments visited during this collection to prevent cycles
     local_visited = set(visited_fragments)
 
     while selections_to_process:
-        selection = selections_to_process.pop(0)
+        selection = selections_to_process.popleft()
 
         if isinstance(selection, FieldNode):
             field_selections.append(selection)
