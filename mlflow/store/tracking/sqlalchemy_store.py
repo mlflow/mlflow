@@ -5764,13 +5764,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # atomically with the new DB-backed payload generation.
             for trace_id in all_trace_ids:
                 agg = trace_aggregates[trace_id]
-                session.merge(
-                    SqlTraceTag(
-                        request_id=trace_id,
-                        key=TraceTagKey.SPANS_LOCATION,
-                        value=SpansLocation.TRACKING_STORE.value,
-                    )
-                )
+                trace_tag_values = {TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE.value}
 
                 # Persist OTel resource attributes (e.g., service.name) as trace tags so
                 # they are visible in the UI and available for filtering. Resource is attached
@@ -5787,7 +5781,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     None,
                 )
                 if resource is not None:
-                    resource_tag_values: dict[str, str] = {}
                     for key, value in resource.attributes.items():
                         # Skip OTel SDK internal metadata and the reserved mlflow.*
                         # namespace so a client cannot clobber bookkeeping tags
@@ -5800,18 +5793,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         except Exception:
                             _logger.debug("Skipping invalid resource attribute %r", key)
                             continue
-                        resource_tag_values[key] = str_value
-                    # Merge validated resource tags in sorted lock order. Written before the
-                    # user tags below so user-defined tags win on key collision.
-                    _merge_trace_child_rows_in_lock_order(
-                        session, SqlTraceTag, trace_id, resource_tag_values
-                    )
+                        trace_tag_values[key] = str_value
 
                 # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
-                # span (set by OtelSpanProcessor when the trace was exported over OTLP).
-                # Written after resource attributes so user tags take precedence on collision.
+                # span (set by OtelSpanProcessor when the trace was exported over OTLP). Applying
+                # them last preserves their precedence over resource attributes (and over the
+                # spans-location tag, matching the prior sequence of merge calls).
+                trace_tag_values.update(agg.trace_tags)
                 _merge_trace_child_rows_in_lock_order(
-                    session, SqlTraceTag, trace_id, agg.trace_tags
+                    session, SqlTraceTag, trace_id, trace_tag_values
                 )
 
         return spans

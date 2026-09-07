@@ -10654,7 +10654,7 @@ def test_start_trace_conflict_path_merges_metadata_metrics_and_tags_in_sorted_ke
     Tags share the same trace_tags_pk lock-ordering class as metadata/metrics: a
     concurrent log_spans() also merges the trace's user tags, so unsorted tag merges here
     can deadlock two writers on the tag PK-index the same way (#24338 follow-up). All three
-    row families now route through ``_merge_trace_child_rows_sorted``.
+    row families now route through ``_merge_trace_child_rows_in_lock_order``.
 
     We spy on Session.merge (the ORM operation the conflict branch actually uses) rather
     than the SQL cursor, because the merges here emit UPDATE statements (the keys were
@@ -10774,15 +10774,11 @@ def test_log_spans_merges_user_trace_tags_in_sorted_key_order(store: SqlAlchemyS
     assert merged_user_tag_keys == sorted(merged_user_tag_keys)
 
 
-def test_log_spans_merges_resource_attribute_tags_in_sorted_key_order(store: SqlAlchemyStore):
-    """Resource-attribute tags are also merged per-key via session.merge(), so they share
-    the trace_tags_pk lock-ordering class. Assert they are merged in sorted key order and
-    still write before user tags (precedence is covered separately).
-    """
+def test_log_spans_merges_all_trace_tags_in_global_sorted_key_order(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("sorted-order-resource-tags")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
-    resource = _OTelResource({"zeta": "z", "alpha": "a", "mid": "m"})
+    resource = _OTelResource({"zeta": "z", "shared": "resource", "alpha": "a"})
     span = create_mlflow_span(
         OTelReadableSpan(
             name="root",
@@ -10793,7 +10789,11 @@ def test_log_spans_merges_resource_attribute_tags_in_sorted_key_order(store: Sql
                 trace_flags=trace_api.TraceFlags(1),
             ),
             parent=None,
-            attributes={"mlflow.traceRequestId": json.dumps(trace_id)},
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_id),
+                f"{SpanAttributeKey.TRACE_TAG_PREFIX}shared": json.dumps("user"),
+                f"{SpanAttributeKey.TRACE_TAG_PREFIX}omega": json.dumps("o"),
+            },
             start_time=1000000000,
             end_time=2000000000,
             resource=resource,
@@ -10801,23 +10801,25 @@ def test_log_spans_merges_resource_attribute_tags_in_sorted_key_order(store: Sql
         trace_id,
     )
 
-    merged_resource_tag_keys: list[str] = []
+    merged_tag_keys: list[str] = []
     real_merge = sqlalchemy.orm.Session.merge
 
     def _spy_merge(self, instance, *args, **kwargs):
-        if (
-            isinstance(instance, SqlTraceTag)
-            and instance.request_id == trace_id
-            and instance.key in {"zeta", "alpha", "mid"}
-        ):
-            merged_resource_tag_keys.append(instance.key)
+        if isinstance(instance, SqlTraceTag) and instance.request_id == trace_id:
+            merged_tag_keys.append(instance.key)
         return real_merge(self, instance, *args, **kwargs)
 
     with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
         store.log_spans(experiment_id, [span])
 
-    assert len(merged_resource_tag_keys) >= 2, merged_resource_tag_keys
-    assert merged_resource_tag_keys == sorted(merged_resource_tag_keys)
+    assert merged_tag_keys == sorted({
+        TraceTagKey.SPANS_LOCATION,
+        "alpha",
+        "omega",
+        "shared",
+        "zeta",
+    })
+    assert store.get_trace_info(trace_id).tags["shared"] == "user"
 
 
 def test_start_trace_happy_path_assigns_tags_in_sorted_key_order(store: SqlAlchemyStore):
