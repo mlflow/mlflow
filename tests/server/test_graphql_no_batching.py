@@ -157,3 +157,144 @@ def test_scan_query_exceeds_max_selections():
 
     with pytest.raises(GraphQLError, match="exceeds maximum total selections"):
         scan_query(ast)
+
+
+def test_scan_query_fragment_spread_root_fields():
+    query = """
+    fragment QueryFields on Query {
+        experiment { id }
+        run { id }
+        metric { id }
+    }
+
+    {
+        ...QueryFields
+    }
+    """
+    ast = parse(query)
+    info = scan_query(ast)
+    # Named fragment spread should count its fields as root fields
+    assert info.root_fields == 3
+
+
+def test_scan_query_unused_fragment_not_counted():
+    query = """
+    fragment UnusedFields on Query {
+        experiment { id }
+        run { id }
+        metric { id }
+    }
+
+    {
+        run { id }
+    }
+    """
+    ast = parse(query)
+    info = scan_query(ast)
+    # Unused fragment should not be counted, only direct field
+    assert info.root_fields == 1
+
+
+def test_scan_query_fragment_spread_aliases():
+    query = """
+    fragment QueryFields on Query {
+        exp1: experiment { id }
+        exp2: experiment { id }
+    }
+
+    {
+        ...QueryFields
+    }
+    """
+    ast = parse(query)
+    info = scan_query(ast)
+    # Fragment spread should count its aliases
+    assert info.max_aliases == 2
+
+
+def test_check_query_safety_fragment_spread_exceeds_root_fields(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS", "2")
+
+    query = """
+    fragment QueryFields on Query {
+        experiment { id }
+        run { id }
+        metric { id }
+    }
+
+    {
+        ...QueryFields
+    }
+    """
+    ast = parse(query)
+    result = check_query_safety(ast)
+
+    # Should return an error because 3 root fields from fragment exceed limit of 2
+    assert result is not None
+    assert len(result.errors) == 1
+    assert "root fields" in result.errors[0].message
+
+
+def test_check_query_safety_fragment_spread_exceeds_aliases(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", "1")
+
+    query = """
+    fragment QueryFields on Query {
+        exp1: experiment { id }
+        exp2: experiment { id }
+    }
+
+    {
+        ...QueryFields
+    }
+    """
+    ast = parse(query)
+    result = check_query_safety(ast)
+
+    # Should return an error because 2 aliases from fragment exceed limit of 1
+    assert result is not None
+    assert len(result.errors) == 1
+    assert "aliases" in result.errors[0].message
+
+
+def test_scan_query_nested_fragment_spread():
+    query = """
+    fragment Inner on Experiment {
+        id
+        name
+    }
+
+    fragment Outer on Query {
+        experiment {
+            ...Inner
+        }
+    }
+
+    {
+        ...Outer
+    }
+    """
+    ast = parse(query)
+    info = scan_query(ast)
+    # Top-level fragment spread Outer has 1 field (experiment) at depth 1
+    assert info.root_fields == 1
+
+
+def test_scan_query_circular_fragment_reference():
+    query = """
+    fragment A on Query {
+        ...B
+    }
+
+    fragment B on Query {
+        ...A
+    }
+
+    {
+        ...A
+    }
+    """
+    ast = parse(query)
+    # Should not crash or enter infinite loop with circular fragment references
+    info = scan_query(ast)
+    assert info.root_fields == 0

@@ -2,7 +2,14 @@ from typing import NamedTuple
 
 from graphql.error import GraphQLError
 from graphql.execution import ExecutionResult
-from graphql.language.ast import DocumentNode, FieldNode, InlineFragmentNode
+from graphql.language.ast import (
+    DocumentNode,
+    FieldNode,
+    FragmentDefinitionNode,
+    FragmentSpreadNode,
+    InlineFragmentNode,
+    OperationDefinitionNode,
+)
 
 from mlflow.environment_variables import (
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
@@ -26,11 +33,23 @@ def scan_query(ast_node: DocumentNode) -> QueryInfo:
     max_aliases = 0
     total_selections = 0
 
+    # Build a map of fragment definitions for lookup when resolving fragment spreads
+    fragment_defs = {
+        defn.name.value: defn
+        for defn in ast_node.definitions
+        if isinstance(defn, FragmentDefinitionNode)
+    }
+
+    # Only process operation definitions, not fragment definitions
     for definition in ast_node.definitions:
+        if not isinstance(definition, OperationDefinitionNode):
+            continue
+
         if selection_set := getattr(definition, "selection_set", None):
-            stack = [(selection_set, 1)]
+            # Stack tracks (selection_set, depth, visited_fragments) to detect cycles
+            stack = [(selection_set, 1, frozenset())]
             while stack:
-                selection_set, depth = stack.pop()
+                selection_set, depth, visited_fragments = stack.pop()
 
                 # check current level depth
                 if depth > _MAX_DEPTH:
@@ -47,7 +66,7 @@ def scan_query(ast_node: DocumentNode) -> QueryInfo:
                         if selection.alias:
                             current_aliases += 1
                         if selection.selection_set:
-                            stack.append((selection.selection_set, depth + 1))
+                            stack.append((selection.selection_set, depth + 1, visited_fragments))
                         total_selections += 1
                         if total_selections > _MAX_SELECTIONS:
                             raise GraphQLError(
@@ -56,7 +75,15 @@ def scan_query(ast_node: DocumentNode) -> QueryInfo:
                     elif isinstance(selection, InlineFragmentNode):
                         # Inline fragments should have their selections counted at the current depth
                         if selection.selection_set:
-                            stack.append((selection.selection_set, depth))
+                            stack.append((selection.selection_set, depth, visited_fragments))
+                    elif isinstance(selection, FragmentSpreadNode):
+                        # Fragment spreads: count selections at current depth, guard cycles
+                        fragment_name = selection.name.value
+                        if fragment_name not in visited_fragments:
+                            fragment_def = fragment_defs.get(fragment_name)
+                            if fragment_def and fragment_def.selection_set:
+                                new_visited = visited_fragments | {fragment_name}
+                                stack.append((fragment_def.selection_set, depth, new_visited))
                 max_aliases = max(max_aliases, current_aliases)
 
     return QueryInfo(root_fields, max_aliases)
