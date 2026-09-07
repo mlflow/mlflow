@@ -17,7 +17,25 @@ on:
       - closed
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'master' }}
+  # Workflow-level concurrency is evaluated before job conditions, so irrelevant
+  # PR events need unique groups to avoid canceling meaningful preview runs.
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event_name == 'push'
+        && 'master-preview'
+        || (
+          (
+            github.event.action == 'labeled'
+            && github.event.label.name == 'ui-preview'
+          )
+          || (
+            github.event.action != 'labeled'
+            && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+          )
+        )
+        && format('{0}-preview', github.event.pull_request.number)
+        || github.run_id
+    }}
   cancel-in-progress: true
 
 defaults:
@@ -35,6 +53,7 @@ jobs:
       github.event_name != 'push'
       && github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+      && (github.event.action != 'labeled' || github.event.label.name == 'ui-preview')
       && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     runs-on: ubuntu-slim
     permissions:
@@ -74,6 +93,7 @@ jobs:
       || (
         github.event.action != 'closed'
         && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+        && (github.event.action != 'labeled' || github.event.label.name == 'ui-preview')
         && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
       )
     runs-on: ubuntu-latest
