@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - "mlflow/protos/**"
       - .github/workflows/protobuf-cross-test.yml
