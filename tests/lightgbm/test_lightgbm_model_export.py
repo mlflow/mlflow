@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import NamedTuple
 from unittest import mock
 
-import cloudpickle
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -592,7 +591,9 @@ def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
         )
     ]
     assert f"skops=={skops.__version__}" in logged_reqs
-    assert f"cloudpickle=={cloudpickle.__version__}" not in logged_reqs
+    # No cloudpickle-absence assertion: joblib>=1.6.0 depends on cloudpickle (previously it
+    # vendored its own copy), so requirement inference captures it transitively for any
+    # sklearn-based model regardless of the serialization format.
 
     reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
@@ -632,7 +633,9 @@ def test_sklearn_regressor_model_save_load_by_skops(lgb_sklearn_regressor_model,
         )
     ]
     assert f"skops=={skops.__version__}" in logged_reqs
-    assert f"cloudpickle=={cloudpickle.__version__}" not in logged_reqs
+    # No cloudpickle-absence assertion: joblib>=1.6.0 depends on cloudpickle (previously it
+    # vendored its own copy), so requirement inference captures it transitively for any
+    # sklearn-based model regardless of the serialization format.
 
     reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
