@@ -5038,6 +5038,59 @@ def test_log_spans_locks_preexisting_trace_rows_only(store: SqlAlchemyStore) -> 
     assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 300
 
 
+def test_log_spans_lock_refreshes_phase_one_trace_info(store: SqlAlchemyStore) -> None:
+    original_experiment_id = store.create_experiment("stale-parent-original")
+    refreshed_experiment_id = store.create_experiment("stale-parent-refreshed")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, original_experiment_id)
+    original_lock = store._trace_row_lock_query
+
+    def update_before_lock(session, trace_ids):
+        # Phase 1 has cached the old parent. Simulate a concurrent commit before the locking
+        # reread; populate_existing() must replace that identity-map state.
+        with store.engine.begin() as connection:
+            connection.execute(
+                sqlalchemy
+                .update(SqlTraceInfo)
+                .where(SqlTraceInfo.request_id == trace_id)
+                .values(experiment_id=refreshed_experiment_id)
+            )
+        return original_lock(session, trace_ids)
+
+    span = create_test_span(trace_id, name="span", span_id=111, span_type="LLM")
+    with mock.patch.object(store, "_trace_row_lock_query", side_effect=update_before_lock):
+        store.log_spans(original_experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        sql_span = session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one()
+        assert sql_span.experiment_id == int(refreshed_experiment_id)
+
+
+def test_log_spans_locks_mssql_trace_rows_individually_in_sorted_order(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("mssql-parent-lock-order")
+    trace_ids = [f"tr-b-{uuid.uuid4().hex}", f"tr-a-{uuid.uuid4().hex}"]
+    for trace_id in trace_ids:
+        _create_trace(store, trace_id, experiment_id)
+    spans = [
+        create_test_span(trace_id, name="span", span_id=i, span_type="LLM")
+        for i, trace_id in enumerate(trace_ids, start=1)
+    ]
+
+    with (
+        mock.patch.object(store, "db_type", MSSQL),
+        mock.patch.object(
+            store, "_trace_row_lock_query", wraps=store._trace_row_lock_query
+        ) as mock_lock,
+    ):
+        store.log_spans(experiment_id, spans)
+
+    assert [call.args[1] for call in mock_lock.call_args_list] == [
+        [trace_id] for trace_id in sorted(trace_ids)
+    ]
+
+
 @pytest.mark.parametrize(
     ("db_type", "locking"),
     [
