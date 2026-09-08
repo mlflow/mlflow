@@ -49,6 +49,7 @@ class OnlineScorer:
     name: str
     serialized_scorer: str
     online_config: OnlineScoringConfig
+    scorer_version: int | None = None
 
 
 @dataclass

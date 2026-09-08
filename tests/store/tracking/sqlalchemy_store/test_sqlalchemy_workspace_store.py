@@ -2320,12 +2320,14 @@ def test_get_active_online_scorers_workspace_scoped(workspace_tracking_store):
         active_scorers = workspace_tracking_store.get_active_online_scorers()
         assert len(active_scorers) == 1
         assert active_scorers[0].name == "scorer-b"
+        assert active_scorers[0].scorer_version == 1
         assert active_scorers[0].online_config.experiment_id == exp_b
 
     with WorkspaceContext("team-active-a"):
         active_scorers = workspace_tracking_store.get_active_online_scorers()
         assert len(active_scorers) == 1
         assert active_scorers[0].name == "scorer-a"
+        assert active_scorers[0].scorer_version == 1
         assert active_scorers[0].online_config.experiment_id == exp_a
 
 
