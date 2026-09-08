@@ -266,13 +266,15 @@ def test_bash_full_access_allows_any_command():
 
 
 @pytest.mark.parametrize(
-    ("command", "full_access"),
+    ("command", "full_access", "expected_run_args"),
     [
-        ("python -c \"print('hello')\"", False),
-        ("echo hello", True),
+        ("python -c \"print('hello')\"", False, ["python", "-c", "print('hello')"]),
+        ("echo hello", True, "echo hello"),
     ],
 )
-def test_execute_bash_on_host_without_asyncio_subprocess_support(command, full_access):
+def test_execute_bash_on_host_without_asyncio_subprocess_support(
+    command, full_access, expected_run_args
+):
     with (
         mock.patch(
             "asyncio.create_subprocess_exec",
@@ -282,6 +284,9 @@ def test_execute_bash_on_host_without_asyncio_subprocess_support(command, full_a
             "asyncio.create_subprocess_shell",
             side_effect=NotImplementedError("subprocesses are unsupported by this event loop"),
         ) as create_subprocess_shell,
+        mock.patch(
+            "mlflow.assistant.providers.tool_executor.subprocess.run", wraps=subprocess.run
+        ) as run,
     ):
         result, is_error = _run(
             _execute_bash_on_host(command, cwd=None, tracking_uri=None, full_access=full_access)
@@ -291,6 +296,9 @@ def test_execute_bash_on_host_without_asyncio_subprocess_support(command, full_a
     assert result == "hello"
     create_subprocess_exec.assert_not_called()
     create_subprocess_shell.assert_not_called()
+    run.assert_called_once()
+    assert run.call_args.args == (expected_run_args,)
+    assert run.call_args.kwargs["shell"] is full_access
 
 
 def test_execute_bash_on_host_timeout():
