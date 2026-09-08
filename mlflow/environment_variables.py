@@ -1695,7 +1695,9 @@ MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND = _EnvironmentVariable(
 
 #: Executor backend used for custom scorer jobs. When set, custom scorer jobs are routed to
 #: this backend instead of ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``; when unset, they use the
-#: default backend. Validated at startup.
+#: default backend. Validated at startup. Note this only selects *where* a custom scorer would
+#: run -- running one at all still requires ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`` to be enabled
+#: (it is off by default), otherwise custom scorer jobs are rejected regardless of this backend.
 #: (default: unset, i.e. the default backend)
 MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND = _EnvironmentVariable(
     "MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", str, None

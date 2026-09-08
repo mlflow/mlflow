@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from textwrap import dedent
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple
 
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 
@@ -332,12 +332,19 @@ def get_tool_call_signature(call: "FunctionCall", include_arguments: bool) -> st
     return call.name
 
 
-def _scorer_job_param_names() -> tuple[frozenset[str], frozenset[str], frozenset[str]]:
+class _ScorerJobParamNames(NamedTuple):
+    """Scorer job names grouped by how their params carry serialized scorers."""
+
+    inline: frozenset[str]  # a single scorer under ``serialized_scorer``
+    inline_list: frozenset[str]  # a list of scorers under ``serialized_scorers``
+    online: frozenset[str]  # a list of online-scorer entries under ``online_scorers``
+
+
+def _scorer_job_param_names() -> _ScorerJobParamNames:
     """Scorer job names grouped by how their params carry serialized scorers.
 
     Imported lazily from the job definitions (the single source of truth for these names) to
-    avoid a circular import, so a job rename cannot silently desync this detection. Returns the
-    (single inline scorer, list of inline scorers, list of online-scorer entries) name sets.
+    avoid a circular import, so a job rename cannot silently desync this detection.
     """
     from mlflow.genai.evaluation.job import INVOKE_GENAI_EVALUATE_JOB_NAME
     from mlflow.genai.scorers.job import (
@@ -346,10 +353,10 @@ def _scorer_job_param_names() -> tuple[frozenset[str], frozenset[str], frozenset
         ONLINE_TRACE_SCORER_JOB_NAME,
     )
 
-    return (
-        frozenset({INVOKE_SCORER_JOB_NAME}),
-        frozenset({INVOKE_GENAI_EVALUATE_JOB_NAME}),
-        frozenset({ONLINE_TRACE_SCORER_JOB_NAME, ONLINE_SESSION_SCORER_JOB_NAME}),
+    return _ScorerJobParamNames(
+        inline=frozenset({INVOKE_SCORER_JOB_NAME}),
+        inline_list=frozenset({INVOKE_GENAI_EVALUATE_JOB_NAME}),
+        online=frozenset({ONLINE_TRACE_SCORER_JOB_NAME, ONLINE_SESSION_SCORER_JOB_NAME}),
     )
 
 
@@ -365,22 +372,22 @@ def _obj_has_call_source(obj: Any) -> bool:
     return False
 
 
-def _serialized_scorer_has_call_source(serialized_scorer: str) -> bool:
+def _parse_serialized_scorer(serialized_scorer: str) -> dict[str, Any]:
+    """Parse a serialized scorer, raising on malformed input rather than swallowing it."""
     try:
-        data = json.loads(serialized_scorer)
-    except (json.JSONDecodeError, TypeError):
-        return False
-    return _obj_has_call_source(data)
+        return json.loads(serialized_scorer)
+    except (json.JSONDecodeError, TypeError) as e:
+        raise MlflowException.invalid_parameter_value(f"Malformed serialized scorer: {e}") from e
 
 
 def _iter_serialized_scorers(job_name: str, params: dict[str, Any]) -> list[str]:
-    inline_names, inline_list_names, online_names = _scorer_job_param_names()
-    if job_name in inline_names:
+    names = _scorer_job_param_names()
+    if job_name in names.inline:
         s = params.get("serialized_scorer")
         return [s] if isinstance(s, str) else []
-    if job_name in inline_list_names:
+    if job_name in names.inline_list:
         return [s for s in params.get("serialized_scorers") or [] if isinstance(s, str)]
-    if job_name in online_names:
+    if job_name in names.online:
         return [
             sc["serialized_scorer"]
             for sc in params.get("online_scorers") or []
@@ -394,57 +401,69 @@ def params_contain_custom_scorer_code(job_name: str, params: dict[str, Any]) -> 
 
     Custom scorers carry a non-null ``call_source`` that is executed via ``exec()``
     during deserialization. This is the server-derived signal the job framework uses to
-    gate and route custom scorers. Returns False for non-scorer jobs and malformed input.
+    gate and route custom scorers. Returns False for non-custom jobs; raises on malformed
+    serialized-scorer input.
     """
     return any(
-        _serialized_scorer_has_call_source(s) for s in _iter_serialized_scorers(job_name, params)
+        _obj_has_call_source(_parse_serialized_scorer(s))
+        for s in _iter_serialized_scorers(job_name, params)
     )
 
 
-# Matches a leading "<scheme>:/" as used by model URIs (e.g. "openai:/gpt-4",
-# "endpoints:/my-endpoint").
-_MODEL_URI_SCHEME_RE = re.compile(r"^([a-zA-Z0-9_-]+):/")
+def custom_scorer_execution_blocked(serialized_data: Any) -> bool:
+    """Return True if this server must NOT execute the custom code in ``serialized_data``.
+
+    Custom (@scorer) scorers embed ``call_source`` that is run via ``exec()`` when the scorer is
+    deserialized, so a server blocks them unless an operator opted in with
+    ``MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS``. This is the single server-side check the register and
+    invoke handlers share. Recurses so a custom sub-scorer nested in an ensemble is caught too.
+    """
+    from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS
+
+    return _obj_has_call_source(serialized_data) and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get()
+
+
 # Model-URI schemes resolved through the MLflow AI Gateway or a Databricks endpoint (see
-# ``convert_mlflow_uri_to_litellm``). Any other scheme is a direct-provider URI that a remote
-# executor cannot resolve.
+# ``convert_mlflow_uri_to_litellm``). Any other scheme -- or a bare model name with no scheme --
+# is a direct-provider model a remote executor cannot resolve.
 _GATEWAY_BACKED_SCHEMES = frozenset({"gateway", "endpoints", "databricks"})
 
 
-def _iter_model_uris(obj) -> list[str]:
-    found = []
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            # An empty `model` string means no model was specified (not a direct-provider URI),
-            # so skip it -- flagging every stray empty "model" key would be a false positive.
-            if key == "model" and isinstance(value, str) and value:
-                found.append(value)
-            else:
-                found.extend(_iter_model_uris(value))
-    elif isinstance(obj, list):
-        for item in obj:
-            found.extend(_iter_model_uris(item))
-    return found
+def _iter_scorer_models(serialized_data: dict[str, Any]) -> list[str]:
+    """Model URIs referenced by a serialized scorer, including ensemble sub-scorers.
+
+    Uses ``extract_model_from_serialized_scorer`` (which understands the known scorer types)
+    rather than scanning for arbitrary ``model`` keys, and recurses into ensemble sub-scorers.
+    """
+    models = []
+    if model := extract_model_from_serialized_scorer(serialized_data):
+        models.append(model)
+    ensemble = serialized_data.get("ensemble_scorer_data")
+    if isinstance(ensemble, dict):
+        for sub in ensemble.get("scorers") or []:
+            if isinstance(sub, dict):
+                models.extend(_iter_scorer_models(sub))
+    return models
 
 
 def scorer_params_use_direct_provider_model(job_name: str, params: dict[str, Any]) -> bool:
     """Return True if any scorer in the job references a direct-provider (non-Gateway) model.
 
     A remote executor can only reach models routed through the Gateway (a ``gateway:/``,
-    ``endpoints:/``, or ``databricks:/`` URI). Anything else -- another scheme (e.g.
-    ``openai:/``) or a bare model name with no scheme (e.g. ``gpt-oss-120b``) -- is a
-    direct-provider model it cannot resolve. Scorers with no model are compatible. Scans
-    recursively so it is agnostic to per-scorer-type nesting.
+    ``endpoints:/``, or ``databricks:/`` URI). Anything else -- another scheme (e.g. ``openai:/``)
+    or a bare model name with no scheme (e.g. ``gpt-oss-120b``) -- is a direct-provider model it
+    cannot resolve. Scorers with no model are compatible.
     """
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
     for serialized in _iter_serialized_scorers(job_name, params):
-        try:
-            data = json.loads(serialized)
-        except (json.JSONDecodeError, TypeError):
-            continue
-        for uri in _iter_model_uris(data):
-            # Fail closed: only an explicit gateway-backed scheme is remote-safe. A bare model
-            # name with no "scheme:/" (e.g. "databricks" or "gpt-oss-120b") is a direct-provider
-            # model too, so treat a missing/other scheme as direct-provider rather than passing.
-            match = _MODEL_URI_SCHEME_RE.match(uri)
-            if not match or match.group(1) not in _GATEWAY_BACKED_SCHEMES:
+        for model in _iter_scorer_models(_parse_serialized_scorer(serialized)):
+            # Fail closed: a model reachable remotely must have an explicit gateway-backed scheme.
+            # A missing scheme (bare name) makes _parse_model_uri raise -> treat as direct-provider.
+            try:
+                provider, _ = _parse_model_uri(model)
+            except MlflowException:
+                return True
+            if provider not in _GATEWAY_BACKED_SCHEMES:
                 return True
     return False

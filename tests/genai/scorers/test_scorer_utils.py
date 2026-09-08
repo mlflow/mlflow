@@ -700,9 +700,24 @@ def test_non_scorer_job_not_custom():
     assert params_contain_custom_scorer_code("optimize_prompts", {"anything": 1}) is False
 
 
-def test_malformed_serialized_scorer_not_custom():
+def test_malformed_serialized_scorer_raises():
     params = {"serialized_scorer": "not json"}
-    assert params_contain_custom_scorer_code("invoke_scorer", params) is False
+    with pytest.raises(MlflowException, match="Malformed serialized scorer"):
+        params_contain_custom_scorer_code("invoke_scorer", params)
+
+
+def test_custom_scorer_execution_blocked(monkeypatch):
+    from mlflow.genai.scorers.scorer_utils import custom_scorer_execution_blocked
+
+    custom = json.loads(_custom_scorer_json())
+    builtin = json.loads(_builtin_scorer_json())
+
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    assert custom_scorer_execution_blocked(custom) is True
+    assert custom_scorer_execution_blocked(builtin) is False
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    assert custom_scorer_execution_blocked(custom) is False
 
 
 def test_direct_provider_model_flagged():
