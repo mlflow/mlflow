@@ -142,8 +142,12 @@ class EvalItem:
         if is_none_or_nan(expectations):
             expectations = {}
 
-        # Extract tags column from the dataset.
+        # Extract tags column from the dataset. A mixed dataset where only some rows set tags
+        # yields a pandas NaN here, so coerce it (like the sibling columns) to avoid a downstream
+        # ``'float' object has no attribute 'get'`` when a scorer's ``where()`` filter reads it.
         tags = row.get(InputDatasetColumn.TAGS, {})
+        if is_none_or_nan(tags):
+            tags = {}
 
         # Extract source column from the dataset.
         source = row.get(InputDatasetColumn.SOURCE)
