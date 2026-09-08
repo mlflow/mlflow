@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788829572739,
+  "lastUpdate": 1788837767586,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "varun.bhandary@databricks.com",
-            "name": "Varun Bhandary",
-            "username": "vb-dbrks"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "39a00d1b6c67de25c47c37498db2d4898c3643bb",
-          "message": "Fix Databricks unified auth support when MLFLOW_ENABLE_DB_SDK=true (#20599)\n\nSigned-off-by: Varun Bhandary <varun.bhandary@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-04-30T08:57:46Z",
-          "tree_id": "ffe9ed9e9c90eae7d86e36ae42a71b588f15f254",
-          "url": "https://github.com/mlflow/mlflow/commit/39a00d1b6c67de25c47c37498db2d4898c3643bb"
-        },
-        "date": 1777539703146,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 48.46527345000169,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 19.267387771429462,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 18.5969815079358,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 17.978854517242496,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 19.414924049179778,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.03619499999877,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 4.667980142853269,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "2sumtech@gmail.com",
+            "name": "2sumtech",
+            "username": "2sumtech"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5392fc2b7e0aa5358a43c3211a0d504a0a49ff6d",
+          "message": "Fix `ModelVersion.to_proto` dropping `deployment_job_state` (#25635)\n\nSigned-off-by: 2sumtech <2sumtech@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Kris Concepcion <84737625+kriscon-db@users.noreply.github.com>",
+          "timestamp": "2026-09-07T23:21:27-04:00",
+          "tree_id": "623888cf68a716035ffc15d8ceb3df8b4da1a850",
+          "url": "https://github.com/mlflow/mlflow/commit/5392fc2b7e0aa5358a43c3211a0d504a0a49ff6d"
+        },
+        "date": 1788837765305,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.07284204999968,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.170168758064764,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.305563191780349,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.155706076270796,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.586352527131911,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.693584199998327,
             "unit": "ms"
           }
         ]
