@@ -16,6 +16,13 @@ from mlflow.store.db.workspace_move import _SPEC_BY_MODEL, MoveResult, move_reso
 from mlflow.store.model_registry.sqlalchemy_workspace_store import (
     WorkspaceAwareSqlAlchemyStore as WorkspaceAwareRegistryStore,
 )
+from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
+    SqlAgentPluginVersion,
+    SqlAgentPluginVersionMember,
+    SqlSkill,
+    SqlSkillVersion,
+)
 from mlflow.store.workspace.sqlalchemy_store import (
     SqlAlchemyStore as WorkspaceStore,
 )
@@ -419,36 +426,22 @@ def test_move_all_resource_types(
 
 def test_all_workspace_root_models_have_spec():
     from mlflow.store.tracking.dbmodels.models import (
-        SqlAgentPlugin,
         SqlGatewayBudgetPolicy,
         SqlGatewayEndpoint,
         SqlGatewayGuardrail,
         SqlGatewayModelDefinition,
         SqlGatewaySecret,
-        SqlSkill,
     )
     from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 
     # Gateway resources are intentionally excluded due to inter-table FK
     # dependencies that make moving them independently unsafe.
-    #
-    # Skill registry roots are handled for workspace CASCADE/RESTRICT delete, but
-    # move and set-default/migrate-to-default reassignment are deferred to the
-    # workspace-lifecycle branch:
-    # https://github.com/robinnarsinghranabhat/mlflow/tree/rhaieng-7108-workspace-lifecycle
-    # agent_plugin_version_members carries its workspace as ``plugin_workspace``
-    # (shared with its skill_versions FK), which the generic mover/reassigner (keyed
-    # on a ``workspace`` column) cannot retarget without dependency-aware handling.
-    # Those reassignment paths therefore fail loudly rather than orphan member rows
-    # (see delete_workspace SET_DEFAULT and migrate_to_default_workspace).
     _INTENTIONALLY_OMITTED = {
         SqlGatewaySecret,
         SqlGatewayEndpoint,
         SqlGatewayModelDefinition,
         SqlGatewayBudgetPolicy,
         SqlGatewayGuardrail,
-        SqlSkill,
-        SqlAgentPlugin,
     }
 
     missing = {
@@ -773,3 +766,343 @@ def test_move_retarget_failure_rolls_back_move(tracking_store, workspace_store, 
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
         experiment = tracking_store.get_experiment(exp_id)
         assert experiment.artifact_location == old_location
+
+
+# ---------------------------------------------------------------------------
+# Skill registry (skills / agent_plugins): bundle-aware moves
+# ---------------------------------------------------------------------------
+
+
+def _fk_on_engine(db_uri):
+    """A fresh engine that enforces foreign keys (SQLite leaves them off by default),
+    so bundle moves are exercised under the same enforcement as MySQL/Postgres.
+    """
+    eng = sa.create_engine(db_uri)
+    if eng.dialect.name == "sqlite":
+        sa.event.listen(
+            eng, "connect", lambda dbapi, record: dbapi.execute("PRAGMA foreign_keys=ON")
+        )
+    return eng
+
+
+def _add_skill(session, workspace, name, *, org="", versions=(1,)):
+    session.add(SqlSkill(workspace=workspace, organization=org, name=name))
+    session.flush()
+    for version in versions:
+        session.add(
+            SqlSkillVersion(
+                workspace=workspace,
+                organization=org,
+                name=name,
+                version=version,
+                source_type="git",
+                source="https://github.com/acme/skills.git",
+                status="active",
+            )
+        )
+    session.flush()
+
+
+def _add_plugin(session, workspace, name, version_statuses, *, org=""):
+    session.add(SqlAgentPlugin(workspace=workspace, organization=org, name=name))
+    session.flush()
+    for version, status in version_statuses:
+        session.add(
+            SqlAgentPluginVersion(
+                workspace=workspace,
+                organization=org,
+                name=name,
+                version=version,
+                plugin_json={"name": name, "version": version},
+                source_type="assembled",
+                status=status,
+            )
+        )
+    session.flush()
+
+
+def _add_member(session, workspace, plugin_name, plugin_version, skill_name, *, skill_version=1):
+    session.add(
+        SqlAgentPluginVersionMember(
+            plugin_workspace=workspace,
+            plugin_organization="",
+            plugin_name=plugin_name,
+            plugin_version=plugin_version,
+            member_name=skill_name,
+            member_organization="",
+            member_version=skill_version,
+        )
+    )
+    session.flush()
+
+
+def _scalar(conn, sql, **params):
+    return conn.execute(sa.text(sql), params).scalar()
+
+
+def test_move_agent_plugin_moves_its_skills(tracking_store, workspace_store, db_uri):
+    _create_workspace(workspace_store, "team-a")
+    with tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _add_skill(session, DEFAULT_WORKSPACE_NAME, "code-review")
+        _add_plugin(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", [("1.0.0", "active")])
+        _add_member(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", "1.0.0", "code-review")
+
+    engine = _fk_on_engine(db_uri)
+    try:
+        result = move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="agent_plugins",
+            names=["pr-workflow"],
+        )
+        assert set(result.names) == {"pr-workflow", "code-review"}
+        with engine.begin() as conn:
+            assert (
+                _scalar(conn, "SELECT workspace FROM agent_plugins WHERE name='pr-workflow'")
+                == "team-a"
+            )
+            assert (
+                _scalar(conn, "SELECT workspace FROM skills WHERE name='code-review'") == "team-a"
+            )
+            assert (
+                _scalar(conn, "SELECT workspace FROM skill_versions WHERE name='code-review'")
+                == "team-a"
+            )
+            member = conn.execute(
+                sa.text(
+                    "SELECT plugin_workspace, member_name FROM agent_plugin_version_members "
+                    "WHERE plugin_name='pr-workflow'"
+                )
+            ).fetchone()
+            assert member == ("team-a", "code-review")
+    finally:
+        engine.dispose()
+
+
+def test_move_agent_plugin_refuses_when_skill_shared_with_live_plugin(
+    tracking_store, workspace_store, db_uri
+):
+    _create_workspace(workspace_store, "team-a")
+    with tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _add_skill(session, DEFAULT_WORKSPACE_NAME, "code-review")
+        _add_plugin(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", [("1.0.0", "active")])
+        _add_plugin(session, DEFAULT_WORKSPACE_NAME, "release-flow", [("1.0.0", "active")])
+        _add_member(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", "1.0.0", "code-review")
+        _add_member(session, DEFAULT_WORKSPACE_NAME, "release-flow", "1.0.0", "code-review")
+
+    engine = _fk_on_engine(db_uri)
+    try:
+        with pytest.raises(RuntimeError, match="release-flow"):
+            move_resources(
+                engine,
+                workspace_store,
+                source_workspace=DEFAULT_WORKSPACE_NAME,
+                target_workspace="team-a",
+                resource_type="agent_plugins",
+                names=["pr-workflow"],
+            )
+        with engine.begin() as conn:
+            assert (
+                _scalar(conn, "SELECT workspace FROM agent_plugins WHERE name='pr-workflow'")
+                == DEFAULT_WORKSPACE_NAME
+            )
+            assert (
+                _scalar(conn, "SELECT workspace FROM skills WHERE name='code-review'")
+                == DEFAULT_WORKSPACE_NAME
+            )
+    finally:
+        engine.dispose()
+
+
+def test_move_agent_plugins_together_moves_shared_skill(tracking_store, workspace_store, db_uri):
+    _create_workspace(workspace_store, "team-a")
+    with tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _add_skill(session, DEFAULT_WORKSPACE_NAME, "code-review")
+        _add_plugin(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", [("1.0.0", "active")])
+        _add_plugin(session, DEFAULT_WORKSPACE_NAME, "release-flow", [("1.0.0", "active")])
+        _add_member(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", "1.0.0", "code-review")
+        _add_member(session, DEFAULT_WORKSPACE_NAME, "release-flow", "1.0.0", "code-review")
+    engine = _fk_on_engine(db_uri)
+    try:
+        result = move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="agent_plugins",
+            names=["pr-workflow", "release-flow"],
+        )
+        assert set(result.names) == {"pr-workflow", "release-flow", "code-review"}
+        with engine.begin() as conn:
+            for table, name in (
+                ("agent_plugins", "pr-workflow"),
+                ("agent_plugins", "release-flow"),
+                ("skills", "code-review"),
+            ):
+                assert (
+                    _scalar(conn, f"SELECT workspace FROM {table} WHERE name=:n", n=name)
+                    == "team-a"
+                )
+            count = _scalar(
+                conn,
+                "SELECT count(*) FROM agent_plugin_version_members WHERE plugin_workspace='team-a'",
+            )
+            assert count == 2
+    finally:
+        engine.dispose()
+
+
+def test_move_skill_refuses_when_member_of_live_plugin(tracking_store, workspace_store, db_uri):
+    _create_workspace(workspace_store, "team-a")
+    with tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _add_skill(session, DEFAULT_WORKSPACE_NAME, "code-review")
+        _add_plugin(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", [("1.0.0", "active")])
+        _add_member(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", "1.0.0", "code-review")
+
+    engine = _fk_on_engine(db_uri)
+    try:
+        with pytest.raises(RuntimeError, match="pr-workflow"):
+            move_resources(
+                engine,
+                workspace_store,
+                source_workspace=DEFAULT_WORKSPACE_NAME,
+                target_workspace="team-a",
+                resource_type="skills",
+                names=["code-review"],
+            )
+        with engine.begin() as conn:
+            assert (
+                _scalar(conn, "SELECT workspace FROM skills WHERE name='code-review'")
+                == DEFAULT_WORKSPACE_NAME
+            )
+    finally:
+        engine.dispose()
+
+
+def test_move_standalone_skill(tracking_store, workspace_store, db_uri):
+    _create_workspace(workspace_store, "team-a")
+    with tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _add_skill(session, DEFAULT_WORKSPACE_NAME, "code-review")
+
+    engine = _fk_on_engine(db_uri)
+    try:
+        result = move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="skills",
+            names=["code-review"],
+        )
+        assert result.names == ["code-review"]
+        with engine.begin() as conn:
+            assert (
+                _scalar(conn, "SELECT workspace FROM skills WHERE name='code-review'") == "team-a"
+            )
+            assert (
+                _scalar(conn, "SELECT workspace FROM skill_versions WHERE name='code-review'")
+                == "team-a"
+            )
+    finally:
+        engine.dispose()
+
+
+def test_move_agent_plugin_purges_dead_external_membership(tracking_store, workspace_store, db_uri):
+    _create_workspace(workspace_store, "team-a")
+    with tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _add_skill(session, DEFAULT_WORKSPACE_NAME, "code-review")
+        _add_plugin(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", [("1.0.0", "active")])
+        # release-flow's only reference to code-review is via a soft-deleted version,
+        # so it must not block the move, and its stale link must be purged.
+        _add_plugin(session, DEFAULT_WORKSPACE_NAME, "release-flow", [("0.9.0", "deleted")])
+        _add_member(session, DEFAULT_WORKSPACE_NAME, "pr-workflow", "1.0.0", "code-review")
+        _add_member(session, DEFAULT_WORKSPACE_NAME, "release-flow", "0.9.0", "code-review")
+
+    engine = _fk_on_engine(db_uri)
+    try:
+        result = move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="agent_plugins",
+            names=["pr-workflow"],
+        )
+        assert set(result.names) == {"pr-workflow", "code-review"}
+        with engine.begin() as conn:
+            assert (
+                _scalar(conn, "SELECT workspace FROM agent_plugins WHERE name='pr-workflow'")
+                == "team-a"
+            )
+            assert (
+                _scalar(conn, "SELECT workspace FROM skills WHERE name='code-review'") == "team-a"
+            )
+            # release-flow stayed behind; its stale link to the moved skill was purged.
+            assert (
+                _scalar(conn, "SELECT workspace FROM agent_plugins WHERE name='release-flow'")
+                == DEFAULT_WORKSPACE_NAME
+            )
+            stale = _scalar(
+                conn,
+                "SELECT count(*) FROM agent_plugin_version_members WHERE plugin_name = :n",
+                n="release-flow",
+            )
+            assert stale == 0
+    finally:
+        engine.dispose()
+
+
+def test_move_plugin_with_org_name_syntax(tracking_store, workspace_store, db_uri):
+    _create_workspace(workspace_store, "team-a")
+    with tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _add_skill(session, DEFAULT_WORKSPACE_NAME, "code-review", org="acme")
+        _add_plugin(
+            session, DEFAULT_WORKSPACE_NAME, "pr-workflow", [("1.0.0", "active")], org="acme"
+        )
+        session.add(
+            SqlAgentPluginVersionMember(
+                plugin_workspace=DEFAULT_WORKSPACE_NAME,
+                plugin_organization="acme",
+                plugin_name="pr-workflow",
+                plugin_version="1.0.0",
+                member_name="code-review",
+                member_organization="acme",
+                member_version=1,
+            )
+        )
+        session.flush()
+
+    engine = _fk_on_engine(db_uri)
+    try:
+        result = move_resources(
+            engine,
+            workspace_store,
+            source_workspace=DEFAULT_WORKSPACE_NAME,
+            target_workspace="team-a",
+            resource_type="agent_plugins",
+            names=["@acme/pr-workflow"],
+        )
+        assert set(result.names) == {"acme/pr-workflow", "acme/code-review"}
+        with engine.begin() as conn:
+            assert (
+                _scalar(
+                    conn,
+                    "SELECT workspace FROM agent_plugins WHERE name=:n AND organization=:o",
+                    n="pr-workflow",
+                    o="acme",
+                )
+                == "team-a"
+            )
+            assert (
+                _scalar(
+                    conn,
+                    "SELECT workspace FROM skills WHERE name=:n AND organization=:o",
+                    n="code-review",
+                    o="acme",
+                )
+                == "team-a"
+            )
+    finally:
+        engine.dispose()
