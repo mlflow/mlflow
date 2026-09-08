@@ -195,7 +195,17 @@ def submit_job(
         The job entity. You can call `get_job` API by the job id to get
         the updated job entity.
     """
-    from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
+    from mlflow.environment_variables import (
+        MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND,
+        MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
+        MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+    )
+    from mlflow.genai.scorers.scorer_utils import (
+        params_contain_custom_scorer_code,
+        scorer_params_use_direct_provider_model,
+    )
+    from mlflow.server.jobs.executor_registry import get_executor_registry
+    from mlflow.server.jobs.router import select_executor_backend
     from mlflow.server.jobs.utils import (
         _check_requirements,
         _get_or_init_huey_instance,
@@ -257,13 +267,61 @@ def submit_job(
             "use the huey engine (unset MLFLOW_SERVER_JOB_EXECUTION_ENGINE) instead."
         )
 
+    # Custom (@scorer decorator) scorers carry inline code that is executed on the server when
+    # the scorer runs. Gate them behind an explicit operator opt-in regardless of engine, since
+    # the code executes on both. This is a security control, so it is enforced at submission.
+    is_custom_scorer = params_contain_custom_scorer_code(fn_meta.name, params)
+    if is_custom_scorer and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get():
+        raise MlflowException(
+            "Custom scorers defined with the @scorer decorator are disabled on this server "
+            "because they execute arbitrary code. To run them, an operator must set the "
+            "environment variable 'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'."
+        )
+
+    # Select the executor backend for this job so the executor engine (and crash recovery) can
+    # route it to the right backend. Only relevant to the executor engine; the default (Huey)
+    # engine does not use a backend, so it is left unset there.
+    executor_backend = None
+    if engine == "executor":
+        executor_backend = select_executor_backend(is_custom_scorer=is_custom_scorer)
+        runner_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+        if executor_backend != runner_backend:
+            # The runner does not dispatch per job yet: it runs every job on
+            # MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND and ignores the persisted per-job backend.
+            # Routing custom scorers to a different backend would therefore persist a backend that
+            # is silently never used, so reject the differing config until per-job dispatch lands.
+            raise MlflowException(
+                f"Routing custom scorers to a separate executor backend is not supported yet: "
+                f"MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND ({executor_backend!r}) must match "
+                f"MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND ({runner_backend!r}) until the runner "
+                f"dispatches per job."
+            )
+        # A remote executor gets only a Gateway-scoped token and no provider API keys, so it
+        # cannot resolve a direct-provider model URI unless it opts in via
+        # supports_direct_provider_models (e.g. it provisions provider creds another way). Reject
+        # such a scorer before it is persisted.
+        executor = get_executor_registry().get(runner_backend)
+        if (
+            executor.remote_execution
+            and not executor.supports_direct_provider_models
+            and scorer_params_use_direct_provider_model(fn_meta.name, params)
+        ):
+            raise MlflowException(
+                "The executor backend runs jobs remotely and can only reach models through the "
+                "gateway, but this scorer references a direct-provider model. Use a gateway-backed "
+                "model URI (e.g. 'gateway:/', 'endpoints:/', or 'databricks:/') or a local "
+                "executor backend."
+            )
+
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     # FastAPI callers pass creator explicitly (no flask.g there); Flask callers fall back to g.
     # Resolve it before create_job so the creator is recorded on both engine paths.
     if creator is None:
         creator = _current_authenticated_user()
-    job = job_store.create_job(fn_meta.name, serialized_params, timeout, creator=creator)
+    job = job_store.create_job(
+        fn_meta.name, serialized_params, timeout, creator=creator, executor_backend=executor_backend
+    )
 
     if engine == "executor":
         # Executor engine: the job is persisted as PENDING and the executor runner loop

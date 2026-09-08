@@ -2668,6 +2668,49 @@ def test_register_scorer_rejects_decorator_scorer(mock_get_request_message, mock
     mock_tracking_store.register_scorer.assert_not_called()
 
 
+def test_register_scorer_rejects_ensemble_nested_decorator(
+    mock_get_request_message, mock_tracking_store
+):
+    from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+
+    # The custom code sits in an ensemble sub-scorer, not the top level, so a top-level-only
+    # check would miss it. The recursive check must still reject it.
+    serialized_scorer = json.dumps({
+        "name": "e",
+        "ensemble_scorer_data": {"scorers": [{"name": "c", "call_source": "    return 1\n"}]},
+    })
+    mock_get_request_message.return_value = RegisterScorer(
+        experiment_id="123", name="e", serialized_scorer=serialized_scorer
+    )
+    resp = _register_scorer()
+    assert resp.status_code == 400
+    assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in resp.get_json()["message"]
+    mock_tracking_store.register_scorer.assert_not_called()
+
+
+def test_register_scorer_allows_decorator_scorer_when_flag_enabled(
+    mock_get_request_message, mock_tracking_store, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    serialized_scorer = json.dumps({"name": "my_scorer", "call_source": "    return 1.0\n"})
+    mock_get_request_message.return_value = RegisterScorer(
+        experiment_id="123", name="my_scorer", serialized_scorer=serialized_scorer
+    )
+    mock_tracking_store.register_scorer.return_value = ScorerVersion(
+        experiment_id="123",
+        scorer_name="my_scorer",
+        scorer_version=1,
+        serialized_scorer=serialized_scorer,
+        creation_time=1,
+        scorer_id="sid",
+    )
+    resp = _register_scorer()
+    assert resp.status_code == 200
+    mock_tracking_store.register_scorer.assert_called_once_with(
+        "123", "my_scorer", serialized_scorer
+    )
+
+
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
     experiment_id = "123"
 
@@ -4661,6 +4704,63 @@ def test_invoke_scorer_rejects_decorator_scorer():
         assert response.status_code == 400
         assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in response.get_json()["message"]
         mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_ensemble_nested_decorator():
+    from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+
+    # The custom code sits in an ensemble sub-scorer, not the top level, so the recursive
+    # check must still reject it before any deserialization.
+    serialized_scorer = json.dumps({
+        "name": "e",
+        "ensemble_scorer_data": {"scorers": [{"name": "c", "call_source": "    return 1\n"}]},
+    })
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in response.get_json()["message"]
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_allows_decorator_scorer_when_flag_enabled(mock_tracking_store, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    serialized_scorer = json.dumps({
+        "name": "s",
+        "aggregations": [],
+        "description": None,
+        "is_session_level_scorer": False,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": "    return len(outputs) > 0\n",
+        "call_signature": "(inputs, outputs)",
+        "original_func_name": "s",
+        "instructions_judge_pydantic_data": None,
+    })
+    with (
+        mock.patch("mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]),
+        mock.patch("mlflow.server.jobs.submit_job"),
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+    # Flag on: the request gets past the gate instead of being rejected as a decorator scorer.
+    assert response.status_code == 200
 
 
 def test_invoke_scorer_rejects_invalid_json():
