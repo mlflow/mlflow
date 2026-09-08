@@ -133,8 +133,21 @@ class AbstractJobExecutor(ABC):
     def remote_execution(self) -> bool:
         """Whether this executor runs jobs through the remote execution contract.
 
-        When ``True``, the framework generates scoped tokens and requires
-        Gateway-backed model URIs. Defaults to ``False``.
+        When ``True``, the framework generates scoped tokens and, unless the executor also sets
+        ``supports_direct_provider_models``, requires Gateway-backed model URIs. Defaults to
+        ``False``.
+        """
+        return False
+
+    @property
+    def supports_direct_provider_models(self) -> bool:
+        """Whether this executor can reach direct-provider (non-Gateway) model URIs.
+
+        The RFC's remote-execution contract assumes a remote job gets only a Gateway-scoped token
+        and no provider API keys, so the framework rejects direct-provider model URIs for a remote
+        executor by default. An executor that provisions provider credentials another way (e.g.
+        workload identity or Kubernetes secrets) may override this to ``True`` to opt out of that
+        rejection. Ignored when ``remote_execution`` is ``False``. Defaults to ``False``.
         """
         return False
 

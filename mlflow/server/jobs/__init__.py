@@ -285,20 +285,24 @@ def submit_job(
     if engine == "executor":
         # Persist the per-job backend for crash recovery and future per-job dispatch.
         executor_backend = select_executor_backend(is_custom_scorer=is_custom_scorer)
-        # A remote executor can only reach models through the gateway, so reject a scorer that
-        # references a direct-provider model URI it could not resolve. Two backends may run this
-        # job: MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND, which the runner uses today (it does not
-        # dispatch per job yet), and the per-job backend selected above, which is persisted and a
-        # future dispatch/crash-recovery will honor. Both must reach the model, so reject if
-        # either runs remotely -- otherwise a job could be persisted with a remote backend it was
-        # never validated against.
         registry = get_executor_registry()
         runner_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
-        runs_remotely = (
-            registry.get(runner_backend).remote_execution
-            or registry.get(executor_backend).remote_execution
-        )
-        if runs_remotely and scorer_params_use_direct_provider_model(fn_meta.name, params):
+
+        def _requires_gateway_model(backend_name: str) -> bool:
+            # A remote executor gets only a Gateway-scoped token and no provider API keys, so it
+            # cannot resolve a direct-provider model URI -- unless it opts in via
+            # supports_direct_provider_models (e.g. it provisions provider creds another way).
+            ex = registry.get(backend_name)
+            return ex.remote_execution and not ex.supports_direct_provider_models
+
+        # Two backends may run this job: MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND, which the runner uses
+        # today (it does not dispatch per job yet), and the per-job backend selected above, which
+        # is persisted for a future dispatch/crash-recovery. Reject a direct-provider model if
+        # either would require a Gateway-backed URI, so a job is never persisted with a backend it
+        # was not validated against.
+        if (
+            _requires_gateway_model(runner_backend) or _requires_gateway_model(executor_backend)
+        ) and scorer_params_use_direct_provider_model(fn_meta.name, params):
             raise MlflowException(
                 "The executor backend runs jobs remotely and can only reach models through the "
                 "gateway, but this scorer references a direct-provider model. Use a gateway-backed "
