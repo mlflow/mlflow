@@ -1656,7 +1656,16 @@ build_agent_prompt() {
 		"- Derive a realistic input from the README, documentation, examples, tests, or CLI help." \
 		"- Exercise a representative application path and confirm that its trace reaches the experiment." \
 		"- Do not use a placeholder prompt whose only purpose is to produce a fixed response, such as 'trace confirmed'." \
-		"- If realistic execution requires unavailable credentials or user-specific data, ask the user for a suitable safe input." \
+		"- If the real application cannot run because required credentials, services, or user-specific data are unavailable, do not block setup. Instead, emit exactly one synthetic verification trace through a one-off MLflow Tracing API invocation. Do not add a setup-only file to the repository and do not make a network request for weather data." \
+		"- Keep the real application path primary. Use the synthetic trace only as a fallback, and report that it verifies the MLflow connection and trace rendering rather than the application's instrumentation." \
+		"- The synthetic trace must have a root span named weather_agent with span type AGENT and a child span named get_weather with span type TOOL." \
+		"- Give the TOOL span the non-empty input {\"location\":\"Sydney\"} and the deterministic output {\"location\":\"Sydney\",\"temperature_c\":22,\"conditions\":\"Sunny\",\"synthetic\":true}. This result is fake setup data; do not call a real weather service." \
+		"- Give the AGENT root span non-empty OpenAI-style inputs under a messages key, in this sequence:" \
+		"  1. A user message whose content is: What's the weather in Sydney right now?" \
+		"  2. An assistant message with content null and one tool_calls entry. Use id call_weather_sydney_001, type function, function name get_weather, and the JSON-string arguments {\"location\":\"Sydney\"}." \
+		"  3. A tool message whose tool_call_id is call_weather_sydney_001 and whose content is the JSON-string synthetic tool result above." \
+		"- Give the AGENT root span non-empty OpenAI-style outputs under choices[0].message: role assistant and content: Sydney is 22°C and sunny in this synthetic setup example. This is not live weather data." \
+		"- Preserve tool_calls and tool_call_id exactly so the MLflow trace drawer can render the conversation in Pretty view." \
 		"" \
 		"## 6. Validate trace quality" \
 		"- Confirm the trace is logged to the selected experiment." \
