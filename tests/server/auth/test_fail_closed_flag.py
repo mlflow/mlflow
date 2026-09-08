@@ -151,3 +151,31 @@ def test_before_request_serves_the_web_ui_to_a_non_admin_when_fail_closed(monkey
         with app.test_request_context(path, method=method):
             resp = a._before_request()
         assert resp is None, f"{method} {path} denied for a non-admin: {resp}"
+
+
+def test_before_request_still_requires_authentication_for_the_web_ui(monkeypatch):
+    # The guarantee is "authentication stays required, only authorization is skipped".
+    # The wrong fix -- adding these paths to _UNPROTECTED_PATH_PREFIXES -- would pass the
+    # positive tests above while dropping the login requirement, because
+    # is_unprotected_route short-circuits ahead of authenticate_request. So pin the
+    # negative case: an unauthenticated caller must get the 401 back, not the UI.
+    import flask
+
+    monkeypatch.setenv("MLFLOW_BASIC_AUTH_FAIL_CLOSED", "true")
+    monkeypatch.setattr(a, "authenticate_request", a.make_basic_auth_response)
+    monkeypatch.setattr(a, "sender_is_admin", lambda: False)
+
+    app = flask.Flask(__name__)
+    for path, method in (
+        ("/", "GET"),
+        ("/version", "GET"),
+        ("/ajax-api/3.0/mlflow/ui-telemetry", "GET"),
+        ("/ajax-api/3.0/mlflow/ui-telemetry", "POST"),
+    ):
+        with app.test_request_context(path, method=method):
+            resp = a._before_request()
+        assert resp is not None, f"{method} {path} served to an unauthenticated caller"
+        assert resp.status_code == 401, f"{method} {path}: expected 401, got {resp.status_code}"
+        assert resp.headers.get("WWW-Authenticate") == 'Basic realm="mlflow"', (
+            f"{method} {path}: not the authentication challenge"
+        )
