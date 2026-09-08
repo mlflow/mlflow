@@ -6,6 +6,7 @@ import sys
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 
 _TOOL_CALL_ID = "call_weather_sydney_001"
 _TOOL_INPUT = {"location": "Sydney"}
@@ -65,6 +66,8 @@ def emit_synthetic_trace(tracking_uri: str, experiment_id: str | None = None) ->
         root_span.set_outputs(output)
 
     mlflow.flush_trace_async_logging()
+    if root_span.trace_id == NO_OP_SPAN_TRACE_ID:
+        raise RuntimeError("Synthetic trace was not emitted because MLflow tracing is disabled.")
     return root_span.trace_id
 
 

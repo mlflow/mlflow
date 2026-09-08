@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
+
+import pytest
 
 import mlflow
 from mlflow.agent.setup._synthetic_trace import emit_synthetic_trace
-from mlflow.entities import SpanType
+from mlflow.entities import NoOpSpan, SpanType
 
 
 def test_emit_synthetic_trace(tmp_path):
@@ -60,3 +63,10 @@ def test_emit_synthetic_trace(tmp_path):
             }
         ]
     }
+
+
+def test_emit_synthetic_trace_fails_when_tracing_is_disabled(monkeypatch):
+    monkeypatch.setattr(mlflow, "start_span", lambda *args, **kwargs: nullcontext(NoOpSpan()))
+
+    with pytest.raises(RuntimeError, match="MLflow tracing is disabled"):
+        emit_synthetic_trace("http://127.0.0.1:5000")
