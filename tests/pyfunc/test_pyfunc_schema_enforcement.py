@@ -3086,11 +3086,11 @@ def test_schema_enforcement_for_anytype(input_example, expected_schema, payload_
 @pytest.mark.parametrize(
     ("dtype", "data_type", "expected_dtype"),
     [
-        ("boolean", DataType.boolean, "boolean"),
-        ("Int8", DataType.integer, "Int32"),
-        ("Int32", DataType.integer, "Int32"),
-        ("Int64", DataType.long, "Int64"),
-        ("UInt8", DataType.integer, "Int32"),
+        ("boolean", DataType.boolean, "float64"),
+        ("Int8", DataType.integer, "float64"),
+        ("Int32", DataType.integer, "float64"),
+        ("Int64", DataType.long, "float64"),
+        ("UInt8", DataType.integer, "float64"),
     ],
 )
 def test_schema_enforcement_keeps_missing_values_in_nullable_columns(
@@ -3112,5 +3112,6 @@ def test_schema_enforcement_accepts_inferred_nullable_schema():
     assert signature.inputs == Schema([ColSpec(DataType.long, name="a", required=False)])
 
     result = _enforce_schema(pf_input, signature.inputs)
-    assert result["a"].tolist()[:2] == [1, 2]
+    assert result["a"].dtype == "float64"
+    assert result["a"].tolist()[:2] == [1.0, 2.0]
     assert result["a"].isna().tolist() == [False, False, True]
