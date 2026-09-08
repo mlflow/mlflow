@@ -15,7 +15,6 @@ def _make_stdout_lines(*dicts) -> list[bytes]:
 
 
 def _mock_process(stdout_lines=None, returncode=0, stderr=b"", killed=False):
-    """Create a mock subprocess line stream."""
     process = MagicMock()
     process.pid = None
     process.returncode = returncode

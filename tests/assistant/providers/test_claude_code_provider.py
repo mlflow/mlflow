@@ -12,7 +12,6 @@ from mlflow.assistant.types import EventType
 
 
 def _mock_process(stdout_lines=None, returncode=0, stderr=b"", killed=False, pid=12345):
-    """Create a mock subprocess line stream."""
     process = MagicMock()
     process.returncode = returncode
     process.pid = pid
