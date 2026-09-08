@@ -6285,6 +6285,26 @@ def test_upload_artifact_handler_applies_workspace_scoping(monkeypatch):
         assert logged_path.startswith("workspaces/team-purple/")
 
 
+def test_upload_artifact_handler_rejects_legacy_transfer_in_presigned_only_mode(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+
+    with (
+        app.test_request_context(
+            method="POST",
+            query_string={"run_uuid": "run1", "path": "output.txt"},
+            data=b"legacy upload",
+        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+    ):
+        response = upload_artifact_handler()
+
+    assert response.status_code == 409
+    body = response.get_json()
+    assert body["error_code"] == "RESOURCE_CONFLICT"
+    assert "Upgrade your MLflow client" in body["message"]
+    mock_store.assert_not_called()
+
+
 def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(monkeypatch):
     from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
