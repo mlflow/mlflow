@@ -6001,6 +6001,16 @@ def create_app(app: Flask = app):
     app.before_request(_before_request)
     app.after_request(_after_request)
 
+    # Cheap no-op unless authorization_function is set to
+    # mlflow.server.auth.session:authenticate_request_session, in which case
+    # this is what actually sets/clears the session cookie (that function
+    # itself only decides the session id; it has no response to attach a
+    # Set-Cookie header to). Registered unconditionally so enabling sessions
+    # is a one-line ini change, not also a code change here.
+    from mlflow.server.auth.session import apply_session_cookie
+
+    app.after_request(apply_session_cookie)
+
     if _MLFLOW_SGI_NAME.get() == "uvicorn":
         fastapi_app = create_fastapi_app(app)
         add_fastapi_permission_middleware(fastapi_app)

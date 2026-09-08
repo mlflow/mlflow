@@ -1,5 +1,7 @@
 import logging
 import re
+import secrets
+import time
 from collections.abc import Iterable
 from urllib.parse import quote, unquote
 
@@ -19,6 +21,7 @@ from mlflow.server.auth.db import utils as dbutils
 from mlflow.server.auth.db.models import (
     SqlRole,
     SqlRolePermission,
+    SqlSession,
     SqlUser,
     SqlUserRoleAssignment,
 )
@@ -239,8 +242,83 @@ class SqlAlchemyStore:
                     text(f"DELETE FROM {table} WHERE user_id = :uid"),
                     {"uid": user.id},
                 )
+            # Log the user out of every session backed by the (soon to be deleted)
+            # account, rather than leaving orphaned rows a later request could
+            # theoretically still present (session_id is unguessable, but there's
+            # no reason to keep them around).
+            session.query(SqlSession).filter(SqlSession.user_id == user.id).delete()
             session.flush()
             session.delete(user)
+
+    # ---- Server-side login sessions ----
+    #
+    # Used only when the auth app is configured with
+    # ``authorization_function = mlflow.server.auth.session:authenticate_request_session``
+    # instead of the default ``authenticate_request_basic_auth``. See
+    # ``mlflow.server.auth.db.models.SqlSession`` and
+    # https://github.com/mlflow/mlflow/issues/13643 for why this exists: storing
+    # sessions here (instead of in a single worker's memory) means every MLflow
+    # instance sharing this database recognizes a session minted by any other one.
+
+    def create_session(self, username: str, ttl_seconds: int) -> str:
+        """
+        Create a server-side session for ``username`` and return its opaque,
+        unguessable id. Callers hand this id to the client (as a cookie) and
+        look it up again via ``get_session_username`` on later requests.
+        """
+        with self.ManagedSessionMaker(read_only=False) as session:
+            user = self._get_user(session, username)
+            session_id = secrets.token_urlsafe(32)
+            session.add(
+                SqlSession(
+                    session_id=session_id,
+                    user_id=user.id,
+                    expires_at=int(time.time()) + ttl_seconds,
+                )
+            )
+            return session_id
+
+    def get_session_username(self, session_id: str) -> str | None:
+        """
+        Return the username for a still-valid session, or ``None`` if
+        ``session_id`` is unknown or has expired. An expired session is
+        deleted as a side effect of looking it up; ``delete_expired_sessions``
+        is a backstop sweep for sessions that are never re-presented.
+        """
+        with self.ManagedSessionMaker(read_only=False) as session:
+            row = (
+                session.query(SqlSession, SqlUser.username)
+                .join(SqlUser, SqlUser.id == SqlSession.user_id)
+                .filter(SqlSession.session_id == session_id)
+                .first()
+            )
+            if row is None:
+                return None
+            sql_session, username = row
+            if sql_session.expires_at < int(time.time()):
+                session.delete(sql_session)
+                return None
+            return username
+
+    def delete_session(self, session_id: str) -> None:
+        """Log out a single session (e.g. on explicit logout)."""
+        with self.ManagedSessionMaker(read_only=False) as session:
+            session.query(SqlSession).filter(SqlSession.session_id == session_id).delete()
+
+    def delete_expired_sessions(self) -> int:
+        """
+        Sweep every session past its ``expires_at``. Lazy cleanup in
+        ``get_session_username`` handles sessions that get presented again
+        after expiring; this is a backstop for ones that never are. Intended
+        to be invoked periodically (e.g. from a scheduled job), not on the
+        request path.
+        """
+        with self.ManagedSessionMaker(read_only=False) as session:
+            return (
+                session.query(SqlSession)
+                .filter(SqlSession.expires_at < int(time.time()))
+                .delete(synchronize_session=False)
+            )
 
     # ---- Synthetic user-role helpers ----
     #
