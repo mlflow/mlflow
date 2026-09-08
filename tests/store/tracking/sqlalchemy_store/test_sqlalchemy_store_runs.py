@@ -1356,6 +1356,37 @@ def test_search_tags(store: SqlAlchemyStore):
     ) == [r2]
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("metrics.loss < 0.1", []),
+        ("metrics.loss <= 0", []),
+        ("metrics.loss = 0", []),
+        ("metrics.loss > 0", ["good"]),
+        ("metrics.loss >= 0", ["good"]),
+        ("metrics.loss < 1", ["good"]),
+        ("metrics.loss = 0.5", ["good"]),
+        # NaN != x is true for every x, matching IEEE 754 and the file store.
+        ("metrics.loss != 0", ["good", "diverged"]),
+        ("metrics.loss != 0.5", ["diverged"]),
+    ],
+)
+def test_search_metrics_nan_never_matches_numeric_filters(
+    store: SqlAlchemyStore, filter_string: str, expected: list[str]
+):
+    # NaN is stored as value=0 with is_nan=True, so the placeholder must not match.
+    experiment_id = _create_experiments(store, "search_metric_nan")
+    run_ids = {}
+    for name, value in [("good", 0.5), ("diverged", float("nan"))]:
+        run_id = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
+        store.log_metric(run_id, entities.Metric("loss", value, 1, 0))
+        run_ids[name] = run_id
+
+    assert sorted(_search_runs(store, experiment_id, filter_string)) == sorted(
+        run_ids[name] for name in expected
+    )
+
+
 def test_search_metrics(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "search_metric")
     r1 = _run_factory(store, _get_run_configs(experiment_id)).info.run_id
