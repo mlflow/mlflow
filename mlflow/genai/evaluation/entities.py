@@ -260,6 +260,11 @@ class EvaluationResult:
     # Per-scorer ``pass_if`` predicates, keyed by scorer name. Populated by the
     # evaluation harness from the scorers that declare one. In-process only.
     pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
+    # Names of the scorers this evaluation ran. Populated by the harness so
+    # ``passed``/``reason`` assert only over values produced by this run's
+    # scorers; other ``/value`` columns in ``result_df`` (e.g. dataset
+    # expectations) are reference data, not assertions. In-process only.
+    scorer_names: set[str] = field(default_factory=set)
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
@@ -308,7 +313,17 @@ class EvaluationResult:
         if self.result_df is None:
             return []
 
-        value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
+        value_cols = [
+            c
+            for c in self.result_df.columns
+            if c.endswith("/value")
+            # Assert only over values produced by this run's scorers. Other
+            # /value columns (e.g. dataset expectations carried in result_df
+            # for comparison) are reference data, not verdicts. When
+            # scorer_names is unset (direct construction, pre-existing callers)
+            # keep the historical behavior of asserting every /value column.
+            and (not self.scorer_names or c.removesuffix("/value") in self.scorer_names)
+        ]
         if not value_cols:
             return []
 

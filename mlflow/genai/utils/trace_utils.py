@@ -990,14 +990,16 @@ def construct_eval_result_df(
 def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> dict[str, Any]:
     result = {}
     for a in assessments:
-        if (
-            # Exclude feedbacks from other evaluation runs
-            (source_run_id := a.get("metadata", {}).get(AssessmentMetadataKey.SOURCE_RUN_ID))
-            and source_run_id != run_id
-        ):
-            continue
         name = a["assessment_name"]
         if feedback := a.get("feedback"):
+            # Only feedbacks logged by this evaluation run are this run's
+            # assertions. The harness stamps every feedback it logs with
+            # mlflow.assessment.sourceRunId, so require it to match: feedback
+            # without the stamp was logged outside the evaluation (e.g. by the
+            # application under test via mlflow.log_assessment) and must not
+            # flow into the run's verdict columns.
+            if a.get("metadata", {}).get(AssessmentMetadataKey.SOURCE_RUN_ID) != run_id:
+                continue
             result[f"{name}/value"] = feedback.get("value")
             # Carry the rationale and any scorer error so downstream consumers (e.g.
             # EvaluationResult.passed/reason) can surface them. Emitted only when
@@ -1007,6 +1009,9 @@ def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> di
             if (error := feedback.get("error")) and (msg := error.get("error_message")):
                 result[f"{name}/error_message"] = msg
         elif expectation := a.get("expectation"):
+            # Expectations are reference values from the dataset: keep them in
+            # the result DataFrame for comparison, but they are not assertions
+            # (EvaluationResult._failures skips them via the scorer name set).
             result[f"{name}/value"] = expectation.get("value")
 
     return result

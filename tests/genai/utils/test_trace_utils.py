@@ -1751,3 +1751,35 @@ def test_evaluate_with_trace_column_preserves_traces():
     remaining_traces = get_traces()
     remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
     assert original_trace_id in remaining_trace_ids
+
+
+def test_get_assessment_values_includes_only_this_runs_feedback():
+    from mlflow.genai.utils.trace_utils import _get_assessment_values
+    from mlflow.tracing.constant import AssessmentMetadataKey
+
+    assessments = [
+        {
+            "assessment_name": "correctness",
+            "feedback": {"value": "yes"},
+            "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-1"},
+        },
+        # Feedback without the source-run stamp (e.g. logged by the
+        # application under test via mlflow.log_assessment) must not become
+        # an assertion column for this run.
+        {"assessment_name": "app_self_grade", "feedback": {"value": "yes"}},
+        # Feedback stamped with a different evaluation run.
+        {
+            "assessment_name": "old_run_score",
+            "feedback": {"value": "yes"},
+            "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-2"},
+        },
+        # Expectations stay in the result DataFrame as reference values.
+        {"assessment_name": "expected_response", "expectation": {"value": "some string"}},
+    ]
+
+    values = _get_assessment_values(assessments, "run-1")
+
+    assert values == {
+        "correctness/value": "yes",
+        "expected_response/value": "some string",
+    }
