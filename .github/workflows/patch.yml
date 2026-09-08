@@ -39,5 +39,5 @@ jobs:
         with:
           retries: 3
           script: |
-            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/patch.js`);
+            const script = require('./.github/workflows/patch.js');
             await script({ github, context, core });

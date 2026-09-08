@@ -43,5 +43,5 @@ jobs:
         with:
           retries: 3
           script: |
-            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/pr-size.js`);
+            const script = require('./.github/workflows/pr-size.js');
             await script({ github, context });

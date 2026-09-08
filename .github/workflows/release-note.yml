@@ -51,7 +51,7 @@ jobs:
           retries: 3
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
-            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/release-note.js`);
+            const script = require("./.github/workflows/release-note.js");
             await script.validateLabeled({ core, context, github });
 
   post-merge:
@@ -77,5 +77,5 @@ jobs:
           retries: 3
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
-            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/release-note.js`);
+            const script = require("./.github/workflows/release-note.js");
             await script.postMerge({ context, github });
