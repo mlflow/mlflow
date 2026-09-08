@@ -25,13 +25,10 @@ jobs:
       issues: write
     steps:
       - name: Fetch script
-        env:
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
         run: |
           curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
             --write-out 'curl: %{time_total}s\n' \
-            "https://raw.githubusercontent.com/$REPO/$SHA/.github/workflows/team-review.js" \
+            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/.github/workflows/team-review.js" \
             -o team-review.js
       - name: Select reviewers
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
