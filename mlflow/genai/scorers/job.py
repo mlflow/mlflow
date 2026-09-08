@@ -25,7 +25,7 @@ from mlflow.genai.evaluation.session_utils import (
     evaluate_session_level_scorers,
     get_first_trace_in_session,
 )
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING, Scorer
 from mlflow.genai.scorers.online import (
     OnlineScorer,
     OnlineScoringConfig,
@@ -94,6 +94,7 @@ def run_online_trace_scorer_job(
             name=scorer_dict["name"],
             serialized_scorer=scorer_dict["serialized_scorer"],
             online_config=OnlineScoringConfig(**scorer_dict["online_config"]),
+            scorer_version=scorer_dict.get("scorer_version"),
         )
         for scorer_dict in online_scorers
     ]
@@ -128,6 +129,7 @@ def run_online_session_scorer_job(
             name=scorer_dict["name"],
             serialized_scorer=scorer_dict["serialized_scorer"],
             online_config=OnlineScoringConfig(**scorer_dict["online_config"]),
+            scorer_version=scorer_dict.get("scorer_version"),
         )
         for scorer_dict in online_scorers
     ]
@@ -144,6 +146,7 @@ def invoke_scorer_job(
     trace_ids: list[str],
     log_assessments: bool = True,
     username: str | None = None,
+    scorer_version: int | None = None,
 ) -> dict[str, Any]:
     """
     Huey job function for async scorer invocation.
@@ -158,6 +161,7 @@ def invoke_scorer_job(
         log_assessments: Whether to log assessments to the traces.
         username: The authenticated user who triggered the job, propagated to
             gateway requests so they are authorised as this user.
+        scorer_version: The registered scorer version, if invoking a registered scorer.
 
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
@@ -172,6 +176,13 @@ def invoke_scorer_job(
 
     # Deserialize scorer
     scorer = Scorer.model_validate_json(serialized_scorer)
+    if scorer_version is not None:
+        scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_TRACKING,
+            experiment_id=experiment_id,
+            sampling_config=None,
+            scorer_version=scorer_version,
+        )
 
     tracking_store = _get_tracking_store()
 
