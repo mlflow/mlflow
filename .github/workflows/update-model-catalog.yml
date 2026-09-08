@@ -5,16 +5,22 @@ on:
     # Run every weekday (Mon-Fri) at 00:00 and 12:00 UTC
     - cron: "0 0,12 * * 1-5"
   workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - mlflow/utils/model_catalog/*.json
   pull_request:
     paths:
       - .github/workflows/update-model-catalog.yml
+      - dev/publish_model_catalog.sh
       - dev/update_model_catalog.py
       - libs/typescript/integrations/claude-code/scripts/sync-anthropic-pricing.mjs
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  # Only PR runs are safe to cancel. The `publish` job pushes tags and opens a
-  # PR, and it is skipped on `pull_request`.
+  # Only PR runs are safe to cancel. The `propose` and `publish` jobs push
+  # changes and tags, and are skipped on `pull_request`.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 defaults:
@@ -28,7 +34,7 @@ env:
 
 jobs:
   sync:
-    if: github.repository == 'mlflow/mlflow'
+    if: github.repository == 'mlflow/mlflow' && github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -89,9 +95,9 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  publish:
+  propose:
     needs: sync
-    if: github.event_name != 'pull_request' && needs.sync.outputs.changed == 'true'
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.sync.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -119,12 +125,6 @@ jobs:
         run: |
           git apply model-catalog.patch
           rm model-catalog.patch
-
-      - name: Update model-catalog/latest tag
-        run: |
-          git fetch origin master --depth=1
-          git tag -f model-catalog/latest origin/master
-          git push -f origin refs/tags/model-catalog/latest
 
       - name: Create or update pull request
         id: pr
@@ -163,7 +163,26 @@ jobs:
           echo "$output" >&2
           exit 1
 
+  publish:
+    if: github.repository == 'mlflow/mlflow' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: true
+
+      - name: Update model-catalog/latest tag
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          git tag -f model-catalog/latest "$GITHUB_SHA"
+          git push -f origin refs/tags/model-catalog/latest
+
       - name: Publish to GitHub Releases
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash dev/publish_model_catalog.sh
