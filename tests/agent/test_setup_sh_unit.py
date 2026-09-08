@@ -141,41 +141,6 @@ build_agent_prompt
     assert "exercise one traced operation" not in result.stdout
 
 
-def test_build_agent_prompt_defines_pretty_synthetic_trace_fallback():
-    result = run_shell(
-        """
-backend=remote
-TRACKING_URI=http://localhost:5050
-EXPERIMENT_ID=42
-EXPERIMENT_NAME=tracing-test
-build_agent_prompt
-"""
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert "Keep the real application path primary" in result.stdout
-    assert "exactly one synthetic verification trace" in result.stdout
-    assert "one-off MLflow Tracing API invocation" in result.stdout
-    assert "do not make a network request for weather data" in result.stdout
-    assert "root span named weather_agent with span type AGENT" in result.stdout
-    assert "child span named get_weather with span type TOOL" in result.stdout
-    assert "OpenAI-style inputs under a messages key" in result.stdout
-    assert '{"location":"Sydney"}' in result.stdout
-    assert (
-        '{"location":"Sydney","temperature_c":22,"conditions":"Sunny","synthetic":true}'
-        in result.stdout
-    )
-    assert "What's the weather in Sydney right now?" in result.stdout
-    assert result.stdout.count("call_weather_sydney_001") == 2
-    assert "content null" in result.stdout
-    assert "type function" in result.stdout
-    assert "tool_calls" in result.stdout
-    assert "tool_call_id" in result.stdout
-    assert "choices[0].message" in result.stdout
-    assert "This is not live weather data" in result.stdout
-    assert "render the conversation in Pretty view" in result.stdout
-
-
 def test_build_remote_agent_prompt_includes_workspace():
     result = run_shell(
         """

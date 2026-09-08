@@ -48,6 +48,33 @@ def test_build_prompt_with_local_server_port_bakes_url(tmp_path: Path):
     assert "http://127.0.0.1:5050" in out
 
 
+def test_build_prompt_defines_pretty_synthetic_trace_fallback(tmp_path: Path):
+    out = build_prompt(tmp_path, AGENTS["claude"], "http://remote:5000")
+    normalized = " ".join(out.split())
+
+    real_app = out.index("First, verify the real application")
+    fallback = out.index("If the real application cannot run")
+    validation = out.index("Validate whichever path ran")
+    assert real_app < fallback < validation
+    assert "exactly one synthetic verification trace" in normalized
+    assert "one-off MLflow Tracing API invocation" in normalized
+    assert "Do not add a setup-only file" in normalized
+    assert "call a real weather service" in normalized
+    assert "root `weather_agent` span with span type `AGENT`" in normalized
+    assert "child `get_weather` span with span type `TOOL`" in normalized
+    assert '{"location":"Sydney"}' in out
+    assert '{"location":"Sydney","temperature_c":22,"conditions":"Sunny","synthetic":true}' in out
+    assert "What's the weather in Sydney right now?" in out
+    assert out.count("call_weather_sydney_001") == 2
+    assert "`tool_calls`" in out
+    assert "`tool_call_id`" in out
+    assert "`choices[0].message`" in out
+    assert "This is not live weather data" in out
+    assert "conversation renders in Pretty view" in normalized
+    assert "validates only the MLflow connection and trace rendering" in normalized
+    assert "not the application's instrumentation" in normalized
+
+
 def test_build_prompt_skills_installed_uses_agent_skills_dir(tmp_path: Path):
     out = build_prompt(tmp_path, AGENTS["claude"], "http://remote:5000", skills_installed=True)
     assert "has been installed at `.claude/skills/`" in out
