@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788848681672,
+  "lastUpdate": 1788849099102,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sai.ravuri@swiggy.in",
-            "name": "Sai Nikitha Ravuri",
-            "username": "sairavuri-sudo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2f79947e2baa9d4aa64381b0a97d35b0cf755aed",
-          "message": "Fix `gateway_adapter` not forwarding workspace header to judge endpoints (#23047)\n\nSigned-off-by: Sai Ravuri <sai.ravuri@swiggy.in>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-05-05T02:46:54Z",
-          "tree_id": "a5214e23258faa8c53093f2463ed91fa40d00553",
-          "url": "https://github.com/mlflow/mlflow/commit/2f79947e2baa9d4aa64381b0a97d35b0cf755aed"
-        },
-        "date": 1777949450969,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 38.49618069999963,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 23.31878662857077,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.197824015873476,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 16.254108375001408,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 22.038917948275717,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.990167399999336,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.862030800015417,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "joshua.wong@databricks.com",
+            "name": "joshuawong-db",
+            "username": "joshuawong-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dad4fdefd3f36d026cdf69fb135e8c60e3ac49c4",
+          "message": "Fix Assistant Bash execution on Windows selector loops (#25687)",
+          "timestamp": "2026-09-08T14:30:14+08:00",
+          "tree_id": "a0c892170d60b5c305c228bb93fff97a20a2579d",
+          "url": "https://github.com/mlflow/mlflow/commit/dad4fdefd3f36d026cdf69fb135e8c60e3ac49c4"
+        },
+        "date": 1788849096416,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.161300799998315,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.402474366666648,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.516521816327126,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.355954948275509,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.819375314960156,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 11.348802200004116,
             "unit": "ms"
           }
         ]
