@@ -1,4 +1,5 @@
 import asyncio
+import subprocess
 from unittest import mock
 from unittest.mock import AsyncMock
 
@@ -6,7 +7,11 @@ import pytest
 
 from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.providers.base import assistant_sandbox_enabled
-from mlflow.assistant.providers.tool_executor import _execute_bash_in_sandbox, execute_tool
+from mlflow.assistant.providers.tool_executor import (
+    _execute_bash_in_sandbox,
+    _execute_bash_on_host,
+    execute_tool,
+)
 from mlflow.server.sandbox import SandboxResult, SandboxUnavailableError
 
 
@@ -258,6 +263,44 @@ def test_bash_full_access_allows_any_command():
     result, is_error = _run(execute_tool("Bash", {"command": "echo hello"}, permissions=perms))
     assert not is_error
     assert "hello" in result
+
+
+@pytest.mark.parametrize(
+    ("command", "full_access"),
+    [
+        ("python -c \"print('hello')\"", False),
+        ("echo hello", True),
+    ],
+)
+def test_execute_bash_on_host_without_asyncio_subprocess_support(command, full_access):
+    with (
+        mock.patch(
+            "asyncio.create_subprocess_exec",
+            side_effect=NotImplementedError("subprocesses are unsupported by this event loop"),
+        ),
+        mock.patch(
+            "asyncio.create_subprocess_shell",
+            side_effect=NotImplementedError("subprocesses are unsupported by this event loop"),
+        ),
+    ):
+        result, is_error = _run(
+            _execute_bash_on_host(command, cwd=None, tracking_uri=None, full_access=full_access)
+        )
+
+    assert not is_error
+    assert result == "hello"
+
+
+def test_execute_bash_on_host_timeout():
+    with mock.patch(
+        "mlflow.assistant.providers.tool_executor.subprocess.run",
+        side_effect=subprocess.TimeoutExpired("echo hello", 120),
+    ):
+        result = _run(
+            _execute_bash_on_host("echo hello", cwd=None, tracking_uri=None, full_access=True)
+        )
+
+    assert result == ("Command timed out after 120 seconds", True)
 
 
 def test_full_access_bypasses_permission_checks(workspace):
