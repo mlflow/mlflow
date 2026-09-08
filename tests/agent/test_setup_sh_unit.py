@@ -48,7 +48,12 @@ def test_trim_whitespace():
 
 
 def test_json_escape():
-    result = run_shell('json_escape "$1"', 'a\\path"with-quote')
+    result = run_shell(
+        r"""
+value='a\path"with-quote'
+json_escape "$value"
+"""
+    )
 
     assert result.returncode == 0, result.stderr
     assert result.stdout == 'a\\\\path\\"with-quote'
@@ -296,18 +301,17 @@ validate_tracking_uri
     assert "Do not include credentials" in result.stderr
 
 
-def test_json_experiment_strings_fallback_handles_compact_response(tmp_path: Path):
-    for command in ("head", "sed"):
-        (tmp_path / command).symlink_to(Path("/usr/bin") / command)
+def test_json_experiment_strings_fallback_handles_compact_response():
     result = run_shell(
         """
-PATH=$1
+sed_bin=$(command -v sed)
+PATH=
+sed() { "$sed_bin" "$@"; }
 printf '%s%s\n' \
     '{"experiments":[{"experiment_id":"1","name":"one"},' \
     '{"experiment_id":"2","name":"two"}]}' |
     json_experiment_strings name
-""",
-        str(tmp_path),
+"""
     )
 
     assert result.returncode == 0, result.stderr
@@ -472,7 +476,7 @@ printf '%s\n' "$DATABRICKS_BIN"
 
     expected = tmp_path / "bin" / "databricks"
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == str(expected)
+    assert Path(result.stdout.strip()) == expected
     assert expected.exists()
 
 
@@ -497,20 +501,16 @@ cat "$setup_tmp_dir/experiments.json"
     assert '"name":"second"' in result.stdout
 
 
-def test_local_server_always_prints_mlflow_command(tmp_path: Path):
-    curl = tmp_path / "curl"
-    curl.write_text("#!/bin/sh\n")
-    curl.chmod(0o755)
-
+def test_local_server_always_prints_mlflow_command():
     result = run_shell(
         """
-PATH=$1
+PATH=
+curl() { :; }
 run_with_spinner() { :; }
 success() { :; }
 EXPERIMENT_NAME=test
 configure_local
-""",
-        str(tmp_path),
+"""
     )
 
     assert result.returncode == 0, result.stderr
