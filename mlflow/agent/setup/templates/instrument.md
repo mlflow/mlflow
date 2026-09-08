@@ -35,26 +35,13 @@ First, verify the real application:
 
 If missing credentials, services, or user-specific data prevent the real
 application from running, do not block setup. Emit exactly one synthetic
-verification trace with a one-off MLflow Tracing API invocation instead. Do not
-add a setup-only file to the repository or call a real weather service.
-It must contain:
+verification trace by running the command below instead. It uses the MLflow
+environment that launched this setup agent and does not call a real service.
+Do not add a setup-only file to the repository.
 
-- A root `weather_agent` span with span type `AGENT` and a child `get_weather`
-  span with span type `TOOL`.
-- `get_weather` inputs `{"location":"Sydney"}` and deterministic outputs
-  `{"location":"Sydney","temperature_c":22,"conditions":"Sunny","synthetic":true}`.
-- Root `messages` in OpenAI chat format, in this sequence:
-  1. A user message with `What's the weather in Sydney right now?`.
-  2. An assistant message with null `content` and one `tool_calls` entry: ID
-     `call_weather_sydney_001`, type `function`, name `get_weather`, and arguments
-     `{"location":"Sydney"}` as a JSON string.
-  3. A tool message with matching `tool_call_id` and the synthetic tool output
-     above as JSON-string `content`.
-- Root `choices[0].message` output with role `assistant` and content
-  `Sydney is 22°C and sunny in this synthetic setup example. This is not live weather data.`
-
-Preserve these `tool_calls` and `tool_call_id` fields so the trace drawer can
-render the conversation in Pretty view.
+```bash
+{{ synthetic_trace_command }}
+```
 
 Validate whichever path ran:
 
