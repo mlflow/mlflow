@@ -356,7 +356,7 @@ If you use MLflow in your research, please cite it using the "Cite this reposito
 
 ## 👥 Core Members
 
-MLflow is currently maintained by the following core members with significant contributions from hundreds of exceptionally talented community members.
+MLflow is currently maintaineded by the following core members with significant contributions from hundreds of exceptionally talented community members.
 
 - [Ben Wilson](https://github.com/BenWilson2)
 - [Corey Zumar](https://github.com/dbczumar)
