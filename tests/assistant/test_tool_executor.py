@@ -277,11 +277,11 @@ def test_execute_bash_on_host_without_asyncio_subprocess_support(command, full_a
         mock.patch(
             "asyncio.create_subprocess_exec",
             side_effect=NotImplementedError("subprocesses are unsupported by this event loop"),
-        ),
+        ) as create_subprocess_exec,
         mock.patch(
             "asyncio.create_subprocess_shell",
             side_effect=NotImplementedError("subprocesses are unsupported by this event loop"),
-        ),
+        ) as create_subprocess_shell,
     ):
         result, is_error = _run(
             _execute_bash_on_host(command, cwd=None, tracking_uri=None, full_access=full_access)
@@ -289,18 +289,21 @@ def test_execute_bash_on_host_without_asyncio_subprocess_support(command, full_a
 
     assert not is_error
     assert result == "hello"
+    create_subprocess_exec.assert_not_called()
+    create_subprocess_shell.assert_not_called()
 
 
 def test_execute_bash_on_host_timeout():
     with mock.patch(
         "mlflow.assistant.providers.tool_executor.subprocess.run",
         side_effect=subprocess.TimeoutExpired("echo hello", 120),
-    ):
+    ) as run:
         result = _run(
             _execute_bash_on_host("echo hello", cwd=None, tracking_uri=None, full_access=True)
         )
 
     assert result == ("Command timed out after 120 seconds", True)
+    run.assert_called_once()
 
 
 def test_full_access_bypasses_permission_checks(workspace):
