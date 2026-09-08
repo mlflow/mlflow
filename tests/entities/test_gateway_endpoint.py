@@ -1,5 +1,8 @@
+import pytest
+
 from mlflow.entities import (
     FallbackConfig,
+    FallbackStrategy,
     GatewayEndpoint,
     GatewayEndpointBinding,
     GatewayEndpointModelMapping,
@@ -7,7 +10,6 @@ from mlflow.entities import (
     GatewayModelLinkageType,
     GatewayResourceType,
 )
-from mlflow.entities.gateway_endpoint import FallbackStrategy
 
 
 def test_model_definition_creation_full():
@@ -424,8 +426,8 @@ def test_fallback_config_proto_round_trip_preserves_unset_max_attempts():
     assert restored.strategy == config.strategy
 
 
-def test_fallback_config_proto_round_trip_preserves_max_attempts():
-    for max_attempts in (0, 1, 5):
-        config = FallbackConfig(strategy=FallbackStrategy.SEQUENTIAL, max_attempts=max_attempts)
-        restored = FallbackConfig.from_proto(config.to_proto())
-        assert restored.max_attempts == max_attempts
+@pytest.mark.parametrize("max_attempts", [0, 1, 5])
+def test_fallback_config_proto_round_trip_preserves_max_attempts(max_attempts):
+    config = FallbackConfig(strategy=FallbackStrategy.SEQUENTIAL, max_attempts=max_attempts)
+    restored = FallbackConfig.from_proto(config.to_proto())
+    assert restored.max_attempts == max_attempts
