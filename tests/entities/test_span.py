@@ -649,13 +649,25 @@ def test_span_from_otel_proto_can_preserve_request_id_for_round_trip():
     otel_proto.end_time_unix_nano = 2000000000
     otel_proto.status.code = OTelProtoStatus.STATUS_CODE_OK
 
+    link_trace_id = bytes.fromhex("aabbccddeeff00112233445566778899")
+    proto_link = otel_proto.links.add()
+    proto_link.trace_id = link_trace_id
+    proto_link.span_id = bytes.fromhex("1122334455667788")
+
     attr = otel_proto.attributes.add()
     attr.key = "mlflow.traceRequestId"
-    _set_otel_proto_anyvalue(attr.value, "tr-abc123")
+    _set_otel_proto_anyvalue(
+        attr.value, "trace:/catalog.schema/12345678901234567890123456789012"
+    )
 
     mlflow_span = Span.from_otel_proto(otel_proto, preserve_request_id=True)
 
-    assert mlflow_span.trace_id == "tr-abc123"
+    assert mlflow_span.trace_id == "trace:/catalog.schema/12345678901234567890123456789012"
+    assert (
+        mlflow_span.links[0].trace_id
+        == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
+    )
+    assert mlflow_span.to_otel_proto().links[0].trace_id == link_trace_id
 
 
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
@@ -1027,6 +1039,9 @@ def test_add_link_qualifies_unlocated_trace_id_for_uc_trace(link_trace_id):
 
         assert span.links[0].trace_id == f"trace:/catalog.schema/{link_trace_id}"
         assert len(otel_span.links) == 1
+
+        proto_link = span.to_immutable_span().to_otel_proto().links[0]
+        assert proto_link.trace_id.hex() == link_trace_id.removeprefix("tr-").zfill(32)
 
 
 def test_add_link_accepts_same_location_v4_trace_id():

@@ -506,6 +506,12 @@ class Span:
             if location_id
             else generate_mlflow_trace_id_from_otel_trace_id(trace_id)
         )
+        serialized_request_id = dump_span_attribute_value(mlflow_trace_id)
+        if preserve_request_id:
+            serialized_request_id = serialized_attributes.get(
+                SpanAttributeKey.REQUEST_ID, serialized_request_id
+            )
+        request_id = json.loads(serialized_request_id)
 
         # Convert proto Resource to OTel SDK Resource if provided.
         # We avoid _OTelResource.create() which has significant overhead from
@@ -520,7 +526,7 @@ class Span:
 
         links = [Link.from_otel_proto(proto_link) for proto_link in otel_proto_span.links]
         for link in links:
-            link.trace_id = _normalize_link_trace_id(link.trace_id, mlflow_trace_id)
+            link.trace_id = _normalize_link_trace_id(link.trace_id, request_id)
 
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
@@ -531,13 +537,7 @@ class Span:
             # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
                 **serialized_attributes,
-                SpanAttributeKey.REQUEST_ID: (
-                    serialized_attributes.get(
-                        SpanAttributeKey.REQUEST_ID, dump_span_attribute_value(mlflow_trace_id)
-                    )
-                    if preserve_request_id
-                    else dump_span_attribute_value(mlflow_trace_id)
-                ),
+                SpanAttributeKey.REQUEST_ID: serialized_request_id,
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
