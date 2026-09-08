@@ -2,10 +2,6 @@ name: Test requirements
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - requirements/core-requirements.yaml
       - requirements/skinny-requirements.yaml
@@ -39,7 +35,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -67,7 +63,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:

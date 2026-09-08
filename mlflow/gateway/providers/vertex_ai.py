@@ -25,8 +25,8 @@ from typing import Any
 
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.anthropic import AnthropicProvider
-from mlflow.gateway.providers.base import BaseProvider
+from mlflow.gateway.providers.anthropic import AnthropicAdapter, AnthropicProvider
+from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
 
@@ -101,6 +101,29 @@ def _classify_model(model_name: str) -> str:
     return "gemini"
 
 
+class _VertexAIClaudeAdapter(AnthropicAdapter):
+    """AnthropicAdapter for Claude on Vertex AI.
+
+    Adds ``anthropic_version`` and drops ``model`` from the body, like
+    ``AmazonBedrockAnthropicAdapter`` does for Bedrock, so callers that format
+    through ``adapter_class`` alone still get a Vertex-valid payload.
+    """
+
+    @classmethod
+    def _apply_vertex_fields(cls, payload: dict[str, Any]) -> dict[str, Any]:
+        payload.pop("model", None)
+        payload["anthropic_version"] = _VERTEX_ANTHROPIC_VERSION
+        return payload
+
+    @classmethod
+    def chat_to_model(cls, payload: dict[str, Any], config) -> dict[str, Any]:
+        return cls._apply_vertex_fields(super().chat_to_model(payload, config))
+
+    # No `chat_streaming_to_model` override: `AnthropicAdapter.chat_streaming_to_model`
+    # delegates to `cls.chat_to_model`, which already applies the Vertex fields above.
+    # Overriding it here too would apply them twice.
+
+
 class _VertexAIClaudeProvider(AnthropicProvider):
     """AnthropicProvider adapted for Claude models hosted on Vertex AI.
 
@@ -142,10 +165,14 @@ class _VertexAIClaudeProvider(AnthropicProvider):
     def _get_chat_stream_path(self) -> str:
         return f"{self.config.model.name}:streamRawPredict"
 
+    @property
+    def adapter_class(self) -> type[ProviderAdapter]:
+        return _VertexAIClaudeAdapter
+
     def _prepare_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
-        payload.pop("model", None)
-        payload["anthropic_version"] = _VERTEX_ANTHROPIC_VERSION
-        return payload
+        # Still needed: `_chat`/`_chat_stream` format via `AnthropicAdapter` directly,
+        # not `self.adapter_class`.
+        return _VertexAIClaudeAdapter._apply_vertex_fields(payload)
 
 
 class _VertexAIMaaSProvider(OpenAICompatibleProvider):

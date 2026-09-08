@@ -1,8 +1,8 @@
 function getSleepLength(iterationCount, numPendingJobs) {
-  if (iterationCount <= 5 && numPendingJobs <= 5) {
-    // It's likely that this job was triggered with other quick jobs.
-    // To minimize the wait time, shorten the polling interval for the first 5 iterations.
-    return 5 * 1000; // 5 seconds
+  if (iterationCount <= 2) {
+    // Poll twice at 15-second intervals to detect early failures and completions promptly,
+    // regardless of the number of pending jobs.
+    return 15 * 1000;
   }
   // If the number of pending jobs is small, poll more frequently to reduce wait time.
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;

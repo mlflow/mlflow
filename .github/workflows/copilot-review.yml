@@ -2,7 +2,7 @@ name: Copilot Review
 
 on:
   pull_request_target:
-    types: [opened, ready_for_review, review_requested]
+    types: [opened, ready_for_review]
 
 concurrency:
   group: ${{ github.run_id }}
@@ -17,35 +17,14 @@ permissions: {}
 jobs:
   request-review:
     if: >-
-      (github.event.action == 'review_requested'
-      && github.event.pull_request.draft == true
-      && github.event.pull_request.user.login == 'Copilot'
-      && github.event.pull_request.user.type == 'Bot')
-      || (github.event.action != 'review_requested'
-      && github.event.pull_request.draft == false
+      github.event.pull_request.draft == false
       && (contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
-      || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')))
+      || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
-      # `markPullRequestReadyForReview` rejects `pull-requests: write` alone.
-      # See https://github.com/cli/cli/issues/8910.
-      contents: write
       pull-requests: write
     steps:
-      - name: Mark ready for review
-        if: >-
-          github.event.action == 'review_requested'
-          && github.event.pull_request.draft == true
-          && github.event.pull_request.user.login == 'Copilot'
-          && github.event.pull_request.user.type == 'Bot'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          gh pr ready "$PR_NUMBER" --repo "$REPO"
-
       - name: Request Copilot review
         continue-on-error: true
         env:

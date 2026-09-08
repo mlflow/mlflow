@@ -5767,7 +5767,7 @@
         "max_tokens": 65536
       },
       "pricing": {
-        "input_per_million_tokens": 0.22,
+        "input_per_million_tokens": 0.45,
         "output_per_million_tokens": 1.8
       },
       "capabilities": {
@@ -5777,7 +5777,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "qwen.qwen3-coder-next": {
       "mode": "chat",

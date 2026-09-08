@@ -493,7 +493,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0.2
+        "output_per_million_tokens": 0.2,
+        "cache_read_per_million_tokens": 0.02
       },
       "capabilities": {
         "function_calling": true,
@@ -502,7 +503,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-07"
     },
     "ministral-14b-latest": {
       "mode": "chat",
@@ -513,7 +514,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0.2
+        "output_per_million_tokens": 0.2,
+        "cache_read_per_million_tokens": 0.02
       },
       "capabilities": {
         "function_calling": true,
@@ -522,7 +524,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-07"
     },
     "ministral-3-14b-2512": {
       "mode": "chat",
@@ -596,7 +598,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
-        "output_per_million_tokens": 0.1
+        "output_per_million_tokens": 0.1,
+        "cache_read_per_million_tokens": 0.01
       },
       "capabilities": {
         "function_calling": true,
@@ -605,7 +608,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-07"
     },
     "ministral-3b-latest": {
       "mode": "chat",
@@ -616,7 +619,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
-        "output_per_million_tokens": 0.1
+        "output_per_million_tokens": 0.1,
+        "cache_read_per_million_tokens": 0.01
       },
       "capabilities": {
         "function_calling": true,
@@ -625,7 +629,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-07"
     },
     "ministral-8b-2512": {
       "mode": "chat",
