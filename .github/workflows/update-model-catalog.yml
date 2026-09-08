@@ -19,7 +19,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  # Only PR runs are safe to cancel. The `propose` and `publish` jobs push
+  # Only PR runs are safe to cancel. The `create-pr` and `publish` jobs push
   # changes and tags, and are skipped on `pull_request`.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -44,7 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Pin both jobs to the same commit so the patch applies cleanly in `propose`
+          # Pin both jobs to the same commit so the patch applies cleanly in `create-pr`
           ref: ${{ github.sha }}
           persist-credentials: false
 
@@ -95,7 +95,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  propose:
+  create-pr:
     needs: sync
     if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.sync.outputs.changed == 'true'
     runs-on: ubuntu-latest
