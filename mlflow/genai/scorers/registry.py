@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
 _T = TypeVar("_T")
+_SCORER_VERSION_ATTRIBUTE = "scorer_version"
 
 
 class _DatabricksManagedScorerPayload(BaseModel):
@@ -805,7 +806,7 @@ class DatabricksStore(AbstractScorerStore):
                     sample_rate=scheduled_scorer.sample_rate,
                     filter_string=scheduled_scorer.filter_string,
                 ),
-                scorer_version=getattr(scheduled_scorer, "scorer_version", None),
+                scorer_version=getattr(scheduled_scorer, _SCORER_VERSION_ATTRIBUTE, None),
             )
             for scheduled_scorer in scheduled_scorers
         ]
@@ -855,7 +856,7 @@ class DatabricksStore(AbstractScorerStore):
                 sample_rate=scheduled_scorer.sample_rate,
                 filter_string=scheduled_scorer.filter_string,
             ),
-            scorer_version=getattr(scheduled_scorer, "scorer_version", None),
+            scorer_version=getattr(scheduled_scorer, _SCORER_VERSION_ATTRIBUTE, None),
         )
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
