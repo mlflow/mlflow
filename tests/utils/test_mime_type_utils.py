@@ -15,6 +15,8 @@ from mlflow.utils.os import is_windows
         ("/a/b/c.pdf", "application/pdf"),
         ("/a/b/MLmodel", "text/plain"),
         ("/a/b/mlproject", "text/plain"),
+        ("/a/b/data.jsonl", "text/plain"),
+        ("/a/b/.env", "text/plain"),
     ],
 )
 def test_guess_mime_type(file_path, expected_mime_type):
