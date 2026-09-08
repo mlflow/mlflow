@@ -2058,7 +2058,10 @@ def test_submit_leaves_backend_unset_on_default_engine(monkeypatch, tmp_path):
         assert get_job(submitted.job_id).executor_backend is None
 
 
-def test_submit_custom_scorer_routes_to_custom_backend(monkeypatch, tmp_path):
+def test_submit_rejects_differing_custom_scorer_backend(monkeypatch, tmp_path):
+    # Routing custom scorers to a backend that differs from the default is rejected until the
+    # runner dispatches per job (today it always runs on the default backend), so the persisted
+    # per-job backend would never be honored.
     from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
     from mlflow.server.jobs.executor_registry import (
         get_executor_registry,
@@ -2088,15 +2091,12 @@ def test_submit_custom_scorer_routes_to_custom_backend(monkeypatch, tmp_path):
     ):
         try:
             monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
-            # Register a distinct backend and point the custom-scorer override at it. The router
-            # reads the env var at select() time, so this proves custom routing: the assertion
-            # fails if the router ignores is_custom_scorer and falls back to the default.
             shutdown_executor_registry()
             get_executor_registry().register("custom-sandbox", _FakeLocal(JobExecutorConfig()))
             monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "custom-sandbox")
 
-            submitted = submit_job(invoke_scorer_job, _custom_scorer_params())
-            assert get_job(submitted.job_id).executor_backend == "custom-sandbox"
+            with pytest.raises(MlflowException, match="not supported yet"):
+                submit_job(invoke_scorer_job, _custom_scorer_params())
         finally:
             shutdown_executor_registry()
 
@@ -2195,64 +2195,6 @@ def test_remote_backend_rejects_direct_provider_scorer(monkeypatch, tmp_path):
                 "trace_ids": ["t1"],
                 "serialized_scorer": json.dumps({
                     "name": "j",
-                    "instructions_judge_pydantic_data": {"model": "openai:/gpt-4"},
-                }),
-            }
-            with pytest.raises(MlflowException, match="direct-provider model"):
-                submit_job(invoke_scorer_job, params)
-        finally:
-            shutdown_executor_registry()
-
-
-def test_remote_custom_backend_rejects_direct_provider_scorer(monkeypatch, tmp_path):
-    # The custom-scorer backend is remote while the default (runner) backend is local. The job
-    # runs locally today, but is persisted with the remote custom backend, so validation must
-    # check the selected backend too -- not only the runner default -- and reject the
-    # direct-provider model. (Guards against a job persisted with a backend it was never
-    # validated against, once per-job dispatch lands.)
-    from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutorConfig
-    from mlflow.server.jobs.executor_registry import (
-        get_executor_registry,
-        shutdown_executor_registry,
-    )
-
-    class _FakeRemote(AbstractJobExecutor):
-        def submit_job(self, *args, **kwargs): ...
-
-        def wait_for_job(self, job_id): ...
-
-        def cancel_job(self, job_id): ...
-
-        def recover_jobs(self, ids):
-            return []
-
-        @property
-        def remote_execution(self):
-            return True
-
-    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
-    with _setup_job_runner(
-        monkeypatch,
-        tmp_path,
-        supported_job_functions=["mlflow.genai.scorers.job.invoke_scorer_job"],
-        allowed_job_names=["invoke_scorer"],
-    ):
-        try:
-            monkeypatch.setenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", "executor")
-            # Default stays "local" (registered by default); point only the custom-scorer
-            # override at a remote backend.
-            shutdown_executor_registry()
-            get_executor_registry().register("custom-remote", _FakeRemote(JobExecutorConfig()))
-            monkeypatch.setenv("MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND", "custom-remote")
-
-            params = {
-                "experiment_id": "e",
-                "trace_ids": ["t1"],
-                "serialized_scorer": json.dumps({
-                    "name": "c",
-                    "call_source": "    return 1\n",
-                    "call_signature": "(outputs)",
-                    "original_func_name": "c",
                     "instructions_judge_pydantic_data": {"model": "openai:/gpt-4"},
                 }),
             }
