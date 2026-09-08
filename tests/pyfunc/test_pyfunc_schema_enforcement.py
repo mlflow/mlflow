@@ -3115,3 +3115,27 @@ def test_schema_enforcement_accepts_inferred_nullable_schema():
     assert result["a"].dtype == "float64"
     assert result["a"].tolist()[:2] == [1.0, 2.0]
     assert result["a"].isna().tolist() == [False, False, True]
+
+
+def test_schema_enforcement_rejects_long_float64_cannot_represent():
+    # 2**53 + 1 is the smallest positive integer float64 rounds. Preserving the missing
+    # value must not quietly hand the model 2**53 instead.
+    pf_input = pd.DataFrame({"a": pd.array([2**53 + 1, None], dtype="Int64")})
+    schema = Schema([ColSpec(DataType.long, name="a", required=False)])
+
+    with pytest.raises(MlflowException, match="cannot represent exactly"):
+        _enforce_schema(pf_input, schema)
+
+
+@pytest.mark.parametrize("value", [2**53, 2**53 + 2, 2**62, -(2**53), -(2**63)])
+def test_schema_enforcement_keeps_representable_long_with_missing_values(value):
+    # Only the values float64 actually rounds are refused; 2**53 + 2 and the powers of
+    # two above it round-trip exactly and must still be accepted.
+    pf_input = pd.DataFrame({"a": pd.array([value, None], dtype="Int64")})
+    schema = Schema([ColSpec(DataType.long, name="a", required=False)])
+
+    result = _enforce_schema(pf_input, schema)
+
+    assert result["a"].dtype == "float64"
+    assert int(result["a"][0]) == value
+    assert result["a"].isna().tolist() == [False, True]

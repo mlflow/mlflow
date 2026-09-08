@@ -736,6 +736,10 @@ def _enforce_tensor_spec(
     return values
 
 
+# float64 represents every integer exactly up to 2**53; above it the spacing exceeds 1.
+_FLOAT64_EXACT_INT_MAX = 2**53
+
+
 def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     """
     Enforce the input column type matches the declared in model input schema.
@@ -844,6 +848,20 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
             # numpy bool and integer dtypes cannot hold missing values. Return float64 with
             # NaN rather than the nullable extension dtype, which downstream numpy consumers
             # do not accept.
+            if numpy_type.kind in ("i", "u"):
+                # float64 is exact on integers only up to 2**53. Refuse rather than round a
+                # value the signature declares as an integer; enforcement raised here before
+                # missing values were preserved at all, so this keeps that contract.
+                present = values.dropna().to_numpy(dtype="int64")
+                outside = (present > _FLOAT64_EXACT_INT_MAX) | (
+                    present < -_FLOAT64_EXACT_INT_MAX
+                )
+                if outside.any() and any(int(float(int(v))) != int(v) for v in present[outside]):
+                    raise MlflowException(
+                        f"Column {name} has missing values and holds integers that float64 "
+                        f"cannot represent exactly, so enforcing {t} would silently change "
+                        f"them. Drop the missing values or declare the column as double."
+                    )
             return pd.Series(
                 values.to_numpy(dtype="float64", na_value=np.nan),
                 index=values.index,
