@@ -41,6 +41,7 @@ class _RecordingHuey:
 def _stats():
     return RollupBuildStats(
         trace_metric=RollupFamilyBuildStats(built=1),
+        span_cost=RollupFamilyBuildStats(),
         assessment=RollupFamilyBuildStats(emptied=1),
     )
 

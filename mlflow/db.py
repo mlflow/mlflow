@@ -159,6 +159,7 @@ def build_trace_rollups(url, max_partitions):
         )
         for family, family_stats in (
             ("trace_metric", stats.trace_metric),
+            ("span_cost", stats.span_cost),
             ("assessment", stats.assessment),
         ):
             click.echo(
