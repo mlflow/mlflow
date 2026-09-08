@@ -656,16 +656,13 @@ def test_span_from_otel_proto_can_preserve_request_id_for_round_trip():
 
     attr = otel_proto.attributes.add()
     attr.key = "mlflow.traceRequestId"
-    _set_otel_proto_anyvalue(
-        attr.value, "trace:/catalog.schema/12345678901234567890123456789012"
-    )
+    _set_otel_proto_anyvalue(attr.value, "trace:/catalog.schema/12345678901234567890123456789012")
 
     mlflow_span = Span.from_otel_proto(otel_proto, preserve_request_id=True)
 
     assert mlflow_span.trace_id == "trace:/catalog.schema/12345678901234567890123456789012"
     assert (
-        mlflow_span.links[0].trace_id
-        == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
+        mlflow_span.links[0].trace_id == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
     )
     assert mlflow_span.to_otel_proto().links[0].trace_id == link_trace_id
 
