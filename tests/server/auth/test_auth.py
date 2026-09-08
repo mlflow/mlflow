@@ -1548,6 +1548,291 @@ def test_create_model_version_empty_source_id_does_not_bypass(
     assert "Permission denied" in response.text
 
 
+@pytest.fixture
+def metric_model_authz(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    # user2 (the actor) owns the run but has no permission on either model's experiment:
+    # user1 owns model_id1's experiment and user3 owns model_id3's.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+    username3, password3 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id1 = client.create_experiment("metric-authz-model-exp-1")
+        model_id1 = client.create_logged_model(experiment_id=exp_id1).model_id
+
+    with User(username3, password3, monkeypatch):
+        exp_id3 = client.create_experiment("metric-authz-model-exp-3")
+        model_id3 = client.create_logged_model(experiment_id=exp_id3).model_id
+
+    with User(username2, password2, monkeypatch):
+        exp_id2 = client.create_experiment("metric-authz-run-exp")
+        run_id = client.create_run(exp_id2).info.run_id
+
+    return SimpleNamespace(
+        tracking_uri=client.tracking_uri,
+        user2=(username2, password2),
+        exp_id1=exp_id1,
+        model_id1=model_id1,
+        model_id3=model_id3,
+        run_id=run_id,
+        timestamp=int(time.time() * 1000),
+    )
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_log_metric_model_id_requires_update(metric_model_authz):
+    # LogMetric can route a metric to a logged model via model_id; a user with UPDATE on
+    # the run but not on the model_id's experiment must be denied.
+    a = metric_model_authz
+
+    # Unauthorized top-level model_id is denied.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-metric",
+        json_payload={
+            "run_id": a.run_id,
+            "key": "metric_with_model",
+            "value": 1.0,
+            "timestamp": a.timestamp,
+            "model_id": a.model_id1,
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # The camelCase `modelId` alias is covered too.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-metric",
+        json_payload={
+            "run_id": a.run_id,
+            "key": "metric_with_camel_model",
+            "value": 2.0,
+            "timestamp": a.timestamp,
+            "modelId": a.model_id1,
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # A nonexistent model_id returns a uniform 403, not a 404 existence oracle.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-metric",
+        json_payload={
+            "run_id": a.run_id,
+            "key": "metric_bogus_model",
+            "value": 13.0,
+            "timestamp": a.timestamp,
+            "model_id": "m-bogus-nonexistent-model-id",
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # No model_id: only run UPDATE is required, so it succeeds.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-metric",
+        json_payload={
+            "run_id": a.run_id,
+            "key": "metric_no_model",
+            "value": 7.0,
+            "timestamp": a.timestamp,
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_log_batch_model_id_requires_update(metric_model_authz):
+    # LogBatch can route per-metric metrics to logged models via nested model_id; any
+    # referenced model the caller lacks UPDATE on must deny the whole batch.
+    a = metric_model_authz
+
+    # Unauthorized nested model_id is denied.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        json_payload={
+            "run_id": a.run_id,
+            "metrics": [
+                {
+                    "key": "batch_metric_with_model",
+                    "value": 3.0,
+                    "timestamp": a.timestamp,
+                    "model_id": a.model_id1,
+                }
+            ],
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # The camelCase `modelId` alias on a nested metric is covered too.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        json_payload={
+            "run_id": a.run_id,
+            "metrics": [
+                {
+                    "key": "batch_metric_with_camel_model",
+                    "value": 4.0,
+                    "timestamp": a.timestamp,
+                    "modelId": a.model_id1,
+                }
+            ],
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # A batch referencing a distinct unauthorized model is denied.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        json_payload={
+            "run_id": a.run_id,
+            "metrics": [
+                {
+                    "key": "metric1",
+                    "value": 5.0,
+                    "timestamp": a.timestamp,
+                    "model_id": a.model_id1,
+                },
+                {
+                    "key": "metric2",
+                    "value": 6.0,
+                    "timestamp": a.timestamp,
+                    "model_id": a.model_id3,
+                },
+            ],
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # No model_id on any metric: only run UPDATE is required, so it succeeds.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        json_payload={
+            "run_id": a.run_id,
+            "metrics": [
+                {"key": "batch_metric_1", "value": 8.0, "timestamp": a.timestamp},
+                {"key": "batch_metric_2", "value": 9.0, "timestamp": a.timestamp},
+            ],
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_log_metric_and_batch_model_id_allowed_after_grant(metric_model_authz):
+    # After user2 is granted UPDATE on model_id1's experiment (but not model_id3's),
+    # metrics targeting model_id1 succeed while model_id3 stays denied.
+    a = metric_model_authz
+    grant_role_permission(a.tracking_uri, a.user2[0], "experiment", a.exp_id1, "EDIT")
+
+    # Authorized model_id via LogMetric succeeds.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-metric",
+        json_payload={
+            "run_id": a.run_id,
+            "key": "metric_with_perm",
+            "value": 10.0,
+            "timestamp": a.timestamp,
+            "model_id": a.model_id1,
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 200
+
+    # Authorized model_id via LogBatch succeeds.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        json_payload={
+            "run_id": a.run_id,
+            "metrics": [
+                {
+                    "key": "batch_metric_with_perm",
+                    "value": 11.0,
+                    "timestamp": a.timestamp,
+                    "model_id": a.model_id1,
+                }
+            ],
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 200
+
+    # Mixed-permission batch: the authorized model is listed first, so the 403 proves
+    # every distinct model_id is checked, not just the first one that passes.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        json_payload={
+            "run_id": a.run_id,
+            "metrics": [
+                {
+                    "key": "batch_authorized_model",
+                    "value": 11.5,
+                    "timestamp": a.timestamp,
+                    "model_id": a.model_id1,
+                },
+                {
+                    "key": "batch_unauthorized_model",
+                    "value": 11.6,
+                    "timestamp": a.timestamp,
+                    "model_id": a.model_id3,
+                },
+            ],
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # A model in a still-unauthorized experiment remains denied.
+    response = _send_rest_tracking_post_request(
+        a.tracking_uri,
+        "/api/2.0/mlflow/runs/log-metric",
+        json_payload={
+            "run_id": a.run_id,
+            "key": "metric_without_perm",
+            "value": 12.0,
+            "timestamp": a.timestamp,
+            "model_id": a.model_id3,
+        },
+        auth=a.user2,
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+
 def _wait(url: str, timeout: int = 10) -> None:
     t = time.time()
     while time.time() - t < timeout:

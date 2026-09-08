@@ -2,10 +2,6 @@ name: Protos
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - .github/workflows/protos.yml
       - dev/gen_rest_api.py
@@ -35,7 +31,6 @@ permissions: {}
 
 jobs:
   protos:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
