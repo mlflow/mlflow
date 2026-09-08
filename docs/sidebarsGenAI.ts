@@ -440,6 +440,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/crusoe',
+                  label: 'Crusoe',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/databricks',
                   label: 'Databricks',
                 },

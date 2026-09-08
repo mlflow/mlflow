@@ -379,6 +379,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Model Providers',
   },
   {
+    id: 'crusoe',
+    name: 'Crusoe',
+    logoPath: '/images/logos/crusoe-logo.png',
+    link: '/genai/tracing/integrations/listing/crusoe',
+    category: 'Model Providers',
+  },
+  {
     id: 'byteplus',
     name: 'BytePlus',
     logoPath: '/images/logos/byteplus-logo.png',

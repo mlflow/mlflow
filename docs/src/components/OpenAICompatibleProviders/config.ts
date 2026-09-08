@@ -28,6 +28,13 @@ export const OPENAI_COMPATIBLE_PROVIDERS: OpenAICompatibleProvider[] = [
     tsSampleModel: '<your_cohere_model>',
   },
   {
+    id: 'crusoe',
+    name: 'Crusoe',
+    baseUrl: 'https://api.inference.crusoecloud.com/v1',
+    apiKeyPlaceholder: '<your_crusoe_api_key>',
+    sampleModel: 'zai/GLM-5.3',
+  },
+  {
     id: 'deepseek',
     name: 'DeepSeek',
     baseUrl: 'https://api.deepseek.com',
