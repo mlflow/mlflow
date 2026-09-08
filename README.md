@@ -267,6 +267,7 @@ MLflow supports all agent frameworks, LLM providers, tools, and programming lang
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/kong"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/kong-logo.png" height="40"><br><sub><b>Kong AI Gateway</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/pydantic-ai-gateway"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/pydantic-ai-logo-only.png" height="40"><br><sub><b>PydanticAI Gateway</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/truefoundry"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/truefoundry-logo.png" height="40"><br><sub><b>TrueFoundry</b></sub></a></td>
+    <td align="center" width="110"><a href="https://github.com/maximhq/bifrost"><img src="https://raw.githubusercontent.com/maximhq/bifrost/dev/.github/assets/bifrost-logo.png" height="40"><br><sub><b>Bifrost</b></sub></a></td>
   </tr>
 </table>
 
