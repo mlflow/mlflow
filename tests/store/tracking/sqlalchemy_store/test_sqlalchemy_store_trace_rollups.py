@@ -204,6 +204,13 @@ def _insert_span_cost_rollup(
     model_provider=None,
 ):
     with store.ManagedSessionMaker(read_only=False) as session:
+        # Direct seeding models a completed atomic publication. Source writes now enqueue the
+        # span-cost day, so remove that invalidation just as the maintenance publisher does.
+        session.query(SqlTraceRollupRebuild).filter_by(
+            experiment_id=int(exp_id),
+            rollup_day=_day_of(day_start_ms),
+            rollup_family=RollupFamily.SPAN_COST.value,
+        ).delete(synchronize_session=False)
         session.add(
             SqlSpanCostDailyRollup(
                 experiment_id=int(exp_id),

@@ -1,10 +1,10 @@
 """Build job for opt-in SQL daily trace analytics rollups.
 
-This module populates the daily rollup tables from raw trace and assessment rows. It runs on a
-fully migrated database (the rollup tables already exist) and is meant to be invoked from a single
-worker on a schedule; application replicas never call it, they only read rollups and enqueue rebuild
-entries. See :mod:`mlflow.store.tracking.utils.sql_trace_rollups` for the read-side planning layer
-and the reasons span-cost rollups are neither built nor served yet.
+This module populates the daily rollup tables from raw trace, span, and assessment rows. It runs on
+a fully migrated database (the rollup tables already exist) and is meant to be invoked from a single
+worker on a schedule; application replicas never call it, they only read rollups and enqueue
+rebuild entries. See :mod:`mlflow.store.tracking.utils.sql_trace_rollups` for the read-side planning
+layer.
 
 Each partition ``(experiment_id, rollup_day, family)`` is rebuilt in its own transaction that first
 takes a ``SELECT FOR UPDATE`` lock on the partition's rebuild-queue entry, then atomically replaces
@@ -19,18 +19,22 @@ from datetime import date, datetime, timezone
 from typing import Callable, Literal
 
 import sqlalchemy as sa
-from sqlalchemy import case, func, true
+from sqlalchemy import case, func, or_, true
 from sqlalchemy.orm import Session, sessionmaker
 
+from mlflow.entities.trace_metrics import MetricViewType
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
     SqlAssessments,
     SqlSpan,
+    SqlSpanCostDailyRollup,
     SqlTraceInfo,
     SqlTraceMetricDailyRollup,
     SqlTraceRollupRebuild,
 )
+from mlflow.store.tracking.utils.sql_trace_metrics_utils import get_time_bucket_expression
 from mlflow.store.tracking.utils.sql_trace_rollups import (
+    DAILY_INTERVAL_SECONDS,
     FAMILY_MODEL,
     MS_PER_DAY,
     PERCENTILE_BACKENDS,
@@ -38,7 +42,7 @@ from mlflow.store.tracking.utils.sql_trace_rollups import (
     RollupFamily,
     ensure_locked_rebuild_entry,
 )
-from mlflow.tracing.constant import AssessmentMetricKey, TraceMetricKey
+from mlflow.tracing.constant import AssessmentMetricKey, SpanMetricKey, TraceMetricKey
 
 # A trace is eligible for rollup only once it has been inactive for this long; see the 24-hour rule
 # in RFC 0006. The rule controls eligibility, not correctness: late writes re-enqueue a rebuild and
@@ -48,13 +52,15 @@ ROLLUP_ELIGIBILITY_LAG_MS = 24 * 60 * 60 * 1000
 # Larger than any real settle time (epoch ms), used to force a trace with an open span to exceed the
 # inactivity cutoff so its day is never considered eligible while a span is still running.
 _ACTIVE_SENTINEL_MS = 1 << 62
+_ACTIVE_SENTINEL_NS = (1 << 63) - 1
 
 # Exact daily percentiles materialized for trace metrics on supported backends.
 _PERCENTILES: tuple[int, int, int] = (50, 90, 99)
 _PERCENTILE_COLUMNS = {50: "p50_value", 90: "p90_value", 99: "p99_value"}
 
-_BUILT_FAMILIES: tuple[RollupFamily, RollupFamily] = (
+_BUILT_FAMILIES: tuple[RollupFamily, ...] = (
     RollupFamily.TRACE_METRIC,
+    RollupFamily.SPAN_COST,
     RollupFamily.ASSESSMENT,
 )
 
@@ -126,6 +132,12 @@ _ASSESSMENT_METRIC_SPECS: tuple[_MetricSpec, ...] = (
     ),
 )
 
+_SPAN_COST_METRIC_SPECS: tuple[_MetricSpec, ...] = (
+    _MetricSpec(SpanMetricKey.INPUT_COST, SqlSpan.input_cost, count_only=False, percentile=False),
+    _MetricSpec(SpanMetricKey.OUTPUT_COST, SqlSpan.output_cost, count_only=False, percentile=False),
+    _MetricSpec(SpanMetricKey.TOTAL_COST, SqlSpan.total_cost, count_only=False, percentile=False),
+)
+
 _PartitionOutcome = Literal["built", "emptied", "deferred"]
 
 
@@ -140,6 +152,7 @@ class RollupFamilyBuildStats:
 @dataclass(frozen=True)
 class RollupBuildStats:
     trace_metric: RollupFamilyBuildStats
+    span_cost: RollupFamilyBuildStats
     assessment: RollupFamilyBuildStats
 
 
@@ -220,6 +233,60 @@ def _assessment_days_with_data(session: Session) -> set[tuple[int, int]]:
     return {(int(exp), int(bucket)) for exp, bucket in rows}
 
 
+def _span_day_start_expr(db_type: str):
+    """Return the raw reader's span-start daily bucket expression in epoch milliseconds."""
+    return get_time_bucket_expression(MetricViewType.SPANS, DAILY_INTERVAL_SECONDS, db_type)
+
+
+def _eligible_span_days(
+    session: Session, cutoff_ms: int, current_day_bucket: int, db_type: str
+) -> set[tuple[int, int]]:
+    """Return span-start partitions whose spans have all settled before the cutoff."""
+    day_start_ms = _span_day_start_expr(db_type)
+    settle_ns = case(
+        (SqlSpan.end_time_unix_nano.is_(None), _ACTIVE_SENTINEL_NS),
+        else_=SqlSpan.end_time_unix_nano,
+    )
+    rows = (
+        session
+        .query(SqlSpan.experiment_id, day_start_ms.label("day_start_ms"))
+        .filter(
+            SqlSpan.experiment_id.isnot(None),
+            SqlSpan.start_time_unix_nano.isnot(None),
+            day_start_ms < current_day_bucket * MS_PER_DAY,
+        )
+        .group_by(SqlSpan.experiment_id, day_start_ms)
+        .having(func.max(settle_ns) <= cutoff_ms * 1_000_000)
+    )
+    return {
+        (int(experiment_id), int(bucket_start_ms) // MS_PER_DAY)
+        for experiment_id, bucket_start_ms in rows
+    }
+
+
+def _span_cost_days_with_data(session: Session, db_type: str) -> set[tuple[int, int]]:
+    """Return span-start partitions containing at least one materialized cost value."""
+    day_start_ms = _span_day_start_expr(db_type)
+    rows = (
+        session
+        .query(SqlSpan.experiment_id, day_start_ms.label("day_start_ms"))
+        .filter(
+            SqlSpan.experiment_id.isnot(None),
+            SqlSpan.start_time_unix_nano.isnot(None),
+            or_(
+                SqlSpan.input_cost.isnot(None),
+                SqlSpan.output_cost.isnot(None),
+                SqlSpan.total_cost.isnot(None),
+            ),
+        )
+        .group_by(SqlSpan.experiment_id, day_start_ms)
+    )
+    return {
+        (int(experiment_id), int(bucket_start_ms) // MS_PER_DAY)
+        for experiment_id, bucket_start_ms in rows
+    }
+
+
 def _built_partitions(session: Session, family: RollupFamily) -> set[tuple[int, int]]:
     model = FAMILY_MODEL[family]
     rows = session.query(model.experiment_id, model.rollup_day).distinct()
@@ -277,6 +344,44 @@ def _assessment_has_rows(session: Session, experiment_id: int, day_bucket: int) 
     )
 
 
+def _span_cost_partition_state(
+    session: Session, experiment_id: int, day_bucket: int, cutoff_ms: int
+) -> tuple[bool, bool]:
+    """Return ``(eligible, has_rows)`` for a span-cost partition."""
+    lo_ns = day_bucket * MS_PER_DAY * 1_000_000
+    hi_ns = (day_bucket + 1) * MS_PER_DAY * 1_000_000
+    settle_ns = case(
+        (SqlSpan.end_time_unix_nano.is_(None), _ACTIVE_SENTINEL_NS),
+        else_=SqlSpan.end_time_unix_nano,
+    )
+    count_value, max_settle = (
+        session
+        .query(
+            func.count(
+                case((
+                    or_(
+                        SqlSpan.input_cost.isnot(None),
+                        SqlSpan.output_cost.isnot(None),
+                        SqlSpan.total_cost.isnot(None),
+                    ),
+                    1,
+                ))
+            ),
+            func.max(settle_ns),
+        )
+        .filter(
+            SqlSpan.experiment_id == experiment_id,
+            SqlSpan.start_time_unix_nano >= lo_ns,
+            SqlSpan.start_time_unix_nano < hi_ns,
+        )
+        .one()
+    )
+    # Eligibility considers every span in the partition, including spans without costs. A later
+    # update may add costs to any of them, and an open span means the source day is not settled.
+    eligible = max_settle is None or max_settle <= cutoff_ms * 1_000_000
+    return eligible, bool(count_value)
+
+
 def _partition_state(
     session: Session,
     family: RollupFamily,
@@ -291,6 +396,8 @@ def _partition_state(
         return False, False
     if family == RollupFamily.TRACE_METRIC:
         return _trace_partition_state(session, experiment_id, day_bucket, cutoff_ms)
+    if family == RollupFamily.SPAN_COST:
+        return _span_cost_partition_state(session, experiment_id, day_bucket, cutoff_ms)
     # Assessments inherit their trace's timestamp, so contributing traces are those of the same day.
     trace_eligible, trace_has_rows = _trace_partition_state(
         session, experiment_id, day_bucket, cutoff_ms
@@ -431,11 +538,76 @@ def _aggregate_assessment(
     ]
 
 
+def _aggregate_span_cost(
+    session: Session, experiment_id: int, day_bucket: int
+) -> list[SqlSpanCostDailyRollup]:
+    lo_ns = day_bucket * MS_PER_DAY * 1_000_000
+    hi_ns = (day_bucket + 1) * MS_PER_DAY * 1_000_000
+    day = _bucket_to_date(day_bucket)
+    base_filters = [
+        SqlSpan.experiment_id == experiment_id,
+        SqlSpan.start_time_unix_nano >= lo_ns,
+        SqlSpan.start_time_unix_nano < hi_ns,
+    ]
+    groupings = (
+        (GroupingSet.GLOBAL, ()),
+        (GroupingSet.MODEL, (SqlSpan.model_name,)),
+        (GroupingSet.PROVIDER, (SqlSpan.model_provider,)),
+        (GroupingSet.MODEL_PROVIDER, (SqlSpan.model_name, SqlSpan.model_provider)),
+    )
+    rows: list[SqlSpanCostDailyRollup] = []
+    for grouping_set, group_columns in groupings:
+        select_columns = [column.label(f"group_{i}") for i, column in enumerate(group_columns)]
+        query = session.query(*select_columns, *_aggregate_columns(_SPAN_COST_METRIC_SPECS)).filter(
+            *base_filters
+        )
+        if group_columns:
+            # The raw metric path drops groups with a null requested dimension.
+            query = query.filter(*(column.isnot(None) for column in group_columns)).group_by(
+                *group_columns
+            )
+
+        for result in query:
+            model_name = None
+            model_provider = None
+            if grouping_set == GroupingSet.MODEL:
+                model_name = result.group_0
+            elif grouping_set == GroupingSet.PROVIDER:
+                model_provider = result.group_0
+            elif grouping_set == GroupingSet.MODEL_PROVIDER:
+                model_name = result.group_0
+                model_provider = result.group_1
+
+            for spec in _SPAN_COST_METRIC_SPECS:
+                sample_count = getattr(result, f"{spec.metric_name}__n") or 0
+                # Do not publish an empty row for a metric with no source values. Readers will
+                # correctly fall back to raw for that metric/day.
+                if sample_count == 0:
+                    continue
+                rows.append(
+                    SqlSpanCostDailyRollup(
+                        experiment_id=experiment_id,
+                        rollup_day=day,
+                        metric_name=spec.metric_name,
+                        grouping_set=grouping_set.value,
+                        model_name=model_name,
+                        model_provider=model_provider,
+                        sample_count=sample_count,
+                        sum_value=getattr(result, f"{spec.metric_name}__s"),
+                        min_value=getattr(result, f"{spec.metric_name}__mn"),
+                        max_value=getattr(result, f"{spec.metric_name}__mx"),
+                    )
+                )
+    return rows
+
+
 def _aggregate(
     session: Session, family: RollupFamily, experiment_id: int, day_bucket: int, db_type: str
 ):
     if family == RollupFamily.TRACE_METRIC:
         return _aggregate_trace(session, experiment_id, day_bucket, db_type)
+    if family == RollupFamily.SPAN_COST:
+        return _aggregate_span_cost(session, experiment_id, day_bucket)
     return _aggregate_assessment(session, experiment_id, day_bucket, db_type)
 
 
@@ -532,9 +704,8 @@ def run_sql_trace_rollups(
 ) -> RollupBuildStats:
     """Build eligible daily rollups and drain the rebuild queue.
 
-    Rebuilds each eligible or queued ``(experiment_id, rollup_day)`` partition for the trace-metric
-    and assessment families in its own locked transaction. Span-cost rollups are intentionally not
-    built; see :data:`mlflow.store.tracking.utils.sql_trace_rollups.SERVABLE_FAMILIES`.
+    Rebuilds each eligible or queued ``(experiment_id, rollup_day)`` partition for the trace-metric,
+    span-cost, and assessment families in its own locked transaction.
 
     Args:
         engine: A SQLAlchemy engine bound to a fully migrated tracking database.
@@ -559,11 +730,15 @@ def run_sql_trace_rollups(
     session_factory = sessionmaker(bind=engine)
 
     with session_factory() as session:
+        db_type = session.get_bind().dialect.name
         eligible_trace_days = _eligible_trace_days(session, cutoff_ms, current_day_bucket)
+        eligible_span_days = _eligible_span_days(session, cutoff_ms, current_day_bucket, db_type)
+        span_cost_data_days = _span_cost_days_with_data(session, db_type)
         assessment_data_days = _assessment_days_with_data(session)
 
     eligible_by_family = {
         RollupFamily.TRACE_METRIC: eligible_trace_days,
+        RollupFamily.SPAN_COST: eligible_span_days & span_cost_data_days,
         RollupFamily.ASSESSMENT: eligible_trace_days & assessment_data_days,
     }
 
@@ -591,5 +766,6 @@ def run_sql_trace_rollups(
 
     return RollupBuildStats(
         trace_metric=family_stats[RollupFamily.TRACE_METRIC],
+        span_cost=family_stats[RollupFamily.SPAN_COST],
         assessment=family_stats[RollupFamily.ASSESSMENT],
     )

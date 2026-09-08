@@ -54,8 +54,9 @@ def run_sql_trace_rollup_scheduler() -> RollupBuildStats | None:
         max_partitions_per_run=MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN.get(),
     )
     _logger.info(
-        "SQL trace rollup maintenance completed: trace_metric=%s, assessment=%s",
+        "SQL trace rollup maintenance completed: trace_metric=%s, span_cost=%s, assessment=%s",
         stats.trace_metric,
+        stats.span_cost,
         stats.assessment,
     )
     return stats

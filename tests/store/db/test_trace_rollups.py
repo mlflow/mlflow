@@ -34,6 +34,8 @@ from mlflow.store.tracking.utils.sql_trace_rollups import RollupFamily, enqueue_
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
     AssessmentMetricKey,
+    SpanAttributeKey,
+    SpanMetricKey,
     TraceMetricKey,
     TraceTagKey,
 )
@@ -150,17 +152,104 @@ def test_build_is_idempotent(store: SqlAlchemyStore):
 
     # Nothing new is eligible and the queue is empty, so the rerun is a no-op.
     assert second_stats.trace_metric.built == 0
+    assert second_stats.span_cost.built == 0
     assert second_stats.assessment.built == 0
     assert _count(store, SqlTraceMetricDailyRollup) == first
 
 
-def test_span_cost_rollups_are_never_built(store: SqlAlchemyStore):
+def test_build_populates_span_cost_rollups_for_supported_groupings(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
-    _new_trace(store, exp_id, DAY_A_MS)
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id=trace_id,
+                span_id=1,
+                start_ns=DAY_A_MS * 1_000_000,
+                end_ns=(DAY_A_MS + 10) * 1_000_000,
+                attributes={
+                    SpanAttributeKey.LLM_COST: {
+                        "input_cost": 0.2,
+                        "output_cost": 0.3,
+                        "total_cost": 0.5,
+                    },
+                    SpanAttributeKey.MODEL: "gpt-test",
+                    SpanAttributeKey.MODEL_PROVIDER: "openai",
+                },
+            ),
+            create_test_span(
+                trace_id=trace_id,
+                span_id=2,
+                start_ns=(DAY_A_MS + 20) * 1_000_000,
+                end_ns=(DAY_A_MS + 30) * 1_000_000,
+                attributes={
+                    SpanAttributeKey.LLM_COST: {
+                        "input_cost": 0.4,
+                        "output_cost": 0.6,
+                        "total_cost": 1.0,
+                    },
+                    SpanAttributeKey.MODEL: "gpt-test",
+                },
+            ),
+        ],
+    )
 
-    run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
+    stats = run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
 
-    assert _count(store, SqlSpanCostDailyRollup) == 0
+    assert stats.span_cost.built == 1
+    with store.ManagedSessionMaker() as session:
+        total_cost_global = (
+            session
+            .query(SqlSpanCostDailyRollup)
+            .filter_by(
+                experiment_id=int(exp_id),
+                rollup_day=_day_of(DAY_A_MS),
+                metric_name=SpanMetricKey.TOTAL_COST,
+                grouping_set="global",
+            )
+            .one()
+        )
+        assert total_cost_global.sample_count == 2
+        assert total_cost_global.sum_value == pytest.approx(1.5)
+        assert total_cost_global.min_value == pytest.approx(0.5)
+        assert total_cost_global.max_value == pytest.approx(1.0)
+
+        model = (
+            session
+            .query(SqlSpanCostDailyRollup)
+            .filter_by(metric_name=SpanMetricKey.TOTAL_COST, grouping_set="model")
+            .one()
+        )
+        assert (model.model_name, model.model_provider, model.sample_count) == (
+            "gpt-test",
+            None,
+            2,
+        )
+
+        provider = (
+            session
+            .query(SqlSpanCostDailyRollup)
+            .filter_by(metric_name=SpanMetricKey.TOTAL_COST, grouping_set="provider")
+            .one()
+        )
+        assert (provider.model_name, provider.model_provider, provider.sample_count) == (
+            None,
+            "openai",
+            1,
+        )
+
+        model_provider = (
+            session
+            .query(SqlSpanCostDailyRollup)
+            .filter_by(metric_name=SpanMetricKey.TOTAL_COST, grouping_set="model_provider")
+            .one()
+        )
+        assert (
+            model_provider.model_name,
+            model_provider.model_provider,
+            model_provider.sample_count,
+        ) == ("gpt-test", "openai", 1)
 
 
 def test_recent_day_is_not_eligible(store: SqlAlchemyStore):
@@ -217,13 +306,17 @@ def test_open_span_defers_queued_partition(store: SqlAlchemyStore):
         )
         session.commit()
     _enqueue_entry(store, RollupFamily.TRACE_METRIC, exp_id, DAY_A_MS)
+    _enqueue_entry(store, RollupFamily.SPAN_COST, exp_id, DAY_A_MS)
 
     stats = run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
 
     assert stats.trace_metric.deferred == 1
     assert stats.trace_metric.built == 0
+    assert stats.span_cost.deferred == 1
+    assert stats.span_cost.built == 0
     # The queue entry survives so a later run retries once the span closes.
     assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.TRACE_METRIC.value) == 1
+    assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.SPAN_COST.value) == 1
     assert _count(store, SqlTraceMetricDailyRollup) == 0
 
 
@@ -286,9 +379,20 @@ def test_source_writes_enqueue_while_reads_are_disabled(
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "false")
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
 
-    _new_trace(store, exp_id, DAY_A_MS)
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id=trace_id,
+                start_ns=DAY_A_MS * 1_000_000,
+                end_ns=(DAY_A_MS + 10) * 1_000_000,
+            )
+        ],
+    )
 
     assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.TRACE_METRIC.value) == 1
+    assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.SPAN_COST.value) == 1
     assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.ASSESSMENT.value) == 1
 
 
@@ -303,19 +407,85 @@ def test_late_span_write_enqueues_trace_partition(store: SqlAlchemyStore):
         [
             create_test_span(
                 trace_id=trace_id,
-                start_ns=DAY_A_MS * 1_000_000,
-                end_ns=(DAY_A_MS + 50) * 1_000_000,
+                start_ns=DAY_B_MS * 1_000_000,
+                end_ns=(DAY_B_MS + 50) * 1_000_000,
             )
         ],
     )
 
     assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.TRACE_METRIC.value) == 1
+    with store.ManagedSessionMaker() as session:
+        span_cost_entry = (
+            session
+            .query(SqlTraceRollupRebuild)
+            .filter_by(rollup_family=RollupFamily.SPAN_COST.value)
+            .one()
+        )
+        assert span_cost_entry.rollup_day == _day_of(DAY_B_MS)
+
+
+def test_span_upsert_invalidates_old_and_new_cost_partitions(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id=trace_id,
+                span_id=1,
+                start_ns=DAY_A_MS * 1_000_000,
+                end_ns=(DAY_A_MS + 50) * 1_000_000,
+                attributes={SpanAttributeKey.LLM_COST: {"total_cost": 0.5}},
+            )
+        ],
+    )
+    run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
+    assert _count(store, SqlSpanCostDailyRollup) > 0
+
+    # Re-sending the same span moves it to day B and clears its cost. Both the old materialized
+    # partition and its new source partition must be queued, then emptied safely on rebuild.
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id=trace_id,
+                span_id=1,
+                start_ns=DAY_B_MS * 1_000_000,
+                end_ns=(DAY_B_MS + 50) * 1_000_000,
+            )
+        ],
+    )
+    with store.ManagedSessionMaker() as session:
+        queued_days = {
+            row.rollup_day
+            for row in session.query(SqlTraceRollupRebuild).filter_by(
+                rollup_family=RollupFamily.SPAN_COST.value
+            )
+        }
+    assert queued_days == {_day_of(DAY_A_MS), _day_of(DAY_B_MS)}
+
+    stats = run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
+
+    assert stats.span_cost.emptied == 2
+    assert _count(store, SqlSpanCostDailyRollup) == 0
+    assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.SPAN_COST.value) == 0
 
 
 def test_trace_move_enqueues_old_and_new_partitions(store: SqlAlchemyStore):
     old_exp_id = store.create_experiment(f"old-{uuid.uuid4()}")
     new_exp_id = store.create_experiment(f"new-{uuid.uuid4()}")
     trace_id = _new_trace(store, old_exp_id, DAY_A_MS)
+    store.log_spans(
+        old_exp_id,
+        [
+            create_test_span(
+                trace_id=trace_id,
+                start_ns=DAY_A_MS * 1_000_000,
+                end_ns=(DAY_A_MS + 50) * 1_000_000,
+                attributes={SpanAttributeKey.LLM_COST: {"total_cost": 0.5}},
+            )
+        ],
+    )
     run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
     assert _count(store, SqlTraceRollupRebuild) == 0
 
@@ -340,7 +510,38 @@ def test_trace_move_enqueues_old_and_new_partitions(store: SqlAlchemyStore):
         (int(old_exp_id), _day_of(DAY_A_MS), RollupFamily.ASSESSMENT.value),
         (int(new_exp_id), _day_of(DAY_B_MS), RollupFamily.TRACE_METRIC.value),
         (int(new_exp_id), _day_of(DAY_B_MS), RollupFamily.ASSESSMENT.value),
+        (int(old_exp_id), _day_of(DAY_A_MS), RollupFamily.SPAN_COST.value),
+        (int(new_exp_id), _day_of(DAY_A_MS), RollupFamily.SPAN_COST.value),
     }
+
+
+def test_trace_delete_enqueues_span_cost_partition(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    store.log_spans(
+        exp_id,
+        [
+            create_test_span(
+                trace_id=trace_id,
+                start_ns=DAY_B_MS * 1_000_000,
+                end_ns=(DAY_B_MS + 50) * 1_000_000,
+                attributes={SpanAttributeKey.LLM_COST: {"total_cost": 0.5}},
+            )
+        ],
+    )
+    run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
+    assert _count(store, SqlTraceRollupRebuild) == 0
+
+    store.delete_traces(exp_id, trace_ids=[trace_id])
+
+    with store.ManagedSessionMaker() as session:
+        span_cost_entry = (
+            session
+            .query(SqlTraceRollupRebuild)
+            .filter_by(rollup_family=RollupFamily.SPAN_COST.value)
+            .one()
+        )
+        assert span_cost_entry.rollup_day == _day_of(DAY_B_MS)
 
 
 @pytest.mark.parametrize("mutation", ["create", "update", "delete"])
@@ -536,6 +737,7 @@ def test_build_trace_rollups_cli(store: SqlAlchemyStore):
     assert result.exit_code == 0, result.output
     assert "Building SQL daily trace analytics rollups..." in result.output
     assert "trace_metric: built=" in result.output
+    assert "span_cost: built=" in result.output
     assert "assessment: built=" in result.output
     assert "Rollup build completed." in result.output
 
