@@ -31,7 +31,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
-            --write-out 'curl: ttfb=%{time_starttransfer}s total=%{time_total}s size=%{size_download}B\n' \
+            --write-out 'curl: %{time_total}s\n' \
             "https://raw.githubusercontent.com/$REPO/$SHA/.github/workflows/patch.js" \
             -o patch.js
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0

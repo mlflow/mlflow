@@ -26,7 +26,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
-            --write-out 'curl: ttfb=%{time_starttransfer}s total=%{time_total}s size=%{size_download}B\n' \
+            --write-out 'curl: %{time_total}s\n' \
             "https://raw.githubusercontent.com/$REPO/$SHA/.github/workflows/approval.js" \
             -o approval.js
       - name: Fail without core maintainer approval
