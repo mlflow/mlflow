@@ -801,6 +801,7 @@ def run(
         result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
         pass_criteria=pass_criteria,
+        scorer_names={scorer.name for scorer in (scorers or [])},
     )
 
 

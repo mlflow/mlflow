@@ -189,3 +189,48 @@ def test_sparse_columns_are_skipped():
     ])
     result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
     assert result.passed, result.reason
+
+
+def test_passed_ignores_expectation_columns_with_scorer_names():
+    df = pd.DataFrame([
+        {
+            "expected_response/value": "some string",
+            "max_length/value": 10,
+            "correctness/value": "yes",
+        }
+    ])
+    result = EvaluationResult(
+        run_id="r1",
+        metrics={},
+        result_df=df,
+        scorer_names={"correctness"},
+    )
+    assert result.passed
+    assert result.reason == ""
+
+
+def test_passed_reports_scorer_failure_alongside_expectations():
+    df = pd.DataFrame([
+        {
+            "expected_response/value": "some string",
+            "correctness/value": "no",
+        }
+    ])
+    result = EvaluationResult(
+        run_id="r1",
+        metrics={},
+        result_df=df,
+        scorer_names={"correctness"},
+    )
+    assert not result.passed
+    assert "correctness" in result.reason
+    assert "expected_response" not in result.reason
+
+
+def test_passed_without_scorer_names_asserts_all_value_columns():
+    # Direct construction without scorer_names keeps the historical behavior
+    # of asserting every /value column, including dataset expectations.
+    df = pd.DataFrame([{"expected_response/value": "some string", "correctness/value": "yes"}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "expected_response" in result.reason
