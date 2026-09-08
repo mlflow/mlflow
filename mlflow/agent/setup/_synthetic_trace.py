@@ -65,9 +65,9 @@ def emit_synthetic_trace(tracking_uri: str, experiment_id: str | None = None) ->
             tool_span.set_outputs(_TOOL_OUTPUT)
         root_span.set_outputs(output)
 
-    mlflow.flush_trace_async_logging()
     if root_span.trace_id == NO_OP_SPAN_TRACE_ID:
         raise RuntimeError("Synthetic trace was not emitted because MLflow tracing is disabled.")
+    mlflow.flush_trace_async_logging()
     return root_span.trace_id
 
 
