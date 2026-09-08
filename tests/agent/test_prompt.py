@@ -52,27 +52,21 @@ def test_build_prompt_defines_pretty_synthetic_trace_fallback(tmp_path: Path):
     out = build_prompt(tmp_path, AGENTS["claude"], "http://remote:5000")
     normalized = " ".join(out.split())
 
-    real_app = out.index("First, verify the real application")
-    fallback = out.index("If the real application cannot run")
-    validation = out.index("Validate whichever path ran")
-    assert real_app < fallback < validation
-    assert "exactly one synthetic verification trace" in normalized
-    assert "one-off MLflow Tracing API invocation" in normalized
-    assert "Do not add a setup-only file" in normalized
-    assert "call a real weather service" in normalized
-    assert "root `weather_agent` span with span type `AGENT`" in normalized
+    assert out.index("First, verify the real application") < out.index("If missing credentials")
+    assert "exactly one synthetic verification trace with a one-off" in normalized
+    assert "setup-only file to the repository or call a real weather service" in normalized
+    assert "`weather_agent` span with span type `AGENT`" in normalized
     assert "child `get_weather` span with span type `TOOL`" in normalized
     assert '{"location":"Sydney"}' in out
     assert '{"location":"Sydney","temperature_c":22,"conditions":"Sunny","synthetic":true}' in out
-    assert "What's the weather in Sydney right now?" in out
-    assert out.count("call_weather_sydney_001") == 2
-    assert "`tool_calls`" in out
-    assert "`tool_call_id`" in out
-    assert "`choices[0].message`" in out
+    assert "Root `messages` in OpenAI chat format" in normalized
+    assert "What's the weather in Sydney right now?" in normalized
+    assert "`call_weather_sydney_001`, type `function`, name `get_weather`" in normalized
+    assert "matching `tool_call_id`" in normalized
+    assert "Root `choices[0].message` output with role `assistant`" in normalized
     assert "This is not live weather data" in out
-    assert "conversation renders in Pretty view" in normalized
-    assert "validates only the MLflow connection and trace rendering" in normalized
-    assert "not the application's instrumentation" in normalized
+    assert "renders in Pretty view" in normalized
+    assert "trace rendering, not the application's instrumentation" in normalized
 
 
 def test_build_prompt_skills_installed_uses_agent_skills_dir(tmp_path: Path):
