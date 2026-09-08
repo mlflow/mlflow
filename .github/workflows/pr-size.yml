@@ -32,16 +32,15 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
-          mkdir -p .github/workflows
           curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
             --write-out 'curl: ttfb=%{time_starttransfer}s total=%{time_total}s size=%{size_download}B\n' \
             "https://raw.githubusercontent.com/$REPO/$SHA/.github/workflows/pr-size.js" \
-            -o .github/workflows/pr-size.js
+            -o pr-size.js
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           retries: 3
           script: |
-            const script = require('./.github/workflows/pr-size.js');
+            const script = require('./pr-size.js');
             await script({ github, context });
