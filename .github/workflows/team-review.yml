@@ -24,15 +24,20 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/workflows
-
+      - name: Fetch script
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          mkdir -p .github/workflows
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+            --write-out 'curl: ttfb=%{time_starttransfer}s total=%{time_total}s size=%{size_download}B\n' \
+            "https://raw.githubusercontent.com/$REPO/$SHA/.github/workflows/team-review.js" \
+            -o .github/workflows/team-review.js
       - name: Select reviewers
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           retries: 3
           script: |
-            const script = require('./.github/workflows/team-review.js');
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/team-review.js`);
             await script({ github, context });
