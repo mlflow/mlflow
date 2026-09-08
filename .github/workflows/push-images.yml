@@ -4,7 +4,6 @@ on:
   release:
     types:
       - published
-      - edited
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.release.tag_name }}
