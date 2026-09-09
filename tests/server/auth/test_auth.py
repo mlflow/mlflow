@@ -812,6 +812,50 @@ def test_presigned_upload_url_logged_model_authorization_required(client, monkey
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+@pytest.mark.parametrize("scope", ["run", "model"])
+def test_presigned_upload_url_authorizes_camel_case_field_aliases(client, monkeypatch, scope):
+    # The handler parses the body through the proto, which accepts the canonical
+    # camelCase aliases `runId` / `modelId`. The validator must resolve permissions
+    # from the same parsed IDs — reading only the raw snake_case keys would let a
+    # camelCase request slip past the exactly-one check (400) or the permission
+    # lookup instead of being denied with 403.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment(f"presigned-upload-camel-{scope}-authz-test")
+        if scope == "run":
+            body = {"runId": client.create_run(experiment_id).info.run_id, "path": "model.pkl"}
+        else:
+            body = {"modelId": client.create_logged_model(experiment_id).model_id, "path": "a.pkl"}
+    # user2 has no permission on user1's experiment: camelCase must still be denied.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json=body,
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    # The owner passes auth and reaches the handler (local file:// store -> 501).
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json=body,
+        auth=(username1, password1),
+    )
+    assert response.status_code == 501
+    # Mixed-case both-IDs request must still hit the exactly-one 400, not 403/404.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={**body, ("modelId" if scope == "run" else "runId"): "other"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 400
+    assert "Exactly one of run_id and model_id" in response.text
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_presigned_upload_url_exactly_one_scope_enforced_before_authorization(client, monkeypatch):
     # The auth validator runs before the handler, so it must enforce the
     # exactly-one-of run_id / model_id contract itself: a malformed request

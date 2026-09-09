@@ -926,10 +926,9 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _get_permission_from_run_id() -> Permission:
+def _get_run_permission(run_id: str) -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
-    run_id = _get_request_param("run_id")
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     username = authenticate_request().username
@@ -943,6 +942,10 @@ def _get_permission_from_run_id() -> Permission:
             workspace_label="experiment",
         ),
     )
+
+
+def _get_permission_from_run_id() -> Permission:
+    return _get_run_permission(_get_request_param("run_id"))
 
 
 def _get_model_permission(model_id: str) -> Permission:
@@ -1283,19 +1286,18 @@ def validate_can_update_run_or_logged_model():
     # handler enforces this with a 400, but this validator runs first — without the
     # same check here, a malformed request carrying both IDs would resolve the
     # model's permission and could surface 403/404 instead of the documented 400.
-    # Mirror the check before looking up either resource. The route is a body-only
-    # POST, so read the body the same way ``_get_request_param`` does for POST
-    # requests.
-    body = request.get_json(silent=True)
-    args = body if isinstance(body, dict) else {}
-    if bool(args.get("run_id")) == bool(args.get("model_id")):
+    # Mirror the check before looking up either resource. Parse through the proto,
+    # exactly as the handler does, so the camelCase `runId` / `modelId` aliases the
+    # handler accepts are authorized against the same IDs it will act on.
+    msg = _get_request_message(CreatePresignedUploadUrl())
+    if bool(msg.run_id) == bool(msg.model_id):
         raise MlflowException(
             "Exactly one of run_id and model_id must be provided.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if args.get("model_id"):
-        return _get_permission_from_model_id().can_update
-    return _get_permission_from_run_id().can_update
+    if msg.model_id:
+        return _get_model_permission(msg.model_id).can_update
+    return _get_run_permission(msg.run_id).can_update
 
 
 # Registered models
