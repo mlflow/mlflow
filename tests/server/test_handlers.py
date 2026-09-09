@@ -4682,6 +4682,7 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
 
         mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["trace1", "trace2"])
         mock_submit.assert_called_once()
+        assert mock_submit.call_args.kwargs["params"]["experiment_id"] == "exp-123"
 
 
 def test_invoke_registered_scorer_resolves_exact_version(mock_tracking_store):

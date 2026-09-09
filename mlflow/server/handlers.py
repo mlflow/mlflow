@@ -7167,6 +7167,8 @@ def _invoke_scorer_handler():
             "Please select at least one trace to evaluate.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    # Deduplicate while preserving order so a repeated trace_id is not fetched or scored twice.
+    trace_ids = list(dict.fromkeys(trace_ids))
     if (scorer_name is None) != (scorer_version is None):
         raise MlflowException.invalid_parameter_value(
             "scorer_name and scorer_version must be specified together"
