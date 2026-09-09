@@ -2977,8 +2977,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-    (INVOKE_SCORER, "POST"): validate_gateway_proxy,
     # Invoke endpoints create runs in an experiment -> require update on it.
+    (INVOKE_SCORER, "POST"): validate_can_update_experiment,
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_update_experiment,
     (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
     # Demo: generate is open to any authenticated user; delete is admin-only.
