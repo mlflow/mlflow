@@ -1,4 +1,5 @@
 import json
+from functools import lru_cache
 from typing import Any
 
 from mlflow.entities.trace_data import TraceData
@@ -55,6 +56,7 @@ def _get_truncated_preview(
     return content[: max_length - 3] + "..."
 
 
+@lru_cache(maxsize=1)
 def _get_max_length() -> int:
     tracking_uri = get_tracking_uri()
     return (
