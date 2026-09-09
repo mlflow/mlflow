@@ -110,7 +110,9 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     NOT_IMPLEMENTED,
+    PERMISSION_DENIED,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
@@ -7201,6 +7203,46 @@ def _invoke_scorer_handler():
         serialized_scorer = registered_scorer.serialized_scorer
 
     scorer = Scorer.model_validate_json(serialized_scorer)
+
+    # Verify that all requested traces belong to the authorized experiment.
+    # This prevents users from writing assessments to traces in other experiments.
+    try:
+        trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
+    except MlflowNotImplementedException:
+        # Fallback to per-trace fetches for stores that don't implement batch_get_trace_infos.
+        # Catch RESOURCE_DOES_NOT_EXIST (missing trace) to maintain consistency with the batch
+        # path, which returns a partial list. This ensures a missing trace flows into the
+        # set-comparison check below (generic 403), not into a 404 that leaks the trace_id.
+        trace_infos = []
+        for trace_id in trace_ids:
+            try:
+                trace_infos.append(tracking_store.get_trace_info(trace_id))
+            except MlflowException as e:
+                if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    # Trace not found; treat as missing (do not re-raise)
+                    pass
+                else:
+                    # Re-raise any other exception (connection errors, permission errors, etc.)
+                    raise
+
+    # Check that all requested traces were found and belong to the authorized experiment.
+    # Fail-closed: reject if any requested trace_id is missing or in a different experiment.
+    returned_ids = {trace_info.trace_id for trace_info in trace_infos}
+    requested_ids = set(trace_ids)
+    if returned_ids != requested_ids:
+        # Some requested traces were not found
+        raise MlflowException(
+            "Not all requested traces could be accessed.",
+            error_code=PERMISSION_DENIED,
+        )
+
+    for trace_info in trace_infos:
+        if str(trace_info.experiment_id) != str(experiment_id):
+            # Trace belongs to a different experiment than the one being scored
+            raise MlflowException(
+                "Not all requested traces could be accessed.",
+                error_code=PERMISSION_DENIED,
+            )
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
     # Extract the authenticated username so that job subprocesses can make
