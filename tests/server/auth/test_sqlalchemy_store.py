@@ -138,20 +138,21 @@ def test_update_user(store):
 
 def test_update_user_password_validation(store):
     username = random_str()
-    password = random_str()
+    password = random_str(size=20)
     _user_maker(store, username, password)
 
     with pytest.raises(
-        MlflowException, match=r"Password must be a string longer than 12 characters"
+        MlflowException, match=r"Password must be at least 12 characters"
     ) as exception_context:
         store.update_user(username, password="short")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # The rejected update must leave the stored password unchanged (validation runs before hashing).
     assert store.authenticate_user(username, password)
 
-    new_password = random_str()
+    new_password = "new-" + random_str(size=20)
     store.update_user(username, password=new_password)
     assert store.authenticate_user(username, new_password)
+    assert not store.authenticate_user(username, password)
 
 
 def test_delete_user(store):
