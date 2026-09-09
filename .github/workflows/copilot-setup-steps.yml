@@ -1,5 +1,13 @@
 name: copilot-setup-steps
 
+# This workflow configures the environment used by Copilot cloud agent.
+# Find recent agent runs with:
+#
+# gh api '/repos/mlflow/mlflow/actions/runs?event=dynamic&per_page=100' \
+#   --jq '.workflow_runs[]
+#     | select(.path == "dynamic/copilot-swe-agent/copilot")
+#     | {id, name, created_at, conclusion, html_url}'
+
 on:
   workflow_dispatch:
   pull_request:
