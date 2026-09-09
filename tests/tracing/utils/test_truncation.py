@@ -7,10 +7,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.tracing.utils.truncation import (
-    _get_truncated_preview,
-    set_request_response_preview,
-)
+from mlflow.tracing.utils.truncation import _get_truncated_preview, set_request_response_preview
 
 
 @pytest.fixture(autouse=True)
