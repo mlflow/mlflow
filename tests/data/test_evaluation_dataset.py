@@ -15,6 +15,7 @@ def test_convert_list_data_with_numpy_targets(data):
     )
 
     assert np.array_equal(dataset.targets, targets)
+    assert dataset.features.shape == (3, 1)
 
 
 def test_convert_list_data_without_targets():
