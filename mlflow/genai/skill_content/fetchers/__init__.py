@@ -9,6 +9,7 @@ from mlflow.genai.skill_content.archive import get_max_decompressed_size
 from mlflow.genai.skill_content.errors import invalid_content
 from mlflow.genai.skill_content.fetchers.artifacts import fetch_mlflow_artifacts
 from mlflow.genai.skill_content.fetchers.git import fetch_git
+from mlflow.genai.skill_content.fetchers.oci import fetch_oci
 from mlflow.genai.skill_content.fetchers.zip import fetch_zip
 from mlflow.genai.skill_content.paths import assert_regular_tree, resolve_contained, tree_size
 from mlflow.genai.skill_content.sources import ResolvedSource, SourceInput, resolve_source_type
@@ -45,12 +46,7 @@ def _fetch_remote(resolved: ResolvedSource, dest: Path, limit: int) -> Path:
     if resolved.source_type == SkillSourceType.GIT:
         return fetch_git(resolved.source, resolved.ref, dest, max_bytes=limit, subpath=subpath)
     if resolved.source_type == SkillSourceType.OCI:
-        # The OCI registry fetcher lands in a follow-up change; the type still resolves so
-        # callers get a precise error instead of a misclassified source.
-        raise invalid_content(
-            f"OCI sources are not supported yet ('{resolved.source}'); use a Git, ZIP, MLflow "
-            "artifact, or local source."
-        )
+        return fetch_oci(resolved.source, dest, max_bytes=limit, subpath=subpath)
     if resolved.source_type == SkillSourceType.ZIP:
         return fetch_zip(resolved.source, dest, max_bytes=limit, subpath=subpath)
     if resolved.source_type == SkillSourceType.MLFLOW:
