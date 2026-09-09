@@ -1,3 +1,15 @@
+from mlflow.entities import (
+    AgentPlugin,
+    AgentPluginVersion,
+    GitSource,
+    MlflowSource,
+    OCISource,
+    Skill,
+    SkillSourceType,
+    SkillStatus,
+    SkillVersion,
+    ZipSource,
+)
 from mlflow.genai import (
     datasets,
     judges,
@@ -154,4 +166,15 @@ __all__ = [
     "delete_mcp_server_version_tag",
     "set_mcp_server_alias",
     "delete_mcp_server_alias",
+    # skill registry entities
+    "Skill",
+    "SkillVersion",
+    "SkillStatus",
+    "SkillSourceType",
+    "GitSource",
+    "MlflowSource",
+    "OCISource",
+    "ZipSource",
+    "AgentPlugin",
+    "AgentPluginVersion",
 ]
