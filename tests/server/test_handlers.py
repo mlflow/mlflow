@@ -14,6 +14,7 @@ from werkzeug.exceptions import RequestedRangeNotSatisfiable
 import mlflow
 from mlflow.entities import (
     Experiment,
+    FallbackStrategy,
     GatewayBudgetPolicy,
     Issue,
     IssueSeverity,
@@ -67,6 +68,7 @@ from mlflow.genai.review_queues.review_queues import (
     ReviewQueueItem,
     ReviewStatus,
 )
+from mlflow.genai.scorers import Completeness
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -140,6 +142,9 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     SetTraceTagV3,
     TraceLocation,
+)
+from mlflow.protos.service_pb2 import (
+    FallbackStrategy as ProtoFallbackStrategy,
 )
 from mlflow.protos.service_pb2 import (
     GatewayModelLinkageType as ProtoGatewayModelLinkageType,
@@ -4270,6 +4275,39 @@ def test_create_gateway_endpoint_rejects_unspecified_linkage_type(
     mock_tracking_store.create_gateway_endpoint.assert_not_called()
 
 
+@pytest.mark.parametrize("max_attempts", [None, 0, 3])
+def test_create_gateway_endpoint_parses_fallback_config_max_attempts(
+    mock_get_request_message, mock_tracking_store, max_attempts
+):
+    """The handler must preserve an unset `max_attempts` as None.
+
+    The proto field has explicit presence, so leaving it unset has to stay
+    distinct from an explicit 0 once it reaches the entity.
+    """
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint()
+    request_msg.name = "valid-name"
+    config = request_msg.model_configs.add()
+    config.model_definition_id = "d-123"
+    config.linkage_type = ProtoGatewayModelLinkageType.PRIMARY
+    request_msg.fallback_config.strategy = ProtoFallbackStrategy.SEQUENTIAL
+    if max_attempts is not None:
+        request_msg.fallback_config.max_attempts = max_attempts
+    mock_get_request_message.return_value = request_msg
+
+    mock_endpoint = mock.MagicMock()
+    mock_endpoint.to_proto.return_value = GatewayEndpoint(endpoint_id="ep-123")
+    mock_tracking_store.create_gateway_endpoint.return_value = mock_endpoint
+
+    _create_gateway_endpoint()
+
+    kwargs = mock_tracking_store.create_gateway_endpoint.call_args.kwargs
+    assert kwargs["fallback_config"].max_attempts == max_attempts
+    assert kwargs["fallback_config"].strategy == FallbackStrategy.SEQUENTIAL
+
+
 def test_create_gateway_endpoint_reports_offending_model_config_index(
     mock_get_request_message, mock_tracking_store
 ):
@@ -4628,6 +4666,47 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
             assert data["jobs"][0]["trace_ids"] == ["trace1", "trace2"]
 
         mock_submit.assert_called_once()
+
+
+def test_invoke_registered_scorer_resolves_exact_version(mock_tracking_store):
+    serialized_scorer = json.dumps(Completeness(name="test_judge").model_dump())
+    registered_scorer = mock.MagicMock(serialized_scorer=serialized_scorer)
+    mock_tracking_store.get_scorer.return_value = registered_scorer
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_submit.return_value.job_id = "test-job-123"
+
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "scorer_name": "test_judge",
+                    "scorer_version": 2,
+                    "trace_ids": ["trace1"],
+                },
+            )
+
+    assert response.status_code == 200, response.get_json()
+    mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "test_judge", 2)
+    assert mock_submit.call_args.kwargs["params"]["scorer_version"] == 2
+
+
+def test_invoke_scorer_requires_name_and_version_together():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "serialized_scorer": json.dumps({"name": "test_judge"}),
+                "scorer_version": 2,
+                "trace_ids": ["trace1"],
+            },
+        )
+
+    assert response.status_code == 400
+    assert "must be specified together" in response.get_json()["message"]
 
 
 def test_invoke_scorer_rejects_decorator_scorer():
@@ -7678,6 +7757,8 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
         submit_kwargs = mock_submit_job.call_args.kwargs
         assert submit_kwargs["params"]["trace_ids"] == ["trace-1", "trace-2"]
         assert submit_kwargs["params"]["serialized_scorers"] == request_json["serialized_scorers"]
+        assert submit_kwargs["params"]["scorer_versions"] == [None, None]
+        assert submit_kwargs["params"]["experiment_id"] == "exp-123"
         assert submit_kwargs["params"]["run_id"] == "run-genai-1"
         # No basic auth on the test client -> no username propagated.
         assert submit_kwargs["params"]["username"] is None
@@ -7686,6 +7767,42 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
             "run-genai-1", "mlflow.genaiEvaluate.jobId", "job-genai-1"
         )
         mock_client.set_terminated.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
+    monkeypatch, mock_tracking_store
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    canonical_scorer = json.dumps(Completeness(name="registered-judge").model_dump())
+    mock_tracking_store.get_scorer.return_value = mock.MagicMock(
+        serialized_scorer=canonical_scorer, scorer_version=4
+    )
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-genai-1"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": ['{"name":"registered-judge"}'],
+        "scorer_versions": [3],
+    }
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_genai_evaluate_job()
+        ) as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+    assert resp.status_code == 200, resp.get_json()
+    mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "registered-judge", 3)
+    assert mock_submit_job.call_args.kwargs["params"]["serialized_scorers"] == [canonical_scorer]
+    assert mock_submit_job.call_args.kwargs["params"]["scorer_versions"] == [4]
 
 
 def test_invoke_genai_evaluate_handler_rejects_empty_trace_ids(monkeypatch):

@@ -1,12 +1,17 @@
 import errno
 import os
-import pty
 import select
 import signal
+import sys
 import time
 from pathlib import Path
 
 import pytest
+
+# `pty` (and the `tty`/`termios` it pulls in) is POSIX-only. Guard the import so this helper
+# module is importable on Windows; the tests that call `run_interactive` are skipped there.
+if sys.platform != "win32":
+    import pty
 
 
 def _read_until(fd: int, output: bytearray, expected: str, timeout: float = 10) -> None:

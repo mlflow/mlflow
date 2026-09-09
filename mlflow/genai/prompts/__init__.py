@@ -84,7 +84,7 @@ def register_prompt(
             Example (PromptModelConfig): PromptModelConfig(model_name="gpt-4", temperature=0.7)
 
     Returns:
-        A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+        A :py:class:`PromptVersion <mlflow.entities.PromptVersion>` object that was created.
 
     Example:
 

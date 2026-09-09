@@ -1,5 +1,7 @@
 ---
-paths: ".github/workflows/**/*.yml"
+paths:
+  - ".github/workflows/**/*.yml"
+  - ".github/actions/**/*.yml"
 ---
 
 # GitHub Actions Workflow Guidelines
@@ -58,6 +60,26 @@ use `gh` CLI instead of `actions/github-script`. It avoids the need for
     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   run: |
     gh pr comment ...
+```
+
+## Prefer `GITHUB_TOKEN` When Its Scope and Trigger Behavior Are Sufficient
+
+Use `${{ secrets.GITHUB_TOKEN }}` by default for operations in the current repository when its job-level permissions are sufficient. Use `actions/create-github-app-token` when access to other repositories or separately scoped credentials is required, or when the resulting GitHub event must trigger another workflow. Events created with `GITHUB_TOKEN` [generally do not trigger workflow runs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+
+```yaml
+# Bad: this comment does not need to trigger another workflow
+- uses: actions/create-github-app-token@...
+  id: app-token
+  with:
+    # ...
+- env:
+    GH_TOKEN: ${{ steps.app-token.outputs.token }}
+  run: gh issue comment ...
+
+# Good
+- env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: gh issue comment ...
 ```
 
 ## Prefer the Shared Setup Actions

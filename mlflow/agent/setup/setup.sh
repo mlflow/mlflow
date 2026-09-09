@@ -926,9 +926,9 @@ ensure_databricks_cli() {
 
 dbx_json() {
 	if [ -n "$PROFILE" ]; then
-		"$DATABRICKS_BIN" "$@" --output json --profile "$PROFILE"
+		DATABRICKS_HOST= "$DATABRICKS_BIN" "$@" --output json --profile "$PROFILE"
 	elif [ -n "$WORKSPACE_URL" ]; then
-		"$DATABRICKS_BIN" "$@" --output json --host "$WORKSPACE_URL"
+		DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" "$DATABRICKS_BIN" "$@" --output json
 	else
 		"$DATABRICKS_BIN" "$@" --output json
 	fi
@@ -938,7 +938,7 @@ databricks_token_user() {
 	if [ -n "$PROFILE" ]; then
 		token_json=$("$DATABRICKS_BIN" auth token "$PROFILE" --output json 2>/dev/null) || return
 	elif [ -n "$WORKSPACE_URL" ]; then
-		token_json=$("$DATABRICKS_BIN" auth token --host "$WORKSPACE_URL" --output json 2>/dev/null) || return
+		token_json=$(DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" "$DATABRICKS_BIN" auth token --output json 2>/dev/null) || return
 	else
 		token_json=$("$DATABRICKS_BIN" auth token --output json 2>/dev/null) || return
 	fi
@@ -973,7 +973,7 @@ databricks_auth_valid() {
 	if [ -n "$PROFILE" ]; then
 		"$DATABRICKS_BIN" auth token "$PROFILE" --output json >/dev/null 2>&1
 	elif [ -n "$WORKSPACE_URL" ]; then
-		"$DATABRICKS_BIN" auth token --host "$WORKSPACE_URL" --output json >/dev/null 2>&1
+		DATABRICKS_CONFIG_PROFILE= DATABRICKS_HOST="$WORKSPACE_URL" "$DATABRICKS_BIN" auth token --output json >/dev/null 2>&1
 	else
 		"$DATABRICKS_BIN" auth token --output json >/dev/null 2>&1
 	fi
@@ -1072,7 +1072,7 @@ authenticate_databricks() {
 		if [ -n "$PROFILE" ]; then
 			"$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" --profile "$PROFILE" <"$TTY_DEVICE" || die "Databricks authentication failed."
 		else
-			"$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" <"$TTY_DEVICE" || die "Databricks authentication failed."
+			DATABRICKS_CONFIG_PROFILE= "$DATABRICKS_BIN" auth login --host "$WORKSPACE_URL" <"$TTY_DEVICE" || die "Databricks authentication failed."
 		fi
 		databricks_auth_valid || die "Databricks authentication could not be verified."
 	fi
@@ -1561,7 +1561,22 @@ build_agent_prompt() {
 		"# MLflow Tracing Setup" \
 		"" \
 		"Instrument the application in this repository with MLflow Tracing." \
-		"Inspect the project first. If there is more than one application entry point, ask which one to instrument; otherwise proceed without setup questions." \
+		"Complete these steps in order:" \
+		"" \
+		"## 1. Understand the application" \
+		"- Inspect the README, documentation, examples, tests, entry points, and agent prompts or tools." \
+		"- Identify the application's purpose, intended users, expected inputs and outputs, and primary tools or data sources." \
+		"- Find where the underlying agent, workflow, or LLM client is constructed; this is the instrumentation target." \
+		"- Group executables that use the same underlying agent or workflow as interfaces to one application, not as separate instrumentation targets." \
+		"- Do not ask the user to choose among shared wrappers such as an interactive CLI, a one-shot runner, or a batch simulator." \
+		"- Ask which application to instrument only when the repository contains multiple independent agents or applications with different construction or instrumentation paths. Otherwise proceed without setup questions." \
+		"" \
+		"## 2. Document the application" \
+		"- Summarize what you learned in the MLflow experiment description." \
+		"- Use MlflowClient.set_experiment_tag with the mlflow.note.content key." \
+		"- Resolve and update the selected experiment; do not create a different experiment." \
+		"" \
+		"## 3. Configure MLflow Tracing" \
 		""
 	case "$backend" in
 	databricks)
@@ -1628,10 +1643,34 @@ build_agent_prompt() {
 	esac
 	printf '%s\n' \
 		"" \
-		"Enable the framework-specific tracing integration before the LLM client is created, such as mlflow.openai.autolog() or mlflow.langchain.autolog()." \
-		"Do not add evaluation code, write credentials into the repository, or create setup-only files." \
-		"Run the application, exercise one traced operation, and confirm a trace reaches the experiment." \
-		"Finally report the MLflow version, modified files, and trace URL."
+		"## 4. Instrument the application" \
+		"- Prefer MLflow autologging when the application's framework is supported. Enable the framework-specific integration, such as mlflow.openai.autolog() or mlflow.langchain.autolog(), before the LLM client is created." \
+		"- Add manual spans only for important application operations that autologging does not capture." \
+		"- If the application has a session or conversation ID, record it with mlflow.update_current_trace(session_id=...). Reuse the application's ID; do not generate a different ID for every trace." \
+		"- If requests or responses are not in a typical chat format and their raw serialization makes the trace table hard to scan, set concise request_preview and response_preview values with mlflow.update_current_trace." \
+		"- Record important immutable context, such as the deployment environment (dev, staging, or prod), as trace metadata. Use values from the application's existing configuration rather than hardcoding them." \
+		"- Do not add evaluation code, write credentials into the repository, or create setup-only files." \
+		"" \
+		"## 5. Verify tracing with a realistic input" \
+		"- Run the application through its documented primary interface. If several interfaces share the same underlying agent, choose the one used by the main quickstart or usage example." \
+		"- Derive a realistic input from the README, documentation, examples, tests, or CLI help." \
+		"- Exercise a representative application path and confirm that its trace reaches the experiment." \
+		"- Do not use a placeholder prompt whose only purpose is to produce a fixed response, such as 'trace confirmed'." \
+		"- If realistic execution requires unavailable credentials or user-specific data, ask the user for a suitable safe input." \
+		"" \
+		"## 6. Validate trace quality" \
+		"- Confirm the trace is logged to the selected experiment." \
+		"- Confirm the root span represents the real application operation and records meaningful inputs and outputs." \
+		"- Confirm the expected LLM, tool, retrieval, or workflow child spans appear for the representative path and have coherent parent-child relationships." \
+		"- If the path calls an LLM, confirm input and output token counts, along with cost, are present. If any are missing, investigate the instrumentation and report the limitation; never fabricate values." \
+		"- If the application has a session or conversation ID, confirm it appears on the trace and is consistent across requests in that session." \
+		"- For complex request or response formats, confirm the request and response previews are concise and useful in the trace table. Set them manually with mlflow.update_current_trace when necessary." \
+		"- Confirm important available context, such as the deployment environment, appears in trace metadata." \
+		"- Confirm instrumentation did not create duplicate traces or spans." \
+		"- Confirm traces do not expose credentials or secrets." \
+		"" \
+		"## 7. Report results" \
+		"- Report the MLflow version, modified files, and trace URL."
 }
 
 launch_agent() {

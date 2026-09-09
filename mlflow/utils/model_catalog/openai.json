@@ -2240,9 +2240,9 @@
             "cache_read_per_million_tokens": 0.25
           },
           "priority": {
-            "input_per_million_tokens": 10.0,
-            "output_per_million_tokens": 60.0,
-            "cache_read_per_million_tokens": 1.0
+            "input_per_million_tokens": 12.5,
+            "output_per_million_tokens": 75.0,
+            "cache_read_per_million_tokens": 1.25
           }
         },
         "long_context": [
@@ -2268,7 +2268,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-09-07"
     },
     "gpt-5.5-2026-04-23": {
       "mode": "chat",
@@ -2292,9 +2292,9 @@
             "cache_read_per_million_tokens": 0.25
           },
           "priority": {
-            "input_per_million_tokens": 10.0,
-            "output_per_million_tokens": 60.0,
-            "cache_read_per_million_tokens": 1.0
+            "input_per_million_tokens": 12.5,
+            "output_per_million_tokens": 75.0,
+            "cache_read_per_million_tokens": 1.25
           }
         },
         "long_context": [
@@ -2320,7 +2320,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-09-07"
     },
     "gpt-5.6": {
       "mode": "chat",
@@ -2568,6 +2568,60 @@
         "response_schema": true
       },
       "last_updated_at": "2026-08-25"
+    },
+    "gpt-6-astra": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 1.0,
+        "cache_write_per_million_tokens": 12.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 5.0,
+            "output_per_million_tokens": 25.0
+          },
+          "flex": {
+            "input_per_million_tokens": 5.0,
+            "output_per_million_tokens": 25.0,
+            "cache_read_per_million_tokens": 0.5
+          },
+          "priority": {
+            "input_per_million_tokens": 20.0,
+            "output_per_million_tokens": 100.0,
+            "cache_read_per_million_tokens": 2.0
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_write_per_million_tokens": 25.0,
+            "cache_read_per_million_tokens": 2.0,
+            "input_per_million_tokens": 20.0,
+            "output_per_million_tokens": 75.0
+          }
+        ],
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
     },
     "gpt-audio": {
       "mode": "chat",
@@ -2823,7 +2877,6 @@
       "mode": "image_generation",
       "pricing": {
         "input_per_million_tokens": 5.0,
-        "output_per_million_tokens": 10.0,
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
@@ -2839,13 +2892,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-29"
+      "last_updated_at": "2026-09-07"
     },
     "gpt-image-2-2026-04-21": {
       "mode": "image_generation",
       "pricing": {
         "input_per_million_tokens": 5.0,
-        "output_per_million_tokens": 10.0,
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
@@ -2861,7 +2913,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-29"
+      "last_updated_at": "2026-09-07"
     },
     "gpt-realtime": {
       "mode": "chat",

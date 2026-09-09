@@ -115,6 +115,10 @@ MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", 
 #: (default: ``False``)
 MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
 
+#: Enables AI Gateway endpoints and UI.
+#: (default: ``True``)
+MLFLOW_ENABLE_AI_GATEWAY = _BooleanEnvironmentVariable("MLFLOW_ENABLE_AI_GATEWAY", True)
+
 #: **Experimental** — subject to change or removal in a future release.
 #: Controls whether the MLflow Assistant API is reachable from non-localhost clients. When true,
 #: the server runs the work the assistant would otherwise run on the host — the ``Bash`` tool and

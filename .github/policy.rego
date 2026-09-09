@@ -1,14 +1,27 @@
-# regal ignore:directory-package-mismatch
+# regal ignore:directory-package-mismatch,file-length
 package mlflow
 
 import rego.v1
 
-deny_jobs_without_permissions contains msg if {
-	jobs := jobs_without_permissions(input.jobs)
-	count(jobs) > 0
+default_pull_request_types := {"opened", "synchronize", "reopened"}
+
+deny_redundant_default_pull_request_types contains msg if {
+	some event_name in {"pull_request", "pull_request_target"}
+	types := input["true"][event_name].types
+	provided_types := {activity_type | some activity_type in types}
+	provided_types == default_pull_request_types
 	msg := sprintf(
-		"The following jobs are missing permissions: %s",
-		[concat(", ", jobs)],
+		"The '%s' trigger lists GitHub's default activity types. Remove 'types' to use the defaults implicitly.",
+		[event_name],
+	)
+}
+
+deny_redundant_job_permissions contains msg if {
+	some job_id, job in input.jobs
+	job.permissions == {}
+	msg := sprintf(
+		"Job '%s' sets redundant 'permissions: {}'. Omit it to inherit the workflow's empty default permissions.",
+		[job_id],
 	)
 }
 
@@ -26,6 +39,30 @@ deny_top_level_permissions contains msg if {
 	input.jobs
 	input.permissions != {}
 	msg := "Top-level 'permissions' must be empty ({}). Grant least-privilege permissions per job instead."
+}
+
+deny_workflow_without_concurrency contains msg if {
+	# Workflow files only (composite actions have 'runs')
+	input.jobs
+	not input.concurrency
+	msg := concat("", [
+		"Workflow must declare 'concurrency' explicitly. Without it a new event never ",
+		"supersedes runs already in flight, so stale runs keep consuming runners and ",
+		"repo-mutating workflows can race. To opt out of concurrency grouping and allow each ",
+		"run to proceed independently:\n",
+		"concurrency:\n",
+		"  group: ${{ github.run_id }}\n",
+		"  cancel-in-progress: false",
+	])
+}
+
+deny_job_permissions_shorthand contains msg if {
+	some job_id, job in input.jobs
+	job.permissions in {"read-all", "write-all"}
+	msg := sprintf(
+		"Job '%s' uses 'permissions: %s'. List the scopes it actually needs instead.",
+		[job_id, job.permissions],
+	)
 }
 
 deny_unsafe_checkout contains msg if {
@@ -331,11 +368,6 @@ job_steps(job) := array.concat(
 	[step | some step in job.steps],
 	[step | some group in job.steps; some step in group.parallel],
 )
-
-jobs_without_permissions(jobs) := {job_id |
-	some job_id, job in jobs
-	not job.permissions
-}
 
 jobs_without_timeout(jobs) := {job_id |
 	some job_id, job in jobs
