@@ -24,6 +24,8 @@ _SEMVER_RE = re.compile(
     r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?"
     r"(?:\+(?P<buildmetadata>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
+# A "semverish" numeric core: 1, 1.2, or 1.2.3 (ASCII digits, no leading zeros).
+_CORE_RE = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){0,2}$")
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,36 @@ def parse_semver(version: str, *, param_name: str = "version") -> SemVer:
         ),
         build=match.group("buildmetadata"),
     )
+
+
+def normalize_semver(version: str, *, param_name: str = "version") -> str:
+    """Coerce a semverish version to full SemVer, validate via parse_semver, and return it.
+
+    ``1`` and ``1.2`` are padded to ``1.0.0`` / ``1.2.0``. Prerelease and build
+    metadata are preserved. Validation (ASCII digits, length, core bounds) is
+    delegated to ``parse_semver``; invalid input raises ``MlflowException``.
+    """
+    if not isinstance(version, str) or not version.strip():
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid semantic version for {param_name}: {version!r}"
+        )
+    version = version.strip()
+
+    if match := re.search(r"[-+]", version):
+        core = version[: match.start()]
+        suffix = version[match.start() :]
+    else:
+        core = version
+        suffix = ""
+
+    if _CORE_RE.fullmatch(core):
+        parts = core.split(".")
+        parts += ["0"] * (3 - len(parts))
+        core = ".".join(parts)
+
+    candidate = core + suffix
+    parse_semver(candidate, param_name=param_name)
+    return candidate
 
 
 def compare_semver(left: SemVer, right: SemVer) -> int:
