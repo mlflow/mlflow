@@ -60,12 +60,12 @@ import type { LoggedModelArtifactViewerProps } from './artifact-view-components/
 import { MlflowService } from '../sdk/MlflowService';
 import type { KeyValueEntity } from '../../common/types';
 import { getMultipartDownloadsEnabledSync } from '../hooks/useServerInfo';
+import { ARTIFACT_PROXY_ROUTE_ANCHORS } from '../../common/utils/artifactProxy';
 
 const { Text } = Typography;
-const MLFLOW_ARTIFACTS_ROUTE_ANCHORS = [
-  'api/2.0/mlflow-artifacts/artifacts/',
-  'ajax-api/2.0/mlflow-artifacts/artifacts/',
-];
+// Derived from the shared anchors so the two artifact-proxy URI parsers in the
+// UI cannot drift apart. This form matches against a leading-slash-stripped path.
+const MLFLOW_ARTIFACTS_ROUTE_ANCHORS = ARTIFACT_PROXY_ROUTE_ANCHORS.map((anchor) => `${anchor.replace(/^\//, '')}/`);
 const PRESIGNED_DOWNLOAD_FALLBACK_STATUSES = [400, 404, 501, 503];
 
 const joinArtifactPaths = (rootPath: string, artifactPath: string) =>
@@ -470,7 +470,14 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           this.props.entityTags,
         );
       } else {
-        this.props.listArtifactsApi(this.props.runUuid, id, undefined, this.props.experimentId, this.props.entityTags);
+        this.props.listArtifactsApi(
+          this.props.runUuid,
+          id,
+          undefined,
+          this.props.experimentId,
+          this.props.entityTags,
+          this.props.artifactRootUri,
+        );
       }
     }
     this.setState({
