@@ -101,6 +101,7 @@ class BudgetTargetScope(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GLOBAL: _ClassVar[BudgetTargetScope]
     WORKSPACE: _ClassVar[BudgetTargetScope]
     ENDPOINT: _ClassVar[BudgetTargetScope]
+    USER: _ClassVar[BudgetTargetScope]
 
 class BudgetAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -171,6 +172,7 @@ TARGET_SCOPE_UNSPECIFIED: BudgetTargetScope
 GLOBAL: BudgetTargetScope
 WORKSPACE: BudgetTargetScope
 ENDPOINT: BudgetTargetScope
+USER: BudgetTargetScope
 BUDGET_ACTION_UNSPECIFIED: BudgetAction
 ALERT: BudgetAction
 REJECT: BudgetAction

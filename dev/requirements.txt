@@ -4,6 +4,7 @@ requests
 packaging
 pydantic
 pyyaml
+texttable
 toml
 ./dev/pypi
 ./dev/flavors

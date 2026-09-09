@@ -698,6 +698,23 @@ def test_suppress_databricks_retry_after_secs_warnings():
         )
 
 
+@pytest.mark.parametrize(("kwargs", "expected_reads"), [({}, 1), ({"stream": True}, 0)])
+def test_databricks_sdk_response_is_consumed_unless_streaming(kwargs, expected_reads):
+    host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
+    response = mock.MagicMock()
+    content = mock.PropertyMock(return_value=b"body")
+    type(response).content = content
+
+    with mock.patch("mlflow.utils.rest_utils.get_workspace_client") as get_client:
+        get_client.return_value.api_client.do.return_value = {
+            "contents": mock.MagicMock(_response=response)
+        }
+
+        assert http_request(host_creds, "/endpoint", "GET", **kwargs) is response
+
+    assert content.call_count == expected_reads
+
+
 def test_databricks_sdk_retry_on_transient_errors():
     host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
 

@@ -1,4 +1,4 @@
-"""An agent-directed pointer to the MLflow tracing skill.
+"""Agent-directed pointers to the bundled MLflow skills.
 
 Emitted on ``import mlflow`` when a coding agent is driving. Whether the skill
 is already installed is deliberately not probed: skills end up in too many
@@ -14,6 +14,8 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import threading
+from functools import lru_cache
 from importlib import resources
 from pathlib import Path
 
@@ -61,6 +63,12 @@ _AGENT_ENV_VALUES_WITHOUT_TTY = {"TERM_PROGRAM": "kiro"}
 # Lives in https://github.com/mlflow/skills and is installed by `mlflow agent setup`.
 TRACING_SKILL = "instrumenting-with-mlflow-tracing"
 
+# All hints in this module are process-local. An agent only needs to see a
+# particular problem once to change course; repeating it on every span or row
+# makes the useful message indistinguishable from ordinary logs.
+_EMITTED_HINTS: set[str] = set()
+_EMITTED_HINTS_LOCK = threading.Lock()
+
 # Points at the copy shipped inside this MLflow install: no network, and the
 # revision always matches the installed code.
 #
@@ -93,6 +101,7 @@ def _bundled_skill_manifest() -> Path | None:
         return None
 
 
+@lru_cache(maxsize=1)
 def _is_agent_driving() -> bool:
     """Whether a coding agent is running this process."""
     if any(os.environ.get(marker) for marker in _AGENT_ENV_MARKERS):
@@ -115,3 +124,83 @@ def maybe_hint_tracing_skill() -> None:
     if (path := _bundled_skill_manifest()) is None:
         return
     _logger.info(_HINT.format(skill=TRACING_SKILL, path=path))
+
+
+def _claim_agent_hint(issue_id: str) -> Path | None:
+    """Claim an agent hint once per process and return the bundled skills path."""
+    try:
+        if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
+            return None
+
+        skills = resources.files("mlflow.assistant.skills")
+        readme = skills.joinpath("README.md")
+        if not readme.is_file():
+            return None
+        skills_path = Path(str(readme)).parent
+
+        # Resource discovery above can overlap across threads, so repeat the
+        # membership check while atomically claiming this issue. Do not hold
+        # the lock while invoking user-configurable logging handlers.
+        with _EMITTED_HINTS_LOCK:
+            if issue_id in _EMITTED_HINTS:
+                return None
+            _EMITTED_HINTS.add(issue_id)
+        return skills_path
+    except Exception:
+        return None
+
+
+def maybe_warn_agent(issue_id: str, issue: str) -> None:
+    """Warn a coding agent about an observed GenAI anti-pattern once per process."""
+    try:
+        if skills_path := _claim_agent_hint(issue_id):
+            _logger.warning(
+                "%s Review the MLflow skills bundled at %s before continuing. "
+                "Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.",
+                issue,
+                skills_path,
+            )
+    except Exception:
+        # User-configurable logging handlers must not affect MLflow behavior.
+        return
+
+
+def maybe_append_agent_hint(issue_id: str, message: str) -> str:
+    """Append the bundled-skills pointer to an existing message once for a coding agent."""
+    try:
+        if skills_path := _claim_agent_hint(issue_id):
+            return (
+                f"{message}\n\nReview the MLflow skills bundled at {skills_path} before "
+                "continuing. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
+            )
+    except Exception:
+        pass
+    return message
+
+
+def maybe_warn_local_tracking_for_databricks() -> None:
+    """Warn when a GenAI trace is going to local storage despite Databricks intent."""
+    try:
+        issue_id = "databricks-intent-with-local-tracking"
+        if issue_id in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
+            return
+
+        from mlflow import get_tracking_uri
+        from mlflow.utils.databricks_utils import is_in_databricks_runtime
+        from mlflow.utils.uri import is_local_uri
+
+        has_databricks_intent = (
+            is_in_databricks_runtime()
+            or bool(os.environ.get("DATABRICKS_HOST"))
+            or bool(os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+        tracking_uri = get_tracking_uri()
+        if has_databricks_intent and is_local_uri(tracking_uri):
+            maybe_warn_agent(
+                issue_id,
+                f"A GenAI trace is being written to the local tracking URI {tracking_uri!r} even "
+                "though a Databricks environment or profile is configured.",
+            )
+    except Exception:
+        # This check is advisory and must never interfere with trace export.
+        return

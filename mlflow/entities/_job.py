@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, cast
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -96,7 +96,8 @@ class Job(_MlflowObject):
         Otherwise, the parsed result is None.
         """
         if self.status == JobStatus.SUCCEEDED:
-            return json.loads(self.result)
+            # `result` is always populated for succeeded jobs.
+            return json.loads(cast(str, self.result))
         return self.result
 
     @property

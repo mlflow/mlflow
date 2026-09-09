@@ -27,18 +27,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          gh run download "$RUN_ID" -n pr_number -D /tmp/pr
-          pr_number=$(cat /tmp/pr/pr_number)
-
-          head_sha=$(gh pr view "$pr_number" --json headRefOid --jq .headRefOid)
+          rerun() {
+            echo "Rerunning https://github.com/$GH_REPO/actions/runs/$1"
+            gh run rerun "$1" --failed --repo "$GH_REPO" || echo "Failed to rerun $1"
+          }
 
           # Rerun failed github-actions check runs on the PR head, excluding the
           # rerun workflow itself (to prevent recursion). Always rerun "protect";
           # otherwise only rerun jobs that took <= 60s (e.g. the approval check).
-          run_ids=$(
-            gh api --paginate "repos/$GH_REPO/commits/$head_sha/check-runs?per_page=100" \
+          # Each row is "<run id> <check name>"; the name goes last because it can
+          # contain spaces (e.g. "python (1)"). A workflow run emits one check run
+          # per job, so `sort -u -k1,1` dedupes on the run ID: without -k1,1 two
+          # failed jobs from the same run would be reran twice.
+          rows=$(
+            gh api --paginate "repos/$GH_REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
               --jq '.check_runs[]
                 | select(.app.slug == "github-actions")
                 | select(.status == "completed")
@@ -48,12 +52,24 @@ jobs:
                     (.name | ascii_downcase) == "protect"
                     or ((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601)) <= 60
                   )
-                | .html_url
-                | capture("/actions/runs/(?<id>[0-9]+)").id' \
-              | sort -u
+                | "\(.html_url | capture("/actions/runs/(?<id>[0-9]+)").id) \(.name | ascii_downcase)"' \
+              | sort -u -k1,1
           )
 
-          for id in $run_ids; do
-            echo "Rerunning https://github.com/$GH_REPO/actions/runs/$id"
-            gh run rerun "$id" --failed --repo "$GH_REPO" || echo "Failed to rerun $id"
-          done
+          # Hold "protect" back: it polls every other check and fails on the first
+          # failure it sees, so it must not start before the reruns below land.
+          protect_id=""
+          if [ -n "$rows" ]; then
+            while read -r id name; do
+              if [ "$name" = "protect" ]; then
+                protect_id=$id
+              else
+                rerun "$id"
+              fi
+            done <<< "$rows"
+          fi
+
+          if [ -n "$protect_id" ]; then
+            sleep 5
+            rerun "$protect_id"
+          fi

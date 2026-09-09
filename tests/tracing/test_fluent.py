@@ -822,6 +822,50 @@ def test_start_span_context_manager(async_logging_enabled):
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
+def test_successful_genai_span_without_inputs_or_outputs_warns_agent(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        with mlflow.start_span(name="empty_tool", span_type=SpanType.TOOL):
+            pass
+
+    assert warn.call_args_list == [
+        mock.call(
+            "genai-span-missing-inputs",
+            "The successful TOOL span 'empty_tool' has no recorded inputs.",
+        ),
+        mock.call(
+            "genai-span-missing-outputs",
+            "The successful TOOL span 'empty_tool' has no recorded outputs.",
+        ),
+    ]
+
+
+def test_error_genai_span_without_outputs_does_not_warn_agent(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        with mlflow.start_span(name="failed_tool", span_type=SpanType.TOOL) as span:
+            span.set_status(SpanStatusCode.ERROR)
+
+    warn.assert_not_called()
+
+
+def test_local_tracking_check_runs_independently_of_span_type_and_status(async_logging_enabled):
+    with mock.patch("mlflow.agent.hint.maybe_warn_local_tracking_for_databricks") as check:
+        with mlflow.start_span(name="failed_unknown") as span:
+            span.set_status(SpanStatusCode.ERROR)
+
+    check.assert_called_once()
+
+
+def test_agent_hint_failure_does_not_prevent_span_finalization(async_logging_enabled):
+    span = start_span_no_context(name="empty_tool", span_type=SpanType.TOOL)
+    with (
+        mock.patch("mlflow.agent.hint.maybe_warn_agent", side_effect=RuntimeError("hint failed")),
+        mock.patch.object(span._span, "end", wraps=span._span.end) as end,
+    ):
+        span.end()
+
+    end.assert_called_once()
+
+
 @pytest.mark.skipif(
     IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
 )
@@ -3252,3 +3296,96 @@ def test_flush_trace_async_logging_no_spurious_error_when_tracing_disabled():
     with mock.patch("mlflow.tracking.fluent._logger") as mock_logger:
         mlflow.flush_trace_async_logging(terminate=True)
     mock_logger.error.assert_not_called()
+
+
+def test_trace_decorator_with_description():
+    @mlflow.trace(description="Calculates sum of two integers")
+    def add(x, y):
+        return x + y
+
+    add(3, 4)
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.description == "Calculates sum of two integers"
+    assert span.attributes[SpanAttributeKey.DESCRIPTION] == "Calculates sum of two integers"
+
+
+def test_trace_decorator_with_description_async():
+    @mlflow.trace(description="Async square calculation")
+    async def square(x):
+        return x * x
+
+    asyncio.run(square(5))
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.description == "Async square calculation"
+    assert span.attributes[SpanAttributeKey.DESCRIPTION] == "Async square calculation"
+
+
+def test_trace_decorator_with_description_generator():
+    @mlflow.trace(description="Streams number range")
+    def number_stream(n):
+        for i in range(n):
+            yield i
+
+    list(number_stream(3))
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.description == "Streams number range"
+    assert span.attributes[SpanAttributeKey.DESCRIPTION] == "Streams number range"
+
+
+def test_start_span_with_description():
+    with mlflow.start_span("test_span", description="Validates transaction risk") as span:
+        assert span.description == "Validates transaction risk"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    root_span = traces[0].data.spans[0]
+    assert root_span.description == "Validates transaction risk"
+    assert root_span.attributes[SpanAttributeKey.DESCRIPTION] == "Validates transaction risk"
+
+
+def test_start_span_no_context_with_description():
+    span = mlflow.start_span_no_context("detached_span", description="Detached span task")
+    assert span.description == "Detached span task"
+    span.end()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    root_span = traces[0].data.spans[0]
+    assert root_span.description == "Detached span task"
+    assert root_span.attributes[SpanAttributeKey.DESCRIPTION] == "Detached span task"
+
+
+def test_span_set_description():
+    with mlflow.start_span("dynamic_desc_span") as span:
+        assert span.description is None
+        span.set_description("Dynamically updated description")
+        assert span.description == "Dynamically updated description"
+
+    traces = get_traces()
+    assert len(traces) == 1
+    root_span = traces[0].data.spans[0]
+    assert root_span.description == "Dynamically updated description"
+    assert root_span.attributes[SpanAttributeKey.DESCRIPTION] == "Dynamically updated description"
+
+
+def test_span_description_default_none():
+    @mlflow.trace
+    def func_no_desc(x):
+        return x
+
+    func_no_desc(1)
+    with mlflow.start_span("span_no_desc") as span:
+        pass
+
+    traces = get_traces()
+    assert len(traces) == 2
+    for trace in traces:
+        for span in trace.data.spans:
+            assert span.description is None
+            assert SpanAttributeKey.DESCRIPTION not in span.attributes

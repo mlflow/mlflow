@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.entities.assessment import Feedback
@@ -118,3 +120,17 @@ def test_compute_aggregated_metrics_with_namespace():
 def test_cast_numeric_values(value, expected_float):
     assessment = Feedback(name="test", value=value)
     assert _cast_assessment_value_to_float(assessment) == expected_float
+
+
+@pytest.mark.parametrize("value", ["pass", ["good", "safe"], {"rating": "good"}])
+def test_non_aggregatable_output_warns_agent(value):
+    assessment = Feedback(name="quality", value=value)
+
+    with mock.patch("mlflow.agent.hint.maybe_warn_agent") as warn:
+        assert _cast_assessment_value_to_float(assessment) is None
+
+    warn.assert_called_once_with(
+        "non-aggregatable-scorer-output",
+        f"Scorer 'quality' returned a value of type {type(value).__name__!r}, which is not "
+        "included in aggregated metrics; return a boolean, number, or 'yes'/'no' instead.",
+    )

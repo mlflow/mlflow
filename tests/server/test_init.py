@@ -8,7 +8,7 @@ from unittest import mock
 import pytest
 
 from mlflow import server
-from mlflow.environment_variables import _MLFLOW_SGI_NAME
+from mlflow.environment_variables import _MLFLOW_SERVER_BOOT_ID, _MLFLOW_SGI_NAME
 from mlflow.exceptions import MlflowException
 from mlflow.utils import find_free_port
 from mlflow.utils.os import is_windows
@@ -240,14 +240,16 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         "4",
         "mlflow.server.fastapi_app:app",
     ]
-    mock_exec_cmd.assert_called_once_with(
-        expected_command,
-        extra_env={
-            _MLFLOW_SGI_NAME.name: "uvicorn",
-        },
-        capture_output=False,
-        synchronous=False,
-    )
+    mock_exec_cmd.assert_called_once()
+    call = mock_exec_cmd.call_args
+    assert call.args[0] == expected_command
+    assert call.kwargs["capture_output"] is False
+    assert call.kwargs["synchronous"] is False
+    extra_env = call.kwargs["extra_env"]
+    assert extra_env[_MLFLOW_SGI_NAME.name] == "uvicorn"
+    # Each server generation is stamped with a boot id (used to reap orphaned sandbox containers
+    # left by a previous generation); its value is a random per-boot uuid.
+    assert extra_env[_MLFLOW_SERVER_BOOT_ID.name]
 
 
 @pytest.mark.parametrize(
