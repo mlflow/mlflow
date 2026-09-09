@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import posixpath
 from dataclasses import dataclass
 from typing import Literal
 
@@ -25,8 +26,18 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.workspace.abstract_store import AbstractStore
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
-from mlflow.utils.uri import append_to_uri_path
-from mlflow.utils.workspace_utils import WORKSPACES_DIR_NAME
+from mlflow.utils.uri import append_to_uri_path, extract_and_normalize_path, get_uri_scheme
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
+
+
+@dataclass(frozen=True)
+class ProxiedArtifactRoot:
+    """A moved experiment whose proxied artifact root may require storage relocation."""
+
+    name: str
+    artifact_location: str
+    current_path: str
+    target_path: str
 
 
 @dataclass(frozen=True)
@@ -38,6 +49,9 @@ class MoveResult:
     # Set when artifact_policy="retarget": the artifact root the moved
     # experiments were repointed under.
     retarget_root: str | None = None
+    # Set when moving experiments whose proxied artifact roots are interpreted
+    # relative to the active workspace.
+    proxied_artifact_roots: tuple[ProxiedArtifactRoot, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -240,6 +254,52 @@ def _resolve_target_artifact_root(
     return root
 
 
+def _normalize_proxied_artifact_path(artifact_location: str) -> str:
+    normalized = extract_and_normalize_path(artifact_location)
+    return "" if normalized == "." else normalized
+
+
+def _get_target_proxied_artifact_path(current_path: str, target_workspace: str) -> str:
+    segments = current_path.split("/", 2)
+    if len(segments) >= 2 and segments[0] == WORKSPACES_DIR_NAME and segments[1]:
+        suffix = segments[2] if len(segments) == 3 else ""
+    else:
+        suffix = current_path
+
+    if target_workspace == DEFAULT_WORKSPACE_NAME:
+        return suffix
+    return posixpath.join(WORKSPACES_DIR_NAME, target_workspace, suffix)
+
+
+def _find_proxied_artifact_roots(
+    conn,
+    table: sa.Table,
+    name_col,
+    source_workspace: str,
+    target_workspace: str,
+    name_filter: list[str] | sa.Select | None,
+) -> tuple[ProxiedArtifactRoot, ...]:
+    stmt = sa.select(name_col, table.c.artifact_location).where(
+        table.c.workspace == source_workspace
+    )
+    if name_filter is not None:
+        stmt = stmt.where(name_col.in_(name_filter))
+
+    roots = []
+    for name, artifact_location in conn.execute(stmt.order_by(name_col)).fetchall():
+        if get_uri_scheme(artifact_location or "") == "mlflow-artifacts":
+            current_path = _normalize_proxied_artifact_path(artifact_location)
+            roots.append(
+                ProxiedArtifactRoot(
+                    name=name,
+                    artifact_location=artifact_location,
+                    current_path=current_path,
+                    target_path=_get_target_proxied_artifact_path(current_path, target_workspace),
+                )
+            )
+    return tuple(roots)
+
+
 def move_resources(
     engine: sa.Engine,
     workspace_store: AbstractStore,
@@ -363,6 +423,14 @@ def move_resources(
             )
         ).scalar()
 
+        proxied_artifact_roots = (
+            _find_proxied_artifact_roots(
+                conn, table, name_col, source_workspace, target_workspace, name_filter
+            )
+            if resource_type == SqlExperiment.__tablename__
+            else ()
+        )
+
         if not dry_run:
             if retarget_root is not None:
                 # Resolved before the flip because the tag-filter subquery in
@@ -423,4 +491,9 @@ def move_resources(
                     )
                 )
 
-    return MoveResult(names=sorted(matched), row_count=row_count, retarget_root=retarget_root)
+    return MoveResult(
+        names=sorted(matched),
+        row_count=row_count,
+        retarget_root=retarget_root,
+        proxied_artifact_roots=proxied_artifact_roots,
+    )
