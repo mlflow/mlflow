@@ -5,6 +5,7 @@ mlflow.genai
     :members:
     :undoc-members:
     :show-inheritance:
+    :exclude-members: Skill, SkillStatus, SkillVersion, SkillSourceType, GitSource, MlflowSource, OCISource, ZipSource, AgentPlugin, AgentPluginVersion
 
 .. automodule:: mlflow.genai.scorers
     :members:
