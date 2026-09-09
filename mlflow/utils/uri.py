@@ -84,8 +84,7 @@ def is_databricks_uri(uri):
     Databricks URIs look like 'databricks' (default profile) or 'databricks://profile'
     or 'databricks://secret_scope:secret_key_prefix'.
     """
-    scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == "databricks" or uri == "databricks"
+    return uri == "databricks" or urllib.parse.urlparse(uri).scheme == "databricks"
 
 
 def is_fuse_or_uc_volumes_uri(uri):
