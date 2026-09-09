@@ -1,7 +1,13 @@
 import pytest
 
 from mlflow.entities.skill import SkillStatus
-from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
+from mlflow.entities.skill_source import (
+    GitSource,
+    MlflowSource,
+    OCISource,
+    SkillSourceType,
+    ZipSource,
+)
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
@@ -57,8 +63,11 @@ def test_skill_version_from_dict_flat_git_source():
             "mlflow",
             "artifacts:/skills/code-review/3",
             None,
-            None,
-            "artifacts:/skills/code-review/3",
+            "skills/code-review",
+            MlflowSource(
+                artifact_path="artifacts:/skills/code-review/3",
+                subpath="skills/code-review",
+            ),
         ),
     ],
 )

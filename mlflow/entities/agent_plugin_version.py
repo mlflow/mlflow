@@ -6,6 +6,7 @@ from typing import Any
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_source import (
     GitSource,
+    MlflowSource,
     OCISource,
     SkillSourceType,
     ZipSource,
@@ -23,7 +24,7 @@ class AgentPluginVersion:
     version: str
     organization: str = ""
     plugin_json: dict[str, Any] = field(default_factory=dict)  # immutable after creation
-    source: GitSource | OCISource | ZipSource | str | None = None  # immutable after creation
+    source: GitSource | OCISource | ZipSource | MlflowSource | str | None = None
     source_type: SkillSourceType | None = None
     status: SkillStatus = SkillStatus.ACTIVE
     tags: dict[str, str] = field(default_factory=dict)

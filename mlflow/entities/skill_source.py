@@ -88,16 +88,41 @@ class ZipSource:
         return cls(url=url, subpath=data.get("subpath"))
 
 
+@experimental(version="3.16.0")
+@dataclass(frozen=True)
+class MlflowSource:
+    artifact_path: str
+    subpath: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            k: v
+            for k, v in {"artifact_path": self.artifact_path, "subpath": self.subpath}.items()
+            if v is not None
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MlflowSource:
+        try:
+            artifact_path = data["artifact_path"]
+        except KeyError:
+            raise MlflowException.invalid_parameter_value(
+                "Missing required key 'artifact_path' in MlflowSource dictionary"
+            ) from None
+        return cls(artifact_path=artifact_path, subpath=data.get("subpath"))
+
+
 def build_source(
     source_type: SkillSourceType | None,
     source: str | None,
     ref: str | None = None,
     subpath: str | None = None,
-) -> GitSource | OCISource | ZipSource | str | None:
+) -> GitSource | OCISource | ZipSource | MlflowSource | str | None:
     """Reconstruct a typed source from the flat wire/DB fields.
 
     git -> GitSource(url, ref, subpath); oci -> OCISource(image, subpath);
-    zip -> ZipSource(url, subpath); mlflow/assembled -> the plain string pointer.
+    zip -> ZipSource(url, subpath); mlflow -> MlflowSource(artifact_path, subpath);
+    assembled -> the plain string pointer.
     """
     if source is None:
         return None
@@ -109,4 +134,6 @@ def build_source(
         return OCISource(image=source, subpath=subpath)
     if source_type == SkillSourceType.ZIP:
         return ZipSource(url=source, subpath=subpath)
+    if source_type == SkillSourceType.MLFLOW:
+        return MlflowSource(artifact_path=source, subpath=subpath)
     return source

@@ -2,6 +2,7 @@ import pytest
 
 from mlflow.entities.skill_source import (
     GitSource,
+    MlflowSource,
     OCISource,
     SkillSourceType,
     ZipSource,
@@ -33,6 +34,15 @@ def test_oci_and_zip_source_roundtrip():
     assert ZipSource.from_dict(zip_src.to_dict()) == zip_src
 
 
+def test_mlflow_source_roundtrip():
+    source = MlflowSource(artifact_path="artifacts:/plugins/p/1", subpath="skills/review")
+    assert source.to_dict() == {
+        "artifact_path": "artifacts:/plugins/p/1",
+        "subpath": "skills/review",
+    }
+    assert MlflowSource.from_dict(source.to_dict()) == source
+
+
 def test_from_dict_missing_required_key():
     with pytest.raises(MlflowException, match="url"):
         GitSource.from_dict({"ref": "v1"})
@@ -48,8 +58,10 @@ def test_build_source_reconstructs_typed_sources():
     assert build_source(SkillSourceType.ZIP, "https://x/a.zip", None, "sub") == ZipSource(
         url="https://x/a.zip", subpath="sub"
     )
-    assert (
-        build_source(SkillSourceType.MLFLOW, "artifacts:/skills/x/3", None, None)
-        == "artifacts:/skills/x/3"
+    assert build_source(
+        SkillSourceType.MLFLOW, "artifacts:/plugins/p/1", None, "skills/x"
+    ) == MlflowSource(
+        artifact_path="artifacts:/plugins/p/1",
+        subpath="skills/x",
     )
     assert build_source(None, None, None, None) is None

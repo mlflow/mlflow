@@ -8,6 +8,7 @@ def test_skill_types_exported_from_genai():
         "SkillStatus",
         "SkillSourceType",
         "GitSource",
+        "MlflowSource",
         "OCISource",
         "ZipSource",
         "AgentPlugin",
@@ -18,4 +19,4 @@ def test_skill_types_exported_from_genai():
 
 
 def test_import_types_from_genai():
-    from mlflow.genai import AgentPlugin, GitSource, Skill  # noqa: F401
+    from mlflow.genai import AgentPlugin, GitSource, MlflowSource, Skill  # noqa: F401

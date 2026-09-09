@@ -2,7 +2,7 @@ import pytest
 
 from mlflow.entities.agent_plugin_version import AgentPluginVersion
 from mlflow.entities.skill import SkillStatus
-from mlflow.entities.skill_source import GitSource, SkillSourceType
+from mlflow.entities.skill_source import GitSource, MlflowSource, SkillSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
@@ -34,6 +34,20 @@ def test_agent_plugin_version_from_dict_flat_git_source():
     assert apv.source_type == SkillSourceType.GIT
     assert apv.skills == ["skills:/code-review/1", "skills:/security-scan@production"]
     assert apv.plugin_json == {"name": "pr-workflow", "version": "1.0.0"}
+
+
+def test_agent_plugin_version_from_dict_preserves_mlflow_subpath():
+    data = {
+        "name": "pr-workflow",
+        "version": "1.0.0",
+        "plugin_json": {"name": "pr-workflow", "version": "1.0.0"},
+        "source_type": "mlflow",
+        "source": "artifacts:/plugins/pr-workflow/1.0.0",
+        "subpath": "package",
+    }
+    assert AgentPluginVersion.from_dict(data).source == MlflowSource(
+        artifact_path="artifacts:/plugins/pr-workflow/1.0.0", subpath="package"
+    )
 
 
 def test_agent_plugin_version_from_dict_missing_field():

@@ -539,6 +539,9 @@ mlflow.entities.MlflowExperimentLocation.from_dict
 mlflow.entities.MlflowExperimentLocation.from_proto
 mlflow.entities.MlflowExperimentLocation.to_dict
 mlflow.entities.MlflowExperimentLocation.to_proto
+mlflow.entities.MlflowSource
+mlflow.entities.MlflowSource.from_dict
+mlflow.entities.MlflowSource.to_dict
 mlflow.entities.NoOpSpan
 mlflow.entities.NoOpSpan.add_event
 mlflow.entities.NoOpSpan.add_link
@@ -813,6 +816,7 @@ mlflow.entities.session.Session
 mlflow.entities.skill.Skill
 mlflow.entities.skill.SkillStatus
 mlflow.entities.skill_source.GitSource
+mlflow.entities.skill_source.MlflowSource
 mlflow.entities.skill_source.OCISource
 mlflow.entities.skill_source.SkillSourceType
 mlflow.entities.skill_source.ZipSource

@@ -6,6 +6,7 @@ from typing import Any
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_source import (
     GitSource,
+    MlflowSource,
     OCISource,
     SkillSourceType,
     ZipSource,
@@ -22,7 +23,7 @@ class SkillVersion:
     name: str
     version: int
     organization: str = ""
-    source: GitSource | OCISource | ZipSource | str | None = None  # immutable after creation
+    source: GitSource | OCISource | ZipSource | MlflowSource | str | None = None
     source_type: SkillSourceType | None = None
     digest: str | None = None
     status: SkillStatus = SkillStatus.ACTIVE

@@ -83,7 +83,13 @@ from mlflow.entities.run_tag import RunTag
 from mlflow.entities.scorer import ScorerVersion
 from mlflow.entities.session import Session
 from mlflow.entities.skill import Skill, SkillStatus
-from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
+from mlflow.entities.skill_source import (
+    GitSource,
+    MlflowSource,
+    OCISource,
+    SkillSourceType,
+    ZipSource,
+)
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
@@ -218,6 +224,7 @@ __all__ = [
     "SkillVersion",
     "SkillSourceType",
     "GitSource",
+    "MlflowSource",
     "OCISource",
     "ZipSource",
     "AgentPlugin",

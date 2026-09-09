@@ -8,6 +8,7 @@ def test_skill_entities_exported():
         "SkillVersion",
         "SkillSourceType",
         "GitSource",
+        "MlflowSource",
         "OCISource",
         "ZipSource",
         "AgentPlugin",
@@ -18,4 +19,4 @@ def test_skill_entities_exported():
 
 
 def test_import_from_entities():
-    from mlflow.entities import AgentPlugin, GitSource, Skill  # noqa: F401
+    from mlflow.entities import AgentPlugin, GitSource, MlflowSource, Skill  # noqa: F401
