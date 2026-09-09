@@ -39,3 +39,29 @@ def test_agent_plugin_version_from_dict_flat_git_source():
 def test_agent_plugin_version_from_dict_missing_field():
     with pytest.raises(MlflowException, match="missing required field"):
         AgentPluginVersion.from_dict({"name": "pr-workflow"})
+
+
+@pytest.mark.parametrize("plugin_json", [None, [], "invalid"])
+def test_agent_plugin_version_from_dict_rejects_invalid_plugin_json(plugin_json):
+    data = {
+        "name": "pr-workflow",
+        "version": "1.0.0",
+        "plugin_json": plugin_json,
+    }
+    with pytest.raises(MlflowException, match="plugin_json"):
+        AgentPluginVersion.from_dict(data)
+
+
+def test_agent_plugin_version_from_dict_requires_plugin_json():
+    with pytest.raises(MlflowException, match="missing required field.*plugin_json"):
+        AgentPluginVersion.from_dict({"name": "pr-workflow", "version": "1.0.0"})
+
+
+def test_agent_plugin_version_from_dict_requires_matching_plugin_json_version():
+    data = {
+        "name": "pr-workflow",
+        "version": "1.0.0",
+        "plugin_json": {"version": "2.0.0"},
+    }
+    with pytest.raises(MlflowException, match="plugin_json.*version"):
+        AgentPluginVersion.from_dict(data)

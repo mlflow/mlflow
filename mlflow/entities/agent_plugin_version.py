@@ -45,12 +45,17 @@ class AgentPluginVersion:
                 "Failed to parse AgentPluginVersion response: expected a dictionary"
             )
         try:
+            plugin_json = data["plugin_json"]
+            if not isinstance(plugin_json, dict):
+                raise TypeError("plugin_json must be a dictionary")
+            if plugin_json.get("version") != data["version"]:
+                raise ValueError("plugin_json version must match the response version")
             source_type = SkillSourceType(data["source_type"]) if data.get("source_type") else None
             return cls(
                 name=data["name"],
                 version=data["version"],
                 organization=data.get("organization", ""),
-                plugin_json=data.get("plugin_json") or {},
+                plugin_json=plugin_json,
                 source=build_source(
                     source_type, data.get("source"), data.get("ref"), data.get("subpath")
                 ),

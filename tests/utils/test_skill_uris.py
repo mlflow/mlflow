@@ -69,9 +69,10 @@ def test_parse_skill_uri_fields():
     assert parsed == ParsedSkillUri(name="code-review", organization="acme", version=2)
 
 
-def test_plugin_version_is_normalized_on_parse():
-    parsed = parse_agent_plugin_uri("agent-plugins:/pr-workflow/1.0")
-    assert parsed.version == "1.0.0"
+@pytest.mark.parametrize("version", ["1", "1.0", " 1.0.0 "])
+def test_plugin_uri_requires_exact_semver(version):
+    with pytest.raises(MlflowException, match="semantic version"):
+        parse_agent_plugin_uri(f"agent-plugins:/pr-workflow/{version}")
 
 
 def test_version_and_alias_mutually_exclusive():
@@ -115,8 +116,20 @@ def test_parse_uri_rejects_empty_marked_organization(parser, uri):
         parser(uri)
 
 
-def test_parsed_agent_plugin_uri_normalizes_semver_on_construction():
-    assert ParsedAgentPluginUri(name="p", version="1.0").version == "1.0.0"
+def test_parsed_agent_plugin_uri_requires_exact_semver_on_construction():
+    with pytest.raises(MlflowException, match="semantic version"):
+        ParsedAgentPluginUri(name="p", version="1.0")
+
+
+def test_skill_uri_version_must_fit_storage_bound():
+    assert parse_skill_uri("skills:/code-review/2147483647").version == 2_147_483_647
+    with pytest.raises(MlflowException, match="2147483647"):
+        parse_skill_uri("skills:/code-review/2147483648")
+
+
+def test_skill_uri_huge_version_raises_mlflow_exception():
+    with pytest.raises(MlflowException, match="skill version"):
+        parse_skill_uri(f"skills:/code-review/{'9' * 4301}")
 
 
 @pytest.mark.parametrize(

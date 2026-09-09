@@ -66,6 +66,11 @@ def test_organization_accepts_rfc_examples(organization):
     _validate_organization_name(organization)
 
 
+def test_organization_rejects_none():
+    with pytest.raises(MlflowException, match="[Oo]rganization"):
+        _validate_organization_name(None)
+
+
 @pytest.mark.parametrize("org", ["", "acme", "acme.com", "acme-labs"])
 def test_valid_organization_names(org):
     _validate_organization_name(org)
@@ -77,12 +82,12 @@ def test_invalid_organization_names(org):
         _validate_organization_name(org)
 
 
-@pytest.mark.parametrize("version", [1, 2, 999])
+@pytest.mark.parametrize("version", [1, 2, 999, 2_147_483_647])
 def test_valid_skill_versions(version):
     _validate_skill_version(version)
 
 
-@pytest.mark.parametrize("version", [0, -1, "1", 1.0, True, None])
+@pytest.mark.parametrize("version", [0, -1, "1", 1.0, True, None, 2_147_483_648])
 def test_invalid_skill_versions(version):
     with pytest.raises(MlflowException, match="positive integer"):
         _validate_skill_version(version)
@@ -117,8 +122,16 @@ def test_valid_artifact_paths(path):
         "C:\\evil",
         "a/%2e/b",
         "a%2f%2fb",
+        "a\nb",
+        "a%0Ab",
     ],
 )
 def test_invalid_artifact_paths(path):
+    with pytest.raises(MlflowException, match="path"):
+        _validate_skill_artifact_path(path)
+
+
+def test_artifact_path_decode_limit_raises_mlflow_exception():
+    path = "%25252525252525252525252e"
     with pytest.raises(MlflowException, match="path"):
         _validate_skill_artifact_path(path)

@@ -735,6 +735,7 @@ def _validate_model_alias_name_reserved(model_alias_name):
 MAX_SKILL_NAME_LENGTH = 64
 MAX_AGENT_PLUGIN_NAME_LENGTH = 64
 MAX_ORGANIZATION_NAME_LENGTH = 64
+MAX_SKILL_VERSION = 2_147_483_647
 
 # Skill names: lowercase ASCII letters, digits, and single hyphens; alphanumeric first
 # and last characters; no consecutive hyphens.
@@ -769,9 +770,12 @@ def _validate_agent_plugin_name(name):
 
 
 def _validate_organization_name(organization):
-    if organization is None or organization == "":
+    if organization == "":
         return
-    if _AGENT_PLUGIN_NAME_REGEX.fullmatch(organization) is None:
+    if (
+        not isinstance(organization, str)
+        or _AGENT_PLUGIN_NAME_REGEX.fullmatch(organization) is None
+    ):
         raise MlflowException.invalid_parameter_value(
             f"Invalid organization name {organization!r}. Organizations must be 1-64 lowercase "
             "ASCII letters, digits, hyphens, and periods; must have alphanumeric first and last "
@@ -781,9 +785,13 @@ def _validate_organization_name(organization):
 
 
 def _validate_skill_version(version):
-    if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+    if (
+        isinstance(version, bool)
+        or not isinstance(version, int)
+        or not 1 <= version <= MAX_SKILL_VERSION
+    ):
         raise MlflowException.invalid_parameter_value(
-            f"Skill version must be a positive integer, got {version!r}."
+            f"Skill version must be a positive integer <= {MAX_SKILL_VERSION}, got {version!r}."
         )
 
 
@@ -804,11 +812,25 @@ def _validate_skill_artifact_path(path):
         raise MlflowException.invalid_parameter_value(
             f"Artifact path must be a non-empty string, got {path!r}."
         )
-    # Delegates the security-critical checks (absolute, '..', backslash, url-encoded,
-    # windows-absolute, control chars, '#') to the shared path-safety helper, then runs
-    # the segment checks on its decoded/normalized return value so URL-encoded traversals
-    # (e.g. '%2e' or '%2f') can't slip past as empty or '.' segments.
-    normalized = validate_path_is_safe(path)
+    decoded = path
+    for _ in range(10):
+        if any(ord(char) <= 31 or ord(char) == 127 for char in decoded):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid artifact path {path!r}: control characters are not allowed."
+            )
+        next_decoded = urllib.parse.unquote(decoded)
+        if next_decoded == decoded:
+            break
+        decoded = next_decoded
+    # Delegate the remaining security-critical checks to the shared path-safety helper,
+    # then inspect its decoded/normalized return value so URL-encoded traversals cannot
+    # slip past the skill-specific segment checks.
+    try:
+        normalized = validate_path_is_safe(path)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid artifact path {path!r}: {e}"
+        ) from None
     if "\\" in normalized:
         raise MlflowException.invalid_parameter_value(
             f"Invalid artifact path {path!r}: backslashes are not allowed."

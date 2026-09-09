@@ -1,10 +1,7 @@
 """Parse and format ``skills:/`` and ``agent-plugins:/`` URIs.
 
-Parsing is normalizing: a skill version must be a canonical ASCII integer (no
-leading zeros, sign, underscores, or non-ASCII digits), and an agent-plugin
-version is coerced to canonical SemVer via
-:func:`mlflow.utils.semver_utils.normalize_semver` (so, e.g.,
-``agent-plugins:/pr-workflow/1`` intentionally round-trips to ``.../1.0.0``).
+Versions in URIs must already be canonical: skill versions are ASCII integers
+without leading zeros, and agent-plugin versions are exact SemVer strings.
 
 The invariant is that a parsed object round-trips exactly
 (``format(parse(format(x))) == format(x)``), and every canonical URI satisfies
@@ -18,8 +15,9 @@ from dataclasses import dataclass
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.semver_utils import normalize_semver
+from mlflow.utils.semver_utils import parse_semver
 from mlflow.utils.validation import (
+    MAX_SKILL_VERSION,
     _validate_agent_plugin_name,
     _validate_organization_name,
     _validate_skill_alias,
@@ -73,7 +71,7 @@ class ParsedAgentPluginUri:
         _validate_organization_name(self.organization)
         _validate_agent_plugin_name(self.name)
         if self.version is not None:
-            object.__setattr__(self, "version", normalize_semver(self.version))
+            parse_semver(self.version, param_name="agent plugin version")
         if self.alias is not None:
             _validate_skill_alias(self.alias)
 
@@ -141,6 +139,13 @@ def parse_skill_uri(uri: str) -> ParsedSkillUri:
                 f"Invalid skill version {version_str!r}: must be a positive integer with no "
                 "leading zeros, sign, underscores, or non-ASCII digits."
             )
+        max_version = str(MAX_SKILL_VERSION)
+        if len(version_str) > len(max_version) or (
+            len(version_str) == len(max_version) and version_str > max_version
+        ):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid skill version: must be <= {MAX_SKILL_VERSION}."
+            )
         version = int(version_str)
         _validate_skill_version(version)
     if alias is not None:
@@ -160,7 +165,9 @@ def parse_agent_plugin_uri(uri: str) -> ParsedAgentPluginUri:
     organization, name, version_str, alias = _split_uri(uri, _AGENT_PLUGIN_SCHEME)
     _validate_organization_name(organization)
     _validate_agent_plugin_name(name)
-    version = normalize_semver(version_str) if version_str is not None else None
+    if version_str is not None:
+        parse_semver(version_str, param_name="agent plugin version")
+    version = version_str
     if alias is not None:
         _validate_skill_alias(alias)
     return ParsedAgentPluginUri(name=name, organization=organization, version=version, alias=alias)
