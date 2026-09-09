@@ -4685,6 +4685,55 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         assert mock_submit.call_args.kwargs["params"]["experiment_id"] == "exp-123"
 
 
+def test_invoke_scorer_deduplicates_trace_ids(mock_tracking_store):
+    serialized_scorer = json.dumps({
+        "name": "test_judge",
+        "aggregations": [],
+        "description": None,
+        "is_session_level_scorer": False,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        "instructions_judge_pydantic_data": {
+            "instructions": "Test: {{ inputs }}",
+            "model": "openai:/gpt-4",
+            "feedback_value_type": {
+                "enum": ["Yes", "No"],
+                "title": "Result",
+                "type": "string",
+            },
+        },
+    })
+
+    trace1 = TraceInfo(
+        trace_id="trace1",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+    mock_tracking_store.batch_get_trace_infos.return_value = [trace1]
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_submit.return_value = mock.MagicMock(job_id="test-job-123")
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1", "trace1"],  # duplicate
+                },
+            )
+        assert response.status_code == 200
+        # Duplicate is collapsed before fetch and before scoring: fetched and scored once.
+        mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["trace1"])
+        assert response.get_json()["jobs"][0]["trace_ids"] == ["trace1"]
+
+
 def test_invoke_registered_scorer_resolves_exact_version(mock_tracking_store):
     serialized_scorer = json.dumps(Completeness(name="test_judge").model_dump())
     registered_scorer = mock.MagicMock(serialized_scorer=serialized_scorer)
@@ -4833,12 +4882,13 @@ def test_invoke_scorer_rejects_cross_experiment_traces(mock_tracking_store):
         mock_submit.assert_not_called()
 
 
-def test_invoke_scorer_rejects_missing_trace_batch_path(mock_tracking_store):
-    """Verify that missing traces via batch_get_trace_infos are rejected with generic 403.
+def test_invoke_scorer_fallback_drops_missing_trace(mock_tracking_store):
+    """A missing trace on the fallback path is dropped, not surfaced as a 404.
 
-    When batch_get_trace_infos returns a partial list (missing traces just absent),
-    the set-comparison should catch it and reject with a generic 403 that doesn't leak
-    the trace_id or experiment_id.
+    When batch_get_trace_infos is unimplemented, the per-trace fallback swallows
+    RESOURCE_DOES_NOT_EXIST so a missing trace is simply absent from the ownership check
+    (rather than leaking the trace_id via a 404). The request still submits the job; the
+    missing trace fails downstream in the job, matching the batch path.
     """
     serialized_scorer = json.dumps({
         "name": "test_judge",
@@ -4863,73 +4913,10 @@ def test_invoke_scorer_rejects_missing_trace_batch_path(mock_tracking_store):
         },
     })
 
-    # Mock batch_get_trace_infos to return only one trace, but request two
-    existing_trace = TraceInfo(
-        trace_id="trace-1",
-        trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
-        request_time=1234567890,
-        state=TraceState.OK,
-    )
-    mock_tracking_store.batch_get_trace_infos.return_value = [existing_trace]
-
-    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
-        with app.test_client() as c:
-            response = c.post(
-                "/ajax-api/3.0/mlflow/scorer/invoke",
-                json={
-                    "experiment_id": "exp-123",
-                    "serialized_scorer": serialized_scorer,
-                    "trace_ids": ["trace-1", "trace-2"],  # Request two, get one back
-                },
-            )
-        # Should be rejected with 403 (PERMISSION_DENIED)
-        assert response.status_code == 403
-        data = response.get_json()
-        # Verify generic message without trace_id or experiment_id leak
-        assert "trace" not in data["message"].lower() or "not all" in data["message"].lower()
-        assert "experiment_id" not in data["message"].lower()
-        # Verify that job was not submitted
-        mock_submit.assert_not_called()
-
-
-def test_invoke_scorer_rejects_missing_trace_fallback_path(mock_tracking_store):
-    """Verify that missing traces via fallback get_trace_info are rejected with generic 403.
-
-    When get_trace_info raises RESOURCE_DOES_NOT_EXIST (because batch_get_trace_infos
-    is not implemented), the fallback should catch it and treat the trace as missing
-    (omit from trace_infos list), so the set-comparison catches it and returns generic 403.
-    """
-    serialized_scorer = json.dumps({
-        "name": "test_judge",
-        "aggregations": [],
-        "description": None,
-        "is_session_level_scorer": False,
-        "mlflow_version": mlflow.__version__,
-        "serialization_version": 1,
-        "builtin_scorer_class": None,
-        "builtin_scorer_pydantic_data": None,
-        "call_source": None,
-        "call_signature": None,
-        "original_func_name": None,
-        "instructions_judge_pydantic_data": {
-            "instructions": "Test: {{ inputs }}",
-            "model": "openai:/gpt-4",
-            "feedback_value_type": {
-                "enum": ["Yes", "No"],
-                "title": "Result",
-                "type": "string",
-            },
-        },
-    })
-
-    from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-
-    # Set batch_get_trace_infos to raise MlflowNotImplementedException, triggering fallback
     mock_tracking_store.batch_get_trace_infos.side_effect = MlflowNotImplementedException(
         "Not implemented"
     )
 
-    # Mock get_trace_info to raise RESOURCE_DOES_NOT_EXIST for missing trace
     def get_trace_side_effect(trace_id):
         if trace_id == "trace-1":
             return TraceInfo(
@@ -4938,17 +4925,18 @@ def test_invoke_scorer_rejects_missing_trace_fallback_path(mock_tracking_store):
                 request_time=1234567890,
                 state=TraceState.OK,
             )
-        elif trace_id == "trace-missing":
-            # Simulate a missing trace
-            raise MlflowException(
-                f"Trace {trace_id} not found",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-        raise Exception(f"Unexpected trace_id: {trace_id}")
+        raise MlflowException(
+            f"Trace {trace_id} not found",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
 
     mock_tracking_store.get_trace_info.side_effect = get_trace_side_effect
 
     with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_job = mock.MagicMock()
+        mock_job.job_id = "test-job-123"
+        mock_submit.return_value = mock_job
+
         with app.test_client() as c:
             response = c.post(
                 "/ajax-api/3.0/mlflow/scorer/invoke",
@@ -4958,14 +4946,12 @@ def test_invoke_scorer_rejects_missing_trace_fallback_path(mock_tracking_store):
                     "trace_ids": ["trace-1", "trace-missing"],
                 },
             )
-        # Should be rejected with 403 (PERMISSION_DENIED)
-        assert response.status_code == 403
+        assert response.status_code == 200
+        mock_submit.assert_called_once()
+        # The missing trace is forwarded to the job (which reports it as not found), not
+        # rejected at request time.
         data = response.get_json()
-        # Verify generic message, no trace_id or experiment_id leak
-        assert "trace-missing" not in data["message"]
-        assert "experiment_id" not in data["message"].lower()
-        # Verify that job was not submitted
-        mock_submit.assert_not_called()
+        assert data["jobs"][0]["trace_ids"] == ["trace-1", "trace-missing"]
 
 
 def test_invoke_scorer_rejects_foreign_trace_fallback_path(mock_tracking_store):

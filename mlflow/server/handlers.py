@@ -7206,15 +7206,17 @@ def _invoke_scorer_handler():
 
     scorer = Scorer.model_validate_json(serialized_scorer)
 
-    # Verify that all requested traces belong to the authorized experiment.
-    # This prevents users from writing assessments to traces in other experiments.
+    # Verify that any requested trace that exists belongs to the authorized experiment.
+    # This prevents users from scoring or writing assessments to traces in other experiments.
+    # Traces that do not exist are left to fail downstream in the scorer job (reported as
+    # "Traces not found"); only traces that resolve to a *different* experiment are rejected here.
     try:
         trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
     except MlflowNotImplementedException:
         # Fallback to per-trace fetches for stores that don't implement batch_get_trace_infos.
-        # Catch RESOURCE_DOES_NOT_EXIST (missing trace) to maintain consistency with the batch
-        # path, which returns a partial list. This ensures a missing trace flows into the
-        # set-comparison check below (generic 403), not into a 404 that leaks the trace_id.
+        # Drop RESOURCE_DOES_NOT_EXIST (missing trace) so the fallback returns the same partial
+        # list the batch path would: a missing trace is simply absent and flows through to the
+        # job, rather than raising a 404 here.
         trace_infos = []
         for trace_id in trace_ids:
             try:
@@ -7226,17 +7228,6 @@ def _invoke_scorer_handler():
                 else:
                     # Re-raise any other exception (connection errors, permission errors, etc.)
                     raise
-
-    # Check that all requested traces were found and belong to the authorized experiment.
-    # Fail-closed: reject if any requested trace_id is missing or in a different experiment.
-    returned_ids = {trace_info.trace_id for trace_info in trace_infos}
-    requested_ids = set(trace_ids)
-    if returned_ids != requested_ids:
-        # Some requested traces were not found
-        raise MlflowException(
-            "Not all requested traces could be accessed.",
-            error_code=PERMISSION_DENIED,
-        )
 
     for trace_info in trace_infos:
         if str(trace_info.experiment_id) != str(experiment_id):
