@@ -478,6 +478,8 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           this.props.experimentId,
           undefined,
           this.props.entityTags,
+          // In fallback mode the artifact root belongs to the run, not the model.
+          this.props.isFallbackToLoggedModelArtifacts ? undefined : this.props.artifactRootUri,
         );
       } else {
         this.props.listArtifactsApi(
@@ -682,6 +684,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             loggedModelId={loggedModelId}
             isLoggedModelsMode={isLoggedModelsMode}
             entityTags={this.props.entityTags}
+            isFallbackToLoggedModelArtifacts={this.props.isFallbackToLoggedModelArtifacts}
           />
         </div>
       </div>

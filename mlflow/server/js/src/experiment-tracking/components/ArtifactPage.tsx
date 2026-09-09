@@ -53,6 +53,7 @@ type ArtifactPageImplState = {
   errorThrown: boolean;
   activeNodeIsDirectory: boolean;
   fallbackEntityTags?: Partial<KeyValueEntity>[];
+  fallbackLoggedModelArtifactUri?: string;
 };
 
 export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactPageImplState> {
@@ -115,6 +116,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     const usingLoggedModels = this.props.isLoggedModelsMode;
 
     let fallbackEntityTags: Partial<KeyValueEntity>[] | undefined = undefined;
+    let fallbackLoggedModelArtifactUri: string | undefined = undefined;
 
     // In the logged models mode, fetch artifacts for the model instead of the run
     if (usingLoggedModels && loggedModelId) {
@@ -123,8 +125,12 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
       if (isFallbackToLoggedModelArtifacts) {
         const loggedModelData = await asyncGetLoggedModel(loggedModelId, true);
         fallbackEntityTags = loggedModelData?.model?.info?.tags;
+        // The page's artifact root belongs to the run in fallback mode, so the
+        // logged model's own artifact URI has to come from the model itself.
+        fallbackLoggedModelArtifactUri = loggedModelData?.model?.info?.artifact_uri;
         this.setState({
           fallbackEntityTags,
+          fallbackLoggedModelArtifactUri,
         });
       }
       await this.props.listArtifactsLoggedModelApi(
@@ -133,6 +139,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         this.props.experimentId,
         this.listArtifactRequestIds[0],
         fallbackEntityTags ?? this.props.entityTags,
+        isFallbackToLoggedModelArtifacts ? fallbackLoggedModelArtifactUri : this.props.artifactRootUri,
       );
     } else {
       await this.props.listArtifactsApi(
@@ -163,6 +170,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
             this.props.experimentId,
             this.listArtifactRequestIds[i + 1],
             fallbackEntityTags ?? this.props.entityTags,
+            isFallbackToLoggedModelArtifacts ? fallbackLoggedModelArtifactUri : this.props.artifactRootUri,
           );
         } else {
           await this.props.listArtifactsApi(

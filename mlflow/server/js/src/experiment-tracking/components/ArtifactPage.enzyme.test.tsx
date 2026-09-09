@@ -140,6 +140,47 @@ describe('ArtifactPage', () => {
       done();
     });
   });
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('passes the logged model artifact URI to listArtifactsLoggedModelApi', (done) => {
+    const mock = jest.fn();
+    const artifactRootUri = 'http://localhost/api/2.0/mlflow-artifacts/artifacts/model-root';
+    const props = {
+      ...minimalProps,
+      apis: {},
+      isLoggedModelsMode: true,
+      loggedModelId: 'model-1',
+      artifactRootUri,
+      listArtifactsApi: jest.fn(),
+      listArtifactsLoggedModelApi: mock,
+      searchModelVersionsApi: jest.fn(),
+    };
+    wrapper = shallowWithIntl(<ArtifactPageImpl {...props} />).dive();
+    setImmediate(() => {
+      expect(mock.mock.calls[0][5]).toBe(artifactRootUri);
+      done();
+    });
+  });
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('does not route logged model artifacts to the run artifact root when falling back', (done) => {
+    const mock = jest.fn();
+    const props = {
+      ...minimalProps,
+      apis: {},
+      isLoggedModelsMode: true,
+      isFallbackToLoggedModelArtifacts: true,
+      loggedModelId: 'model-1',
+      // In fallback mode this URI belongs to the run, not the logged model.
+      artifactRootUri: 'http://localhost/api/2.0/mlflow-artifacts/artifacts/run-root',
+      listArtifactsApi: jest.fn(),
+      listArtifactsLoggedModelApi: mock,
+      searchModelVersionsApi: jest.fn(),
+    };
+    wrapper = shallowWithIntl(<ArtifactPageImpl {...props} />).dive();
+    setImmediate(() => {
+      expect(mock.mock.calls[0][5]).not.toBe('http://localhost/api/2.0/mlflow-artifacts/artifacts/run-root');
+      done();
+    });
+  });
   test('ArtifactPage renders error message when listArtifacts request fails', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     const props = { ...minimalProps, apis: {}, searchModelVersionsApi: jest.fn() };
