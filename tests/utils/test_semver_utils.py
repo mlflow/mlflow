@@ -8,6 +8,7 @@ from mlflow.utils.semver_utils import (
     SemVer,
     compare_semver,
     encode_prerelease_sort_key,
+    normalize_semver,
     parse_semver,
 )
 
@@ -390,3 +391,69 @@ def test_compare_semver_pairwise_spot_checks(left, right):
     assert compare_semver(right_semver, left_semver) == _compare_semver_precedence(
         right_semver, left_semver
     )
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("1.2.3", "1.2.3"),
+        ("1", "1.0.0"),
+        ("1.0", "1.0.0"),
+        ("1.0.0-beta.11", "1.0.0-beta.11"),
+        ("1.0.0+build.5", "1.0.0+build.5"),
+        ("1.0.0-rc.1+build.5", "1.0.0-rc.1+build.5"),
+        ("1.2-beta.1", "1.2.0-beta.1"),
+        ("  1.2.3  ", "1.2.3"),
+    ],
+)
+def test_normalize_semver_valid(raw, expected):
+    assert normalize_semver(raw) == expected
+
+
+def test_normalize_semver_is_idempotent():
+    assert normalize_semver(normalize_semver("1.0")) == "1.0.0"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("1.2.3", "1.2.3"),
+        ("1", "1.0.0"),
+        ("1.0", "1.0.0"),
+        ("1.0.0-beta.11", "1.0.0-beta.11"),
+        ("1.0.0+build.5", "1.0.0+build.5"),
+        ("1.0.0-rc.1+build.5", "1.0.0-rc.1+build.5"),
+        ("1.2-beta.1", "1.2.0-beta.1"),
+        ("  1.2.3  ", "1.2.3"),
+    ],
+)
+def test_normalize_semver_output_is_parseable(raw, expected):
+    parse_semver(normalize_semver(raw))
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "",
+        "   ",
+        "abc",
+        "1.2.3.4",
+        "01.2.3",
+        "1.2.3-",
+        "1.2.3-beta..1",
+        "v1.2.3",
+        "1.2.x",
+        "1٥.2.3",  # Arabic-Indic digit in core rejected
+        "1.2.3-٥a",  # Arabic-Indic digit in prerelease rejected
+        "3000000000.0.0",  # core exceeds int32 bound
+        "1." + "0" * 200,  # exceeds maximum length
+    ],
+)
+def test_normalize_semver_invalid(raw):
+    with pytest.raises(MlflowException, match="[Ss]em[Vv]er|version"):
+        normalize_semver(raw)
+
+
+def test_normalize_semver_non_string():
+    with pytest.raises(MlflowException, match="version"):
+        normalize_semver(None)
