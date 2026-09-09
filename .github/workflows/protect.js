@@ -186,7 +186,7 @@ module.exports = async ({ github, context }) => {
         status === STATE.success
           ? "✅"
           : status === STATE.skipped
-          ? "⊘"
+          ? "⏭️"
           : status === STATE.failure
           ? "❌"
           : "🕒";
