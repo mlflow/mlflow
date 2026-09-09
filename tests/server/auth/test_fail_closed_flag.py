@@ -1,8 +1,11 @@
 # Tests for the MLFLOW_BASIC_AUTH_FAIL_CLOSED flag: wiring, the decision predicates,
 # and the end-to-end 403 that _before_request returns when the flag is on.
 
+import importlib
+
 from mlflow.environment_variables import MLFLOW_BASIC_AUTH_FAIL_CLOSED
 from mlflow.server import auth as a
+from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 
 
 class _Req:
@@ -51,8 +54,6 @@ def test_public_suffix_not_matched_as_incidental_tail():
 def test_public_routes_recognized_under_static_prefix(monkeypatch):
     # Under --static-prefix the request path carries the prefix; public/internal routes
     # must still be recognized (else they wrongly fail closed).
-    from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
-
     monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/custom-prefix")
     assert a._authorized_outside_before_request(_Req("/custom-prefix/api/3.0/mlflow/server-info"))
     assert a._authorized_outside_before_request(
@@ -81,10 +82,6 @@ def test_web_ui_entry_points_resolve_a_validator():
 def test_web_ui_entry_points_resolve_a_validator_under_static_prefix(monkeypatch):
     # The keys are built at import time from the static prefix, so this reloads the
     # route table with one configured rather than reusing the module-level map.
-    import importlib
-
-    from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
-
     monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/custom-prefix")
     routes = importlib.reload(importlib.import_module("mlflow.server.auth.routes"))
     try:
