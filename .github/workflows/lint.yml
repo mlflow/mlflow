@@ -45,9 +45,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # To ensure `git diff` works correctly in dev/check_function_signatures.py,
-          # we need to fetch enough history to include the base branch.
-          fetch-depth: 300
+          fetch-depth: 2
       - uses: ./.github/actions/untracked
       - parallel:
           - uses: ./.github/actions/setup-python
@@ -115,9 +113,9 @@ jobs:
           uv run --no-sync pytest .claude/skills
 
       - name: Check function signatures
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
         run: |
-          uv run --no-project dev/check_function_signatures.py
+          uv run --no-project dev/check_function_signatures.py --base-revision HEAD^1
 
       - name: Check whitespace-only changes
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
