@@ -29,6 +29,7 @@ module.exports = async ({ github, context }) => {
   const STATE = {
     pending: "pending",
     success: "success",
+    skipped: "skipped",
     failure: "failure",
   };
 
@@ -93,8 +94,10 @@ module.exports = async ({ github, context }) => {
           ? STATE.failure
           : status !== "completed"
           ? STATE.pending
-          : conclusion === "success" || conclusion === "skipped"
+          : conclusion === "success"
           ? STATE.success
+          : conclusion === "skipped"
+          ? STATE.skipped
           : STATE.failure,
     }));
 
@@ -136,8 +139,10 @@ module.exports = async ({ github, context }) => {
           status:
             run.conclusion === "cancelled"
               ? STATE.failure
-              : run.conclusion === "success" || run.conclusion === "skipped"
+              : run.conclusion === "success"
               ? STATE.success
+              : run.conclusion === "skipped"
+              ? STATE.skipped
               : STATE.failure,
         });
       } else {
@@ -177,7 +182,14 @@ module.exports = async ({ github, context }) => {
     const checks = await fetchChecks(sha);
     const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status, url }) => {
-      const icon = status === STATE.success ? "✅" : status === STATE.failure ? "❌" : "🕒";
+      const icon =
+        status === STATE.success
+          ? "✅"
+          : status === STATE.skipped
+          ? "⏭️"
+          : status === STATE.failure
+          ? "❌"
+          : "🕒";
       console.log(`- ${name.padEnd(longest)}: ${icon} ${status}${url ? ` (${url})` : ""}`);
     });
 
@@ -187,8 +199,11 @@ module.exports = async ({ github, context }) => {
       );
     }
 
-    if (checks.length > 0 && checks.every(({ status }) => status === STATE.success)) {
-      console.log("All checks passed");
+    if (
+      checks.length > 0 &&
+      checks.every(({ status }) => status === STATE.success || status === STATE.skipped)
+    ) {
+      console.log("All checks passed or were skipped");
       return;
     }
 
