@@ -136,6 +136,24 @@ def test_update_user(store):
     assert not store.get_user(username1).is_admin
 
 
+def test_update_user_password_validation(store):
+    username = random_str()
+    password = random_str()
+    _user_maker(store, username, password)
+
+    # Short password should be rejected
+    with pytest.raises(
+        MlflowException, match=r"Password must be a string longer than 12 characters"
+    ) as exception_context:
+        store.update_user(username, password="short")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    # Valid password should succeed
+    new_password = random_str()
+    store.update_user(username, password=new_password)
+    assert store.authenticate_user(username, new_password)
+
+
 def test_delete_user(store):
     username1 = random_str()
     password1 = random_str()
