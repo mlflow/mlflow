@@ -141,6 +141,167 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "us-gov-east-1/openai.gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.72
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-east-1/openai.gpt-oss-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.084,
+        "output_per_million_tokens": 0.36
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-east-1/xai.grok-4.6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000,
+        "max_tokens": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.64,
+        "output_per_million_tokens": 7.92,
+        "cache_read_per_million_tokens": 0.66
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-west-1/google.gemma-4-26b-a4b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 256000,
+        "max_tokens": 256000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.156,
+        "output_per_million_tokens": 0.48
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-west-1/google.gemma-4-31b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 256000,
+        "max_tokens": 256000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.168,
+        "output_per_million_tokens": 0.48
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-west-1/google.gemma-4-e2b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.048,
+        "output_per_million_tokens": 0.096
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-west-1/openai.gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.72
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-west-1/openai.gpt-oss-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.084,
+        "output_per_million_tokens": 0.36
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
     "us-gov-west-1/xai.grok-4.3": {
       "mode": "chat",
       "context_window": {
@@ -161,6 +322,27 @@
         "response_schema": true
       },
       "last_updated_at": "2026-09-04"
+    },
+    "us-gov-west-1/xai.grok-4.6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000,
+        "max_tokens": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.64,
+        "output_per_million_tokens": 7.92,
+        "cache_read_per_million_tokens": 0.66
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
     },
     "xai.grok-4.3": {
       "mode": "chat",
