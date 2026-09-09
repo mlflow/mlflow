@@ -1,5 +1,3 @@
-name: copilot-setup-steps
-
 # This workflow configures the environment used by Copilot cloud agent.
 # Find recent agent runs with:
 #
@@ -7,6 +5,8 @@ name: copilot-setup-steps
 #   --jq '.workflow_runs[]
 #     | select(.path == "dynamic/copilot-swe-agent/copilot")
 #     | {id, name, created_at, conclusion, html_url}'
+
+name: copilot-setup-steps
 
 on:
   workflow_dispatch:
