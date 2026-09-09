@@ -8,6 +8,11 @@ function getSleepLength(iterationCount, numPendingJobs) {
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
 module.exports = async ({ github, context }) => {
+  let rateLimitRemaining;
+  github.hook.after("request", (response) => {
+    rateLimitRemaining = response.headers["x-ratelimit-remaining"];
+  });
+
   const {
     repo: { owner, repo },
   } = context;
@@ -37,11 +42,6 @@ module.exports = async ({ github, context }) => {
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async function logRateLimit() {
-    const { data: rateLimit } = await github.rest.rateLimit.get();
-    console.log(`Rate limit remaining: ${rateLimit.resources.core.remaining}`);
   }
 
   function isNewerRun(newRun, existingRun) {
@@ -176,10 +176,12 @@ module.exports = async ({ github, context }) => {
   const start = new Date();
   let iterationCount = 0;
   const TIMEOUT = 120 * 60 * 1000; // 2 hours
-  await logRateLimit();
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
     const checks = await fetchChecks(sha);
+    if (rateLimitRemaining !== undefined) {
+      console.log(`Rate limit remaining: ${rateLimitRemaining}`);
+    }
     const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status, url }) => {
       const icon =
@@ -207,7 +209,6 @@ module.exports = async ({ github, context }) => {
       return;
     }
 
-    await logRateLimit();
     const pendingJobs = checks
       .filter(({ status }) => status === STATE.pending)
       .reduce((sum, check) => sum + check.pendingJobs, 0);
