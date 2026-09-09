@@ -5643,6 +5643,10 @@
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
     "description": "Content in an info popover that instructs the user on how to disable the display. The disable and enable functions are code snippets with the real function names"
   },
+  "LEQdst": {
+    "defaultMessage": "Source Model",
+    "description": "Label name for the source logged model metadata in model version page"
+  },
   "LEiN8m": {
     "defaultMessage": "Tags",
     "description": "Experiment page > group by runs control > tags section label"
