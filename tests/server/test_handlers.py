@@ -4876,8 +4876,9 @@ def test_invoke_scorer_rejects_cross_experiment_traces(mock_tracking_store):
         # Should be rejected with 403 (PERMISSION_DENIED)
         assert response.status_code == 403
         data = response.get_json()
-        # Verify that the error message does not leak the victim's experiment_id
-        assert "experiment_id" not in data["message"].lower()
+        # Generic message that does not reveal the victim's experiment_id or that the trace exists.
+        assert data["message"] == "Not all requested traces could be accessed."
+        assert "exp-999" not in data["message"]
         # Verify that job was not submitted
         mock_submit.assert_not_called()
 
@@ -5010,8 +5011,9 @@ def test_invoke_scorer_rejects_foreign_trace_fallback_path(mock_tracking_store):
         # Should be rejected with 403 (PERMISSION_DENIED)
         assert response.status_code == 403
         data = response.get_json()
-        # Verify generic message, no experiment_id leak
-        assert "experiment_id" not in data["message"].lower()
+        # Generic message that does not reveal the victim's experiment_id or that the trace exists.
+        assert data["message"] == "Not all requested traces could be accessed."
+        assert "exp-999" not in data["message"]
         # Verify that job was not submitted
         mock_submit.assert_not_called()
 
