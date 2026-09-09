@@ -22,6 +22,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
+    SqlAgentPluginVersionMember,
     SqlEvaluationDataset,
     SqlExperiment,
     SqlGatewayBudgetPolicy,
@@ -237,6 +238,26 @@ class SqlAlchemyStore(AbstractStore):
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
                     self._check_set_default_conflicts(session, workspace_name)
+                    # agent_plugin_version_members reference their workspace as
+                    # plugin_workspace (shared with the skill_versions FK), which the
+                    # root-model reassignment below cannot retarget; letting it proceed
+                    # would orphan the member rows. Reassigning plugin members is
+                    # deferred to the workspace-lifecycle branch
+                    # (rhaieng-7108-workspace-lifecycle), so fail loudly here.
+                    orphaned_members = (
+                        session
+                        .query(SqlAgentPluginVersionMember)
+                        .filter(SqlAgentPluginVersionMember.plugin_workspace == workspace_name)
+                        .count()
+                    )
+                    if orphaned_members:
+                        raise MlflowException(
+                            f"Cannot reassign workspace '{workspace_name}' to "
+                            f"'{DEFAULT_WORKSPACE_NAME}': it contains {orphaned_members} agent "
+                            "plugin member row(s), whose reassignment is not yet supported. "
+                            "Delete the affected agent plugins first, then retry.",
+                            INVALID_STATE,
+                        )
                     for model in _WORKSPACE_ROOT_MODELS:
                         session.query(model).filter(model.workspace == workspace_name).update(
                             {model.workspace: DEFAULT_WORKSPACE_NAME},
@@ -249,19 +270,16 @@ class SqlAlchemyStore(AbstractStore):
                     )
                 session.delete(entity)
             except IntegrityError as exc:
-                if mode == WorkspaceDeletionMode.SET_DEFAULT:
-                    message = (
-                        f"Cannot delete workspace '{workspace_name}': resources in this workspace "
-                        f"conflict with existing resources in the '{DEFAULT_WORKSPACE_NAME}' "
-                        f"workspace. Resolve naming conflicts before deleting. Error: {exc}"
-                    )
-                else:
-                    message = (
-                        f"Cannot delete workspace '{workspace_name}': deletion failed due to "
-                        f"database integrity constraints while operating in '{mode.value}' mode. "
-                        "This often indicates that related resources still reference this "
-                        f"workspace. Error: {exc}"
-                    )
+                # A naming conflict in SET_DEFAULT mode is already surfaced by
+                # _check_set_default_conflicts before the UPDATE runs, so an
+                # IntegrityError reaching here is a genuine referential-integrity
+                # failure (not a name collision) regardless of mode.
+                message = (
+                    f"Cannot delete workspace '{workspace_name}': deletion failed due to "
+                    f"database integrity constraints while operating in '{mode.value}' mode. "
+                    "This often indicates that related resources still reference this "
+                    f"workspace. Error: {exc}"
+                )
                 raise MlflowException(message, INVALID_STATE) from exc
             _logger.info("Deleted workspace '%s' (mode=%s)", workspace_name, mode.value)
             if mode == WorkspaceDeletionMode.CASCADE:

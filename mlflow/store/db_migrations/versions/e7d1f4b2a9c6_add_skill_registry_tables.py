@@ -396,6 +396,10 @@ def upgrade():
             onupdate="CASCADE",
             name="agent_plugin_version_members_plugin_fkey",
         ),
+        # NO ACTION (not RESTRICT): SQL Server has no RESTRICT keyword, so it
+        # would break the MSSQL migration; NO ACTION still blocks the delete on
+        # every dialect and is the MLflow-wide convention. Keep in sync with
+        # SqlAgentPluginVersionMember in dbmodels/models.py.
         sa.ForeignKeyConstraint(
             ["plugin_workspace", "member_organization", "member_name", "member_version"],
             [
@@ -404,7 +408,7 @@ def upgrade():
                 "skill_versions.name",
                 "skill_versions.version",
             ],
-            ondelete="RESTRICT",
+            ondelete="NO ACTION",
             name="agent_plugin_version_members_skill_fkey",
         ),
         sa.PrimaryKeyConstraint(

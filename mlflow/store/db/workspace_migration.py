@@ -100,6 +100,36 @@ def _assert_no_workspace_conflicts(
         )
 
 
+# agent_plugin_version_members carries its workspace as ``plugin_workspace`` (shared
+# with its skill_versions FK), not ``workspace``, so it is deliberately absent from
+# _WORKSPACE_TABLES and the generic per-table retarget below cannot move it. Moving
+# its parent plugins would leave every member row pointing at the old workspace
+# (orphaned, or an FK failure), so migrate-to-default of plugin members is deferred to
+# the workspace-lifecycle branch (rhaieng-7108-workspace-lifecycle). Until then, fail
+# loudly instead of corrupting rows.
+_PLUGIN_MEMBER_TABLE = "agent_plugin_version_members"
+
+
+def _assert_no_non_default_plugin_members(conn) -> None:
+    try:
+        table = sa.Table(_PLUGIN_MEMBER_TABLE, sa.MetaData(), autoload_with=conn)
+    except sa.exc.NoSuchTableError:
+        return
+    count = conn.execute(
+        sa
+        .select(sa.func.count())
+        .select_from(table)
+        .where(table.c.plugin_workspace != DEFAULT_WORKSPACE_NAME)
+    ).scalar_one()
+    if count:
+        raise RuntimeError(
+            "Move aborted: migrating agent plugin members to the default workspace is not "
+            f"yet supported. {count} row(s) in {_PLUGIN_MEMBER_TABLE!r} live outside the "
+            f"'{DEFAULT_WORKSPACE_NAME}' workspace; moving their parent plugins would orphan "
+            "them. Remove or re-home the affected agent plugin versions first, then retry."
+        )
+
+
 def migrate_to_default_workspace(
     engine: sa.Engine,
     dry_run: bool = False,
@@ -112,6 +142,9 @@ def migrate_to_default_workspace(
     When verbose is True, conflict lists are not truncated.
     """
     with engine.begin() as conn:
+        # Preflight: refuse to run rather than orphan plugin member rows (see note above).
+        _assert_no_non_default_plugin_members(conn)
+
         for table_name, columns, description in _CONFLICT_SPECS:
             _assert_no_workspace_conflicts(
                 conn,

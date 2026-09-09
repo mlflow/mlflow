@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
+from alembic import command
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,7 @@ from mlflow.entities import (
     SkillStatus,
     ZipSource,
 )
+from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
     SqlAgentPluginAlias,
@@ -386,3 +388,33 @@ def test_workspace_isolation_same_org_and_name(store):
         alpha = session.query(SqlSkillVersion).filter_by(workspace="alpha").one()
         assert alpha.to_mlflow_entity().source == GitSource("a.git", None, None)
         assert alpha.to_mlflow_entity().workspace == "alpha"
+
+
+_SKILL_REGISTRY_TABLES = frozenset({
+    "skills",
+    "skill_versions",
+    "skill_tags",
+    "skill_version_tags",
+    "skill_aliases",
+    "agent_plugins",
+    "agent_plugin_versions",
+    "agent_plugin_tags",
+    "agent_plugin_version_tags",
+    "agent_plugin_aliases",
+    "agent_plugin_version_members",
+})
+
+
+def test_migration_downgrade_and_reupgrade(store, db_uri):
+    # AC#1 requires a clean downgrade. db_uri is an isolated, per-test copy of the
+    # migrated database, so downgrading it here does not affect other tests.
+    config = _get_alembic_config(db_uri)
+    assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
+
+    # Downgrade removes exactly this migration's tables (FK-safe drop order).
+    command.downgrade(config, "b7e2c1a4d9f3")
+    assert _SKILL_REGISTRY_TABLES.isdisjoint(set(sa.inspect(store.engine).get_table_names()))
+
+    # Re-upgrade restores them, proving the up/down pair round-trips.
+    command.upgrade(config, "e7d1f4b2a9c6")
+    assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())

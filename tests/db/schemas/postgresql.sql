@@ -592,7 +592,7 @@ CREATE TABLE agent_plugin_version_members (
 	member_version INTEGER NOT NULL,
 	CONSTRAINT agent_plugin_version_members_pk PRIMARY KEY (plugin_workspace, plugin_organization, plugin_name, plugin_version, member_name),
 	CONSTRAINT agent_plugin_version_members_plugin_fkey FOREIGN KEY(plugin_workspace, plugin_organization, plugin_name, plugin_version) REFERENCES agent_plugin_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE,
-	CONSTRAINT agent_plugin_version_members_skill_fkey FOREIGN KEY(plugin_workspace, member_organization, member_name, member_version) REFERENCES skill_versions (workspace, organization, name, version) ON DELETE RESTRICT
+	CONSTRAINT agent_plugin_version_members_skill_fkey FOREIGN KEY(plugin_workspace, member_organization, member_name, member_version) REFERENCES skill_versions (workspace, organization, name, version)
 )
 
 

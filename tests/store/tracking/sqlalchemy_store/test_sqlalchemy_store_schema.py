@@ -236,6 +236,47 @@ def test_index_for_dataset_tables(tmp_path, db_url):
         assert new_index_names.issubset(all_index_names)
 
 
+def test_skill_registry_indexes(tmp_path, db_url):
+    # AC#4: assert the latest-lookup and digest indexes exist with the exact
+    # column order the RFC specifies. Column *order* is what makes them useful,
+    # and the golden schema dumps carry no index DDL, so nothing else guards this.
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    expected = {
+        "ix_skill_versions_latest_lookup": [
+            "workspace",
+            "organization",
+            "name",
+            "status",
+            "version",
+        ],
+        "ix_skill_versions_digest": ["workspace", "organization", "name", "digest"],
+        "ix_agent_plugin_versions_latest_lookup": [
+            "workspace",
+            "organization",
+            "name",
+            "status",
+            "version_major",
+            "version_minor",
+            "version_patch",
+            "creation_timestamp",
+        ],
+        "ix_agent_plugin_version_members_skill_fkey": [
+            "plugin_workspace",
+            "member_organization",
+            "member_name",
+            "member_version",
+        ],
+    }
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = {r[0] for r in cursor.fetchall()}
+        assert set(expected).issubset(all_index_names)
+        for index_name, columns in expected.items():
+            cursor.execute(f"PRAGMA index_info('{index_name}')")
+            assert [row[2] for row in cursor.fetchall()] == columns
+
+
 def test_secrets_and_endpoints_tables(tmp_path, db_url):
     SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
@@ -597,6 +638,14 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
         ("endpoints", ("name",), "endpoints with the same name"),
         ("model_definitions", ("name",), "model definitions with the same name"),
         ("mcp_servers", ("name",), "MCP servers with the same name"),
+        # Skill registry roots key their conflict on (organization, name), not name
+        # alone, so exercise that two-column shape explicitly.
+        ("skills", ("organization", "name"), "skills with the same organization and name"),
+        (
+            "agent_plugins",
+            ("organization", "name"),
+            "agent plugins with the same organization and name",
+        ),
     ],
 )
 def test_migrate_to_default_workspace_conflict(tmp_path, table_name, conflict_columns, description):

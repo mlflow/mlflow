@@ -5113,8 +5113,15 @@ class SqlAgentPluginVersionMember(Base):
             name="agent_plugin_version_members_plugin_fkey",
         ),
         # Skills and agent plugins share a workspace, so plugin_workspace is
-        # reused for the skill FK. RESTRICT blocks hard deletion of a
+        # reused for the skill FK. NO ACTION blocks hard deletion of a
         # skill_version still referenced by a live plugin version.
+        #
+        # NO ACTION (not RESTRICT): SQL Server's T-SQL foreign-key grammar has no
+        # RESTRICT keyword, so RESTRICT makes the migration fail on MSSQL (a CI
+        # matrix dialect). NO ACTION is behavior-equivalent for us -- it still
+        # rejects the delete on all four dialects (MySQL treats it as RESTRICT;
+        # PostgreSQL/SQLite enforce it at statement end) -- and matches the rest
+        # of MLflow, which never uses RESTRICT.
         ForeignKeyConstraint(
             ["plugin_workspace", "member_organization", "member_name", "member_version"],
             [
@@ -5123,7 +5130,7 @@ class SqlAgentPluginVersionMember(Base):
                 "skill_versions.name",
                 "skill_versions.version",
             ],
-            ondelete="RESTRICT",
+            ondelete="NO ACTION",
             name="agent_plugin_version_members_skill_fkey",
         ),
         Index(

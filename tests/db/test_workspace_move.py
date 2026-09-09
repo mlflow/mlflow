@@ -432,11 +432,14 @@ def test_all_workspace_root_models_have_spec():
     # Gateway resources are intentionally excluded due to inter-table FK
     # dependencies that make moving them independently unsafe.
     #
-    # Skill registry roots are handled for workspace delete and
-    # migrate-to-default, but move support is deferred: agent_plugin_version_members
-    # carries its workspace as ``plugin_workspace`` (shared with its skill_versions
-    # FK), which the generic child-table mover (keyed on a ``workspace`` column)
-    # cannot retarget without dependency-aware handling.
+    # Skill registry roots are handled for workspace CASCADE/RESTRICT delete, but
+    # move and set-default/migrate-to-default reassignment are deferred to the
+    # workspace-lifecycle branch (rhaieng-7108-workspace-lifecycle):
+    # agent_plugin_version_members carries its workspace as ``plugin_workspace``
+    # (shared with its skill_versions FK), which the generic mover/reassigner (keyed
+    # on a ``workspace`` column) cannot retarget without dependency-aware handling.
+    # Those reassignment paths therefore fail loudly rather than orphan member rows
+    # (see delete_workspace SET_DEFAULT and migrate_to_default_workspace).
     _INTENTIONALLY_OMITTED = {
         SqlGatewaySecret,
         SqlGatewayEndpoint,
