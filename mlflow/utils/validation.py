@@ -840,9 +840,7 @@ def _validate_username(username):
 
 def _validate_password(password) -> None:
     if password is None or len(password) < 12:
-        raise MlflowException.invalid_parameter_value(
-            "Password must be a string longer than 12 characters."
-        )
+        raise MlflowException.invalid_parameter_value("Password must be at least 12 characters.")
 
 
 def _validate_trace_tag(key, value):
