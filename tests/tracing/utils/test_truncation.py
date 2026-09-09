@@ -7,7 +7,15 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.tracing.utils.truncation import _get_truncated_preview, set_request_response_preview
+from mlflow.tracing.constant import (
+    TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_DBX,
+    TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_OSS,
+)
+from mlflow.tracing.utils.truncation import (
+    _get_max_length,
+    _get_truncated_preview,
+    set_request_response_preview,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -15,6 +23,17 @@ def patch_max_length():
     # Patch max length to 50 to make tests faster
     with patch("mlflow.tracing.utils.truncation._get_max_length", return_value=50):
         yield
+
+
+def test_get_max_length_follows_tracking_uri_changes():
+    with patch(
+        "mlflow.tracing.utils.truncation.get_tracking_uri",
+        side_effect=["sqlite:///mlruns.db", "databricks"],
+    ) as get_tracking_uri:
+        assert _get_max_length() == TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_OSS
+        assert _get_max_length() == TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_DBX
+
+    assert get_tracking_uri.call_count == 2
 
 
 @pytest.mark.parametrize(
