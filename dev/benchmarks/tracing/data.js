@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788937044861,
+  "lastUpdate": 1788939887520,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "90125084+Genmin@users.noreply.github.com",
-            "name": "Joey Roth",
-            "username": "Genmin"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "143cf828ac88b14b28e8fdfef90891d16a311bc6",
-          "message": "Fix Azure OpenAI streaming usage tracing (#23036)\n\nSigned-off-by: Genmin <joey@joeyroth.com>",
-          "timestamp": "2026-05-07T13:44:53+09:00",
-          "tree_id": "27ae5e732f2bed073c205adc2ba42f52855912f5",
-          "url": "https://github.com/mlflow/mlflow/commit/143cf828ac88b14b28e8fdfef90891d16a311bc6"
-        },
-        "date": 1778129197532,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 39.5314711499978,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 22.929834277781598,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 22.82611281250002,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 22.64775324999643,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 22.001509728813378,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.863853599992353,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.964857000025404,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "97677340+CoralGarden52@users.noreply.github.com",
+            "name": "CoralGarden52",
+            "username": "CoralGarden52"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68b7f57ef2ba2e88dc53f154086b0e3d61dd8571",
+          "message": "Fix `evaluate` list input normalization for NumPy targets (#25623)\n\nSigned-off-by: CoralGarden52 <2193436736@qq.com>\nSigned-off-by: CoralGarden52 <97677340+CoralGarden52@users.noreply.github.com>\nCo-authored-by: Kris Concepcion <84737625+kriscon-db@users.noreply.github.com>",
+          "timestamp": "2026-09-09T03:43:25-04:00",
+          "tree_id": "e69a0ec5d4590fd61f64859d9c5ed8d203c6e745",
+          "url": "https://github.com/mlflow/mlflow/commit/68b7f57ef2ba2e88dc53f154086b0e3d61dd8571"
+        },
+        "date": 1788939885579,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.85559300000068,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.255902147539719,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.418652536424202,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.249590898305715,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.699847082705699,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.792168599994966,
             "unit": "ms"
           }
         ]
