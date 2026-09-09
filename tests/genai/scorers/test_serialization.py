@@ -898,3 +898,33 @@ def test_from_dict_unknown_field_falls_back_to_unknown_serialized_version():
     log_message = _formatted_error_logs(mock_logger)
     assert "unknown" in log_message
     assert "mystery_field" in log_message
+
+
+@pytest.mark.parametrize("timeout", [30, 5.5, None, 0])
+def test_timeout_round_trip(timeout):
+    @scorer(timeout=timeout)
+    def my_scorer(outputs):
+        return outputs == "correct"
+
+    serialized = my_scorer.model_dump()
+    assert (
+        serialized["timeout"] == timeout if timeout is not None else serialized["timeout"] is None
+    )
+
+    deserialized = Scorer.model_validate(serialized)
+    assert deserialized.timeout == timeout if timeout is not None else deserialized.timeout is None
+    assert deserialized(outputs="correct") is True
+
+
+def test_scorer_serialized_before_timeout_existed_deserializes_to_zero():
+    @scorer(timeout=30)
+    def my_scorer(outputs):
+        return outputs == "correct"
+
+    # Emulate a payload written before the `timeout` field existed.
+    serialized = my_scorer.model_dump()
+    del serialized["timeout"]
+
+    deserialized = Scorer.model_validate(serialized)
+    # Legacy scorers reload unbounded (timeout disabled), not with the new default.
+    assert deserialized.timeout == 0
