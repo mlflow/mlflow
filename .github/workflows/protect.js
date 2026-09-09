@@ -8,13 +8,10 @@ function getSleepLength(iterationCount, numPendingJobs) {
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
 module.exports = async ({ github, context }) => {
-  function logRateLimit(response) {
-    github.hook.remove("request", logRateLimit);
-    const remaining = response.headers["x-ratelimit-remaining"];
-    if (remaining !== undefined) {
-      console.log(`Rate limit remaining: ${remaining}`);
-    }
-  }
+  let rateLimitRemaining;
+  github.hook.after("request", (response) => {
+    rateLimitRemaining = response.headers["x-ratelimit-remaining"];
+  });
 
   const {
     repo: { owner, repo },
@@ -181,8 +178,10 @@ module.exports = async ({ github, context }) => {
   const TIMEOUT = 120 * 60 * 1000; // 2 hours
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
-    github.hook.after("request", logRateLimit);
     const checks = await fetchChecks(sha);
+    if (rateLimitRemaining !== undefined) {
+      console.log(`Rate limit remaining: ${rateLimitRemaining}`);
+    }
     const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status, url }) => {
       const icon =
