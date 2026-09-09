@@ -4688,6 +4688,15 @@ def test_invoke_registered_scorer_resolves_exact_version(mock_tracking_store):
     serialized_scorer = json.dumps(Completeness(name="test_judge").model_dump())
     registered_scorer = mock.MagicMock(serialized_scorer=serialized_scorer)
     mock_tracking_store.get_scorer.return_value = registered_scorer
+    # The requested traces must belong to the authorized experiment (GHSA-6c27 trace-binding).
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        TraceInfo(
+            trace_id="trace1",
+            trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+            request_time=0,
+            state=TraceState.OK,
+        )
+    ]
 
     with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
         mock_submit.return_value.job_id = "test-job-123"
