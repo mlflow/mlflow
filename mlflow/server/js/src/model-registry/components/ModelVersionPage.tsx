@@ -134,14 +134,17 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
         if (value && !value[getProtoField('model_version')].run_link && value[getProtoField('model_version')]?.run_id) {
           this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
+        // The version's source is its artifact root, which decides where the
+        // MLmodel file is read from.
+        return value?.[getProtoField('model_version')]?.source as string | undefined;
       });
   }
   // We need this for getting mlModel artifact file,
   // this will be replaced with a single backend call in the future when supported
-  getModelVersionMlModelFile() {
+  getModelVersionMlModelFile(source?: string) {
     const { modelName, version } = this.props;
     this.props
-      .getModelVersionArtifactApi(modelName, version)
+      .getModelVersionArtifactApi(modelName, version, undefined, source)
       .then((content: any) =>
         this.props.parseMlModelFile(modelName, version, content.value, this.initGetMlModelFileRequestId),
       )
@@ -187,13 +190,21 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   };
 
   componentDidMount() {
-    this.loadData(true).catch(() => {
-      // fail silently
-    });
+    this.loadDataAndMlModelFile();
     this.loadModelDataWithAliases();
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
-    this.getModelVersionMlModelFile();
   }
+
+  /**
+   * Reads the MLmodel file once the version is known, so that its source can
+   * decide where to read it from. The request is issued even when the version
+   * fails to load, because the page's initial render waits on it.
+   */
+  loadDataAndMlModelFile = () =>
+    this.loadData(true).then(
+      ([source]) => this.getModelVersionMlModelFile(source),
+      () => this.getModelVersionMlModelFile(),
+    );
 
   loadModelDataWithAliases = () => {
     this.props.getRegisteredModelApi(this.props.modelName);
@@ -202,10 +213,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   // Make a new initial load if model version or name has changed
   componentDidUpdate(prevProps: ModelVersionPageImplProps) {
     if (this.props.version !== prevProps.version || this.props.modelName !== prevProps.modelName) {
-      this.loadData(true).catch(() => {
-        // fail silently
-      });
-      this.getModelVersionMlModelFile();
+      this.loadDataAndMlModelFile();
     }
   }
 
