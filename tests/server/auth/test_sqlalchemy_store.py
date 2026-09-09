@@ -141,14 +141,14 @@ def test_update_user_password_validation(store):
     password = random_str()
     _user_maker(store, username, password)
 
-    # Short password should be rejected
     with pytest.raises(
         MlflowException, match=r"Password must be a string longer than 12 characters"
     ) as exception_context:
         store.update_user(username, password="short")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    # The rejected update must leave the stored password unchanged (validation runs before hashing).
+    assert store.authenticate_user(username, password)
 
-    # Valid password should succeed
     new_password = random_str()
     store.update_user(username, password=new_password)
     assert store.authenticate_user(username, new_password)
