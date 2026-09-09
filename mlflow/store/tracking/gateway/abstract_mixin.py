@@ -283,6 +283,7 @@ class GatewayStoreMixin:
         model_configs: list[GatewayEndpointModelConfig] | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool | None = None,
+        prompt_caching: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -299,6 +300,7 @@ class GatewayStoreMixin:
                            When set to True, enables usage tracking and auto-creates
                            experiment if not provided. When set to False, disables
                            usage tracking (experiment_id is cleared).
+            prompt_caching: Optional flag to enable/disable prompt caching.
 
         Returns:
             Updated Endpoint entity.

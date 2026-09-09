@@ -781,6 +781,7 @@ class SqlAlchemyGatewayStoreMixin:
         model_configs: list[GatewayEndpointModelConfig] | None = None,
         experiment_id: str | None = None,
         usage_tracking: bool | None = None,
+        prompt_caching: bool | None = None,
     ) -> GatewayEndpoint:
         """
         Update an endpoint's configuration.
@@ -809,6 +810,9 @@ class SqlAlchemyGatewayStoreMixin:
             # Handle usage_tracking update
             if usage_tracking is not None:
                 sql_endpoint.usage_tracking = usage_tracking
+
+            if prompt_caching is not None:
+                sql_endpoint.prompt_caching = prompt_caching
 
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:

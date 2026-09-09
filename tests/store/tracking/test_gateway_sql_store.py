@@ -849,6 +849,49 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
     assert primary_model_ids == {model_def2.model_definition_id, model_def3.model_definition_id}
 
 
+def test_update_gateway_endpoint_prompt_caching(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="upd-pc-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="upd-pc-model", secret_id=secret.secret_id, provider="mistral", model_name="mistral-large"
+    )
+
+    created = store.create_gateway_endpoint(
+        name="prompt-caching-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        prompt_caching=False,
+    )
+    assert created.prompt_caching is False
+
+    # Enable prompt_caching via update
+    updated = store.update_gateway_endpoint(
+        endpoint_id=created.endpoint_id,
+        prompt_caching=True,
+    )
+    assert updated.prompt_caching is True
+
+    # Verify round-trip via get
+    fetched = store.get_gateway_endpoint(endpoint_id=created.endpoint_id)
+    assert fetched.prompt_caching is True
+
+    # Disable prompt_caching via update
+    disabled = store.update_gateway_endpoint(
+        endpoint_id=created.endpoint_id,
+        prompt_caching=False,
+    )
+    assert disabled.prompt_caching is False
+
+    fetched_again = store.get_gateway_endpoint(endpoint_id=created.endpoint_id)
+    assert fetched_again.prompt_caching is False
+
+
 def test_delete_gateway_endpoint(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="del-ep-key", secret_value={"api_key": "value"}
