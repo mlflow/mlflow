@@ -9,7 +9,7 @@ from dev.check_function_signatures import (
 )
 
 
-def test_get_changed_python_files_with_base_revision():
+def test_get_changed_python_files():
     with mock.patch(
         "dev.check_function_signatures.subprocess.check_output", return_value="mlflow/foo.py\n"
     ) as check_output:
@@ -20,17 +20,14 @@ def test_get_changed_python_files_with_base_revision():
     )
 
 
-def test_get_changed_python_files_uses_configured_branch_locally():
-    with (
-        mock.patch("dev.check_function_signatures.is_github_actions", return_value=False),
-        mock.patch(
-            "dev.check_function_signatures.subprocess.check_output", return_value=""
-        ) as check_output,
-    ):
-        assert get_changed_python_files(base_branch="release") == []
+def test_get_changed_python_files_uses_configured_revision():
+    with mock.patch(
+        "dev.check_function_signatures.subprocess.check_output", return_value=""
+    ) as check_output:
+        assert get_changed_python_files(base_revision="release") == []
 
     check_output.assert_called_once_with(
-        ["git", "diff", "--name-only", "release...HEAD"], text=True
+        ["git", "diff", "--name-only", "release", "HEAD"], text=True
     )
 
 
