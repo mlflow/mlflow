@@ -1509,6 +1509,51 @@ def test_rebuild_queued_after_rollup_read_invalidates_mixed_result(
         assert not rollup_read_is_current(session, plan, served.served_day_starts_ms)
 
 
+def test_raw_gap_is_read_before_final_invalidation_check(store: SqlAlchemyStore, monkeypatch):
+    exp_id = _seed(store)
+    _insert_trace_metric_rollup(
+        store,
+        exp_id,
+        DAY_A_START,
+        TraceMetricKey.TRACE_COUNT,
+        GroupingSet.GLOBAL.value,
+        sample_count=2,
+    )
+
+    from mlflow.store.tracking import sqlalchemy_store as store_module
+
+    end_time_ms = DAY_B_START + 10_000
+    raw_gap = [(DAY_B_START, end_time_ms)]
+    full_range = [(DAY_A_START, end_time_ms)]
+    events = []
+    original_query_metrics = store_module.query_metrics
+
+    def capture_raw_read(*args, **kwargs):
+        events.append(("raw", kwargs["time_ranges_ms"]))
+        return original_query_metrics(*args, **kwargs)
+
+    def invalidate_after_raw_gap(*args, **kwargs):
+        events.append(("validity", None))
+        return False
+
+    monkeypatch.setattr(store_module, "query_metrics", capture_raw_read)
+    monkeypatch.setattr(store_module, "rollup_read_is_current", invalidate_after_raw_gap)
+    _set_enabled(monkeypatch, True)
+
+    _query(
+        store,
+        exp_id,
+        MetricViewType.TRACES,
+        TraceMetricKey.TRACE_COUNT,
+        _COUNT,
+        None,
+        start=DAY_A_START,
+        end=end_time_ms,
+    )
+
+    assert events == [("raw", raw_gap), ("validity", None), ("raw", full_range)]
+
+
 def test_rollup_snapshot_configures_repeatable_read(monkeypatch):
     _set_enabled(monkeypatch, True)
     calls = []
