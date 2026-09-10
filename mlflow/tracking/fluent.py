@@ -2384,24 +2384,35 @@ def create_experiment(
                 trace_location=trace_location,
             )
         except MlflowException as e:
-            # Roll back the experiment we just created so a failed trace-location
-            # link does not leave a dangling experiment behind.
+            # Attempt to soft-delete the experiment we just created so a failed
+            # trace-location link does not leave an active experiment behind.
+            # Note: delete_experiment is a soft delete; the experiment name
+            # remains reserved until permanently removed via `mlflow gc`.
+            cleanup_succeeded = False
             try:
                 client.delete_experiment(experiment_id)
+                cleanup_succeeded = True
             except Exception:
                 _logger.warning(
-                    "Failed to roll back experiment '%s' (ID: %s) after linking it to "
-                    "trace location '%s' failed. The experiment may be left behind.",
+                    "Failed to soft-delete experiment '%s' (ID: %s) after linking it to "
+                    "trace location '%s' failed. The experiment may remain active.",
                     name,
                     experiment_id,
                     trace_location.full_table_prefix,
                     exc_info=True,
                 )
-            raise MlflowException.invalid_parameter_value(
-                f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
-                f"trace location '{trace_location.full_table_prefix}' failed, so the "
-                f"created experiment was rolled back: {e.message}"
-            ) from e
+            if cleanup_succeeded:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed, so the "
+                    f"experiment was soft-deleted (its name remains reserved): {e.message}"
+                ) from e
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed; the "
+                    f"experiment could not be cleaned up and may remain active: {e.message}"
+                ) from e
 
     return experiment_id
 
