@@ -238,22 +238,26 @@ class SqlAlchemyStore(AbstractStore):
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
                     self._check_set_default_conflicts(session, workspace_name)
-                    # agent_plugin_version_members reference their workspace as
-                    # plugin_workspace (shared with the skill_versions FK), which the
-                    # root-model reassignment below cannot retarget; letting it proceed
-                    # would orphan the member rows. Reassigning plugin members is
-                    # deferred to the workspace-lifecycle branch
-                    # (rhaieng-7108-workspace-lifecycle), so fail loudly here.
-                    orphaned_members = (
+                    # The loop below moves this workspace's resources into the default
+                    # workspace -- it rewrites each root row's `workspace` to 'default',
+                    # and child rows follow via FK ON UPDATE CASCADE. That can't move
+                    # agent_plugin_version_members, which stores its workspace as
+                    # `plugin_workspace` (shared with the skill_versions FK): the cascaded
+                    # rewrite collides with that skill FK, so letting this proceed fails
+                    # with a confusing foreign-key error. Reassigning plugin members is
+                    # deferred to the workspace-lifecycle branch, so fail loudly with a
+                    # clear message here instead. See:
+                    # https://github.com/robinnarsinghranabhat/mlflow/tree/rhaieng-7108-workspace-lifecycle
+                    blocking_members = (
                         session
                         .query(SqlAgentPluginVersionMember)
                         .filter(SqlAgentPluginVersionMember.plugin_workspace == workspace_name)
                         .count()
                     )
-                    if orphaned_members:
+                    if blocking_members:
                         raise MlflowException(
                             f"Cannot reassign workspace '{workspace_name}' to "
-                            f"'{DEFAULT_WORKSPACE_NAME}': it contains {orphaned_members} agent "
+                            f"'{DEFAULT_WORKSPACE_NAME}': it contains {blocking_members} agent "
                             "plugin member row(s), whose reassignment is not yet supported. "
                             "Delete the affected agent plugins first, then retry.",
                             INVALID_STATE,
@@ -358,31 +362,35 @@ class SqlAlchemyStore(AbstractStore):
 
     @staticmethod
     def _check_set_default_conflicts(session, workspace_name: str) -> None:
-        """Preflight check: report all name conflicts that would arise from reassigning
+        """Preflight check: report all identity conflicts that would arise from reassigning
         resources in *workspace_name* to the default workspace.
         """
         conflicts: list[str] = []
         for model in _WORKSPACE_ROOT_MODELS:
             if not hasattr(model, "name"):
                 continue
-            overlapping = (
-                session
-                .query(model.name)
-                .filter(model.workspace == workspace_name)
-                .filter(
-                    model.name.in_(
-                        session.query(model.name).filter(model.workspace == DEFAULT_WORKSPACE_NAME)
-                    )
+            # Skills and agent plugins are identified by (organization, name); every
+            # other root is keyed on name alone.
+            columns = ("organization", "name") if hasattr(model, "organization") else ("name",)
+            model_columns = [getattr(model, column) for column in columns]
+            source_identities = {
+                tuple(row)
+                for row in session.query(*model_columns).filter(model.workspace == workspace_name)
+            }
+            default_identities = {
+                tuple(row)
+                for row in session.query(*model_columns).filter(
+                    model.workspace == DEFAULT_WORKSPACE_NAME
                 )
-                .all()
-            )
-            for (name,) in overlapping:
-                conflicts.append(f"  - {model.__tablename__}: {name!r}")
+            }
+            for identity in sorted(source_identities & default_identities):
+                pairs = ", ".join(f"{c}={v!r}" for c, v in zip(columns, identity))
+                conflicts.append(f"  - {model.__tablename__}: {pairs}")
         if conflicts:
             details = "\n".join(conflicts)
             raise MlflowException(
                 f"Cannot reassign resources from workspace '{workspace_name}' to "
-                f"'{DEFAULT_WORKSPACE_NAME}': the following names already exist in the "
+                f"'{DEFAULT_WORKSPACE_NAME}': the following resources already exist in the "
                 f"default workspace and would cause conflicts:\n{details}\n"
                 "Rename or remove the conflicting resources before retrying.",
                 INVALID_STATE,

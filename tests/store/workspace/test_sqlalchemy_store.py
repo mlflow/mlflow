@@ -7,8 +7,15 @@ from sqlalchemy.exc import IntegrityError
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
+    SqlAgentPluginVersion,
+    SqlAgentPluginVersionMember,
+    SqlSkill,
+    SqlSkillVersion,
+)
 from mlflow.store.workspace.dbmodels.models import SqlWorkspace
-from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS, SqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
@@ -540,6 +547,113 @@ def test_delete_workspace_fails_on_naming_conflict(workspace_store):
     # Workspace should still exist (transaction rolled back)
     ws = workspace_store.get_workspace("team-a")
     assert ws.name == "team-a"
+
+
+def _insert_skill(session, *, workspace, organization, name):
+    session.execute(
+        sa.text(
+            "INSERT INTO skills (workspace, organization, name, creation_timestamp, "
+            "last_updated_timestamp) VALUES (:ws, :org, :name, 0, 0)"
+        ),
+        {"ws": workspace, "org": organization, "name": name},
+    )
+
+
+def test_delete_workspace_set_default_allows_same_name_different_organization(workspace_store):
+    # Skills are keyed on (organization, name), so the same name under different
+    # organizations is not a conflict when merging into the default workspace.
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _insert_skill(session, workspace="team-a", organization="acme", name="code-review")
+        _insert_skill(
+            session, workspace=DEFAULT_WORKSPACE_NAME, organization="other", name="code-review"
+        )
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        moved = session.execute(
+            sa.text("SELECT COUNT(*) FROM skills WHERE workspace = :ws"),
+            {"ws": DEFAULT_WORKSPACE_NAME},
+        ).scalar_one()
+    assert moved == 2
+
+
+def test_delete_workspace_set_default_blocks_same_organization_and_name(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _insert_skill(session, workspace="team-a", organization="acme", name="code-review")
+        _insert_skill(
+            session, workspace=DEFAULT_WORKSPACE_NAME, organization="acme", name="code-review"
+        )
+
+    with pytest.raises(MlflowException, match="already exist in the default workspace"):
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+
+
+def test_workspace_root_models_order_agent_plugin_before_skill():
+    # CASCADE workspace-delete relies on this ordering: a plugin version's member
+    # rows (agent_plugin_version_members -> skill_versions, NO ACTION) must be deleted
+    # before the skill versions they reference. There is no ORM relationship for
+    # SQLAlchemy to derive the dependency, so only this list order enforces it.
+    assert _WORKSPACE_ROOT_MODELS.index(SqlAgentPlugin) < _WORKSPACE_ROOT_MODELS.index(SqlSkill)
+
+
+def test_delete_workspace_cascade_removes_skill_and_plugin_graph(workspace_store):
+    # End-to-end guard for the ordering above: a plugin whose member references a
+    # skill version, all in one workspace, must CASCADE-delete cleanly.
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        session.add(SqlSkill(workspace="team-a", organization="acme", name="code-review"))
+        session.add(
+            SqlSkillVersion(
+                workspace="team-a",
+                organization="acme",
+                name="code-review",
+                version=1,
+                source_type="git",
+                source="s.git",
+            )
+        )
+        session.add(SqlAgentPlugin(workspace="team-a", organization="acme", name="pr"))
+        session.add(
+            SqlAgentPluginVersion(
+                workspace="team-a",
+                organization="acme",
+                name="pr",
+                version="1.0.0",
+                plugin_json={"name": "pr", "version": "1.0.0"},
+                source_type="assembled",
+                source="assembled",
+            )
+        )
+        # Flush the parents first: the member has no ORM relationship to
+        # skill_versions (only a DB FK), so its insert must follow that row.
+        session.flush()
+        session.add(
+            SqlAgentPluginVersionMember(
+                plugin_workspace="team-a",
+                plugin_organization="acme",
+                plugin_name="pr",
+                plugin_version="1.0.0",
+                member_organization="acme",
+                member_name="code-review",
+                member_version=1,
+            )
+        )
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        for model in (
+            SqlSkill,
+            SqlSkillVersion,
+            SqlAgentPlugin,
+            SqlAgentPluginVersion,
+            SqlAgentPluginVersionMember,
+        ):
+            assert session.query(model).count() == 0
 
 
 def test_delete_workspace_cascade_removes_resources(workspace_store):

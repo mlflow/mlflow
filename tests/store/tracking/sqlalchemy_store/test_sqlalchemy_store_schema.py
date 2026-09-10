@@ -237,9 +237,11 @@ def test_index_for_dataset_tables(tmp_path, db_url):
 
 
 def test_skill_registry_indexes(tmp_path, db_url):
-    # AC#4: assert the latest-lookup and digest indexes exist with the exact
-    # column order the RFC specifies. Column *order* is what makes them useful,
-    # and the golden schema dumps carry no index DDL, so nothing else guards this.
+    # SqlAlchemyStore() on the empty db_url runs all migrations to build the schema
+    # from scratch; then assert the resulting indexes match `expected` (names + exact
+    # column order -- column order is what makes an index useful). `expected` is
+    # hardcoded on purpose: it's an independent statement catch a bad change. The
+    # golden schema dumps carry no index DDL, so nothing else guards these.
     SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     expected = {
         "ix_skill_versions_latest_lookup": [

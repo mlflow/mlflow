@@ -114,7 +114,7 @@ from mlflow.store.db.base_sql_model import Base
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
-from mlflow.utils.skill_uris import ParsedSkillUri, format_skill_uri
+from mlflow.utils.skill_uris import _SKILL_SCHEME, _format_uri
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -4901,13 +4901,7 @@ class SqlAgentPluginVersion(Base):
             self.plugin_json if isinstance(self.plugin_json, dict) else json.loads(self.plugin_json)
         )
         skills = [
-            format_skill_uri(
-                ParsedSkillUri(
-                    name=m.member_name,
-                    organization=m.member_organization,
-                    version=m.member_version,
-                )
-            )
+            _format_uri(_SKILL_SCHEME, m.member_organization, m.member_name, m.member_version, None)
             for m in self.members
         ]
         return AgentPluginVersion(

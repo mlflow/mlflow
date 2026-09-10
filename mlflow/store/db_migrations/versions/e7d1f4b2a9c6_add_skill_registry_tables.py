@@ -456,14 +456,10 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_index(
-        "ix_agent_plugin_version_members_skill_fkey",
-        table_name="agent_plugin_version_members",
-    )
-    op.drop_index("ix_agent_plugin_versions_latest_lookup", table_name="agent_plugin_versions")
-    op.drop_index("ix_skill_versions_digest", table_name="skill_versions")
-    op.drop_index("ix_skill_versions_latest_lookup", table_name="skill_versions")
-
+    # Drop the tables in FK-safe order (children before parents). DROP TABLE removes
+    # each table's indexes along with it, so they need no separate handling -- and an
+    # explicit drop of ix_agent_plugin_version_members_skill_fkey would fail on MySQL
+    # anyway, which forbids dropping an index that still backs a foreign key.
     op.drop_table("agent_plugin_version_members")
     op.drop_table("agent_plugin_aliases")
     op.drop_table("agent_plugin_version_tags")

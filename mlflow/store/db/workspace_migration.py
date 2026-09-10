@@ -102,15 +102,16 @@ def _assert_no_workspace_conflicts(
 
 # agent_plugin_version_members carries its workspace as ``plugin_workspace`` (shared
 # with its skill_versions FK), not ``workspace``, so it is deliberately absent from
-# _WORKSPACE_TABLES and the generic per-table retarget below cannot move it. Moving
-# its parent plugins would leave every member row pointing at the old workspace
-# (orphaned, or an FK failure), so migrate-to-default of plugin members is deferred to
-# the workspace-lifecycle branch (rhaieng-7108-workspace-lifecycle). Until then, fail
-# loudly instead of corrupting rows.
+# _WORKSPACE_TABLES and the generic per-table loop below (which moves rows into the
+# default workspace) cannot move it. Moving its parent plugins would leave every member
+# row pointing at its old workspace (orphaned, or an FK failure), so migrate-to-default
+# of plugin members is deferred to the workspace-lifecycle branch; until then, fail
+# loudly instead of corrupting rows. See:
+# https://github.com/robinnarsinghranabhat/mlflow/tree/rhaieng-7108-workspace-lifecycle
 _PLUGIN_MEMBER_TABLE = "agent_plugin_version_members"
 
 
-def _assert_no_non_default_plugin_members(conn) -> None:
+def _assert_no_plugin_members_outside_default(conn) -> None:
     try:
         table = sa.Table(_PLUGIN_MEMBER_TABLE, sa.MetaData(), autoload_with=conn)
     except sa.exc.NoSuchTableError:
@@ -142,8 +143,11 @@ def migrate_to_default_workspace(
     When verbose is True, conflict lists are not truncated.
     """
     with engine.begin() as conn:
-        # Preflight: refuse to run rather than orphan plugin member rows (see note above).
-        _assert_no_non_default_plugin_members(conn)
+        # The loop below moves the parent skill and agent-plugin rows into the default
+        # workspace cleanly, but it never touches agent_plugin_version_members, so those
+        # member rows would be left silently pointing at their old workspace. Stop up
+        # front instead of corrupting them.
+        _assert_no_plugin_members_outside_default(conn)
 
         for table_name, columns, description in _CONFLICT_SPECS:
             _assert_no_workspace_conflicts(

@@ -1,18 +1,26 @@
-# Database-level constraint tests for the RFC-0008 skill registry schema. Runs
-# against every backend in the MLflow DB test matrix (SQLite, PostgreSQL, MySQL,
-# MSSQL) and proves cascade / restrict / uniqueness behavior at the SQL layer
-# rather than through application checks. The store layer does not exist yet, so
+# Cross-dialect (Docker matrix) tests for the RFC-0008 skill registry schema: they run
+# against every backend in the MLflow DB test matrix (SQLite, PostgreSQL, MySQL, MSSQL)
+# and prove cascade / restrict / uniqueness and latest-resolution behavior at the SQL
+# layer rather than through application checks. The store layer does not exist yet, so
 # these operate directly on the ORM models.
+#
+# Several tests here intentionally mirror SQLite-only tests in
+# tests/store/tracking/test_skill_registry_dbmodels.py: those give fast feedback in the
+# normal test suite, while these re-prove the same guarantees on every engine, where
+# constraint enforcement (foreign keys, primary keys) and text sort order can differ
+# between databases. Each such test names its counterpart.
 
 from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
+from alembic import command
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
     SqlAgentPluginVersion,
@@ -85,6 +93,7 @@ def _seed_assembled_plugin(session, *, organization, name, version, members):
 
 
 def test_db_backend_cascade_delete_skill(store):
+    # Cross-dialect twin of test_cascade_delete_skill_removes_children.
     with session_scope(store) as session:
         _seed_skill(session, organization="acme", name="cascade-skill")
         session.add(SqlSkillTag(organization="acme", name="cascade-skill", key="k", value="v"))
@@ -107,6 +116,7 @@ def test_db_backend_cascade_delete_skill(store):
 
 
 def test_db_backend_restrict_delete_of_referenced_skill_version(store):
+    # Cross-dialect twin of test_restrict_delete_of_skill_version_referenced_by_member.
     with session_scope(store) as session:
         _seed_skill(session, organization="acme", name="member-skill")
         _seed_assembled_plugin(
@@ -123,6 +133,10 @@ def test_db_backend_restrict_delete_of_referenced_skill_version(store):
 
 
 def test_db_backend_duplicate_member_name_rejected(store):
+    # Cross-dialect twin of test_duplicate_member_name_rejected.
+    # Within a single plugin version, the same skill name can't appear more than once --
+    # even when the two entries point at different versions of that skill (member_version
+    # is deliberately not part of the primary key).
     with session_scope(store) as session:
         _seed_skill(session, organization="acme", name="dup-skill", version=1)
         session.add(
@@ -142,58 +156,42 @@ def test_db_backend_duplicate_member_name_rejected(store):
             session.flush()
 
 
-def test_db_backend_agent_plugin_latest_prefers_release_over_prerelease(store):
-    with session_scope(store) as session:
-        session.add(SqlAgentPlugin(organization="acme", name="latest-plugin"))
-        for v in ("1.0.0-alpha.2", "1.0.0-alpha.10", "1.0.0-beta.1", "1.0.0"):
-            session.add(
-                SqlAgentPluginVersion(
-                    organization="acme",
-                    name="latest-plugin",
-                    version=v,
-                    plugin_json={"name": "latest-plugin", "version": v},
-                    source_type="assembled",
-                    source="assembled",
-                )
-            )
-    with session_scope(store, commit=False) as session:
-        plugin = (
-            SqlAgentPlugin
-            .with_resolved_latest(session.query(SqlAgentPlugin))
-            .filter_by(organization="acme", name="latest-plugin")
-            .one()
-        )
-        assert plugin.to_mlflow_entity().latest_version == "1.0.0"
+# No cross-dialect twins are written for the latest-version resolution tests
+# (test_agent_plugin_latest_resolution_prerelease_precedence and test_skill_resolution_*
+# in tests/store/tracking/test_skill_registry_dbmodels.py): SemVer ordering,
+# active-vs-draft/deprecated preference, and deleted-exclusion are dialect-independent,
+# and the sort-key scheme is the MCP registry's (tested in test_semver_utils.py and
+# test_mcp_server_registry.py). This file keeps only constraint/migration behavior that
+# varies by engine.
 
 
-def test_db_backend_skill_latest_prefers_active(store):
-    with session_scope(store) as session:
-        session.add(SqlSkill(organization="acme", name="latest-skill"))
-        session.add(
-            SqlSkillVersion(
-                organization="acme",
-                name="latest-skill",
-                version=1,
-                source_type="git",
-                source="s.git",
-                status="active",
-            )
-        )
-        session.add(
-            SqlSkillVersion(
-                organization="acme",
-                name="latest-skill",
-                version=2,
-                source_type="git",
-                source="s.git",
-                status="draft",
-            )
-        )
-    with session_scope(store, commit=False) as session:
-        skill = (
-            SqlSkill
-            .with_resolved_latest(session.query(SqlSkill))
-            .filter_by(organization="acme", name="latest-skill")
-            .one()
-        )
-        assert skill.to_mlflow_entity().latest_version == 1
+_SKILL_REGISTRY_TABLES = frozenset({
+    "skills",
+    "skill_versions",
+    "skill_tags",
+    "skill_version_tags",
+    "skill_aliases",
+    "agent_plugins",
+    "agent_plugin_versions",
+    "agent_plugin_tags",
+    "agent_plugin_version_tags",
+    "agent_plugin_aliases",
+    "agent_plugin_version_members",
+})
+
+
+def test_db_backend_migration_downgrade_and_reupgrade(store):
+    # Cross-dialect twin of test_migration_downgrade_and_reupgrade. FK-aware drop
+    # ordering is stricter on MySQL/MSSQL than on SQLite, so this re-proves a clean
+    # downgrade on the full matrix. The store fixture leaves the DB at head; downgrade
+    # drops this migration's tables, and the finally restores head so the other
+    # tests/db tests still see the full schema.
+    url = MLFLOW_TRACKING_URI.get()
+    config = _get_alembic_config(url)
+    assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
+    try:
+        command.downgrade(config, "b7e2c1a4d9f3")
+        assert _SKILL_REGISTRY_TABLES.isdisjoint(set(sa.inspect(store.engine).get_table_names()))
+    finally:
+        command.upgrade(config, "head")
+    assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
