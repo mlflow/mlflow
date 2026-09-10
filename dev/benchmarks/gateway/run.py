@@ -511,6 +511,20 @@ def cmd_bench(args: argparse.Namespace) -> None:
         _check_docker()
 
     with tempfile.TemporaryDirectory(prefix="mlflow-bench-") as work_dir:
+        if creds:
+            # Keep the auth DB inside the per-run work dir. The packaged basic_auth.ini uses a
+            # relative sqlite path that would persist next to this script, so a later run with
+            # a freshly generated random password would fail to authenticate against the admin
+            # bootstrapped by an earlier run.
+            auth_ini = Path(work_dir) / "basic_auth.ini"
+            auth_ini.write_text(
+                "[mlflow]\n"
+                "default_permission = READ\n"
+                f"database_uri = sqlite:///{Path(work_dir) / 'basic_auth.db'}\n"
+                f"admin_username = {args.auth_username}\n"
+                "authorization_function = mlflow.server.auth:authenticate_request_basic_auth\n"
+            )
+            os.environ["MLFLOW_AUTH_CONFIG_PATH"] = str(auth_ini)
         port = args.port
         fake_port = args.fake_server_port
         instance_ports = [args.base_port + i for i in range(instances)]

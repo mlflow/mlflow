@@ -38,13 +38,24 @@ def read_auth_config() -> AuthConfig:
     config_path = _get_auth_config_path()
     config = configparser.ConfigParser()
     config.read(config_path)
+    # An environment variable that is set takes precedence even when it is empty, so an empty
+    # injected secret surfaces as a bootstrap error instead of silently falling back to a
+    # possibly stale value in the file. An empty password normalizes to None.
+    admin_username = (
+        MLFLOW_AUTH_ADMIN_USERNAME.get()
+        if MLFLOW_AUTH_ADMIN_USERNAME.is_set()
+        else config["mlflow"]["admin_username"]
+    )
+    admin_password = (
+        MLFLOW_AUTH_ADMIN_PASSWORD.get()
+        if MLFLOW_AUTH_ADMIN_PASSWORD.is_set()
+        else config["mlflow"].get("admin_password")
+    ) or None
     return AuthConfig(
         default_permission=config["mlflow"]["default_permission"],
         database_uri=config["mlflow"]["database_uri"],
-        admin_username=MLFLOW_AUTH_ADMIN_USERNAME.get() or config["mlflow"]["admin_username"],
-        admin_password=MLFLOW_AUTH_ADMIN_PASSWORD.get()
-        or config["mlflow"].get("admin_password")
-        or None,
+        admin_username=admin_username,
+        admin_password=admin_password,
         authorization_function=config["mlflow"].get(
             "authorization_function", DEFAULT_AUTHORIZATION_FUNCTION
         ),

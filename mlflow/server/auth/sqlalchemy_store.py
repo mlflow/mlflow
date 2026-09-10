@@ -135,8 +135,8 @@ class SqlAlchemyStore:
             SessionMaker = sessionmaker(bind=self.engine)
             self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
 
-    def authenticate_user(self, username: str, password: str) -> bool:
-        with self.ManagedSessionMaker() as session:
+    def authenticate_user(self, username: str, password: str, *, use_primary: bool = False) -> bool:
+        with self.ManagedSessionMaker(read_only=not use_primary) as session:
             try:
                 user = self._get_user(session, username)
                 return check_password_hash(user.password_hash, password)
@@ -174,8 +174,8 @@ class SqlAlchemyStore:
                 INVALID_STATE,
             )
 
-    def has_user(self, username: str) -> bool:
-        with self.ManagedSessionMaker() as session:
+    def has_user(self, username: str, *, use_primary: bool = False) -> bool:
+        with self.ManagedSessionMaker(read_only=not use_primary) as session:
             return session.query(SqlUser).filter(SqlUser.username == username).first() is not None
 
     def get_user(self, username: str) -> User:

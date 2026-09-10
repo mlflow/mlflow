@@ -53,6 +53,8 @@ def test_packaged_config_ships_no_admin_password():
         ("ini-admin-password", None, "ini-admin-password"),
         (None, "env-admin-password", "env-admin-password"),
         ("ini-admin-password", "env-admin-password", "env-admin-password"),
+        # A set-but-empty variable wins over the file so the misconfiguration is not masked.
+        ("ini-admin-password", "", None),
     ],
 )
 def test_admin_password_resolution(tmp_path, monkeypatch, ini_password, env_password, expected):
@@ -62,9 +64,10 @@ def test_admin_password_resolution(tmp_path, monkeypatch, ini_password, env_pass
     assert config.admin_password == expected
 
 
-def test_admin_username_env_overrides_ini(tmp_path, monkeypatch):
-    monkeypatch.setenv(MLFLOW_AUTH_ADMIN_USERNAME.name, "root")
-    assert _read_config(_write_ini(tmp_path)).admin_username == "root"
+@pytest.mark.parametrize("env_username", ["root", ""])
+def test_admin_username_env_overrides_ini(tmp_path, monkeypatch, env_username):
+    monkeypatch.setenv(MLFLOW_AUTH_ADMIN_USERNAME.name, env_username)
+    assert _read_config(_write_ini(tmp_path)).admin_username == env_username
 
 
 @pytest.fixture
@@ -90,7 +93,9 @@ def test_create_admin_user_rejects_legacy_default_password(store):
 
 def test_create_admin_user_creates_admin_with_configured_password(store):
     store.has_user.return_value = False
+    store.authenticate_user.return_value = False
     auth_module.create_admin_user("admin", "a-strong-admin-password")
+    store.has_user.assert_called_once_with("admin", use_primary=True)
     store.create_user.assert_called_once_with("admin", "a-strong-admin-password", is_admin=True)
 
 
@@ -110,9 +115,30 @@ def test_create_admin_user_warns_when_existing_admin_uses_legacy_default(store, 
     store.authenticate_user.return_value = True
     with caplog.at_level(logging.WARNING, logger=auth_module.__name__):
         auth_module.create_admin_user("admin", None)
-    store.authenticate_user.assert_called_once_with("admin", _LEGACY_DEFAULT_PASSWORD)
+    # Reads go to the primary so replica lag cannot hide an existing admin during a restart.
+    store.authenticate_user.assert_called_once_with(
+        "admin", _LEGACY_DEFAULT_PASSWORD, use_primary=True
+    )
     store.create_user.assert_not_called()
-    assert any("still uses the insecure default password" in r.message for r in caplog.records)
+    assert any(
+        "user 'admin' still uses the insecure default password" in r.message for r in caplog.records
+    )
+
+
+@pytest.mark.parametrize("root_exists", [True, False])
+def test_create_admin_user_warns_about_legacy_admin_when_username_overridden(
+    store, caplog, root_exists
+):
+    # Overriding the bootstrap username on an upgraded deployment must not hide the historical
+    # `admin` account that still carries the publicly known password.
+    store.has_user.return_value = root_exists
+    store.authenticate_user.side_effect = lambda username, password, **_: username == "admin"
+    with caplog.at_level(logging.WARNING, logger=auth_module.__name__):
+        auth_module.create_admin_user("root", "a-strong-admin-password")
+    assert store.create_user.call_count == (0 if root_exists else 1)
+    messages = [r.message for r in caplog.records]
+    assert len(messages) == 1
+    assert "user 'admin' still uses the insecure default password" in messages[0]
 
 
 def test_bootstrap_admin_user_initializes_store_then_creates_admin(store, monkeypatch):
