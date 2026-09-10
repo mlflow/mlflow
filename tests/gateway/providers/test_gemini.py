@@ -159,6 +159,7 @@ async def test_gemini_single_embedding():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -205,6 +206,7 @@ async def test_gemini_batch_embedding():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -271,6 +273,7 @@ async def test_gemini_completions():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -378,6 +381,7 @@ async def test_gemini_chat():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -568,6 +572,7 @@ async def test_gemini_chat_function_calling():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -692,6 +697,7 @@ async def test_gemini_chat_multi_function_calling():
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -832,6 +838,7 @@ async def test_gemini_chat_function_calling_second_turn():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -952,6 +959,7 @@ async def test_gemini_chat_function_calling_thought_signature():
         expected_url,
         json=expected_payload,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -1046,6 +1054,7 @@ async def test_gemini_chat_stream(resp):
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -1117,6 +1126,7 @@ async def test_gemini_chat_function_calling_stream():
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -1192,6 +1202,7 @@ async def test_gemini_completions_stream(resp):
         expected_url,
         json=mock.ANY,
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 

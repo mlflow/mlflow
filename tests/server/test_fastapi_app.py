@@ -6,7 +6,12 @@ from starlette.websockets import WebSocketDisconnect
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER
-from mlflow.server.fastapi_app import add_mcp_exception_handlers, create_fastapi_app
+from mlflow.gateway.ssrf import upstream_ssrf_protection
+from mlflow.server.fastapi_app import (
+    add_gateway_upstream_protection_middleware,
+    add_mcp_exception_handlers,
+    create_fastapi_app,
+)
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 
@@ -83,3 +88,21 @@ def test_gateway_timing_header_present_for_prefixed_route(monkeypatch):
 
     response = client.post("/myprefix/gateway/mlflow/v1/chat/completions", json={})
     assert MLFLOW_GATEWAY_DURATION_HEADER in response.headers
+
+
+def test_gateway_upstream_protection_middleware_marks_requests_as_protected():
+    app = FastAPI()
+    add_gateway_upstream_protection_middleware(app)
+
+    @app.get("/probe")
+    async def probe():
+        return {"protected": upstream_ssrf_protection.get()}
+
+    assert TestClient(app).get("/probe").json() == {"protected": True}
+    # Scoped to the request: nothing leaks into the caller's context.
+    assert upstream_ssrf_protection.get() is False
+
+
+def test_create_fastapi_app_enables_gateway_upstream_protection():
+    app = create_fastapi_app()
+    assert app.state.gateway_upstream_protection_middleware_added is True

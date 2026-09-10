@@ -161,6 +161,7 @@ async def test_completions():
                 "stop_sequences": ["foobazbardiddly"],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -184,6 +185,7 @@ async def test_completions_with_default_max_tokens():
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -368,6 +370,7 @@ async def test_chat():
                 "temperature": 0.25,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -505,6 +508,7 @@ async def test_chat_function_calling():
                 ],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -708,6 +712,7 @@ async def test_chat_stream():
                 "stream": True,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -883,6 +888,7 @@ async def test_chat_function_calling_stream():
                 "stream": True,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -1004,6 +1010,7 @@ async def test_passthrough_anthropic_messages():
                 "model": "claude-2.1",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
         # Verify provider headers are propagated correctly
@@ -1066,6 +1073,7 @@ async def test_passthrough_anthropic_messages_streaming():
                 "model": "claude-2.1",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
         # Verify provider headers are propagated correctly
@@ -1106,6 +1114,7 @@ async def test_proxy_anthropic_non_streaming():
         "https://api.anthropic.com/v1/messages",
         json=payload,
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
     )
     assert captured_session_headers["x-api-key"] == "key"
     assert captured_session_headers["X-Request-ID"] == "req-001"

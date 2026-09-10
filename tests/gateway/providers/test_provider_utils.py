@@ -95,6 +95,23 @@ async def test_aiohttp_post_uses_timeout_from_env_var(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_aiohttp_post_never_follows_redirects():
+    # A redirect from the upstream could otherwise steer the request to an internal host
+    # that the SSRF guard never saw.
+    mock_client = mock_http_client(MockAsyncResponse({}))
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        async with _aiohttp_post(
+            headers={"Authorization": "Bearer key"},
+            base_url="https://api.example.com",
+            path="/v1/chat",
+            payload={"model": "x"},
+        ):
+            pass
+
+    assert mock_client.post.call_args.kwargs["allow_redirects"] is False
+
+
+@pytest.mark.asyncio
 async def test_aiohttp_post_sets_read_bufsize_for_large_sse_lines():
     mock_client = mock_http_client(MockAsyncResponse({}))
     with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session_cls:

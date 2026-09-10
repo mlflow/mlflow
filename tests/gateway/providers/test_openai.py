@@ -130,6 +130,7 @@ async def _run_test_chat(provider):
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -286,6 +287,7 @@ async def _run_test_chat_stream(resp, provider):
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -452,6 +454,7 @@ async def _run_test_completions(resp, provider):
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -574,6 +577,7 @@ async def _run_test_completions_stream(resp, provider):
                 "stream_options": {"include_usage": True},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -648,6 +652,7 @@ async def _run_test_embeddings(provider):
             "https://api.openai.com/v1/embeddings",
             json={"model": "text-embedding-ada-002", "input": "This is a test"},
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -728,6 +733,7 @@ async def test_embeddings_batch_input():
                 "input": ["1", "2"],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -782,6 +788,7 @@ async def test_azure_openai():
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -818,6 +825,7 @@ async def test_azuread_openai():
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -1423,6 +1431,7 @@ async def test_proxy_non_streaming():
         "https://api.openai.com/v1/chat/completions",
         json={"messages": [{"role": "user", "content": "Hello"}]},
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
