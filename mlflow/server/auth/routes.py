@@ -1,6 +1,8 @@
 from mlflow.server.handlers import _add_static_prefix, _get_ajax_path, _get_rest_path
 
 HOME = "/"
+# Bare like HOME: callers apply the static prefix themselves.
+SERVER_VERSION = "/version"
 SIGNUP = "/signup"
 CREATE_USER = _get_rest_path("/mlflow/users/create")
 AJAX_CREATE_USER = _get_ajax_path("/mlflow/users/create")
@@ -96,3 +98,4 @@ INVOKE_ISSUE_DETECTION = _get_ajax_path("/mlflow/issues/invoke", version=3)
 INVOKE_GENAI_EVALUATE = _get_ajax_path("/mlflow/genai/evaluate/invoke", version=3)
 DEMO_GENERATE = _get_ajax_path("/mlflow/demo/generate", version=3)
 DEMO_DELETE = _get_ajax_path("/mlflow/demo/delete", version=3)
+UI_TELEMETRY = _get_ajax_path("/mlflow/ui-telemetry", version=3)
