@@ -21,6 +21,8 @@ from mlflow.environment_variables import (
     _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS,
+    MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES,
     MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS,
     MLFLOW_ICON_URL_ALLOWED_DOMAINS,
     MLFLOW_ICON_URL_ALLOWED_SCHEMES,
@@ -1017,6 +1019,42 @@ def _validate_public_https_url(
 
     if not allow_private_ips:
         _validate_hostname_resolves_to_public_ips(hostname, field_name)
+
+
+def _validate_gateway_api_base(url: str) -> None:
+    """Validate the ``api_base`` override supplied in an AI Gateway secret's ``auth_config``.
+
+    The gateway sends upstream requests to this URL, and the raw proxy route appends a
+    caller-supplied path to it, so an unrestricted value turns the gateway into an SSRF
+    primitive against internal services and cloud metadata endpoints. Default behavior
+    accepts only public HTTPS targets, following the webhook and icon URL policies.
+
+    Operators can further configure:
+    - ``MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES`` to allow schemes like ``http``
+    - ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS=true`` to allow localhost /
+      loopback / private-network targets
+    """
+    _validate_public_https_url(
+        url,
+        field_name="Gateway secret api_base",
+        allowed_schemes=MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES.get(),
+        allow_private_ips=MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS.get(),
+    )
+
+
+def _validate_gateway_secret_auth_config(auth_config: dict[str, Any] | None) -> None:
+    """Validate the user-controlled ``auth_config`` of an AI Gateway secret on write.
+
+    Only ``api_base`` (see ``mlflow.gateway.config._AuthConfigKey.API_BASE``) names an
+    outbound target, so it is the only key checked. An empty value is treated as unset,
+    matching how the providers fall back to their default base URL.
+    """
+    if not auth_config:
+        return
+    api_base = auth_config.get("api_base")
+    if api_base is None or (isinstance(api_base, str) and not api_base.strip()):
+        return
+    _validate_gateway_api_base(api_base)
 
 
 def _validate_mcp_icon_url(url: str) -> None:

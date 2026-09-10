@@ -28,6 +28,20 @@ Navigate to `http://localhost:5000/#/settings` and click on the **LLM Connection
 
 ![Create LLM Connection](/images/genai/settings/create-api-key.png)
 
+### Custom Base URL Validation
+
+Some providers accept a custom **API Base URL** (`api_base`), for example Azure OpenAI, Databricks, or Portkey. Because the gateway forwards requests, including caller-controlled raw proxy paths, to this URL, MLflow validates it to prevent Server-Side Request Forgery (SSRF). By default:
+
+- Only **HTTPS** URLs are allowed
+- URLs with embedded credentials are rejected
+- URLs that resolve to **private**, **loopback**, **link-local**, or **reserved** IP addresses are rejected
+
+This prevents a connection from being pointed at internal services, cloud metadata endpoints (e.g., `169.254.169.254`), or localhost services. Leaving the field blank is always allowed and uses the provider's default base URL.
+
+:::note
+For local development against a self-hosted model server, set `MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS=true` and, if the server does not use TLS, `MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES=http,https`. Do not enable these in production.
+:::
+
 ## Working with Existing Connections
 
 The LLM Connections page displays all your configured connections along with important metadata:

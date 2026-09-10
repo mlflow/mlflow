@@ -20,6 +20,8 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
+    _validate_gateway_api_base,
+    _validate_gateway_secret_auth_config,
     _validate_list_param,
     _validate_mcp_icon_url,
     _validate_metric_name,
@@ -820,3 +822,115 @@ def test_validate_public_https_url_accepts_public_ipv6_addresses(public_ipv6: st
     ) as mock_getaddrinfo:
         _validate_public_https_url("https://example.com/icon.png", field_name="Icon URL")
         mock_getaddrinfo.assert_called()
+
+
+# -- _validate_gateway_api_base / _validate_gateway_secret_auth_config tests --
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_match"),
+    [
+        (123, "Gateway secret api_base must be a string"),
+        ("", "Gateway secret api_base cannot be empty"),
+        ("http://api.example.com/v1", "Invalid Gateway secret api_base scheme"),
+        ("file:///etc/passwd", "Invalid Gateway secret api_base scheme"),
+        ("gopher://example.com", "Invalid Gateway secret api_base scheme"),
+        ("https://", "Gateway secret api_base must include a hostname"),
+        ("https://user:pass@api.example.com/v1", "must not include embedded credentials"),
+    ],
+)
+def test_validate_gateway_api_base_rejects_invalid_input(url, expected_match):
+    with pytest.raises(MlflowException, match=expected_match) as exc:
+        _validate_gateway_api_base(url)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("url", "resolved_ip"),
+    [
+        ("https://127.0.0.1/v1", "127.0.0.1"),
+        ("https://localhost:11434/v1", "127.0.0.1"),
+        ("https://[::1]/v1", "::1"),
+        ("https://internal.corp/v1", "10.0.0.1"),
+        ("https://internal.corp/v1", "192.168.1.1"),
+        ("https://169.254.169.254/latest/meta-data/", "169.254.169.254"),
+        ("https://metadata.internal/v1", "169.254.169.254"),
+        ("https://nat64-metadata.internal/v1", "64:ff9b::169.254.169.254"),
+    ],
+)
+def test_validate_gateway_api_base_rejects_private_ips(url, resolved_ip):
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo(resolved_ip),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_gateway_api_base(url)
+
+
+def test_validate_gateway_api_base_accepts_public_https_target():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("8.8.8.8"),
+    ):
+        _validate_gateway_api_base("https://my-resource.openai.azure.com")
+
+
+def test_validate_gateway_api_base_allowed_schemes_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES", "http,https")
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("8.8.8.8"),
+    ):
+        _validate_gateway_api_base("http://api.example.com/v1")
+        # Non-HTTP schemes stay rejected even with http enabled.
+        with pytest.raises(MlflowException, match="Invalid Gateway secret api_base scheme"):
+            _validate_gateway_api_base("ftp://api.example.com/v1")
+
+
+def test_validate_gateway_api_base_allow_private_ips_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", "true")
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("127.0.0.1"),
+    ) as mock_getaddrinfo:
+        _validate_gateway_api_base("https://localhost:11434/v1")
+    mock_getaddrinfo.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "auth_config",
+    [
+        None,
+        {},
+        {"auth_mode": "api_key"},
+        {"api_base": ""},
+        {"api_base": "   "},
+    ],
+)
+def test_validate_gateway_secret_auth_config_skips_when_api_base_unset(auth_config):
+    with patch("mlflow.utils.validation.socket.getaddrinfo") as mock_getaddrinfo:
+        _validate_gateway_secret_auth_config(auth_config)
+    mock_getaddrinfo.assert_not_called()
+
+
+def test_validate_gateway_secret_auth_config_rejects_private_api_base():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("169.254.169.254"),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_gateway_secret_auth_config({
+                "auth_mode": "api_key",
+                "api_base": "https://169.254.169.254/latest",
+            })
+
+
+def test_validate_gateway_secret_auth_config_accepts_public_api_base():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("8.8.8.8"),
+    ):
+        _validate_gateway_secret_auth_config({
+            "auth_mode": "api_key",
+            "api_base": "https://api.example.com/v1",
+        })

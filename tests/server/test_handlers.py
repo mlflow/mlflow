@@ -37,6 +37,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetTargetScope,
     BudgetUnit,
 )
+from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -121,6 +122,7 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateExperiment,
+    CreateGatewaySecret,
     DeleteScorer,
     DeleteTraceTag,
     DeleteTraceTagV3,
@@ -142,6 +144,7 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     SetTraceTagV3,
     TraceLocation,
+    UpdateGatewaySecret,
 )
 from mlflow.protos.service_pb2 import (
     FallbackStrategy as ProtoFallbackStrategy,
@@ -170,6 +173,7 @@ from mlflow.server.handlers import (
     _create_artifact_file_response,
     _create_dataset_handler,
     _create_experiment,
+    _create_gateway_secret,
     _create_issue,
     _create_model_version,
     _create_presigned_download_url,
@@ -242,6 +246,7 @@ from mlflow.server.handlers import (
     _set_trace_tag,
     _set_trace_tag_v3,
     _transition_stage,
+    _update_gateway_secret,
     _update_issue,
     _update_model_version,
     _update_registered_model,
@@ -8531,3 +8536,122 @@ def test_set_review_queue_item_status_stamps_completed_by(
         assert call_kwargs["completed_by"] == expected_completed_by
         # Pin status pass-through too, so a regression that mangles status is caught.
         assert call_kwargs["status"] == status
+
+
+def _gateway_secret_info(auth_config=None):
+    return GatewaySecretInfo(
+        secret_id="s-123",
+        secret_name="my-secret",
+        masked_values={"api_key": "sk-...123"},
+        created_at=1,
+        last_updated_at=1,
+        provider="openai",
+        auth_config=auth_config,
+    )
+
+
+def _create_gateway_secret_request(auth_config):
+    return CreateGatewaySecret(
+        secret_name="my-secret",
+        secret_value={"api_key": "sk-123"},
+        provider="openai",
+        auth_config=auth_config,
+    )
+
+
+def _update_gateway_secret_request(auth_config):
+    return UpdateGatewaySecret(secret_id="s-123", auth_config=auth_config)
+
+
+@pytest.mark.parametrize(
+    ("handler", "build_request"),
+    [
+        (_create_gateway_secret, _create_gateway_secret_request),
+        (_update_gateway_secret, _update_gateway_secret_request),
+    ],
+)
+@pytest.mark.parametrize(
+    ("api_base", "resolved_ip", "expected_match"),
+    [
+        ("https://169.254.169.254/latest", "169.254.169.254", "must not resolve to a non-public"),
+        ("https://localhost:11434/v1", "127.0.0.1", "must not resolve to a non-public"),
+        ("http://api.example.com/v1", "8.8.8.8", "Invalid Gateway secret api_base scheme"),
+        ("https://user:pw@api.example.com/v1", "8.8.8.8", "must not include embedded credentials"),
+    ],
+)
+def test_gateway_secret_handlers_reject_unsafe_api_base(
+    mock_get_request_message,
+    mock_tracking_store,
+    handler,
+    build_request,
+    api_base,
+    resolved_ip,
+    expected_match,
+):
+    mock_get_request_message.return_value = build_request({
+        "auth_mode": "api_key",
+        "api_base": api_base,
+    })
+    with mock.patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        return_value=[(None, None, None, None, (resolved_ip, 0))],
+    ):
+        response = handler()
+
+    assert response.status_code == 400
+    body = json.loads(response.get_data())
+    assert body["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert expected_match in body["message"]
+    mock_tracking_store.create_gateway_secret.assert_not_called()
+    mock_tracking_store.update_gateway_secret.assert_not_called()
+
+
+def test_create_gateway_secret_accepts_public_api_base(
+    mock_get_request_message, mock_tracking_store
+):
+    auth_config = {"auth_mode": "api_key", "api_base": "https://my-resource.openai.azure.com"}
+    mock_get_request_message.return_value = _create_gateway_secret_request(auth_config)
+    mock_tracking_store.create_gateway_secret.return_value = _gateway_secret_info(auth_config)
+
+    with mock.patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        return_value=[(None, None, None, None, ("8.8.8.8", 0))],
+    ):
+        response = _create_gateway_secret()
+
+    assert response.status_code == 200
+    _, kwargs = mock_tracking_store.create_gateway_secret.call_args
+    assert kwargs["auth_config"] == auth_config
+    assert json.loads(response.get_data())["secret"]["secret_id"] == "s-123"
+
+
+def test_update_gateway_secret_accepts_public_api_base(
+    mock_get_request_message, mock_tracking_store
+):
+    auth_config = {"auth_mode": "api_key", "api_base": "https://my-resource.openai.azure.com"}
+    mock_get_request_message.return_value = _update_gateway_secret_request(auth_config)
+    mock_tracking_store.update_gateway_secret.return_value = _gateway_secret_info(auth_config)
+
+    with mock.patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        return_value=[(None, None, None, None, ("8.8.8.8", 0))],
+    ):
+        response = _update_gateway_secret()
+
+    assert response.status_code == 200
+    _, kwargs = mock_tracking_store.update_gateway_secret.call_args
+    assert kwargs["auth_config"] == auth_config
+
+
+def test_gateway_secret_handlers_skip_api_base_validation_when_unset(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = _create_gateway_secret_request({"auth_mode": "api_key"})
+    mock_tracking_store.create_gateway_secret.return_value = _gateway_secret_info({
+        "auth_mode": "api_key"
+    })
+    with mock.patch("mlflow.utils.validation.socket.getaddrinfo") as mock_getaddrinfo:
+        response = _create_gateway_secret()
+
+    assert response.status_code == 200
+    mock_getaddrinfo.assert_not_called()

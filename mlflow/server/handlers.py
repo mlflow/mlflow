@@ -407,6 +407,7 @@ from mlflow.utils.validation import (
     _validate_batch_log_api_req,
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
+    _validate_gateway_secret_auth_config,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
     invalid_value,
@@ -5985,6 +5986,7 @@ def _create_gateway_secret():
     )
     # Empty map means no auth_config was provided
     auth_config = dict(request_message.auth_config) or None
+    _validate_gateway_secret_auth_config(auth_config)
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
@@ -6027,6 +6029,7 @@ def _update_gateway_secret():
     )
     # Empty map means no auth_config was provided
     auth_config = dict(request_message.auth_config) or None
+    _validate_gateway_secret_auth_config(auth_config)
 
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None
