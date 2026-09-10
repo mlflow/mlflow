@@ -90,10 +90,14 @@ class _BoundedStream:
         self._read += len(chunk)
         if self._read > self._limit:
             raise invalid_content(
-                f"Archive decompresses to more than {self._limit} bytes including metadata, "
-                "which exceeds the skill content size limit."
+                f"Archive metadata decompresses to more than {self._limit} bytes, which "
+                "exceeds the allowance for tar headers."
             )
         return chunk
+
+    def grant(self, amount: int) -> None:
+        """Allow ``amount`` more bytes through: a member's declared payload is not metadata."""
+        self._limit += amount
 
     def close(self) -> None:
         self._inner.close()
@@ -199,32 +203,43 @@ _TAR_FAILURES = (tarfile.TarError, EOFError, OSError, zlib.error, RecursionError
 
 
 @contextmanager
-def _open_tar(archive: Path, *, compressed: bool, limit: int) -> Iterator[tarfile.TarFile]:
+def _open_tar(
+    archive: Path, *, compressed: bool
+) -> Iterator[tuple[tarfile.TarFile, _BoundedStream]]:
     """
-    Open ``archive`` as a sequential tar stream whose decompressed bytes are bounded.
+    Open ``archive`` as a sequential tar stream whose metadata bytes are bounded.
 
-    Streaming mode makes the parser read headers and content strictly in order, and the
-    bounded stream underneath fails the moment the archive decompresses past the content
-    limit plus a fixed metadata allowance, so oversized PAX or GNU long-name headers are cut
-    off instead of being buffered in memory.
+    Streaming mode makes the parser read headers and content strictly in order. The bounded
+    stream underneath starts with only the metadata allowance, and ``_iter_tar_members``
+    grants each member's declared payload as its header is parsed, so oversized PAX or GNU
+    long-name headers are cut off instead of being buffered in memory while file contents,
+    selected or not, never count against that allowance. Selected content is budgeted
+    separately by the callers.
     """
     with open(archive, "rb") as raw:
         inner = gzip.GzipFile(fileobj=raw, mode="rb") if compressed else raw
-        bounded = _BoundedStream(inner, limit + _TAR_METADATA_ALLOWANCE)
+        bounded = _BoundedStream(inner, _TAR_METADATA_ALLOWANCE)
         try:
             with tarfile.open(fileobj=bounded, mode="r|") as tar:
-                yield tar
+                yield tar, bounded
         except _TAR_FAILURES as e:
             raise invalid_content(f"'{archive.name}' is not a readable tar archive: {e}")
 
 
-def _iter_tar_members(tar: tarfile.TarFile) -> Iterator[tarfile.TarInfo]:
+def _padded_payload(size: int) -> int:
+    return -(-size // tarfile.BLOCKSIZE) * tarfile.BLOCKSIZE
+
+
+def _iter_tar_members(tar: tarfile.TarFile, bounded: _BoundedStream) -> Iterator[tarfile.TarInfo]:
     count = 0
     try:
         for member in tar:
             count += 1
             if count > MAX_ARCHIVE_ENTRIES:
                 raise invalid_content(f"Archive contains more than {MAX_ARCHIVE_ENTRIES} entries.")
+            # The header has been parsed; its payload (which the caller either copies under
+            # the content budget or skips) is about to stream through and is not metadata.
+            bounded.grant(_padded_payload(member.size))
             yield member
     except _TAR_FAILURES as e:
         raise invalid_content(f"Archive is malformed: {e}")
@@ -262,8 +277,8 @@ def validate_skill_archive(
     prefix = normalize_subpath(subpath)
     budget = _ByteBudget(limit)
     layout = _ArchiveLayout()
-    with _open_tar(Path(archive), compressed=compressed, limit=limit) as tar:
-        for member in _iter_tar_members(tar):
+    with _open_tar(Path(archive), compressed=compressed) as (tar, bounded):
+        for member in _iter_tar_members(tar, bounded):
             relative = _member_relative_path(member.name)
             is_dir = _tar_entry_kind(member)
             if relative is None:
@@ -299,8 +314,8 @@ def extract_skill_archive(
     validate_skill_archive(archive_path, max_bytes=limit, compressed=compressed, subpath=prefix)
     _require_empty_dir(dest_path)
     budget = _ByteBudget(limit)
-    with _open_tar(archive_path, compressed=compressed, limit=limit) as tar:
-        for member in _iter_tar_members(tar):
+    with _open_tar(archive_path, compressed=compressed) as (tar, bounded):
+        for member in _iter_tar_members(tar, bounded):
             relative = _member_relative_path(member.name)
             if relative is None or not is_under_subpath(relative, prefix):
                 continue

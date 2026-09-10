@@ -184,7 +184,7 @@ def test_validate_skill_archive_bounds_metadata_headers(tmp_path, header_type):
         [("hdr", header_type, payload), ("SKILL.md", tarfile.REGTYPE, b"x")],
     )
     assert archive.stat().st_size < 1024 * 1024
-    with pytest.raises(MlflowException, match="exceeds the skill content size limit"):
+    with pytest.raises(MlflowException, match="exceeds the allowance for tar headers"):
         validate_skill_archive(archive, max_bytes=1024)
 
 
@@ -415,3 +415,25 @@ def test_package_skill_tree_unreadable_file(tmp_path):
     with pytest.raises(MlflowException, match="Cannot read skill content") as exc:
         package_skill_tree(source, tmp_path / "out.tar.gz")
     assert exc.value.error_code == "PERMISSION_DENIED"
+
+
+@pytest.mark.parametrize("operation", ["validate", "extract"])
+def test_tar_budget_counts_only_selected_content(tmp_path, operation):
+    # The content limit applies to the subtree under `subpath`; unrelated payloads elsewhere
+    # in the archive stream past without counting, while metadata stays bounded.
+    archive = _make_tar(
+        tmp_path / "package.tar.gz",
+        [
+            ("skills/demo/SKILL.md", tarfile.REGTYPE, b"x"),
+            ("unrelated/data.bin", tarfile.REGTYPE, b"\0" * (40 * 1024**2)),
+        ],
+    )
+    assert archive.stat().st_size < 1024 * 1024
+    if operation == "validate":
+        assert validate_skill_archive(archive, subpath="skills/demo") == 1
+    else:
+        dest = extract_skill_archive(archive, tmp_path / "extracted", subpath="skills/demo")
+        assert (dest / "skills" / "demo" / "SKILL.md").read_bytes() == b"x"
+        assert not (dest / "unrelated").exists()
+    with pytest.raises(MlflowException, match="exceeds the skill content size limit"):
+        validate_skill_archive(archive)
