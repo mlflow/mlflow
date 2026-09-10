@@ -167,13 +167,13 @@ probes:
     enabled: true
     initialDelaySeconds: 15
     periodSeconds: 20
-    timeoutSeconds: 10
+    timeoutSeconds: 1
     failureThreshold: 3
   readiness:
     enabled: true
     initialDelaySeconds: 5
     periodSeconds: 10
-    timeoutSeconds: 10
+    timeoutSeconds: 1
     failureThreshold: 3
   startup:
     enabled: true

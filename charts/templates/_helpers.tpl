@@ -61,16 +61,16 @@ httpGet:
   {{- if .tls }}
   scheme: HTTPS
   {{- end }}
-{{- with .probe.initialDelaySeconds }}
-initialDelaySeconds: {{ . }}
+{{- if hasKey .probe "initialDelaySeconds" }}
+initialDelaySeconds: {{ .probe.initialDelaySeconds }}
 {{- end }}
-{{- with .probe.periodSeconds }}
-periodSeconds: {{ . }}
+{{- if hasKey .probe "periodSeconds" }}
+periodSeconds: {{ .probe.periodSeconds }}
 {{- end }}
-{{- with .probe.timeoutSeconds }}
-timeoutSeconds: {{ . }}
+{{- if hasKey .probe "timeoutSeconds" }}
+timeoutSeconds: {{ .probe.timeoutSeconds }}
 {{- end }}
-{{- with .probe.failureThreshold }}
-failureThreshold: {{ . }}
+{{- if hasKey .probe "failureThreshold" }}
+failureThreshold: {{ .probe.failureThreshold }}
 {{- end }}
 {{- end }}
