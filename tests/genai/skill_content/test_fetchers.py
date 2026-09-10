@@ -41,12 +41,18 @@ def git_repo(tmp_path, skill_tree):
 
 class _RecordingHTTPHandler(http.server.SimpleHTTPRequestHandler):
     authorizations = []
+    redirects = {}
 
     def log_message(self, *args):
         pass
 
     def do_GET(self):
         self.authorizations.append(self.headers.get("Authorization"))
+        if (target := self.redirects.get(self.path)) is not None:
+            self.send_response(302)
+            self.send_header("Location", target)
+            self.end_headers()
+            return
         super().do_GET()
 
 
@@ -54,7 +60,7 @@ class _RecordingHTTPHandler(http.server.SimpleHTTPRequestHandler):
 def http_server(tmp_path):
     serve_dir = tmp_path / "www"
     serve_dir.mkdir()
-    handler_cls = type("Handler", (_RecordingHTTPHandler,), {"authorizations": []})
+    handler_cls = type("Handler", (_RecordingHTTPHandler,), {"authorizations": [], "redirects": {}})
     handler = partial(handler_cls, directory=str(serve_dir))
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, name="skill-content-http", daemon=True)
@@ -179,6 +185,22 @@ def test_fetch_zip_sends_no_credentials(http_server, skill_tree, tmp_path, monke
 
     with pytest.raises(MlflowException, match="publicly accessible"):
         fetch_source(base_url.replace("http://", "http://u:p@") + "/skills.zip")
+
+
+@pytest.mark.no_mock_requests_get
+def test_fetch_zip_redirect_never_uses_netrc(http_server, skill_tree, tmp_path, monkeypatch):
+    # `requests` re-applies netrc credentials when it rebuilds a redirected request; the
+    # public-only policy must hold on every hop, not just the first.
+    serve_dir, base_url, handler = http_server
+    shutil.make_archive(str(serve_dir / "skills"), "zip", root_dir=skill_tree)
+    handler.redirects["/redirect.zip"] = "/skills.zip"
+    netrc = tmp_path / "netrc"
+    netrc.write_text("machine 127.0.0.1 login netrc-user password netrc-pass\n")
+    monkeypatch.setenv("NETRC", str(netrc))
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
+    with fetch_source(f"{base_url}/redirect.zip", subpath="skills/demo") as fetched:
+        assert (fetched.root / "SKILL.md").exists()
+    assert handler.authorizations == [None, None]
 
 
 @pytest.mark.no_mock_requests_get

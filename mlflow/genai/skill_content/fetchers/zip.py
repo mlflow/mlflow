@@ -22,15 +22,24 @@ def _no_auth(request):
     return request
 
 
+class _NoAuthSession(requests.Session):
+    """A session that never attaches credentials, on the first request or on any redirect."""
+
+    def rebuild_auth(self, prepared_request, response):
+        # The base implementation re-applies ~/.netrc credentials for the redirect target;
+        # ZIP sources are public by policy, so strip whatever the previous hop carried instead.
+        prepared_request.headers.pop("Authorization", None)
+
+
 def download_with_budget(url: str, target: Path, *, max_bytes: int) -> Path:
     """
     Stream ``url`` to ``target``, failing once more than ``max_bytes`` have been received.
 
-    No credentials are attached, not even ambient ``~/.netrc`` entries: ZIP sources are public
-    by policy. The byte budget is enforced on the wire so a hostile or oversized download is
-    cut off rather than buffered.
+    No credentials are attached on any hop of the redirect chain, not even ambient ``~/.netrc``
+    entries: ZIP sources are public by policy. The byte budget is enforced on the wire so a
+    hostile or oversized download is cut off rather than buffered.
     """
-    session = requests.Session()
+    session = _NoAuthSession()
     try:
         with session.get(
             url, stream=True, timeout=_REQUEST_TIMEOUT_SECONDS, auth=_no_auth
