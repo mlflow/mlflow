@@ -16,6 +16,7 @@ import {
   getEvaluationResultAssessmentValue,
   KnownEvaluationResultAssessmentStringValue,
   stringifyValue,
+  tryExtractMessageContent,
 } from './components/GenAiEvaluationTracesReview.utils';
 import { RESPONSE_COLUMN_ID } from './hooks/useTableColumns';
 import type {
@@ -103,14 +104,8 @@ export const formatResponseTitle = (outputs: string) => {
 
   try {
     const parsedOutputs = JSON.parse(outputs);
-
-    // Try to parse OpenAI messages
-    const choices = parsedOutputs['response']['choices'];
-    if (Array.isArray(choices) && !isNil(choices[0]?.message?.content)) {
-      outputsTitle = choices[0]?.message?.content;
-    } else {
-      outputsTitle = stringifyValue(outputs);
-    }
+    const response = parsedOutputs?.response ?? parsedOutputs;
+    outputsTitle = tryExtractMessageContent(response, 'assistant') ?? stringifyValue(outputs);
   } catch {
     outputsTitle = stringifyValue(outputs);
   }
