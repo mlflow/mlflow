@@ -98,6 +98,7 @@ class GatewayRequestType(str, Enum):
     PASSTHROUGH_MODEL_OPENAI_RESPONSES = "passthrough/model/openai-responses"
     PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES = "passthrough/model/anthropic-messages"
     PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT = "passthrough/model/gemini-generateContent"
+    PASSTHROUGH_MODEL_MISTRAL_CHAT = "passthrough/model/mistral-chat"
     RAW_PROXY = "proxy/raw"
 
 

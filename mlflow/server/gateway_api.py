@@ -1705,3 +1705,114 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
             safe_stream(_prepend(first, gen), as_bytes=True), media_type="text/event-stream"
         )
     return first
+
+
+@gateway_router.post(PASSTHROUGH_ROUTES[PassthroughAction.MISTRAL_CHAT], response_model=None)
+@translate_http_exception
+@_record_gateway_invocation(GatewayInvocationType.MISTRAL_PASSTHROUGH_CHAT)
+async def mistral_passthrough_chat(request: Request):
+    """
+    mistral passthrough endpoint for chat completions.
+
+    This endpoint accepts raw mistral API format and passes it through to the
+    mistral provider with the configured API key and model. The 'model' parameter
+    in the request specifies which MLflow endpoint to use.
+
+    Supports streaming responses when the 'stream' parameter is set to true.
+
+    Example:
+        POST /gateway/mistral/v1/chat/completions
+        {
+            model: "mistral-large-latest",
+            messages: [
+            {
+                role: "user",
+                content: "Who is the best French painter? Answer in one short sentence.",
+                },
+            ],
+        }
+    """
+    body = await _get_request_body(request)
+    user_metadata = _get_user_metadata(request)
+
+    endpoint_name = _extract_endpoint_name_from_model(body)
+    body.pop("model")
+    store = _get_store()
+    workspace = get_request_workspace()
+    _validate_store(store)
+    headers = dict(request.headers)
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
+    _set_gateway_telemetry_state(request, endpoint_config)
+    check_budget_limit(
+        store, endpoint_config, workspace=workspace, username=_get_request_username(request)
+    )
+    guardrails, auth_headers = _get_guardrails_and_auth(store, endpoint_config, request)
+
+    if body.get("stream", False):
+        # Post-LLM guardrails are not applied to streaming responses.
+        async def _guarded_stream(body: dict[str, Any]):
+            request_dict = await run_pre_llm_guardrails(
+                guardrails,
+                body,
+                auth_headers=auth_headers,
+                usage_tracking=endpoint_config.usage_tracking,
+            )
+            stream = await provider.passthrough(
+                action=PassthroughAction.MISTRAL_CHAT, payload=request_dict, headers=headers
+            )
+            async for chunk in stream:
+                yield chunk
+
+        traced_stream = maybe_traced_gateway_call(
+            _guarded_stream,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_MISTRAL_CHAT,
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
+        )
+        return StreamingResponse(
+            safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
+        )
+
+    async def _guarded_passthrough(body: dict[str, Any]) -> dict[str, Any]:
+        body = await run_pre_llm_guardrails(
+            guardrails,
+            body,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+        response = await provider.passthrough(
+            action=PassthroughAction.MISTRAL_CHAT, payload=body, headers=headers
+        )
+        return await run_post_llm_guardrails_passthrough(
+            guardrails,
+            body,
+            response,
+            auth_headers=auth_headers,
+            usage_tracking=endpoint_config.usage_tracking,
+        )
+
+    try:
+        return await maybe_traced_gateway_call(
+            _guarded_passthrough,
+            endpoint_config,
+            user_metadata,
+            request_headers=headers,
+            request_type=GatewayRequestType.PASSTHROUGH_MODEL_MISTRAL_CHAT,
+            on_complete=make_budget_on_complete(
+                store,
+                workspace,
+                endpoint_id=endpoint_config.endpoint_id,
+                username=_get_request_username(request),
+            ),
+        )(body)
+    except GuardrailViolation as e:
+        raise HTTPException(status_code=400, detail=str(e))
