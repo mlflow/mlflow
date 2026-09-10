@@ -80,6 +80,9 @@ jobs:
           echo "$default" | grep -q '^          readinessProbe:$'
           echo "$default" | grep -q '^          startupProbe:$'
           echo "$default" | grep -q '^              path: /health$'
+          # A 0-valued field must still render (the reason for hasKey over `with`):
+          # the startup probe's initialDelaySeconds: 0 must appear, not be dropped.
+          echo "$default" | probe_block 'startupProbe:' | grep -q '^            initialDelaySeconds: 0$'
 
           # enabled: false cleanly omits a probe. Capture the render into a
           # variable first (rather than piping straight into the `if`) so a
