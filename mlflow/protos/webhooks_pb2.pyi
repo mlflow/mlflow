@@ -546,8 +546,8 @@ class TestWebhook(_message.Message):
 
 Global___TestWebhook: _TypeAlias = TestWebhook  # noqa: Y015
 
-# Appended by dev/generate_protos.py: mypy-protobuf does not emit plain
-# proto Service interfaces; these preserve the --pyi_out declarations.
-from google.protobuf import service as _service  # noqa: Y015
+# Appended by dev/generate_protos.py:
+from google.protobuf import service as _service
+
 class WebhookService(_service.service): ...
 class WebhookService_Stub(WebhookService): ...

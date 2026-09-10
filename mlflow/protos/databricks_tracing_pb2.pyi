@@ -1565,8 +1565,8 @@ class BatchUnlinkTraceFromRun(_message.Message):
 
 Global___BatchUnlinkTraceFromRun: _TypeAlias = BatchUnlinkTraceFromRun  # noqa: Y015
 
-# Appended by dev/generate_protos.py: mypy-protobuf does not emit plain
-# proto Service interfaces; these preserve the --pyi_out declarations.
-from google.protobuf import service as _service  # noqa: Y015
+# Appended by dev/generate_protos.py:
+from google.protobuf import service as _service
+
 class DatabricksTrackingService(_service.service): ...
 class DatabricksTrackingService_Stub(DatabricksTrackingService): ...

@@ -244,8 +244,8 @@ class ListDirectoryResponse(_message.Message):
 
 Global___ListDirectoryResponse: _TypeAlias = ListDirectoryResponse  # noqa: Y015
 
-# Appended by dev/generate_protos.py: mypy-protobuf does not emit plain
-# proto Service interfaces; these preserve the --pyi_out declarations.
-from google.protobuf import service as _service  # noqa: Y015
+# Appended by dev/generate_protos.py:
+from google.protobuf import service as _service
+
 class FilesystemService(_service.service): ...
 class FilesystemService_Stub(FilesystemService): ...

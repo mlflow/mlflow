@@ -426,8 +426,8 @@ class GetPresignedDownloadUrl(_message.Message):
 
 Global___GetPresignedDownloadUrl: _TypeAlias = GetPresignedDownloadUrl  # noqa: Y015
 
-# Appended by dev/generate_protos.py: mypy-protobuf does not emit plain
-# proto Service interfaces; these preserve the --pyi_out declarations.
-from google.protobuf import service as _service  # noqa: Y015
+# Appended by dev/generate_protos.py:
+from google.protobuf import service as _service
+
 class MlflowArtifactsService(_service.service): ...
 class MlflowArtifactsService_Stub(MlflowArtifactsService): ...
