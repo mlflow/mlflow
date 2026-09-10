@@ -137,7 +137,7 @@ _log_model_allowlist = None
 
 def _get_warning_msg_for_skip_log_model(model):
     return (
-        f"Model {model.uid} will not be autologged because it is not allowlisted or or because "
+        f"Model {model.uid} will not be autologged because it is not allowlisted or because "
         "one or more of its nested models are not allowlisted. Call mlflow.spark.log_model() "
         "to explicitly log the model, or specify a custom allowlist via the "
         "spark.mlflow.pysparkml.autolog.logModelAllowlistFile Spark conf "
