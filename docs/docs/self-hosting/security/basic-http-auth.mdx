@@ -34,6 +34,19 @@ If your setup uses multiple servers, please make sure that this key is consisten
 run into unexpected validation errors.
 :::
 
+:::note
+MLflow ships no default admin password. The first time the server starts with authentication enabled, it creates the
+admin user with the password from the `MLFLOW_AUTH_ADMIN_PASSWORD` environment variable (or `admin_password` in a
+custom [configuration file](#configuration)) and refuses to start if neither is set. Passwords must be at least
+12 characters.
+
+```
+export MLFLOW_AUTH_ADMIN_PASSWORD="<strong-password>"
+```
+
+See [Admin Users](#admin-users) for details.
+:::
+
 To enable MLflow authentication, launch the MLflow UI with the following command:
 
 ```bash
@@ -1129,28 +1142,22 @@ Admin users have unrestricted access to all MLflow resources,
 granting or revoking permissions from other users, and managing permissions for all
 MLflow resources,** even if `NO_PERMISSIONS` is explicitly set to that admin account.
 
-MLflow has a built-in admin user that will be created the first time that the MLflow authentication feature is enabled.
+MLflow has a built-in admin user that is created the first time the server starts with authentication enabled
+against an empty user store. Its username defaults to `admin` and can be changed with `admin_username` in the
+configuration file or the `MLFLOW_AUTH_ADMIN_USERNAME` environment variable.
 
-:::note
-It is recommended that you update the default admin password as soon as possible after creation.
+There is no default admin password. Set one with the `MLFLOW_AUTH_ADMIN_PASSWORD` environment variable or with
+`admin_password` in the configuration file before the first start; the server refuses to start otherwise. Both
+settings are only used to create the admin user and are ignored once it exists. After the first successful start, unset
+`MLFLOW_AUTH_ADMIN_PASSWORD` (or remove `admin_password` from the file) so the secret does not linger in the server's
+environment or configuration, and rotate the password with the `2.0/mlflow/users/update-password` endpoint.
+
+:::warning
+Earlier MLflow versions shipped the admin password `password1234` in `basic_auth.ini`
+([GHSA-gq3w-7jj3-x7gr](https://github.com/advisories/GHSA-gq3w-7jj3-x7gr)). If you upgraded an existing deployment,
+rotate the admin password immediately. The server logs a warning at startup while the admin user still has that
+password, and never accepts it for creating a new admin user.
 :::
-
-The default admin user credentials are as follows:
-
-<table>
-  <thead>
-    <tr>
-      <th>Username</th>
-      <th>Password</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>`admin`</td>
-      <td>`password1234`</td>
-    </tr>
-  </tbody>
-</table>
 
 Multiple admin users can exist by promoting other users to admin, using the `2.0/mlflow/users/update-admin` endpoint.
 
@@ -1362,11 +1369,14 @@ Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
     </tr>
     <tr>
       <td>`admin_username`</td>
-      <td>Default admin username if the admin is not already created</td>
+      <td>Username of the admin user created on first start. Overridden by `MLFLOW_AUTH_ADMIN_USERNAME`.</td>
     </tr>
     <tr>
       <td>`admin_password`</td>
-      <td>Default admin password if the admin is not already created</td>
+      <td>
+        Password of the admin user created on first start. Overridden by `MLFLOW_AUTH_ADMIN_PASSWORD`. There is no
+        default; one of the two must be set until the admin user exists.
+      </td>
     </tr>
     <tr>
       <td>`authorization_function`</td>

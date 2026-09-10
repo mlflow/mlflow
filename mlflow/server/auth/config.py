@@ -2,7 +2,11 @@ import configparser
 from pathlib import Path
 from typing import NamedTuple
 
-from mlflow.environment_variables import MLFLOW_AUTH_CONFIG_PATH
+from mlflow.environment_variables import (
+    MLFLOW_AUTH_ADMIN_PASSWORD,
+    MLFLOW_AUTH_ADMIN_USERNAME,
+    MLFLOW_AUTH_CONFIG_PATH,
+)
 
 DEFAULT_AUTHORIZATION_FUNCTION = "mlflow.server.auth:authenticate_request_basic_auth"
 
@@ -11,7 +15,10 @@ class AuthConfig(NamedTuple):
     default_permission: str
     database_uri: str
     admin_username: str
-    admin_password: str
+    # None when neither the config file nor MLFLOW_AUTH_ADMIN_PASSWORD provides one. MLflow
+    # ships no default admin password; the auth app refuses to bootstrap the admin user
+    # without an explicit value.
+    admin_password: str | None
     authorization_function: str
     grant_default_workspace_access: bool
     workspace_cache_max_size: int
@@ -34,8 +41,10 @@ def read_auth_config() -> AuthConfig:
     return AuthConfig(
         default_permission=config["mlflow"]["default_permission"],
         database_uri=config["mlflow"]["database_uri"],
-        admin_username=config["mlflow"]["admin_username"],
-        admin_password=config["mlflow"]["admin_password"],
+        admin_username=MLFLOW_AUTH_ADMIN_USERNAME.get() or config["mlflow"]["admin_username"],
+        admin_password=MLFLOW_AUTH_ADMIN_PASSWORD.get()
+        or config["mlflow"].get("admin_password")
+        or None,
         authorization_function=config["mlflow"].get(
             "authorization_function", DEFAULT_AUTHORIZATION_FUNCTION
         ),

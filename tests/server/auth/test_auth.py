@@ -21,6 +21,7 @@ from mlflow.entities import Dataset, DatasetInput, InputTag, LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+    MLFLOW_AUTH_ADMIN_PASSWORD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
@@ -94,6 +95,10 @@ def _isolate_auth_config(extra_env: dict[str, str], tmp_path: Path) -> dict[str,
 
     Relative ``MLFLOW_AUTH_CONFIG_PATH`` values are anchored to this test
     file's directory so the helper works regardless of pytest's CWD.
+
+    Neither the packaged config nor the fixtures carry an admin password (MLflow
+    ships none), so the bootstrap password is supplied through
+    ``MLFLOW_AUTH_ADMIN_PASSWORD`` unless ``extra_env`` already sets it.
     """
     if raw := extra_env.get("MLFLOW_AUTH_CONFIG_PATH"):
         src_path = Path(raw)
@@ -110,7 +115,11 @@ def _isolate_auth_config(extra_env: dict[str, str], tmp_path: Path) -> dict[str,
     )
     dst_path = tmp_path / src_path.name
     dst_path.write_text(isolated_text)
-    return {**extra_env, "MLFLOW_AUTH_CONFIG_PATH": str(dst_path)}
+    return {
+        MLFLOW_AUTH_ADMIN_PASSWORD.name: ADMIN_PASSWORD,
+        **extra_env,
+        "MLFLOW_AUTH_CONFIG_PATH": str(dst_path),
+    }
 
 
 @pytest.fixture

@@ -4,6 +4,8 @@ Usage
 
 .. code-block:: bash
 
+    export MLFLOW_FLASK_SERVER_SECRET_KEY="<random-secret>"
+    export MLFLOW_AUTH_ADMIN_PASSWORD="<strong-password>"  # required on first start
     mlflow server --app-name basic-auth
 """
 
@@ -52,6 +54,8 @@ from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
+    MLFLOW_AUTH_ADMIN_PASSWORD,
+    MLFLOW_AUTH_CONFIG_PATH,
     MLFLOW_BASIC_AUTH_FAIL_CLOSED,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -4361,37 +4365,68 @@ def _after_request(resp: Response):
     return resp
 
 
-def create_admin_user(username, password):
-    if not store.has_user(username):
-        try:
-            store.create_user(username, password, is_admin=True)
-            _logger.info(
-                f"Created admin user '{username}'. "
-                "It is recommended that you set a new password as soon as possible "
-                f"on {UPDATE_USER_PASSWORD}."
-            )
-        except MlflowException as e:
-            if isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
-                # When multiple workers are starting up at the same time, it's possible
-                # that they try to create the admin user at the same time and one of them
-                # will succeed while the others will fail with an IntegrityError.
-                return
-            raise
+# The admin password that earlier MLflow versions shipped in basic_auth.ini
+# (https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). It is never accepted for bootstrapping
+# a new admin user, and deployments whose existing admin still uses it are warned at startup.
+_LEGACY_DEFAULT_ADMIN_PASSWORD = "password1234"
 
 
-# Must match the admin_password shipped in mlflow/server/auth/basic_auth.ini.
-_DEFAULT_ADMIN_PASSWORD = "password1234"
-
-
-def _warn_if_default_admin_password(password):
-    if password == _DEFAULT_ADMIN_PASSWORD:
-        _logger.warning(
-            "The MLflow basic auth admin account is using the default password shipped "
-            "in basic_auth.ini. Change it before exposing this server beyond localhost. "
-            "To override, set the MLFLOW_AUTH_CONFIG_PATH environment variable to point "
-            "to a custom basic_auth.ini with a non-default admin_password, or update the "
-            f"password via {UPDATE_USER_PASSWORD} after startup."
+def _validate_bootstrap_admin_password(username: str, password: str | None) -> None:
+    if not password:
+        raise MlflowException(
+            f"MLflow Authentication needs a password to create the admin user '{username}', "
+            "and none is configured. MLflow ships no default admin password. Set the "
+            f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} environment variable, or set `admin_password` "
+            f"in the configuration file referenced by {MLFLOW_AUTH_CONFIG_PATH.name}, and "
+            "restart the server."
         )
+    if password == _LEGACY_DEFAULT_ADMIN_PASSWORD:
+        raise MlflowException(
+            f"Refusing to create the admin user '{username}' with the insecure default "
+            "password that older MLflow versions shipped in basic_auth.ini "
+            "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). Set "
+            f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} or `admin_password` in the configuration file "
+            f"referenced by {MLFLOW_AUTH_CONFIG_PATH.name} to a different password."
+        )
+
+
+def bootstrap_admin_user() -> None:
+    """Initialize the auth store and create the admin user if it does not exist yet.
+
+    Runs in every worker via ``create_app`` and, before any worker exists, in the
+    ``mlflow server`` process. The uvicorn supervisor restarts workers that die while loading
+    the app, so a bootstrap failure inside a worker would otherwise turn into an endless
+    restart loop instead of one clear error that exits the command.
+    """
+    store.init_db(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
+    create_admin_user(auth_config.admin_username, auth_config.admin_password)
+
+
+def create_admin_user(username: str, password: str | None) -> None:
+    if store.has_user(username):
+        # The configured password only matters for bootstrapping. For existing deployments,
+        # check the stored credential instead so operators who upgraded from a release that
+        # shipped a default password are told to rotate it.
+        if store.authenticate_user(username, _LEGACY_DEFAULT_ADMIN_PASSWORD):
+            _logger.warning(
+                f"The MLflow basic auth admin user '{username}' still uses the insecure default "
+                "password that older MLflow versions shipped in basic_auth.ini "
+                "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). Rotate it via "
+                f"{UPDATE_USER_PASSWORD} before exposing this server beyond localhost."
+            )
+        return
+
+    _validate_bootstrap_admin_password(username, password)
+    try:
+        store.create_user(username, password, is_admin=True)
+        _logger.info(f"Created admin user '{username}'.")
+    except MlflowException as e:
+        if isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
+            # When multiple workers are starting up at the same time, it's possible
+            # that they try to create the admin user at the same time and one of them
+            # will succeed while the others will fail with an IntegrityError.
+            return
+        raise
 
 
 def alert(href: str):
@@ -5920,12 +5955,7 @@ def create_app(app: Flask = app):
     csrf = CSRFProtect()
     csrf.init_app(app)
 
-    store.init_db(
-        auth_config.database_uri,
-        read_db_uri=auth_config.read_database_uri,
-    )
-    create_admin_user(auth_config.admin_username, auth_config.admin_password)
-    _warn_if_default_admin_password(auth_config.admin_password)
+    bootstrap_admin_user()
 
     _auth_initialized = True
 

@@ -326,6 +326,18 @@ def _build_uvicorn_command(
     return cmd
 
 
+def _bootstrap_basic_auth() -> None:
+    """Create the basic-auth admin user before spawning workers.
+
+    A missing or insecure bootstrap password then fails ``mlflow server`` with one error
+    instead of an endless loop of the uvicorn supervisor restarting crashed workers.
+    """
+    # `mlflow.server.auth` requires the optional `auth` extra, so only import it when needed.
+    from mlflow.server.auth import bootstrap_admin_user
+
+    bootstrap_admin_user()
+
+
 def _run_server(
     *,
     file_store_path,
@@ -416,6 +428,8 @@ def _run_server(
         # Don't use () syntax if we're using uvicorn
         use_factory_syntax = not is_windows() and is_factory and not using_uvicorn
         app = f"{app}()" if use_factory_syntax else app
+        if app_name == "basic-auth":
+            _bootstrap_basic_auth()
 
     # Determine which server to use
     if using_uvicorn:

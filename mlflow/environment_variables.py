@@ -541,6 +541,19 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
 
+#: Specifies the username of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_username`` in the
+#: authentication configuration file.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_USERNAME = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_USERNAME", str, None)
+
+#: Specifies the password of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_password`` in the
+#: authentication configuration file. MLflow ships no default admin password, so this variable
+#: (or ``admin_password`` in the configuration file) must be set before the admin user exists.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_PASSWORD = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_PASSWORD", str, None)
+
 #: Specifies and takes precedence for setting the UC OSS basic/bearer auth on http requests.
 #: (default: ``None``)
 MLFLOW_UC_OSS_TOKEN = _EnvironmentVariable("MLFLOW_UC_OSS_TOKEN", str, None)
