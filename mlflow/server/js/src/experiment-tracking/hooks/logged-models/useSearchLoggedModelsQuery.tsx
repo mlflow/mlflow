@@ -87,6 +87,7 @@ export const useSearchLoggedModelsQuery = (
     isFetching,
     data: modelsData,
     nextPageToken,
+    pageCount: data?.pages.length ?? 0,
     refetch,
     error,
     loadMoreResults: fetchNextPage,
