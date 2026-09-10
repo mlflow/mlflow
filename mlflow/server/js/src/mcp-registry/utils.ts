@@ -131,6 +131,27 @@ interface ServerJsonValidationResult {
   parsed?: ServerJSONPayload;
 }
 
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Registry API responses wrap server.json in a `server` property together with
+ * registry metadata. Prefer a direct server.json when both formats are present.
+ */
+export const unwrapServerJson = (value: unknown): Record<string, unknown> | undefined => {
+  if (!isJsonObject(value)) return undefined;
+
+  if ('name' in value && 'version' in value) {
+    return value;
+  }
+
+  if ('server' in value) {
+    return isJsonObject(value['server']) ? value['server'] : undefined;
+  }
+
+  return value;
+};
+
 export const validateServerJson = (value: string): ServerJsonValidationResult => {
   const trimmed = value?.trim();
   if (!trimmed) {
@@ -144,11 +165,10 @@ export const validateServerJson = (value: string): ServerJsonValidationResult =>
     return { valid: false, error: 'Invalid JSON format in server configuration' };
   }
 
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+  const obj = unwrapServerJson(parsed);
+  if (!obj) {
     return { valid: false, error: 'Server configuration must be a JSON object' };
   }
-
-  const obj = parsed as Record<string, unknown>;
 
   if (!obj['name'] || typeof obj['name'] !== 'string') {
     return { valid: false, error: 'Server configuration must include a "name" field' };
