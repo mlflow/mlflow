@@ -158,7 +158,9 @@ with mlflow.start_run() as run:
     mlflow.set_tracking_uri(tracking_uri)
     # Activate the 2.x-created experiment so `check_evaluate` logs its evaluation run there
     # rather than in the Default experiment, whose artifact location falls back to `./mlruns`.
-    mlflow.set_experiment("test")
+    experiment = mlflow.get_experiment_by_name("test")
+    assert experiment is not None
+    mlflow.set_experiment(experiment_id=experiment.experiment_id)
     run_id = out_file.read_text().strip()
     model_uri = f"runs:/{run_id}/model"
     check_load(model_uri=model_uri)
