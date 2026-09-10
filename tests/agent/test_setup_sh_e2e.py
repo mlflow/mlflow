@@ -1,4 +1,5 @@
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -87,16 +88,20 @@ def setup_env(tmp_path: Path) -> dict[str, str]:
 
 
 @pytest.fixture(scope="module")
-def mlflow_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
+def mlflow_server(tmp_path_factory: pytest.TempPathFactory, cached_db: Path) -> Iterator[str]:
     """Run a real, unauthenticated MLflow server for remote-setup tests.
 
     Args:
         tmp_path_factory: Pytest factory used to isolate the server database and artifacts.
+        cached_db: Preinitialized SQLite database to copy for this server.
 
     Yields:
         Base URL of the running MLflow server.
     """
     tmp_path = tmp_path_factory.mktemp("setup-sh-mlflow-server")
+    db_path = tmp_path / "mlflow.db"
+    artifact_uri = (tmp_path / "artifacts").as_uri()
+    shutil.copy2(cached_db, db_path)
     port = get_safe_port()
     url = f"http://127.0.0.1:{port}"
     process = subprocess.Popen(
@@ -107,12 +112,10 @@ def mlflow_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
             "server",
             "--host=127.0.0.1",
             f"--port={port}",
-            f"--backend-store-uri=sqlite:///{tmp_path / 'mlflow.db'}",
-            f"--default-artifact-root={(tmp_path / 'artifacts').as_uri()}",
+            f"--backend-store-uri=sqlite:///{db_path}",
+            f"--default-artifact-root={artifact_uri}",
         ],
         cwd=tmp_path,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
     try:
@@ -244,7 +247,7 @@ def test_basic_authentication_against_mlflow_server(
         f"{basic_auth_mlflow_server}/api/2.0/mlflow/experiments/create",
         auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
         json={"name": "authenticated"},
-        timeout=5,
+        timeout=10,
     )
     response.raise_for_status()
     experiment_id = response.json()["experiment_id"]

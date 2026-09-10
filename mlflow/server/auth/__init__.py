@@ -359,7 +359,9 @@ from mlflow.server.auth.routes import (
     REMOVE_ROLE_PERMISSION,
     REVOKE_USER_PERMISSION,
     SEARCH_DATASETS,
+    SERVER_VERSION,
     SIGNUP,
+    UI_TELEMETRY,
     UNASSIGN_ROLE,
     UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
@@ -945,9 +947,8 @@ def _get_permission_from_run_id() -> Permission:
     )
 
 
-def _get_permission_from_model_id() -> Permission:
+def _get_model_permission(model_id: str) -> Permission:
     # logged model permissions inherit from parent resource (experiment)
-    model_id = _get_request_param("model_id")
     model = _get_tracking_store().get_logged_model(model_id)
     experiment_id = model.experiment_id
     username = authenticate_request().username
@@ -961,6 +962,10 @@ def _get_permission_from_model_id() -> Permission:
             workspace_label="experiment",
         ),
     )
+
+
+def _get_permission_from_model_id() -> Permission:
+    return _get_model_permission(_get_request_param("model_id"))
 
 
 def _get_permission_from_prompt_optimization_job_id() -> Permission:
@@ -1197,6 +1202,44 @@ def validate_can_read_run():
 
 def validate_can_update_run():
     return _get_permission_from_run_id().can_update
+
+
+def _validate_can_update_run_and_models(model_ids: set[str]) -> bool:
+    # Require UPDATE on the run AND on any model_id the metrics target, so a user with
+    # UPDATE on their own run cannot inject metrics onto another user's logged models.
+    if not _get_permission_from_run_id().can_update:
+        return False
+
+    # Check UPDATE permission on each distinct model_id. Catch RESOURCE_DOES_NOT_EXIST
+    # (nonexistent model_id) and deny uniformly with 403 so the response can't be used
+    # as an oracle for which model_ids exist.
+    for model_id in model_ids:
+        try:
+            if not _get_model_permission(model_id).can_update:
+                return False
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return False
+            raise
+
+    return True
+
+
+def validate_can_log_metric():
+    # LogMetric can optionally write the metric to a logged model via model_id. Parse
+    # through the proto so the camelCase `modelId` alias is covered. Only the LogMetric
+    # shape is parsed so fields the endpoint ignores never affect authorization.
+    msg = _get_request_message(LogMetric())
+    model_ids = {msg.model_id} if msg.model_id else set()
+    return _validate_can_update_run_and_models(model_ids)
+
+
+def validate_can_log_batch():
+    # LogBatch can optionally write metrics to logged models via per-metric model_id.
+    # Parse through the proto (covers the camelCase `modelId` alias on nested metrics).
+    msg = _get_request_message(LogBatch())
+    model_ids = {m.model_id for m in msg.metrics if m.model_id}
+    return _validate_can_update_run_and_models(model_ids)
 
 
 def validate_can_delete_run():
@@ -2680,8 +2723,8 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteRun: validate_can_delete_run,
     RestoreRun: validate_can_delete_run,
     UpdateRun: validate_can_update_run,
-    LogMetric: validate_can_update_run,
-    LogBatch: validate_can_update_run,
+    LogMetric: validate_can_log_metric,
+    LogBatch: validate_can_log_batch,
     LogInputs: validate_can_update_run,
     LogModel: validate_can_update_run,
     LogOutputs: validate_can_update_run,
@@ -2936,8 +2979,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-    (INVOKE_SCORER, "POST"): validate_gateway_proxy,
     # Invoke endpoints create runs in an experiment -> require update on it.
+    (INVOKE_SCORER, "POST"): validate_can_update_experiment,
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_update_experiment,
     (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
     # Demo: generate is open to any authenticated user; delete is admin-only.
@@ -2949,6 +2992,21 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GATEWAY_SUPPORTED_MODELS, "GET"): _allow_authenticated,
     (GATEWAY_PROVIDER_CONFIG, "GET"): _allow_authenticated,
     (GATEWAY_SECRETS_CONFIG, "GET"): _allow_authenticated,
+    # The web UI itself, for any signed-in user: the SPA shell, the server version
+    # string the bundle reads, and the UI's own telemetry config. None carries
+    # tenant-scoped data, and none has a permission that could sensibly be checked.
+    # These are plain Flask routes on ``app`` rather than handler endpoints, so
+    # ``get_endpoints`` never surfaced them to the coverage guard and no decision was
+    # registered; the fail-closed net then denies them, and a non-admin's browser gets
+    # "Permission denied" instead of MLflow. ``/static-files/<path>`` already serves
+    # that same shell unauthenticated via ``_UNPROTECTED_PATH_PREFIXES``.
+    #
+    # HOME and SERVER_VERSION are bare paths and take the static prefix here;
+    # UI_TELEMETRY comes from ``_get_ajax_path``, which has already applied it.
+    (_add_static_prefix(HOME), "GET"): _allow_authenticated,
+    (_add_static_prefix(SERVER_VERSION), "GET"): _allow_authenticated,
+    (UI_TELEMETRY, "GET"): _allow_authenticated,
+    (UI_TELEMETRY, "POST"): _allow_authenticated,
     # Online scoring configuration (excluded from the auto generated map above).
     (ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,
     (AJAX_ONLINE_SCORING_CONFIGS, "GET"): validate_can_read_online_scoring_configs,

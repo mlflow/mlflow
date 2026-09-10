@@ -129,7 +129,16 @@ tensorflow:
     maximum: "2.21.0"
     requirements:
       # Requirements to run tests for keras
-      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
+      # googleapis-common-protos>=1.75.1 ships protobuf 6.33 gencode that TensorFlow's
+      # protobuf<6 pin cannot load (google.rpc import fails via pyspark.testing).
+      ">= 0.0.0":
+        [
+          "scikit-learn",
+          "pyspark",
+          "pyarrow",
+          "transformers!=4.38.0,!=4.38.1",
+          "googleapis-common-protos<1.75.1",
+        ]
       ">= 2.21.0": ["tensorboard"]
     run: |
       pytest \

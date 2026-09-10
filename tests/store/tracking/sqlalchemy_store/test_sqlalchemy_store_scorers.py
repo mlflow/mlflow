@@ -899,6 +899,7 @@ def test_get_active_online_scorers_returns_scorer_fields(store: SqlAlchemyStore)
     )
 
     assert active_scorer.name == "scorer"
+    assert active_scorer.scorer_version == 1
     assert active_scorer.online_config.experiment_id == experiment_id
     assert active_scorer.online_config.sample_rate == 0.5
     assert active_scorer.online_config.filter_string == "status = 'OK'"

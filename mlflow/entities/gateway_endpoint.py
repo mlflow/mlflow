@@ -127,7 +127,7 @@ class FallbackConfig(_MlflowObject):
         )
         return cls(
             strategy=strategy,
-            max_attempts=proto.max_attempts,
+            max_attempts=proto.max_attempts if proto.HasField("max_attempts") else None,
         )
 
 

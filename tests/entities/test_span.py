@@ -601,8 +601,11 @@ def test_span_from_otel_proto_with_location():
     request_id = mlflow_span.get_attribute("mlflow.traceRequestId")
     assert request_id == expected_trace_id
 
-    # Links are skipped for v4 UC traces
-    assert len(mlflow_span.links) == 0
+    assert len(mlflow_span.links) == 1
+    assert (
+        mlflow_span.links[0].trace_id == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
+    )
+    assert mlflow_span.links[0].span_id == "1122334455667788"
 
 
 def test_span_from_otel_proto_with_pre_encoded_request_id():
@@ -646,13 +649,22 @@ def test_span_from_otel_proto_can_preserve_request_id_for_round_trip():
     otel_proto.end_time_unix_nano = 2000000000
     otel_proto.status.code = OTelProtoStatus.STATUS_CODE_OK
 
+    link_trace_id = bytes.fromhex("aabbccddeeff00112233445566778899")
+    proto_link = otel_proto.links.add()
+    proto_link.trace_id = link_trace_id
+    proto_link.span_id = bytes.fromhex("1122334455667788")
+
     attr = otel_proto.attributes.add()
     attr.key = "mlflow.traceRequestId"
-    _set_otel_proto_anyvalue(attr.value, "tr-abc123")
+    _set_otel_proto_anyvalue(attr.value, "trace:/catalog.schema/12345678901234567890123456789012")
 
     mlflow_span = Span.from_otel_proto(otel_proto, preserve_request_id=True)
 
-    assert mlflow_span.trace_id == "tr-abc123"
+    assert mlflow_span.trace_id == "trace:/catalog.schema/12345678901234567890123456789012"
+    assert (
+        mlflow_span.links[0].trace_id == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
+    )
+    assert mlflow_span.to_otel_proto().links[0].trace_id == link_trace_id
 
 
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
@@ -995,10 +1007,10 @@ def test_add_link_rejects_invalid_ids():
         assert len(span.links) == 0
 
 
-def test_add_link_skips_v4_trace_id():
+def test_add_link_skips_cross_location_v4_trace_id():
     from mlflow.entities.link import Link
 
-    trace_id = "tr-12345"
+    trace_id = "trace:/other.schema/12345"
     tracer = _get_tracer("test")
     with tracer.start_as_current_span("test_span") as otel_span:
         span = create_mlflow_span(otel_span, trace_id=trace_id)
@@ -1006,12 +1018,41 @@ def test_add_link_skips_v4_trace_id():
         with mock.patch("mlflow.entities.span._logger.warning") as mock_warning:
             span.add_link(Link(trace_id="trace:/catalog.schema/abc123", span_id="aabbccddeeff0011"))
 
-        # V4/UC trace links are not supported: skipped, not normalized or stored.
         assert len(span.links) == 0
         assert len(otel_span.links) == 0
         mock_warning.assert_called_once()
-        assert "Unity Catalog" in mock_warning.call_args.args[0]
-        assert mock_warning.call_args.args[1] == "trace:/catalog.schema/abc123"
+        assert "Cross-location" in mock_warning.call_args.args[0]
+
+
+@pytest.mark.parametrize("link_trace_id", ["abc123", "tr-abc123"])
+def test_add_link_qualifies_unlocated_trace_id_for_uc_trace(link_trace_id):
+    from mlflow.entities.link import Link
+
+    trace_id = "trace:/catalog.schema/12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+        span.add_link(Link(trace_id=link_trace_id, span_id="aabbccddeeff0011"))
+
+        assert span.links[0].trace_id == f"trace:/catalog.schema/{link_trace_id}"
+        assert len(otel_span.links) == 1
+
+        proto_link = span.to_immutable_span().to_otel_proto().links[0]
+        assert proto_link.trace_id.hex() == link_trace_id.removeprefix("tr-").zfill(32)
+
+
+def test_add_link_accepts_same_location_v4_trace_id():
+    from mlflow.entities.link import Link
+
+    trace_id = "trace:/catalog.schema/12345"
+    linked_trace_id = "trace:/catalog.schema/abc123"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span") as otel_span:
+        span = create_mlflow_span(otel_span, trace_id=trace_id)
+        span.add_link(Link(trace_id=linked_trace_id, span_id="aabbccddeeff0011"))
+
+        assert span.links[0].trace_id == linked_trace_id
+        assert len(otel_span.links) == 1
 
 
 def test_span_seeds_links_from_otel_span():
@@ -1034,6 +1075,26 @@ def test_span_seeds_links_from_otel_span():
     assert immutable_span.links[0].trace_id == "tr-aabbccddeeff00112233445566778899"
     assert immutable_span.links[0].span_id == "aabbccddeeff0011"
     assert immutable_span.links[0].attributes == {"type": "causal"}
+
+
+def test_live_span_preserves_native_otel_links_for_uc_trace():
+    otel_link = trace_api.Link(
+        context=trace_api.SpanContext(
+            trace_id=0xAABBCCDDEEFF00112233445566778899,
+            span_id=0xAABBCCDDEEFF0011,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+        ),
+        attributes={"type": "causal"},
+    )
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("test_span", links=[otel_link]) as otel_span:
+        span = create_mlflow_span(otel_span, trace_id="trace:/catalog.schema/12345")
+
+    assert len(span.links) == 1
+    assert span.links[0].trace_id == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
+    assert span.links[0].span_id == "aabbccddeeff0011"
+    assert span.links[0].attributes == {"type": "causal"}
 
 
 def test_span_to_dict_with_links():
@@ -1115,7 +1176,7 @@ def test_span_links_otel_proto_roundtrip():
     assert rt.links[0].span_id == link_span_bytes
 
 
-def test_span_skips_links_for_v4_traces():
+def test_span_preserves_links_for_v4_traces():
     otel_link = trace_api.Link(
         context=trace_api.SpanContext(
             trace_id=0xAABBCCDDEEFF00112233445566778899,
@@ -1136,7 +1197,8 @@ def test_span_skips_links_for_v4_traces():
 
     span = Span(otel_span)
     assert span.trace_id == v4_trace_id
-    assert len(span.links) == 0
+    assert len(span.links) == 1
+    assert span.links[0].trace_id == "trace:/catalog.schema/tr-aabbccddeeff00112233445566778899"
 
 
 def test_span_links_property_returns_deep_copy():
@@ -1274,3 +1336,137 @@ def test_lazy_span_matches_eager_span_after_materialization():
     assert lazy.status == eager.status
     assert lazy.events == eager.events
     assert lazy.to_otel_proto().SerializeToString() == eager.to_otel_proto().SerializeToString()
+
+
+def test_lazy_span_from_stored_content_preserves_unmodified_raw_json():
+    from mlflow.entities.span import LazySpan
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    raw_json = json.dumps(span.to_dict(), separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+
+    assert lazy.__dict__["_raw_json"] == raw_json
+    assert lazy.json_for_export() == raw_json
+    assert lazy.__dict__["_materialized"] is False
+
+
+def test_lazy_span_to_dict_clears_raw_json_after_top_level_mutation():
+    from mlflow.entities.span import LazySpan
+    from mlflow.entities.trace_data import TraceData
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    raw_json = json.dumps(span.to_dict(), separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+    span_dict = lazy.to_dict()
+    span_dict["name"] = "mutated"
+
+    assert lazy.__dict__["_raw_json"] is None
+    assert json.loads(lazy.json_for_export())["name"] == "mutated"
+    payload = TraceData(spans=[lazy]).to_json_bytes()
+    assert json.loads(payload)["spans"][0]["name"] == "mutated"
+
+
+def test_lazy_span_to_dict_clears_raw_json_after_nested_mutation():
+    from mlflow.entities.span import LazySpan
+    from mlflow.entities.trace_data import TraceData
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    raw_json = json.dumps(span.to_dict(), separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+    span_dict = lazy.to_dict()
+    span_dict["attributes"]["custom"] = "mutated"
+
+    assert lazy.__dict__["_raw_json"] is None
+    assert json.loads(lazy.json_for_export())["attributes"]["custom"] == "mutated"
+    payload = TraceData(spans=[lazy]).to_json_bytes()
+    assert json.loads(payload)["spans"][0]["attributes"]["custom"] == "mutated"
+
+
+def test_lazy_span_from_stored_content_drops_raw_json_when_translated():
+    from mlflow.entities.span import LazySpan
+    from mlflow.tracing.constant import SpanAttributeKey
+
+    # Missing/unknown span type + OpenInference kind triggers translate_loaded_span.
+    span_dict = {
+        "trace_id": "AAAAAAAAAAAAAAAAAAAAAQ==",
+        "span_id": "AAAAAAAAAAI=",
+        "parent_span_id": None,
+        "name": "translated",
+        "start_time_unix_nano": 1,
+        "end_time_unix_nano": 2,
+        "events": [],
+        "status": {"code": "STATUS_CODE_OK", "message": ""},
+        "attributes": {
+            SpanAttributeKey.REQUEST_ID: json.dumps("tr-1"),
+            SpanAttributeKey.SPAN_TYPE: json.dumps(SpanType.UNKNOWN),
+            "openinference.span.kind": "LLM",
+        },
+        "links": [],
+    }
+    raw_json = json.dumps(span_dict, separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+
+    assert lazy.__dict__["_raw_json"] is None
+    assert json.loads(lazy.json_for_export())["attributes"][
+        SpanAttributeKey.SPAN_TYPE
+    ] == json.dumps(SpanType.LLM)
+
+
+def test_trace_data_to_json_bytes_passthrough_for_unmodified_lazy_spans():
+    from mlflow.entities.span import LazySpan
+    from mlflow.entities.trace_data import TraceData
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    raw_json = json.dumps(span.to_dict(), separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+    payload = TraceData(spans=[lazy]).to_json_bytes()
+
+    assert payload == b'{"spans":[' + raw_json.encode("utf-8") + b"]}"
+    assert lazy.__dict__["_materialized"] is False
+    assert json.loads(payload)["spans"][0]["name"] == "child"
+
+
+def test_trace_data_to_json_bytes_mixed_lazy_and_eager_spans():
+    from mlflow.entities.span import LazySpan
+    from mlflow.entities.trace_data import TraceData
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    immutable = span.to_immutable_span()
+    raw_json = json.dumps(immutable.to_dict(), separators=(",", ":"))
+    lazy = LazySpan.from_stored_content(raw_json)
+    payload = TraceData(spans=[lazy, immutable]).to_json_bytes()
+    parsed = json.loads(payload)
+
+    assert len(parsed["spans"]) == 2
+    assert parsed["spans"][0]["name"] == "child"
+    assert parsed["spans"][1]["name"] == "child"
+
+
+def test_trace_data_to_json_bytes_uses_single_dump_for_eager_spans_only():
+    from mlflow.entities.trace_data import TraceData
+
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+
+    immutable = span.to_immutable_span()
+    trace_data = TraceData(spans=[immutable])
+    payload = trace_data.to_json_bytes()
+
+    assert payload == json.dumps(trace_data.to_dict(), separators=(",", ":")).encode("utf-8")
+    assert json.loads(payload)["spans"][0]["name"] == "child"

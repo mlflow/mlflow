@@ -3,6 +3,10 @@ name: Approval
 on:
   pull_request_target:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash
@@ -16,15 +20,16 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          sparse-checkout: |
-            .github
+      - name: Fetch script
+        run: |
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+            --write-out 'curl: %{time_total}s\n' \
+            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/.github/workflows/approval.js" \
+            -o approval.js
       - name: Fail without core maintainer approval
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           retries: 3
           script: |
-            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/approval.js`);
+            const script = require('./approval.js');
             await script({ context, github, core });

@@ -10,6 +10,10 @@ on:
       - .github/workflows/remove-experimental-decorators.yml
       - dev/remove_experimental_decorators.py
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash
@@ -23,8 +27,7 @@ jobs:
     # Only run on the main repository
     if: github.repository == 'mlflow/mlflow'
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     env:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:

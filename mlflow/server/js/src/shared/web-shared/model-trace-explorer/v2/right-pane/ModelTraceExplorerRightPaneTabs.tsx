@@ -8,6 +8,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { ModelTraceExplorerAttributesTab } from './ModelTraceExplorerAttributesTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
+import { ModelTraceExplorerLinksTab } from './ModelTraceExplorerLinksTab';
 import { ModelTraceExplorerRightPaneHeader } from './ModelTraceExplorerRightPaneHeader';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
@@ -28,6 +29,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
   activeMatch,
   activeTab,
   setActiveTab,
+  onSelectSpan,
 }: {
   activeSpan: ModelTraceSpanNode | undefined;
   modelTraceInfo?: ModelTrace['info'];
@@ -35,6 +37,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
   activeMatch: SearchMatch | null;
   activeTab: ModelTraceExplorerTab;
   setActiveTab: (tab: ModelTraceExplorerTab) => void;
+  onSelectSpan?: (spanId: string) => void;
 }): JSX.Element {
   const { theme } = useDesignSystemTheme();
   const {
@@ -45,6 +48,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
     readOnly: displayReadOnlyAssessments,
     isTraceInitialLoading,
     subscribeToHighlightEvent,
+    nodeMap,
   } = useModelTraceExplorerViewState();
   const [paneWidth, setPaneWidth] = useState(500);
   const rightPaneHorizontalPadding = theme.spacing.md + theme.spacing.xs;
@@ -74,6 +78,8 @@ function ModelTraceExplorerRightPaneTabsImpl({
   const exceptionCount = getSpanExceptionCount(activeSpan);
   const hasException = exceptionCount > 0;
   const hasEvents = (activeSpan.events?.length ?? 0) > 0 || hasException;
+  const linkCount = activeSpan.links?.length ?? 0;
+  const hasLinks = linkCount > 0;
   const hasContent = getDefaultActiveTab({ ...activeSpan, events: [] }) === 'content';
 
   const tabContent = (
@@ -123,6 +129,11 @@ function ModelTraceExplorerRightPaneTabsImpl({
             Events {hasException && <ModelTraceExplorerBadge count={exceptionCount} />}
           </Tabs.Trigger>
         )}
+        {hasLinks && (
+          <Tabs.Trigger value="links">
+            Links <ModelTraceExplorerBadge count={linkCount} variant="neutral" />
+          </Tabs.Trigger>
+        )}
         {displayReadOnlyAssessments && (
           <Tabs.Trigger value="assessments">
             <FormattedMessage
@@ -145,6 +156,17 @@ function ModelTraceExplorerRightPaneTabsImpl({
       {hasEvents && (
         <Tabs.Content css={contentStyle} value="events">
           <ModelTraceExplorerEventsTab activeSpan={activeSpan} searchFilter={searchFilter} activeMatch={activeMatch} />
+        </Tabs.Content>
+      )}
+      {hasLinks && (
+        <Tabs.Content css={contentStyle} value="links">
+          <ModelTraceExplorerLinksTab
+            activeSpan={activeSpan}
+            searchFilter={searchFilter}
+            activeMatch={activeMatch}
+            onSelectSpan={onSelectSpan}
+            spanNodes={nodeMap}
+          />
         </Tabs.Content>
       )}
       {displayReadOnlyAssessments && (

@@ -215,6 +215,7 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username)
             if password is not None:
+                _validate_password(password)
                 pwhash = generate_password_hash(password)
                 user.password_hash = pwhash
             if is_admin is not None:

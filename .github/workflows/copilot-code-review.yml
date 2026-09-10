@@ -1,3 +1,11 @@
+# This workflow configures the environment used by Copilot code review.
+# Find recent review runs with:
+#
+# gh api '/repos/mlflow/mlflow/actions/runs?event=dynamic&per_page=100' \
+#   --jq '.workflow_runs[]
+#     | select(.path == "dynamic/agents/copilot-pull-request-reviewer")
+#     | {id, name, created_at, conclusion, html_url}'
+
 name: copilot-code-review
 
 on:
@@ -5,6 +13,10 @@ on:
   pull_request:
     paths:
       - .github/workflows/copilot-code-review.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:

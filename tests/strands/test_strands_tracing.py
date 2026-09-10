@@ -15,6 +15,12 @@ from mlflow.tracing.provider import trace_disabled
 from tests.tracing.helper import get_traces
 
 
+def _core_token_usage(usage: dict[str, int]) -> dict[str, int]:
+    # strands >= 1.54 also reports (often zero) cache-token counts in the usage metadata.
+    # Restrict to the core keys so these assertions stay robust across strands versions.
+    return {k: usage[k] for k in ("input_tokens", "output_tokens", "total_tokens")}
+
+
 async def sum_tool(tool_use, **_):
     a = tool_use["input"]["a"]
     b = tool_use["input"]["b"]
@@ -178,12 +184,12 @@ def test_strands_autolog_single_trace():
 
     usage_spans = [span for span in spans if span.attributes.get(SpanAttributeKey.CHAT_USAGE)]
     assert usage_spans, "expected at least one child span recording token usage"
-    assert usage_spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == {
+    assert _core_token_usage(usage_spans[0].attributes[SpanAttributeKey.CHAT_USAGE]) == {
         "input_tokens": 1,
         "output_tokens": 2,
         "total_tokens": 3,
     }
-    assert traces[0].info.token_usage == {
+    assert _core_token_usage(traces[0].info.token_usage) == {
         "input_tokens": 1,
         "output_tokens": 2,
         "total_tokens": 3,
@@ -265,13 +271,13 @@ def test_multiple_agents_single_trace():
     assert agent2_span.outputs.strip() == "hi"
     # top-level span should contain the sum of both the chat spans. this is set
     # when we translate the genai semantic conventions into mlflow attributes.
-    assert agent1_span.attributes[SpanAttributeKey.CHAT_USAGE] == {
+    assert _core_token_usage(agent1_span.attributes[SpanAttributeKey.CHAT_USAGE]) == {
         "input_tokens": 2,
         "output_tokens": 2,
         "total_tokens": 4,
     }
     # agent2 span should contain the token usage for its single chat span
-    assert agent2_span.attributes[SpanAttributeKey.CHAT_USAGE] == {
+    assert _core_token_usage(agent2_span.attributes[SpanAttributeKey.CHAT_USAGE]) == {
         "input_tokens": 1,
         "output_tokens": 1,
         "total_tokens": 2,
