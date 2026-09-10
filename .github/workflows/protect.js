@@ -1,8 +1,8 @@
-function getSleepLength(iterationCount) {
+function getSleepLength(iterationCount, pendingWorkflowRuns) {
   if (iterationCount <= 2) {
     return 15 * 1000;
   }
-  return 30 * 1000;
+  return (pendingWorkflowRuns <= 7 ? 30 : 5 * 60) * 1000;
 }
 module.exports = async ({ github, context }) => {
   let rateLimitRemaining;
@@ -135,7 +135,11 @@ module.exports = async ({ github, context }) => {
       });
     }
 
-    return checks;
+    return {
+      checks,
+      pendingWorkflowRuns: Object.values(latestRuns).filter(({ status }) => status !== "completed")
+        .length,
+    };
   }
 
   const start = new Date();
@@ -143,7 +147,7 @@ module.exports = async ({ github, context }) => {
   const TIMEOUT = 120 * 60 * 1000; // 2 hours
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
-    const checks = await fetchChecks(sha);
+    const { checks, pendingWorkflowRuns } = await fetchChecks(sha);
     if (rateLimitRemaining !== undefined) {
       console.log(`Rate limit remaining: ${rateLimitRemaining}`);
     }
@@ -174,8 +178,10 @@ module.exports = async ({ github, context }) => {
       return;
     }
 
-    const sleepLength = getSleepLength(iterationCount);
-    console.log(`Sleeping for ${sleepLength / 1000} seconds`);
+    const sleepLength = getSleepLength(iterationCount, pendingWorkflowRuns);
+    console.log(
+      `Sleeping for ${sleepLength / 1000} seconds (${pendingWorkflowRuns} pending workflows)`
+    );
     await sleep(sleepLength);
   }
 
