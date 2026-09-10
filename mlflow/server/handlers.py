@@ -76,6 +76,7 @@ from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACTS_ONLY_PRESIGNED,
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_AI_GATEWAY,
@@ -322,6 +323,10 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
+from mlflow.server.artifact_transfer import (
+    reject_legacy_artifact_download,
+    reject_legacy_artifact_upload,
+)
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
@@ -392,6 +397,7 @@ from mlflow.utils.providers import (
     get_provider_config_response,
 )
 from mlflow.utils.server_info import (
+    SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED,
     SERVER_INFO_FEATURES_ENABLED,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
@@ -2561,6 +2567,7 @@ def create_promptlab_run_handler():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def upload_artifact_handler():
+    reject_legacy_artifact_upload()
     args = request.args
     run_uuid = args.get("run_uuid")
     if not run_uuid:
@@ -3712,6 +3719,7 @@ def _download_artifact(artifact_path):
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
     """
+    reject_legacy_artifact_download()
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -3735,6 +3743,7 @@ def _upload_artifact(artifact_path):
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
+    reject_legacy_artifact_upload()
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     head, tail = posixpath.split(artifact_path)
@@ -7085,6 +7094,7 @@ def _get_server_info():
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
         },
+        SERVER_INFO_ARTIFACTS_ONLY_PRESIGNED: MLFLOW_ARTIFACTS_ONLY_PRESIGNED.get(),
     })
 
 

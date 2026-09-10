@@ -26,6 +26,15 @@ def client_no_serve(monkeypatch):
     return TestClient(create_fastapi_app())
 
 
+@pytest.fixture
+def client_presigned_only(monkeypatch):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "/tmp/mlflow-artifacts-test")
+    monkeypatch.setenv("MLFLOW_ARTIFACTS_ONLY_PRESIGNED", "true")
+    monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
+    return TestClient(create_fastapi_app())
+
+
 def test_download_local_path_returns_file_response(client, tmp_path):
     test_data = b"local artifact content"
     test_file = tmp_path / "model.pkl"
@@ -181,6 +190,26 @@ def test_upload_disabled_returns_503(client_no_serve):
         content=b"data",
     )
     assert resp.status_code == 503
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/api/2.0/mlflow-artifacts/artifacts/model.pkl"),
+        ("GET", "/ajax-api/2.0/mlflow-artifacts/artifacts/model.pkl"),
+        ("PUT", "/api/2.0/mlflow-artifacts/artifacts/model.pkl"),
+        ("PUT", "/ajax-api/2.0/mlflow-artifacts/artifacts/model.pkl"),
+    ],
+)
+def test_presigned_only_rejects_native_legacy_artifact_routes(client_presigned_only, method, path):
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        response = client_presigned_only.request(method, path, content=b"legacy upload")
+
+    assert response.status_code == 409
+    body = response.json()
+    assert body["error_code"] == "RESOURCE_CONFLICT"
+    assert "Upgrade your MLflow client" in body["message"]
+    mock_get_repo.assert_not_called()
 
 
 def test_download_does_not_hit_flask_handler(client, tmp_path):

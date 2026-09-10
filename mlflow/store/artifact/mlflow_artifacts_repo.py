@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 import threading
 from http import HTTPStatus
@@ -11,7 +10,6 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD,
     MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
-    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
@@ -172,13 +170,6 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
                 self._server_capabilities = {}
 
             return self._server_capabilities
-
-    def _should_multipart_upload(self, local_file):
-        # Check size first here so small mlflow-artifacts uploads skip the /server-info probe.
-        return (
-            os.path.getsize(local_file) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
-            and self._is_multipart_upload_enabled()
-        )
 
     def _is_multipart_upload_enabled(self):
         if MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD.is_set():
