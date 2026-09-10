@@ -7,8 +7,8 @@ from google.protobuf import descriptor as _descriptor
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-# Appended by dev/generate_protos.py: mypy-protobuf does not emit plain
-# proto Service interfaces; these preserve the --pyi_out declarations.
-from google.protobuf import service as _service  # noqa: Y015
+# Appended by dev/generate_protos.py:
+from google.protobuf import service as _service
+
 class UnityCatalogPromptService(_service.service): ...
 class UnityCatalogPromptService_Stub(UnityCatalogPromptService): ...

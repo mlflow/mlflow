@@ -1446,8 +1446,8 @@ class GetModelVersionByAlias(_message.Message):
 
 Global___GetModelVersionByAlias: _TypeAlias = GetModelVersionByAlias  # noqa: Y015
 
-# Appended by dev/generate_protos.py: mypy-protobuf does not emit plain
-# proto Service interfaces; these preserve the --pyi_out declarations.
-from google.protobuf import service as _service  # noqa: Y015
+# Appended by dev/generate_protos.py:
+from google.protobuf import service as _service
+
 class ModelRegistryService(_service.service): ...
 class ModelRegistryService_Stub(ModelRegistryService): ...
