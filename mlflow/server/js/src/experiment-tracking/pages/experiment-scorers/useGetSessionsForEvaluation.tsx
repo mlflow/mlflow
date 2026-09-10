@@ -5,7 +5,7 @@ import { useQueryClient } from '@databricks/web-shared/query-client';
 import { groupTracesBySession } from '@databricks/web-shared/genai-traces-table';
 import { SESSION_ID_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import type { EvaluateTracesParams } from './types';
-import { chunk, isEmpty, partition, sortBy } from 'lodash';
+import { chunk, isEmpty, partition, sortBy, uniqBy } from 'lodash';
 
 // Number of most recent traces scanned when resolving the "latest N sessions" (no explicit selection).
 const LATEST_SESSIONS_TRACE_WINDOW = 500;
@@ -13,11 +13,9 @@ const LATEST_SESSIONS_TRACE_WINDOW = 500;
 // Cap for concurrent per-session searches, matching useFetchTraces.tsx.
 const MAX_PARALLEL_SESSION_QUERIES = 20;
 
-// Filter literals are single-quoted and the parser strips those quotes without decoding
-// escapes, so a session ID containing `'` or `\` cannot round-trip through a filter (and
-// would produce an invalid clause). Such IDs are resolved with the window scan below
-// instead, and are still matched against the explicitly selected IDs at the end.
-const isFilterSafeSessionId = (sessionId: string) => !/['\\]/.test(sessionId);
+// Filter literals are single-quoted, so a session ID containing `'` cannot round-trip
+// through a filter. Such IDs are resolved with the window scan below instead.
+const isFilterSafeSessionId = (sessionId: string) => !sessionId.includes("'");
 
 // Trace search supports only `=` on request metadata (no IN / OR), so selected
 // sessions are resolved with one filter query per session ID.
@@ -76,8 +74,8 @@ const fetchTracesForSelectedSessions = async (
               locations,
               filter,
               pageSize: 500,
-              // No explicit limit: a session can exceed 500 turns, and truncating it
-              // would silently evaluate a partial conversation.
+              // With no explicit limit, the query uses getEvalTabTotalTracesLimit()
+              // (currently 1000) while paginating beyond the first 500 traces.
               orderBy: ['timestamp DESC'],
             }),
           staleTime: Infinity,
@@ -99,12 +97,15 @@ const fetchSessions = async (
 
   const traces = isEmpty(selectedIds)
     ? await fetchWindowTraces(queryClient, locations)
-    : (
-        await Promise.all([
-          fetchTracesForSelectedSessions(queryClient, locations, filterSafeIds),
-          isEmpty(filterUnsafeIds) ? [] : fetchWindowTraces(queryClient, locations),
-        ])
-      ).flat();
+    : uniqBy(
+        (
+          await Promise.all([
+            fetchTracesForSelectedSessions(queryClient, locations, filterSafeIds),
+            isEmpty(filterUnsafeIds) ? [] : fetchWindowTraces(queryClient, locations),
+          ])
+        ).flat(),
+        (trace) => trace.trace_id,
+      );
 
   const sessions = groupTracesBySession(traces);
 

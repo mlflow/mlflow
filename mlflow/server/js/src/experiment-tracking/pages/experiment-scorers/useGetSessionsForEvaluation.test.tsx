@@ -112,10 +112,9 @@ describe('useGetSessionsForEvaluation', () => {
   });
 
   it('resolves filter-unsafe session IDs via the window scan instead of a broken filter', async () => {
-    // A session ID containing a quote or backslash cannot round-trip through a search
-    // filter (the parser strips quotes without decoding escapes), so it must not be put
-    // in a filter — it is resolved through the window scan and matched by exact ID.
-    const unsafe = "sess'ion\\x";
+    // A session ID containing a quote cannot round-trip through the single-quoted search
+    // filter, so it is resolved through the window scan and matched by exact ID.
+    const unsafe = "sess'ion";
     useSearchHandler((body) => {
       if (body.filter) {
         return [];
@@ -133,6 +132,21 @@ describe('useGetSessionsForEvaluation', () => {
     expect(capturedBodies[0].filter).toBeUndefined();
   });
 
+  it('resolves session IDs containing backslashes via a targeted filter', async () => {
+    const sessionId = 'sess\\ion';
+    const expectedFilter = "metadata.`mlflow.trace.session` = 'sess\\ion'";
+    useSearchHandler((body) =>
+      body.filter === expectedFilter ? [createTraceInfo('backslash-1', sessionId, 1000)] : [],
+    );
+
+    const { result } = renderHook(() => useGetSessionsForEvaluation(), { wrapper });
+    const sessions = await result.current(buildParams({ itemIds: [sessionId] }));
+
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].sessionId).toBe(sessionId);
+    expect(capturedBodies.map((body) => body.filter)).toEqual([expectedFilter]);
+  });
+
   it('mixes targeted queries for safe IDs with a window scan when any selected ID is filter-unsafe', async () => {
     const unsafe = "o'brien";
     useSearchHandler((body) => {
@@ -142,7 +156,11 @@ describe('useGetSessionsForEvaluation', () => {
       if (body.filter) {
         return [];
       }
-      return [createTraceInfo('unsafe-1', unsafe, 2000)];
+      return [
+        createTraceInfo('unsafe-1', unsafe, 2000),
+        // The unfiltered window can overlap with the targeted safe-session query.
+        createTraceInfo('safe-1', 'safe-session', 1000),
+      ];
     });
 
     const { result } = renderHook(() => useGetSessionsForEvaluation(), { wrapper });
@@ -153,6 +171,7 @@ describe('useGetSessionsForEvaluation', () => {
       expect.arrayContaining([undefined, "metadata.`mlflow.trace.session` = 'safe-session'"]),
     );
     expect(capturedBodies).toHaveLength(2);
+    expect(sessions.find((session) => session.sessionId === 'safe-session')?.traceInfos).toHaveLength(1);
   });
 
   it('bounds concurrent per-session queries in waves', async () => {
