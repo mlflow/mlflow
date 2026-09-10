@@ -273,6 +273,17 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
             SearchUtils.filter([run], bad_filter)
 
 
+def test_numeric_attribute_bad_comparator_message_lists_numeric_comparators():
+    # The error for an invalid comparator on a numeric attribute must list the
+    # numeric comparators (not the string ones) and be a well-formed message.
+    with pytest.raises(MlflowException, match="Invalid comparator") as exc_info:
+        SearchUtils.is_numeric_attribute(SearchUtils._ATTRIBUTE_IDENTIFIER, "start_time", "LIKE")
+    valid_set = str(exc_info.value).split("not one of", 1)[1]
+    assert "<=" in valid_set  # numeric comparators are listed
+    assert "LIKE" not in valid_set  # string-only comparators are not
+    assert str(exc_info.value).count("'") % 2 == 0  # balanced quotes
+
+
 @pytest.mark.parametrize(
     ("filter_string", "matching_runs"),
     [
