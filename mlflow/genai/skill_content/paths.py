@@ -176,6 +176,12 @@ class PathCollisionGuard:
         return nfc
 
 
+def _fail_on_walk_error(error: OSError) -> None:
+    # os.walk skips a directory it cannot list unless told otherwise; a silently missing
+    # subtree would change the digest and the packaged content without any error.
+    raise content_unreadable(error.filename, error)
+
+
 def collect_tree(root: str | os.PathLike[str]) -> list[TreeFile]:
     """
     List the regular files under ``root`` in canonical digest order.
@@ -189,7 +195,9 @@ def collect_tree(root: str | os.PathLike[str]) -> list[TreeFile]:
         raise invalid_content(f"Content root '{root_path}' is not a directory.")
     guard = PathCollisionGuard()
     files: list[TreeFile] = []
-    for dirpath, dirnames, filenames in os.walk(root_path, followlinks=False):
+    for dirpath, dirnames, filenames in os.walk(
+        root_path, onerror=_fail_on_walk_error, followlinks=False
+    ):
         current = Path(dirpath)
         # Do not descend into symlinked directories; os.walk lists them but must not follow.
         dirnames[:] = sorted(d for d in dirnames if not (current / d).is_symlink())
@@ -217,7 +225,9 @@ def assert_regular_tree(root: str | os.PathLike[str]) -> None:
     root_path = Path(root)
     if root_path.is_symlink() or not root_path.is_dir():
         raise invalid_content(f"Content root '{root_path}' must be a directory, not a link.")
-    for dirpath, dirnames, filenames in os.walk(root_path, followlinks=False):
+    for dirpath, dirnames, filenames in os.walk(
+        root_path, onerror=_fail_on_walk_error, followlinks=False
+    ):
         current = Path(dirpath)
         for name in dirnames + filenames:
             entry = current / name

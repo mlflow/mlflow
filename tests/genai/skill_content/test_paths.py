@@ -224,3 +224,26 @@ def test_canonical_relative_path_rejects_long_and_non_utf8_names():
     with pytest.raises(MlflowException, match=r"na\\udcefve.md' is not valid UTF-8") as exc:
         canonical_relative_path("na\udcefve.md")
     exc.value.message.encode("utf-8")
+
+
+def test_unreadable_directory_is_a_permission_error(tmp_path):
+    (tmp_path / "SKILL.md").write_text("---\nname: demo\n---\n")
+    private = tmp_path / "private"
+    private.mkdir()
+    (private / "required.txt").write_text("required content")
+    private.chmod(0)
+    try:
+        try:
+            list(private.iterdir())
+        except PermissionError:
+            pass
+        else:
+            pytest.skip("directory permissions are not enforced for this user")
+        # A silently skipped subtree would change the digest without any error.
+        with pytest.raises(MlflowException, match="Cannot read skill content") as exc:
+            collect_tree(tmp_path)
+        assert exc.value.error_code == "PERMISSION_DENIED"
+        with pytest.raises(MlflowException, match="Cannot read skill content"):
+            assert_regular_tree(tmp_path)
+    finally:
+        private.chmod(0o700)
