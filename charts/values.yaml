@@ -329,3 +329,5 @@ nodeSelector: {}
 tolerations: []
 # Affinity rules for pod scheduling.
 affinity: {}
+# Topology spread constraints for pod scheduling.
+topologySpreadConstraints: {}
