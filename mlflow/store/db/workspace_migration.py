@@ -1,10 +1,12 @@
 import sqlalchemy as sa
 
 from mlflow.store.db.workspace_utils import (
+    AGENT_PLUGIN_MEMBERS_TABLE,
     MODEL_CHILD_TABLES,
     OTHER_WORKSPACE_CHILD_TABLES,
     format_truncated_list,
     get_workspace_table,
+    reassign_agent_plugin_members,
 )
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -39,6 +41,12 @@ _CONFLICT_SPECS = [
     ("endpoints", ("name",), "endpoints with the same name"),
     ("model_definitions", ("name",), "model definitions with the same name"),
     ("mcp_servers", ("name",), "MCP servers with the same name"),
+    ("skills", ("organization", "name"), "skills with the same organization and name"),
+    (
+        "agent_plugins",
+        ("organization", "name"),
+        "agent plugins with the same organization and name",
+    ),
 ]
 
 
@@ -116,23 +124,34 @@ def migrate_to_default_workspace(
             )
 
         counts = {}
-        for table_name in _WORKSPACE_TABLES:
-            table = get_workspace_table(conn, table_name)
-            stmt = (
-                sa
-                .select(sa.func.count())
-                .select_from(table)
-                .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
-            )
-            counts[table_name] = conn.execute(stmt).scalar_one()
+        # The link table is reassigned around the column rewrites: its rows are
+        # removed before the loop moves their parent plugin/skill versions and
+        # re-inserted at the default workspace afterward, so the non-cascading
+        # skill FK never sees a mid-move inconsistency (see the helper docstring).
+        with reassign_agent_plugin_members(
+            conn,
+            source_workspace=None,
+            target_workspace=DEFAULT_WORKSPACE_NAME,
+            dry_run=dry_run,
+        ) as member_count:
+            for table_name in _WORKSPACE_TABLES:
+                table = get_workspace_table(conn, table_name)
+                stmt = (
+                    sa
+                    .select(sa.func.count())
+                    .select_from(table)
+                    .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
+                )
+                counts[table_name] = conn.execute(stmt).scalar_one()
 
-            if dry_run or counts[table_name] == 0:
-                continue
-            conn.execute(
-                table
-                .update()
-                .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
-                .values(workspace=DEFAULT_WORKSPACE_NAME)
-            )
+                if dry_run or counts[table_name] == 0:
+                    continue
+                conn.execute(
+                    table
+                    .update()
+                    .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
+                    .values(workspace=DEFAULT_WORKSPACE_NAME)
+                )
 
+        counts[AGENT_PLUGIN_MEMBERS_TABLE] = member_count
         return counts

@@ -133,7 +133,11 @@ def _parse_tag(value: str) -> tuple[str, str]:
 @click.option(
     "--name",
     multiple=True,
-    help="Resource name(s) to move. Repeatable.",
+    help=(
+        "Resource name(s) to move. Repeatable. For skills and agent_plugins, accepts "
+        "@org/name to identify resources with an organization (e.g. --name @acme/pr-workflow). "
+        "Bare name uses the default (empty) organization."
+    ),
 )
 @click.option(
     "--tag",
