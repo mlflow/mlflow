@@ -247,3 +247,25 @@ def test_unreadable_directory_is_a_permission_error(tmp_path):
             assert_regular_tree(tmp_path)
     finally:
         private.chmod(0o700)
+
+
+@pytest.mark.parametrize(
+    ("names", "message"),
+    [
+        (["data:stream"], "must not contain ':'"),
+        (["A/x", "a/y"], "differ only by letter case"),
+        (["CON"], "reserved Windows device name"),
+    ],
+)
+def test_collect_tree_applies_archive_rules(tmp_path, names, message):
+    # A tree the collector accepts must survive packaging and extraction, so the same segment
+    # and directory-alias rules the archive validators enforce apply to local trees.
+    (tmp_path / "SKILL.md").write_text("---\nname: demo\n---\n")
+    for name in names:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("content")
+    if len(names) > 1 and (tmp_path / "A").samefile(tmp_path / "a"):
+        pytest.skip("requires a case-sensitive filesystem")
+    with pytest.raises(MlflowException, match=message):
+        collect_tree(tmp_path)

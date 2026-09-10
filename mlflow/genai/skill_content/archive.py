@@ -13,7 +13,7 @@ from typing import IO, Iterator
 from mlflow.environment_variables import MLFLOW_SKILL_CONTENT_MAX_DECOMPRESSED_SIZE
 from mlflow.genai.skill_content.errors import content_unreadable, display_path, invalid_content
 from mlflow.genai.skill_content.paths import (
-    PathCollisionGuard,
+    TreeLayout,
     assert_regular_tree,
     canonical_relative_path,
     collect_tree,
@@ -101,41 +101,6 @@ class _BoundedStream:
 
     def close(self) -> None:
         self._inner.close()
-
-
-class _ArchiveLayout:
-    """Tracks entries of one archive so files and directories cannot shadow each other."""
-
-    def __init__(self):
-        self._guard = PathCollisionGuard()
-        self._files: set[str] = set()
-        self._dirs: set[str] = set()
-
-    def _register_dir(self, path: str, raw_name: str) -> None:
-        if path in self._dirs:
-            return
-        if path in self._files:
-            raise invalid_content(
-                f"Archive entry '{display_path(raw_name)}' uses '{path}' as a directory, "
-                "but it is a file."
-            )
-        self._guard.register(path)
-        self._dirs.add(path)
-
-    def add(self, relative: str, raw_name: str, *, is_dir: bool) -> None:
-        parts = relative.split("/")
-        for depth in range(1, len(parts)):
-            self._register_dir("/".join(parts[:depth]), raw_name)
-        if is_dir:
-            self._register_dir(relative, raw_name)
-            return
-        if relative in self._dirs:
-            raise invalid_content(
-                f"Archive entry '{display_path(raw_name)}' is a file, but '{relative}' is "
-                "also a directory."
-            )
-        self._guard.register(relative)
-        self._files.add(relative)
 
 
 def _copy_with_budget(src: IO[bytes], dst: IO[bytes], budget: _ByteBudget, what: str) -> None:
@@ -276,7 +241,7 @@ def validate_skill_archive(
     limit = get_max_decompressed_size(max_bytes)
     prefix = normalize_subpath(subpath)
     budget = _ByteBudget(limit)
-    layout = _ArchiveLayout()
+    layout = TreeLayout()
     with _open_tar(Path(archive), compressed=compressed) as (tar, bounded):
         for member in _iter_tar_members(tar, bounded):
             relative = _member_relative_path(member.name)
@@ -380,7 +345,7 @@ def validate_zip_archive(
     """Validate a ZIP archive with the same path, entry type, collision, and size rules as tar."""
     prefix = normalize_subpath(subpath)
     budget = _ByteBudget(get_max_decompressed_size(max_bytes))
-    layout = _ArchiveLayout()
+    layout = TreeLayout()
     with _open_zip(Path(archive)) as zf:
         infos = zf.infolist()
         if len(infos) > MAX_ARCHIVE_ENTRIES:

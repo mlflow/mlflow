@@ -10,10 +10,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.errors import content_unreadable, display_path, invalid_content
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
-# Names Windows refuses to create as regular files, with or without an extension. A tree
-# containing them cannot be materialized on every supported OS, so it is rejected everywhere.
 # Every supported filesystem caps a single name at 255 bytes; longer names cannot be written.
 MAX_PATH_SEGMENT_BYTES = 255
+# Names Windows refuses to create as regular files, with or without an extension. A tree
+# containing them cannot be materialized on every supported OS, so it is rejected everywhere.
 _WINDOWS_RESERVED_NAMES = frozenset({
     "CON",
     "PRN",
@@ -176,6 +176,48 @@ class PathCollisionGuard:
         return nfc
 
 
+class TreeLayout:
+    """
+    Tracks the files and directories of one tree so they cannot alias or shadow each other.
+
+    Shared by the archive validators and the local tree collector so a tree that passes
+    collection can always be packaged and extracted again: every segment is validated, and
+    a path may not be both a file and a directory, appear twice, or collide with another
+    after Unicode normalization or case folding, including at the directory level.
+    """
+
+    def __init__(self):
+        self._guard = PathCollisionGuard()
+        self._files: set[str] = set()
+        self._dirs: set[str] = set()
+
+    def _register_dir(self, path: str, raw_name: str) -> None:
+        if path in self._dirs:
+            return
+        if path in self._files:
+            raise invalid_content(
+                f"Entry '{display_path(raw_name)}' uses '{path}' as a directory, but it is a file."
+            )
+        self._guard.register(path)
+        self._dirs.add(path)
+
+    def add(self, relative: str, raw_name: str, *, is_dir: bool) -> str:
+        """Register a canonical relative path; returns its NFC form for files."""
+        parts = relative.split("/")
+        for depth in range(1, len(parts)):
+            self._register_dir("/".join(parts[:depth]), raw_name)
+        if is_dir:
+            self._register_dir(relative, raw_name)
+            return relative
+        if relative in self._dirs:
+            raise invalid_content(
+                f"Entry '{display_path(raw_name)}' is a file, but '{relative}' is also a directory."
+            )
+        nfc = self._guard.register(relative)
+        self._files.add(relative)
+        return nfc
+
+
 def _fail_on_walk_error(error: OSError) -> None:
     # os.walk skips a directory it cannot list unless told otherwise; a silently missing
     # subtree would change the digest and the packaged content without any error.
@@ -187,13 +229,15 @@ def collect_tree(root: str | os.PathLike[str]) -> list[TreeFile]:
     List the regular files under ``root`` in canonical digest order.
 
     Paths are POSIX, relative to ``root``, Unicode NFC-normalized, and sorted by their UTF-8
-    byte value. Symbolic links and other non-regular entries are excluded. Files whose names
-    collide after normalization or case folding make the tree ambiguous and are rejected.
+    byte value. Symbolic links and other non-regular entries are excluded. The same segment
+    and layout rules the archive validators apply are enforced here, so a tree that collects
+    successfully can always be packaged and extracted: unsafe segments, and files or
+    directories that collide after normalization or case folding, are rejected.
     """
     root_path = Path(root)
     if not root_path.is_dir():
         raise invalid_content(f"Content root '{root_path}' is not a directory.")
-    guard = PathCollisionGuard()
+    layout = TreeLayout()
     files: list[TreeFile] = []
     for dirpath, dirnames, filenames in os.walk(
         root_path, onerror=_fail_on_walk_error, followlinks=False
@@ -209,7 +253,8 @@ def collect_tree(root: str | os.PathLike[str]) -> list[TreeFile]:
                 raise content_unreadable(file_path, e)
             if not stat.S_ISREG(info.st_mode):
                 continue
-            canonical = guard.register(file_path.relative_to(root_path).as_posix())
+            relative = file_path.relative_to(root_path).as_posix()
+            canonical = layout.add(canonical_relative_path(relative), relative, is_dir=False)
             files.append(TreeFile(path=canonical, local_path=file_path, size=info.st_size))
     files.sort(key=lambda f: f.path.encode("utf-8"))
     return files
