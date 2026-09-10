@@ -294,9 +294,7 @@ def parse_functions(content: str) -> dict[str, ast.FunctionDef | ast.AsyncFuncti
 
 def get_file_content_at_revision(file_path: Path, revision: str) -> str | None:
     try:
-        return subprocess.check_output(
-            ["git", "show", f"{revision}:{file_path.as_posix()}"], text=True
-        )
+        return subprocess.check_output(["git", "show", f"{revision}:{file_path}"], text=True)
     except subprocess.CalledProcessError as e:
         print(f"Warning: Failed to get file content at revision: {e}", file=sys.stderr)
         return None
