@@ -69,10 +69,17 @@ def test_admin_password_resolution(tmp_path, monkeypatch, ini_password, env_pass
     assert config.admin_password == expected
 
 
-@pytest.mark.parametrize("env_username", ["root", ""])
-def test_admin_username_env_overrides_ini(tmp_path, monkeypatch, env_username):
+@pytest.mark.parametrize(
+    ("env_username", "expected"),
+    [
+        ("root", "root"),
+        # A set-but-empty variable wins over the file and normalizes to None, like the password.
+        ("", None),
+    ],
+)
+def test_admin_username_env_overrides_ini(tmp_path, monkeypatch, env_username, expected):
     monkeypatch.setenv(MLFLOW_AUTH_ADMIN_USERNAME.name, env_username)
-    assert _read_config(_write_ini(tmp_path)).admin_username == env_username
+    assert _read_config(_write_ini(tmp_path)).admin_username == expected
 
 
 @pytest.fixture
@@ -81,11 +88,29 @@ def store():
         yield store
 
 
-@pytest.mark.parametrize("password", [None, ""])
-def test_create_admin_user_requires_password(store, password):
+@pytest.mark.parametrize("username", [None, ""])
+def test_create_admin_user_requires_username(store, username):
+    with pytest.raises(MlflowException, match="needs a username for the admin user") as exc_info:
+        auth_module.create_admin_user(username, "a-strong-admin-password")
+    assert MLFLOW_AUTH_ADMIN_USERNAME.name in str(exc_info.value)
+    store.has_user.assert_not_called()
+    store.create_user.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("password", "match"),
+    [
+        (None, "needs a password to create the admin user"),
+        ("", "needs a password to create the admin user"),
+        ("short", "at least 12 characters"),
+    ],
+)
+def test_create_admin_user_rejects_missing_or_short_password(store, password, match):
     store.has_user.return_value = False
-    with pytest.raises(MlflowException, match="needs a password to create the admin user"):
+    with pytest.raises(MlflowException, match=match) as exc_info:
         auth_module.create_admin_user("admin", password)
+    # Every misconfiguration names the setting to fix.
+    assert MLFLOW_AUTH_ADMIN_PASSWORD.name in str(exc_info.value)
     store.create_user.assert_not_called()
 
 

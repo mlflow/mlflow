@@ -55,6 +55,7 @@ from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
     MLFLOW_AUTH_ADMIN_PASSWORD,
+    MLFLOW_AUTH_ADMIN_USERNAME,
     MLFLOW_AUTH_CONFIG_PATH,
     MLFLOW_BASIC_AUTH_FAIL_CLOSED,
     MLFLOW_ENABLE_WORKSPACES,
@@ -418,6 +419,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 try:
@@ -4372,6 +4374,16 @@ _LEGACY_DEFAULT_ADMIN_USERNAME = "admin"
 _LEGACY_DEFAULT_ADMIN_PASSWORD = "password1234"
 
 
+def _validate_bootstrap_admin_username(username: str | None) -> None:
+    if not username:
+        raise MlflowException(
+            "MLflow Authentication needs a username for the admin user, but none is configured "
+            f"(or it is empty). Set the {MLFLOW_AUTH_ADMIN_USERNAME.name} environment variable, "
+            "or set `admin_username` in the configuration file referenced by "
+            f"{MLFLOW_AUTH_CONFIG_PATH.name}, and restart the server."
+        )
+
+
 def _validate_bootstrap_admin_password(username: str, password: str | None) -> None:
     if not password:
         raise MlflowException(
@@ -4390,6 +4402,16 @@ def _validate_bootstrap_admin_password(username: str, password: str | None) -> N
             f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} or `admin_password` in the configuration file "
             f"referenced by {MLFLOW_AUTH_CONFIG_PATH.name} to a different password."
         )
+    # Apply the store's password policy here so a too-short bootstrap password names the
+    # setting to fix, like the other misconfigurations, instead of failing inside create_user.
+    try:
+        _validate_password(password)
+    except MlflowException as e:
+        raise MlflowException(
+            f"The configured password for the admin user '{username}' is invalid: {e.message} "
+            f"Set {MLFLOW_AUTH_ADMIN_PASSWORD.name} or `admin_password` in the configuration "
+            f"file referenced by {MLFLOW_AUTH_CONFIG_PATH.name} to a valid password."
+        ) from e
 
 
 def bootstrap_admin_user() -> None:
@@ -4424,12 +4446,16 @@ def _init_store_for_app() -> None:
     if _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.get():
         # The `mlflow server` CLI already bootstrapped the admin user and ran the legacy-password
         # check before spawning this worker, so only the store engine needs initializing here.
+        # This trusts that the CLI resolved the same `database_uri` as this worker. The variable
+        # is private and only the CLI sets it; importing `create_app` directly with it set skips
+        # both checks.
         store.init_db(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
     else:
         bootstrap_admin_user()
 
 
-def create_admin_user(username: str, password: str | None) -> None:
+def create_admin_user(username: str | None, password: str | None) -> None:
+    _validate_bootstrap_admin_username(username)
     # Read from the primary database: with a read replica configured, replication lag during a
     # restart could make an existing admin look absent and fail bootstrap for a missing password.
     if not store.has_user(username, use_primary=True):
