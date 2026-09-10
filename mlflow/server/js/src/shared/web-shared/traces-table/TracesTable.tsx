@@ -298,6 +298,11 @@ export interface TracesTableProps {
   previewLineClamp?: number;
   /** Reorders columns when a user drags one header onto another; absent → headers aren't draggable. */
   onReorderColumn?: (activeColumn: string, targetColumn: string) => void;
+  /** When true, session-level column aggregates (e.g. token totals) are suppressed because the
+   * visible page may not contain all traces for every session. Set when isGroupedBySession is true
+   * and there are multiple pages of results (hasNext || hasPrev). Mirrors the onToggleBulkRows
+   * suppression pattern: rather than show a silently-partial number, we show nothing. */
+  sessionsMayBeIncomplete?: boolean;
 }
 
 interface GroupedTraceRows {
@@ -356,6 +361,7 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
     isGroupedBySession = false,
     previewLineClamp = 1,
     onReorderColumn,
+    sessionsMayBeIncomplete = false,
   }: TracesTableProps) {
     const { theme } = useDesignSystemTheme();
     const intl = useIntl();
@@ -937,7 +943,12 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                                           ? flexRender(firstCell.column.columnDef.cell, firstCell.getContext())
                                           : header.column.id === 'state' && lastCell
                                             ? flexRender(lastCell.column.columnDef.cell, lastCell.getContext())
-                                            : (sessionCellRenderers.get(header.column.id)?.(tracesInSession) ?? null)}
+                                            // Suppress product-owned aggregates when the page may not
+                                            // contain all traces for this session — a partial total is
+                                            // more confusing than a blank. Mirrors onToggleBulkRows.
+                                            : sessionsMayBeIncomplete
+                                              ? null
+                                              : (sessionCellRenderers.get(header.column.id)?.(tracesInSession) ?? null)}
                                 </TableCell>
                               );
                             })}
@@ -1131,7 +1142,9 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                                         ? flexRender(firstCell.column.columnDef.cell, firstCell.getContext())
                                         : header.column.id === 'state' && lastCell
                                           ? flexRender(lastCell.column.columnDef.cell, lastCell.getContext())
-                                          : (sessionCellRenderers.get(header.column.id)?.(tracesInSession) ?? null)}
+                                          : sessionsMayBeIncomplete
+                                            ? null
+                                            : (sessionCellRenderers.get(header.column.id)?.(tracesInSession) ?? null)}
                               </TableCell>
                             );
                           })}
