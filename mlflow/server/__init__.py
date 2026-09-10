@@ -328,14 +328,16 @@ def _build_uvicorn_command(
 
 
 def _bootstrap_basic_auth() -> None:
-    """Create the basic-auth admin user before spawning workers.
+    """Validate the basic-auth configuration and create the admin user before spawning workers.
 
-    A missing or insecure bootstrap password then fails ``mlflow server`` with one error
-    instead of an endless loop of the uvicorn supervisor restarting crashed workers.
+    A missing secret key or a missing/insecure bootstrap password then fails ``mlflow server``
+    with one error instead of an endless loop of the uvicorn supervisor restarting crashed
+    workers.
     """
     # `mlflow.server.auth` requires the optional `auth` extra, so only import it when needed.
-    from mlflow.server.auth import bootstrap_admin_user
+    from mlflow.server.auth import bootstrap_admin_user, get_flask_server_secret_key
 
+    get_flask_server_secret_key()
     bootstrap_admin_user()
 
 
