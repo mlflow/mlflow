@@ -14,6 +14,7 @@ from werkzeug.exceptions import RequestedRangeNotSatisfiable
 import mlflow
 from mlflow.entities import (
     Experiment,
+    FallbackStrategy,
     GatewayBudgetPolicy,
     Issue,
     IssueSeverity,
@@ -67,6 +68,7 @@ from mlflow.genai.review_queues.review_queues import (
     ReviewQueueItem,
     ReviewStatus,
 )
+from mlflow.genai.scorers import Completeness
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -140,6 +142,9 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     SetTraceTagV3,
     TraceLocation,
+)
+from mlflow.protos.service_pb2 import (
+    FallbackStrategy as ProtoFallbackStrategy,
 )
 from mlflow.protos.service_pb2 import (
     GatewayModelLinkageType as ProtoGatewayModelLinkageType,
@@ -4270,6 +4275,39 @@ def test_create_gateway_endpoint_rejects_unspecified_linkage_type(
     mock_tracking_store.create_gateway_endpoint.assert_not_called()
 
 
+@pytest.mark.parametrize("max_attempts", [None, 0, 3])
+def test_create_gateway_endpoint_parses_fallback_config_max_attempts(
+    mock_get_request_message, mock_tracking_store, max_attempts
+):
+    """The handler must preserve an unset `max_attempts` as None.
+
+    The proto field has explicit presence, so leaving it unset has to stay
+    distinct from an explicit 0 once it reaches the entity.
+    """
+    from mlflow.protos.service_pb2 import CreateGatewayEndpoint
+    from mlflow.server.handlers import _create_gateway_endpoint
+
+    request_msg = CreateGatewayEndpoint()
+    request_msg.name = "valid-name"
+    config = request_msg.model_configs.add()
+    config.model_definition_id = "d-123"
+    config.linkage_type = ProtoGatewayModelLinkageType.PRIMARY
+    request_msg.fallback_config.strategy = ProtoFallbackStrategy.SEQUENTIAL
+    if max_attempts is not None:
+        request_msg.fallback_config.max_attempts = max_attempts
+    mock_get_request_message.return_value = request_msg
+
+    mock_endpoint = mock.MagicMock()
+    mock_endpoint.to_proto.return_value = GatewayEndpoint(endpoint_id="ep-123")
+    mock_tracking_store.create_gateway_endpoint.return_value = mock_endpoint
+
+    _create_gateway_endpoint()
+
+    kwargs = mock_tracking_store.create_gateway_endpoint.call_args.kwargs
+    assert kwargs["fallback_config"].max_attempts == max_attempts
+    assert kwargs["fallback_config"].strategy == FallbackStrategy.SEQUENTIAL
+
+
 def test_create_gateway_endpoint_reports_offending_model_config_index(
     mock_get_request_message, mock_tracking_store
 ):
@@ -4606,6 +4644,21 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         },
     })
 
+    # Mock traces that belong to the authorized experiment
+    trace1 = TraceInfo(
+        trace_id="trace1",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+    trace2 = TraceInfo(
+        trace_id="trace2",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+        request_time=1234567891,
+        state=TraceState.OK,
+    )
+    mock_tracking_store.batch_get_trace_infos.return_value = [trace1, trace2]
+
     with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
         mock_job = mock.MagicMock()
         mock_job.job_id = "test-job-123"
@@ -4627,7 +4680,108 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
             assert data["jobs"][0]["job_id"] == "test-job-123"
             assert data["jobs"][0]["trace_ids"] == ["trace1", "trace2"]
 
+        mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["trace1", "trace2"])
         mock_submit.assert_called_once()
+        assert mock_submit.call_args.kwargs["params"]["experiment_id"] == "exp-123"
+
+
+def test_invoke_scorer_deduplicates_trace_ids(mock_tracking_store):
+    serialized_scorer = json.dumps({
+        "name": "test_judge",
+        "aggregations": [],
+        "description": None,
+        "is_session_level_scorer": False,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        "instructions_judge_pydantic_data": {
+            "instructions": "Test: {{ inputs }}",
+            "model": "openai:/gpt-4",
+            "feedback_value_type": {
+                "enum": ["Yes", "No"],
+                "title": "Result",
+                "type": "string",
+            },
+        },
+    })
+
+    trace1 = TraceInfo(
+        trace_id="trace1",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+    mock_tracking_store.batch_get_trace_infos.return_value = [trace1]
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_submit.return_value = mock.MagicMock(job_id="test-job-123")
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1", "trace1"],  # duplicate
+                },
+            )
+        assert response.status_code == 200
+        # Duplicate is collapsed before fetch and before scoring: fetched and scored once.
+        mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["trace1"])
+        assert response.get_json()["jobs"][0]["trace_ids"] == ["trace1"]
+
+
+def test_invoke_registered_scorer_resolves_exact_version(mock_tracking_store):
+    serialized_scorer = json.dumps(Completeness(name="test_judge").model_dump())
+    registered_scorer = mock.MagicMock(serialized_scorer=serialized_scorer)
+    mock_tracking_store.get_scorer.return_value = registered_scorer
+    # The requested traces must belong to the authorized experiment (GHSA-6c27 trace-binding).
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        TraceInfo(
+            trace_id="trace1",
+            trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+            request_time=0,
+            state=TraceState.OK,
+        )
+    ]
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_submit.return_value.job_id = "test-job-123"
+
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "scorer_name": "test_judge",
+                    "scorer_version": 2,
+                    "trace_ids": ["trace1"],
+                },
+            )
+
+    assert response.status_code == 200, response.get_json()
+    mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "test_judge", 2)
+    assert mock_submit.call_args.kwargs["params"]["scorer_version"] == 2
+
+
+def test_invoke_scorer_requires_name_and_version_together():
+    with app.test_client() as c:
+        response = c.post(
+            "/ajax-api/3.0/mlflow/scorer/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "serialized_scorer": json.dumps({"name": "test_judge"}),
+                "scorer_version": 2,
+                "trace_ids": ["trace1"],
+            },
+        )
+
+    assert response.status_code == 400
+    assert "must be specified together" in response.get_json()["message"]
 
 
 def test_invoke_scorer_rejects_decorator_scorer():
@@ -4667,6 +4821,201 @@ def test_invoke_scorer_rejects_invalid_json():
         )
     assert response.status_code == 400
     assert "serialized_scorer must be valid JSON" in response.get_json()["message"]
+
+
+def test_invoke_scorer_rejects_cross_experiment_traces(mock_tracking_store):
+    """Verify that traces from other experiments cannot be scored via invoke_scorer.
+
+    This is the key regression test for GHSA-6c27-cp6h-c66m: an authenticated user
+    who owns experiment A should not be able to invoke a scorer on traces from
+    experiment B, even if they supply experiment_id=A and trace_ids from B.
+    """
+    serialized_scorer = json.dumps({
+        "name": "test_judge",
+        "aggregations": [],
+        "description": None,
+        "is_session_level_scorer": False,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        "instructions_judge_pydantic_data": {
+            "instructions": "Test: {{ inputs }}",
+            "model": "openai:/gpt-4",
+            "feedback_value_type": {
+                "enum": ["Yes", "No"],
+                "title": "Result",
+                "type": "string",
+            },
+        },
+    })
+
+    # Mock a trace that belongs to a different experiment
+    victim_trace = TraceInfo(
+        trace_id="victim-trace-1",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-999"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+
+    mock_tracking_store.batch_get_trace_infos.return_value = [victim_trace]
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",  # Attacker's experiment
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["victim-trace-1"],  # Trace from different experiment
+                },
+            )
+        # Should be rejected with 403 (PERMISSION_DENIED)
+        assert response.status_code == 403
+        data = response.get_json()
+        # Generic message that does not reveal the victim's experiment_id or that the trace exists.
+        assert data["message"] == "Not all requested traces could be accessed."
+        assert "exp-999" not in data["message"]
+        # Verify that job was not submitted
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_fallback_drops_missing_trace(mock_tracking_store):
+    """A missing trace on the fallback path is dropped, not surfaced as a 404.
+
+    When batch_get_trace_infos is unimplemented, the per-trace fallback swallows
+    RESOURCE_DOES_NOT_EXIST so a missing trace is simply absent from the ownership check
+    (rather than leaking the trace_id via a 404). The request still submits the job; the
+    missing trace fails downstream in the job, matching the batch path.
+    """
+    serialized_scorer = json.dumps({
+        "name": "test_judge",
+        "aggregations": [],
+        "description": None,
+        "is_session_level_scorer": False,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        "instructions_judge_pydantic_data": {
+            "instructions": "Test: {{ inputs }}",
+            "model": "openai:/gpt-4",
+            "feedback_value_type": {
+                "enum": ["Yes", "No"],
+                "title": "Result",
+                "type": "string",
+            },
+        },
+    })
+
+    mock_tracking_store.batch_get_trace_infos.side_effect = MlflowNotImplementedException(
+        "Not implemented"
+    )
+
+    def get_trace_side_effect(trace_id):
+        if trace_id == "trace-1":
+            return TraceInfo(
+                trace_id="trace-1",
+                trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+                request_time=1234567890,
+                state=TraceState.OK,
+            )
+        raise MlflowException(
+            f"Trace {trace_id} not found",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+
+    mock_tracking_store.get_trace_info.side_effect = get_trace_side_effect
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        mock_job = mock.MagicMock()
+        mock_job.job_id = "test-job-123"
+        mock_submit.return_value = mock_job
+
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace-1", "trace-missing"],
+                },
+            )
+        assert response.status_code == 200
+        mock_submit.assert_called_once()
+        # The missing trace is forwarded to the job (which reports it as not found), not
+        # rejected at request time.
+        data = response.get_json()
+        assert data["jobs"][0]["trace_ids"] == ["trace-1", "trace-missing"]
+
+
+def test_invoke_scorer_rejects_foreign_trace_fallback_path(mock_tracking_store):
+    """Verify cross-experiment traces via fallback get_trace_info are rejected with generic 403.
+
+    When the fallback path fetches a trace via get_trace_info that belongs to a different
+    experiment, it should be rejected with generic 403 (same as batch path).
+    """
+    serialized_scorer = json.dumps({
+        "name": "test_judge",
+        "aggregations": [],
+        "description": None,
+        "is_session_level_scorer": False,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        "instructions_judge_pydantic_data": {
+            "instructions": "Test: {{ inputs }}",
+            "model": "openai:/gpt-4",
+            "feedback_value_type": {
+                "enum": ["Yes", "No"],
+                "title": "Result",
+                "type": "string",
+            },
+        },
+    })
+
+    # Set batch_get_trace_infos to raise MlflowNotImplementedException, triggering fallback
+    mock_tracking_store.batch_get_trace_infos.side_effect = MlflowNotImplementedException(
+        "Not implemented"
+    )
+
+    # Mock get_trace_info to return a trace from a different experiment
+    foreign_trace = TraceInfo(
+        trace_id="foreign-trace",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-999"),  # Different experiment
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+    mock_tracking_store.get_trace_info.return_value = foreign_trace
+
+    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",  # Attacker's experiment
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["foreign-trace"],
+                },
+            )
+        # Should be rejected with 403 (PERMISSION_DENIED)
+        assert response.status_code == 403
+        data = response.get_json()
+        # Generic message that does not reveal the victim's experiment_id or that the trace exists.
+        assert data["message"] == "Not all requested traces could be accessed."
+        assert "exp-999" not in data["message"]
+        # Verify that job was not submitted
+        mock_submit.assert_not_called()
 
 
 def test_get_ui_telemetry_handler(
@@ -6405,6 +6754,7 @@ def _make_endpoint_budget_policy(
     ("target_scope", "target_value"),
     [
         (BudgetTargetScope.ENDPOINT, "ep-1"),
+        (BudgetTargetScope.USER, "alice"),
         (BudgetTargetScope.GLOBAL, None),
         (BudgetTargetScope.WORKSPACE, None),
     ],
@@ -6420,8 +6770,9 @@ def test_validate_budget_target_scope_valid(target_scope, target_value):
     ("target_scope", "target_value", "match"),
     [
         (BudgetTargetScope.ENDPOINT, None, "target_value is required"),
+        (BudgetTargetScope.USER, None, "target_value is required"),
         (BudgetTargetScope.GLOBAL, "ep-1", "target_value can only be set"),
-        (BudgetTargetScope.WORKSPACE, "ep-1", "target_value can only be set"),
+        (BudgetTargetScope.WORKSPACE, "alice", "target_value can only be set"),
     ],
 )
 def test_validate_budget_target_scope_invalid(target_scope, target_value, match):
@@ -6620,6 +6971,29 @@ def test_update_budget_policy_switch_to_endpoint_requires_target_value():
     store.update_budget_policy.assert_not_called()
 
 
+def test_update_budget_policy_scope_switch_does_not_inherit_target():
+    # An endpoint ID is meaningless as a username: switching an ENDPOINT policy to
+    # USER without an explicit new target must be rejected, not inherit "ep-1".
+    store = mock.MagicMock()
+    store.get_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch("mlflow.server.handlers._is_server_auth_enabled", return_value=True),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-ep", "target_scope": "USER"},
+        )
+
+    assert response.status_code == 400
+    assert "target_value is required" in response.json["message"]
+    store.update_budget_policy.assert_not_called()
+
+
 def test_list_budget_windows_workspace_scoped_filters_endpoint_policies():
     tracker = InMemoryBudgetTracker()
     ep_team_a = _make_endpoint_budget_policy(
@@ -6641,6 +7015,251 @@ def test_list_budget_windows_workspace_scoped_filters_endpoint_policies():
     assert response.status_code == 200
     policy_ids = {w["budget_policy_id"] for w in response.json["windows"]}
     assert policy_ids == {"bp-ep-a"}
+
+
+# ==================== Per-user (USER scope) budget policy handler tests ====================
+
+
+def _user_policy(budget_policy_id="bp-user", target_value="alice", last_updated_at=1):
+    return GatewayBudgetPolicy(
+        budget_policy_id=budget_policy_id,
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        created_at=1,
+        last_updated_at=last_updated_at,
+        target_value=target_value,
+    )
+
+
+def test_create_budget_policy_user_scope_success():
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch("mlflow.server.handlers._is_server_auth_enabled", return_value=True),
+    ):
+        mock_store.return_value.create_budget_policy.return_value = _user_policy()
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 25.0,
+                "duration": {"unit": "DAYS", "value": 1},
+                "target_scope": "USER",
+                "budget_action": "REJECT",
+                "target_value": "alice",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json["budget_policy"]["target_scope"] == "USER"
+    assert response.json["budget_policy"]["target_value"] == "alice"
+    mock_store.return_value.create_budget_policy.assert_called_once()
+    assert mock_store.return_value.create_budget_policy.call_args.kwargs["target_value"] == "alice"
+
+
+def test_create_budget_policy_user_scope_requires_target_value():
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 25.0,
+                "duration": {"unit": "DAYS", "value": 1},
+                "target_scope": "USER",
+                "budget_action": "REJECT",
+            },
+        )
+
+    assert response.status_code == 400
+    assert "target_value is required" in response.json["message"]
+    mock_store.return_value.create_budget_policy.assert_not_called()
+
+
+def test_create_budget_policy_user_scope_requires_auth():
+    # A USER-scoped policy on an auth-disabled deployment can never match a request,
+    # so creation is rejected instead of silently producing an inert cap.
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch("mlflow.server.handlers._is_server_auth_enabled", return_value=False),
+    ):
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 25.0,
+                "duration": {"unit": "DAYS", "value": 1},
+                "target_scope": "USER",
+                "budget_action": "REJECT",
+                "target_value": "alice",
+            },
+        )
+
+    assert response.status_code == 400
+    assert "require server authentication" in response.json["message"]
+    mock_store.return_value.create_budget_policy.assert_not_called()
+
+
+def test_update_budget_policy_user_target():
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch("mlflow.server.handlers._is_server_auth_enabled", return_value=True),
+    ):
+        mock_store.return_value.get_budget_policy.return_value = _user_policy(target_value="alice")
+        mock_store.return_value.update_budget_policy.return_value = _user_policy(
+            target_value="bob", last_updated_at=2
+        )
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-user", "target_value": "bob"},
+        )
+
+    assert response.status_code == 200
+    assert response.json["budget_policy"]["target_value"] == "bob"
+    assert mock_store.return_value.update_budget_policy.call_args.kwargs["target_value"] == "bob"
+
+
+def test_update_budget_policy_switch_to_user_requires_target_value():
+    # Switching an existing non-USER policy to USER without a target must be
+    # rejected; otherwise the policy would silently never match (budget bypass).
+    global_policy = _make_budget_policy(budget_policy_id="bp-1")
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        mock_store.return_value.get_budget_policy.return_value = global_policy
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-1", "target_scope": "USER"},
+        )
+
+    assert response.status_code == 400
+    assert "target_value is required" in response.json["message"]
+    mock_store.return_value.update_budget_policy.assert_not_called()
+
+
+def test_update_budget_policy_clearing_target_on_user_rejected():
+    # Clearing the target on a policy that remains USER-scoped is rejected.
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        mock_store.return_value.get_budget_policy.return_value = _user_policy(target_value="alice")
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-user", "target_value": ""},
+        )
+
+    assert response.status_code == 400
+    assert "target_value is required" in response.json["message"]
+    mock_store.return_value.update_budget_policy.assert_not_called()
+
+
+def test_update_budget_policy_target_on_non_user_scope_rejected():
+    # Setting a target on a policy whose effective scope is untargeted is rejected.
+    global_policy = _make_budget_policy(budget_policy_id="bp-1")
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        mock_store.return_value.get_budget_policy.return_value = global_policy
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-1", "target_value": "alice"},
+        )
+
+    assert response.status_code == 400
+    assert "target_value can only be set" in response.json["message"]
+    mock_store.return_value.update_budget_policy.assert_not_called()
+
+
+def test_update_budget_policy_switch_away_from_user_allowed_without_target():
+    # Switching USER -> GLOBAL without a target is allowed (the store clears the
+    # stale target); no target-consistency error is raised.
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        mock_store.return_value.get_budget_policy.return_value = _user_policy(target_value="alice")
+        mock_store.return_value.update_budget_policy.return_value = _make_budget_policy(
+            budget_policy_id="bp-user"
+        )
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-user", "target_scope": "GLOBAL"},
+        )
+
+    assert response.status_code == 200
+    mock_store.return_value.update_budget_policy.assert_called_once()
+
+
+def test_update_budget_policy_switch_to_user_requires_auth():
+    # Switching a policy to USER on an auth-disabled deployment is rejected.
+    global_policy = _make_budget_policy(budget_policy_id="bp-1")
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        mock.patch("mlflow.server.handlers._is_server_auth_enabled", return_value=False),
+    ):
+        mock_store.return_value.get_budget_policy.return_value = global_policy
+        response = c.post(
+            "/ajax-api/3.0/mlflow/gateway/budgets/update",
+            json={"budget_policy_id": "bp-1", "target_scope": "USER", "target_value": "alice"},
+        )
+
+    assert response.status_code == 400
+    assert "require server authentication" in response.json["message"]
+    mock_store.return_value.update_budget_policy.assert_not_called()
+
+
+def test_list_budget_windows_workspace_scoped_filters_user_policies():
+    tracker = InMemoryBudgetTracker()
+    global_policy = _make_budget_policy(budget_policy_id="bp-global")
+    same_ws_user_policy = _user_policy(budget_policy_id="bp-user-team-a", target_value="alice")
+    same_ws_user_policy.workspace = "team-a"
+    other_ws_user_policy = _user_policy(budget_policy_id="bp-user-team-b", target_value="alice")
+    other_ws_user_policy.workspace = "team-b"
+    tracker.refresh_policies([global_policy, same_ws_user_policy, other_ws_user_policy])
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+        WorkspaceContext("team-a"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    policy_ids = {w["budget_policy_id"] for w in response.json["windows"]}
+    # GLOBAL applies everywhere; team-b's USER policy stays hidden under the team-a
+    # workspace context so its current-spend figures don't leak across workspaces,
+    # even though the two policies target the same username.
+    assert policy_ids == {"bp-global", "bp-user-team-a"}
 
 
 def test_create_issue_with_all_fields():
@@ -7408,6 +8027,8 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
         submit_kwargs = mock_submit_job.call_args.kwargs
         assert submit_kwargs["params"]["trace_ids"] == ["trace-1", "trace-2"]
         assert submit_kwargs["params"]["serialized_scorers"] == request_json["serialized_scorers"]
+        assert submit_kwargs["params"]["scorer_versions"] == [None, None]
+        assert submit_kwargs["params"]["experiment_id"] == "exp-123"
         assert submit_kwargs["params"]["run_id"] == "run-genai-1"
         # No basic auth on the test client -> no username propagated.
         assert submit_kwargs["params"]["username"] is None
@@ -7416,6 +8037,42 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
             "run-genai-1", "mlflow.genaiEvaluate.jobId", "job-genai-1"
         )
         mock_client.set_terminated.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
+    monkeypatch, mock_tracking_store
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    canonical_scorer = json.dumps(Completeness(name="registered-judge").model_dump())
+    mock_tracking_store.get_scorer.return_value = mock.MagicMock(
+        serialized_scorer=canonical_scorer, scorer_version=4
+    )
+    mock_run = mock.MagicMock()
+    mock_run.info.run_id = "run-genai-1"
+    mock_client = mock.MagicMock()
+    mock_client.create_run.return_value = mock_run
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": ['{"name":"registered-judge"}'],
+        "scorer_versions": [3],
+    }
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_genai_evaluate_job()
+        ) as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+    assert resp.status_code == 200, resp.get_json()
+    mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "registered-judge", 3)
+    assert mock_submit_job.call_args.kwargs["params"]["serialized_scorers"] == [canonical_scorer]
+    assert mock_submit_job.call_args.kwargs["params"]["scorer_versions"] == [4]
 
 
 def test_invoke_genai_evaluate_handler_rejects_empty_trace_ids(monkeypatch):

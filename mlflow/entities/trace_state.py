@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import cast
 
 from opentelemetry import trace as trace_api
 
@@ -19,18 +20,19 @@ class TraceState(str, Enum):
     ERROR = "ERROR"
     IN_PROGRESS = "IN_PROGRESS"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
-    def to_proto(self):
-        return pb.TraceInfoV3.State.Value(self)
+    def to_proto(self) -> int:
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(int, pb.TraceInfoV3.State.Value(self))
 
     @classmethod
     def from_proto(cls, proto: int) -> "TraceState":
         return TraceState(pb.TraceInfoV3.State.Name(proto))
 
     @staticmethod
-    def from_otel_status(otel_status: trace_api.Status):
+    def from_otel_status(otel_status: trace_api.Status) -> "TraceState":
         """Convert OpenTelemetry status code to MLflow TraceState."""
         return _OTEL_STATUS_CODE_TO_MLFLOW[otel_status.status_code]
 

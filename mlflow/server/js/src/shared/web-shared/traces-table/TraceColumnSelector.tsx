@@ -1,6 +1,14 @@
 import { Fragment } from 'react';
-import { Button, ChevronDownIcon, ColumnsIcon, DropdownMenu } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  ColumnsIcon,
+  DropdownMenu,
+  Tooltip,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
+import { ReorderableTraceColumnList, type ReorderableTraceColumnListProps } from './ReorderableTraceColumnList';
 import type { TraceColumnId } from './types';
 
 // Module-local static prefix: the `@databricks/no-dynamic-property-value` lint rule requires every
@@ -17,6 +25,8 @@ export interface ColumnSelectorOption {
   id: TraceColumnId;
   label: React.ReactNode;
   componentId: string;
+  /** Renders the item checked-but-unclickable (e.g. a column the current view forces on). */
+  disabled?: boolean;
 }
 
 /** A dynamic-id selectable column (e.g. a product-specific column), for use inside a group. */
@@ -45,12 +55,20 @@ export interface TraceColumnSelectorProps {
   onResetToDefaults: () => void;
   /** Optional labeled sections of dynamic-id columns, each rendered under its own header. */
   groups?: ColumnSelectorGroup[];
+  /**
+   * When provided, the dropdown body renders a single drag/keyboard-reorderable list (built from the
+   * consumer's merged column set) instead of the plain checkboxes + groups. The consumer merges its
+   * standard and dynamic columns into one ordered list and routes toggles by id. `columns`/`groups`
+   * are ignored in this mode; the "Reset to defaults" item still renders below the list.
+   */
+  reorder?: ReorderableTraceColumnListProps;
 }
 
 /**
  * Generic column-visibility dropdown, driven entirely by the `columns` option list. A checkbox per
  * column reflects/toggles its visibility, plus a "Reset to defaults" item. The trigger shows the
- * visible/total count.
+ * visible/total count. When `reorder` is supplied, the body is a reorderable list instead (same
+ * trigger + reset affordances).
  */
 export const TraceColumnSelector: React.FC<TraceColumnSelectorProps> = ({
   columns,
@@ -58,68 +76,113 @@ export const TraceColumnSelector: React.FC<TraceColumnSelectorProps> = ({
   onToggleColumn,
   onResetToDefaults,
   groups,
+  reorder,
 }: TraceColumnSelectorProps) => {
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
   const visible = new Set(visibleColumns);
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <Button
-          componentId={`${COMPONENT_ID}.column-selector.trigger`}
-          icon={<ColumnsIcon />}
-          endIcon={<ChevronDownIcon />}
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Select visible columns',
-            description: 'Aria label for the column-selector dropdown trigger on the traces table',
-          })}
-        >
-          <FormattedMessage
-            defaultMessage="Columns ({visible}/{total})"
-            description="Column-selector trigger label showing visible columns out of total available"
-            values={{ visible: visibleColumns.length, total: columns.length }}
-          />
-        </Button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content align="end">
-        {columns.map(({ id, label, componentId }) => (
-          <DropdownMenu.CheckboxItem
-            key={id}
-            componentId={componentId}
-            checked={visible.has(id)}
-            onCheckedChange={() => onToggleColumn(id)}
+    // Non-modal so the open menu doesn't aria-hide / scroll-lock the table behind it — the grid stays
+    // visible and interactive while columns are toggled (and it keeps the menu from trapping focus).
+    // In reorder mode the menu needs to stay open across toggles/reorders, so modal=false preserves visibility.
+    <DropdownMenu.Root modal={false}>
+      <Tooltip
+        componentId={`${COMPONENT_ID}.column-selector.trigger.tooltip`}
+        content={intl.formatMessage(
+          {
+            defaultMessage: 'Columns ({visible}/{total})',
+            description: 'Column-selector trigger tooltip showing visible columns out of total available',
+          },
+          { visible: visibleColumns.length, total: columns.length },
+        )}
+      >
+        <DropdownMenu.Trigger asChild>
+          <Button
+            componentId={`${COMPONENT_ID}.column-selector.trigger`}
+            icon={<ColumnsIcon />}
+            endIcon={<ChevronDownIcon />}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Select visible columns',
+              description: 'Aria label for the column-selector dropdown trigger on the traces table',
+            })}
+            // Icon-only DS Buttons are intentionally borderless: Button runs its `border: none` through
+            // importantify AND puts it on the `&.<prefix>-btn-icon-only` selector (0,2,0). Beating that needs
+            // BOTH `!important` (to tie its importance) AND higher specificity — `&&&` (0,3,0) wins the tie.
+            // Restores the toolbar border (matching the search box) via a theme token, so it adapts to light + dark.
+            css={{ '&&&': { border: `1px solid ${theme.colors.actionDefaultBorderDefault} !important` } }}
           >
-            <DropdownMenu.ItemIndicator />
-            {label}
-          </DropdownMenu.CheckboxItem>
-        ))}
-        {groups?.map((group, groupIndex) => {
-          const groupVisible = new Set(group.visibleIds);
-          return (
-            <Fragment key={groupIndex}>
-              <DropdownMenu.Separator />
-              <DropdownMenu.Label>{group.label}</DropdownMenu.Label>
-              {group.options.map(({ id, label, componentId }) => (
-                <DropdownMenu.CheckboxItem
-                  key={id}
-                  componentId={componentId}
-                  checked={groupVisible.has(id)}
-                  onCheckedChange={() => group.onToggle(id)}
-                >
-                  <DropdownMenu.ItemIndicator />
-                  {label}
-                </DropdownMenu.CheckboxItem>
-              ))}
-            </Fragment>
-          );
-        })}
-        <DropdownMenu.Separator />
-        <DropdownMenu.Item componentId={`${COMPONENT_ID}.column-selector.reset`} onClick={onResetToDefaults}>
-          <FormattedMessage
-            defaultMessage="Reset to defaults"
-            description="Menu item that resets the traces table column visibility to defaults"
-          />
-        </DropdownMenu.Item>
+            <FormattedMessage
+              defaultMessage="Columns ({visible}/{total})"
+              description="Column-selector trigger label showing visible columns out of total available"
+              values={{ visible: visibleColumns.length, total: columns.length }}
+            />
+          </Button>
+        </DropdownMenu.Trigger>
+      </Tooltip>
+      <DropdownMenu.Content align="end">
+        {reorder ? (
+          <>
+            <ReorderableTraceColumnList {...reorder} />
+            <DropdownMenu.Separator />
+            <DropdownMenu.Item componentId={`${COMPONENT_ID}.column-selector.reset`} onClick={onResetToDefaults}>
+              <FormattedMessage
+                defaultMessage="Reset to defaults"
+                description="Menu item that resets the traces table column visibility to defaults"
+              />
+            </DropdownMenu.Item>
+          </>
+        ) : (
+          <>
+            {columns.map(({ id, label, componentId }) => (
+              <DropdownMenu.CheckboxItem
+                key={id}
+                componentId={componentId}
+                checked={visible.has(id)}
+                // Toggle in onSelect (not onCheckedChange) and preventDefault so the menu stays open across
+                // changes — several columns can be toggled in one visit. preventDefault here also suppresses
+                // onCheckedChange in this Radix version, so the explicit onToggleColumn call is what fires.
+                onSelect={(event) => {
+                  event.preventDefault();
+                  onToggleColumn(id);
+                }}
+              >
+                <DropdownMenu.ItemIndicator />
+                {label}
+              </DropdownMenu.CheckboxItem>
+            ))}
+            {groups?.map((group, groupIndex) => {
+              const groupVisible = new Set(group.visibleIds);
+              return (
+                <Fragment key={groupIndex}>
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.Label>{group.label}</DropdownMenu.Label>
+                  {group.options.map(({ id, label, componentId }) => (
+                    <DropdownMenu.CheckboxItem
+                      key={id}
+                      componentId={componentId}
+                      checked={groupVisible.has(id)}
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        group.onToggle(id);
+                      }}
+                    >
+                      <DropdownMenu.ItemIndicator />
+                      {label}
+                    </DropdownMenu.CheckboxItem>
+                  ))}
+                </Fragment>
+              );
+            })}
+            <DropdownMenu.Separator />
+            <DropdownMenu.Item componentId={`${COMPONENT_ID}.column-selector.reset`} onClick={onResetToDefaults}>
+              <FormattedMessage
+                defaultMessage="Reset to defaults"
+                description="Menu item that resets the traces table column visibility to defaults"
+              />
+            </DropdownMenu.Item>
+          </>
+        )}
       </DropdownMenu.Content>
     </DropdownMenu.Root>
   );

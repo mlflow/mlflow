@@ -757,6 +757,35 @@
       },
       "last_updated_at": "2026-06-10"
     },
+    "anthropic.claude-fable-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 0.25,
+        "cache_write_per_million_tokens": 12.5,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-02"
+    },
     "anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -768,7 +797,13 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25
+        "cache_write_per_million_tokens": 1.25,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.5,
+            "output_per_million_tokens": 2.5
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -777,7 +812,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "anthropic.claude-haiku-4-5@20251001": {
       "mode": "chat",
@@ -1096,6 +1131,12 @@
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
         "cache_write_per_million_tokens": 3.75,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 7.5
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -1120,7 +1161,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -1986,7 +2027,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -1995,7 +2042,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "apac.anthropic.claude-sonnet-4-20250514-v1:0": {
       "mode": "chat",
@@ -2047,7 +2094,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -2056,7 +2109,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "au.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -2186,6 +2239,12 @@
         "output_per_million_tokens": 16.5,
         "cache_read_per_million_tokens": 0.33,
         "cache_write_per_million_tokens": 4.125,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 8.25
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -2210,7 +2269,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "au.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -2322,6 +2381,12 @@
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
         "cache_write_per_million_tokens": 3.75,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 7.5
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -2339,7 +2404,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "cohere.command-light-text-v14": {
       "mode": "chat",
@@ -3430,6 +3495,35 @@
       },
       "last_updated_at": "2026-06-10"
     },
+    "eu.anthropic.claude-fable-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 11.0,
+        "output_per_million_tokens": 55.0,
+        "cache_read_per_million_tokens": 0.275,
+        "cache_write_per_million_tokens": 13.75,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-02"
+    },
     "eu.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -3441,7 +3535,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3451,7 +3551,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-10-15",
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "eu.anthropic.claude-opus-4-1-20250805-v1:0": {
       "mode": "chat",
@@ -3480,7 +3580,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "deprecation_date": "2027-01-08",
+      "last_updated_at": "2026-09-02"
     },
     "eu.anthropic.claude-opus-4-20250514-v1:0": {
       "mode": "chat",
@@ -3707,6 +3808,12 @@
         "output_per_million_tokens": 16.5,
         "cache_read_per_million_tokens": 0.33,
         "cache_write_per_million_tokens": 4.125,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 8.25
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -3731,7 +3838,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "eu.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -3878,7 +3985,6 @@
         "max_tokens": 77
       },
       "pricing": {
-        "input_per_million_tokens": 70.0,
         "output_per_million_tokens": 0.0,
         "modality": {
           "video": {
@@ -3897,7 +4003,33 @@
         "response_schema": false
       },
       "deprecation_date": "2026-11-30",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-09-09"
+    },
+    "eu.twelvelabs.marengo-embed-3-0-v1:0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 500,
+        "max_tokens": 500
+      },
+      "pricing": {
+        "output_per_million_tokens": 0.0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.0007
+          },
+          "audio": {
+            "input_per_second": 0.00014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
     },
     "eu.twelvelabs.pegasus-1-2-v1:0": {
       "mode": "chat",
@@ -3968,6 +4100,35 @@
       },
       "last_updated_at": "2026-06-10"
     },
+    "global.anthropic.claude-fable-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 0.25,
+        "cache_write_per_million_tokens": 12.5,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-02"
+    },
     "global.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -3979,7 +4140,13 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25
+        "cache_write_per_million_tokens": 1.25,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.5,
+            "output_per_million_tokens": 2.5
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -3988,7 +4155,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "global.anthropic.claude-opus-4-5-20251101-v1:0": {
       "mode": "chat",
@@ -4186,6 +4353,12 @@
         "output_per_million_tokens": 15.0,
         "cache_read_per_million_tokens": 0.3,
         "cache_write_per_million_tokens": 3.75,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.5,
+            "output_per_million_tokens": 7.5
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -4210,7 +4383,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "global.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -4269,6 +4442,120 @@
         "response_schema": true
       },
       "last_updated_at": "2026-07-06"
+    },
+    "global.openai.gpt-5.6-luna": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.02,
+        "cache_write_per_million_tokens": 0.25,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 0.4,
+            "cache_write_per_million_tokens": 0.5,
+            "cache_read_per_million_tokens": 0.04,
+            "output_per_million_tokens": 1.8
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "global.openai.gpt-5.6-sol": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 20.0,
+        "cache_read_per_million_tokens": 0.4,
+        "cache_write_per_million_tokens": 5.0,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 8.0,
+            "cache_write_per_million_tokens": 10.0,
+            "cache_read_per_million_tokens": 0.8,
+            "output_per_million_tokens": 30.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "global.openai.gpt-5.6-terra": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.2,
+        "cache_write_per_million_tokens": 2.5,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 4.0,
+            "cache_write_per_million_tokens": 5.0,
+            "cache_read_per_million_tokens": 0.4,
+            "output_per_million_tokens": 18.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "global.xai.grok-4.6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000,
+        "max_tokens": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
     },
     "google.gemma-3-12b-it": {
       "mode": "chat",
@@ -4363,7 +4650,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -4372,7 +4665,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "jp.anthropic.claude-opus-4-7": {
       "mode": "chat",
@@ -4473,6 +4766,12 @@
         "output_per_million_tokens": 16.5,
         "cache_read_per_million_tokens": 0.33,
         "cache_write_per_million_tokens": 4.125,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 8.25
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -4497,7 +4796,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "jp.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -5428,7 +5727,13 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.22,
-        "output_per_million_tokens": 0.88
+        "output_per_million_tokens": 0.88,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.11,
+            "output_per_million_tokens": 0.44
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -5437,7 +5742,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-08-25"
     },
     "qwen.qwen3-32b-v1:0": {
       "mode": "chat",
@@ -5487,7 +5792,7 @@
         "max_tokens": 65536
       },
       "pricing": {
-        "input_per_million_tokens": 0.22,
+        "input_per_million_tokens": 0.45,
         "output_per_million_tokens": 1.8
       },
       "capabilities": {
@@ -5497,7 +5802,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-07"
     },
     "qwen.qwen3-coder-next": {
       "mode": "chat",
@@ -5816,8 +6121,15 @@
         "max_tokens": 77
       },
       "pricing": {
-        "input_per_million_tokens": 70.0,
-        "output_per_million_tokens": 0.0
+        "output_per_million_tokens": 0.0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.0007
+          },
+          "audio": {
+            "input_per_second": 0.00014
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -5827,7 +6139,33 @@
         "response_schema": false
       },
       "deprecation_date": "2026-11-30",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-09-09"
+    },
+    "twelvelabs.marengo-embed-3-0-v1:0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 500,
+        "max_tokens": 500
+      },
+      "pricing": {
+        "output_per_million_tokens": 0.0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.0007
+          },
+          "audio": {
+            "input_per_second": 0.00014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
     },
     "twelvelabs.pegasus-1-2-v1:0": {
       "mode": "chat",
@@ -6527,6 +6865,28 @@
       "deprecation_date": "2026-09-10",
       "last_updated_at": "2026-08-12"
     },
+    "us-gov-east-1/anthropic.claude-fable-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 12.0,
+        "output_per_million_tokens": 60.0,
+        "cache_read_per_million_tokens": 0.3,
+        "cache_write_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
     "us-gov-east-1/anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -6549,6 +6909,50 @@
       },
       "last_updated_at": "2026-06-01"
     },
+    "us-gov-east-1/anthropic.claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 6.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.6,
+        "cache_write_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-east-1/anthropic.claude-opus-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 6.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.6,
+        "cache_write_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
     "us-gov-east-1/anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -6570,6 +6974,28 @@
         "response_schema": true
       },
       "last_updated_at": "2026-06-09"
+    },
+    "us-gov-east-1/anthropic.claude-sonnet-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.4,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.24,
+        "cache_write_per_million_tokens": 3.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
     },
     "us-gov-east-1/claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -6632,6 +7058,193 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "us-gov-east-1/nvidia.nemotron-nano-12b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.24,
+        "output_per_million_tokens": 0.72
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-east-1/nvidia.nemotron-nano-3-30b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.288
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-east-1/nvidia.nemotron-nano-9b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.276
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-east-1/nvidia.nemotron-super-3-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.78
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-east-1/openai.gpt-oss-120b-1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.72
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-east-1/openai.gpt-oss-20b-1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.084,
+        "output_per_million_tokens": 0.36
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-west-1/amazon.nova-2-multimodal-embeddings-v1:0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 8172,
+        "max_tokens": 8172
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.162,
+        "output_per_million_tokens": 0.0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.00084
+          },
+          "audio": {
+            "input_per_second": 0.000168
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-west-1/amazon.nova-lite-v1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 300000,
+        "max_output": 10000,
+        "max_tokens": 10000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.288
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-west-1/amazon.nova-micro-v1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 10000,
+        "max_tokens": 10000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.042,
+        "output_per_million_tokens": 0.168
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
     },
     "us-gov-west-1/amazon.nova-pro-v1:0": {
       "mode": "chat",
@@ -6818,6 +7431,28 @@
       "deprecation_date": "2026-09-10",
       "last_updated_at": "2026-08-12"
     },
+    "us-gov-west-1/anthropic.claude-fable-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 12.0,
+        "output_per_million_tokens": 60.0,
+        "cache_read_per_million_tokens": 0.3,
+        "cache_write_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
     "us-gov-west-1/anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -6840,6 +7475,50 @@
       },
       "last_updated_at": "2026-06-01"
     },
+    "us-gov-west-1/anthropic.claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 6.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.6,
+        "cache_write_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-west-1/anthropic.claude-opus-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 6.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.6,
+        "cache_write_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
     "us-gov-west-1/anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -6861,6 +7540,28 @@
         "response_schema": true
       },
       "last_updated_at": "2026-06-09"
+    },
+    "us-gov-west-1/anthropic.claude-sonnet-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.4,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.24,
+        "cache_write_per_million_tokens": 3.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
     },
     "us-gov-west-1/claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -6913,7 +7614,7 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
-        "output_per_million_tokens": 2.65
+        "output_per_million_tokens": 0.6
       },
       "capabilities": {
         "function_calling": false,
@@ -6922,7 +7623,216 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-west-1/nvidia.nemotron-nano-12b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.24,
+        "output_per_million_tokens": 0.72
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-west-1/nvidia.nemotron-nano-3-30b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.288
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-west-1/nvidia.nemotron-nano-9b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.276
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov-west-1/nvidia.nemotron-super-3-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.78
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-west-1/openai.gpt-oss-120b-1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.72
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov-west-1/openai.gpt-oss-20b-1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.084,
+        "output_per_million_tokens": 0.36
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov.anthropic.claude-3-haiku-20240307-v1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.03,
+        "cache_write_per_million_tokens": 0.375
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "deprecation_date": "2026-09-10",
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov.anthropic.claude-fable-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 12.0,
+        "output_per_million_tokens": 60.0,
+        "cache_read_per_million_tokens": 0.3,
+        "cache_write_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov.anthropic.claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 6.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.6,
+        "cache_write_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov.anthropic.claude-opus-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 6.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.6,
+        "cache_write_per_million_tokens": 7.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
     },
     "us-gov.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -6954,6 +7864,169 @@
         "response_schema": true
       },
       "last_updated_at": "2026-06-09"
+    },
+    "us-gov.anthropic.claude-sonnet-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.4,
+        "output_per_million_tokens": 12.0,
+        "cache_read_per_million_tokens": 0.24,
+        "cache_write_per_million_tokens": 3.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-04"
+    },
+    "us-gov.nvidia.nemotron-nano-12b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.24,
+        "output_per_million_tokens": 0.72
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov.nvidia.nemotron-nano-3-30b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.288
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov.nvidia.nemotron-nano-9b-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 8192,
+        "max_tokens": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.072,
+        "output_per_million_tokens": 0.276
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov.nvidia.nemotron-super-3-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.78
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov.openai.gpt-oss-120b-1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.72
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov.openai.gpt-oss-20b-1:0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.084,
+        "output_per_million_tokens": 0.36
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-09"
+    },
+    "us-gov.xai.grok-4.6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000,
+        "max_tokens": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.64,
+        "output_per_million_tokens": 7.92,
+        "cache_read_per_million_tokens": 0.66
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
     },
     "us-west-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -7681,6 +8754,35 @@
       },
       "last_updated_at": "2026-06-10"
     },
+    "us.anthropic.claude-fable-5-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 11.0,
+        "output_per_million_tokens": 55.0,
+        "cache_read_per_million_tokens": 0.275,
+        "cache_write_per_million_tokens": 13.75,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-02"
+    },
     "us.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -7692,7 +8794,13 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375
+        "cache_write_per_million_tokens": 1.375,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.55,
+            "output_per_million_tokens": 2.75
+          }
+        }
       },
       "capabilities": {
         "function_calling": true,
@@ -7701,7 +8809,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "us.anthropic.claude-opus-4-1-20250805-v1:0": {
       "mode": "chat",
@@ -7958,6 +9066,12 @@
         "output_per_million_tokens": 16.5,
         "cache_read_per_million_tokens": 0.33,
         "cache_write_per_million_tokens": 4.125,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.65,
+            "output_per_million_tokens": 8.25
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -7982,7 +9096,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-08-25"
     },
     "us.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -8314,6 +9428,99 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "us.openai.gpt-5.6-luna": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.22,
+        "output_per_million_tokens": 1.32,
+        "cache_read_per_million_tokens": 0.022,
+        "cache_write_per_million_tokens": 0.275,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 0.44,
+            "cache_write_per_million_tokens": 0.55,
+            "cache_read_per_million_tokens": 0.044,
+            "output_per_million_tokens": 1.98
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "us.openai.gpt-5.6-sol": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.4,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 0.44,
+        "cache_write_per_million_tokens": 5.5,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 8.8,
+            "cache_write_per_million_tokens": 11.0,
+            "cache_read_per_million_tokens": 0.88,
+            "output_per_million_tokens": 33.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
+    "us.openai.gpt-5.6-terra": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.2,
+        "output_per_million_tokens": 13.2,
+        "cache_read_per_million_tokens": 0.22,
+        "cache_write_per_million_tokens": 2.75,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 4.4,
+            "cache_write_per_million_tokens": 5.5,
+            "cache_read_per_million_tokens": 0.44,
+            "output_per_million_tokens": 19.8
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
+    },
     "us.twelvelabs.marengo-embed-2-7-v1:0": {
       "mode": "embedding",
       "context_window": {
@@ -8321,7 +9528,6 @@
         "max_tokens": 77
       },
       "pricing": {
-        "input_per_million_tokens": 70.0,
         "output_per_million_tokens": 0.0,
         "modality": {
           "video": {
@@ -8340,7 +9546,33 @@
         "response_schema": false
       },
       "deprecation_date": "2026-11-30",
-      "last_updated_at": "2026-08-12"
+      "last_updated_at": "2026-09-09"
+    },
+    "us.twelvelabs.marengo-embed-3-0-v1:0": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 500,
+        "max_tokens": 500
+      },
+      "pricing": {
+        "output_per_million_tokens": 0.0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.0007
+          },
+          "audio": {
+            "input_per_second": 0.00014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-09"
     },
     "us.twelvelabs.pegasus-1-2-v1:0": {
       "mode": "chat",
@@ -8400,6 +9632,27 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "us.xai.grok-4.6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000,
+        "max_tokens": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.2,
+        "output_per_million_tokens": 6.6,
+        "cache_read_per_million_tokens": 0.55
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-31"
     },
     "writer.palmyra-x4-v1:0": {
       "mode": "chat",

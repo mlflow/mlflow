@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@databricks/web-shared/query-client';
-import { SEARCH_MLFLOW_TRACES_QUERY_KEY } from '@databricks/web-shared/genai-traces-table';
+import { SEARCH_MLFLOW_TRACES_QUERY_KEY, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import { SESSION_ID_METADATA_KEY, type ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import {
   EMPTY_FILTER_MODEL,
@@ -15,18 +15,27 @@ import {
 import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 // Reuse the generic (branding-free) datasets-v2 helpers.
 import { useDebouncedSearchInput } from './useDebouncedSearchInput';
+import type { TracesV4CustomColumns } from './useTracesV4CustomColumns';
 import { useTracesV4UrlState } from './useTracesV4UrlState';
 import { useTracesV4TimeRange } from './useTracesV4TimeRange';
 import { useTracesV4Columns } from './useTracesV4Columns';
 import { useTracesV4AssessmentColumns } from './useTracesV4AssessmentColumns';
 import { useTracesV4ColumnSizing } from './useTracesV4ColumnSizing';
-import { buildFilter, buildOrderBy } from '../utils/buildTracesV4SearchParams';
+import { useTracesV4TraceCount } from './useTracesV4TraceCount';
+import { useTracesV4CustomColumns } from './useTracesV4CustomColumns';
+import { useTracesV4ColumnOrder } from './useTracesV4ColumnOrder';
+import { buildFilter, buildOrderBy, isExactTraceIdSearch } from '../utils/buildTracesV4SearchParams';
 import { compileFilterModel, compileTagFilters } from '../utils/filterModel';
+import { assessmentColumnId } from '../utils/assessmentColumns';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
+
+// Grouped mode fetches sessions in one page so a session isn't split across page boundaries.
+// Capped at the OSS `SearchTracesV3` limit (max_results <= 500 in mlflow/server/handlers.py);
+// managed allows more, but shared code must respect the stricter OSS ceiling.
+export const GROUPED_TRACES_LIMIT = 500;
 
 interface UseTracesV4ControllerParams {
   experimentId: string;
-  storageUCSchema: string;
 }
 
 export interface UseTracesV4ControllerResult {
@@ -35,6 +44,11 @@ export interface UseTracesV4ControllerResult {
   columns: ReturnType<typeof useTracesV4Columns>;
   assessments: ReturnType<typeof useTracesV4AssessmentColumns>;
   columnSizing: ReturnType<typeof useTracesV4ColumnSizing>;
+  /** "{n} of {total}" footer count — current page rows out of the experiment total. */
+  traceCount: ReturnType<typeof useTracesV4TraceCount>;
+  customColumns: TracesV4CustomColumns;
+  /** Mixed display order across standard + assessment columns (drag/keyboard reorder + persistence). */
+  columnOrder: ReturnType<typeof useTracesV4ColumnOrder>;
   bulk: ReturnType<typeof useBulkTraceSelection>;
   searchInput: ReturnType<typeof useDebouncedSearchInput>;
   filterModel: TraceFilterModel;
@@ -42,14 +56,12 @@ export interface UseTracesV4ControllerResult {
   activeFilterCount: number;
   /** ISO time range currently applied (drives the search filter + refresh label context). */
   timeRange: { startTime?: string; endTime?: string };
-  /** True when V4 needs a SQL warehouse but none is selected — the query stays disabled. */
-  isMissingWarehouse: boolean;
-  /** True when trace deletion is unsupported for the current locations (always so for UC-backed v4). */
-  isDeleteDisabled: boolean;
   /** Navigate to a page, committing any pending typed search first. */
   goToPage: (target: number) => void;
   /** Toggle a URL-persisted click-to-filter tag constraint (from a tag pill in the table). */
   onFilterByTag: (key: string, value: string) => void;
+  /** Effective grouped state — the URL flag gated by the session-grouping feature flag. */
+  isGroupedBySession: boolean;
   flags: {
     hasActiveSearch: boolean;
     hasNoTracesAtAll: boolean;
@@ -66,14 +78,13 @@ export interface UseTracesV4ControllerResult {
  * render layer. Compiling the filter model into a server clause string and the warehouse `enabled`
  * check stay MLflow-side; they feed the shared `useTracesPageQuery` via `identity`.
  */
-export const useTracesV4Controller = ({
-  experimentId,
-  storageUCSchema,
-}: UseTracesV4ControllerParams): UseTracesV4ControllerResult => {
+export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerParams): UseTracesV4ControllerResult => {
   const url = useTracesV4UrlState();
   const { timeRangeMs: timeRange, setTimeRange } = useTracesV4TimeRange(experimentId);
   const queryClient = useQueryClient();
   const monitoringConfig = useMonitoringConfig();
+
+  const isGroupedBySession = shouldEnableSessionGrouping() && url.isGroupedBySession;
 
   const [filterModel, setFilterModel] = useState<TraceFilterModel>(EMPTY_FILTER_MODEL);
 
@@ -91,15 +102,12 @@ export const useTracesV4Controller = ({
   const { submit: submitSearch } = searchInput;
 
   // OSS traces live under an MLflow experiment (the `SearchTracesV3` handler reads only
-  // `location.mlflow_experiment.experiment_id` and ignores UC-schema locations). The Databricks
-  // build searches a UC schema derived from `storageUCSchema`; here we search the experiment.
+  // `location.mlflow_experiment.experiment_id` and ignores UC-schema locations), so we always
+  // search the experiment location. The Databricks build instead searches a UC schema.
   const locations = useMemo<ModelTraceSearchLocation[]>(
     () => [{ type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: experimentId } }],
     [experimentId],
   );
-
-  // Traces in the OSS tracking store are deletable via the standard delete path (no UC/Delta gate).
-  const isDeleteDisabled = false;
 
   const filter = useMemo(
     () =>
@@ -115,13 +123,11 @@ export const useTracesV4Controller = ({
 
   const orderBy = useMemo(() => buildOrderBy(url.sort, url.dir), [url.sort, url.dir]);
 
+  const queryPageSize = isGroupedBySession ? GROUPED_TRACES_LIMIT : url.pageSize;
   const identity = useMemo<TracesQueryIdentity>(
-    () => ({ locations, filter, orderBy, pageSize: url.pageSize }),
-    [locations, filter, orderBy, url.pageSize],
+    () => ({ locations, filter, orderBy, pageSize: queryPageSize }),
+    [locations, filter, orderBy, queryPageSize],
   );
-
-  // OSS has no SQL warehouse, so the search is never gated on one — it always fires.
-  const isMissingWarehouse = false;
 
   const tokenCache = useTraceTokenCache();
 
@@ -178,6 +184,26 @@ export const useTracesV4Controller = ({
   const columns = useTracesV4Columns(experimentId, { hasSessionOnPage });
   const assessments = useTracesV4AssessmentColumns(experimentId, page.traces);
   const columnSizing = useTracesV4ColumnSizing(experimentId);
+  const traceCount = useTracesV4TraceCount(experimentId, page.traces.length, timeRange, {
+    isExactTraceIdSearch: isExactTraceIdSearch(url.search),
+    // The page's row count is the exact-id result only once the row query has settled on the current
+    // filter. `isPreviousData` covers the tick where `url.search` has committed the trace-id but the
+    // row query is still serving the prior page's rows and hasn't flipped `isFetching` yet.
+    isResultLoading: page.isLoading || page.isFetching || page.isPreviousData,
+  });
+  const customColumns = useTracesV4CustomColumns(
+    page.traces,
+    columns.dynamicVisibilityById,
+    columns.setDynamicVisibility,
+  );
+
+  // The reorderable order spans the standard columns (their persisted order) and the page's known
+  // assessment columns. Kept separate from visibility so reordering never resets a column's on/off.
+  const assessmentColumnIds = useMemo(
+    () => assessments.candidateNames.map(assessmentColumnId),
+    [assessments.candidateNames],
+  );
+  const columnOrder = useTracesV4ColumnOrder(experimentId, columns.columnOrder, assessmentColumnIds);
 
   const bulk = useBulkTraceSelection(page.traces);
 
@@ -210,16 +236,18 @@ export const useTracesV4Controller = ({
     columns,
     assessments,
     columnSizing,
+    traceCount,
+    customColumns,
+    columnOrder,
     bulk,
     searchInput,
     filterModel,
     setFilterModel,
     activeFilterCount,
     timeRange,
-    isMissingWarehouse,
-    isDeleteDisabled,
     goToPage,
     onFilterByTag: url.addTagFilter,
+    isGroupedBySession,
     flags: { hasActiveSearch, hasNoTracesAtAll, hasNoSearchResults, isEmptyPageBeyondFirst },
   };
 };

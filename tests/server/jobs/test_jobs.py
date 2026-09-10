@@ -10,12 +10,17 @@ import pytest
 
 import mlflow.store.jobs.sqlalchemy_store
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS,
+    MLFLOW_WORKSPACE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import (
     TransientError,
+    _job_runner,
     cancel_job,
     get_job,
     job,
@@ -71,6 +76,22 @@ def basic_job_fun(x, y, sleep_secs=0):
     if sleep_secs > 0:
         time.sleep(sleep_secs)
     return x + y
+
+
+def test_job_runner_periodic_tasks_can_be_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.name, "false")
+    with mock.patch.object(_job_runner, "_launch_periodic_tasks_consumer") as launch_consumer:
+        _job_runner._launch_periodic_tasks_consumer_if_enabled()
+
+    launch_consumer.assert_not_called()
+
+
+def test_job_runner_periodic_tasks_are_enabled_by_default(monkeypatch):
+    monkeypatch.delenv(MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.name, raising=False)
+    with mock.patch.object(_job_runner, "_launch_periodic_tasks_consumer") as launch_consumer:
+        _job_runner._launch_periodic_tasks_consumer_if_enabled()
+
+    launch_consumer.assert_called_once()
 
 
 def test_basic_job(monkeypatch, tmp_path):
@@ -1088,3 +1109,19 @@ def test_subproc_entry_telemetry(tmp_path, monkeypatch):
 
     mock_set_telemetry.assert_called_once()
     mock_client.flush.assert_called_once()
+
+
+def test_create_job_records_creator(tmp_path: Path, workspaces_enabled):
+    # creator round-trips through both stores; optional when unauthenticated.
+    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
+    store_cls = WorkspaceAwareSqlAlchemyJobStore if workspaces_enabled else SqlAlchemyJobStore
+    store = store_cls(backend_store_uri)
+
+    job = store.create_job("test.function", "{}", creator="alice")
+    assert job.creator == "alice"
+    assert store.get_job(job.job_id).creator == "alice"
+
+    # creator is optional (job created without authentication)
+    anon = store.create_job("test.function", "{}")
+    assert anon.creator is None
+    assert store.get_job(anon.job_id).creator is None

@@ -35,6 +35,14 @@ function resolveWidthToPixels(w: number | string): number {
   return 320;
 }
 
+// Keep the drawer open for assistant UI, the resize handle, and portaled Radix popovers (which live outside the drawer's DOM).
+export const shouldPreventDrawerDismiss = (target: HTMLElement | null): boolean =>
+  Boolean(
+    target?.closest('[data-assistant-ui="true"]') ||
+    target?.closest('[data-drawer-resize-handle="true"]') ||
+    target?.closest('[data-radix-popper-content-wrapper]'),
+  );
+
 // Keeping modal prop for compatibility with Drawer.Root props.
 function Root({
   open,
@@ -162,16 +170,11 @@ function Content({
         size={size}
         css={mergedCss}
         onInteractOutside={(event) => {
-          // Prevent drawer from closing when clicking on assistant UI elements.
-          // We use a data attribute selector instead of React patterns (e.g., stopPropagation)
-          // because Radix's DismissableLayer uses document-level listeners that bypass
-          // React's event propagation. The onInteractOutside handler is the correct
-          // interception point, and we identify assistant elements via data-assistant-ui
-          // attribute set on AssistantIconButton and RootAssistantLayout.
-          const target = event.target as HTMLElement;
-          const isAssistantClick = target?.closest('[data-assistant-ui="true"]');
-          const isResizeHandle = target?.closest('[data-drawer-resize-handle="true"]');
-          if (isAssistantClick || isResizeHandle) {
+          // We inspect the DOM target instead of using React patterns (e.g. stopPropagation)
+          // because Radix's DismissableLayer uses document-level listeners that bypass React's
+          // event propagation. onInteractOutside is the correct interception point; see
+          // shouldPreventDrawerDismiss for which interactions are treated as "not outside".
+          if (shouldPreventDrawerDismiss(event.target as HTMLElement)) {
             event.preventDefault();
           }
         }}

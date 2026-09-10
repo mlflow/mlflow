@@ -1212,6 +1212,13 @@ def test_responses_agent_output_to_responses_items_stream(chunks, expected_outpu
     assert aggregator == expected_aggregator
 
 
+def test_output_to_responses_items_stream_empty_input():
+    aggregator = []
+
+    assert list(output_to_responses_items_stream([], aggregator)) == []
+    assert aggregator == []
+
+
 def test_create_text_delta():
     result = ResponsesAgent.create_text_delta("Hello", "test-id")
     expected = {

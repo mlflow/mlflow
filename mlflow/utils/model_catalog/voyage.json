@@ -115,6 +115,63 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "voyage-4": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-25"
+    },
+    "voyage-4-large": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-25"
+    },
+    "voyage-4-lite": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.02,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-25"
+    },
     "voyage-code-2": {
       "mode": "embedding",
       "context_window": {
@@ -153,6 +210,25 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "voyage-code-4": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-25"
+    },
     "voyage-context-3": {
       "mode": "embedding",
       "context_window": {
@@ -171,6 +247,25 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "voyage-context-4": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 120000,
+        "max_tokens": 120000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-25"
     },
     "voyage-finance-2": {
       "mode": "embedding",
@@ -285,6 +380,25 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "voyage-multimodal-3.5": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-25"
     }
   }
 }

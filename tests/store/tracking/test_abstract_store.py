@@ -1,3 +1,4 @@
+import threading
 from abc import ABC
 from unittest import mock
 from unittest.mock import patch
@@ -40,6 +41,33 @@ def test_supports_workspaces_defaults_to_false(store):
 
 def test_supports_trace_archival_defaults_to_false(store):
     assert store.supports_trace_archival is False
+
+
+class _SyncOnlySpanStore(AbstractStore, ABC):
+    """Tracking store that implements ``log_spans`` but not ``log_spans_async``."""
+
+    def __init__(self):
+        super().__init__()
+        self.calls = []
+        self.worker_idents = []
+
+    def log_spans(self, location, spans, tracking_uri=None):
+        self.worker_idents.append(threading.get_ident())
+        self.calls.append((location, list(spans)))
+        return spans
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_defaults_to_offloading_log_spans():
+    with patch.multiple(_SyncOnlySpanStore, __abstractmethods__=set()):
+        store = _SyncOnlySpanStore()
+        event_loop_ident = threading.get_ident()
+        result = await store.log_spans_async("exp-1", [])
+
+    assert result == []
+    assert store.calls == [("exp-1", [])]
+    assert store.worker_idents
+    assert store.worker_idents[0] != event_loop_ident
 
 
 def test_get_metric_history_bulk_interval_empty_run_ids(store):

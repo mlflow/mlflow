@@ -3,11 +3,22 @@
 // hooks are an opt-in fetch layer the presentational components never import.
 
 // Types
-export type { TraceColumnId, SortDirection, PageSize, TraceTableColumn, SessionHrefGetter } from './types';
+export type {
+  TraceColumnId,
+  SortDirection,
+  PageSize,
+  TraceTableColumn,
+  SessionCellRenderer,
+  SessionHrefGetter,
+  SessionSelectionHandler,
+  TraceHrefGetter,
+  TraceColumnHeaderAction,
+} from './types';
 
 // Constants
 export {
   TRACE_COLUMN_IDS,
+  isTraceColumnId,
   SORTABLE_TRACE_COLUMNS,
   isSortableTraceColumn,
   DEFAULT_SORT_COLUMN,
@@ -24,6 +35,7 @@ export { STANDARD_COLUMNS, getVisibleColumnDefs, getTableMeta, openLabel, type T
 // Presentational components
 export { TracesTable, type TracesTableProps } from './TracesTable';
 export { TracesTableToolbar, type TracesTableToolbarProps } from './TracesTableToolbar';
+export { ToolbarCollapsibleLabel, TRACES_TOOLBAR_COLLAPSE_QUERY } from './TracesToolbarResponsive';
 export { TracesPaginationBar, type TracesPaginationBarProps } from './TracesPaginationBar';
 export {
   TraceColumnSelector,
@@ -32,6 +44,11 @@ export {
   type GenericColumnOption,
   type ColumnSelectorGroup,
 } from './TraceColumnSelector';
+export {
+  ReorderableTraceColumnList,
+  type ReorderableTraceColumnListProps,
+  type ReorderableTraceColumnOption,
+} from './ReorderableTraceColumnList';
 export { TraceFilterButton, type TraceFilterButtonProps } from './TraceFilterButton';
 export { TracesTableView, type TracesTableViewProps, type TracesTableViewState } from './TracesTableView';
 
@@ -52,15 +69,20 @@ export {
 // Cell renderers (exported for consumers building custom columns / tests)
 export {
   TraceIdCell,
+  TraceNameCell,
   TraceInputCell,
   TraceOutputCell,
+  TraceUserCell,
   TraceSessionCell,
   TraceStateCell,
+  TraceSourceCell,
+  TraceRunNameCell,
   TraceStartTimeCell,
   TraceDurationCell,
   TraceTokensCell,
   TraceCostCell,
   TraceTagsCell,
+  TraceMetadataCell,
 } from './TraceCell';
 
 // Filter model (generic AST + UI helpers; API-specific compilation stays consumer-side)
@@ -79,6 +101,7 @@ export {
 
 // Helpers
 export { formatTraceDuration } from './formatTraceDuration';
+export { getTextColumnMaxSize } from './getColumnMaxSizes';
 
 // Hooks (presentational state)
 export { useBulkTraceSelection, type UseBulkTraceSelectionResult } from './hooks/useBulkTraceSelection';

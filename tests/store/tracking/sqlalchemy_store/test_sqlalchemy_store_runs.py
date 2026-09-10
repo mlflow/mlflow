@@ -25,6 +25,7 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.logged_model_output import LoggedModelOutput
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -3980,6 +3981,30 @@ def test_log_outputs(store: SqlAlchemyStore):
     store.log_outputs(run.info.run_id, [LoggedModelOutput(model.model_id, 1)])
     run = store.get_run(run.info.run_id)
     assert run.outputs.model_outputs == [LoggedModelOutput(model.model_id, 1)]
+
+
+def test_search_logged_models_quoted_value_that_looks_like_a_tuple(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(
+        experiment_id=exp_id, params=[LoggedModelParameter("shape", "(1, 2)")]
+    )
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], filter_string="params.shape = '(1, 2)'"
+    )
+    assert [m.model_id for m in models] == [model.model_id]
+
+    # The parenthesized form is reserved for `IN` lists, which arrive unquoted.
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], filter_string="params.shape IN ('(1, 2)', 'other')"
+    )
+    assert [m.model_id for m in models] == [model.model_id]
+
+
+def test_search_logged_models_invalid_operator_lists_applicable_operators(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match=re.escape("Expected one of ('<', '<=', '>', '>=',")):
+        store.search_logged_models(experiment_ids=[exp_id], filter_string="metrics.loss LIKE 'x'")
 
 
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):

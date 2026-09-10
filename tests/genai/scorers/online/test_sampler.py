@@ -3,6 +3,7 @@ import uuid
 
 import pytest
 
+from mlflow.genai.scorers.base import ScorerStatus
 from mlflow.genai.scorers.builtin_scorers import Completeness, ConversationCompleteness
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -12,6 +13,7 @@ def make_online_scorer(
     scorer,
     sample_rate: float = 1.0,
     filter_string: str | None = None,
+    scorer_version: int | None = None,
 ) -> OnlineScorer:
     return OnlineScorer(
         name=scorer.name,
@@ -23,6 +25,7 @@ def make_online_scorer(
             experiment_id="exp1",
             filter_string=filter_string,
         ),
+        scorer_version=scorer_version,
     )
 
 
@@ -30,6 +33,26 @@ def test_group_scorers_by_filter_empty():
     sampler = OnlineScorerSampler([])
 
     assert sampler.group_scorers_by_filter(session_level=False) == {}
+
+
+def test_group_scorers_preserves_registered_version():
+    sampler = OnlineScorerSampler([
+        make_online_scorer(
+            Completeness(),
+            sample_rate=0.5,
+            filter_string="tags.environment = 'production'",
+            scorer_version=4,
+        )
+    ])
+
+    scorers = sampler.group_scorers_by_filter(session_level=False)[
+        "tags.environment = 'production'"
+    ]
+
+    assert scorers[0].scorer_version == 4
+    assert scorers[0].sample_rate == 0.5
+    assert scorers[0].filter_string == "tags.environment = 'production'"
+    assert scorers[0].status == ScorerStatus.STARTED
 
 
 def test_group_scorers_by_filter_no_filters():

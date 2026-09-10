@@ -145,6 +145,7 @@ CLAUDE.local.md
 !.claude/hooks/
 !.claude/rules/
 !.claude/scripts/
+!.claude/sandbox/
 !.claude/settings.json
 !.claude/statusline.sh
 

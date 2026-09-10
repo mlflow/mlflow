@@ -328,7 +328,7 @@ describe('useExperimentCustomViewDefinition', () => {
     });
 
     it('uses UTF-8 bytes to decide whether to compress', async () => {
-      const view = makeView({ id: 'unicode', instruction: '🙂'.repeat(2000) });
+      const view = makeView({ id: 'unicode', instruction: '🙂'.repeat(6000) });
       const raw = serializeCustomView(view);
       expect(raw.length).toBeLessThan(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES);
       expect(getUtf8ByteLength(raw)).toBeGreaterThan(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES);
@@ -346,8 +346,8 @@ describe('useExperimentCustomViewDefinition', () => {
       expect(isTextCompressedDeflate(call.value)).toBe(true);
     });
 
-    it('stores raw JSON at the 5,000-byte safe client limit', async () => {
-      expect(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES).toBe(5000);
+    it('stores raw JSON at the 20,000-byte safe client limit', async () => {
+      expect(CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES).toBe(20000);
       const baseView = makeView({ id: 'raw-boundary', instruction: '' });
       const instructionLength = CUSTOM_VIEW_TAG_VALUE_SAFE_MAX_BYTES - getUtf8ByteLength(serializeCustomView(baseView));
       expect(instructionLength).toBeGreaterThanOrEqual(0);

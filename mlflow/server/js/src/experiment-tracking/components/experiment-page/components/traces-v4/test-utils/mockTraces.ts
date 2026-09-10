@@ -1,6 +1,7 @@
 import {
   SESSION_ID_METADATA_KEY,
   type FeedbackAssessment,
+  type IssueReferenceAssessment,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
 
@@ -69,5 +70,23 @@ export const makeFeedbackAssessment = (
   create_time: '2025-01-01T00:00:00.000Z',
   last_update_time: '2025-01-01T00:00:00.000Z',
   feedback: { value },
+  ...over,
+});
+
+/**
+ * Build an issue-reference assessment fixture. `issueName` is the display label; the assessment name
+ * (the issue id) defaults to `issue-<issueName>`. `over` patches any field.
+ */
+export const makeIssueAssessment = (
+  issueName: string,
+  over: Partial<IssueReferenceAssessment> = {},
+): IssueReferenceAssessment => ({
+  assessment_id: `assess-issue-${issueName}`,
+  assessment_name: `issue-${issueName}`,
+  trace_id: 'tr',
+  source: { source_type: 'LLM_JUDGE', source_id: 'databricks' },
+  create_time: '2025-01-01T00:00:00.000Z',
+  last_update_time: '2025-01-01T00:00:00.000Z',
+  issue: { issue_name: issueName },
   ...over,
 });

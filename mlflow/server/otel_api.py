@@ -10,6 +10,7 @@ The actual span ingestion logic would need to properly convert incoming OTel for
 to MLflow spans, which requires more complex conversion logic.
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -41,6 +42,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     _MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX,
     _USER_AGENT,
 )
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -100,6 +102,11 @@ async def export_traces(
     content_type: str | None = Header(default=None),
     content_encoding: str | None = Header(default=None),
     user_agent: str | None = Header(None, alias=_USER_AGENT),
+    x_mlflow_workspace: str | None = Header(
+        default=None,
+        alias=WORKSPACE_HEADER_NAME,
+        description="Workspace to use when MLflow workspaces are enabled.",
+    ),
 ) -> Response:
     """
     Export trace spans to MLflow via the OpenTelemetry protocol.
@@ -118,6 +125,7 @@ async def export_traces(
         content_type: Content-Type header from the request
         content_encoding: Content-Encoding header from the request
         user_agent: User-Agent header (used to identify MLflow Python client)
+        x_mlflow_workspace: Optional workspace header if using MLflow workspaces
 
     Returns:
         FastAPI Response with ExportTraceServiceResponse in protobuf format
@@ -211,7 +219,7 @@ async def export_traces(
         store = _get_tracking_store()
 
         try:
-            store.log_spans(x_mlflow_experiment_id, all_spans)
+            await store.log_spans_async(x_mlflow_experiment_id, all_spans)
         except NotImplementedError:
             store_name = store.__class__.__name__
             raise HTTPException(
@@ -228,7 +236,9 @@ async def export_traces(
 
         if x_mlflow_run_id and completed_trace_ids:
             try:
-                store.link_traces_to_run(list(completed_trace_ids), x_mlflow_run_id)
+                await asyncio.to_thread(
+                    store.link_traces_to_run, list(completed_trace_ids), x_mlflow_run_id
+                )
             except Exception:
                 _logger.exception("Failed to link OpenTelemetry traces to MLflow run")
 

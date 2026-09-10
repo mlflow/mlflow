@@ -2,10 +2,6 @@ name: protobuf cross tests
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - "mlflow/protos/**"
       - .github/workflows/protobuf-cross-test.yml
@@ -40,7 +36,6 @@ permissions: {}
 
 jobs:
   core_tests:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:

@@ -11,7 +11,7 @@ class RunOutputs(_MlflowObject):
     def __init__(self, model_outputs: list[LoggedModelOutput]) -> None:
         self._model_outputs = model_outputs
 
-    def __eq__(self, other: _MlflowObject) -> bool:
+    def __eq__(self, other: object) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False
@@ -21,7 +21,7 @@ class RunOutputs(_MlflowObject):
         """Array of model outputs."""
         return self._model_outputs
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoRunOutputs:
         run_outputs = ProtoRunOutputs()
         run_outputs.model_outputs.extend([
             model_output.to_proto() for model_output in self.model_outputs
@@ -35,7 +35,7 @@ class RunOutputs(_MlflowObject):
         }
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoRunOutputs) -> "RunOutputs":
         model_outputs = [
             LoggedModelOutput.from_proto(model_output) for model_output in proto.model_outputs
         ]

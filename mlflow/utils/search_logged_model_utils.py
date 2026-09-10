@@ -66,7 +66,7 @@ class Entity:
         ops = numeric_ops if self.is_numeric() else string_ops
         if op not in ops:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid comparison operator for {self}: {op!r}. Expected one of {string_ops}."
+                f"Invalid comparison operator for {self}: {op!r}. Expected one of {ops}."
             )
 
 
@@ -104,7 +104,6 @@ def parse_filter_string(filter_string: str | None) -> list[Comparison]:
             identifier, op, value = non_whitespace_tokens
             entity = Entity.from_str(identifier)
             entity.validate_op(op)
-            value = float(value) if entity.is_numeric() else value.strip("'")
             if entity.is_numeric():
                 value = float(value)
             else:

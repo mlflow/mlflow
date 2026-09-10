@@ -6,6 +6,7 @@ A production-ready Helm chart for deploying [MLflow](https://mlflow.org) on Kube
 
 - **MLflow server** with configurable CLI options
 - **TLS support** via an existing Kubernetes Secret
+- **External Secrets Operator integration** to create the backend store credential Secret from AWS Secrets Manager, GCP Secret Manager, Vault, or any other supported provider
 - **Persistent storage** with a PersistentVolumeClaim for SQLite or file-based artifact stores
 - **Ingress** for external access
 - **Prometheus metrics** and optional ServiceMonitor for the Prometheus Operator

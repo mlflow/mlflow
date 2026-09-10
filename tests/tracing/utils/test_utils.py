@@ -814,7 +814,7 @@ def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
     litellm.suppress_debug_info = False
 
     calculate_cost_by_model_and_token_usage(
-        model_name="databricks-claude-sonnet-4-5",
+        model_name="unknown-model",
         usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
     )
 
@@ -831,7 +831,7 @@ def test_litellm_provider_list_printed_when_debug_logging(capsys):
     _logger.setLevel(logging.DEBUG)
     try:
         calculate_cost_by_model_and_token_usage(
-            model_name="databricks-claude-sonnet-4-5",
+            model_name="unknown-model",
             usage={TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
         )
     finally:
@@ -839,8 +839,6 @@ def test_litellm_provider_list_printed_when_debug_logging(capsys):
 
     captured = capsys.readouterr()
     assert "Provider List" in captured.out
-    # During the call to calculate cost, suppress was set to False
-    # We are asserting that suppress is reset to the original value after
     assert litellm.suppress_debug_info is True
 
 
@@ -868,3 +866,32 @@ def test_dump_span_attribute_value_handles_type_error():
 
     # Must not raise; fall back result is a valid JSON string containing repr(value).
     assert result == json.dumps(repr(value), ensure_ascii=False)
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_provider", "expected_provider"),
+    [
+        ("databricks-claude-opus-4-8", None, "databricks"),
+        ("databricks/databricks-claude-opus-4-8", None, "databricks"),
+        ("databricks-claude-opus-4-8", "databricks", "databricks"),
+        ("gpt-4o", None, None),
+    ],
+)
+def test_cost_calculation_uses_expected_provider(model_name, model_provider, expected_provider):
+    with mock.patch("litellm.cost_per_token", wraps=litellm.cost_per_token) as cost_per_token:
+        result = calculate_cost_by_model_and_token_usage(
+            model_name,
+            {TokenUsageKey.INPUT_TOKENS: 1_000, TokenUsageKey.OUTPUT_TOKENS: 500},
+            model_provider,
+        )
+
+    kwargs = {
+        "model": model_name,
+        "prompt_tokens": 1_000,
+        "completion_tokens": 500,
+    }
+    if expected_provider:
+        kwargs["custom_llm_provider"] = expected_provider
+    cost_per_token.assert_called_once_with(**kwargs)
+    assert result is not None
+    assert result[CostKey.TOTAL_COST] > 0

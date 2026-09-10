@@ -70,6 +70,7 @@ export const AddToReviewQueueDropdown = ({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   popoverAlign = 'end',
+  onCloseDrawer,
 }: {
   experimentId: string;
   selectedTraceInfos: ModelTraceInfoV3[];
@@ -77,6 +78,7 @@ export const AddToReviewQueueDropdown = ({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   popoverAlign?: 'start' | 'end';
+  onCloseDrawer?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -94,6 +96,12 @@ export const AddToReviewQueueDropdown = ({
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : internalOpen;
+  const hasRequestedDrawerCloseRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      hasRequestedDrawerCloseRef.current = false;
+    }
+  }, [isOpen]);
   const setOpen = useCallback(
     (next: boolean) => {
       if (isControlled) {
@@ -263,6 +271,10 @@ export const AddToReviewQueueDropdown = ({
   const showSuccessToast = useCallback(
     (queueId: string) => {
       const reviewQueuePath = getReviewQueuePageRoute(experimentId, queueId);
+      if (onCloseDrawer && !hasRequestedDrawerCloseRef.current) {
+        hasRequestedDrawerCloseRef.current = true;
+        onCloseDrawer();
+      }
       Utils.displayGlobalInfoNotification(
         <span css={{ whiteSpace: 'nowrap' }}>
           {intl.formatMessage(
@@ -282,7 +294,7 @@ export const AddToReviewQueueDropdown = ({
         3,
       );
     },
-    [experimentId, itemIds.length, intl],
+    [experimentId, itemIds.length, intl, onCloseDrawer],
   );
 
   const showErrorToast = useCallback(

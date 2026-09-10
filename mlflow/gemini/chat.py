@@ -26,19 +26,26 @@ def convert_gemini_func_to_mlflow_chat_tool(
 
     Args:
         function_def: A genai.types.FunctionDeclaration or genai.protos.FunctionDeclaration object
-                      representing a function definition.
+                      representing a function definition. google-genai >= 2.18 may expose
+                      parameters via ``parameters_json_schema`` (a plain dict) instead of the
+                      ``parameters`` Schema object; both representations are handled.
 
     Returns:
         ChatTool: MLflow's standard tool definition object.
     """
+    if function_def.parameters is not None:
+        params = _convert_gemini_function_param_to_mlflow_function_param(function_def.parameters)
+    elif (json_schema := getattr(function_def, "parameters_json_schema", None)) is not None:
+        # google-genai >= 2.18 uses parameters_json_schema (plain dict) instead of parameters
+        params = _convert_json_schema_to_mlflow_function_param(json_schema)
+    else:
+        params = None
     return ChatTool(
         type="function",
         function=FunctionToolDefinition(
             name=function_def.name,
             description=function_def.description,
-            parameters=_convert_gemini_function_param_to_mlflow_function_param(
-                function_def.parameters
-            ),
+            parameters=params,
         ),
     )
 
@@ -109,4 +116,31 @@ def _convert_gemini_function_param_to_mlflow_function_param(
             for k, v in function_params.properties.items()
         },
         required=function_params.required,
+    )
+
+
+def _json_schema_prop_to_param_property(prop: dict[str, object]) -> ParamProperty:
+    # ParamProperty has no `properties` field, so object-typed array items lose their
+    # sub-schema; this is acceptable for the current use case (tool definitions display).
+    kwargs: dict[str, object] = {
+        "type": prop.get("type"),
+        "description": prop.get("description"),
+        "enum": prop.get("enum"),
+    }
+    if "items" in prop:
+        kwargs["items"] = _json_schema_prop_to_param_property(prop["items"])
+    return ParamProperty(**kwargs)
+
+
+def _convert_json_schema_to_mlflow_function_param(json_schema: dict[str, object]) -> FunctionParams:
+    """
+    Convert a JSON Schema dict (FunctionDeclaration.parameters_json_schema in google-genai >= 2.18)
+    into MLflow's FunctionParams format.
+    """
+    return FunctionParams(
+        properties={
+            name: _json_schema_prop_to_param_property(prop)
+            for name, prop in json_schema.get("properties", {}).items()
+        },
+        required=json_schema.get("required"),
     )

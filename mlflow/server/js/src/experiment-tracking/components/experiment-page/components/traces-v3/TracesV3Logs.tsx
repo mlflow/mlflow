@@ -98,6 +98,7 @@ import { IssueDetectionModal } from './IssueDetectionModal';
 import { useCountInfo } from './hooks/useCountInfo';
 import { useAssessmentCountMetrics } from './hooks/useAssessmentCountMetrics';
 import { useScorerDescriptions } from '../../../../pages/experiment-scorers/hooks/useScorerDescriptions';
+import { useOptionalCustomViewDefinition } from '@databricks/web-shared/model-trace-explorer/custom-view/CustomViewDefinitionContext';
 
 const JudgeContextProvider = ({
   children,
@@ -204,6 +205,7 @@ const TracesV3LogsImpl = React.memo(
     enableSavedViews?: boolean;
     drawerWidth?: string | number;
   }) => {
+    const existingCustomViewDefinition = useOptionalCustomViewDefinition();
     // When viewing a single experiment, pass its ID to enable experiment-specific
     // features (run name links, logged model links, session links, filter dropdowns).
     // When viewing multiple experiments, pass undefined to disable those features.
@@ -817,7 +819,11 @@ const TracesV3LogsImpl = React.memo(
     );
 
     let content = tableContent;
-    if (shouldEnableModelTraceExplorerCustomTraceView() && singleExperimentId) {
+    if (
+      shouldEnableModelTraceExplorerCustomTraceView() &&
+      singleExperimentId &&
+      existingCustomViewDefinition === undefined
+    ) {
       content = (
         <React.Suspense fallback={tableContent}>
           <LazyExperimentCustomViewProvider key={singleExperimentId} experimentId={singleExperimentId}>

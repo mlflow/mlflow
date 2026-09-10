@@ -1,5 +1,7 @@
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import { useMutation } from '@databricks/web-shared/query-client';
+import { useCallback } from 'react';
+import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
+import { GET_DATASET_RECORDS_QUERY_KEY, SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';
 
 type UpsertDatasetRecordsPayload = {
   datasetId: string;
@@ -12,14 +14,9 @@ type UpsertDatasetRecordsResponse = {
   updatedCount: number;
 };
 
-export const useUpsertDatasetRecordsMutation = ({
-  onSuccess,
-  onError,
-}: {
-  onSuccess?: () => void;
-  onError?: (error: any) => void;
-}) => {
-  const { mutate: upsertDatasetRecordsMutation, isLoading } = useMutation({
+export const useUpsertDatasetRecordsMutation = () => {
+  const queryClient = useQueryClient();
+  const { mutateAsync: upsertDatasetRecordsMutationAsync, isLoading } = useMutation({
     mutationFn: async ({ datasetId, records }: UpsertDatasetRecordsPayload) => {
       const requestBody = {
         dataset_id: datasetId,
@@ -33,16 +30,25 @@ export const useUpsertDatasetRecordsMutation = ({
 
       return response;
     },
-    onSuccess: () => {
-      onSuccess?.();
-    },
-    onError: (error) => {
-      onError?.(error);
-    },
   });
 
+  const invalidateAfterUpsert = useCallback(
+    (datasetIds: string[]) => {
+      if (datasetIds.length === 0) {
+        return;
+      }
+      // Search holds dataset.profile (record count); records is the open table.
+      queryClient.invalidateQueries({ queryKey: [SEARCH_EVALUATION_DATASETS_QUERY_KEY] });
+      for (const datasetId of datasetIds) {
+        queryClient.invalidateQueries({ queryKey: [GET_DATASET_RECORDS_QUERY_KEY, datasetId] });
+      }
+    },
+    [queryClient],
+  );
+
   return {
-    upsertDatasetRecordsMutation,
+    upsertDatasetRecordsMutationAsync,
+    invalidateAfterUpsert,
     isLoading,
   };
 };

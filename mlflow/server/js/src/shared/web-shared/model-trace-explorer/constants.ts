@@ -18,6 +18,9 @@ export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
 export const MLFLOW_GIT_BRANCH_KEY = 'mlflow.source.git.branch';
 export const MLFLOW_GIT_COMMIT_KEY = 'mlflow.source.git.commit';
 
+// Logged by the gateway on the root span when streaming responses begin
+export const SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY = 'databricks.time_to_first_byte_ms';
+
 // Span attribute keys for model and cost info
 export const SPAN_ATTRIBUTE_MODEL_KEY = 'mlflow.llm.model';
 export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';

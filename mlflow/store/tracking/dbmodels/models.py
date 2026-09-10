@@ -2413,6 +2413,14 @@ class SqlJob(Base):
     Stores additional job status details.
     """
 
+    creator = Column(String(255), nullable=True)
+    """
+    Username who created the job, for per-job ownership. ``NULL`` in three distinct cases:
+    the job was submitted with authentication disabled, the submitter was unauthenticated,
+    or the row predates this column's migration. ``NULL`` therefore does not by itself imply
+    an anonymous submitter.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
@@ -2449,6 +2457,7 @@ class SqlJob(Base):
             last_update_time=self.last_update_time,
             workspace=self.workspace,
             status_details=self.status_details,
+            creator=self.creator,
         )
 
 
@@ -3028,7 +3037,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     target_scope = Column(String(32), nullable=False)
     """
-    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT).
+    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT, USER).
     """
     budget_action = Column(String(32), nullable=False)
     """
@@ -3062,8 +3071,8 @@ class SqlGatewayBudgetPolicy(Base):
     target_value = Column(String(255), nullable=True)
     """
     Target the policy applies to: `String` (limit 255 characters). Interpreted per
-    ``target_scope`` — a gateway endpoint ID for ENDPOINT; the policy then applies
-    solely to requests routed to that endpoint. NULL for GLOBAL and WORKSPACE scopes.
+    ``target_scope`` — a gateway endpoint ID for ENDPOINT, a username
+    for USER. NULL for GLOBAL and WORKSPACE scopes.
     """
 
     __table_args__ = (

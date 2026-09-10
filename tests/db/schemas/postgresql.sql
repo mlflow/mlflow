@@ -94,6 +94,7 @@ CREATE TABLE jobs (
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	status_details JSON,
+	creator VARCHAR(255),
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
@@ -324,6 +325,7 @@ CREATE TABLE mcp_server_versions (
 	status VARCHAR(20) DEFAULT 'draft'::character varying NOT NULL,
 	tools JSON,
 	source VARCHAR(512),
+	connect_options JSON,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
 	created_at BIGINT NOT NULL,

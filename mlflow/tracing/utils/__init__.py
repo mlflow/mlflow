@@ -370,6 +370,9 @@ def calculate_cost_by_model_and_token_usage(
     if model_name.startswith(_SKIP_COST_PREFIXES):
         return None
 
+    if not model_provider and model_name.startswith(("databricks-", "databricks/")):
+        model_provider = "databricks"
+
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
     completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
 

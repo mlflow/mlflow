@@ -2,7 +2,16 @@ import { type RefObject } from 'react';
 import { type InputRef, useDesignSystemTheme } from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import type { ColumnSizingState } from '@tanstack/react-table';
-import type { SessionHrefGetter, PageSize, SortDirection, TraceColumnId, TraceTableColumn } from './types';
+import type {
+  SessionHrefGetter,
+  SessionSelectionHandler,
+  PageSize,
+  SortDirection,
+  TraceColumnId,
+  TraceColumnHeaderAction,
+  TraceHrefGetter,
+  TraceTableColumn,
+} from './types';
 import { TracesTable } from './TracesTable';
 import { TracesTableToolbar } from './TracesTableToolbar';
 import { TracesPaginationBar } from './TracesPaginationBar';
@@ -33,6 +42,7 @@ export interface TracesTableViewProps {
   traces: ModelTraceInfoV3[];
   visibleColumns: TraceColumnId[];
   extraColumns?: TraceTableColumn[];
+  columnOrder?: string[];
   initialColumnSizing: ColumnSizingState;
   onColumnSizingSettled: (sizing: ColumnSizingState) => void;
   isLoading: boolean;
@@ -43,13 +53,27 @@ export interface TracesTableViewProps {
   selectedForBulk: ReadonlyMap<string, ModelTraceInfoV3>;
   isAllOnPageSelected: boolean;
   isSomeOnPageSelected: boolean;
-  onToggleBulkRow: (trace: ModelTraceInfoV3) => void;
+  onToggleBulkRow: (trace: ModelTraceInfoV3, selectRange?: boolean) => void;
+  /** Toggle-select every trace in a session header row; omit to disable session-level selection. */
+  onToggleBulkRows?: (traces: ModelTraceInfoV3[]) => void;
   onToggleBulkAll: () => void;
   sort: TraceColumnId;
   dir: SortDirection;
   onSort: (column: TraceColumnId, direction: SortDirection) => void;
+  getTraceHref?: TraceHrefGetter;
   getSessionHref?: SessionHrefGetter;
+  /** Handles clicks on a grouped session summary row — forwarded to the table. */
+  onSessionSelected?: SessionSelectionHandler;
   onFilterByTag?: (key: string, value: string) => void;
+  renderRunName?: (trace: ModelTraceInfoV3) => React.ReactNode;
+  /** Hides the column with the given id — forwarded to the table's per-header menu. */
+  onHideColumn: (columnId: string) => void;
+  columnHeaderActions?: Readonly<Partial<Record<string, TraceColumnHeaderAction>>>;
+  /** Groups traces with a session id into collapsible session rows — forwarded to the table. */
+  isGroupedBySession?: boolean;
+  /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
+  previewLineClamp?: number;
+  onReorderColumn?: (activeColumn: string, targetColumn: string) => void;
 
   // Toolbar passthrough.
   searchValue: string;
@@ -71,6 +95,14 @@ export interface TracesTableViewProps {
   onPageSizeChange: (pageSize: PageSize) => void;
   hasNext: boolean;
   hasPrev: boolean;
+  /** Optional "{n} of {total}" footer count (see `TracesPaginationBar`). */
+  traceCount?: number;
+  traceTotal?: number;
+  isTraceCountLoading?: boolean;
+  /** Hide the whole pagination bar — grouped-by-session mode when the one big page holds everything. */
+  hidePagination?: boolean;
+  /** Hide just the page-size selector — grouped mode fetches one large page, so it's moot. */
+  hidePageSizeSelector?: boolean;
 
   // State handling.
   /** Clear active search/filters — wired to the no-results state's clear affordance. */
@@ -135,10 +167,15 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onPageSizeChange={onPageSizeChange}
       hasNext={hasNext}
       hasPrev={hasPrev}
+      count={props.traceCount}
+      total={props.traceTotal}
+      isCountLoading={props.isTraceCountLoading}
+      hidePageSizeSelector={props.hidePageSizeSelector}
     />
   );
-  // Wrap the bar in the consumer's obstruction-aware shell when provided (else render it bare).
-  const paginationBar = PaginationBarWrapper ? (
+  // Wrap the bar in the consumer's obstruction-aware shell when provided (else render it bare). When
+  // `hidePagination` is set (grouped mode with a single big page), drop the bar entirely.
+  const paginationBar = props.hidePagination ? null : PaginationBarWrapper ? (
     <PaginationBarWrapper>{paginationBarInner}</PaginationBarWrapper>
   ) : (
     paginationBarInner
@@ -149,6 +186,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       traces={props.traces}
       visibleColumns={props.visibleColumns}
       extraColumns={props.extraColumns}
+      columnOrder={props.columnOrder}
       initialColumnSizing={props.initialColumnSizing}
       onColumnSizingSettled={props.onColumnSizingSettled}
       isLoading={props.isLoading}
@@ -160,12 +198,21 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       isAllOnPageSelected={props.isAllOnPageSelected}
       isSomeOnPageSelected={props.isSomeOnPageSelected}
       onToggleBulkRow={props.onToggleBulkRow}
+      onToggleBulkRows={props.onToggleBulkRows}
       onToggleBulkAll={props.onToggleBulkAll}
       sort={props.sort}
       dir={props.dir}
       onSort={props.onSort}
+      getTraceHref={props.getTraceHref}
       getSessionHref={props.getSessionHref}
+      onSessionSelected={props.onSessionSelected}
       onFilterByTag={props.onFilterByTag}
+      renderRunName={props.renderRunName}
+      onHideColumn={props.onHideColumn}
+      columnHeaderActions={props.columnHeaderActions}
+      isGroupedBySession={props.isGroupedBySession}
+      previewLineClamp={props.previewLineClamp}
+      onReorderColumn={props.onReorderColumn}
     />
   );
 

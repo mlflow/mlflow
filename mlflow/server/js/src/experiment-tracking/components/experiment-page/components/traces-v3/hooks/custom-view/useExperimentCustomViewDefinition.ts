@@ -97,7 +97,7 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ['experiment-custom-views', experimentId], [experimentId]);
 
-  const { data: views, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey,
     enabled: Boolean(experimentId),
     queryFn: async (): Promise<CustomView[]> => {
@@ -144,7 +144,7 @@ export const useExperimentCustomViewDefinition = (experimentId?: string): Experi
   );
 
   return {
-    views: views ?? [],
+    views: data ?? [],
     isLoaded: experimentId ? !isLoading : true,
     persistView: experimentId ? persistView : undefined,
     deleteView: experimentId ? deleteView : undefined,

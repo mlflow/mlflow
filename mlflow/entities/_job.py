@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, cast
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -24,6 +24,7 @@ class Job(_MlflowObject):
         last_update_time: int,
         workspace: str | None = None,
         status_details: dict[str, Any] | None = None,
+        creator: str | None = None,
     ):
         super().__init__()
         self._job_id = job_id
@@ -37,6 +38,7 @@ class Job(_MlflowObject):
         self._last_update_time = last_update_time
         self._workspace = resolve_entity_workspace_name(workspace)
         self._status_details = status_details
+        self._creator = creator
 
     @property
     def job_id(self) -> str:
@@ -94,7 +96,8 @@ class Job(_MlflowObject):
         Otherwise, the parsed result is None.
         """
         if self.status == JobStatus.SUCCEEDED:
-            return json.loads(self.result)
+            # `result` is always populated for succeeded jobs.
+            return json.loads(cast(str, self.result))
         return self.result
 
     @property
@@ -111,6 +114,11 @@ class Job(_MlflowObject):
     def workspace(self) -> str | None:
         """Workspace associated with this job."""
         return self._workspace
+
+    @property
+    def creator(self) -> str | None:
+        """Username of the authenticated user who created the job, or ``None``."""
+        return self._creator
 
     @property
     def status_details(self) -> dict[str, Any] | None:

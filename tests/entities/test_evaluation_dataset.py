@@ -744,3 +744,36 @@ def test_delete_records():
     )
     # Verify cache was cleared
     assert dataset._records is None
+
+
+def test_validate_schema_with_empty_records_after_to_dict():
+    """Regression test for https://github.com/mlflow/mlflow/issues/25490.
+
+    to_dict()/to_df() sets _records=[] on an empty dataset. A subsequent
+    merge_records() call must not raise IndexError in _get_existing_granularity().
+    """
+    dataset = EvaluationDataset(
+        dataset_id="dataset123",
+        name="test_dataset",
+        digest="digest123",
+        created_time=123456789,
+        last_update_time=123456789,
+    )
+
+    # Simulate the state after to_dict()/to_df() on an empty dataset
+    dataset._records = []
+
+    new_record = {
+        "inputs": {"question": "What is the capital of France?"},
+        "expectations": {"name": "expected_answer", "value": "Paris"},
+    }
+
+    mock_store = Mock()
+    mock_store.upsert_dataset_records.return_value = None
+    # schema=None forces _get_existing_granularity into the _records branch under test
+    mock_store.get_dataset.return_value.schema = None
+
+    with patch("mlflow.tracking._tracking_service.utils._get_store", return_value=mock_store):
+        dataset.merge_records([new_record])
+
+    mock_store.upsert_dataset_records.assert_called_once()

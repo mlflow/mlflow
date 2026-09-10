@@ -2658,8 +2658,10 @@ def test_start_run_sgc_resumption_handles_tag_set_error(empty_active_run_stack, 
         mock_set_tag.assert_called_once()
 
 
-def test_import_checkpoints_overwrite():
-    exp_id = mlflow.create_experiment("test_import_checkpoints_overwrite")
+def test_import_checkpoints_overwrite(tmp_path):
+    exp_id = mlflow.create_experiment(
+        "test_import_checkpoints_overwrite", artifact_location=(tmp_path / "artifacts").as_uri()
+    )
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()
@@ -2758,8 +2760,11 @@ def test_import_checkpoints_overwrite():
             )
 
 
-def test_import_checkpoints_skip_name_with_invalid_char():
-    exp_id = mlflow.create_experiment("test_import_checkpoints_skip_name_with_invalid_char")
+def test_import_checkpoints_skip_name_with_invalid_char(tmp_path):
+    exp_id = mlflow.create_experiment(
+        "test_import_checkpoints_skip_name_with_invalid_char",
+        artifact_location=(tmp_path / "artifacts").as_uri(),
+    )
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()
@@ -2789,8 +2794,10 @@ def test_import_checkpoints_skip_name_with_invalid_char():
         assert "ckpt1.a" in warn_msg
 
 
-def test_import_checkpoints_without_run():
-    exp_id = mlflow.create_experiment("test_import_checkpoints_without_run")
+def test_import_checkpoints_without_run(tmp_path):
+    exp_id = mlflow.create_experiment(
+        "test_import_checkpoints_without_run", artifact_location=(tmp_path / "artifacts").as_uri()
+    )
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()

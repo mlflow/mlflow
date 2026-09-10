@@ -2807,7 +2807,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment_id,
+                    # ``Experiment.experiment_id`` (the entity field) is a
+                    # string while the column is INTEGER; psycopg v3 binds
+                    # strings as typed VARCHAR, which PostgreSQL rejects
+                    # ("operator does not exist: integer = character
+                    # varying"), so compare through int(). Safe: the id of a
+                    # validated experiment is always a stringified integer.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == name,
                 )
                 .first()
@@ -2817,7 +2823,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # Create the scorer record with a new UUID
                 scorer_id = str(uuid.uuid4())
                 scorer = SqlScorer(
-                    experiment_id=experiment_id,
+                    experiment_id=int(experiment.experiment_id),
                     scorer_name=name,
                     scorer_id=scorer_id,
                 )
@@ -2911,6 +2917,19 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         if not experiment_ids:
             return []
+        # ``experiment_id`` is an INTEGER column but REST callers pass string
+        # IDs. psycopg2 sent them as untyped literals PostgreSQL would
+        # coerce; psycopg v3 binds them as typed VARCHAR and PostgreSQL
+        # rejects the comparison ("operator does not exist:
+        # integer = character varying"). Coerce with the same error contract
+        # as ``_get_experiment``.
+        try:
+            experiment_ids = [int(experiment_id) for experiment_id in experiment_ids]
+        except (ValueError, TypeError):
+            raise MlflowException(
+                "Invalid experiment IDs: experiment IDs must be valid integers.",
+                INVALID_PARAMETER_VALUE,
+            )
         with self.ManagedSessionMaker() as session:
             scorer_ids: list[str] = []
             for chunk_start in range(0, len(experiment_ids), self._LIST_SCORERS_CHUNK_SIZE):
@@ -2997,7 +3016,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment.experiment_id,
+                    # int(): see register_scorer — psycopg v3 VARCHAR binds
+                    # don't compare against the INTEGER column.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == name,
                 )
                 .first()
@@ -3087,7 +3108,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment.experiment_id,
+                    # int(): see register_scorer — psycopg v3 VARCHAR binds
+                    # don't compare against the INTEGER column.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == name,
                 )
                 .first()
@@ -3163,7 +3186,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment.experiment_id,
+                    # int(): see register_scorer — psycopg v3 VARCHAR binds
+                    # don't compare against the INTEGER column.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == name,
                 )
                 .first()
@@ -3282,7 +3307,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment.experiment_id,
+                    # int(): see register_scorer — psycopg v3 VARCHAR binds
+                    # don't compare against the INTEGER column.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == scorer_name,
                 )
                 .first()
@@ -3410,6 +3437,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         version.serialized_scorer
                     ),
                     online_config=config.to_mlflow_entity(),
+                    scorer_version=version.scorer_version,
                 )
                 for config, scorer, version in gateway_results
             ]
@@ -5810,19 +5838,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         return update_dict
 
-    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """Async wrapper for log_spans. Delegates to the synchronous implementation.
-
-        Args:
-            location: Experiment ID of an MLflow experiment.
-            spans: List of Span entities to log.
-
-        Returns:
-            List of logged Span entities.
-        """
-        # TODO: Implement proper async support
-        return self.log_spans(location, spans)
-
     def _get_trace_status_from_root_span(self, spans: list[Span]) -> str | None:
         """
         Infer trace status from root span if present.
@@ -6974,10 +6989,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         # Defer OTel Span reconstruction until a caller needs properties or
         # to_otel_proto(). Callers that only need dicts (e.g. TraceData.to_dict /
-        # get-trace-artifact) skip Span.from_dict entirely.
-        return [
-            LazySpan(translate_loaded_span(json.loads(span.content))) for span in span_snapshots
-        ]
+        # get-trace-artifact) skip Span.from_dict entirely. Unmodified stored
+        # JSON is retained for artifact passthrough via TraceData.to_json_bytes().
+        return [LazySpan.from_stored_content(span.content) for span in span_snapshots]
 
     def _load_tracking_store_span_snapshots(
         self, session: Session, trace_ids: Iterable[str]

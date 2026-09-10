@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import * as mlflow from '../../src';
 import { MlflowClient, type SearchTracesOptions } from '../../src/clients/client';
 import type { ArtifactsClient } from '../../src/clients/artifacts';
+import { Feedback } from '../../src/core/entities/assessment';
 import { Trace } from '../../src/core/entities/trace';
 import { TraceData } from '../../src/core/entities/trace_data';
 import { TraceInfo } from '../../src/core/entities/trace_info';
@@ -122,6 +123,67 @@ describe('MlflowClient', () => {
       expect(retrievedTraceInfo.traceId).toBe(traceId);
       expect(retrievedTraceInfo.state).toBe(TraceState.OK);
       expect(retrievedTraceInfo.requestTime).toBe(1000);
+    });
+  });
+
+  describe('logFeedback', () => {
+    const experimentLocation = () => ({
+      type: TraceLocationType.MLFLOW_EXPERIMENT,
+      mlflowExperiment: {
+        experimentId: experimentId,
+      },
+    });
+
+    it('logs feedback and preserves it on getTraceInfo', async () => {
+      const traceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId,
+          traceLocation: experimentLocation(),
+          state: TraceState.OK,
+          requestTime: 1000,
+        }),
+      );
+
+      const created = await client.logFeedback({
+        traceId,
+        name: 'correctness',
+        value: true,
+        source: { sourceType: 'HUMAN', sourceId: 'reviewer@example.com' },
+        rationale: 'Matches the expected fact',
+        metadata: { suite: 'typescript' },
+      });
+
+      expect(created).toBeInstanceOf(Feedback);
+      expect(created.name).toBe('correctness');
+      expect(created.value).toBe(true);
+      expect(created.assessmentId).toBeDefined();
+
+      const retrieved = await client.getTraceInfo(traceId);
+      expect(retrieved.assessments.length).toBeGreaterThanOrEqual(1);
+      const feedback = retrieved.assessments.find(
+        (assessment) => assessment instanceof Feedback && assessment.name === 'correctness',
+      ) as Feedback | undefined;
+      expect(feedback).toBeDefined();
+      expect(feedback?.value).toBe(true);
+      expect(feedback?.source.sourceType).toBe('HUMAN');
+    });
+
+    it('rejects missing value and error', async () => {
+      await expect(client.logFeedback({ traceId: randomUUID(), name: 'empty' })).rejects.toThrow(
+        /logFeedback requires/,
+      );
+    });
+
+    it('rejects invalid source type', async () => {
+      await expect(
+        client.logFeedback({
+          traceId: randomUUID(),
+          name: 'bad-source',
+          value: true,
+          source: { sourceType: 'ROBOT' as 'HUMAN', sourceId: 'bot' },
+        }),
+      ).rejects.toThrow(/Invalid assessment source type/);
     });
   });
 

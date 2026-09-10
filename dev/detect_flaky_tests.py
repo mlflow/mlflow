@@ -9,17 +9,21 @@ then reads the **failing attempt's job logs** to pin down the exact test(s) and 
 message(s). Logs are used rather than JUnit XML artifacts on purpose: GitHub artifacts
 are not run-attempt-scoped and are cleared when a re-run starts, so a prior attempt's
 artifact can never be fetched — but the per-attempt jobs/logs endpoints DO retain
-history, and pytest's failure lines carry real, runnable nodeids.
+history, and a test framework's failure lines carry real, runnable test ids.
+
+The GitHub-history mining is framework-agnostic; only *which* workflow to scan and *how*
+to parse a job's log into failing tests varies. That variation lives in ``Framework``
+entries in the ``FRAMEWORKS`` registry, selected with ``--framework`` (default: pytest).
 
 No CI or test-suite changes are required: this is pure read-only mining of history.
 
 Output:
-  - A JSON report (``--out``) of confirmed flakes: shard, test nodeid, error snippet, runs.
+  - A JSON report (``--out``) of confirmed flakes: shard, test id, error snippet, runs.
   - A Markdown summary (``--summary``) suitable for a GitHub step summary / issue body.
 
 Usage:
   python dev/detect_flaky_tests.py --repo mlflow/mlflow --since 2026-07-03 \
-      --out flakes.json --summary flakes.md
+      --framework pytest --out flakes.json --summary flakes.md
 """
 
 from __future__ import annotations
@@ -32,9 +36,7 @@ import re
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import Any
-
-WORKFLOW_NAME = "MLflow tests"
+from typing import Any, Callable
 
 # A pytest failure/error line names a runnable nodeid followed by " - <message>".
 # The MLflow conftest prefixes some lines with "FAILED | MEM ... DISK ..."; the nodeid
@@ -113,10 +115,10 @@ def gh_api_objects(path: str, paginate: bool = False) -> list[dict[str, Any]]:
     return objs
 
 
-def get_workflow_id(repo: str) -> str | None:
+def get_workflow_id(repo: str, workflow_name: str) -> str | None:
     for page in gh_api_objects(f"repos/{repo}/actions/workflows", paginate=True):
         for wf in page.get("workflows", []):
-            if wf.get("name") == WORKFLOW_NAME:
+            if wf.get("name") == workflow_name:
                 return str(wf["id"])
     return None
 
@@ -138,8 +140,8 @@ def attempt_jobs(repo: str, run_id: int, attempt: int) -> list[dict[str, Any]]:
     return jobs
 
 
-def parse_failing_tests(log: str) -> dict[str, str]:
-    """{nodeid: first-line error} parsed from raw Actions log text. Empty if none found.
+def parse_pytest_failures(log: str) -> dict[str, str]:
+    """{nodeid: first-line error} parsed from a raw pytest Actions log. Empty if none found.
 
     Pure function (no I/O) so it can be unit-tested against captured log snippets, which
     guards the format-fragile regexes against GitHub Actions log-format drift.
@@ -158,18 +160,36 @@ def parse_failing_tests(log: str) -> dict[str, str]:
     return failures
 
 
-def failing_tests_from_log(repo: str, job_id: int) -> dict[str, str]:
-    """{nodeid: first-line error} parsed from a job's log. Empty if none recoverable."""
+@dataclasses.dataclass(frozen=True)
+class Framework:
+    """A test framework the detector can mine, decoupling the shared CI-history mining
+    from the framework-specific bits: which workflow to scan and how to pull the failing
+    test(s) + error out of a job's raw log. New frameworks register one entry in
+    ``FRAMEWORKS`` without touching the mining core; the framework's name is its key in
+    that registry.
+    """
+
+    workflow_name: str  # GitHub Actions workflow `name:` to scan
+    parse_log: Callable[[str], dict[str, str]]  # raw job log -> {test id: first-line error}
+
+
+FRAMEWORKS: dict[str, Framework] = {
+    "pytest": Framework("MLflow tests", parse_pytest_failures),
+}
+
+
+def failing_tests_from_log(repo: str, job_id: int, framework: Framework) -> dict[str, str]:
+    """{test id: first-line error} parsed from a job's log. Empty if none recoverable."""
     log = gh_api_text_bytes(f"repos/{repo}/actions/jobs/{job_id}/logs")
     if not log:
         return {}
-    return parse_failing_tests(log)
+    return framework.parse_log(log)
 
 
-def detect(repo: str, since: str) -> list[FlakyTest]:
-    wf_id = get_workflow_id(repo)
+def detect(repo: str, since: str, framework: Framework) -> list[FlakyTest]:
+    wf_id = get_workflow_id(repo, framework.workflow_name)
     if not wf_id:
-        print(f"Could not resolve workflow '{WORKFLOW_NAME}' in {repo}", file=sys.stderr)
+        print(f"Could not resolve workflow '{framework.workflow_name}' in {repo}", file=sys.stderr)
         return []
     runs = list_multiattempt_runs(repo, wf_id, since)
     print(f"Examining {len(runs)} multi-attempt runs since {since} ...", file=sys.stderr)
@@ -194,7 +214,7 @@ def detect(repo: str, since: str) -> list[FlakyTest]:
                 name = job["name"]
                 if job.get("conclusion") != "failure" or concl_b.get(name) != "success":
                     continue
-                if failing := failing_tests_from_log(repo, job["id"]):
+                if failing := failing_tests_from_log(repo, job["id"], framework):
                     for nodeid, err in failing.items():
                         flakes.append(FlakyTest(name, nodeid, err, run_id, sha, a, b, event))
                 else:
@@ -240,10 +260,24 @@ def main() -> None:
     p.add_argument("--since", help="ISO date (default: 14 days ago)")
     p.add_argument("--out", help="Write JSON report here")
     p.add_argument("--summary", help="Write Markdown summary here")
+    p.add_argument(
+        "--framework",
+        default="pytest",
+        choices=sorted(FRAMEWORKS),
+        help="Test framework to mine (selects the log parser). Default: pytest.",
+    )
+    p.add_argument(
+        "--workflow",
+        help="Override the Actions workflow name to scan (default: the framework's own).",
+    )
     args = p.parse_args()
 
+    framework = FRAMEWORKS[args.framework]
+    if args.workflow:
+        framework = dataclasses.replace(framework, workflow_name=args.workflow)
+
     since = args.since or (datetime.now(timezone.utc) - timedelta(days=14)).strftime("%Y-%m-%d")
-    flakes = detect(args.repo, since)
+    flakes = detect(args.repo, since, framework)
 
     summary = render_summary(flakes, since)
     print(summary)

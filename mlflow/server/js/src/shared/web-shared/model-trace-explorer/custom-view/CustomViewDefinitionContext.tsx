@@ -126,6 +126,7 @@ export const useCustomViewDefinitionState = (
   onPersistView?: (view: CustomView) => Promise<void>,
   canModifyPersistedViews?: boolean,
   onDeleteView?: (id: string) => Promise<void>,
+  autoSelectFirstView?: boolean,
 ): CustomViewDefinitionContextValue => {
   const canPersist = Boolean(onPersistView) && Boolean(canModifyPersistedViews);
   const canDelete = Boolean(onDeleteView) && Boolean(canModifyPersistedViews);
@@ -160,7 +161,7 @@ export const useCustomViewDefinitionState = (
   // `initialViews` reference after mount, even if `isLoaded` was already true).
   // Once the user diverges (creates / saves / deletes a view) we stop, so a later refetch
   // can't clobber unsaved local edits. The active selection is left untouched
-  // (no default) so the host shows the placeholder until the user picks a view.
+  // unless `autoSelectFirstView` is set (see the auto-select effect below).
   //
   // We only re-adopt when `initialViews` is a genuinely new reference (callers
   // must pass a stable/memoized array): setting state on every render would loop.
@@ -180,6 +181,28 @@ export const useCustomViewDefinitionState = (
   useEffect(() => {
     activeViewIdRef.current = activeViewId;
   }, [activeViewId]);
+
+  // When `autoSelectFirstView` is set, auto-select the first persisted view on
+  // first load so a saved view renders immediately instead of the "select a
+  // view" placeholder the host shows when views exist but none is chosen. With
+  // no saved views this is a no-op (the host renders its create-first-view
+  // authoring empty state instead). Skip once the user has diverged (draft,
+  // delete, explicit selection) so we never steal a later empty state.
+  useEffect(() => {
+    if (
+      !autoSelectFirstView ||
+      !isLoaded ||
+      hasLocalEditsRef.current ||
+      isDraft ||
+      activeViewIdRef.current !== undefined
+    ) {
+      return;
+    }
+    const firstId = views[0]?.id;
+    if (firstId) {
+      setActiveViewId(firstId);
+    }
+  }, [autoSelectFirstView, isLoaded, views, isDraft]);
 
   const isDirty = useMemo(() => {
     if (!activeView) {
@@ -417,6 +440,7 @@ export const CustomViewDefinitionProvider = ({
   onPersistView,
   onDeleteView,
   canModifyPersistedViews,
+  autoSelectFirstView,
   children,
 }: {
   views: CustomView[];
@@ -424,9 +448,17 @@ export const CustomViewDefinitionProvider = ({
   onPersistView?: (view: CustomView) => Promise<void>;
   onDeleteView?: (id: string) => Promise<void>;
   canModifyPersistedViews?: boolean;
+  autoSelectFirstView?: boolean;
   children: ReactNode;
 }): JSX.Element => {
-  const value = useCustomViewDefinitionState(views, isLoaded, onPersistView, canModifyPersistedViews, onDeleteView);
+  const value = useCustomViewDefinitionState(
+    views,
+    isLoaded,
+    onPersistView,
+    canModifyPersistedViews,
+    onDeleteView,
+    autoSelectFirstView,
+  );
   return <CustomViewDefinitionContext.Provider value={value}>{children}</CustomViewDefinitionContext.Provider>;
 };
 

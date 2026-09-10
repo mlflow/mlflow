@@ -36,7 +36,6 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
         enable_tracing (bool): Whether to enable tracing for the supported flavors during eval.
     """
     original_import_hooks = {}
-    new_import_hooks = {}
 
     # AUTOLOGGING_INTEGRATIONS can change during we iterate over flavors and enable/disable
     # autologging, therefore, we snapshot the current configuration to restore it later.
@@ -56,8 +55,11 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
         # flavor's module is imported, rather than configuring it immediately. This is
         # because the evaluation code usually only uses a subset of the supported flavors,
         # hence we want to avoid unnecessary overhead of configuring all flavors.
+        # NB: `flavor` and `original_config` are bound as default arguments so that each
+        # hook captures the current iteration's values. Without this, the hooks share the
+        # loop variables and every deferred hook would configure the last flavor.
         @autologging_conf_lock
-        def _setup_autolog(module):
+        def _setup_autolog(module, flavor=flavor, original_config=original_config):
             try:
                 autolog = get_autolog_function(flavor)
 
@@ -88,7 +90,6 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
         module = FLAVOR_TO_MODULE_NAME[flavor]
         try:
             original_import_hooks[module] = get_post_import_hooks(module)
-            new_import_hooks[module] = _setup_autolog
             register_post_import_hook(_setup_autolog, module, overwrite=True)
         except Exception:
             _logger.debug(f"Failed to register post-import hook for {flavor}.", exc_info=True)
@@ -97,14 +98,17 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
         yield
     finally:
         # Remove post-import hooks and patches the are registered during the evaluation.
-        for module, hooks in new_import_hooks.items():
+        for module, original_hooks in original_import_hooks.items():
             # Restore original post-import hooks if any. Note that we don't use
             # register_post_import_hook method to bypass some pre-checks and just
             # restore the original state.
-            if hooks is None:
+            if original_hooks is None:
+                # Drop the key entirely rather than leaving a `None` value behind:
+                # `ImportHookFinder` gates on key presence, so a `None` value would keep
+                # MLflow intercepting imports of this module for the process lifetime.
                 _post_import_hooks.pop(module, None)
             else:
-                _post_import_hooks[module] = original_import_hooks[module]
+                _post_import_hooks[module] = original_hooks
 
         # If any autologging configuration is updated, restore original autologging configurations.
         for flavor, new_config in AUTOLOGGING_INTEGRATIONS.copy().items():

@@ -93,6 +93,7 @@ CREATE TABLE jobs (
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	status_details NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	creator VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
@@ -320,6 +321,7 @@ CREATE TABLE mcp_server_versions (
 	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('draft') NOT NULL,
 	tools NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	source VARCHAR(512) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	connect_options NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_at BIGINT NOT NULL,
