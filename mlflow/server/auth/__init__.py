@@ -4505,12 +4505,16 @@ def create_admin_user(username: str | None, password: str | None) -> None:
             # will succeed while the others will fail with an IntegrityError.
             if not isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
                 raise
-    elif password is not None and store.authenticate_user(
-        username, _LEGACY_DEFAULT_ADMIN_PASSWORD, use_primary=True
+    elif (
+        password is not None
+        and password != _LEGACY_DEFAULT_ADMIN_PASSWORD
+        and store.authenticate_user(username, _LEGACY_DEFAULT_ADMIN_PASSWORD, use_primary=True)
     ):
         # Upgrade path for deployments bootstrapped with the shipped default: logins with it are
         # rejected, so the configured bootstrap password doubles as the rotation mechanism that
-        # needs no working admin credential.
+        # needs no working admin credential. A configured legacy value is a stale copy of the old
+        # ini rather than a rotation request, so it must not fail startup: the deployment keeps
+        # running with the login block and the warning below.
         _validate_bootstrap_admin_password(username, password)
         store.update_user(username, password=password)
         _logger.warning(

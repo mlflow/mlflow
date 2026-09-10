@@ -169,19 +169,27 @@ def test_create_admin_user_rotates_legacy_default_password_when_password_configu
     assert "Replaced the insecure default password of admin user 'admin'" in messages[0]
 
 
-@pytest.mark.parametrize(
-    ("password", "match"),
-    [
-        (_LEGACY_DEFAULT_PASSWORD, "insecure default password"),
-        ("short", "at least 12 characters"),
-    ],
-)
-def test_create_admin_user_refuses_to_rotate_to_an_invalid_password(store, password, match):
+def test_create_admin_user_refuses_to_rotate_to_a_short_password(store):
     store.has_user.return_value = True
     store.authenticate_user.return_value = True
-    with pytest.raises(MlflowException, match=match):
-        auth_module.create_admin_user("admin", password)
+    with pytest.raises(MlflowException, match="at least 12 characters"):
+        auth_module.create_admin_user("admin", "short")
     store.update_user.assert_not_called()
+
+
+def test_create_admin_user_keeps_starting_with_a_stale_legacy_ini_password(store, caplog):
+    # An upgraded deployment that copied the old ini still has `admin_password = password1234`
+    # next to an admin row on that password. That is not a rotation request and must not fail
+    # startup; the login block and the warning cover it.
+    store.has_user.return_value = True
+    store.authenticate_user.return_value = True
+    with caplog.at_level(logging.WARNING, logger=auth_module.__name__):
+        auth_module.create_admin_user("admin", _LEGACY_DEFAULT_PASSWORD)
+    store.update_user.assert_not_called()
+    store.create_user.assert_not_called()
+    messages = [r.message for r in caplog.records]
+    assert len(messages) == 1
+    assert "user 'admin' still uses the insecure default password" in messages[0]
 
 
 def test_create_admin_user_leaves_a_rotated_password_alone(store):
