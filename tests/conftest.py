@@ -8,6 +8,7 @@ import posixpath
 import pstats
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -42,6 +43,7 @@ from mlflow.tracing.provider import get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.utils import workspace_context, workspace_utils
 from mlflow.utils.os import is_windows
+from mlflow.utils.time import get_current_time_millis
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 from tests.autologging.fixtures import enable_test_mode
@@ -49,7 +51,9 @@ from tests.helper_functions import get_safe_port
 from tests.tracing.helper import purge_traces
 
 if not IS_TRACING_SDK_ONLY:
+    from mlflow.entities import Experiment, LifecycleStage
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+    from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
     from mlflow.tracking.fluent import (
         _last_active_run_id,
         _reset_last_logged_model_id,
@@ -1327,6 +1331,27 @@ def db_uri(cached_db: Path) -> Iterator[str]:
 
         if not IS_TRACING_SDK_ONLY and cached_db.exists():
             shutil.copy2(cached_db, db_path)
+            # `cached_db` carries schema only, so create the Default experiment here, rooted
+            # in this test's own temp dir. Left to the store that opens the copy, it lands
+            # under `./mlruns` in the repo root, which every xdist worker shares and the
+            # autouse `clean_up_mlruns_directory` fixture deletes after each test.
+            artifact_root = Path(tmp_dir) / "artifacts"
+            now = get_current_time_millis()
+            with sqlite3.connect(db_path) as conn:
+                conn.execute(
+                    "INSERT INTO experiments (experiment_id, name, artifact_location, "
+                    "lifecycle_stage, creation_time, last_update_time, workspace) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        int(DEFAULT_EXPERIMENT_ID),
+                        Experiment.DEFAULT_EXPERIMENT_NAME,
+                        artifact_root.joinpath(DEFAULT_EXPERIMENT_ID).as_uri(),
+                        LifecycleStage.ACTIVE,
+                        now,
+                        now,
+                        workspace_utils.DEFAULT_WORKSPACE_NAME,
+                    ),
+                )
 
         yield f"sqlite:///{db_path}"
     finally:
