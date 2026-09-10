@@ -31,7 +31,7 @@ from mlflow.tracing.constant import (
 # this app module does not import a migration. A parity test
 # (test_prepopulation_revision_matches_migration_down_revision) keeps it aligned after a rebase
 # reparents the migration.
-PREPOPULATION_SCHEMA_REVISION = "6f8d9c3b2a1e"
+PREPOPULATION_SCHEMA_REVISION = "b7e2c1a4d9f3"
 DEFAULT_BATCH_SIZE = 250
 DEFAULT_PROGRESS_EVERY_BATCHES = 100
 

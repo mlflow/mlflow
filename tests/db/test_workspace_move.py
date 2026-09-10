@@ -220,6 +220,7 @@ def test_move_experiment_preserves_inherited_analytics_ownership(
 
     dry_run_result = move_resources(
         engine,
+        workspace_store,
         source_workspace=DEFAULT_WORKSPACE_NAME,
         target_workspace="team-a",
         resource_type="experiments",
@@ -240,6 +241,7 @@ def test_move_experiment_preserves_inherited_analytics_ownership(
 
     result = move_resources(
         engine,
+        workspace_store,
         source_workspace=DEFAULT_WORKSPACE_NAME,
         target_workspace="team-a",
         resource_type="experiments",

@@ -1,7 +1,7 @@
 """add sql trace analytics schema
 
 Revision ID: 75868b020152
-Revises: 6f8d9c3b2a1e
+Revises: b7e2c1a4d9f3
 Create Date: 2026-07-22 00:00:00.000000
 
 """
@@ -31,7 +31,7 @@ from mlflow.tracing.constant import (
 )
 
 revision = "75868b020152"
-down_revision = "6f8d9c3b2a1e"
+down_revision = "b7e2c1a4d9f3"
 branch_labels = None
 depends_on = None
 
