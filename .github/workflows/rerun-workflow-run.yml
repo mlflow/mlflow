@@ -70,6 +70,5 @@ jobs:
           fi
 
           if [ -n "$protect_id" ]; then
-            sleep 5
             rerun "$protect_id"
           fi
