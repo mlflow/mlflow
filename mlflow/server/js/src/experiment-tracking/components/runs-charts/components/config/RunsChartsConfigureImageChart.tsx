@@ -1,13 +1,15 @@
 import { useCallback } from 'react';
 import type { RunsChartsCardConfig, RunsChartsImageCardConfig } from '../../runs-charts.types';
-import { Input } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { RunsChartsConfigureField } from './RunsChartsConfigure.common';
-import { DialogCombobox } from '@databricks/design-system';
-import { DialogComboboxContent } from '@databricks/design-system';
-import { DialogComboboxTrigger } from '@databricks/design-system';
-import { DialogComboboxOptionListCheckboxItem } from '@databricks/design-system';
-import { DialogComboboxOptionList } from '@databricks/design-system';
+import {
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListCheckboxItem,
+  DialogComboboxTrigger,
+  Switch,
+} from '@databricks/design-system';
 import { useImageSliderStepMarks } from '../../hooks/useImageSliderStepMarks';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import { LineSmoothSlider } from '@mlflow/mlflow/src/experiment-tracking/components/LineSmoothSlider';
@@ -43,6 +45,15 @@ export const RunsChartsConfigureImageChart = ({
     (step: number) => {
       onStateChange((current) => {
         return { ...(current as RunsChartsImageCardConfig), step };
+      });
+    },
+    [onStateChange],
+  );
+
+  const updateShowRunParams = useCallback(
+    (showRunParams: boolean) => {
+      onStateChange((current) => {
+        return { ...(current as RunsChartsImageCardConfig), showRunParams };
       });
     },
     [onStateChange],
@@ -109,6 +120,22 @@ export const RunsChartsConfigureImageChart = ({
           value={state.step}
           disabled={Object.keys(stepMarks).length <= 1}
           onChange={updateStep}
+        />
+      </RunsChartsConfigureField>
+      <RunsChartsConfigureField
+        title={formatMessage({
+          defaultMessage: 'Run details',
+          description: 'Runs charts > components > config > RunsChartsConfigureImageGrid > Run details section',
+        })}
+      >
+        <Switch
+          componentId="mlflow.charts.image_grid_configure.show_run_params"
+          checked={state.showRunParams !== false}
+          onChange={updateShowRunParams}
+          label={formatMessage({
+            defaultMessage: 'Show run parameters',
+            description: 'Runs charts > components > config > RunsChartsConfigureImageGrid > Show run params toggle',
+          })}
         />
       </RunsChartsConfigureField>
     </>

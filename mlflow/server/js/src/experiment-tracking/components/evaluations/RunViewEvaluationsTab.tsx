@@ -72,6 +72,7 @@ import { useCountInfo } from '../experiment-page/components/traces-v3/hooks/useC
 import { useAssessmentCountMetrics } from '../experiment-page/components/traces-v3/hooks/useAssessmentCountMetrics';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
+import { useScorerDescriptions } from '../../pages/experiment-scorers/hooks/useScorerDescriptions';
 import { RunViewEvaluationAnalyzeButton } from './RunViewEvaluationAnalyzeButton';
 
 const ContextProviders = ({
@@ -126,6 +127,7 @@ const RunViewEvaluationsTabInner = ({
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
   const getTrace = getTraceV3;
   const isQueryDisabled = false;
+  const scorerDescriptionsByName = useScorerDescriptions(experimentId);
 
   // Get table metadata
   const {
@@ -144,6 +146,7 @@ const RunViewEvaluationsTabInner = ({
     disabled: isQueryDisabled,
     filterByAssessmentSourceRun: true,
     showConsolidatedResultColumn: isRegressionTest,
+    scorerDescriptionsByName,
   });
 
   // Regression-test view: drop the State column and relabel trace-id to "Test".

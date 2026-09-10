@@ -14,6 +14,7 @@ import {
   MLFLOW_INTERNAL_PREFIX,
   shouldUseTraceInfoV3,
 } from '../utils/TraceUtils';
+import { KnownEvaluationResultAssessmentTargetLabel } from '../components/GenAiEvaluationTracesReview.utils';
 
 export const USER_COLUMN_ID = 'user';
 export const SESSION_COLUMN_ID = 'session';
@@ -328,7 +329,9 @@ export const useTableColumns = (
             if (!expectationColumns[expectationName]) {
               expectationColumns[expectationName] = {
                 id: createExpectationColumnId(expectationName),
-                label: expectationName,
+                label: KnownEvaluationResultAssessmentTargetLabel[expectationName]
+                  ? intl.formatMessage(KnownEvaluationResultAssessmentTargetLabel[expectationName])
+                  : expectationName,
                 type: TracesTableColumnType.EXPECTATION,
                 group: TracesTableColumnGroup.EXPECTATION,
                 expectationName,

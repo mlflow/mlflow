@@ -12,6 +12,14 @@ describe('buildCustomViewAuthoringGuide', () => {
     expect(guide).toContain(`CALL the \`${RENDER_CUSTOM_VIEW_TOOL_NAME}\` tool`);
   });
 
+  test('provides a schema-envelope contract for structured-output providers', () => {
+    const guide = buildCustomViewAuthoringGuide('structured');
+    expect(guide).toContain('structured final response');
+    expect(guide).toContain('"type": "render_custom_view"');
+    expect(guide).toContain('"type" to "message"');
+    expect(guide).not.toContain(`CALL the \`${RENDER_CUSTOM_VIEW_TOOL_NAME}\` tool`);
+  });
+
   test('includes the catalog/binding/layout/example building blocks', () => {
     const guide = buildCustomViewAuthoringGuide();
     for (const shared of [
@@ -22,6 +30,16 @@ describe('buildCustomViewAuthoringGuide', () => {
     ]) {
       expect(guide).toContain(shared);
     }
+  });
+
+  test('documents immediate and staged feedback authoring', () => {
+    const guide = buildCustomViewAuthoringGuide();
+    for (const primitive of ['FeedbackThumbsUpDownButtons', 'RadioGroup', 'FeedbackInputText', 'FeedbackSubmit']) {
+      expect(guide).toContain(`"${primitive}"`);
+    }
+    expect(guide).toContain('"$spanRef" markers');
+    expect(guide).toContain('MUST carry a "formId"');
+    expect(guide).toContain('Example — a multi-dimension human-feedback form');
   });
 
   // A StatCard's `icon`/`tone` are static enums the host never re-resolves, while

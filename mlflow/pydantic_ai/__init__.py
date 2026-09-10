@@ -127,7 +127,7 @@ def _has_instrumentation_capability() -> bool:
 
 
 def _get_pydantic_ai_version() -> Version | None:
-    return get_installed_version("pydantic-ai")
+    return get_installed_version("pydantic-ai") or get_installed_version("pydantic-ai-slim")
 
 
 @autologging_integration(FLAVOR_NAME)

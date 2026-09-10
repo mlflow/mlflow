@@ -1642,6 +1642,21 @@ def test_gemini_adapter_build_chat_usage_without_cached_tokens():
     assert usage.prompt_tokens_details is None
 
 
+def test_gemini_adapter_build_chat_usage_preserves_provider_specific_fields():
+    usage_metadata = {
+        "promptTokenCount": 50,
+        "candidatesTokenCount": 20,
+        "totalTokenCount": 70,
+        "thoughtsTokenCount": 12,
+        "trafficType": "ON_DEMAND",
+    }
+    usage = GeminiAdapter._build_chat_usage(usage_metadata)
+
+    assert usage.model_dump()["thoughtsTokenCount"] == 12
+    assert usage.model_dump()["trafficType"] == "ON_DEMAND"
+    assert "promptTokenCount" not in usage.model_dump()
+
+
 def test_chat_to_model_translates_multimodal_image_content():
     # A user message with OpenAI-format multimodal content (text + an image_url base64
     # data URL) must be translated to Gemini inlineData parts; the gateway path is how

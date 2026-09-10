@@ -2,10 +2,6 @@ name: build-docs
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - dev/build_docs.py
       - .github/workflows/build-docs.yml

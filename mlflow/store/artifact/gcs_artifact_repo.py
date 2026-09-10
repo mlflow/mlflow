@@ -20,6 +20,7 @@ from mlflow.exceptions import _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
+    _is_object_key_within_path,
     _retry_with_new_creds,
 )
 from mlflow.utils import get_installed_version
@@ -189,7 +190,8 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         gcs_bucket = self._get_bucket(bucket_name)
         blobs = gcs_bucket.list_blobs(prefix=f"{dest_path}")
         for blob in blobs:
-            blob.delete()
+            if _is_object_key_within_path(blob.name, dest_path):
+                blob.delete()
 
     @staticmethod
     def _validate_support_mpu():

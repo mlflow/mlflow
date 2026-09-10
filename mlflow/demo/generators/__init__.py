@@ -1,28 +1,35 @@
+from mlflow.demo.generators.custom_view import CustomViewDemoGenerator
 from mlflow.demo.generators.evaluation import EvaluationDemoGenerator
 from mlflow.demo.generators.issues import IssuesDemoGenerator
 from mlflow.demo.generators.judges import JudgesDemoGenerator
 from mlflow.demo.generators.prompts import PromptsDemoGenerator
 from mlflow.demo.generators.review_queues import ReviewQueuesDemoGenerator
+from mlflow.demo.generators.saved_views import SavedViewsDemoGenerator
 from mlflow.demo.generators.traces import TracesDemoGenerator
 from mlflow.demo.registry import demo_registry
 
 # NB: Order matters here. Prompts must be created before traces (for linking),
 # and traces must exist before evaluation (which references them).
-# Judges are independent and can be registered last.
+# The custom view and saved views are experiment tags and need the demo experiment
+# (created by traces). Judges are independent and can be registered last.
 # Issues should be registered after traces exist (since they reference trace problems).
 # Review queues should be registered after traces exist (since they attach traces).
 demo_registry.register(PromptsDemoGenerator)
 demo_registry.register(TracesDemoGenerator)
+demo_registry.register(CustomViewDemoGenerator)
+demo_registry.register(SavedViewsDemoGenerator)
 demo_registry.register(EvaluationDemoGenerator)
 demo_registry.register(JudgesDemoGenerator)
 demo_registry.register(IssuesDemoGenerator)
 demo_registry.register(ReviewQueuesDemoGenerator)
 
 __all__ = [
+    "CustomViewDemoGenerator",
     "EvaluationDemoGenerator",
     "IssuesDemoGenerator",
     "JudgesDemoGenerator",
     "PromptsDemoGenerator",
     "ReviewQueuesDemoGenerator",
+    "SavedViewsDemoGenerator",
     "TracesDemoGenerator",
 ]

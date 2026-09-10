@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import InputTag as ProtoInputTag
 
@@ -9,7 +11,7 @@ class InputTag(_MlflowObject):
         self._key = key
         self._value = value
 
-    def __eq__(self, other: _MlflowObject) -> bool:
+    def __eq__(self, other: object) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False
@@ -24,12 +26,12 @@ class InputTag(_MlflowObject):
         """String value of the input tag."""
         return self._value
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoInputTag:
         tag = ProtoInputTag()
         tag.key = self.key
         tag.value = self.value
         return tag
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoInputTag) -> InputTag:
         return cls(proto.key, proto.value)

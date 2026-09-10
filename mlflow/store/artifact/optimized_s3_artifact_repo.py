@@ -15,14 +15,14 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
+from mlflow.store.artifact.artifact_repo import _is_object_key_within_path, _retry_with_new_creds
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
     _validate_chunk_size_aws,
 )
-from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
+from mlflow.store.artifact.s3_artifact_repo import _file_is_directory_marker, _get_s3_client
 from mlflow.utils.file_utils import read_chunk
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -330,8 +330,11 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path
                 )
-                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 file_size = int(obj.get("Size"))
+                if _file_is_directory_marker(file_path, file_size):
+                    continue
+
+                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 infos.append(FileInfo(file_rel_path, False, file_size))
         return sorted(infos, key=lambda f: f.path)
 
@@ -398,7 +401,8 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=dest_path
                 )
-                keys.append({"Key": file_path})
+                if _is_object_key_within_path(file_path, dest_path):
+                    keys.append({"Key": file_path})
             if keys:
                 s3_client.delete_objects(
                     Bucket=self.bucket,

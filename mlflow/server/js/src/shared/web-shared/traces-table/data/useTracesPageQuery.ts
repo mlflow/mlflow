@@ -111,6 +111,13 @@ export interface TracesPageQueryResult {
   traces: ModelTraceInfoV3[];
   isLoading: boolean;
   isFetching: boolean;
+  /**
+   * True while `keepPreviousData` is serving the *prior* query identity's rows — i.e. the displayed
+   * `traces` don't belong to the current `identity` yet. Flips in lockstep with the identity (unlike
+   * `isFetching`, which lags by a tick), so consumers deriving state from the current filter can tell
+   * whether `traces` are stale.
+   */
+  isPreviousData: boolean;
   error: unknown;
   refetch: () => void;
   /** ms-since-epoch of the last successful resolution, or 0 if never. Drives a refresh label. */
@@ -243,6 +250,7 @@ export const useTracesPageQuery = ({
     traces,
     isLoading: query.isLoading && enabled,
     isFetching: query.isFetching,
+    isPreviousData: query.isPreviousData,
     error: query.error,
     refetch: query.refetch,
     dataUpdatedAt: query.dataUpdatedAt,

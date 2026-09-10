@@ -610,7 +610,7 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
                 self.records[dataset.dataset_id] = []
                 return dataset
 
-            def list_dataset_records(self, dataset_id: str):
+            def list_dataset_records(self, dataset_id: str, version: int | None = None):
                 return self.records[dataset_id]
 
             def batch_create_dataset_records(self, name: str, dataset_id: str, records):

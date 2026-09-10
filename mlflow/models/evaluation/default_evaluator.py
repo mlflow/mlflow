@@ -157,7 +157,6 @@ def _extract_predict_fn(model: Any) -> Callable[..., Any] | None:
 
     Args:
         model: A model object that has a predict method.
-        raw_model: A raw model object that has a predict method.
 
     Returns: The predict function.
     """

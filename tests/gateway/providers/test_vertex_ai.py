@@ -216,12 +216,16 @@ async def test_chat_stream_tool_calling_omits_function_call_id():
 def test_adapter_class_matches_the_active_delegate():
     # adapter_class must follow the delegate: Claude/MaaS models are formatted by their
     # own adapters (get_endpoint_url points at the delegate's endpoint), not the Gemini one.
-    from mlflow.gateway.providers.anthropic import AnthropicAdapter
     from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
-    from mlflow.gateway.providers.vertex_ai import _VertexGeminiAdapter
+    from mlflow.gateway.providers.vertex_ai import (
+        _VertexAIClaudeAdapter,
+        _VertexGeminiAdapter,
+    )
 
     assert _make_provider().adapter_class is _VertexGeminiAdapter
-    assert _make_claude_provider().adapter_class is AnthropicAdapter
+    # Claude resolves to the Vertex-specific Anthropic adapter, not the base one: callers
+    # that format through ``adapter_class`` alone must still get ``anthropic_version``.
+    assert _make_claude_provider().adapter_class is _VertexAIClaudeAdapter
     assert (
         _make_maas_provider("meta/llama-3.1-405b-instruct-maas").adapter_class
         is OpenAICompatibleAdapter
@@ -524,6 +528,56 @@ async def test_claude_chat_stream_uses_stream_raw_predict_endpoint():
     assert ":streamRawPredict" in call_kwargs[0][0]
     assert call_kwargs[1]["json"]["anthropic_version"] == "vertex-2023-10-16"
     assert "model" not in call_kwargs[1]["json"]
+
+
+def test_claude_adapter_applies_vertex_fields_without_provider_hooks():
+    """Formatting through ``adapter_class`` alone must produce a Vertex-valid payload.
+
+    ``_prepare_payload`` is a provider hook reached only from ``AnthropicProvider._chat``
+    and ``._chat_stream``. Callers that build a request from the adapter and post it
+    themselves -- the judge path in ``mlflow.genai.judges.adapters.gateway_adapter``
+    does exactly this -- never run that hook, so Vertex rejected the request with
+    "anthropic_version: Field required". The transformation therefore has to live on the
+    adapter, as it already does for Bedrock.
+    """
+    from mlflow.gateway.providers.vertex_ai import _VERTEX_ANTHROPIC_VERSION
+
+    provider = _make_claude_provider()
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 16}
+
+    formatted = provider.adapter_class.chat_to_model(dict(payload), provider.config)
+    assert formatted["anthropic_version"] == _VERTEX_ANTHROPIC_VERSION
+    # Vertex carries the model in the URL and rejects it in the body.
+    assert "model" not in formatted
+
+    streamed = provider.adapter_class.chat_streaming_to_model(dict(payload), provider.config)
+    assert streamed["anthropic_version"] == _VERTEX_ANTHROPIC_VERSION
+    assert "model" not in streamed
+
+
+def test_claude_adapter_applies_vertex_fields_via_judge_provider_resolution(monkeypatch):
+    """Same guarantee as above, but resolved the way the judge path actually does it.
+
+    ``mlflow.genai.judges.adapters.gateway_adapter`` resolves its provider via
+    ``_get_provider_instance("vertex_ai", model_name)``, not by constructing
+    ``VertexAIProvider`` directly. Going through that resolution function here pins
+    the regression at the exact seam that broke: if it ever stops routing Claude
+    models to ``_VertexAIClaudeAdapter``, this test -- not just the adapter-level one
+    above -- would catch it.
+    """
+    from mlflow.gateway.providers.vertex_ai import _VERTEX_ANTHROPIC_VERSION, _VertexAIClaudeAdapter
+    from mlflow.metrics.genai.model_utils import _get_provider_instance
+
+    monkeypatch.setenv("VERTEX_PROJECT", "my-gcp-project")
+    monkeypatch.setenv("VERTEX_LOCATION", "us-east5")
+
+    provider = _get_provider_instance("vertex_ai", "claude-sonnet-4-5@20251101")
+    assert provider.adapter_class is _VertexAIClaudeAdapter
+
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 16}
+    formatted = provider.adapter_class.chat_to_model(dict(payload), provider.config)
+    assert formatted["anthropic_version"] == _VERTEX_ANTHROPIC_VERSION
+    assert "model" not in formatted
 
 
 def _make_maas_provider(model_name: str, location: str = "us-central1") -> VertexAIProvider:

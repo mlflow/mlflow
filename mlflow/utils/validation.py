@@ -71,7 +71,8 @@ MAX_PARAM_VAL_LENGTH = 6000
 MAX_TAG_VAL_LENGTH = 8000
 MAX_EXPERIMENT_NAME_LENGTH = 500
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
-MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
+MAX_EXPERIMENT_TAG_VAL_LENGTH = 20000
+MAX_CUSTOM_VIEWS_PER_EXPERIMENT = 50
 MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 100_000
@@ -839,9 +840,7 @@ def _validate_username(username):
 
 def _validate_password(password) -> None:
     if password is None or len(password) < 12:
-        raise MlflowException.invalid_parameter_value(
-            "Password must be a string longer than 12 characters."
-        )
+        raise MlflowException.invalid_parameter_value("Password must be at least 12 characters.")
 
 
 def _validate_trace_tag(key, value):
@@ -897,6 +896,32 @@ def _validate_webhook_name(name: str) -> None:
         )
 
 
+_NAT64_PREFIX = ipaddress.IPv6Network("64:ff9b::/96")
+
+
+def _embedded_ipv4(
+    ip: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+    """Decode IPv6 transition formats that carry an embedded IPv4 address.
+
+    This normalizes IPv6-transition addresses (IPv4-mapped, 6to4, NAT64) to their
+    embedded IPv4 address so that a wrapped private/CGNAT/link-local address cannot
+    masquerade as global.
+    """
+    if isinstance(ip, ipaddress.IPv6Address):
+        embedded = ip.ipv4_mapped or ip.sixtofour
+        if embedded is None and ip in _NAT64_PREFIX:
+            embedded = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if embedded is not None:
+            return embedded
+    return ip
+
+
+def _is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Check if an IP is public, accounting for IPv6-transition address formats."""
+    return _embedded_ipv4(ip).is_global
+
+
 def _resolve_hostname_with_timeout(hostname: str, field_name: str):
     acquired = _HOSTNAME_RESOLUTION_SEMAPHORE.acquire(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
     if not acquired:
@@ -943,7 +968,7 @@ def _validate_hostname_resolves_to_public_ips(hostname: str, field_name: str) ->
             raise MlflowException.invalid_parameter_value(
                 f"{field_name} hostname {hostname!r} resolved to an invalid IP address: {e}"
             ) from e
-        if not ip.is_global:
+        if not _is_public_ip(ip):
             raise MlflowException.invalid_parameter_value(
                 f"{field_name} must not resolve to a non-public IP address. "
                 f"{hostname!r} resolves to {ip}."

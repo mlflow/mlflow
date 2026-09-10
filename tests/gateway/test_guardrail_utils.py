@@ -268,6 +268,25 @@ def test_load_guardrails_converts_real_entity():
     assert called_guardrail.guardrail_id == config.guardrail.guardrail_id
 
 
+def test_load_guardrails_server_url_includes_static_prefix(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    config = _make_guardrail_config(stage="BEFORE", action="VALIDATION")
+    store = mock.MagicMock()
+    store.list_endpoint_guardrail_configs.return_value = [config]
+    store.resolve_endpoint_in_scorer.return_value = mock.MagicMock()
+    endpoint_config = mock.MagicMock()
+    endpoint_config.endpoint_id = "ep-1"
+    request = mock.MagicMock()
+    request.base_url = "http://localhost:5000/"
+
+    with mock.patch("mlflow.gateway.guardrails.JudgeGuardrail.from_entity") as mock_from_entity:
+        mock_from_entity.return_value = _make_judge("BEFORE")
+        load_guardrails(store, endpoint_config, request)
+
+    _, called_url = mock_from_entity.call_args[0]
+    assert called_url == "http://localhost:5000/myprefix"
+
+
 def test_load_guardrails_resolves_endpoint_id_to_name():
     """Scorer's gateway:/ model URI contains an endpoint ID; load_guardrails must
     resolve it to the endpoint name via resolve_endpoint_in_scorer before invoking

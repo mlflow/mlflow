@@ -1639,6 +1639,20 @@ def test_anthropic_adapter_build_chat_usage_without_cached_tokens():
     assert not hasattr(usage, "cache_creation_input_tokens")
 
 
+def test_anthropic_adapter_build_chat_usage_preserves_provider_specific_fields():
+    usage_data = {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "server_tool_use": {"web_search_requests": 1},
+        "service_tier": "standard_only",
+    }
+    usage = AnthropicAdapter._build_chat_usage(usage_data)
+
+    assert usage.model_dump()["server_tool_use"] == {"web_search_requests": 1}
+    assert usage.model_dump()["service_tier"] == "standard_only"
+    assert "input_tokens" not in usage.model_dump()
+
+
 def test_chat_to_model_translates_multimodal_image_content():
     # A user message with OpenAI-format multimodal content (text + an image_url base64
     # data URL) must be translated to Anthropic's native image block; the gateway path

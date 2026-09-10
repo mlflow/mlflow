@@ -25,7 +25,7 @@ print("Loading data...")
 print(len(x_train), "train sequences")
 print(len(x_test), "test sequences")
 
-num_classes = np.max(y_train) + 1
+num_classes = int(np.max(y_train) + 1)
 print(num_classes, "classes")
 
 print("Vectorizing sequence data...")

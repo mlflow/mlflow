@@ -68,6 +68,19 @@ describe('useTracesV4UrlState', () => {
     expect(result.current.sort).toBe('start_time');
     expect(result.current.dir).toBe('desc');
     expect(result.current.traceId).toBeUndefined();
+    expect(result.current.isGroupedBySession).toBe(false);
+  });
+
+  test('reads and writes session grouping while resetting pagination', async () => {
+    const { result } = await mountHook('/p?page=3&groupBy=session');
+    expect(result.current.isGroupedBySession).toBe(true);
+
+    act(() => result.current.setIsGroupedBySession(false));
+    expect(param('groupBy')).toBeNull();
+    expect(param('page')).toBeNull();
+
+    act(() => result.current.setIsGroupedBySession(true));
+    expect(param('groupBy')).toBe('session');
   });
 
   test('invalid pageSize falls back to the default (25)', async () => {
@@ -121,6 +134,27 @@ describe('useTracesV4UrlState', () => {
 
     act(() => result.current.setTraceId(undefined));
     expect(param('traceId')).toBeNull();
+  });
+
+  test('falls back to the legacy selectedEvaluationId param when traceId is absent', async () => {
+    const { result } = await mountHook('/p?selectedEvaluationId=tr-legacy');
+    expect(result.current.traceId).toBe('tr-legacy');
+  });
+
+  test('prefers traceId over selectedEvaluationId when both are present', async () => {
+    const { result } = await mountHook('/p?traceId=tr-new&selectedEvaluationId=tr-legacy');
+    expect(result.current.traceId).toBe('tr-new');
+  });
+
+  test('setTraceId normalizes the legacy selectedEvaluationId param away', async () => {
+    const { result } = await mountHook('/p?selectedEvaluationId=tr-legacy');
+    act(() => result.current.setTraceId('tr-new'));
+    expect(param('traceId')).toBe('tr-new');
+    expect(param('selectedEvaluationId')).toBeNull();
+
+    act(() => result.current.setTraceId(undefined));
+    expect(param('traceId')).toBeNull();
+    expect(param('selectedEvaluationId')).toBeNull();
   });
 
   test('setPageIndex removes the param when set back to 1', async () => {
@@ -183,6 +217,29 @@ describe('useTracesV4UrlState', () => {
       expect(allTags()).toEqual(['my.tag%20key=a%3Db%3Ac%20d']);
       // …and decodes back to the exact original key/value.
       expect(result.current.tagFilters).toEqual([{ key: 'my.tag key', value: 'a=b:c d' }]);
+    });
+
+    // Regression: `tagFilters` must keep a stable reference across renders when the URL is unchanged.
+    // It's rebuilt from `searchParams.getAll('tag')`, and consumers use it as an effect dependency
+    // (the controller's clear-selection effect). A fresh array every render re-ran that effect on
+    // every render and wiped the bulk selection the instant it was made. Memoizing on the serialized
+    // params keeps the identity stable until the tags actually change.
+    test('returns a referentially stable tagFilters across re-renders when the URL is unchanged', async () => {
+      const { result, rerender } = await mountHook('/p?tag=env%3Dprod');
+      const first = result.current.tagFilters;
+      rerender();
+      expect(result.current.tagFilters).toBe(first);
+    });
+
+    test('returns a new tagFilters reference only when the tag params change', async () => {
+      const { result } = await mountHook('/p?tag=env%3Dprod');
+      const first = result.current.tagFilters;
+      act(() => result.current.addTagFilter('team', 'ml'));
+      expect(result.current.tagFilters).not.toBe(first);
+      expect(result.current.tagFilters).toEqual([
+        { key: 'env', value: 'prod' },
+        { key: 'team', value: 'ml' },
+      ]);
     });
   });
 });

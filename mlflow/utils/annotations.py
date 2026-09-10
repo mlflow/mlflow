@@ -192,7 +192,17 @@ def deprecated(alternative: str | None = None, since: str | None = None, impact:
 
             @wraps(obj)
             def deprecated_func(*args, **kwargs):
-                warnings.warn(notice, category=FutureWarning, stacklevel=2)
+                warning_message = notice
+                if (
+                    impact and "genai/eval-monitor/legacy-llm-evaluation" in impact
+                ) or alternative == "mlflow.genai.make_judge":
+                    from mlflow.agent.hint import maybe_append_agent_hint
+
+                    warning_message = maybe_append_agent_hint(
+                        "deprecated-genai-metric-or-judge",
+                        notice,
+                    )
+                warnings.warn(warning_message, category=FutureWarning, stacklevel=2)
                 return obj(*args, **kwargs)
 
             if obj.__doc__:

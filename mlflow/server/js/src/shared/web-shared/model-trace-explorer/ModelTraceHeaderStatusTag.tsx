@@ -15,6 +15,7 @@ import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection
 type Props = {
   statusState: ModelTraceState;
   getTruncatedLabel: (label: string) => string;
+  errorMessage?: string;
 };
 
 type StatusConfig = {
@@ -23,7 +24,7 @@ type StatusConfig = {
   color: TagColors;
 };
 
-export const ModelTraceHeaderStatusTag = ({ statusState, getTruncatedLabel }: Props) => {
+export const ModelTraceHeaderStatusTag = ({ statusState, getTruncatedLabel, errorMessage }: Props) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
 
@@ -67,6 +68,8 @@ export const ModelTraceHeaderStatusTag = ({ statusState, getTruncatedLabel }: Pr
     return null;
   }
 
+  const shouldShowErrorTooltip = statusState === 'ERROR' && Boolean(errorMessage);
+
   return (
     <ModelTraceHeaderMetricSection
       label={<FormattedMessage defaultMessage="Status" description="Label for the status section" />}
@@ -75,6 +78,7 @@ export const ModelTraceHeaderStatusTag = ({ statusState, getTruncatedLabel }: Pr
       icon={status.icon}
       getTruncatedLabel={getTruncatedLabel}
       onCopy={() => {}}
+      tooltipContent={shouldShowErrorTooltip ? errorMessage : undefined}
     />
   );
 };

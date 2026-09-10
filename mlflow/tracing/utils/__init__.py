@@ -224,6 +224,17 @@ def _aggregate_from_nodes(
 
     Avoids double-counting by skipping nodes whose ancestors already have the data.
 
+    Trace-level usage (``CHAT_USAGE``) and cost (``LLM_COST``) are produced by two
+    *independent* calls to this function, each deduping on its own attribute. They
+    reconcile for the common leaf-only integrations (direct providers, langchain,
+    llama_index, crewai, autogen, ag2), where usage sits on the same priced LLM spans as
+    cost so both boundaries coincide. They can differ only when a span carries usage but
+    no cost -- a rollup-on-parent integration (e.g. pydantic_ai, dspy, agno) that sets
+    cumulative usage on an unpriced agent/module span; even then a faithful rollup (parent
+    usage == sum of priced leaves) still reconciles. A cache-heavy trace whose cost looks
+    large relative to ``total_tokens`` is a separate token-accounting gap (``total_tokens``
+    excludes cache tokens that cost is priced on), not this aggregation.
+
     Args:
         nodes: List of span nodes to aggregate from.
         keys: Keys to aggregate. Always included in the result.
@@ -358,6 +369,9 @@ def calculate_cost_by_model_and_token_usage(
 
     if model_name.startswith(_SKIP_COST_PREFIXES):
         return None
+
+    if not model_provider and model_name.startswith(("databricks-", "databricks/")):
+        model_provider = "databricks"
 
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
     completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)

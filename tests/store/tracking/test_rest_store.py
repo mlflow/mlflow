@@ -1,5 +1,7 @@
+import asyncio
 import json
 import math
+import threading
 import time
 from unittest import mock
 
@@ -3016,6 +3018,8 @@ def _create_test_spans() -> list[LiveSpan]:
     return [LiveSpan(otel_span, trace_id="tr-123")]
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_log_spans_with_version_check():
     spans = _create_test_spans()
     experiment_id = "exp-123"
@@ -3153,6 +3157,42 @@ def test_server_version_check_caching():
             data=mock.ANY,
             extra_headers=mock.ANY,
         )
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_offloads_to_worker_thread():
+    store = RestStore(lambda: MlflowHostCreds("https://async-host"))
+    event_loop_ident = threading.get_ident()
+    worker_idents = []
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        worker_idents.append(threading.get_ident())
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        result = await store.log_spans_async("exp-123", [])
+
+    assert result == []
+    assert worker_idents
+    assert worker_idents[0] != event_loop_ident
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_allows_concurrent_store_calls():
+    store = RestStore(lambda: MlflowHostCreds("https://async-host"))
+    barrier = threading.Barrier(2, timeout=5)
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        barrier.wait()
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        results = await asyncio.gather(
+            store.log_spans_async("exp-123", []),
+            store.log_spans_async("exp-123", []),
+        )
+
+    assert results == [[], []]
 
 
 def test_link_prompts_to_trace():

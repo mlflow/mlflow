@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+// eslint-disable-next-line no-restricted-imports -- TODO(FEINF-5856)
 import {
   ReactFlow,
   useReactFlow,
@@ -18,7 +19,7 @@ import { workflowNodeTypes } from './GraphViewWorkflowNode';
 import { WorkflowEdgeMarkerDefs, workflowEdgeTypes } from './GraphViewWorkflowEdge';
 import { GraphViewFloatingToolbar } from './GraphViewFloatingToolbar';
 
-interface GraphViewWorkflowCanvasProps {
+export interface GraphViewWorkflowCanvasProps {
   layout: WorkflowLayout;
   selectedNodeId: string | null;
   highlightedPathNodeIds: Set<string>;
@@ -27,6 +28,7 @@ interface GraphViewWorkflowCanvasProps {
   onViewSpanDetails: (span: ModelTraceSpanNode) => void;
   isGraphExpanded: boolean;
   onToggleGraphExpand: () => void;
+  renderNodeIcon?: (spanType: string, hasException: boolean) => React.ReactNode;
 }
 
 // Inner component that uses React Flow hooks
@@ -39,6 +41,7 @@ const GraphViewWorkflowCanvasInner = ({
   onViewSpanDetails,
   isGraphExpanded,
   onToggleGraphExpand,
+  renderNodeIcon,
 }: GraphViewWorkflowCanvasProps) => {
   const { theme } = useDesignSystemTheme();
   const { fitView, getZoom, setCenter, zoomIn, zoomOut } = useReactFlow();
@@ -75,12 +78,13 @@ const GraphViewWorkflowCanvasInner = ({
           isSelected: node.id === selectedNodeId,
           isOnHighlightedPath: highlightedPathNodeIds.has(node.id),
           onViewSpanDetails: stableOnViewSpanDetails,
+          renderIcon: renderNodeIcon,
           nodeWidth: node.width,
           nodeHeight: node.height,
         },
       }),
     );
-  }, [layout.nodes, selectedNodeId, highlightedPathNodeIds, stableOnViewSpanDetails]);
+  }, [layout.nodes, selectedNodeId, highlightedPathNodeIds, stableOnViewSpanDetails, renderNodeIcon]);
 
   const [nodes, setNodes] = useState<WorkflowFlowNode[]>(buildFlowNodes);
 
@@ -261,7 +265,7 @@ const GraphViewWorkflowCanvasInner = ({
  * React Flow canvas for rendering the aggregated workflow graph.
  * Provides zoom and pan functionality for workflow visualization.
  */
-export const GraphViewWorkflowCanvas = (props: GraphViewWorkflowCanvasProps) => {
+export const GraphViewWorkflowCanvas = (props: GraphViewWorkflowCanvasProps): JSX.Element => {
   return (
     <ReactFlowProvider>
       <GraphViewWorkflowCanvasInner {...props} />

@@ -9,6 +9,7 @@ from fastapi import Request
 from mlflow.entities.gateway_guardrail import GuardrailStage
 from mlflow.gateway.guardrails import JudgeGuardrail
 from mlflow.gateway.schemas import chat
+from mlflow.server.asgi_utils import get_server_base_url
 from mlflow.types.chat import ChatCompletionResponse
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ def load_guardrails(
     if not configs:
         return []
 
-    server_url = str(request.base_url).rstrip("/")
+    server_url = get_server_base_url(request)
     guardrails = []
     for config in configs:
         if config.guardrail is None:

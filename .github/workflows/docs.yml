@@ -6,20 +6,18 @@ on:
       - pyproject.toml
       - uv.lock
       - mlflow/**
+      - "!mlflow/server/js/**"
       - docs/**
       - .github/workflows/docs.yml
       - .github/actions/setup-node/**
     branches:
       - master
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - pyproject.toml
       - uv.lock
       - mlflow/**
+      - "!mlflow/server/js/**"
       - docs/**
       - .github/workflows/docs.yml
       - .github/actions/setup-node/**
@@ -37,7 +35,6 @@ permissions: {}
 
 jobs:
   check:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
@@ -65,7 +62,6 @@ jobs:
           npm run prettier:check
 
   build:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
@@ -135,7 +131,6 @@ jobs:
           if-no-files-found: error
 
   test-examples:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
@@ -161,7 +156,6 @@ jobs:
           uv run pytest .examples
 
   r:
-    if: (github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     permissions:
       contents: read
     timeout-minutes: 15

@@ -49,19 +49,6 @@ def get_workspace_table(conn, table_name: str) -> sa.Table:
     return table
 
 
-def validate_workspace_exists(conn, workspace_name: str) -> None:
-    """Raise ``RuntimeError`` if *workspace_name* is not in the workspaces table."""
-    try:
-        workspaces = sa.Table("workspaces", sa.MetaData(), autoload_with=conn)
-    except sa.exc.NoSuchTableError:
-        raise RuntimeError(_NOT_ENABLED_MSG)
-    exists = conn.execute(
-        sa.select(sa.literal(1)).select_from(workspaces).where(workspaces.c.name == workspace_name)
-    ).first()
-    if not exists:
-        raise RuntimeError(f"Workspace {workspace_name!r} does not exist.")
-
-
 def format_truncated_list(
     items: list[str],
     *,

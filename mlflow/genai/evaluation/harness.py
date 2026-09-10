@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import queue
 import threading
@@ -71,6 +72,7 @@ from mlflow.genai.evaluation.session_utils import (
 from mlflow.genai.evaluation.telemetry import emit_metric_usage_event
 from mlflow.genai.evaluation.utils import (
     PGBAR_FORMAT,
+    add_scorer_metadata,
     is_none_or_nan,
     make_code_type_assessment_source,
     standardize_scorer_value,
@@ -952,6 +954,8 @@ def _compute_eval_scores(
                 )
             ]
 
+        add_scorer_metadata(scorer, feedbacks)
+
         # Record the trace ID for the scorer function call.
         if should_trace and (trace_id := mlflow.get_last_active_trace_id(thread_local=True)):
             for feedback in feedbacks:
@@ -974,7 +978,13 @@ def _compute_eval_scores(
         max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
-        futures = {executor.submit(run_scorer, scorer): scorer for scorer in scorers}
+        # Carry the caller's context (e.g. eval_retry_context() flags) into each
+        # worker; a fresh copy per submit is required since a Context can't be
+        # entered by two threads at once.
+        futures = {
+            executor.submit(contextvars.copy_context().run, run_scorer, scorer): scorer
+            for scorer in scorers
+        }
 
         try:
             results = []

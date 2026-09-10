@@ -14,14 +14,14 @@ from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
 
-UBUNTU_BASE_IMAGE = "ubuntu:22.04"
+UBUNTU_BASE_IMAGE = "ubuntu:24.04"
 PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
 
 
 SETUP_PYENV = r"""# Setup pyenv
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata \
     libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
-    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+    libncurses-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 RUN git clone \
     --depth 1 \
     --branch $(git ls-remote --tags --sort=v:refname https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
@@ -32,10 +32,11 @@ RUN apt install -y software-properties-common \
     && apt update \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt update \
-    && apt install -y python3.10 python3.10-distutils \
-    # Remove python3-blinker to avoid pip uninstall conflicts
-    && apt remove -y python3-blinker \
-    && ln -s -f $(which python3.10) /usr/bin/python \
+    && apt install -y python3.11 python3.11-distutils \
+    # Remove apt-installed distributions that pip cannot uninstall (no RECORD file),
+    # since deadsnakes Python keeps Debian's dist-packages on sys.path
+    && apt remove -y python3-blinker python3-cryptography \
+    && ln -s -f $(which python3.11) /usr/bin/python \
     && wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py \
     && python /tmp/get-pip.py
 """  # noqa: E501

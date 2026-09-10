@@ -3,7 +3,9 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any, cast
 
+from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -33,7 +35,7 @@ class SpanEvent(_MlflowObject):
     attributes: dict[str, AttributeValue] = field(default_factory=dict)
 
     @classmethod
-    def from_exception(cls, exception: Exception):
+    def from_exception(cls, exception: Exception) -> "SpanEvent":
         "Create a span event from an exception."
 
         stack_trace = cls._get_stacktrace(exception)
@@ -56,7 +58,7 @@ class SpanEvent(_MlflowObject):
         except Exception:
             return msg
 
-    def json(self):
+    def json(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "timestamp": self.timestamp,
@@ -65,7 +67,7 @@ class SpanEvent(_MlflowObject):
             else None,
         }
 
-    def to_otel_proto(self):
+    def to_otel_proto(self) -> OTelProtoSpan.Event:
         """
         Convert to OpenTelemetry protobuf event format for OTLP export.
         This is an internal method used for logging spans via OTel protocol.
@@ -73,9 +75,7 @@ class SpanEvent(_MlflowObject):
         Returns:
             An OpenTelemetry protobuf Span.Event message.
         """
-        from opentelemetry.proto.trace.v1.trace_pb2 import Span
-
-        otel_event = Span.Event()
+        otel_event = OTelProtoSpan.Event()
         otel_event.name = self.name
         otel_event.time_unix_nano = self.timestamp
 
@@ -92,9 +92,11 @@ class CustomEncoder(json.JSONEncoder):
     Custom encoder to handle json serialization.
     """
 
-    def default(self, o):
+    def default(self, o: object) -> str:
         try:
-            return super().default(o)
+            # JSONEncoder.default always raises TypeError; cast to reflect the
+            # effective return type of this override.
+            return cast(str, super().default(o))
         except TypeError:
             # convert datetime to string format by default
             if isinstance(o, datetime):

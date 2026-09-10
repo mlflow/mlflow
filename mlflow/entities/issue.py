@@ -16,7 +16,7 @@ class IssueStatus(str, Enum):
     REJECTED = "rejected"
     RESOLVED = "resolved"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
 
@@ -28,7 +28,7 @@ class IssueSeverity(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
     @cached_property
@@ -36,22 +36,22 @@ class IssueSeverity(str, Enum):
         """Return the ordinal rank for severity comparison."""
         return list(IssueSeverity).index(self)
 
-    def __lt__(self, other) -> bool:
+    def __lt__(self, other: object) -> bool:
         if isinstance(other, IssueSeverity):
             return self._rank < other._rank
         return NotImplemented
 
-    def __le__(self, other) -> bool:
+    def __le__(self, other: object) -> bool:
         if isinstance(other, IssueSeverity):
             return self._rank <= other._rank
         return NotImplemented
 
-    def __gt__(self, other) -> bool:
+    def __gt__(self, other: object) -> bool:
         if isinstance(other, IssueSeverity):
             return self._rank > other._rank
         return NotImplemented
 
-    def __ge__(self, other) -> bool:
+    def __ge__(self, other: object) -> bool:
         if isinstance(other, IssueSeverity):
             return self._rank >= other._rank
         return NotImplemented

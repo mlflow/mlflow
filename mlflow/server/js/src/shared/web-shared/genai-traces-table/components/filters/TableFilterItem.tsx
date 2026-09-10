@@ -140,6 +140,10 @@ export const getAvailableOperators = (
     return [FilterOperator.EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
   }
 
+  if (column === TracesTableColumnGroup.EXPECTATION) {
+    return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
+  }
+
   return [FilterOperator.EQUALS];
 };
 
@@ -174,6 +178,14 @@ export const TableFilterItem = ({
     [assessmentInfos],
   );
 
+  const expectationKeyOptions: TableFilterOption[] = useMemo(
+    () =>
+      allColumns
+        .filter((column) => column.group === TracesTableColumnGroup.EXPECTATION && column.expectationName)
+        .map((column) => ({ value: column.expectationName as string, renderValue: () => column.label })),
+    [allColumns],
+  );
+
   const columnOptions: TableFilterOption[] = useMemo(() => {
     // Order the columns based on their filterOrder property, defaulting to 1 if not provided
     const sortedColumns = allColumns.slice().sort((a, b) => {
@@ -186,7 +198,7 @@ export const TableFilterItem = ({
       )
       .map((column) => ({ value: column.id, renderValue: () => column.filterLabel ?? column.label }));
 
-    // Add the tag and assessment column groups
+    // Add the tag, assessment, and expectation column groups
     result.push(
       {
         value: TracesTableColumnGroup.TAG,
@@ -195,6 +207,10 @@ export const TableFilterItem = ({
       {
         value: TracesTableColumnGroup.ASSESSMENT,
         renderValue: () => TracesTableColumnGroupToLabelMap[TracesTableColumnGroup.ASSESSMENT],
+      },
+      {
+        value: TracesTableColumnGroup.EXPECTATION,
+        renderValue: () => TracesTableColumnGroupToLabelMap[TracesTableColumnGroup.EXPECTATION],
       },
     );
 
@@ -266,6 +282,43 @@ export const TableFilterItem = ({
               id={`filter-key-${index}`}
               item={assessmentKeyOptions.find((item) => item.value === key)}
               options={assessmentKeyOptions}
+              onChange={(value: string) => {
+                const availableOperators = getAvailableOperators(column, value, usesV4APIs, assessmentInfos);
+                onChange(
+                  {
+                    ...tableFilter,
+                    key: value,
+                    operator: availableOperators.includes(operator as FilterOperator)
+                      ? operator
+                      : availableOperators[0],
+                    value: '',
+                  },
+                  index,
+                );
+              }}
+              placeholder="Select name"
+              width={200}
+              canSearchCustomValue={false}
+            />
+          </div>
+        )}
+        {column === TracesTableColumnGroup.EXPECTATION && (
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <FormUI.Label htmlFor={`filter-key-${index}`}>
+              <FormattedMessage
+                defaultMessage="Name"
+                description="Label for the name field for expectations in the GenAI Traces Table Filter form"
+              />
+            </FormUI.Label>
+            <TableFilterItemTypeahead
+              id={`filter-key-${index}`}
+              item={expectationKeyOptions.find((item) => item.value === key)}
+              options={expectationKeyOptions}
               onChange={(value: string) => {
                 const availableOperators = getAvailableOperators(column, value, usesV4APIs, assessmentInfos);
                 onChange(

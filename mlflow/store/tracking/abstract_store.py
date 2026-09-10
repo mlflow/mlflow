@@ -1,3 +1,4 @@
+import asyncio
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
@@ -779,6 +780,10 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         Asynchronously log multiple span entities to the tracking store.
 
+        The default implementation offloads ``log_spans()`` to a worker thread so
+        async callers do not stall the event loop. Stores that implement
+        ``log_spans()`` inherit this behavior.
+
         Args:
             location: The location to log spans to.
             spans: List of Span entities to log. Spans may belong to different traces.
@@ -786,7 +791,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         Returns:
             List of logged Span entities.
         """
-        raise NotImplementedError
+        return await asyncio.to_thread(self.log_spans, location, spans)
 
     def log_metric(self, run_id, metric):
         """

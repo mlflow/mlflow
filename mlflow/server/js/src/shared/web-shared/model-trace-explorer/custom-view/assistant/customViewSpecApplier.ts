@@ -11,7 +11,9 @@ export type RenderCustomViewSpec = {
   messages: unknown;
 };
 
-export type CustomViewApplyResult = { ok: true } | { ok: false; error: string };
+export class CustomViewValidationError extends Error {}
+
+export type CustomViewApplyResult = { ok: true } | { ok: false; error: string; retryable: boolean };
 
 export type CustomViewSpecApplier = (spec: RenderCustomViewSpec) => Promise<CustomViewApplyResult>;
 

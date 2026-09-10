@@ -5,7 +5,7 @@ import pytest
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 from skills.commands.validate_review import DEFAULT_SCHEMA
 
-BODY = "Overall the change looks good.\n\n🤖 Generated with Claude"
+BODY = "Overall the change looks good."
 CRITICAL = {"path": "a.py", "body": "🔴 **CRITICAL:** unhandled None", "line": 1, "side": "RIGHT"}
 MODERATE = {"path": "a.py", "body": "🟡 **MODERATE:** unclear name", "line": 1, "side": "RIGHT"}
 NIT = {"path": "a.py", "body": "🟢 **NIT:** stray blank line", "line": 1, "side": "RIGHT"}
@@ -74,17 +74,11 @@ def test_comment_rejects_bodies_without_a_severity_prefix(
     ("body", "valid"),
     [
         (BODY, True),
-        ("🤖 Generated with Claude", True),
-        ("Looks good.\n\n🤖 Generated with Claude\n", True),
-        ("Looks good.", False),
-        ("Looks good.\n\n🤖 Generated with Claude\n\nOne more thing.", False),
-        ("Looks good. 🤖 Generated with Claude", False),
+        ("Looks good.", True),
         ("", False),
     ],
 )
-def test_body_requires_the_footer_on_its_own_trailing_line(
-    validator: Draft202012Validator, body: str, valid: bool
-) -> None:
+def test_body_must_be_non_empty(validator: Draft202012Validator, body: str, valid: bool) -> None:
     assert validator.is_valid(payload(body=body)) is valid
 
 

@@ -2,13 +2,14 @@
 // catalog / data-binding references and examples, the per-trace data snapshot,
 // and the MLflow Assistant authoring guide. Follows A2UI v0.9's "prompt-first"
 // contract: the schema + examples are embedded in the prompt and the model
-// passes the full message stream as the render_custom_view tool's "messages"
-// argument, which the host validates before processing.
+// delivers the full message stream through either the render_custom_view tool
+// or a schema-constrained final response, which the host validates before processing.
 
 import type { AgentAssessment } from '../customViewBuilders';
 import { A2UI_VERSION } from './validateA2uiMessages';
 
 export const RENDER_CUSTOM_VIEW_TOOL_NAME = 'render_custom_view';
+export type CustomViewDeliveryMode = 'tool' | 'structured';
 
 // One span's entry in the nodeMap JSON handed to the model. Keyed by span id,
 // this is just the trace's nodeMap serialized to plain JSON (no curated shape).
@@ -48,12 +49,18 @@ export const CATALOG_REFERENCE = `Available components (use the "component" fiel
 - "Icon": a single Databricks Design System icon. props: { "name": <string>, "size"?: <number> }. Use a camelCase name, e.g. "check", "warning", "error", "info", "search". Use sparingly — most components already carry their own icon prop.
 - "StatCard": a single metric tile. props: { "value": <SCALAR SOURCE marker>, "label": <string>, "icon"?: "wrench"|"clock"|"checkCircle"|"xCircle"|"hash"|"checklist", "tone"?: "info"|"success"|"warning"|"danger", "weight"?: <number> }. Bind "value" to a scalar source, e.g. { "$source": "metrics.latency" }. "label", "icon", "tone" are static — authored ONCE, they CANNOT follow the value, so never style a tile as if you knew what its value will be. "info" is the ONLY neutral tone — "success", "warning", and "danger" each assert a verdict, and "checkCircle"/"xCircle" each assert an outcome. Since a StatCard's "value" is always a bound marker, default to "tone": "info" with a descriptive icon ("clock" for latency, "hash" for counts, "checklist" for status): a status tile styled "success"/"checkCircle" still renders a green check on a trace whose status is ERROR, and a latency tile styled "warning" still renders a yellow tint on a fast trace. Reach for a verdict tone ONLY when it holds for EVERY trace because the LABEL itself is the verdict (e.g. an error-count tile). StatCards already flex to equal width in a Row; only set "weight" to bias the split.
 - "Markdown": a markdown text block. props: { "text": <static markdown string OR a spanField source marker>, "title"?: <string heading> }. "text" is normally a STATIC instruction/heading, but to render ONE span's value as prose (e.g. the model's answer) you may bind it to a "spanField" source whose "path" lands on a SCALAR leaf, e.g. { "$source": "spanField", "spanRef": { "type": "LLM", "nth": 0 }, "field": "outputs", "path": ["choices", 0, "message", "content"] } (see "Data binding"); a marker that resolves to an object dumps raw JSON, so use "KeyValueViewer" for whole objects. Markdown you write YOURSELF must stay trace-agnostic — no trace-specific narrative and no "#span:" deeplinks (those would point at a span that only exists in one trace and break when the view is reused). Prefer Text for short headings.
-- "KeyValueViewer": displays a SINGLE labeled value. props: { "label"?: <string>, "value": <string OR a spanField source marker>, "initialFormat"?: "json"|"text"|"markdown", "hideFormatToggle"?: <bool> }. To show ONE specific span's input/output/attributes inline (e.g. a tool call's output in its own card), bind "value" to a "spanField" source with "initialFormat": "json", e.g. { "$source": "spanField", "spanRef": { "type": "TOOL", "nth": 0 }, "field": "outputs" } (see "Data binding"); the host re-resolves it per trace. To cover SEVERAL spans, author one card per span with its own "spanField" marker and a "renderIfSpan" guard. Do NOT paste literal span JSON into "value".
+- "KeyValueViewer": displays a SINGLE labeled value. props: { "label"?: <string>, "value": <string OR a spanField source marker>, "initialFormat"?: "json"|"text"|"markdown", "hideFormatToggle"?: <bool>, "weight"?: <number> }. To show ONE specific span's input/output/attributes inline (e.g. a tool call's output in its own card), bind "value" to a "spanField" source with "initialFormat": "json", e.g. { "$source": "spanField", "spanRef": { "type": "TOOL", "nth": 0 }, "field": "outputs" } (see "Data binding"); the host re-resolves it per trace. To cover SEVERAL spans, author one card per span with its own "spanField" marker and a "renderIfSpan" guard. Do NOT paste literal span JSON into "value".
 - "AssessmentCard": a single colored box for one assessment. You normally do NOT emit these directly — bind an AssessmentBoard's children to the assessments source and the host materializes one card per assessment. props (for reference): { "name", "value"?, "rationale"?, "source"?, "sentiment"? }.
-- "AssessmentBoard": a wrapping container for assessment cards. props: { "title"?: <string>, "icon"?: "checklist"|"list"|"checkCircle", "children": <STRUCTURAL SOURCE marker>, "emptyMessage"?: <string> }. For ANY request about judge results / evaluations / assessments, bind "children" to { "$source": "assessments" }; the host builds one AssessmentCard per real assessment in the current trace. Do NOT hand-author AssessmentCards.`;
+- "AssessmentBoard": a wrapping container for assessment cards. props: { "title"?: <string>, "icon"?: "checklist"|"list"|"checkCircle", "children": <STRUCTURAL SOURCE marker>, "emptyMessage"?: <string> }. For ANY request about judge results / evaluations / assessments, bind "children" to { "$source": "assessments" }; the host builds one AssessmentCard per real assessment in the current trace. Do NOT hand-author AssessmentCards.
+- "FeedbackThumbsUpDownButtons": an INTERACTIVE thumbs up/down control. props: { "label"?: <string prompt>, "name"?: <STATIC assessment name, defaults to "User feedback">, "value"?: bind to a "/feedback/..." path, "spanId"?: <SPAN-REF marker>, "weight"?: <number> }. Clicking a thumb logs a feedback assessment IMMEDIATELY against the CURRENT trace. To scope it to a span, set "spanId" to a "$spanRef" marker (see "Data binding"); the host re-targets the equivalent span in whatever trace is open. Use ONLY when the user asks to COLLECT feedback — never to display judge results.
+- "RadioGroup": an INTERACTIVE single-choice feedback control. props: { "label"?: <string prompt>, "name": <STATIC assessment name; REQUIRED, unique per dimension>, "options": [{ "label": <string>, "value": <string> }], "value"?: bind to "/feedback/...", "spanId"?: <SPAN-REF marker>, "formId": <STATIC string; REQUIRED>, "weight"?: <number> }. Selecting STAGES the choice; it is logged by the FeedbackSubmit sharing its "formId".
+- "FeedbackInputText": a feedback-scoped free-text box. props: { "label"?: <string>, "name": <STATIC name / staging key; REQUIRED>, "field"?: "value"|"rationale" (default "rationale"), "placeholder"?: <string>, "value"?: bind to "/feedback/...", "spanId"?: <SPAN-REF marker>, "formId": <STATIC string; REQUIRED>, "weight"?: <number> }. With field "rationale", share the SAME "name" AND "formId" as a RadioGroup; with field "value", use standalone. STAGES; logged by the FeedbackSubmit sharing its "formId".
+- "FeedbackSubmit": a button that submits ONE form's staged feedback. props: { "label"?: <string, default "Submit feedback">, "formId": <STATIC string; REQUIRED>, "weight"?: <number> }. It flushes every RadioGroup / FeedbackInputText that shares its "formId" — across ANY spans — and only those. A "form" is a set of controls plus one submit sharing the same "formId". A single-form view gives every control and its submit one shared id; multiple forms each use a distinct id. Every submit MUST have at least one control sharing its "formId". "formId" is a STATIC grouping label, independent of "spanId".
+
+Feedback authoring rules: RadioGroup / FeedbackInputText STAGE and require a FeedbackSubmit; FeedbackThumbsUpDownButtons logs immediately (do not mix the two styles in one form). A feedback "name" is the STATIC assessment dimension and MUST stay the same across traces. When a feedback control targets a span, set "spanId" to a "$spanRef" marker so the host resolves the equivalent span per trace. EVERY RadioGroup / FeedbackInputText / FeedbackSubmit MUST carry a "formId". A rationale FeedbackInputText attaches to a RadioGroup only when they share BOTH "name" AND "formId". NEVER point a RadioGroup and a field:"value" FeedbackInputText at the same "name". Only add feedback controls when the user explicitly asks to collect feedback.`;
 
 export const BINDING_REFERENCE = `Data binding (CRITICAL — author ONCE, reused for every trace):
-You are authoring a REUSABLE, trace-agnostic TEMPLATE, not a one-off view. The "traceSample" in the context is ONLY an example of the shape of the data; you must NOT copy its concrete values, span ids, rows, or counts into the spec. Instead, every data-bearing prop is a binding MARKER that the host re-resolves against whatever trace is open. The marker kind is "$source" (data props), over a CLOSED set of sources, plus BARE span selectors used by "spanField" and "renderIfSpan":
+You are authoring a REUSABLE, trace-agnostic TEMPLATE, not a one-off view. The "traceSample" in the context is ONLY an example of the shape of the data; you must NOT copy its concrete values, span ids, rows, or counts into the spec. Instead, every data-bearing prop is a binding MARKER that the host re-resolves against whatever trace is open. There are TWO marker kinds — "$source" (data props) and "$spanRef" (a feedback control's "spanId") — over a CLOSED set of sources, plus BARE span selectors used by "spanField" and "renderIfSpan":
 
 1. "$source" markers — fill a data prop with the current trace's data. Write { "$source": "<name>" } (structural sources also accept extra fields). Available sources:
    - Scalars (for a StatCard "value" or any scalar data prop): "metrics.status", "metrics.latency", "metrics.totalTokens", "metrics.assessments" (the latter is the COUNT of assessments).
@@ -61,13 +68,16 @@ You are authoring a REUSABLE, trace-agnostic TEMPLATE, not a one-off view. The "
    - Per-span field (for a KeyValueViewer "value" or a Text "text", to show ONE specific span's data inline): "spanField". Write { "$source": "spanField", "spanRef": <selector>, "field": "<field>" } where "spanRef" is a BARE selector — exactly "root", { "type": "<SPAN_TYPE>", "nth"?: n }, or { "name": "<span name>" } — and "field" is one of "inputs", "outputs", "attributes" (rendered as JSON — use "initialFormat": "json"), "name", or "spanId" (short text). Write "spanRef" as the bare selector — "spanRef": "root" or "spanRef": { "type": "TOOL", "nth": 0 } — not wrapped in any marker object. Use this for "show the output of the first tool call"-style requests: bind the card's KeyValueViewer to { "$source": "spanField", "spanRef": { "type": "TOOL", "nth": 0 }, "field": "outputs" }, and the trace's user prompt to { "$source": "spanField", "spanRef": "root", "field": "inputs" }. If the selected span is absent in a trace, JSON fields resolve to an empty/null value and text fields to "" (an empty card), so the view degrades gracefully instead of showing another trace's data.
      - Nested "path" (extract ONE nested value out of "inputs"/"outputs"/"attributes"): add an OPTIONAL "path" — an array of string keys and/or number indices drilling into that field's JSON — e.g. { "$source": "spanField", "spanRef": { "type": "LLM", "nth": 0 }, "field": "outputs", "path": ["choices", 0, "message", "content"] } or { ..., "field": "outputs", "path": ["content"] }. When the leaf is a SCALAR (string/number/bool) it renders as readable prose, so put it in a "Text" (or a "Markdown"), or a "KeyValueViewer" WITHOUT "initialFormat": "json" — this is how you turn a model's response into standalone text instead of a JSON blob. When the leaf is itself an object/array it still renders as JSON (keep "initialFormat": "json"). Prefer extracting the specific nested field the user asked for (e.g. the prompt text, the model's answer) over dumping the whole object. "path" is a STRUCTURAL, trace-agnostic selector into the field's SCHEMA — NOT a value copied from the traceSample: pick keys that are stable across traces, treat number indices as positional (like "nth"), and never bake sample-specific structure in. If the path is missing in some trace, it resolves to "" so the view still degrades gracefully. "path" applies ONLY to "inputs"/"outputs"/"attributes" (not "name"/"spanId").
 
+2. "$spanRef" markers — fill a feedback control's "spanId" so it targets the right span in EVERY trace. Write one of: { "$spanRef": "root" }, { "$spanRef": { "type": "<SPAN_TYPE>", "nth"?: <n> } }, or { "$spanRef": { "name": "<span name>" } }. If nothing matches, the host hides that feedback control so it cannot accidentally log trace-level feedback. Prefer a type + nth selector over a name copied from the authoring trace. A feedback control's "spanId" uses the WRAPPED "$spanRef" marker; a spanField's "spanRef" uses the BARE selector.
+
 Conditional rendering:
 - Any component may carry a "renderIfSpan": <bare selector> guard ("root" / { "type": "<SPAN_TYPE>", "nth"?: n } / { "name": "<span name>" }). The host OMITS that component AND its entire subtree when the selector matches no span in the current trace. ALWAYS put a "renderIfSpan" on each per-span card (e.g. the nth tool-call card) so a fixed N-card layout collapses to only the cards whose span exists — otherwise the extra card renders an empty/"null" output. Use the SAME selector as the card's spanField. (Like spanField's "spanRef", this is a BARE selector.)
 
 Rules:
 - Do NOT inline literal trace data anywhere a marker belongs. A StatCard value is { "$source": "metrics.latency" }, NOT "1.20s". A specific span's output in a KeyValueViewer is a "spanField" marker, NOT pasted JSON. A span id/name caption is a "spanField" marker, NOT a literal id copied from the traceSample.
 - Only these source names exist. If the user asks for data with no matching source, either bind a "spanField" (for one span's input/output/attributes/name/id) or state it is unavailable — do NOT invent a source name.
-- Static layout text (titles, labels, icons, tones) stays a plain literal — it is the SAME for every trace. Because it cannot change, it must not imply anything about a value that does: give a per-trace status a neutral icon/tone rather than a hard-coded success or danger.`;
+- A feedback control's "spanId" (when span-scoped) is a { "$spanRef": ... } marker. Its "name" is a STATIC string naming the assessment dimension — never a span id or an authoring-trace span name.
+- Static layout text (titles, labels, option labels, icons, tones, feedback "name"s) stays a plain literal — it is the SAME for every trace. Because it cannot change, it must not imply anything about a value that does: give a per-trace status a neutral icon/tone rather than a hard-coded success or danger.`;
 
 export const LAYOUT_GUIDANCE = `Layout & visual polish (make views look designed, not flat):
 1. Give structure with Cards. Group each logical section (a span, a response, a metrics summary) into its own "Card". A Card holds ONE child, so put a "Column" inside it.
@@ -116,6 +126,20 @@ export const EXAMPLE: string = `Example — a heading plus a metrics row. Note: 
   ]
 }
 \`\`\``;
+
+const STRUCTURED_OUTPUT_RULES = [
+  `Output format rules (A2UI ${A2UI_VERSION}):`,
+  `1. Deliver the view in the provider's structured final response. Set "type" to "${RENDER_CUSTOM_VIEW_TOOL_NAME}", "text" to a short confirmation, "title" to a SHORT 2-5 word human-readable name, and "messages" to the complete A2UI message array described below. If the user is only asking a question and does not want the view changed, set "type" to "message", answer in "text", and return "title": "" and "messages": []. Do NOT call a render tool or wrap the response in a code fence.`,
+  ...OUTPUT_RULES.split('\n').slice(2),
+].join('\n');
+
+const STRUCTURED_EXAMPLE = EXAMPLE.replace(
+  '{ "title", "messages" } wrapper',
+  '{ "type", "text", "title", "messages" } envelope',
+).replace(
+  '{\n  "title": "Trace Summary",',
+  '{\n  "type": "render_custom_view",\n  "text": "Created a reusable trace summary view.",\n  "title": "Trace Summary",',
+);
 
 export const CARD_STYLE_EXAMPLE: string = `Example — a DECORATED card (apply this styling pattern to every card: titled heading, caption, then bound content). Here a summary card shows bound metrics and the root span's input via a "spanField" marker (note there is NO literal span id or per-trace value):
 \`\`\`json
@@ -179,6 +203,29 @@ export const SPAN_CARD_EXAMPLE: string = `Example — per-span cards that show t
 // so a large trace can't blow up the context.
 const MAX_PROMPT_SPANS = 400;
 
+export const FEEDBACK_EXAMPLE: string = `Example — a multi-dimension human-feedback form (only when the user asks to COLLECT feedback). One "RadioGroup" per dimension (unique STATIC "name"), an optional "FeedbackInputText" with field "rationale" sharing that "name", and exactly one "FeedbackSubmit" at the end. Values STAGE on change and are logged only when Submit is clicked:
+\`\`\`json
+{
+  "title": "Response Feedback",
+  "messages": [
+    {
+      "version": "v0.9",
+      "updateComponents": {
+        "surfaceId": "${PLACEHOLDER_SURFACE_ID}",
+        "components": [
+          { "id": "root", "component": "Column", "children": ["accuracy", "accuracy-why", "helpfulness", "submit"] },
+          { "id": "accuracy", "component": "RadioGroup", "label": "Who did better on Accuracy?", "name": "Accuracy", "formId": "feedback", "options": [ { "label": "Response A", "value": "Response A" }, { "label": "Response B", "value": "Response B" }, { "label": "Tie / Neither", "value": "Tie" } ] },
+          { "id": "accuracy-why", "component": "FeedbackInputText", "label": "Optional rationale (why?)", "name": "Accuracy", "field": "rationale", "formId": "feedback", "placeholder": "Briefly explain your choice (optional)" },
+          { "id": "helpfulness", "component": "RadioGroup", "label": "Who did better on Helpfulness?", "name": "Helpfulness", "formId": "feedback", "options": [ { "label": "Response A", "value": "Response A" }, { "label": "Response B", "value": "Response B" }, { "label": "Tie / Neither", "value": "Tie" } ] },
+          { "id": "submit", "component": "FeedbackSubmit", "label": "Submit feedback", "formId": "feedback" }
+        ]
+      }
+    }
+  ]
+}
+\`\`\`
+For a single free-text feedback value instead of a rating, use a standalone "FeedbackInputText" with field "value" (its own unique "name", plus a "formId") and one "FeedbackSubmit" sharing that "formId". To scope a rating to a specific span, add "spanId": { "$spanRef": { "type": "TOOL", "nth": 0 } } to the RadioGroup (and the same to its rationale FeedbackInputText) and name it by ROLE, e.g. "Accuracy — tool #1". The example above is a SINGLE form, so all its controls and the submit share ONE "formId" ("feedback"). If a view needs more than one submit button — say a per-span form plus a trace-level form — give each form its OWN distinct "formId" string on its controls and its submit; one submit then flushes only its own form. A single "formId" whose controls carry different "spanId"s is a cross-span form submitted by one button. For a quick single thumbs up/down that logs immediately, use "FeedbackThumbsUpDownButtons" instead (no FeedbackSubmit needed).`;
+
 // Keeps small inputs/outputs structured, but truncates large payloads to a
 // string so a single span can't blow up the prompt.
 const truncateValue = (value: unknown, max = 2000): unknown => {
@@ -223,16 +270,16 @@ export const buildAgentDataSnapshot = (data: AgentTraceData): Record<string, unk
 };
 
 // Static authoring guide handed to MLflow Assistant via page context (the
-// assistant has no built-in knowledge of A2UI or the custom view). Delivery is
-// via a real `render_custom_view` tool call — see supports_client_tools on the
-// backend provider, which gates whether this guide is published at all. CLI
-// providers (Claude Code, Codex) have no mid-stream client-tool channel and are
-// not supported yet (see the fenced-block-convention follow-up in the plan).
-export const buildCustomViewAuthoringGuide = (): string => {
+// assistant has no built-in knowledge of A2UI or the custom view).
+export const buildCustomViewAuthoringGuide = (deliveryMode: CustomViewDeliveryMode = 'tool'): string => {
+  const deliveryInstruction =
+    deliveryMode === 'tool'
+      ? `When (and only when) the user asks you to build, change, or update the custom view, CALL the \`${RENDER_CUSTOM_VIEW_TOOL_NAME}\` tool. Pass two arguments: "title" (a short 2-5 word view name, e.g. "Trace Summary", "Span Cards" — NOT the user's raw words) and "messages" (the FULL A2UI message stream as a JSON array). Calling the tool is the ONLY way the view updates — do NOT print the JSON spec as a chat message or in a code fence, because nothing applies a spec that is merely written in chat (the view will silently stay unchanged). After the tool call succeeds, reply with a short natural-language confirmation of what changed. If the user is just asking a question (not requesting a view change), answer normally without calling the tool.`
+      : `When (and only when) the user asks you to build, change, or update the custom view, return the COMPLETE view using the provider's structured final-response schema. Set "type" to "${RENDER_CUSTOM_VIEW_TOOL_NAME}", include a short confirmation in "text", a short 2-5 word view name in "title", and the FULL A2UI message stream in "messages". If the user is just asking a question, set "type" to "message", answer in "text", and return an empty title and messages array.`;
   const intro = [
     'CUSTOM TRACE VIEW AUTHORING MODE.',
     'The user is viewing the "Custom View" tab of the MLflow trace explorer and wants you to BUILD or MODIFY an A2UI view ("custom view"). You author a REUSABLE, TRACE-AGNOSTIC TEMPLATE exactly ONCE: the host saves it and re-binds it to every trace the user cycles through WITHOUT calling you again. So you must NOT bake in the current trace\'s data. The "traceSample" in the context shows only the SHAPE of the data (so you can pick sensible sources and layout); never copy its concrete span ids, values, rows, or counts into the spec. Every data-bearing prop must be a binding MARKER (see the Data binding rules) that the host resolves per trace.',
-    `When (and only when) the user asks you to build, change, or update the custom view, CALL the \`${RENDER_CUSTOM_VIEW_TOOL_NAME}\` tool. Pass two arguments: "title" (a short 2-5 word view name, e.g. "Trace Summary", "Span Cards" — NOT the user's raw words) and "messages" (the FULL A2UI message stream as a JSON array). Calling the tool is the ONLY way the view updates — do NOT print the JSON spec as a chat message or in a code fence, because nothing applies a spec that is merely written in chat (the view will silently stay unchanged). After the tool call succeeds, reply with a short natural-language confirmation of what changed. If the user is just asking a question (not requesting a view change), answer normally without calling the tool.`,
+    deliveryInstruction,
     'Always pass the COMPLETE "messages" spec for the single view (not a diff) on every turn that updates it. When a "currentTemplate" is provided in the context, it is the existing reusable template (with its binding markers): KEEP its layout, component choices, and markers, and apply ONLY the change the user asked for. Do NOT replace markers with literal data and do NOT introduce trace-specific values. Re-pick the "title" whenever an edit changes what the view shows; keep the previous title for purely cosmetic edits (colors, spacing, minor wording).',
   ].join('\n');
 
@@ -241,9 +288,10 @@ export const buildCustomViewAuthoringGuide = (): string => {
     CATALOG_REFERENCE,
     BINDING_REFERENCE,
     LAYOUT_GUIDANCE,
-    OUTPUT_RULES,
-    EXAMPLE,
+    deliveryMode === 'structured' ? STRUCTURED_OUTPUT_RULES : OUTPUT_RULES,
+    deliveryMode === 'structured' ? STRUCTURED_EXAMPLE : EXAMPLE,
     CARD_STYLE_EXAMPLE,
     SPAN_CARD_EXAMPLE,
+    FEEDBACK_EXAMPLE,
   ].join('\n\n');
 };

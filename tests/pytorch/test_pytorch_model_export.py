@@ -746,8 +746,12 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
         return import_module_fn(module_name)
 
     with (
-        mock.patch("importlib.import_module") as import_mock,
+        # NB: `torch.load` must be patched before `importlib.import_module`. On Python 3.11+,
+        # `mock.patch` resolves its target via `pkgutil.resolve_name`, which calls
+        # `importlib.import_module`. Patching that first makes the `torch.load` target resolve
+        # to a `MagicMock` instead of the real module, so the patch never takes effect.
         mock.patch("torch.load") as torch_load_mock,
+        mock.patch("importlib.import_module") as import_mock,
     ):
         import_mock.side_effect = track_module_imports
         pyfunc.load_model(model_path)
@@ -783,8 +787,12 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
         return import_module_fn(module_name)
 
     with (
-        mock.patch("importlib.import_module") as import_mock,
+        # NB: `torch.load` must be patched before `importlib.import_module`. On Python 3.11+,
+        # `mock.patch` resolves its target via `pkgutil.resolve_name`, which calls
+        # `importlib.import_module`. Patching that first makes the `torch.load` target resolve
+        # to a `MagicMock` instead of the real module, so the patch never takes effect.
         mock.patch("torch.load") as torch_load_mock,
+        mock.patch("importlib.import_module") as import_mock,
     ):
         import_mock.side_effect = track_module_imports
         pyfunc.load_model(model_uri=model_uri)
@@ -1320,7 +1328,11 @@ def test_log_model_with_datetime_input():
     assert model_info.signature.inputs.inputs[0].type == DataType.datetime
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with torch.no_grad():
-        input_tensor = torch.from_numpy(df.to_numpy(dtype=np.float32))
+        # Schema enforcement normalizes datetime columns to nanosecond precision, so build the
+        # expected input the same way. pandas 3 defaults to microseconds, which would otherwise
+        # make the two paths differ by a factor of 1000 once cast to float.
+        enforced = df.astype({"datetime": "datetime64[ns]"})
+        input_tensor = torch.from_numpy(enforced.to_numpy(dtype=np.float32))
         expected_result = model(input_tensor)
     with torch.no_grad():
         np.testing.assert_array_almost_equal(pyfunc_model.predict(df), expected_result, decimal=4)

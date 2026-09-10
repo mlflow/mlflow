@@ -17,7 +17,7 @@ from urllib.parse import quote
 from pydantic import BaseModel, ConfigDict, ValidationError
 from typing_extensions import Self
 
-from mlflow.entities import LifecycleStage
+from mlflow.entities import LifecycleStage, ScorerVersion
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.genai.scorers.base import (
     SCORER_BACKEND_DATABRICKS,
@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 
 _T = TypeVar("_T")
+_SCORER_VERSION_ATTRIBUTE = "scorer_version"
 
 
 class _DatabricksManagedScorerPayload(BaseModel):
@@ -314,16 +315,16 @@ class MlflowTrackingStore(AbstractScorerStore):
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
         serialized_scorer = json.dumps(scorer.model_dump())
         experiment_id = experiment_id or _get_experiment_id()
-        version = self._tracking_store.register_scorer(
+        scorer_version = self._tracking_store.register_scorer(
             experiment_id, scorer.name, serialized_scorer
         )
-        self._hydrate_scorer(scorer, experiment_id, online_config=None)
-        return version
+        self._hydrate_scorer(scorer, scorer_version, online_config=None)
+        return scorer_version
 
     def _hydrate_scorer(
         self,
         scorer: Scorer,
-        experiment_id: str,
+        scorer_version: ScorerVersion,
         online_config: Optional["OnlineScoringConfig"] = None,
     ) -> None:
         """
@@ -331,11 +332,12 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         Args:
             scorer: The scorer to hydrate.
-            experiment_id: The experiment ID the scorer belongs to.
+            scorer_version: The registered scorer version entity.
             online_config: Optional OnlineScoringConfig from the tracking store.
         """
         scorer._registered_backend = SCORER_BACKEND_TRACKING
-        scorer._experiment_id = experiment_id
+        scorer._experiment_id = scorer_version.experiment_id
+        scorer._scorer_version = scorer_version.scorer_version
         if online_config is not None:
             scorer._sampling_config = ScorerSamplingConfig(
                 sample_rate=online_config.sample_rate,
@@ -357,7 +359,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             online_config = online_configs.get(scorer_version.scorer_id)
-            self._hydrate_scorer(scorer, experiment_id, online_config)
+            self._hydrate_scorer(scorer, scorer_version, online_config)
             scorers.append(scorer)
         return scorers
 
@@ -372,7 +374,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         # Each scorer has at most one online configuration, guaranteed by the server
         online_config = online_configs_list[0] if online_configs_list else None
         scorer = Scorer.model_validate(scorer_version.serialized_scorer)
-        self._hydrate_scorer(scorer, experiment_id, online_config)
+        self._hydrate_scorer(scorer, scorer_version, online_config)
         return scorer
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple[Scorer, int]]:
@@ -390,7 +392,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             online_config = online_configs.get(scorer_version.scorer_id)
-            self._hydrate_scorer(scorer, experiment_id, online_config)
+            self._hydrate_scorer(scorer, scorer_version, online_config)
             scorers.append((scorer, scorer_version.scorer_version))
         return scorers
 
@@ -758,6 +760,7 @@ class DatabricksStore(AbstractScorerStore):
                         sample_rate=config.sample_rate,
                         filter_string=config.filter_string,
                     ),
+                    scorer_version=config.scorer_version,
                 )
         raise MlflowException(f"Updated scheduled scorer response did not include '{name}'.")
 
@@ -784,6 +787,7 @@ class DatabricksStore(AbstractScorerStore):
                 sample_rate=response_config.sample_rate,
                 filter_string=response_config.filter_string,
             ),
+            scorer_version=response_config.scorer_version,
         )
         return response_config.scorer_version
 
@@ -802,6 +806,7 @@ class DatabricksStore(AbstractScorerStore):
                     sample_rate=scheduled_scorer.sample_rate,
                     filter_string=scheduled_scorer.filter_string,
                 ),
+                scorer_version=getattr(scheduled_scorer, _SCORER_VERSION_ATTRIBUTE, None),
             )
             for scheduled_scorer in scheduled_scorers
         ]
@@ -831,6 +836,7 @@ class DatabricksStore(AbstractScorerStore):
                     sample_rate=current_config.sample_rate,
                     filter_string=current_config.filter_string,
                 ),
+                scorer_version=version_config.scorer_version,
             )
 
         # Get the scheduled scorer from the server
@@ -850,6 +856,7 @@ class DatabricksStore(AbstractScorerStore):
                 sample_rate=scheduled_scorer.sample_rate,
                 filter_string=scheduled_scorer.filter_string,
             ),
+            scorer_version=getattr(scheduled_scorer, _SCORER_VERSION_ATTRIBUTE, None),
         )
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:
@@ -872,6 +879,7 @@ class DatabricksStore(AbstractScorerStore):
                         sample_rate=current_config.sample_rate,
                         filter_string=current_config.filter_string,
                     ),
+                    scorer_version=config.scorer_version,
                 ),
                 config.scorer_version,
             )

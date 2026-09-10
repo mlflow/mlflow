@@ -41,6 +41,14 @@ export const RunsChartsImageChartCard = ({
   // Optimizations for smoother slider experience. Maintain a local copy of config, and update
   // the global state only after the user has finished dragging the slider.
   const [tmpConfig, setTmpConfig] = useState(config);
+
+  // Keep the local copy in sync when the confirmed config changes (e.g. toggling
+  // "Show run parameters" or image keys from the configuration modal). Without this,
+  // only step updates flow into tmpConfig and other changes require a page refresh.
+  useEffect(() => {
+    setTmpConfig(config);
+  }, [config]);
+
   const confirmChartCardConfiguration = useConfirmChartCardConfigurationFn();
   const updateStep = useCallback(
     (newStep: number) => {

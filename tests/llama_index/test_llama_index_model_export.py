@@ -5,6 +5,7 @@ from typing import Any
 from unittest import mock
 
 import llama_index.core
+import nltk
 import numpy as np
 import pandas as pd
 import pytest
@@ -53,12 +54,20 @@ def model_path(tmp_path):
     return tmp_path / "model"
 
 
+# nltk >= 3.10.3 added a hardlink security check that rejects multiply-linked files.
+# llama_index bundles its NLTK data as hardlinks, which breaks KnowledgeGraphIndex queries.
+_skip_knowledge_graph = pytest.mark.skipif(
+    Version(nltk.__version__) >= Version("3.10.3"),
+    reason="nltk >= 3.10.3 refuses multiply-linked NLTK data files bundled by llama_index",
+)
+
+
 @pytest.mark.parametrize(
     "index_fixture",
     [
         "single_index",
         "multi_index",
-        "single_graph",
+        pytest.param("single_graph", marks=_skip_knowledge_graph),
     ],
 )
 def test_llama_index_native_save_and_load_model(request, index_fixture, model_path):
@@ -75,7 +84,7 @@ def test_llama_index_native_save_and_load_model(request, index_fixture, model_pa
     [
         "single_index",
         "multi_index",
-        "single_graph",
+        pytest.param("single_graph", marks=_skip_knowledge_graph),
     ],
 )
 def test_llama_index_native_log_and_load_model(request, index_fixture):

@@ -33,6 +33,7 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartDownloadMixin,
     MultipartUploadMixin,
     PresignedUploadMixin,
+    _is_object_key_within_path,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -216,6 +217,11 @@ def _get_s3_client(
         session_token=session_token,
         region_name=region_name,
     )
+
+
+def _file_is_directory_marker(file_path, file_size):
+    """Check if a file is a standard S3 directory marker."""
+    return file_size == 0 and bool(file_path) and file_path.endswith("/")
 
 
 class S3ArtifactRepository(
@@ -496,8 +502,11 @@ class S3ArtifactRepository(
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path
                 )
-                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 file_size = int(obj.get("Size"))
+                if _file_is_directory_marker(file_path, file_size):
+                    continue
+
+                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 infos.append(FileInfo(file_rel_path, False, file_size))
         return sorted(infos, key=lambda f: f.path)
 
@@ -547,7 +556,8 @@ class S3ArtifactRepository(
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=dest_path
                 )
-                keys.append({"Key": file_path})
+                if _is_object_key_within_path(file_path, dest_path):
+                    keys.append({"Key": file_path})
             if keys:
                 s3_client.delete_objects(
                     Bucket=bucket, Delete={"Objects": keys}, **self._bucket_owner_params

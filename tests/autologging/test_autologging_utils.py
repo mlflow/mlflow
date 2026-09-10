@@ -201,7 +201,7 @@ def test_if_getting_input_example_fails(logger):
             + error_msg
         ),
     ]
-    assert logger.warning.has_calls(calls)
+    logger.warning.assert_has_calls(calls)
 
 
 def test_if_model_signature_inference_fails(logger):
@@ -722,7 +722,7 @@ def test_violates_pep_440():
         ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.5.1", True),
         ("pyspark.ml", "3.0.0", False),
-        ("llama_index", "0.13.1", True),
+        ("llama_index", "0.13.5", True),
         ("llama_index", "0.1.2", False),
     ],
 )
@@ -737,7 +737,8 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
     [
         ("pyspark.ml", "99.0.0.dev0", False),
         ("pyspark.ml", "3.5.0.dev0", True),
-        ("pyspark.ml", "3.3.0.dev0", True),
+        ("pyspark.ml", "3.4.4.dev0", True),
+        ("pyspark.ml", "3.3.0.dev0", False),
         ("pyspark.ml", "3.2.1.dev0", False),
         ("pyspark.ml", "3.1.2.dev0", False),
         ("pyspark.ml", "3.0.1.dev0", False),

@@ -84,6 +84,7 @@ export const ImageGridMultipleKeyPlot = ({
                   color={run.color}
                   params={run.params}
                   maxParamsWidth={cellSize}
+                  showParams={cardConfig.showRunParams !== false}
                 />
               </TableHeader>
             );

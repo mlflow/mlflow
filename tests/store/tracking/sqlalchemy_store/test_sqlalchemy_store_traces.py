@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import json
 import random
@@ -3611,6 +3612,40 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
+@pytest.mark.asyncio
+async def test_log_spans_async_offloads_to_worker_thread(store: SqlAlchemyStore):
+    event_loop_ident = threading.get_ident()
+    worker_idents = []
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        worker_idents.append(threading.get_ident())
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        result = await store.log_spans_async("1", [])
+
+    assert result == []
+    assert worker_idents
+    assert worker_idents[0] != event_loop_ident
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_allows_concurrent_store_calls(store: SqlAlchemyStore):
+    barrier = threading.Barrier(2, timeout=5)
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        barrier.wait()
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        results = await asyncio.gather(
+            store.log_spans_async("1", []),
+            store.log_spans_async("1", []),
+        )
+
+    assert results == [[], []]
+
+
 def test_log_spans_multiple_traces(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_multi_trace_experiment")
 
@@ -5752,10 +5787,16 @@ def test_get_trace_returns_lazy_spans_that_skip_materialization_on_to_dict(
     trace = store.get_trace(trace_id)
     assert all(isinstance(span, LazySpan) for span in trace.data.spans)
     assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+    assert all(span.__dict__["_raw_json"] is not None for span in trace.data.spans)
 
     dumped = trace.data.to_dict()
     assert dumped["spans"][0]["name"] == "root_span"
     assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+
+    payload = trace.data.to_json_bytes()
+    assert payload.startswith(b'{"spans":[')
+    assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+    assert json.loads(payload)["spans"][0]["name"] == "root_span"
 
     # Property access still works and materializes only when needed.
     assert trace.data.spans[0].name == "root_span"

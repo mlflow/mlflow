@@ -166,6 +166,10 @@
             "hideFormatToggle": {
               "type": "boolean",
               "description": "When true, hides the per-value format dropdown."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
             }
           },
           "required": ["component", "value"]
@@ -248,6 +252,190 @@
         }
       ],
       "unevaluatedProperties": false
+    },
+    "FeedbackThumbsUpDownButtons": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "An interactive thumbs up / thumbs down control. Clicking a feedback button logs a feedback assessment (boolean: thumbs up = true, thumbs down = false) for the current trace and reflects the choice via its bound value. A lightweight alternative to the full staged feedback form; use ONLY when the user asks to collect feedback, never to display judge results.",
+          "properties": {
+            "component": {
+              "const": "FeedbackThumbsUpDownButtons"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional prompt shown next to the thumbs, e.g. \"Was this helpful?\"."
+            },
+            "name": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The assessment name to log. Defaults to \"User feedback\"."
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicBoolean",
+              "description": "Selected state: true = thumbs up, false = thumbs down. Bind to a /feedback/... data-model path to reflect and seed the choice."
+            },
+            "spanId": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional span id to scope the feedback to a specific span instead of the whole trace. Bind to a $spanRef marker so it re-targets the right span per trace."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "RadioGroup": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "An interactive single-choice control for human feedback. Selecting an option stages the choice host-side under \"name\"; it is logged as a feedback assessment (string value) only when a FeedbackSubmit button is clicked. Emit one RadioGroup per feedback dimension, each with a unique \"name\".",
+          "properties": {
+            "component": {
+              "const": "RadioGroup"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional prompt shown above the options, e.g. \"Who did better on Accuracy?\"."
+            },
+            "name": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The assessment name this dimension logs (also the staging key). Required and unique per dimension; a FeedbackInputText sharing this name attaches as its rationale."
+            },
+            "options": {
+              "type": "array",
+              "description": "The selectable options, in display order.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+                    "description": "The option text shown to the user."
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "The feedback value logged when this option is selected."
+                  }
+                },
+                "required": ["label", "value"]
+              }
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Selected option value. Bind to a /feedback/... data-model path to reflect and seed the choice."
+            },
+            "spanId": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional span id to scope the feedback to a specific span instead of the whole trace. Bind to a $spanRef marker so it re-targets the right span per trace."
+            },
+            "formId": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "REQUIRED. Which form this control belongs to. The FeedbackSubmit sharing this same \"formId\" submits it. Every feedback form needs a \"formId\" — even a single-form view. Set a distinct \"formId\" per form when a view has more than one submit button. A rationale FeedbackInputText must share BOTH this \"formId\" and the same \"name\" to attach."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component", "name", "options", "formId"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "FeedbackInputText": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "A feedback-scoped free-text box (not a generic input). Its text is staged host-side under \"name\" and logged only on FeedbackSubmit. \"field\" controls what the text populates: \"rationale\" (default) attaches an optional why to a RadioGroup sharing the same \"name\"; \"value\" makes a standalone free-text feedback value (no radio needed).",
+          "properties": {
+            "component": {
+              "const": "FeedbackInputText"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional prompt shown above the box, e.g. \"Optional rationale (why?)\"."
+            },
+            "name": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "The assessment name this text logs (also the staging key). Match a RadioGroup's name to attach as that dimension's rationale; use a unique name for a standalone free-text feedback value."
+            },
+            "field": {
+              "type": "string",
+              "description": "Whether the typed text becomes the assessment \"value\" or its \"rationale\". Defaults to \"rationale\".",
+              "enum": ["value", "rationale"],
+              "default": "rationale"
+            },
+            "placeholder": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Placeholder text shown when the box is empty."
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Bind to a /feedback/... data-model path to reflect and seed the text."
+            },
+            "spanId": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Optional span id to scope the feedback to a specific span instead of the whole trace. Bind to a $spanRef marker so it re-targets the right span per trace."
+            },
+            "formId": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "REQUIRED. Which form this control belongs to. The FeedbackSubmit sharing this same \"formId\" submits it. As a rationale (field \"rationale\"), match BOTH the \"formId\" and \"name\" of the RadioGroup it annotates. Every feedback form needs a \"formId\" — even a single-form view. Set a distinct \"formId\" per form when a view has more than one submit button."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component", "name", "formId"]
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "FeedbackSubmit": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "type": "object",
+          "description": "A button that submits the staged feedback (from RadioGroup / FeedbackInputText) belonging to its form. Clicking it logs one assessment per staged dimension in that form and clears those staged values.",
+          "properties": {
+            "component": {
+              "const": "FeedbackSubmit"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Button text. Defaults to \"Submit feedback\"."
+            },
+            "formId": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "REQUIRED. Which form this button submits. It flushes every RadioGroup / FeedbackInputText sharing this same \"formId\" (across any spans), and only those. Every feedback form needs a \"formId\" — even a single-form view (its controls and submit share one id). Give each form a distinct \"formId\" when a view has more than one submit button."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component", "formId"]
+        }
+      ],
+      "unevaluatedProperties": false
     }
   },
   "$defs": {
@@ -282,6 +470,18 @@
         },
         {
           "$ref": "#/components/AssessmentBoard"
+        },
+        {
+          "$ref": "#/components/FeedbackThumbsUpDownButtons"
+        },
+        {
+          "$ref": "#/components/RadioGroup"
+        },
+        {
+          "$ref": "#/components/FeedbackInputText"
+        },
+        {
+          "$ref": "#/components/FeedbackSubmit"
         }
       ],
       "discriminator": {

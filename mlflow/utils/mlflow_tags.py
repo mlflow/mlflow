@@ -108,6 +108,10 @@ MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE = (
 MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE = (
     "mlflow.experiment.databricksTraceAnnotationsTable"
 )
+# Prefix for experiment tags that store saved custom trace views. The versioned UI key is
+# `mlflow.customView.view.v1.<id>`; keeping the backend prefix version-agnostic ensures future
+# persisted formats share the same per-experiment limit.
+MLFLOW_CUSTOM_VIEW_TAG_PREFIX = "mlflow.customView.view"
 MLFLOW_TRACE_SPANS_LOCATION = "mlflow.trace.spansLocation"
 MLFLOW_TRACE_ARCHIVE_LOCATION = "mlflow.trace.archiveLocation"
 MLFLOW_TRACE_ARCHIVAL_FAILURE = "mlflow.trace.archivalFailure"

@@ -11,7 +11,7 @@ mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 key values up to 250 bytes in size. This field is required.}
 
 \item{value}{String value of the tag being logged. All storage backends are
-guaranteed to support key values up to 5000 bytes in size. This field is required.}
+guaranteed to support tag values up to 20000 bytes in size. This field is required.}
 
 \item{experiment_id}{ID of the experiment.}
 

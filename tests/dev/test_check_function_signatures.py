@@ -1,6 +1,43 @@
 import ast
+from pathlib import Path
+from unittest import mock
 
-from dev.check_function_signatures import check_signature_compatibility
+from dev.check_function_signatures import (
+    check_signature_compatibility,
+    get_changed_python_files,
+    get_file_content_at_revision,
+)
+
+
+def test_get_changed_python_files():
+    with mock.patch(
+        "dev.check_function_signatures.subprocess.check_output", return_value="mlflow/foo.py\n"
+    ) as check_output:
+        assert get_changed_python_files(base_revision="HEAD^1") == [Path("mlflow/foo.py")]
+
+    check_output.assert_called_once_with(
+        ["git", "diff", "--name-only", "HEAD^1", "HEAD"], text=True
+    )
+
+
+def test_get_changed_python_files_uses_configured_revision():
+    with mock.patch(
+        "dev.check_function_signatures.subprocess.check_output", return_value=""
+    ) as check_output:
+        assert get_changed_python_files(base_revision="release") == []
+
+    check_output.assert_called_once_with(
+        ["git", "diff", "--name-only", "release", "HEAD"], text=True
+    )
+
+
+def test_get_file_content_at_revision_uses_exact_revision():
+    with mock.patch(
+        "dev.check_function_signatures.subprocess.check_output", return_value="content"
+    ) as check_output:
+        assert get_file_content_at_revision(Path("mlflow/foo.py"), "HEAD^1") == "content"
+
+    check_output.assert_called_once_with(["git", "show", "HEAD^1:mlflow/foo.py"], text=True)
 
 
 def test_no_changes():

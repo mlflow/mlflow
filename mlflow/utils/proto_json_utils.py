@@ -327,7 +327,15 @@ def cast_df_types_according_to_schema(pdf, schema):
                 elif isinstance(col_type_spec, AnyType):
                     pass
                 elif isinstance(col_type_spec, DataType) and col_type_spec == DataType.datetime:
-                    pdf[col_name] = pd.to_datetime(pdf[col_name])
+                    parsed = pd.to_datetime(pdf[col_name])
+                    # pandas 3 parses to microseconds by default, but `DataType.datetime` is
+                    # nanoseconds. `.dt.unit` is absent before pandas 2, which is always
+                    # nanoseconds.
+                    if pd.api.types.is_datetime64_any_dtype(parsed) and (
+                        getattr(parsed.dt, "unit", "ns") != "ns"
+                    ):
+                        parsed = parsed.dt.as_unit("ns")
+                    pdf[col_name] = parsed
                 else:
                     # In pandas 3.0+, string columns with NaN are inferred as StringDtype
                     # instead of object. Skip casting StringDtype to object/numpy str as they

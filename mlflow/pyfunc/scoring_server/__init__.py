@@ -118,7 +118,9 @@ def _decode_json_input(json_input):
 
     try:
         decoded_input = json.loads(json_input)
-    except json.decoder.JSONDecodeError as ex:
+    except (json.decoder.JSONDecodeError, UnicodeDecodeError) as ex:
+        # json.loads() decodes bytes before parsing them, so a payload that is
+        # not valid UTF-8 raises UnicodeDecodeError rather than JSONDecodeError.
         raise MlflowInvalidInputException(
             "Ensure that input is a valid JSON formatted string. "
             f"Error: '{ex!r}'\nInput: \n{json_input}\n"
@@ -308,7 +310,12 @@ def invocations(data, content_type, model, input_schema):
     if mime_type == CONTENT_TYPE_CSV:
         # Convert from CSV to pandas
         if isinstance(data, bytes):
-            data = data.decode("utf-8")
+            try:
+                data = data.decode("utf-8")
+            except UnicodeDecodeError as ex:
+                raise MlflowInvalidInputException(
+                    f"Ensure that input is a valid UTF-8 encoded string. Error: '{ex!r}'"
+                ) from ex
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None

@@ -204,6 +204,22 @@ def test_create_index_on_metrics_run_uuid_key_step(tmp_path, db_url):
         assert columns == ["run_uuid", "key", "step"]
 
 
+@pytest.mark.parametrize("upgrade_from_initial_schema", [False, True])
+def test_trace_archival_candidate_index(tmp_path, db_url, upgrade_from_initial_schema):
+    if upgrade_from_initial_schema:
+        engine = sqlalchemy.create_engine(db_url)
+        InitialBase.metadata.create_all(engine)
+        invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+    else:
+        SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA index_info('index_trace_info_timestamp_ms_request_id')")
+        columns = [row[2] for row in cursor.fetchall()]
+        assert columns == ["timestamp_ms", "request_id"]
+
+
 def test_index_for_dataset_tables(tmp_path, db_url):
     # Test for
     # mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py

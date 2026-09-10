@@ -1,7 +1,14 @@
+import os
 import shutil
+import time
 import uuid
+from unittest import mock
 
 import pytest
+
+_POSIX_ONLY = pytest.mark.skipif(
+    os.name == "nt", reason="POSIX file modes; Windows does not honor chmod(0o700)"
+)
 
 from mlflow.assistant.types import Message
 from mlflow.server.assistant.session import Session, SessionManager
@@ -193,3 +200,141 @@ def test_message_serialization():
     restored = Message.model_validate(data)
     assert restored.role == "user"
     assert restored.content == "Hello"
+
+
+_VALID_SID = "11111111-1111-1111-1111-111111111111"
+
+
+def test_container_id_roundtrip(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    assert session_module.get_container_id(_VALID_SID) is None
+    session_module.save_container_id(_VALID_SID, "cid-1")
+    assert session_module.get_container_id(_VALID_SID) == "cid-1"
+    session_module.clear_container_id(_VALID_SID)
+    assert session_module.get_container_id(_VALID_SID) is None
+
+
+def test_clear_container_id_tolerates_missing_file(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    # A second clear (e.g. a cancel racing the stream's finally) must not raise once the file is
+    # already gone.
+    session_module.save_container_id(_VALID_SID, "cid-1")
+    session_module.clear_container_id(_VALID_SID)
+    session_module.clear_container_id(_VALID_SID)
+
+
+def test_terminate_session_container_kills_and_clears(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    session_module.save_container_id(_VALID_SID, "cid-1")
+
+    container = mock.MagicMock()
+    client = mock.MagicMock()
+    client.containers.get.return_value = container
+    with mock.patch("docker.from_env", return_value=client):
+        assert session_module.terminate_session_container(_VALID_SID) is True
+
+    container.kill.assert_called_once()
+    assert session_module.get_container_id(_VALID_SID) is None
+
+
+def test_terminate_session_container_no_container_is_noop(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    assert session_module.terminate_session_container(_VALID_SID) is False
+
+
+@_POSIX_ONLY
+def test_get_session_sandbox_home_is_private(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    home = session_module.get_session_sandbox_home("11111111-1111-1111-1111-111111111111")
+
+    assert home.exists()
+    # The sandbox HOME holds the CLI's login credentials, so it must be private to the server user.
+    assert (home.stat().st_mode & 0o777) == 0o700
+
+
+@_POSIX_ONLY
+def test_get_session_sandbox_home_tightens_preexisting_dir(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    sid = "22222222-2222-2222-2222-222222222222"
+    preexisting = tmp_path / "sandbox-home" / sid
+    preexisting.mkdir(parents=True)
+    preexisting.chmod(0o755)  # a looser mode from a prior run
+
+    home = session_module.get_session_sandbox_home(sid)
+
+    assert (home.stat().st_mode & 0o777) == 0o700
+
+
+def test_reap_stale_sandbox_homes(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    base = tmp_path / "sandbox-home"
+    old = base / "old-session"
+    fresh = base / "fresh-session"
+    old.mkdir(parents=True)
+    fresh.mkdir(parents=True)
+    # Age the "old" directory well past the cutoff.
+    old_time = time.time() - 48 * 60 * 60
+    os.utime(old, (old_time, old_time))
+
+    removed = session_module.reap_stale_sandbox_homes(max_age_seconds=24 * 60 * 60)
+
+    assert removed == 1
+    assert not old.exists()
+    assert fresh.exists()
+
+
+def test_reap_stale_sandbox_homes_clears_provider_session_id(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    # A session whose CLI HOME is about to be reaped still has a persisted provider session id.
+    session = session_module.SessionManager.create()
+    session.provider_session_id = "cli-thread-123"
+    session_module.SessionManager.save(_VALID_SID, session)
+
+    old = tmp_path / "sandbox-home" / _VALID_SID
+    old.mkdir(parents=True)
+    old_time = time.time() - 48 * 60 * 60
+    os.utime(old, (old_time, old_time))
+
+    assert session_module.reap_stale_sandbox_homes(max_age_seconds=24 * 60 * 60) == 1
+    # The stored provider session id is cleared so the next turn starts a fresh CLI session
+    # instead of --resume-ing state whose HOME was deleted.
+    assert session_module.SessionManager.load(_VALID_SID).provider_session_id is None
+
+
+def test_reap_stale_sandbox_homes_survives_unreadable_session_file(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path)
+    # A corrupt session file must not abort the sweep: the stale HOME is still reaped.
+    (tmp_path / f"{_VALID_SID}.json").write_text("{ not valid json")
+
+    old = tmp_path / "sandbox-home" / _VALID_SID
+    old.mkdir(parents=True)
+    old_time = time.time() - 48 * 60 * 60
+    os.utime(old, (old_time, old_time))
+
+    assert session_module.reap_stale_sandbox_homes(max_age_seconds=24 * 60 * 60) == 1
+    assert not old.exists()
+
+
+def test_reap_stale_sandbox_homes_no_base_dir(monkeypatch, tmp_path):
+    import mlflow.server.assistant.session as session_module
+
+    monkeypatch.setattr(session_module, "SESSION_DIR", tmp_path / "nonexistent")
+    assert session_module.reap_stale_sandbox_homes() == 0

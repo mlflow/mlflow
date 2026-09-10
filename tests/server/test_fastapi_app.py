@@ -5,7 +5,10 @@ from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER
 from mlflow.server.fastapi_app import add_mcp_exception_handlers, create_fastapi_app
+from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
+from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 
 
 @pytest.fixture
@@ -45,3 +48,38 @@ def test_mcp_exception_handler_delegates_for_non_mcp_routes():
 
     assert response.status_code == 418
     assert response.json() == {"detail": "delegated"}
+
+
+# One probe per prefix-aware router; any non-404 response proves the route is registered.
+_NATIVE_ROUTER_PROBES = (
+    ("POST", OTLP_TRACES_PATH),
+    ("POST", "/ajax-api/3.0/jobs/search"),
+    ("POST", "/gateway/mlflow/v1/chat/completions"),
+    ("GET", "/ajax-api/3.0/mlflow/assistant/config"),
+)
+
+
+def test_native_routers_registered_under_static_prefix(monkeypatch):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
+    monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
+    client = TestClient(create_fastapi_app())
+
+    for method, path in _NATIVE_ROUTER_PROBES:
+        assert client.request(method, f"/myprefix{path}", json={}).status_code != 404, path
+        # The prefixed path replaces the unprefixed one, as for every Flask route.
+        assert client.request(method, path, json={}).status_code == 404, path
+
+
+def test_create_fastapi_app_rejects_template_static_prefix(monkeypatch):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/{user}")
+    with pytest.raises(MlflowException, match=r"must not contain"):
+        create_fastapi_app()
+
+
+def test_gateway_timing_header_present_for_prefixed_route(monkeypatch):
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myprefix")
+    monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
+    client = TestClient(create_fastapi_app())
+
+    response = client.post("/myprefix/gateway/mlflow/v1/chat/completions", json={})
+    assert MLFLOW_GATEWAY_DURATION_HEADER in response.headers

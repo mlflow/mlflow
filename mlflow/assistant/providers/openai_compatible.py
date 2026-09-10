@@ -14,7 +14,7 @@ import logging
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Literal
 
 import aiohttp
 
@@ -290,10 +290,10 @@ class OpenAICompatibleProvider(AssistantProvider):
         return self._allows_remote_access
 
     @property
-    def supports_client_tools(self) -> bool:
+    def client_tool_delivery(self) -> Literal["tool"]:
         # Schema-based providers: the tool loop below pauses on a CLIENT_TOOLS call
         # and resumes on the next stream once a result is posted (see astream()).
-        return True
+        return "tool"
 
     def is_available(self) -> bool:
         return True
@@ -630,6 +630,14 @@ class OpenAICompatibleProvider(AssistantProvider):
                                 json.loads(raw_args) if isinstance(raw_args, str) else raw_args
                             )
                         except json.JSONDecodeError:
+                            tool_input = {}
+                        if not isinstance(tool_input, dict):
+                            # A model can emit syntactically valid JSON that isn't an
+                            # object (e.g. "[]", "null", "123"), which json.loads decodes
+                            # without raising. Every downstream use (ToolUseBlock's
+                            # input, static_permission_error, execute_tool) requires a
+                            # dict, so this must be normalized here rather than left to
+                            # surface as a validation/attribute error further down.
                             tool_input = {}
 
                         if tool_name in CLIENT_TOOLS:

@@ -15,9 +15,15 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import MlflowExperimentLocation
+from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
+from mlflow.protos.databricks_pb2 import (
+    PERMISSION_DENIED,
+    RESOURCE_DOES_NOT_EXIST,
+    UNAUTHENTICATED,
+)
 from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceSizeStatsKey, TraceTagKey
-from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter, _is_auth_failure
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
@@ -260,6 +266,134 @@ def test_export_catch_failure_with_batch_span_processor(monkeypatch):
     mock_logger.warning.assert_called()
     warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
     assert any("Failed to start trace" in msg for msg in warning_calls)
+
+
+@pytest.mark.timeout(20)
+@pytest.mark.parametrize("is_async", [True, False])
+def test_export_auth_failure_logged_as_error(is_async, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    # Disable batch span processor — this test verifies exporter-level async logging
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            side_effect=MlflowException("Unauthorized", error_code=UNAUTHENTICATED),
+        ),
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+    ):
+        _predict("hello")
+
+        if is_async:
+            _flush_async_logging()
+
+    # An auth-class failure is logged at ERROR with a re-auth hint, not swallowed at WARNING.
+    mock_logger.error.assert_called()
+    error_msgs = [call[0][0] for call in mock_logger.error.call_args_list]
+    assert any("authentication error" in msg and "NOT saved" in msg for msg in error_msgs)
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected_auth"),
+    [
+        # A rejected credential is identified by its structured HTTP status code.
+        (MlflowException("nope", error_code=UNAUTHENTICATED), True),
+        (MlflowException("nope", error_code=PERMISSION_DENIED), True),
+        # A status-like number inside an unrelated message is not an auth failure.
+        (
+            MlflowException(
+                "No Experiment with id=403 exists",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            ),
+            False,
+        ),
+        # A plain Exception (not MlflowException) with an auth-like string is not detected.
+        (Exception("RESOURCE_DOES_NOT_EXIST: No Experiment with id=401 exists"), False),
+        (Exception("default auth: cannot configure default credentials, token refresh"), False),
+        (Exception("Invalid access token"), False),
+    ],
+)
+def test_is_auth_failure_uses_error_codes_not_bare_numbers(exc, expected_auth):
+    assert _is_auth_failure(exc) is expected_auth
+
+
+@pytest.mark.timeout(20)
+@pytest.mark.parametrize("is_async", [True, False])
+def test_export_error_names_tracking_uri_and_profile(is_async, monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "myworkspace")
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
+
+    # A structured 401 Unauthorized is detected as an auth failure (ERROR) and the
+    # message names the profile so the user can see which credential was attempted.
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            side_effect=MlflowException("Unauthorized", error_code=UNAUTHENTICATED),
+        ),
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+    ):
+        _predict("hello")
+
+        if is_async:
+            _flush_async_logging()
+
+    mock_logger.error.assert_called()
+    error_msgs = [call[0][0] for call in mock_logger.error.call_args_list]
+    assert any("authentication error" in msg and "NOT saved" in msg for msg in error_msgs)
+    assert any("profile: 'myworkspace'" in msg for msg in error_msgs)
+
+
+def test_log_trace_does_not_raise_on_malformed_tracking_uri(monkeypatch):
+    """Regression test for issue #24689.
+
+    ``_get_profile_from_uri`` calls ``get_db_info_from_uri``, which raises
+    ``MlflowException`` for malformed Databricks URIs (e.g. a single-slash
+    ``databricks:/host``).  That call lives inside the ``_log_trace`` exception
+    handler, so a secondary raise here would violate the best-effort tracing
+    contract.  The handler must log and return without propagating.
+    """
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
+
+    # A single-slash Databricks URI is valid enough for is_databricks_uri() to
+    # return True, but get_db_info_from_uri() raises MlflowException on it
+    # because the netloc is empty.
+    malformed_uri = "databricks:/single-slash-malformed"
+    exporter = MlflowV3SpanExporter(tracking_uri=malformed_uri)
+
+    # Create a minimal fake Trace to drive _log_trace.
+    trace_info = create_test_trace_info("test-trace-123", experiment_id=_EXPERIMENT_ID)
+    from mlflow.entities.trace_data import TraceData
+
+    fake_trace = mock.MagicMock()
+    fake_trace.info = trace_info
+    fake_trace.data = TraceData()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            side_effect=MlflowException("Unauthorized", error_code=UNAUTHENTICATED),
+        ),
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+    ):
+        # Must not raise, even though the tracking URI is malformed
+        exporter._log_trace(fake_trace, prompts=[], workspace=None)
+
+    # The auth failure should be logged at ERROR, not raised
+    mock_logger.error.assert_called()
+    error_msgs = [call[0][0] for call in mock_logger.error.call_args_list]
+    assert any("authentication error" in msg and "NOT saved" in msg for msg in error_msgs)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")

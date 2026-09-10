@@ -471,11 +471,11 @@ class SearchUtils:
             elif isinstance(token, Parenthesis):
                 if key not in ("name", "digest", "context"):
                     raise MlflowException(
-                        "Only the dataset 'name' and 'digest' supports comparison with a list of "
-                        "quoted string values.",
+                        "Only the dataset 'name', 'digest', and 'context' support comparison "
+                        "with a list of quoted string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                return cls._parse_run_ids(token)
+                return cls._parse_list_from_sql_token(token)
             else:
                 raise MlflowException(
                     "Expected a quoted string value for dataset attributes. "

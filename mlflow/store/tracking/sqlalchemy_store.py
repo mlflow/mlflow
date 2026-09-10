@@ -273,10 +273,13 @@ _T = TypeVar("_T")
 
 _logger = logging.getLogger(__name__)
 
-# Max number of times start_trace()/log_spans() retry their transaction when the DB
-# kills it with a deadlock. Deterministic key ordering (see the sorted
-# metadata/metrics writes) is the primary defense; this bounded retry is a safety net.
-_TRACE_WRITE_MAX_DEADLOCK_RETRIES = 2
+# Chunk size for exact-identity recovery lookups in _log_metrics.
+# 100 keeps bound-parameter counts well under all supported dialect limits.
+_METRIC_DEDUP_CHUNK_SIZE = 100
+
+# Max deadlock retries for a DB-write path (start_trace/log_spans, log_metric/log_batch).
+# Deterministic key ordering is the primary defense; this bounded retry is the safety net.
+_DB_WRITE_MAX_DEADLOCK_RETRIES = 2
 
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
@@ -1284,6 +1287,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return is_nan, value
 
     def _log_metrics(self, run_id, metrics):
+        # Retry on DB deadlock: each attempt opens a fresh session in _log_metrics_once, so the
+        # victim is redriven instead of surfacing an HTTP 503.
+        return self._run_with_deadlock_retry(self._log_metrics_once, run_id, metrics)
+
+    def _log_metrics_once(self, run_id, metrics):
         # Duplicate metric values are eliminated here to maintain
         # the same behavior in log_metric
         metric_instances = []
@@ -1330,30 +1338,69 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # continue using the session. In this case, we re-use the session to query
                 # SqlMetric
                 session.rollback()
-                # Divide metric keys into batches of 100 to avoid loading too much metric
-                # history data into memory at once
-                metric_keys = list({m.key for m in metric_instances})
-                metric_key_batches = [
-                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
-                ]
-                # Iteratively filter out metric_instances per batch to avoid
-                # loading all metric history into memory at once
-                # (see https://github.com/mlflow/mlflow/issues/19144)
-                for metric_key_batch in metric_key_batches:
-                    # obtain the metric history corresponding to the given metrics
-                    metric_history = (
+                # Determine which metrics from this batch already exist in the DB.
+                # Uses chunked exact-PK lookups (OR-of-AND on all identity columns)
+                # so recovery work is bounded by the batch size rather than the run's
+                # history size. Each predicate matches at most one row, so recovery
+                # returns at most one row per candidate identity.
+                #
+                # This replaces an earlier approach that scanned the full per-key
+                # history and caused OOM / gateway timeouts on large runs
+                # (see https://github.com/mlflow/mlflow/issues/24577).
+
+                def _metric_id(key, timestamp, step, value, is_nan):
+                    """Build the dedup identity for a metric within one run.
+
+                    Covers metric_pk minus run_uuid: (key, timestamp, step, value, is_nan).
+                    NaN metrics are stored as value=0, is_nan=True; keying on is_nan
+                    (not float('nan')) avoids Python's nan != nan breaking set lookups.
+                    """
+                    return (key, timestamp, step, value, is_nan)
+
+                # Build an ordered identity-to-instance mapping. Using a dict
+                # preserves insertion order and deduplicates same-batch entries
+                # (e.g. multiple NaN objects that sanitize to the same DB identity).
+                metrics_by_id = {}
+                for m in metric_instances:
+                    metrics_by_id.setdefault(
+                        _metric_id(m.key, m.timestamp, m.step, m.value, m.is_nan), m
+                    )
+
+                candidates = list(metrics_by_id)
+
+                existing_ids = set()
+                for i in range(0, len(candidates), _METRIC_DEDUP_CHUNK_SIZE):
+                    chunk = candidates[i : i + _METRIC_DEDUP_CHUNK_SIZE]
+                    row_predicates = [
+                        and_(
+                            SqlMetric.key == key,
+                            SqlMetric.timestamp == timestamp,
+                            SqlMetric.step == step,
+                            SqlMetric.value == value,
+                            SqlMetric.is_nan == is_nan,
+                        )
+                        for key, timestamp, step, value, is_nan in chunk
+                    ]
+                    rows = (
                         session
-                        .query(SqlMetric)
+                        .query(
+                            SqlMetric.key,
+                            SqlMetric.timestamp,
+                            SqlMetric.step,
+                            SqlMetric.value,
+                            SqlMetric.is_nan,
+                        )
                         .filter(
                             SqlMetric.run_uuid == run_id,
-                            SqlMetric.key.in_(metric_key_batch),
+                            or_(*row_predicates),
                         )
                         .all()
                     )
-                    metric_history = {m.to_mlflow_entity() for m in metric_history}
-                    metric_instances = [
-                        m for m in metric_instances if m.to_mlflow_entity() not in metric_history
-                    ]
+                    existing_ids.update(_metric_id(*row) for row in rows)
+
+                metric_instances = [
+                    m for metric_id, m in metrics_by_id.items() if metric_id not in existing_ids
+                ]
                 # if there exist metrics that were tried to be logged & rolled back even
                 # though they were not violating the PK, log them
                 if non_existing_metrics := metric_instances:
@@ -1471,7 +1518,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         # lock their associated rows for the remainder of the transaction in order to ensure
         # isolation
         latest_metrics = {}
-        metric_keys = [m.key for m in logged_metrics]
+        # Globally sort + de-dup keys to prevent cross-batch deadlocks: every transaction locks
+        # rows in the same order (the per-batch ORDER BY below only orders within one 500 batch).
+        metric_keys = sorted({m.key for m in logged_metrics})
         # Divide metric keys into batches of 500 to avoid binding too many parameters to the SQL
         # query, which may produce limit exceeded errors or poor performance on certain database
         # platforms
@@ -1988,7 +2037,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker(read_only=False) as session:
-            tag = _validate_tag(tag.key, tag.value)
             experiment = self._get_experiment(
                 session, experiment_id, ViewType.ALL
             ).to_mlflow_entity()
@@ -2056,7 +2104,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         Args:
             run_id: String ID of the run
             tags: List of RunTag instances to log
-            path: current json path for error messages
         """
         if not tags:
             return
@@ -2760,7 +2807,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment_id,
+                    # ``Experiment.experiment_id`` (the entity field) is a
+                    # string while the column is INTEGER; psycopg v3 binds
+                    # strings as typed VARCHAR, which PostgreSQL rejects
+                    # ("operator does not exist: integer = character
+                    # varying"), so compare through int(). Safe: the id of a
+                    # validated experiment is always a stringified integer.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == name,
                 )
                 .first()
@@ -2770,7 +2823,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # Create the scorer record with a new UUID
                 scorer_id = str(uuid.uuid4())
                 scorer = SqlScorer(
-                    experiment_id=experiment_id,
+                    experiment_id=int(experiment.experiment_id),
                     scorer_name=name,
                     scorer_id=scorer_id,
                 )
@@ -2864,6 +2917,19 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         if not experiment_ids:
             return []
+        # ``experiment_id`` is an INTEGER column but REST callers pass string
+        # IDs. psycopg2 sent them as untyped literals PostgreSQL would
+        # coerce; psycopg v3 binds them as typed VARCHAR and PostgreSQL
+        # rejects the comparison ("operator does not exist:
+        # integer = character varying"). Coerce with the same error contract
+        # as ``_get_experiment``.
+        try:
+            experiment_ids = [int(experiment_id) for experiment_id in experiment_ids]
+        except (ValueError, TypeError):
+            raise MlflowException(
+                "Invalid experiment IDs: experiment IDs must be valid integers.",
+                INVALID_PARAMETER_VALUE,
+            )
         with self.ManagedSessionMaker() as session:
             scorer_ids: list[str] = []
             for chunk_start in range(0, len(experiment_ids), self._LIST_SCORERS_CHUNK_SIZE):
@@ -2950,7 +3016,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment.experiment_id,
+                    # int(): see register_scorer — psycopg v3 VARCHAR binds
+                    # don't compare against the INTEGER column.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == name,
                 )
                 .first()
@@ -3040,7 +3108,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment.experiment_id,
+                    # int(): see register_scorer — psycopg v3 VARCHAR binds
+                    # don't compare against the INTEGER column.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == name,
                 )
                 .first()
@@ -3116,7 +3186,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment.experiment_id,
+                    # int(): see register_scorer — psycopg v3 VARCHAR binds
+                    # don't compare against the INTEGER column.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == name,
                 )
                 .first()
@@ -3235,7 +3307,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session
                 .query(SqlScorer)
                 .filter(
-                    SqlScorer.experiment_id == experiment.experiment_id,
+                    # int(): see register_scorer — psycopg v3 VARCHAR binds
+                    # don't compare against the INTEGER column.
+                    SqlScorer.experiment_id == int(experiment.experiment_id),
                     SqlScorer.scorer_name == scorer_name,
                 )
                 .first()
@@ -3363,6 +3437,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         version.serialized_scorer
                     ),
                     online_config=config.to_mlflow_entity(),
+                    scorer_version=version.scorer_version,
                 )
                 for config, scorer, version in gateway_results
             ]
@@ -3619,7 +3694,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return SqlTraceTag(request_id=trace_id, key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
     def _run_with_deadlock_retry(self, fn, *args, **kwargs):
-        """Run a trace-write operation, retrying on DB deadlocks.
+        """Run a DB-write operation, retrying on DB deadlocks.
 
         The managed session (see ``mlflow/store/db/utils.py``) surfaces a psycopg2
         DeadlockDetected / SQLAlchemy OperationalError as an ``MlflowException`` with
@@ -3629,14 +3704,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         session) rather than retrying on a rolled-back session.
         """
         temporarily_unavailable = ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
-        for attempt in range(_TRACE_WRITE_MAX_DEADLOCK_RETRIES + 1):
+        for attempt in range(_DB_WRITE_MAX_DEADLOCK_RETRIES + 1):
             try:
                 return fn(*args, **kwargs)
             except MlflowException as e:
                 is_deadlock = (
                     e.error_code == temporarily_unavailable and "deadlock" in str(e).lower()
                 )
-                if not is_deadlock or attempt >= _TRACE_WRITE_MAX_DEADLOCK_RETRIES:
+                if not is_deadlock or attempt >= _DB_WRITE_MAX_DEADLOCK_RETRIES:
                     raise
                 # Exponential backoff with jitter, matching `_try_insert_tags`.
                 sleep_duration = (2**attempt) - 1
@@ -5763,19 +5838,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         return update_dict
 
-    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """Async wrapper for log_spans. Delegates to the synchronous implementation.
-
-        Args:
-            location: Experiment ID of an MLflow experiment.
-            spans: List of Span entities to log.
-
-        Returns:
-            List of logged Span entities.
-        """
-        # TODO: Implement proper async support
-        return self.log_spans(location, spans)
-
     def _get_trace_status_from_root_span(self, spans: list[Span]) -> str | None:
         """
         Infer trace status from root span if present.
@@ -6927,10 +6989,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         # Defer OTel Span reconstruction until a caller needs properties or
         # to_otel_proto(). Callers that only need dicts (e.g. TraceData.to_dict /
-        # get-trace-artifact) skip Span.from_dict entirely.
-        return [
-            LazySpan(translate_loaded_span(json.loads(span.content))) for span in span_snapshots
-        ]
+        # get-trace-artifact) skip Span.from_dict entirely. Unmodified stored
+        # JSON is retained for artifact passthrough via TraceData.to_json_bytes().
+        return [LazySpan.from_stored_content(span.content) for span in span_snapshots]
 
     def _load_tracking_store_span_snapshots(
         self, session: Session, trace_ids: Iterable[str]

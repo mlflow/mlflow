@@ -1,7 +1,7 @@
+import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import {
   getSpanNodeParentIds,
   getTimelineTreeNodesMap,
@@ -10,9 +10,34 @@ import {
 } from '../timeline-tree/TimelineTree.utils';
 import type { WorkflowNode } from './GraphView.types';
 
-export const useGraphTreeLinkedState = (workflowNodes?: WorkflowNode[]) => {
-  const { selectedNode, setSelectedNode, topLevelNodes } = useModelTraceExplorerViewState();
+export interface UseGraphTreeLinkedStateResult {
+  selectedWorkflowNode: WorkflowNode | null;
+  setSelectedWorkflowNode: Dispatch<SetStateAction<WorkflowNode | null>>;
+  navigatorNode: WorkflowNode | null;
+  currentSpanIndex: number;
+  sortedSpans: ModelTraceSpanNode[];
+  expandedKeys: Set<string | number>;
+  setExpandedKeys: Dispatch<SetStateAction<Set<string | number>>>;
+  treeContainerRef: RefObject<HTMLDivElement>;
+  handleSelectWorkflowNode: (node: WorkflowNode | null) => void;
+  handleNavigateSpan: (index: number) => void;
+  selectedNode: ModelTraceSpanNode | undefined;
+  setSelectedNode: (node: ModelTraceSpanNode | undefined) => void;
+}
 
+export interface UseGraphTreeLinkedStateOptions {
+  workflowNodes?: WorkflowNode[];
+  selectedNode: ModelTraceSpanNode | undefined;
+  setSelectedNode: (node: ModelTraceSpanNode | undefined) => void;
+  topLevelNodes: ModelTraceSpanNode[];
+}
+
+export const useGraphTreeLinkedState = ({
+  workflowNodes,
+  selectedNode,
+  setSelectedNode,
+  topLevelNodes,
+}: UseGraphTreeLinkedStateOptions): UseGraphTreeLinkedStateResult => {
   // selectedWorkflowNode tracks which graph node is highlighted (set by both tree sync and graph click)
   const [selectedWorkflowNode, setSelectedWorkflowNode] = useState<WorkflowNode | null>(null);
   // navigatorNode tracks which node the span navigator displays (set only by explicit graph clicks)

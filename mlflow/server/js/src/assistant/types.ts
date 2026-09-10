@@ -87,6 +87,8 @@ export interface PendingClientToolCall {
   requestId: string;
   toolName: string;
   toolInput: Record<string, any>;
+  /** Whether the provider pauses for a result or ends after the browser executes the tool. */
+  continuation?: 'resume' | 'terminal';
 }
 
 /**
@@ -138,6 +140,9 @@ export interface KnownAssistantContext {
 /** All known context keys */
 export type AssistantContextKey = keyof KnownAssistantContext;
 
+/** How a provider delivers actions that must be executed by the client. */
+export type ClientToolDelivery = 'tool' | 'structured' | 'unsupported';
+
 /** One provider as reported by the `/providers` discovery endpoint. */
 export interface ProviderInfo {
   name: string;
@@ -148,13 +153,7 @@ export interface ProviderInfo {
   requires_api_key: boolean;
   has_api_key: boolean;
   allows_remote_access: boolean;
-  /**
-   * Whether this provider can pause a turn on a CLIENT-executed tool call (see
-   * `clientToolHandlers.ts`) and resume it once the client posts a result. False for
-   * CLI-based providers (Claude Code, Codex), which have no such mid-stream channel
-   * without MCP plumbing.
-   */
-  supports_client_tools: boolean;
+  client_tool_delivery: ClientToolDelivery;
   /** Curated model options for simple assistant controls; empty when provider decides. */
   model_options: string[];
 }
@@ -166,8 +165,8 @@ export interface ResolvedProviderInfo {
   auto_selected: boolean;
   requires_api_key: boolean;
   has_api_key: boolean;
-  /** See `ProviderInfo.supports_client_tools`. */
-  supports_client_tools: boolean;
+  /** See `ProviderInfo.client_tool_delivery`. */
+  client_tool_delivery: ClientToolDelivery;
   /** LLM provider behind a gateway endpoint (e.g. 'openai'); null/absent otherwise. */
   model_provider?: string | null;
   /** Curated vendor model choices when resolved to an assistant-managed Gateway endpoint. */
@@ -226,6 +225,15 @@ export interface TokenUsage {
   costUsd: number | null;
 }
 
+export interface SendMessageOptions {
+  newSession?: boolean;
+}
+
+export interface PendingAutomaticMessage {
+  message: string;
+  options?: SendMessageOptions;
+}
+
 export interface AssistantAgentState {
   /** Whether the Assistant panel is open */
   isPanelOpen: boolean;
@@ -259,6 +267,10 @@ export interface AssistantAgentState {
   needsApiKey: boolean;
   /** A prompt queued to seed the chat input the next time it becomes visible (null when none) */
   pendingPrompt: string | null;
+  /** Whether the chat composer should receive focus once it is mounted */
+  pendingComposerFocus: boolean;
+  /** A message waiting for Assistant setup or credentials before it can be sent automatically */
+  pendingAutomaticMessage: PendingAutomaticMessage | null;
   /** A tool call awaiting the user's Yes/No decision, or null */
   pendingPermission: PermissionRequest | null;
   /** A tool call awaiting client-side execution (e.g. rendering a UI spec), or null */
@@ -274,14 +286,22 @@ export interface AssistantAgentActions {
   openPanel: () => void;
   /** Close the Assistant panel */
   closePanel: () => void;
-  /** Send a message to Assistant */
-  sendMessage: (message: string) => void;
+  /** Send a message to Assistant, optionally starting a fresh conversation */
+  sendMessage: (message: string, options?: SendMessageOptions) => void;
+  /** Send immediately when ready, otherwise queue until setup or credentials are available */
+  sendMessageWhenReady: (message: string, options?: SendMessageOptions) => void;
+  /** Force-send the queued automatic message after external setup (e.g. API-key save) */
+  forceSendPendingAutomaticMessage: () => void;
   /** Optimistically switch the active provider (persisted on the next send). */
   selectProvider: (selection: AssistantProviderSelection) => void;
   /** Queue a prompt to seed the chat input the next time it's visible (survives setup/settings navigation) */
   prefillPrompt: (prompt: string) => void;
   /** Clear any queued prompt */
   clearPendingPrompt: () => void;
+  /** Focus the chat composer once it is available, without changing its text */
+  requestComposerFocus: () => void;
+  /** Clear a pending composer-focus request after it is consumed or abandoned */
+  clearComposerFocusRequest: () => void;
   /** Regenerate the last assistant response */
   regenerateLastMessage: () => void;
   /** Reset the conversation */
