@@ -55,3 +55,66 @@ mlflow_get_tracking_uri <- function() {
     if (nchar(env_uri)) env_uri else paste("file://", fs::path_abs("mlruns"), sep = "")
   }
 }
+
+#' Set Model Registry URI
+#'
+#' Specifies the URI to the model registry service used for model registry operations.
+#'
+#' @param uri The URI to the model registry service.
+#' @details For Databricks model registry, use `databricks-uc` or
+#'   `databricks-uc://<profile>`. When the tracking URI is `databricks`,
+#'   this is the default registry URI.
+#'
+#' @export
+mlflow_set_registry_uri <- function(uri) {
+  .globals$registry_uri <- uri
+  mlflow_register_tracking_event("registry_uri", list(uri = uri))
+
+  invisible(uri)
+}
+
+#' Get Model Registry URI
+#'
+#' Gets the model registry URI.
+#'
+#' @export
+mlflow_get_registry_uri <- function() {
+  mlflow_resolve_registry_uri(tracking_uri = mlflow_get_tracking_uri())
+}
+
+mlflow_uri_is_set <- function(uri) {
+  is.character(uri) && length(uri) == 1L && !is.na(uri) && nzchar(uri)
+}
+
+mlflow_default_registry_uri <- function(tracking_uri) {
+  if (identical(tracking_uri, "databricks")) {
+    return("databricks-uc")
+  }
+  if (identical(tracking_uri, "databricks-uc")) {
+    return("databricks-uc")
+  }
+  if (startsWith(tracking_uri, "databricks://")) {
+    return(sub("^databricks://", "databricks-uc://", tracking_uri))
+  }
+  if (startsWith(tracking_uri, "databricks-uc://")) {
+    return(tracking_uri)
+  }
+  tracking_uri
+}
+
+mlflow_resolve_registry_uri <- function(tracking_uri, registry_uri = NULL) {
+  if (mlflow_uri_is_set(registry_uri)) {
+    return(registry_uri)
+  }
+  if (!is.null(.globals$registry_uri)) {
+    if (mlflow_uri_is_set(.globals$registry_uri)) {
+      return(.globals$registry_uri)
+    }
+    return(mlflow_default_registry_uri(tracking_uri))
+  }
+  env_uri <- Sys.getenv("MLFLOW_REGISTRY_URI")
+  if (nchar(env_uri)) {
+    return(env_uri)
+  }
+  mlflow_default_registry_uri(tracking_uri)
+}
