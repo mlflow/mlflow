@@ -243,9 +243,9 @@ def _parse_service_tier(output: Any) -> str | None:
     ``"default"``, ``"priority"``, ``"flex"``).  LiteLLM's ``cost_per_token``
     accepts a ``service_tier`` kwarg to apply tier-specific pricing.
 
-    Handles both typed OpenAI response objects and dict-shaped responses so that
-    any provider serialising this field as a plain dict benefits from cost-tier
-    accounting automatically.
+    Handles dict-shaped responses, typed OpenAI objects, and any other provider
+    response type (Gemini, Anthropic, LiteLLM ModelResponse, etc.) that exposes
+    a ``service_tier`` attribute, so new providers are covered without code changes.
 
     Returns:
         The service_tier string, or None if not present.
@@ -261,4 +261,7 @@ def _parse_service_tier(output: Any) -> str | None:
             return st
     except ImportError:
         pass
-    return None
+
+    # Generic attribute fallback -- covers Gemini, Anthropic, LiteLLM ModelResponse,
+    # and any other typed response object that exposes service_tier.
+    return getattr(output, "service_tier", None) or None
