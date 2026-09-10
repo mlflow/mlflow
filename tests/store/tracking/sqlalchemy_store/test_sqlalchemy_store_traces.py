@@ -172,6 +172,70 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     assert trace_info.to_v3() == store.get_trace_info(request_id)
 
 
+def test_end_trace_v2_locks_parent_before_merging_children(
+    store: SqlAlchemyStore, workspaces_enabled: bool
+):
+    experiment_id = store.create_experiment("test_end_trace_v2_lock_order")
+    request_id = store.deprecated_start_trace_v2(
+        experiment_id=experiment_id,
+        timestamp_ms=1234,
+        request_metadata={},
+        tags={},
+    ).request_id
+    events = []
+    original_trace_query = store._trace_query
+    original_merge = sqlalchemy_store_module._merge_trace_child_rows_in_lock_order
+
+    def tracked_trace_query(session, for_update_or_delete=False, workspace=None):
+        events.append(("trace_query", for_update_or_delete))
+        return original_trace_query(
+            session,
+            for_update_or_delete=for_update_or_delete,
+            workspace=workspace,
+        )
+
+    def tracked_merge(session, model_class, request_id, values):
+        events.append(model_class)
+        return original_merge(session, model_class, request_id, values)
+
+    with (
+        mock.patch.object(store, "_trace_query", side_effect=tracked_trace_query),
+        mock.patch.object(
+            sqlalchemy_store_module,
+            "_merge_trace_child_rows_in_lock_order",
+            side_effect=tracked_merge,
+        ),
+    ):
+        store.deprecated_end_trace_v2(
+            request_id=request_id,
+            timestamp_ms=2345,
+            status=TraceStatus.OK,
+            request_metadata={"metadata": "value"},
+            tags={"tag": "value"},
+        )
+
+        assert events == [("trace_query", True), SqlTraceMetadata, SqlTraceTag]
+
+        if workspaces_enabled:
+            store._get_workspace_provider_instance().create_workspace(Workspace(name="team-b"))
+            events.clear()
+            with WorkspaceContext("team-b"):
+                with pytest.raises(
+                    MlflowException,
+                    match=f"Trace with ID '{request_id}' not found.",
+                ) as exc_info:
+                    store.deprecated_end_trace_v2(
+                        request_id=request_id,
+                        timestamp_ms=3456,
+                        status=TraceStatus.OK,
+                        request_metadata={"other": "metadata"},
+                        tags={"other": "tag"},
+                    )
+
+            assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+            assert events == [("trace_query", True)]
+
+
 def test_start_trace(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
     trace_info = TraceInfo(
@@ -5036,6 +5100,85 @@ def test_log_spans_locks_preexisting_trace_rows_only(store: SqlAlchemyStore) -> 
         assert mock_lock.call_args.args[1] == [trace_id]
 
     assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 300
+
+
+def test_log_spans_lock_refreshes_phase_one_trace_info(store: SqlAlchemyStore) -> None:
+    original_experiment_id = store.create_experiment("stale-parent-original")
+    refreshed_experiment_id = store.create_experiment("stale-parent-refreshed")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, original_experiment_id)
+    original_lock = store._trace_row_lock_query
+
+    def update_before_lock(session, trace_ids):
+        # Phase 1 has cached the old parent. Simulate a concurrent commit before the locking
+        # reread; populate_existing() must replace that identity-map state.
+        with store.engine.begin() as connection:
+            connection.execute(
+                sqlalchemy
+                .update(SqlTraceInfo)
+                .where(SqlTraceInfo.request_id == trace_id)
+                .values(experiment_id=refreshed_experiment_id)
+            )
+        return original_lock(session, trace_ids)
+
+    span = create_test_span(trace_id, name="span", span_id=111, span_type="LLM")
+    with mock.patch.object(store, "_trace_row_lock_query", side_effect=update_before_lock):
+        store.log_spans(original_experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        sql_span = session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).one()
+        assert sql_span.experiment_id == int(refreshed_experiment_id)
+
+
+def test_log_spans_locks_mssql_trace_rows_individually_in_sorted_order(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("mssql-parent-lock-order")
+    trace_ids = [f"tr-b-{uuid.uuid4().hex}", f"tr-a-{uuid.uuid4().hex}"]
+    for trace_id in trace_ids:
+        _create_trace(store, trace_id, experiment_id)
+    spans = [
+        create_test_span(trace_id, name="span", span_id=i, span_type="LLM")
+        for i, trace_id in enumerate(trace_ids, start=1)
+    ]
+
+    with (
+        mock.patch.object(store, "db_type", MSSQL),
+        mock.patch.object(
+            store, "_trace_row_lock_query", wraps=store._trace_row_lock_query
+        ) as mock_lock,
+    ):
+        store.log_spans(experiment_id, spans)
+
+    assert [call.args[1] for call in mock_lock.call_args_list] == [
+        [trace_id] for trace_id in sorted(trace_ids)
+    ]
+
+
+def test_log_spans_reports_trace_deleted_before_mssql_parent_lock(
+    store: SqlAlchemyStore,
+) -> None:
+    experiment_id = store.create_experiment("mssql-parent-deleted-before-lock")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, experiment_id)
+    span = create_test_span(trace_id, name="span", span_id=1, span_type="LLM")
+    missing_lock_query = mock.MagicMock()
+    missing_lock_query.one_or_none.return_value = None
+
+    with (
+        mock.patch.object(store, "db_type", MSSQL),
+        mock.patch.object(store, "_trace_row_lock_query", return_value=missing_lock_query),
+        pytest.raises(
+            MlflowException,
+            match=f"Cannot log spans to traces that no longer exist: '{trace_id}'",
+        ) as exc_info,
+    ):
+        store.log_spans(experiment_id, [span])
+
+    assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    missing_lock_query.one_or_none.assert_called_once_with()
+    with store.ManagedSessionMaker() as session:
+        assert session.query(SqlSpan).filter(SqlSpan.trace_id == trace_id).count() == 0
 
 
 @pytest.mark.parametrize(
@@ -10507,27 +10650,52 @@ def test_start_trace_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore)
     assert metadata_keys == sorted(metadata_keys)
 
 
-def test_deprecated_start_trace_v2_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
-    """The legacy V2 start-trace path must also write metadata in sorted key order, so it
-    keeps a consistent PK-index lock order with the other writers (issue #24332).
+def test_deprecated_start_trace_v2_writes_child_rows_in_sorted_key_order(
+    store: SqlAlchemyStore,
+):
+    """The legacy V2 start-trace path must also write metadata and tags in sorted key order,
+    so it keeps a consistent PK-index lock order with the other writers (issue #24332).
     """
     experiment_id = store.create_experiment("sorted-order-v2")
     # Metadata whose natural dict order is NOT sorted.
     request_metadata = {"rq_z": "z", "rq_a": "a", "rq_m": "m"}
+    tags = {
+        "zeta": "1",
+        MLFLOW_ARTIFACT_LOCATION: "user-supplied-location",
+        "alpha": "2",
+    }
+    captured_tags: list[tuple[str, str]] = []
+    real_add = sqlalchemy.orm.Session.add
+
+    def _spy_add(self, instance, *args, **kwargs):
+        if isinstance(instance, SqlTraceInfo):
+            captured_tags.extend((tag.key, tag.value) for tag in instance.tags)
+        return real_add(self, instance, *args, **kwargs)
+
     captured, remove = _capture_trace_metadata_write_keys(store)
     try:
-        store.deprecated_start_trace_v2(
-            experiment_id=experiment_id,
-            timestamp_ms=1234,
-            request_metadata=request_metadata,
-            tags={},
-        )
+        with mock.patch.object(sqlalchemy.orm.Session, "add", _spy_add):
+            trace_info = store.deprecated_start_trace_v2(
+                experiment_id=experiment_id,
+                timestamp_ms=1234,
+                request_metadata=request_metadata,
+                tags=tags,
+            )
     finally:
         remove()
 
     metadata_keys = [k for k in captured if k in request_metadata]
     assert metadata_keys, "expected trace_request_metadata writes to be captured"
     assert metadata_keys == sorted(metadata_keys)
+    artifact_location = dict(captured_tags)[MLFLOW_ARTIFACT_LOCATION]
+    assert artifact_location != "user-supplied-location"
+    assert artifact_location.endswith(f"/{trace_info.request_id}/artifacts")
+    assert captured_tags == sorted(
+        {
+            **tags,
+            MLFLOW_ARTIFACT_LOCATION: artifact_location,
+        }.items()
+    )
 
 
 def test_log_spans_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
@@ -10594,19 +10762,26 @@ def test_log_spans_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
         assert keys == sorted(keys), f"keys for {rid} not sorted: {keys}"
 
 
-def test_start_trace_conflict_path_merges_metadata_and_metrics_in_sorted_key_order(
+def test_start_trace_conflict_path_merges_metadata_metrics_and_tags_in_sorted_key_order(
     store: SqlAlchemyStore,
 ):
     """The IntegrityError conflict path is where the reported start_trace()/log_spans()
     race actually occurs (issue #24332): log_spans() creates the trace first, then
-    start_trace() hits IntegrityError and upserts metadata/metrics via per-row
-    session.merge(). This test forces that branch and asserts BOTH merge loops emit keys
-    in sorted order — the happy-path tests never execute these lines, so a regression
+    start_trace() hits IntegrityError and upserts metadata/metrics/tags via per-row
+    session.merge(). This test forces that branch and asserts all three merge loops emit
+    keys in sorted order — the happy-path tests never execute these lines, so a regression
     that dropped the sort there would otherwise pass CI silently.
+
+    Tags share the same trace_tags_pk lock-ordering class as metadata/metrics: a
+    concurrent log_spans() also merges the trace's user tags, so unsorted tag merges here
+    can deadlock two writers on the tag PK-index the same way (#24338 follow-up). All three
+    row families now route through ``_merge_trace_child_rows_in_lock_order``.
 
     We spy on Session.merge (the ORM operation the conflict branch actually uses) rather
     than the SQL cursor, because the merges here emit UPDATE statements (the keys were
     already inserted by log_spans) whose positional params carry no parseable column list.
+    The spy filters by row type and request_id, so the interleaved tag/assessment merges
+    the conflict branch also performs do not pollute the metadata/metric key lists.
     """
     experiment_id = store.create_experiment("sorted-order-conflict-path")
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -10626,9 +10801,10 @@ def test_start_trace_conflict_path_merges_metadata_and_metrics_in_sorted_key_ord
     }
     store.log_spans(experiment_id, [create_mlflow_span(otel_span, trace_id, "LLM")])
 
-    # 2. Record the key order of every metadata/metric row merged during start_trace().
+    # 2. Record the key order of every metadata/metric/tag row merged during start_trace().
     merged_metadata_keys: list[str] = []
     merged_metric_keys: list[str] = []
+    merged_tag_keys: list[str] = []
     real_merge = sqlalchemy.orm.Session.merge
 
     def _spy_merge(self, instance, *args, **kwargs):
@@ -10636,6 +10812,8 @@ def test_start_trace_conflict_path_merges_metadata_and_metrics_in_sorted_key_ord
             merged_metadata_keys.append(instance.key)
         elif isinstance(instance, SqlTraceMetrics) and instance.request_id == trace_id:
             merged_metric_keys.append(instance.key)
+        elif isinstance(instance, SqlTraceTag) and instance.request_id == trace_id:
+            merged_tag_keys.append(instance.key)
         return real_merge(self, instance, *args, **kwargs)
 
     # Metadata whose natural dict order is NOT sorted; token usage yields several
@@ -10650,25 +10828,215 @@ def test_start_trace_conflict_path_merges_metadata_and_metrics_in_sorted_key_ord
         }),
         "mlflow.traceInputs": "in",
     }
+    # Tags in deliberately unsorted insertion order so a dropped sort is observable.
+    trace_tags = {
+        "zeta": "1",
+        MLFLOW_ARTIFACT_LOCATION: "user-supplied-location",
+        "alpha": "2",
+        "mid": "3",
+    }
     trace_info = TraceInfo(
         trace_id=trace_id,
         trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
         request_time=0,
         execution_duration=1,
         state=TraceState.OK,
-        tags={},
+        tags=trace_tags,
         trace_metadata=trace_metadata,
     )
 
     with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
-        store.start_trace(trace_info)
+        result = store.start_trace(trace_info)
 
-    # Both loops must actually have merged multiple keys, else the ordering assertions
+    # Each loop must actually have merged multiple keys, else the ordering assertions
     # are vacuous (e.g. if start_trace took the happy path instead of the conflict path).
     assert len(merged_metadata_keys) >= 2, merged_metadata_keys
     assert len(merged_metric_keys) >= 2, merged_metric_keys
+    assert len(merged_tag_keys) >= 2, merged_tag_keys
     assert merged_metadata_keys == sorted(merged_metadata_keys)
     assert merged_metric_keys == sorted(merged_metric_keys)
+    assert merged_tag_keys == sorted(trace_tags)
+    assert result.tags[MLFLOW_ARTIFACT_LOCATION].endswith(f"/{trace_id}/artifacts")
+
+
+def test_log_spans_merges_user_trace_tags_in_sorted_key_order(store: SqlAlchemyStore):
+    """log_spans() merges user-defined trace tags (mlflow.traceTag.* span attributes) via
+    per-row session.merge(). A concurrent start_trace() merges the same tag keys, so
+    unsorted tag merges here can deadlock on trace_tags_pk (#24338 follow-up). Assert the
+    user tags are merged in sorted key order.
+
+    We isolate user tags by filtering to non-``mlflow.`` keys, so the SPANS_LOCATION tag,
+    the artifact-location tag, and any resource-namespace tags do not enter the assertion.
+    """
+    experiment_id = store.create_experiment("sorted-order-log-spans-tags")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id, name="root", trace_id_num=222, span_id_num=222
+    )
+    # User trace tags in deliberately unsorted insertion order.
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        f"{SpanAttributeKey.TRACE_TAG_PREFIX}zeta": json.dumps("1"),
+        f"{SpanAttributeKey.TRACE_TAG_PREFIX}alpha": json.dumps("2"),
+        f"{SpanAttributeKey.TRACE_TAG_PREFIX}mid": json.dumps("3"),
+    }
+
+    merged_user_tag_keys: list[str] = []
+    real_merge = sqlalchemy.orm.Session.merge
+
+    def _spy_merge(self, instance, *args, **kwargs):
+        if (
+            isinstance(instance, SqlTraceTag)
+            and instance.request_id == trace_id
+            and not instance.key.startswith("mlflow.")
+        ):
+            merged_user_tag_keys.append(instance.key)
+        return real_merge(self, instance, *args, **kwargs)
+
+    with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
+        store.log_spans(experiment_id, [create_mlflow_span(otel_span, trace_id, "LLM")])
+
+    assert len(merged_user_tag_keys) >= 2, merged_user_tag_keys
+    assert merged_user_tag_keys == sorted(merged_user_tag_keys)
+
+
+def test_log_spans_merges_all_trace_tags_in_global_sorted_key_order(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("sorted-order-resource-tags")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    resource = _OTelResource({"zeta": "z", "shared": "resource", "alpha": "a"})
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="root",
+            context=trace_api.SpanContext(
+                trace_id=333,
+                span_id=333,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps(trace_id),
+                f"{SpanAttributeKey.TRACE_TAG_PREFIX}shared": json.dumps("user"),
+                f"{SpanAttributeKey.TRACE_TAG_PREFIX}omega": json.dumps("o"),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=resource,
+        ),
+        trace_id,
+    )
+
+    merged_tag_keys: list[str] = []
+    real_merge = sqlalchemy.orm.Session.merge
+
+    def _spy_merge(self, instance, *args, **kwargs):
+        if isinstance(instance, SqlTraceTag) and instance.request_id == trace_id:
+            merged_tag_keys.append(instance.key)
+        return real_merge(self, instance, *args, **kwargs)
+
+    with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
+        store.log_spans(experiment_id, [span])
+
+    assert merged_tag_keys == sorted([
+        TraceTagKey.SPANS_LOCATION,
+        "alpha",
+        "omega",
+        "shared",
+        "zeta",
+    ])
+    assert store.get_trace_info(trace_id).tags["shared"] == "user"
+
+
+def test_log_spans_merges_trace_tags_in_sorted_order_across_traces(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("sorted-order-tags-across-traces")
+    trace_id_a = f"tr-a-{uuid.uuid4().hex}"
+    trace_id_b = f"tr-b-{uuid.uuid4().hex}"
+
+    def make_span(trace_id: str, span_id: int):
+        otel_span = create_test_otel_span(
+            trace_id=trace_id,
+            name="root",
+            trace_id_num=span_id,
+            span_id_num=span_id,
+        )
+        otel_span._attributes = {
+            "mlflow.traceRequestId": json.dumps(trace_id),
+            f"{SpanAttributeKey.TRACE_TAG_PREFIX}zeta": json.dumps("z"),
+            f"{SpanAttributeKey.TRACE_TAG_PREFIX}alpha": json.dumps("a"),
+        }
+        return create_mlflow_span(otel_span, trace_id, "LLM")
+
+    merged_tag_pairs: list[tuple[str, str]] = []
+    real_merge = sqlalchemy.orm.Session.merge
+
+    def _spy_merge(self, instance, *args, **kwargs):
+        if isinstance(instance, SqlTraceTag):
+            merged_tag_pairs.append((instance.request_id, instance.key))
+        return real_merge(self, instance, *args, **kwargs)
+
+    with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
+        store.log_spans(
+            experiment_id,
+            [make_span(trace_id_b, 444), make_span(trace_id_a, 555)],
+        )
+
+    assert merged_tag_pairs == sorted([
+        (trace_id_a, TraceTagKey.SPANS_LOCATION),
+        (trace_id_a, "alpha"),
+        (trace_id_a, "zeta"),
+        (trace_id_b, TraceTagKey.SPANS_LOCATION),
+        (trace_id_b, "alpha"),
+        (trace_id_b, "zeta"),
+    ])
+
+
+def test_start_trace_happy_path_assigns_tags_in_sorted_key_order(store: SqlAlchemyStore):
+    """The happy INSERT path attaches tags via a relationship-collection cascade, not
+    per-row merge, so the conflict-path spy test cannot cover it. Capture the constructed
+    ``sql_trace_info`` at ``session.add`` and assert all tag rows were built from the merged
+    tag values in global sorted key order.
+
+    Mirrors #24338's sorted metadata cascade so all trace child cascades are deterministic.
+    """
+    experiment_id = store.create_experiment("sorted-order-happy-path-tags")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        tags={
+            "zeta": "1",
+            MLFLOW_ARTIFACT_LOCATION: "user-supplied-location",
+            "alpha": "2",
+            "mid": "3",
+        },
+        trace_metadata={},
+    )
+
+    captured_tags: list[tuple[str, str]] = []
+    real_add = sqlalchemy.orm.Session.add
+
+    def _spy_add(self, instance, *args, **kwargs):
+        if isinstance(instance, SqlTraceInfo) and instance.request_id == trace_id:
+            captured_tags.extend((tag.key, tag.value) for tag in instance.tags)
+        return real_add(self, instance, *args, **kwargs)
+
+    with mock.patch.object(sqlalchemy.orm.Session, "add", _spy_add):
+        store.start_trace(trace_info)
+
+    artifact_location = dict(captured_tags)[MLFLOW_ARTIFACT_LOCATION]
+    assert artifact_location != "user-supplied-location"
+    assert artifact_location.endswith(f"/{trace_id}/artifacts")
+    assert captured_tags == sorted(
+        {
+            **trace_info.tags,
+            MLFLOW_ARTIFACT_LOCATION: artifact_location,
+        }.items()
+    )
 
 
 @pytest.mark.parametrize(
