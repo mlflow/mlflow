@@ -26,6 +26,7 @@ export enum RunsChartType {
   PARALLEL = 'PARALLEL',
   DIFFERENCE = 'DIFFERENCE',
   IMAGE = 'IMAGE',
+  VIDEO = 'VIDEO',
 }
 
 const MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON = 1;
@@ -95,6 +96,8 @@ export abstract class RunsChartsCardConfig {
       return new RunsChartsDifferenceCardConfig(isGenerated, uuid, metricSectionId);
     } else if (type === RunsChartType.IMAGE) {
       return new RunsChartsImageCardConfig(isGenerated, uuid, metricSectionId);
+    } else if (type === RunsChartType.VIDEO) {
+      return new RunsChartsVideoCardConfig(isGenerated, uuid, metricSectionId);
     } else {
       // Must be contour
       return new RunsChartsContourCardConfig(isGenerated, uuid, metricSectionId);
@@ -801,6 +804,11 @@ export class RunsChartsImageCardConfig extends RunsChartsCardConfig {
   imageKeys: string[] = [];
   step = 0;
   showRunParams = true;
+}
+
+export class RunsChartsVideoCardConfig extends RunsChartsCardConfig {
+  type: RunsChartType = RunsChartType.VIDEO;
+  step = 0;
 }
 
 /**
