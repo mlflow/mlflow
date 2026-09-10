@@ -7,6 +7,10 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { fetchEndpointRaw, HTTPMethods } from '../common/utils/FetchUtils';
 import { useLocation, useNavigate, useParams } from '../common/utils/RoutingUtils';
 import { useDarkThemeContext } from '../common/contexts/DarkThemeContext';
+import {
+  SMART_NUMBER_FORMATTING_KEY,
+  SMART_NUMBER_FORMATTING_VERSION,
+} from '../experiment-tracking/components/experiment-page/utils/useSmartNumberFormatting';
 import { ApiKeysPageInner } from '../gateway/pages/ApiKeysPage';
 import Routes from '../experiment-tracking/routes';
 import WebhooksSettings from './WebhooksSettings';
@@ -99,6 +103,12 @@ const SettingsPage = () => {
       });
     }
   }, [sectionParam, navigate, location.search, location.state]);
+
+  const [isSmartFormattingEnabled, setIsSmartFormattingEnabled] = useLocalStorage({
+    key: SMART_NUMBER_FORMATTING_KEY,
+    version: SMART_NUMBER_FORMATTING_VERSION,
+    initialValue: true,
+  });
 
   const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
@@ -197,6 +207,32 @@ const SettingsPage = () => {
                   <FormattedMessage
                     defaultMessage="Select your theme preference between light and dark."
                     description="Description for the theme setting in the settings page"
+                  />
+                </Typography.Text>
+              </SettingsRow>
+              <SettingsRow
+                trailing={
+                  <Switch
+                    componentId="mlflow.settings.smartNumberFormatting.toggle-switch"
+                    checked={isSmartFormattingEnabled ?? true}
+                    onChange={setIsSmartFormattingEnabled}
+                    label={
+                      (isSmartFormattingEnabled ?? true)
+                        ? intl.formatMessage({ defaultMessage: 'On', description: 'Smart number formatting enabled label' })
+                        : intl.formatMessage({ defaultMessage: 'Off', description: 'Smart number formatting disabled label' })
+                    }
+                    activeLabel={intl.formatMessage({ defaultMessage: 'On', description: 'Smart number formatting enabled label' })}
+                    inactiveLabel={intl.formatMessage({ defaultMessage: 'Off', description: 'Smart number formatting disabled label' })}
+                  />
+                }
+              >
+                <Typography.Title level={4} withoutMargins>
+                  <FormattedMessage defaultMessage="Smart number formatting" description="Smart number formatting settings title" />
+                </Typography.Title>
+                <Typography.Text>
+                  <FormattedMessage
+                    defaultMessage="Format metric and parameter values column-aware, with consistent decimal places and space-grouped digits."
+                    description="Smart number formatting settings description"
                   />
                 </Typography.Text>
               </SettingsRow>
