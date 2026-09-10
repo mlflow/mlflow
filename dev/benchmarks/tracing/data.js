@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789045333314,
+  "lastUpdate": 1789047356214,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "198982749+Copilot@users.noreply.github.com",
-            "name": "Copilot",
-            "username": "Copilot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0d361deb83e1a4c3d8e9c7de921ada8f42e5ccdc",
-          "message": "Add per-image/video/audio pricing to `amazon.nova-2-multimodal-embeddings-v1:0` in Bedrock catalog (#23117)\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: TomeHirata <33407409+TomeHirata@users.noreply.github.com>",
-          "timestamp": "2026-05-08T04:02:28Z",
-          "tree_id": "512c8d0aefd197c02dd9f28725bf23bbf85a7a4a",
-          "url": "https://github.com/mlflow/mlflow/commit/0d361deb83e1a4c3d8e9c7de921ada8f42e5ccdc"
-        },
-        "date": 1778213194853,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 36.051621999999384,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 21.15460462162037,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 21.058667921875607,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 20.776909189655843,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 21.821374111111492,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 12.704690399993979,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 10.558088400000543,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "uuzzrm@gmail.com",
+            "name": "Ruiming Zhao",
+            "username": "uuzzrm"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfab11cb7eaa98312e82c2961e2f32bc428315ea",
+          "message": "fix(gateway): stop forwarding client auth headers on passthrough routes (#25129)\n\nSigned-off-by: Ruiming Zhao <uuzzrm@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Pat Sukprasert <pattara.sk127@gmail.com>",
+          "timestamp": "2026-09-10T13:34:34Z",
+          "tree_id": "02a3ea47e094263cdaec9d57e778c004dd00b7d1",
+          "url": "https://github.com/mlflow/mlflow/commit/bfab11cb7eaa98312e82c2961e2f32bc428315ea"
+        },
+        "date": 1789047354536,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.4110979499998,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.617383224137737,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.605377631944464,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.531932787036491,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.996771120689973,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 27.99291360000211,
             "unit": "ms"
           }
         ]
