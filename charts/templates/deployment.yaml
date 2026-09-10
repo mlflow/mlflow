@@ -76,8 +76,11 @@ spec:
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
-            initialDelaySeconds: 15
-            periodSeconds: 20
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds | default 15 }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds | default 20 }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds | default 5 }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold | default 3 }}
+            successThreshold: 1
           readinessProbe:
             httpGet:
               path: {{ printf "%s/health" $healthPrefix }}
@@ -85,8 +88,11 @@ spec:
               {{- if .Values.tls.enabled }}
               scheme: HTTPS
               {{- end }}
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds | default 5 }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds | default 10 }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds | default 5 }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold | default 3 }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold | default 1 }}
           {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom .Values.mlflow.registryStoreUri .Values.mlflow.registryStoreUriFrom .Values.mlflow.defaultArtifactRoot .Values.mlflow.artifactsDestination .Values.env }}
           env:
             {{- if or .Values.mlflow.backendStoreUri .Values.mlflow.backendStoreUriFrom }}
