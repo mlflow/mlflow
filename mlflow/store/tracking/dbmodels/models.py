@@ -35,6 +35,8 @@ from sqlalchemy.orm import (
 )
 
 from mlflow.entities import (
+    AgentPlugin,
+    AgentPluginVersion,
     Assessment,
     AssessmentError,
     AssessmentSource,
@@ -75,6 +77,10 @@ from mlflow.entities import (
     RunInfo,
     RunStatus,
     RunTag,
+    Skill,
+    SkillSourceType,
+    SkillStatus,
+    SkillVersion,
     SourceType,
     TraceInfo,
     ViewType,
@@ -99,6 +105,7 @@ from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.skill_source import build_source
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -106,6 +113,8 @@ from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.store.db.base_sql_model import Base
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
+from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
+from mlflow.utils.skill_uris import _SKILL_SCHEME, _format_uri
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -4313,4 +4322,822 @@ class SqlMCPAccessEndpoint(Base):
             last_updated_by=self.last_updated_by,
             creation_timestamp=self.created_at,
             last_updated_timestamp=self.last_updated_at,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Skill Registry (RFC-0008) ORM models
+#
+# Column widths diverge from the RFC's String(256) to fit MySQL/InnoDB's
+# 3072-byte utf8mb4 index-key limit: organization is String(64), name and agent
+# plugin version are String(128) (all within the RFC-0008 registration-time
+# validators). ``agent_plugin_version_members`` uses the member-name uniqueness
+# tuple as its primary key so member_organization/member_version stay off the
+# widest index. ``agent_plugin_versions`` materializes the SemVer sort columns
+# (version_major/minor/patch + version_prerelease_sort_key) so latest resolution
+# and version ordering run in pure SQL, mirroring the MCP registry.
+# ---------------------------------------------------------------------------
+
+
+class SqlSkill(Base):
+    __tablename__ = "skills"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    description = Column(String(5000), nullable=True)
+    icons = Column(JSON, nullable=True)
+    search_text = Column(Text, nullable=True)
+    imported_keywords_json = Column(Text, nullable=True)
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    creation_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    resolved_latest_version = query_expression()
+    resolved_status = query_expression()
+
+    __table_args__ = (PrimaryKeyConstraint("workspace", "organization", "name", name="skills_pk"),)
+
+    def __repr__(self):
+        return f"<SqlSkill ({self.workspace}, {self.organization}, {self.name})>"
+
+    @classmethod
+    def _resolved_latest_candidates_query(cls):
+        # Skill versions are monotonic integers, so a plain descending version
+        # comparison is a total order; no SemVer machinery is needed. Active
+        # versions win; otherwise the highest non-deleted non-active version.
+        status_priority = sa.case(
+            (SqlSkillVersion.status == SkillStatus.ACTIVE.value, 0),
+            else_=1,
+        )
+        return sa.select(
+            SqlSkillVersion.workspace.label("workspace"),
+            SqlSkillVersion.organization.label("organization"),
+            SqlSkillVersion.name.label("name"),
+            SqlSkillVersion.version.label("version"),
+            SqlSkillVersion.status.label("status"),
+            sa.func
+            .row_number()
+            .over(
+                partition_by=(
+                    SqlSkillVersion.workspace,
+                    SqlSkillVersion.organization,
+                    SqlSkillVersion.name,
+                ),
+                order_by=(status_priority.asc(), SqlSkillVersion.version.desc()),
+            )
+            .label("row_num"),
+        ).where(SqlSkillVersion.status != SkillStatus.DELETED.value)
+
+    @classmethod
+    def resolved_status_expression(cls):
+        """Build a SQL expression for the resolved status, usable in ``.filter()``."""
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "resolved_skill_status_candidates"
+        )
+        return (
+            sa
+            .select(latest_candidates.c.status)
+            .where(
+                sa.and_(
+                    latest_candidates.c.workspace == cls.workspace,
+                    latest_candidates.c.organization == cls.organization,
+                    latest_candidates.c.name == cls.name,
+                    latest_candidates.c.row_num == 1,
+                )
+            )
+            .correlate(cls)
+            .scalar_subquery()
+        )
+
+    @classmethod
+    def with_resolved_latest(cls, query):
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "skill_latest_candidates"
+        )
+        return query.outerjoin(
+            latest_candidates,
+            sa.and_(
+                latest_candidates.c.workspace == cls.workspace,
+                latest_candidates.c.organization == cls.organization,
+                latest_candidates.c.name == cls.name,
+                latest_candidates.c.row_num == 1,
+            ),
+        ).options(
+            with_expression(cls.resolved_latest_version, latest_candidates.c.version),
+            with_expression(cls.resolved_status, latest_candidates.c.status),
+        )
+
+    def to_mlflow_entity(
+        self,
+        *,
+        resolved_latest_version: int | None = None,
+        resolved_status: str | None = None,
+    ):
+        tags = {t.key: t.value for t in self.tags}
+        aliases = {a.alias: a.version for a in self.skill_aliases}
+        resolved_latest_version = (
+            self.resolved_latest_version
+            if resolved_latest_version is None
+            else resolved_latest_version
+        )
+        resolved_status = self.resolved_status if resolved_status is None else resolved_status
+        status = SkillStatus(resolved_status) if resolved_status is not None else None
+        return Skill(
+            name=self.name,
+            organization=self.organization,
+            description=self.description,
+            icons=self.icons,
+            workspace=self.workspace,
+            status=status,
+            tags=tags,
+            aliases=aliases,
+            latest_version=resolved_latest_version,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.creation_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+        )
+
+
+class SqlSkillVersion(Base):
+    __tablename__ = "skill_versions"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    version = Column(Integer, nullable=False)
+    source_type = Column(String(20), nullable=True)
+    source = Column(String(2048), nullable=True)
+    ref = Column(String(2048), nullable=True)
+    subpath = Column(String(2048), nullable=True)
+    digest = Column(String(64), nullable=True)
+    status = Column(
+        String(20),
+        nullable=False,
+        default=SkillStatus.ACTIVE.value,
+        server_default=sa.text(f"'{SkillStatus.ACTIVE.value}'"),
+    )
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    creation_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    skill = relationship(
+        "SqlSkill",
+        backref=backref("skill_versions", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, organization, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace", "organization", "name", "version", name="skill_versions_pk"
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name"],
+            ["skills.workspace", "skills.organization", "skills.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="skill_versions_skill_fkey",
+        ),
+        Index(
+            "ix_skill_versions_latest_lookup",
+            "workspace",
+            "organization",
+            "name",
+            "status",
+            "version",
+        ),
+        Index(
+            "ix_skill_versions_digest",
+            "workspace",
+            "organization",
+            "name",
+            "digest",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlSkillVersion ({self.name}, {self.version}, {self.status})>"
+
+    def to_mlflow_entity(self, alias_names=None):
+        tags = {t.key: t.value for t in self.version_tags}
+        if alias_names is None:
+            alias_names = [a.alias for a in self.skill.skill_aliases if a.version == self.version]
+        source_type = SkillSourceType(self.source_type) if self.source_type is not None else None
+        return SkillVersion(
+            name=self.name,
+            version=self.version,
+            organization=self.organization,
+            source=build_source(source_type, self.source, self.ref, self.subpath),
+            source_type=source_type,
+            digest=self.digest,
+            status=SkillStatus(self.status),
+            tags=tags,
+            aliases=alias_names,
+            workspace=self.workspace,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.creation_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+        )
+
+
+class SqlSkillTag(Base):
+    __tablename__ = "skill_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    key = Column(String(250), nullable=False)
+    value = Column(Text, nullable=True)
+
+    skill = relationship(
+        "SqlSkill",
+        backref=backref("tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, organization, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "organization", "name", "key", name="skill_tags_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name"],
+            ["skills.workspace", "skills.organization", "skills.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="skill_tags_skill_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlSkillTag ({self.name}, {self.key}={self.value})>"
+
+
+class SqlSkillVersionTag(Base):
+    __tablename__ = "skill_version_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    version = Column(Integer, nullable=False)
+    key = Column(String(250), nullable=False)
+    value = Column(Text, nullable=True)
+
+    skill_version = relationship(
+        "SqlSkillVersion",
+        backref=backref("version_tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, organization, name, version],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace", "organization", "name", "version", "key", name="skill_version_tags_pk"
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name", "version"],
+            [
+                "skill_versions.workspace",
+                "skill_versions.organization",
+                "skill_versions.name",
+                "skill_versions.version",
+            ],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="skill_version_tags_version_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlSkillVersionTag ({self.name}, {self.version}, {self.key}={self.value})>"
+
+
+class SqlSkillAlias(Base):
+    __tablename__ = "skill_aliases"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    alias = Column(String(256), nullable=False)
+    version = Column(Integer, nullable=False)
+
+    skill = relationship(
+        "SqlSkill",
+        backref=backref(
+            "skill_aliases",
+            cascade="all, delete-orphan",
+            order_by="SqlSkillAlias.alias",
+        ),
+        foreign_keys=[workspace, organization, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "organization", "name", "alias", name="skill_aliases_pk"),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name"],
+            ["skills.workspace", "skills.organization", "skills.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="skill_aliases_skill_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlSkillAlias ({self.name}, {self.alias} -> {self.version})>"
+
+
+class SqlAgentPlugin(Base):
+    __tablename__ = "agent_plugins"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    description = Column(String(5000), nullable=True)
+    icons = Column(JSON, nullable=True)
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    creation_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    resolved_latest_version = query_expression()
+    resolved_status = query_expression()
+
+    __table_args__ = (
+        PrimaryKeyConstraint("workspace", "organization", "name", name="agent_plugins_pk"),
+    )
+
+    def __repr__(self):
+        return f"<SqlAgentPlugin ({self.workspace}, {self.organization}, {self.name})>"
+
+    @staticmethod
+    def _version_order_by():
+        # Descending SemVer precedence via the materialized sort columns, then
+        # creation time (breaks build-metadata-only ties), then the raw version
+        # string as a final deterministic fallback. Mirrors SqlMCPServer.
+        return (
+            SqlAgentPluginVersion.version_major.desc(),
+            SqlAgentPluginVersion.version_minor.desc(),
+            SqlAgentPluginVersion.version_patch.desc(),
+            SqlAgentPluginVersion.version_prerelease_sort_key.desc(),
+            SqlAgentPluginVersion.creation_timestamp.desc(),
+            SqlAgentPluginVersion.version.desc(),
+        )
+
+    @classmethod
+    def _resolved_latest_candidates_query(cls):
+        status_priority = sa.case(
+            (SqlAgentPluginVersion.status == SkillStatus.ACTIVE.value, 0),
+            else_=1,
+        )
+        return sa.select(
+            SqlAgentPluginVersion.workspace.label("workspace"),
+            SqlAgentPluginVersion.organization.label("organization"),
+            SqlAgentPluginVersion.name.label("name"),
+            SqlAgentPluginVersion.version.label("version"),
+            SqlAgentPluginVersion.status.label("status"),
+            sa.func
+            .row_number()
+            .over(
+                partition_by=(
+                    SqlAgentPluginVersion.workspace,
+                    SqlAgentPluginVersion.organization,
+                    SqlAgentPluginVersion.name,
+                ),
+                order_by=(status_priority.asc(), *cls._version_order_by()),
+            )
+            .label("row_num"),
+        ).where(SqlAgentPluginVersion.status != SkillStatus.DELETED.value)
+
+    @classmethod
+    def resolved_status_expression(cls):
+        """Build a SQL expression for the resolved status, usable in ``.filter()``."""
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "resolved_agent_plugin_status_candidates"
+        )
+        return (
+            sa
+            .select(latest_candidates.c.status)
+            .where(
+                sa.and_(
+                    latest_candidates.c.workspace == cls.workspace,
+                    latest_candidates.c.organization == cls.organization,
+                    latest_candidates.c.name == cls.name,
+                    latest_candidates.c.row_num == 1,
+                )
+            )
+            .correlate(cls)
+            .scalar_subquery()
+        )
+
+    @classmethod
+    def with_resolved_latest(cls, query):
+        latest_candidates = cls._resolved_latest_candidates_query().subquery(
+            "agent_plugin_latest_candidates"
+        )
+        return query.outerjoin(
+            latest_candidates,
+            sa.and_(
+                latest_candidates.c.workspace == cls.workspace,
+                latest_candidates.c.organization == cls.organization,
+                latest_candidates.c.name == cls.name,
+                latest_candidates.c.row_num == 1,
+            ),
+        ).options(
+            with_expression(cls.resolved_latest_version, latest_candidates.c.version),
+            with_expression(cls.resolved_status, latest_candidates.c.status),
+        )
+
+    def to_mlflow_entity(
+        self,
+        *,
+        resolved_latest_version: str | None = None,
+        resolved_status: str | None = None,
+    ):
+        tags = {t.key: t.value for t in self.tags}
+        aliases = {a.alias: a.version for a in self.plugin_aliases}
+        resolved_latest_version = (
+            self.resolved_latest_version
+            if resolved_latest_version is None
+            else resolved_latest_version
+        )
+        resolved_status = self.resolved_status if resolved_status is None else resolved_status
+        status = SkillStatus(resolved_status) if resolved_status is not None else None
+        return AgentPlugin(
+            name=self.name,
+            organization=self.organization,
+            description=self.description,
+            icons=self.icons,
+            workspace=self.workspace,
+            status=status,
+            tags=tags,
+            aliases=aliases,
+            latest_version=resolved_latest_version,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.creation_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+        )
+
+
+class SqlAgentPluginVersion(Base):
+    __tablename__ = "agent_plugin_versions"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    version = Column(String(128), nullable=False)
+    version_major = Column(Integer, nullable=False)
+    version_minor = Column(Integer, nullable=False)
+    version_patch = Column(Integer, nullable=False)
+    version_prerelease_sort_key = Column(String(512), nullable=False)
+    plugin_json = Column(JSON, nullable=False)
+    search_text = Column(Text, nullable=True)
+    source_type = Column(String(20), nullable=True)
+    source = Column(String(2048), nullable=True)
+    ref = Column(String(2048), nullable=True)
+    subpath = Column(String(2048), nullable=True)
+    status = Column(
+        String(20),
+        nullable=False,
+        default=SkillStatus.ACTIVE.value,
+        server_default=sa.text(f"'{SkillStatus.ACTIVE.value}'"),
+    )
+    created_by = Column(String(256), nullable=True)
+    last_updated_by = Column(String(256), nullable=True)
+    creation_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+
+    plugin = relationship(
+        "SqlAgentPlugin",
+        backref=backref("plugin_versions", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, organization, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace", "organization", "name", "version", name="agent_plugin_versions_pk"
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name"],
+            ["agent_plugins.workspace", "agent_plugins.organization", "agent_plugins.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="agent_plugin_versions_plugin_fkey",
+        ),
+        # Keep this index narrow enough for MySQL's 3072-byte key limit: the
+        # coarse SemVer core prefix prunes candidates, and the prerelease sort
+        # key (excluded here) refines ordering at query time via _version_order_by.
+        Index(
+            "ix_agent_plugin_versions_latest_lookup",
+            "workspace",
+            "organization",
+            "name",
+            "status",
+            "version_major",
+            "version_minor",
+            "version_patch",
+            "creation_timestamp",
+        ),
+    )
+
+    @validates("version")
+    def _materialize_version_components(self, key, value):
+        # Populate the NOT NULL SemVer sort columns whenever ``version`` is set in
+        # Python (store writes and tests), guaranteeing stored rows sort exactly
+        # as latest resolution does. ``value`` must already be canonical SemVer
+        # (the registry layer normalizes via normalize_semver before persisting).
+        if value is not None:
+            parsed = parse_semver(value)
+            self.version_major = parsed.major
+            self.version_minor = parsed.minor
+            self.version_patch = parsed.patch
+            self.version_prerelease_sort_key = encode_prerelease_sort_key(parsed)
+        return value
+
+    def __repr__(self):
+        return f"<SqlAgentPluginVersion ({self.name}, {self.version}, {self.status})>"
+
+    def to_mlflow_entity(self, alias_names=None):
+        tags = {t.key: t.value for t in self.version_tags}
+        if alias_names is None:
+            alias_names = [a.alias for a in self.plugin.plugin_aliases if a.version == self.version]
+        source_type = SkillSourceType(self.source_type) if self.source_type is not None else None
+        plugin_json = (
+            self.plugin_json if isinstance(self.plugin_json, dict) else json.loads(self.plugin_json)
+        )
+        skills = [
+            _format_uri(_SKILL_SCHEME, m.member_organization, m.member_name, m.member_version, None)
+            for m in self.members
+        ]
+        return AgentPluginVersion(
+            name=self.name,
+            version=self.version,
+            organization=self.organization,
+            plugin_json=plugin_json,
+            source=build_source(source_type, self.source, self.ref, self.subpath),
+            source_type=source_type,
+            status=SkillStatus(self.status),
+            tags=tags,
+            skills=skills,
+            aliases=alias_names,
+            workspace=self.workspace,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            creation_timestamp=self.creation_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+        )
+
+
+class SqlAgentPluginTag(Base):
+    __tablename__ = "agent_plugin_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    key = Column(String(250), nullable=False)
+    value = Column(Text, nullable=True)
+
+    plugin = relationship(
+        "SqlAgentPlugin",
+        backref=backref("tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, organization, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace", "organization", "name", "key", name="agent_plugin_tags_pk"
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name"],
+            ["agent_plugins.workspace", "agent_plugins.organization", "agent_plugins.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="agent_plugin_tags_plugin_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlAgentPluginTag ({self.name}, {self.key}={self.value})>"
+
+
+class SqlAgentPluginVersionTag(Base):
+    __tablename__ = "agent_plugin_version_tags"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    version = Column(String(128), nullable=False)
+    key = Column(String(250), nullable=False)
+    value = Column(Text, nullable=True)
+
+    plugin_version = relationship(
+        "SqlAgentPluginVersion",
+        backref=backref("version_tags", cascade="all, delete-orphan"),
+        foreign_keys=[workspace, organization, name, version],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace",
+            "organization",
+            "name",
+            "version",
+            "key",
+            name="agent_plugin_version_tags_pk",
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name", "version"],
+            [
+                "agent_plugin_versions.workspace",
+                "agent_plugin_versions.organization",
+                "agent_plugin_versions.name",
+                "agent_plugin_versions.version",
+            ],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="agent_plugin_version_tags_version_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlAgentPluginVersionTag ({self.name}, {self.version}, {self.key}={self.value})>"
+
+
+class SqlAgentPluginAlias(Base):
+    __tablename__ = "agent_plugin_aliases"
+
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
+    name = Column(String(128), nullable=False)
+    alias = Column(String(256), nullable=False)
+    version = Column(String(128), nullable=False)
+
+    plugin = relationship(
+        "SqlAgentPlugin",
+        backref=backref(
+            "plugin_aliases",
+            cascade="all, delete-orphan",
+            order_by="SqlAgentPluginAlias.alias",
+        ),
+        foreign_keys=[workspace, organization, name],
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "workspace", "organization", "name", "alias", name="agent_plugin_aliases_pk"
+        ),
+        ForeignKeyConstraint(
+            ["workspace", "organization", "name"],
+            ["agent_plugins.workspace", "agent_plugins.organization", "agent_plugins.name"],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="agent_plugin_aliases_plugin_fkey",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlAgentPluginAlias ({self.name}, {self.alias} -> {self.version})>"
+
+
+class SqlAgentPluginVersionMember(Base):
+    __tablename__ = "agent_plugin_version_members"
+
+    plugin_workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    plugin_organization = Column(
+        String(64), nullable=False, default="", server_default=sa.text("''")
+    )
+    plugin_name = Column(String(128), nullable=False)
+    plugin_version = Column(String(128), nullable=False)
+    member_name = Column(String(128), nullable=False)
+    # member_organization and member_version are held only for the skill_versions
+    # FK and as stored data; they are intentionally out of the primary key so the
+    # member-name uniqueness tuple stays within MySQL's 3072-byte key limit.
+    member_organization = Column(
+        String(64), nullable=False, default="", server_default=sa.text("''")
+    )
+    member_version = Column(Integer, nullable=False)
+
+    plugin_version_rel = relationship(
+        "SqlAgentPluginVersion",
+        backref=backref(
+            "members",
+            cascade="all, delete-orphan",
+            order_by="SqlAgentPluginVersionMember.member_name",
+        ),
+        foreign_keys=[plugin_workspace, plugin_organization, plugin_name, plugin_version],
+    )
+
+    __table_args__ = (
+        # The member-name uniqueness tuple is the primary key: a plugin version
+        # cannot contain two members with the same name regardless of their
+        # organization or version.
+        PrimaryKeyConstraint(
+            "plugin_workspace",
+            "plugin_organization",
+            "plugin_name",
+            "plugin_version",
+            "member_name",
+            name="agent_plugin_version_members_pk",
+        ),
+        ForeignKeyConstraint(
+            ["plugin_workspace", "plugin_organization", "plugin_name", "plugin_version"],
+            [
+                "agent_plugin_versions.workspace",
+                "agent_plugin_versions.organization",
+                "agent_plugin_versions.name",
+                "agent_plugin_versions.version",
+            ],
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+            name="agent_plugin_version_members_plugin_fkey",
+        ),
+        # Skills and agent plugins share a workspace, so plugin_workspace is
+        # reused for the skill FK. NO ACTION blocks hard deletion of a
+        # skill_version still referenced by a live plugin version.
+        #
+        # NO ACTION (not RESTRICT): SQL Server's T-SQL foreign-key grammar has no
+        # RESTRICT keyword, so RESTRICT makes the migration fail on MSSQL (a CI
+        # matrix dialect). NO ACTION is behavior-equivalent for us -- it still
+        # rejects the delete on all four dialects (MySQL treats it as RESTRICT;
+        # PostgreSQL/SQLite enforce it at statement end) -- and matches the rest
+        # of MLflow, which never uses RESTRICT.
+        ForeignKeyConstraint(
+            ["plugin_workspace", "member_organization", "member_name", "member_version"],
+            [
+                "skill_versions.workspace",
+                "skill_versions.organization",
+                "skill_versions.name",
+                "skill_versions.version",
+            ],
+            ondelete="NO ACTION",
+            name="agent_plugin_version_members_skill_fkey",
+        ),
+        Index(
+            "ix_agent_plugin_version_members_skill_fkey",
+            "plugin_workspace",
+            "member_organization",
+            "member_name",
+            "member_version",
+        ),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlAgentPluginVersionMember ({self.plugin_name}, {self.plugin_version} -> "
+            f"{self.member_name}, {self.member_version})>"
         )
