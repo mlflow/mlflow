@@ -375,7 +375,7 @@ describe('ExperimentViewRunsTable', () => {
     expect(simpleExperimentsWrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(0);
   });
 
-  test('should hide column CTA when runs are selected', () => {
+  test('should keep column CTA visible when runs are selected', () => {
     // Expect CTA to be displayed when no runs are selected
     const wrapper = createWrapper();
     expect(wrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(1);
@@ -387,8 +387,8 @@ describe('ExperimentViewRunsTable', () => {
       }),
     });
 
-    // Expect CTA to be hidden when a run is selected
-    expect(wrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(0);
+    // Expect CTA to stay visible when a run is selected
+    expect(wrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(1);
 
     // Unselect the run
     wrapper.setProps({
