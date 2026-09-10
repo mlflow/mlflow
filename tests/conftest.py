@@ -1301,14 +1301,16 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
         return db_path
 
     try:
-        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+        from mlflow.store.db.utils import _initialize_tables, create_sqlalchemy_engine_with_retry
     except ImportError:
         return db_path
 
     db_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-    store = SqlAlchemyStore(db_uri, artifact_uri)
-    store.engine.dispose()
+    engine = create_sqlalchemy_engine_with_retry(db_uri)
+    try:
+        _initialize_tables(engine)
+    finally:
+        engine.dispose()
 
     return db_path
 
