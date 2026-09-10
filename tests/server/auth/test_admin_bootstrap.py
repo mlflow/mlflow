@@ -4,7 +4,11 @@ from unittest import mock
 
 import pytest
 
-from mlflow.environment_variables import MLFLOW_AUTH_ADMIN_PASSWORD, MLFLOW_AUTH_ADMIN_USERNAME
+from mlflow.environment_variables import (
+    _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    MLFLOW_AUTH_ADMIN_PASSWORD,
+    MLFLOW_AUTH_ADMIN_USERNAME,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server import auth as auth_module
 from mlflow.server.auth.config import read_auth_config
@@ -17,6 +21,7 @@ _LEGACY_DEFAULT_PASSWORD = "password1234"
 def _clear_admin_env(monkeypatch):
     monkeypatch.delenv(MLFLOW_AUTH_ADMIN_USERNAME.name, raising=False)
     monkeypatch.delenv(MLFLOW_AUTH_ADMIN_PASSWORD.name, raising=False)
+    monkeypatch.delenv(_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name, raising=False)
 
 
 def _write_ini(tmp_path: Path, *, admin_password: str | None = None) -> Path:
@@ -157,3 +162,31 @@ def test_bootstrap_admin_user_initializes_store_then_creates_admin(store, monkey
         auth_module.bootstrap_admin_user()
     store.init_db.assert_called_once_with("sqlite:///auth.db", read_db_uri=None)
     store.create_user.assert_not_called()
+
+
+@pytest.mark.parametrize("already_bootstrapped", [True, False])
+def test_init_store_for_app_skips_bootstrap_when_cli_already_did_it(
+    store, monkeypatch, already_bootstrapped
+):
+    if already_bootstrapped:
+        monkeypatch.setenv(_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name, "true")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            database_uri="sqlite:///auth.db",
+            read_database_uri=None,
+            admin_username="admin",
+            admin_password="a-strong-admin-password",
+        ),
+    )
+    store.has_user.return_value = False
+    store.authenticate_user.return_value = False
+    auth_module._init_store_for_app()
+    store.init_db.assert_called_once_with("sqlite:///auth.db", read_db_uri=None)
+    if already_bootstrapped:
+        store.has_user.assert_not_called()
+        store.authenticate_user.assert_not_called()
+        store.create_user.assert_not_called()
+    else:
+        store.create_user.assert_called_once_with("admin", "a-strong-admin-password", is_admin=True)

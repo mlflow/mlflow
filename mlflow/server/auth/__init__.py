@@ -51,6 +51,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
+    _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
     MLFLOW_AUTH_ADMIN_PASSWORD,
@@ -4419,6 +4420,15 @@ def _warn_if_legacy_default_password_in_use(username: str) -> None:
             )
 
 
+def _init_store_for_app() -> None:
+    if _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.get():
+        # The `mlflow server` CLI already bootstrapped the admin user and ran the legacy-password
+        # check before spawning this worker, so only the store engine needs initializing here.
+        store.init_db(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
+    else:
+        bootstrap_admin_user()
+
+
 def create_admin_user(username: str, password: str | None) -> None:
     # Read from the primary database: with a read replica configured, replication lag during a
     # restart could make an existing admin look absent and fail bootstrap for a missing password.
@@ -5962,7 +5972,7 @@ def create_app(app: Flask = app):
     csrf = CSRFProtect()
     csrf.init_app(app)
 
-    bootstrap_admin_user()
+    _init_store_for_app()
 
     _auth_initialized = True
 

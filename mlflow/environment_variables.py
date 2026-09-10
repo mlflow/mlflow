@@ -171,6 +171,14 @@ MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE = _EnvironmentVariable(
 #: current generation just launched. Not intended to be set by users.
 _MLFLOW_SERVER_BOOT_ID = _EnvironmentVariable("_MLFLOW_SERVER_BOOT_ID", str, None)
 
+#: Internal. Set by ``mlflow server --app-name basic-auth`` for its worker processes once the
+#: admin user has been bootstrapped in the CLI process, so each worker skips the redundant
+#: bootstrap and legacy-password checks (each one a PBKDF2 hash comparison against the primary
+#: database). Not intended to be set by users.
+_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED = _BooleanEnvironmentVariable(
+    "_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED", False
+)
+
 #: **Experimental** — subject to change or removal in a future release.
 #: URL of an outbound proxy for sandbox container egress (e.g. ``http://proxy.internal:3128``).
 #: When set, it is injected as ``HTTP_PROXY``/``HTTPS_PROXY`` into every sandbox container, with

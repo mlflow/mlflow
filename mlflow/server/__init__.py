@@ -18,6 +18,7 @@ from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
 from mlflow.environment_variables import (
+    _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
@@ -430,6 +431,7 @@ def _run_server(
         app = f"{app}()" if use_factory_syntax else app
         if app_name == "basic-auth":
             _bootstrap_basic_auth()
+            env_map[_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name] = "true"
 
     # Determine which server to use
     if using_uvicorn:
