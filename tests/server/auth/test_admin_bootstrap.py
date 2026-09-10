@@ -150,9 +150,46 @@ def test_create_admin_user_warns_when_existing_admin_uses_legacy_default(store, 
         "admin", _LEGACY_DEFAULT_PASSWORD, use_primary=True
     )
     store.create_user.assert_not_called()
+    store.update_user.assert_not_called()
     assert any(
         "user 'admin' still uses the insecure default password" in r.message for r in caplog.records
     )
+
+
+def test_create_admin_user_rotates_legacy_default_password_when_password_configured(store, caplog):
+    store.has_user.return_value = True
+    # The stored credential is the legacy default until update_user replaces it.
+    store.authenticate_user.side_effect = lambda *_, **__: not store.update_user.called
+    with caplog.at_level(logging.WARNING, logger=auth_module.__name__):
+        auth_module.create_admin_user("admin", "a-strong-admin-password")
+    store.update_user.assert_called_once_with("admin", password="a-strong-admin-password")
+    store.create_user.assert_not_called()
+    messages = [r.message for r in caplog.records]
+    assert len(messages) == 1
+    assert "Replaced the insecure default password of admin user 'admin'" in messages[0]
+
+
+@pytest.mark.parametrize(
+    ("password", "match"),
+    [
+        (_LEGACY_DEFAULT_PASSWORD, "insecure default password"),
+        ("short", "at least 12 characters"),
+    ],
+)
+def test_create_admin_user_refuses_to_rotate_to_an_invalid_password(store, password, match):
+    store.has_user.return_value = True
+    store.authenticate_user.return_value = True
+    with pytest.raises(MlflowException, match=match):
+        auth_module.create_admin_user("admin", password)
+    store.update_user.assert_not_called()
+
+
+def test_create_admin_user_leaves_a_rotated_password_alone(store):
+    store.has_user.return_value = True
+    store.authenticate_user.return_value = False
+    auth_module.create_admin_user("admin", "a-strong-admin-password")
+    store.update_user.assert_not_called()
+    store.create_user.assert_not_called()
 
 
 @pytest.mark.parametrize("root_exists", [True, False])
@@ -166,6 +203,8 @@ def test_create_admin_user_warns_about_legacy_admin_when_username_overridden(
     with caplog.at_level(logging.WARNING, logger=auth_module.__name__):
         auth_module.create_admin_user("root", "a-strong-admin-password")
     assert store.create_user.call_count == (0 if root_exists else 1)
+    # The configured password only rotates the configured bootstrap admin, never another user.
+    store.update_user.assert_not_called()
     messages = [r.message for r in caplog.records]
     assert len(messages) == 1
     assert "user 'admin' still uses the insecure default password" in messages[0]

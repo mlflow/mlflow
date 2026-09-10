@@ -1148,15 +1148,19 @@ configuration file or the `MLFLOW_AUTH_ADMIN_USERNAME` environment variable.
 
 There is no default admin password. Set one with the `MLFLOW_AUTH_ADMIN_PASSWORD` environment variable or with
 `admin_password` in the configuration file before the first start; the server refuses to start otherwise. Both
-settings are only used to create the admin user and are ignored once it exists. After the first successful start, unset
-`MLFLOW_AUTH_ADMIN_PASSWORD` (or remove `admin_password` from the file) so the secret does not linger in the server's
-environment or configuration, and rotate the password with the `2.0/mlflow/users/update-password` endpoint.
+settings are only used to create the admin user (and to replace its password if it is still the legacy default
+described below) and are ignored otherwise. After the first successful start, unset `MLFLOW_AUTH_ADMIN_PASSWORD` (or
+remove `admin_password` from the file) so the secret does not linger in the server's environment or configuration, and
+rotate the password with the `2.0/mlflow/users/update-password` endpoint.
 
 :::warning
 Earlier MLflow versions shipped the admin password `password1234` in `basic_auth.ini`
-([GHSA-gq3w-7jj3-x7gr](https://github.com/advisories/GHSA-gq3w-7jj3-x7gr)). If you upgraded an existing deployment,
-rotate the admin password immediately. The server logs a warning at startup while the admin user still has that
-password, and never accepts it for creating a new admin user.
+([GHSA-gq3w-7jj3-x7gr](https://github.com/advisories/GHSA-gq3w-7jj3-x7gr)). That password is no longer accepted: the
+server rejects logins by admin users that present it, never uses it to create an admin user, and logs a warning at
+startup while an admin user still has it. If you upgraded an existing deployment whose admin user still has that
+password, set `MLFLOW_AUTH_ADMIN_PASSWORD` (or `admin_password`) to a new password and restart the server once; the
+stored password is replaced and the setting can be unset again. Alternatively, another admin can update or delete the
+user.
 :::
 
 Multiple admin users can exist by promoting other users to admin, using the `2.0/mlflow/users/update-admin` endpoint.
@@ -1374,8 +1378,9 @@ Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
     <tr>
       <td>`admin_password`</td>
       <td>
-        Password of the admin user created on first start. Overridden by `MLFLOW_AUTH_ADMIN_PASSWORD`. There is no
-        default; one of the two must be set until the admin user exists.
+        Password of the admin user created on first start; also replaces that user's password on upgrade while it
+        is still the legacy default. Overridden by `MLFLOW_AUTH_ADMIN_PASSWORD`. There is no default; one of the two
+        must be set until the admin user exists.
       </td>
     </tr>
     <tr>

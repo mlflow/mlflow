@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import re
 import subprocess
 import sys
@@ -4959,6 +4960,62 @@ def test_flask_basic_auth_skips_get_user_when_cache_disabled(
     mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
     # Cache disabled + Flask path only needs the yes/no answer → no user fetch.
     mock_auth_store.get_user.assert_not_called()
+
+
+@pytest.mark.parametrize("is_admin", [True, False])
+def test_flask_basic_auth_rejects_legacy_default_password_for_admins(
+    mock_auth_store, mock_auth_config, monkeypatch, caplog, is_admin
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    mock_auth_store.get_user.side_effect = lambda username: mock.Mock(
+        username=username, is_admin=is_admin
+    )
+    fake_flask_request = mock.Mock()
+    fake_flask_request.authorization.username = "admin"
+    fake_flask_request.authorization.password = "password1234"
+    challenge = object()
+
+    with (
+        mock.patch("mlflow.server.auth._USER_AUTH_CACHE", None),
+        mock.patch("mlflow.server.auth.request", fake_flask_request),
+        mock.patch("mlflow.server.auth.make_basic_auth_response", return_value=challenge),
+        caplog.at_level(logging.WARNING, logger=auth_module.__name__),
+    ):
+        result = auth_module.authenticate_request_basic_auth()
+
+    mock_auth_store.authenticate_user.assert_called_once_with("admin", "password1234")
+    mock_auth_store.get_user.assert_called_once_with("admin")
+    rejected = [r for r in caplog.records if "Rejected a login by admin user 'admin'" in r.message]
+    if is_admin:
+        assert result is challenge
+        assert len(rejected) == 1
+    else:
+        assert result is fake_flask_request.authorization
+        assert not rejected
+
+
+@pytest.mark.parametrize("cache_enabled", [True, False])
+def test_fastapi_basic_auth_rejects_legacy_default_password_for_admins(
+    mock_auth_store, mock_auth_config, monkeypatch, caplog, cache_enabled
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    mock_auth_store.get_user.side_effect = lambda username: mock.Mock(
+        username=username, is_admin=True
+    )
+    credentials = base64.b64encode(b"admin:password1234").decode("ascii")
+    cache = TTLCache(maxsize=10, ttl=60) if cache_enabled else None
+
+    with (
+        mock.patch("mlflow.server.auth._USER_AUTH_CACHE", cache),
+        caplog.at_level(logging.WARNING, logger=auth_module.__name__),
+    ):
+        assert _authenticate_fastapi_request(_make_request("/x", f"Basic {credentials}")) is None
+
+    mock_auth_store.authenticate_user.assert_called_once_with("admin", "password1234")
+    assert any("Rejected a login by admin user 'admin'" in r.message for r in caplog.records)
+    if cache_enabled:
+        # The rejected credential must not be cached as valid.
+        assert auth_module._auth_cache_key("admin", "password1234") not in cache
 
 
 def test_flask_basic_auth_shares_cache_with_fastapi_path(

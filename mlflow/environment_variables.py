@@ -559,6 +559,9 @@ MLFLOW_AUTH_ADMIN_USERNAME = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_USERNAME", 
 #: it starts against an empty user store. Takes precedence over ``admin_password`` in the
 #: authentication configuration file. MLflow ships no default admin password, so this variable
 #: (or ``admin_password`` in the configuration file) must be set before the admin user exists.
+#: On upgraded deployments whose admin user still has the legacy default password
+#: ``password1234`` (https://github.com/advisories/GHSA-gq3w-7jj3-x7gr), which the server no
+#: longer accepts, it is also used once at startup to replace that password.
 #: (default: ``None``)
 MLFLOW_AUTH_ADMIN_PASSWORD = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_PASSWORD", str, None)
 

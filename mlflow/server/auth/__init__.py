@@ -489,9 +489,10 @@ def _authenticate_cached(username: str, password: str) -> User | None:
         if not store.authenticate_user(username, password):
             return None
         try:
-            return store.get_user(username)
+            user = store.get_user(username)
         except MlflowException:
             return None
+        return None if _is_disabled_legacy_admin_login(username, password, user) else user
 
     key = _auth_cache_key(username, password)
     with _USER_AUTH_CACHE_LOCK:
@@ -508,6 +509,9 @@ def _authenticate_cached(username: str, password: str) -> User | None:
     except MlflowException:
         # User was deleted between authenticate_user and get_user — treat as auth
         # failure and don't cache anything.
+        return None
+    if _is_disabled_legacy_admin_login(username, password, user):
+        # A rejected credential must not be cached as valid either.
         return None
     with _USER_AUTH_CACHE_LOCK:
         _USER_AUTH_CACHE[key] = user
@@ -3344,7 +3348,9 @@ def authenticate_request_basic_auth() -> Authorization | Response:
     # _authenticate_cached does for the sake of cache-population — the Flask
     # path only cares about the yes/no auth decision.
     if _USER_AUTH_CACHE is None:
-        if store.authenticate_user(username, password):
+        if store.authenticate_user(username, password) and not _is_disabled_legacy_admin_login(
+            username, password
+        ):
             return request.authorization
     elif _authenticate_cached(username, password):
         return request.authorization
@@ -4369,9 +4375,37 @@ def _after_request(resp: Response):
 
 # The admin credentials that earlier MLflow versions shipped in basic_auth.ini
 # (https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). The password is never accepted for
-# bootstrapping a new admin user, and deployments where it is still in use are warned at startup.
+# bootstrapping a new admin user or for logging in as an admin, and deployments where an admin
+# still has it are warned at startup.
 _LEGACY_DEFAULT_ADMIN_USERNAME = "admin"
 _LEGACY_DEFAULT_ADMIN_PASSWORD = "password1234"
+
+
+def _is_disabled_legacy_admin_login(username: str, password: str, user: User | None = None) -> bool:
+    """Whether a credential that passed ``store.authenticate_user`` is the legacy default password
+    on an admin account, which the server no longer accepts.
+
+    Upgraded deployments keep starting so nobody is locked out of the server, but the publicly
+    known admin credential must not stay usable. Rotation needs no working admin login: set
+    ``MLFLOW_AUTH_ADMIN_PASSWORD`` (or ``admin_password``) and restart, see ``create_admin_user``.
+    """
+    if password != _LEGACY_DEFAULT_ADMIN_PASSWORD:
+        return False
+    if user is None:
+        try:
+            user = store.get_user(username)
+        except MlflowException:
+            return False
+    if not user.is_admin:
+        return False
+    _logger.warning(
+        f"Rejected a login by admin user '{username}' with the insecure default password that "
+        "older MLflow versions shipped in basic_auth.ini "
+        "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). To rotate it, set "
+        f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} (or `admin_password` in the configuration file "
+        f"referenced by {MLFLOW_AUTH_CONFIG_PATH.name}) to a new password and restart the server."
+    )
+    return True
 
 
 def _validate_bootstrap_admin_username(username: str | None) -> None:
@@ -4396,8 +4430,8 @@ def _validate_bootstrap_admin_password(username: str, password: str | None) -> N
         )
     if password == _LEGACY_DEFAULT_ADMIN_PASSWORD:
         raise MlflowException(
-            f"Refusing to create the admin user '{username}' with the insecure default "
-            "password that older MLflow versions shipped in basic_auth.ini "
+            "Refusing to use the insecure default password that older MLflow versions shipped "
+            f"in basic_auth.ini for the admin user '{username}' "
             "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). Set "
             f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} or `admin_password` in the configuration file "
             f"referenced by {MLFLOW_AUTH_CONFIG_PATH.name} to a different password."
@@ -4436,9 +4470,11 @@ def _warn_if_legacy_default_password_in_use(username: str) -> None:
             _logger.warning(
                 f"The MLflow basic auth user '{candidate}' still uses the insecure default "
                 "password that older MLflow versions shipped in basic_auth.ini "
-                "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). Rotate it via "
-                f"{UPDATE_USER_PASSWORD} or delete the user before exposing this server beyond "
-                "localhost."
+                "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr); admin logins with it are "
+                f"rejected. Rotate it by setting {MLFLOW_AUTH_ADMIN_PASSWORD.name} (or "
+                "`admin_password` in the configuration file) to a new password and restarting "
+                f"the server, or have another admin update it via {UPDATE_USER_PASSWORD} or "
+                "delete the user."
             )
 
 
@@ -4469,6 +4505,19 @@ def create_admin_user(username: str | None, password: str | None) -> None:
             # will succeed while the others will fail with an IntegrityError.
             if not isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
                 raise
+    elif password is not None and store.authenticate_user(
+        username, _LEGACY_DEFAULT_ADMIN_PASSWORD, use_primary=True
+    ):
+        # Upgrade path for deployments bootstrapped with the shipped default: logins with it are
+        # rejected, so the configured bootstrap password doubles as the rotation mechanism that
+        # needs no working admin credential.
+        _validate_bootstrap_admin_password(username, password)
+        store.update_user(username, password=password)
+        _logger.warning(
+            f"Replaced the insecure default password of admin user '{username}' with the "
+            f"configured one. Unset {MLFLOW_AUTH_ADMIN_PASSWORD.name} (or remove "
+            "`admin_password` from the configuration file) now that the rotation is done."
+        )
     _warn_if_legacy_default_password_in_use(username)
 
 
