@@ -403,24 +403,34 @@ def file_utils_caplog(caplog, monkeypatch):
         yield caplog
 
 
+@pytest.mark.parametrize("is_dir", [False, True], ids=["file", "directory"])
 def test_remove_on_error_reraises_original_exception_when_cleanup_fails(
-    tmp_path, file_utils_caplog, monkeypatch
+    tmp_path, file_utils_caplog, is_dir
 ):
-    file_path = tmp_path / "file.txt"
-    file_path.write_text("content")
-
     def fail_remove(path):
         raise PermissionError("cleanup failed")
 
-    monkeypatch.setattr(os, "remove", fail_remove)
+    if is_dir:
+        path = tmp_path / "dir"
+        path.mkdir()
+        (path / "nested.txt").write_text("content")
+        # Scope the patch to the remove_on_error call so the failing rmtree does not
+        # leak into other fixtures' teardown (e.g. db_uri's rmtree)
+        fail_cleanup = mock.patch.object(shutil, "rmtree", side_effect=fail_remove)
+    else:
+        path = tmp_path / "file.txt"
+        path.write_text("content")
+        fail_cleanup = mock.patch.object(os, "remove", side_effect=fail_remove)
 
-    with pytest.raises(ValueError, match="root cause"):
-        with remove_on_error(file_path):
+    with fail_cleanup, pytest.raises(ValueError, match="root cause") as exc_info:
+        with remove_on_error(path):
             raise ValueError("root cause")
 
-    assert file_path.exists()
+    # The cleanup failure must not pollute the propagated exception's chain
+    assert exc_info.value.__context__ is None
+    assert path.exists()
     assert [r.getMessage() for r in file_utils_caplog.records] == [
-        f"Failed to remove {file_path}: cleanup failed"
+        f"Failed to remove {path}: cleanup failed"
     ]
 
 
