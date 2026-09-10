@@ -741,6 +741,32 @@ def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
         assert params["ExpectedBucketOwner"] == "123456789012"
 
 
+def test_complete_and_abort_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
+    # ExpectedBucketOwner is folded into _extra_args() as well as self._bucket_owner_params, so
+    # passing both **self._bucket_owner_params and the extra args to the same boto3 call would
+    # raise "got multiple values for keyword argument 'ExpectedBucketOwner'".
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo_with_owner = S3ArtifactRepository(s3_artifact_root)
+
+    mock_s3 = mock.Mock()
+
+    with mock.patch.object(repo_with_owner, "_get_s3_client", return_value=mock_s3):
+        repo_with_owner.complete_multipart_upload(
+            "local_file",
+            "test-upload-id",
+            [MultipartUploadPart(part_number=1, etag="etag1")],
+        )
+        repo_with_owner.abort_multipart_upload("local_file", "test-upload-id")
+
+    mock_s3.complete_multipart_upload.assert_called_once()
+    complete_call_kwargs = mock_s3.complete_multipart_upload.call_args[1]
+    assert complete_call_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+    mock_s3.abort_multipart_upload.assert_called_once()
+    abort_call_kwargs = mock_s3.abort_multipart_upload.call_args[1]
+    assert abort_call_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+
 def test_delete_artifacts_with_bucket_owner(s3_artifact_root, tmp_path, monkeypatch):
     subdir = tmp_path / "subdir"
     subdir.mkdir()

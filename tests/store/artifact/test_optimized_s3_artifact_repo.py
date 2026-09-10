@@ -273,6 +273,87 @@ def test_download_file_in_parallel_when_necessary(
             download_mock.assert_called()
 
 
+def test_multipart_upload_with_bucket_owner(s3_artifact_root, tmp_path, monkeypatch):
+    # ExpectedBucketOwner is folded into _extra_args() as well as self._bucket_owner_params, so
+    # passing both **self._bucket_owner_params and the extra args to the same boto3 call would
+    # raise "got multiple values for keyword argument 'ExpectedBucketOwner'".
+    # Use the default chunk size (10 MB) so the 20-byte file uploads as a single part.
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    local_file = tmp_path / "local_file"
+    local_file.write_bytes(b"0" * 20)
+
+    mock_s3 = mock.Mock()
+    mock_s3.create_multipart_upload.return_value = {"UploadId": "test-upload-id"}
+    mock_s3.generate_presigned_url.return_value = "https://example.com/presigned"
+
+    mock_response = mock.Mock()
+    mock_response.headers = {"ETag": "etag"}
+    with (
+        mock.patch(f"{S3_REPOSITORY_MODULE}.cloud_storage_http_request") as mock_http_request,
+        mock.patch(f"{S3_REPOSITORY_MODULE}.augmented_raise_for_status"),
+    ):
+        mock_http_request.return_value.__enter__.return_value = mock_response
+        repo._multipart_upload(mock_s3, str(local_file), "bucket", "key")
+
+    mock_s3.create_multipart_upload.assert_called_once()
+    create_kwargs = mock_s3.create_multipart_upload.call_args[1]
+    assert create_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+    for call in mock_s3.generate_presigned_url.call_args_list:
+        assert call[1]["Params"]["ExpectedBucketOwner"] == "123456789012"
+
+    mock_s3.complete_multipart_upload.assert_called_once()
+    complete_kwargs = mock_s3.complete_multipart_upload.call_args[1]
+    assert complete_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+    mock_s3.abort_multipart_upload.assert_not_called()
+
+
+def test_multipart_upload_aborts_with_bucket_owner_on_failure(
+    s3_artifact_root, tmp_path, monkeypatch
+):
+    # Regression test: if abort_multipart_upload's own kwargs collided (the same bug as
+    # create/complete above), the abort call in the except handler would raise a *second*
+    # TypeError, masking the original error instead of re-raising it.
+    # Use the default chunk size (10 MB) so the 20-byte file uploads as a single part.
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    local_file = tmp_path / "local_file"
+    local_file.write_bytes(b"0" * 20)
+
+    mock_s3 = mock.Mock()
+    mock_s3.create_multipart_upload.return_value = {"UploadId": "test-upload-id"}
+    mock_s3.generate_presigned_url.return_value = "https://example.com/presigned"
+    mock_s3.complete_multipart_upload.side_effect = Exception("complete failed")
+
+    mock_response = mock.Mock()
+    mock_response.headers = {"ETag": "etag"}
+    with (
+        mock.patch(f"{S3_REPOSITORY_MODULE}.cloud_storage_http_request") as mock_http_request,
+        mock.patch(f"{S3_REPOSITORY_MODULE}.augmented_raise_for_status"),
+    ):
+        mock_http_request.return_value.__enter__.return_value = mock_response
+        with pytest.raises(Exception, match="complete failed"):
+            repo._multipart_upload(mock_s3, str(local_file), "bucket", "key")
+
+    mock_s3.abort_multipart_upload.assert_called_once()
+    abort_kwargs = mock_s3.abort_multipart_upload.call_args[1]
+    assert abort_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+
+def test_get_presigned_uri_merges_extra_args_into_params(s3_artifact_root, monkeypatch):
+    # generate_presigned_url only accepts ClientMethod/Params/ExpiresIn/HttpMethod, so extra
+    # args must be merged into Params rather than passed as top-level kwargs. This exercises the
+    # real (moto-backed) boto3 client so an incorrect call shape raises a TypeError.
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", '{"RequestPayer": "requester"}')
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    uri = repo._get_presigned_uri("some/file.txt")
+    assert "some/file.txt" in uri
+
+
 def test_refresh_credentials():
     with (
         mock.patch(
