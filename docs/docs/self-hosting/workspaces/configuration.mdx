@@ -204,7 +204,8 @@ Example configuration:
 default_permission = READ
 database_uri = sqlite:///basic_auth.db
 admin_username = admin
-admin_password = password1234
+# Required on first start (or set MLFLOW_AUTH_ADMIN_PASSWORD); MLflow ships no default.
+admin_password = <strong-password>
 authorization_function = mlflow.server.auth:authenticate_request_basic_auth
 # Default secure setting for new deployments; for existing instances upgrading to workspaces,
 # set this to true for backwards compatibility (see note above).
