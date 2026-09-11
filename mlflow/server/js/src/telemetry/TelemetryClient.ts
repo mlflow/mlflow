@@ -65,6 +65,7 @@ const METADATA_VALIDATORS: Partial<Record<AllowedTelemetryMetadataKey, ReadonlyS
     'deepseek',
     'openrouter',
     'ollama',
+    'crusoe',
   ]),
 };
 
