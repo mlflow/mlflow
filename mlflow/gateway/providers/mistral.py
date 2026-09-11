@@ -15,10 +15,10 @@ from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat as chat_schema
 from mlflow.gateway.schemas import completions as completions_schema
 from mlflow.gateway.schemas import embeddings as embeddings_schema
-from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.gateway.utils import handle_incomplete_chunks, parse_sse_lines, strip_sse_prefix
 
-
-class MistralAdapter(ProviderAdapter):
+class MistralAdapter(ProviderAdapter, BaseProvider):
     @classmethod
     def model_to_completions(cls, resp, config):
         # Response example (https://docs.mistral.ai/api/#operation/createChatCompletion)
@@ -355,3 +355,33 @@ class MistralProvider(BaseProvider):
                 path=provider_path,
                 payload=payload,
             )
+
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        usage = result.get("usage")
+        if not usage:
+            return None
+        return self._extract_token_usage_from_dict(
+            usage,
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+            cache_read_key="prompt_tokens_details.cached_tokens",
+        )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        for data in parse_sse_lines(chunk):
+            usage = data.get("usage")
+            if not usage:
+                continue
+            token_usage = self._extract_token_usage_from_dict(
+                usage,
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                cache_read_key="prompt_tokens_details.cached_tokens",
+            )
+            if token_usage:
+                return token_usage
+        return {}
