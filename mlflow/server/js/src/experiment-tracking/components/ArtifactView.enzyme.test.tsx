@@ -498,6 +498,41 @@ describe('ArtifactView', () => {
       expectBlobDownload('get-artifact?path=summary.txt&run_uuid=fakeUuid');
     });
 
+    test('should download logged-model artifacts from the model’s own eligible artifact-proxy root', async () => {
+      const implInstance = getImplInstance({
+        artifactRootUri: `${window.location.origin}/api/2.0/mlflow-artifacts/artifacts/models/model-123/artifacts`,
+      });
+      await implInstance.onDownloadClick(undefined, 'summary.txt', 'model-123');
+
+      expect(presignedSpy).not.toHaveBeenCalled();
+      expectBlobDownload(
+        `${window.location.origin}/api/2.0/mlflow-artifacts/artifacts/models/model-123/artifacts/summary.txt`,
+      );
+    });
+
+    test('should download fallback logged-model artifacts from the model root rather than the run root', async () => {
+      const implInstance = getImplInstance({
+        artifactRootUri: 's3://bucket/0/fakeUuid/artifacts',
+        loggedModelArtifactUri: `${window.location.origin}/api/2.0/mlflow-artifacts/artifacts/models/model-123/artifacts`,
+      });
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt', 'model-123', true);
+
+      expect(presignedSpy).not.toHaveBeenCalled();
+      expectBlobDownload(
+        `${window.location.origin}/api/2.0/mlflow-artifacts/artifacts/models/model-123/artifacts/summary.txt`,
+      );
+    });
+
+    test('should not download fallback logged-model artifacts from the run’s artifact-proxy root', async () => {
+      const implInstance = getImplInstance({
+        artifactRootUri: `${window.location.origin}/api/2.0/mlflow-artifacts/artifacts/0/fakeUuid/artifacts`,
+      });
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt', 'model-123', true);
+
+      expect(getArtifactBlob).not.toHaveBeenCalledWith(expect.stringContaining('mlflow-artifacts'));
+      expectBlobDownload('model-123');
+    });
+
     test('should download logged-model artifacts via the proxied path without a presigned request', async () => {
       const implInstance = getImplInstance();
       await implInstance.onDownloadClick(undefined, 'summary.txt', 'model-123');

@@ -250,6 +250,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
       <ArtifactView
         {...this.props}
         entityTags={this.state.fallbackEntityTags ?? this.props.entityTags}
+        loggedModelArtifactUri={this.state.fallbackLoggedModelArtifactUri}
         handleActiveNodeChange={this.handleActiveNodeChange}
         useAutoHeight={this.props.useAutoHeight}
       />

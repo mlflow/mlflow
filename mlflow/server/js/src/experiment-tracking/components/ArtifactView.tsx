@@ -122,6 +122,12 @@ type ArtifactViewImplProps = DesignSystemHocProps & {
   initialSelectedArtifactPath?: string;
   artifactNode: any; // TODO: PropTypes.instanceOf(ArtifactNode)
   artifactRootUri: string;
+  /**
+   * The logged model's own artifact root, supplied when a run page falls back to
+   * showing a logged model's artifacts. In that case `artifactRootUri` is still the
+   * run's root, which is a different location.
+   */
+  loggedModelArtifactUri?: string;
   listArtifactsApi: (...args: any[]) => any;
   listArtifactsLoggedModelApi: typeof listArtifactsLoggedModelApi;
   modelVersionsBySource: any;
@@ -365,7 +371,16 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
         : getArtifactLocationUrl(artifactPath, runUuid);
       await this.downloadArtifactViaBlob(downloadUrl, artifactPath);
     } else if (loggedModelId) {
-      await this.downloadArtifactViaBlob(getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId), artifactPath);
+      // On a logged model's own page `artifactRootUri` is the model's root; when a run
+      // page falls back to logged model artifacts it is still the run's, so the model's
+      // root has to come from the dedicated prop.
+      const loggedModelRootUri = isFallbackToLoggedModelArtifacts
+        ? this.props.loggedModelArtifactUri
+        : this.props.artifactRootUri;
+      const downloadUrl = isEligibleArtifactProxyUri(loggedModelRootUri)
+        ? getArtifactProxyDownloadUrl(loggedModelRootUri, artifactPath)
+        : getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId);
+      await this.downloadArtifactViaBlob(downloadUrl, artifactPath);
     }
   }
 
