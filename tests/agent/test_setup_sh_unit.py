@@ -210,6 +210,47 @@ printf '%s\n' '{
     assert result.stdout == "catalog.schema.prefix\n"
 
 
+def test_json_warehouse_rows_lists_running_warehouses_first():
+    result = run_shell(
+        """
+json_warehouse_rows <<'EOF'
+{
+  "warehouses": [
+    {
+      "id": "stopped-1",
+      "name": "Stopped Warehouse",
+      "state": "STOPPED"
+    },
+    {
+      "id": "running-1",
+      "name": "First Running Warehouse",
+      "state": "RUNNING"
+    },
+    {
+      "id": "running-2",
+      "name": "Second Running Warehouse",
+      "state": "RUNNING"
+    },
+    {
+      "id": "stopped-2",
+      "name": "Another Stopped Warehouse",
+      "state": "STOPPED"
+    }
+  ]
+}
+EOF
+"""
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == [
+        "running-1|First Running Warehouse|RUNNING",
+        "running-2|Second Running Warehouse|RUNNING",
+        "stopped-1|Stopped Warehouse|STOPPED",
+        "stopped-2|Another Stopped Warehouse|STOPPED",
+    ]
+
+
 @pytest.mark.parametrize("value", ["catalog.schema.extra", ".schema", "catalog."])
 def test_validate_uc_schema_rejects_invalid_values(value: str):
     result = run_shell('validate_uc_schema "$1"', value)
