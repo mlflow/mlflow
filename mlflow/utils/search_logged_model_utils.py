@@ -10,6 +10,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlLoggedModel
 from mlflow.utils.search_utils import _join_in_comparison_tokens
 
+_LOGGED_MODEL_ATTRIBUTE_NAMES = frozenset(sqlalchemy.inspect(SqlLoggedModel).columns.keys())
+
 
 class EntityType(Enum):
     ATTRIBUTE = "attributes"
@@ -46,11 +48,21 @@ class Entity:
     @classmethod
     def from_str(cls, s: str) -> "Entity":
         if m := Entity.IDENTIFIER_RE.match(s):
-            return cls(
-                type=EntityType.from_str(m.group(1)),
-                key=m.group(2).strip("`"),
-            )
-        return cls(type=EntityType.ATTRIBUTE, key=SqlLoggedModel.ALIASES.get(s, s).strip("`"))
+            entity_type = EntityType.from_str(m.group(1))
+            key = m.group(2).strip("`")
+        else:
+            entity_type = EntityType.ATTRIBUTE
+            key = s.strip("`")
+
+        if entity_type == EntityType.ATTRIBUTE:
+            key = SqlLoggedModel.ALIASES.get(key, key)
+            if key not in _LOGGED_MODEL_ATTRIBUTE_NAMES:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid attribute name: {key!r}. "
+                    f"Expected one of {sorted(_LOGGED_MODEL_ATTRIBUTE_NAMES)}."
+                )
+
+        return cls(type=entity_type, key=key)
 
     def is_numeric(self) -> bool:
         """
