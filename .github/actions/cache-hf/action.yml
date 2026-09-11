@@ -1,9 +1,22 @@
 name: "cache-hf"
 description: "Cache HuggingFace Hub artifacts to avoid 429s in CI"
+inputs:
+  restore-only:
+    description: "Only restore the cache without saving it"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
+    - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: inputs.restore-only == 'true'
+      with:
+        path: ~/.cache/huggingface/hub/datasets--*
+        key: ${{ runner.os }}-hf-datasets-${{ hashFiles('tests/data/test_huggingface_dataset_and_source.py') }}
+        restore-keys: |
+          ${{ runner.os }}-hf-datasets
     - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: inputs.restore-only != 'true'
       with:
         path: ~/.cache/huggingface/hub/datasets--*
         key: ${{ runner.os }}-hf-datasets-${{ hashFiles('tests/data/test_huggingface_dataset_and_source.py') }}
