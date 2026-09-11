@@ -71,6 +71,8 @@ jobs:
             "protobuf==$PROTOBUF_MAJOR_VERSION.*"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/cache-hf
+        with:
+          restore-only: true
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
