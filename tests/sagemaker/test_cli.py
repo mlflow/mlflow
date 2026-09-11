@@ -11,6 +11,7 @@ import mlflow
 from mlflow.models.docker_utils import build_image_from_context
 from mlflow.sagemaker.cli import build_and_push_container
 
+from tests.pyfunc.docker.conftest import use_azure_apt_mirror
 from tests.pyfunc.docker.test_docker import assert_dockerfiles_equal
 
 _MLFLOW_ROOT = Path(mlflow.__file__).parent.parent
@@ -33,6 +34,7 @@ def test_build_and_push_container(tmp_path, env_manager, install_java):
     # Copy the context dir to a temp dir so we can verify the generated Dockerfile
     def _build_image_with_copy(context_dir, image_name, network=None):
         shutil.copytree(context_dir, dst_dir)
+        use_azure_apt_mirror(context_dir)
         for _ in range(3):
             try:
                 # Docker image build is unstable on GitHub Actions, retry up to 3 times

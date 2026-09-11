@@ -2,6 +2,7 @@ import logging
 import os
 import subprocess
 from functools import lru_cache
+from pathlib import Path
 
 import docker
 import pytest
@@ -9,6 +10,7 @@ import requests
 from packaging.version import Version
 
 import mlflow
+from mlflow.models.docker_utils import UBUNTU_BASE_IMAGE
 
 TEST_IMAGE_NAME = "test_image"
 MLFLOW_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -17,6 +19,35 @@ RESOURCE_DIR = os.path.join(MLFLOW_ROOT, "tests", "resources", "dockerfile")
 docker_client = docker.from_env()
 
 _logger = logging.getLogger(__name__)
+
+# GitHub Actions runners run in Azure, where `archive.ubuntu.com` is reachable but regularly
+# throttles to a crawl mid-download, while the runner image's own apt is pointed at the
+# in-datacenter `azure.archive.ubuntu.com`. A `docker build` starts from a stock base image and
+# inherits none of that, so rewrite its apt sources to use the same mirror the host already uses.
+_APT_MIRROR_STEP = r"""RUN sed -i \
+    -e 's|http://archive.ubuntu.com|http://azure.archive.ubuntu.com|g' \
+    -e 's|http://security.ubuntu.com|http://azure.archive.ubuntu.com|g' \
+    /etc/apt/sources.list.d/ubuntu.sources
+"""
+
+
+def use_azure_apt_mirror(context_dir):
+    """
+    Rewrite the apt mirror in a generated build context's Dockerfile, in place.
+
+    No-op off GitHub Actions and for non-Ubuntu base images. Call this after the context has
+    been copied for Dockerfile comparison, so that the copy under assertion stays untouched.
+    """
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+
+    dockerfile = Path(context_dir) / "Dockerfile"
+    lines = dockerfile.read_text().splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        if line.startswith(f"FROM {UBUNTU_BASE_IMAGE}"):
+            lines.insert(i + 1, "\n" + _APT_MIRROR_STEP)
+            dockerfile.write_text("".join(lines))
+            return
 
 
 @pytest.fixture(autouse=True)

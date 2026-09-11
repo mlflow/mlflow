@@ -19,7 +19,11 @@ from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.env_manager import CONDA, LOCAL, VIRTUALENV
 from mlflow.version import VERSION
 
-from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_version
+from tests.pyfunc.docker.conftest import (
+    RESOURCE_DIR,
+    get_released_mlflow_version,
+    use_azure_apt_mirror,
+)
 
 
 def _get_mlflow_install_specifier():
@@ -97,6 +101,7 @@ def test_build_image(tmp_path, params):
         shutil.copytree(context_dir, dst_dir)
         # Build the image if the slow-tests flag is enabled
         if _MLFLOW_RUN_SLOW_TESTS.get():
+            use_azure_apt_mirror(context_dir)
             for _ in range(3):
                 try:
                     # Docker image build is unstable on GitHub Actions, retry up to 3 times
