@@ -106,8 +106,8 @@ describe('BudgetsList', () => {
     expect(screen.getByText('Monthly')).toBeInTheDocument();
     expect(screen.getByText('Reject')).toBeInTheDocument();
     expect(screen.getByText('Alert')).toBeInTheDocument();
-    // GLOBAL and WORKSPACE policies both display as applying to all endpoints.
-    expect(screen.getAllByText('All endpoints')).toHaveLength(2);
+    // GLOBAL and WORKSPACE policies both display as applying to everything.
+    expect(screen.getAllByText('All endpoints and users')).toHaveLength(2);
   });
 
   test('renders endpoint name for ENDPOINT-scoped policy', () => {
@@ -132,10 +132,10 @@ describe('BudgetsList', () => {
     );
 
     expect(screen.getByText('my-endpoint')).toBeInTheDocument();
-    expect(screen.queryByText('All endpoints')).not.toBeInTheDocument();
+    expect(screen.queryByText('All endpoints and users')).not.toBeInTheDocument();
   });
 
-  test('falls back to endpoint id when endpoint name is unknown', () => {
+  test('marks the endpoint id as deleted when the endpoint no longer exists', () => {
     jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
       data: [
         {
@@ -157,6 +157,7 @@ describe('BudgetsList', () => {
     );
 
     expect(screen.getByText('e-deleted')).toBeInTheDocument();
+    expect(screen.getByText('(deleted)')).toBeInTheDocument();
   });
 
   test('renders the applies-to column for user and non-user policies', () => {
@@ -182,9 +183,11 @@ describe('BudgetsList', () => {
     );
 
     expect(screen.getByText('Applies to')).toBeInTheDocument();
-    // The GLOBAL policy applies to everyone; the USER policy shows its username.
-    expect(screen.getByText('All endpoints')).toBeInTheDocument();
+    // The GLOBAL policy applies to everyone; the USER policy shows its username
+    // behind a "User" tag so it can't be read as an endpoint name.
+    expect(screen.getByText('All endpoints and users')).toBeInTheDocument();
     expect(screen.getByText('alice')).toBeInTheDocument();
+    expect(screen.getByText('User')).toBeInTheDocument();
   });
 
   test('renders window columns with spend data when available', () => {

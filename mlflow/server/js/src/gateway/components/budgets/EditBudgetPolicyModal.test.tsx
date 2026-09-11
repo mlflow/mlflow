@@ -229,6 +229,96 @@ describe('EditBudgetPolicyModal', () => {
     }
   });
 
+  describe('when the target endpoint has been deleted', () => {
+    // Endpoint deletion doesn't cascade to budget policies, so a policy can
+    // outlive its endpoint. The picker has no option for the stale id, so it
+    // renders its placeholder and the selection is unrecoverable from the UI.
+    const stalePolicy: BudgetPolicy = {
+      ...mockEndpointPolicy,
+      budget_policy_id: 'bp-stale',
+      target_value: 'e-deleted',
+    };
+
+    test('disables save and explains the missing endpoint', () => {
+      renderWithDesignSystem(<EditBudgetPolicyModal open policy={stalePolicy} onClose={jest.fn()} />);
+
+      expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+      expect(
+        screen.getByText(
+          'The endpoint this policy applied to (e-deleted) no longer exists. Select another endpoint, or change this policy to apply to all endpoints and users.',
+        ),
+      ).toBeInTheDocument();
+      expect(mockMutateAsync).not.toHaveBeenCalled();
+    });
+
+    test('re-enables save once a live endpoint is selected', async () => {
+      renderWithDesignSystem(<EditBudgetPolicyModal open policy={stalePolicy} onClose={jest.fn()} />);
+
+      const [, endpointSelect] = screen.getAllByRole('combobox');
+      await userEvent.click(endpointSelect);
+      await userEvent.click(screen.getByRole('option', { name: 'my-endpoint' }));
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        budget_policy_id: 'bp-stale',
+        budget_unit: 'USD',
+        budget_amount: 200,
+        duration: { unit: 'WEEKS', value: 1 },
+        target_scope: 'ENDPOINT',
+        target_value: 'e-1',
+        budget_action: 'ALERT',
+      });
+    });
+
+    test('re-enables save when switching the policy to all endpoints and users', async () => {
+      renderWithDesignSystem(<EditBudgetPolicyModal open policy={stalePolicy} onClose={jest.fn()} />);
+
+      const [scopeSelect] = screen.getAllByRole('combobox');
+      await userEvent.click(scopeSelect);
+      await userEvent.click(screen.getByRole('option', { name: 'All endpoints and users' }));
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+      expect(mockMutateAsync).toHaveBeenCalledWith({
+        budget_policy_id: 'bp-stale',
+        budget_unit: 'USD',
+        budget_amount: 200,
+        duration: { unit: 'WEEKS', value: 1 },
+        target_scope: 'GLOBAL',
+        budget_action: 'ALERT',
+      });
+    });
+
+    test('keeps save enabled while endpoints are still loading', () => {
+      jest.mocked(useEndpointsQuery).mockReturnValue({
+        data: [],
+        isLoading: true,
+        error: undefined,
+        refetch: jest.fn(),
+      } as any);
+
+      renderWithDesignSystem(<EditBudgetPolicyModal open policy={stalePolicy} onClose={jest.fn()} />);
+
+      // An in-flight endpoints request must not be mistaken for "deleted".
+      expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeDisabled();
+    });
+  });
+
+  test('shows an empty-state placeholder when no endpoints exist', () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockEndpointPolicy} onClose={jest.fn()} />);
+
+    expect(screen.getByText('No endpoints available')).toBeInTheDocument();
+    expect(screen.queryByText('Select an endpoint')).not.toBeInTheDocument();
+  });
+
   test('displays error message on mutation failure', () => {
     jest.mocked(useUpdateBudgetPolicy).mockReturnValue({
       mutateAsync: mockMutateAsync,

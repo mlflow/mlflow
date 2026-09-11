@@ -11,6 +11,7 @@ import {
   TableCell,
   TableHeader,
   TableRow,
+  Tag,
   Tooltip,
   TrashIcon,
   Typography,
@@ -22,6 +23,7 @@ import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { useBudgetWindowsQuery } from '../../hooks/useBudgetWindowsQuery';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { formatBudgetAmount, formatDuration, formatOnExceeded } from './budgetFormatUtils';
+import { useBudgetScopeLabels } from './useBudgetScopeLabels';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
@@ -43,23 +45,54 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
   const { data: budgetPolicies, nextPageToken, isLoading } = useBudgetPoliciesQuery(PAGE_SIZE, pageToken);
   const { data: budgetWindows } = useBudgetWindowsQuery();
   const { data: endpoints } = useEndpointsQuery();
+  const scopeLabels = useBudgetScopeLabels();
 
   const endpointNamesById = useMemo(
     () => new Map(endpoints.map((endpoint) => [endpoint.endpoint_id, endpoint.name])),
     [endpoints],
   );
 
-  const getScopeLabel = (policy: BudgetPolicy) => {
+  const renderScope = (policy: BudgetPolicy) => {
     if (policy.target_scope === 'ENDPOINT') {
-      return endpointNamesById.get(policy.target_value ?? '') ?? policy.target_value;
+      const endpointName = endpointNamesById.get(policy.target_value ?? '');
+      if (endpointName) {
+        return <Typography.Text>{endpointName}</Typography.Text>;
+      }
+      // The endpoint was deleted (deletion doesn't cascade to budget policies),
+      // so only the raw id survives. Flag it as stale instead of showing a bare
+      // id that reads like a name.
+      return (
+        <Tooltip
+          componentId="mlflow.gateway.budgets-list.deleted-endpoint-tooltip"
+          content={formatMessage({
+            defaultMessage: 'This endpoint no longer exists. Edit the policy to pick another endpoint, or delete it.',
+            description: 'Tooltip explaining that an endpoint-scoped budget policy points at a deleted endpoint',
+          })}
+        >
+          <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <Typography.Text color="secondary">{policy.target_value}</Typography.Text>
+            <Typography.Text color="secondary" size="sm">
+              <FormattedMessage
+                defaultMessage="(deleted)"
+                description="Suffix marking a budget policy whose target endpoint no longer exists"
+              />
+            </Typography.Text>
+          </span>
+        </Tooltip>
+      );
     }
     if (policy.target_scope === 'USER') {
-      return policy.target_value;
+      // Tag the principal so a username is never mistaken for an endpoint name.
+      return (
+        <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <Tag componentId="mlflow.gateway.budgets-list.user-scope-tag">
+            <FormattedMessage defaultMessage="User" description="Tag marking a per-user budget policy" />
+          </Tag>
+          <Typography.Text>{policy.target_value}</Typography.Text>
+        </span>
+      );
     }
-    return formatMessage({
-      defaultMessage: 'All endpoints',
-      description: 'Budget scope label for global or workspace-wide policies',
-    });
+    return <Typography.Text>{scopeLabels.all}</Typography.Text>;
   };
 
   const handleNextPage = () => {
@@ -188,9 +221,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                   </span>
                 </Tooltip>
               </TableCell>
-              <TableCell css={{ flex: 1 }}>
-                <Typography.Text>{getScopeLabel(policy)}</Typography.Text>
-              </TableCell>
+              <TableCell css={{ flex: 1 }}>{renderScope(policy)}</TableCell>
               <TableCell css={{ flex: 1 }}>
                 <Typography.Text>{formatDuration(policy.duration.value, policy.duration.unit)}</Typography.Text>
               </TableCell>

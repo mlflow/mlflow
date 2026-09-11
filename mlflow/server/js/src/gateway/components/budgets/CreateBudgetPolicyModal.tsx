@@ -15,6 +15,7 @@ import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import type { BudgetAction, DurationUnit } from '../../types';
 import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
+import { useBudgetScopeLabels } from './useBudgetScopeLabels';
 
 type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
@@ -62,6 +63,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     reset: resetMutation,
   } = useCreateBudgetPolicy();
   const { data: endpoints } = useEndpointsQuery();
+  const scopeLabels = useBudgetScopeLabels();
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
@@ -188,9 +190,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
             value={formData.scope}
             onChange={({ target }) => handleFieldChange('scope', target.value as BudgetScopeChoice)}
           >
-            <SimpleSelectOption value="ALL">All endpoints and users</SimpleSelectOption>
-            <SimpleSelectOption value="ENDPOINT">Specific endpoint</SimpleSelectOption>
-            <SimpleSelectOption value="USER">Specific user</SimpleSelectOption>
+            <SimpleSelectOption value="ALL">{scopeLabels.all}</SimpleSelectOption>
+            <SimpleSelectOption value="ENDPOINT">{scopeLabels.endpoint}</SimpleSelectOption>
+            <SimpleSelectOption value="USER">{scopeLabels.user}</SimpleSelectOption>
           </SimpleSelect>
           {formData.scope === 'ENDPOINT' && (
             <SimpleSelect
@@ -198,10 +200,18 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
               componentId="mlflow.gateway.create-budget-policy-modal.endpoint"
               value={formData.endpointId}
               onChange={({ target }) => handleFieldChange('endpointId', target.value)}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Select an endpoint',
-                description: 'Placeholder for budget policy endpoint selector',
-              })}
+              disabled={!endpoints.length}
+              placeholder={
+                endpoints.length
+                  ? intl.formatMessage({
+                      defaultMessage: 'Select an endpoint',
+                      description: 'Placeholder for budget policy endpoint selector',
+                    })
+                  : intl.formatMessage({
+                      defaultMessage: 'No endpoints available',
+                      description: 'Placeholder for the budget policy endpoint selector when no endpoints exist',
+                    })
+              }
             >
               {endpoints.map((endpoint) => (
                 <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>

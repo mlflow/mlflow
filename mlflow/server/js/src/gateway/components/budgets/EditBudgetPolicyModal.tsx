@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Alert,
+  FormUI,
   InfoSmallIcon,
   Input,
   Modal,
@@ -15,6 +16,7 @@ import { useUpdateBudgetPolicy } from '../../hooks/useUpdateBudgetPolicy';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import type { BudgetPolicy, DurationUnit, BudgetAction } from '../../types';
 import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
+import { useBudgetScopeLabels } from './useBudgetScopeLabels';
 
 type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 type BudgetScopeChoice = 'ALL' | 'ENDPOINT' | 'USER';
@@ -65,7 +67,8 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     error: mutationError,
     reset: resetMutation,
   } = useUpdateBudgetPolicy();
-  const { data: endpoints } = useEndpointsQuery();
+  const { data: endpoints, isLoading: isEndpointsLoading } = useEndpointsQuery();
+  const scopeLabels = useBudgetScopeLabels();
 
   useEffect(() => {
     if (policy) {
@@ -96,12 +99,23 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
 
   const isUserScope = formData.scope === 'USER';
 
+  // A policy can outlive the endpoint it targets, since deleting an endpoint
+  // doesn't cascade to budget policies. The picker can't render a selection it
+  // has no option for, so the stale id has to be treated as no selection at all
+  // — otherwise Save looks available and fails server-side with
+  // "GatewayEndpoint not found".
+  const isEndpointMissing =
+    formData.scope === 'ENDPOINT' &&
+    Boolean(formData.endpointId) &&
+    !isEndpointsLoading &&
+    !endpoints.some((endpoint) => endpoint.endpoint_id === formData.endpointId);
+
   const isFormValid = useMemo(() => {
     const amount = parseFloat(formData.budgetAmount);
     if (isNaN(amount) || amount <= 0) return false;
-    if (formData.scope === 'ENDPOINT') return Boolean(formData.endpointId);
+    if (formData.scope === 'ENDPOINT') return Boolean(formData.endpointId) && !isEndpointMissing;
     return !isUserScope || formData.username.trim().length > 0;
-  }, [formData.budgetAmount, formData.scope, formData.endpointId, formData.username, isUserScope]);
+  }, [formData.budgetAmount, formData.scope, formData.endpointId, formData.username, isUserScope, isEndpointMissing]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid || !policy) return;
@@ -203,27 +217,51 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
             value={formData.scope}
             onChange={({ target }) => handleFieldChange('scope', target.value as BudgetScopeChoice)}
           >
-            <SimpleSelectOption value="ALL">All endpoints and users</SimpleSelectOption>
-            <SimpleSelectOption value="ENDPOINT">Specific endpoint</SimpleSelectOption>
-            <SimpleSelectOption value="USER">Specific user</SimpleSelectOption>
+            <SimpleSelectOption value="ALL">{scopeLabels.all}</SimpleSelectOption>
+            <SimpleSelectOption value="ENDPOINT">{scopeLabels.endpoint}</SimpleSelectOption>
+            <SimpleSelectOption value="USER">{scopeLabels.user}</SimpleSelectOption>
           </SimpleSelect>
           {formData.scope === 'ENDPOINT' && (
-            <SimpleSelect
-              id="edit-budget-policy-endpoint"
-              componentId="mlflow.gateway.edit-budget-policy-modal.endpoint"
-              value={formData.endpointId}
-              onChange={({ target }) => handleFieldChange('endpointId', target.value)}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Select an endpoint',
-                description: 'Placeholder for budget policy endpoint selector',
-              })}
-            >
-              {endpoints.map((endpoint) => (
-                <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>
-                  {endpoint.name}
-                </SimpleSelectOption>
-              ))}
-            </SimpleSelect>
+            <>
+              <SimpleSelect
+                id="edit-budget-policy-endpoint"
+                componentId="mlflow.gateway.edit-budget-policy-modal.endpoint"
+                value={formData.endpointId}
+                onChange={({ target }) => handleFieldChange('endpointId', target.value)}
+                disabled={!endpoints.length}
+                validationState={isEndpointMissing ? 'error' : undefined}
+                placeholder={
+                  endpoints.length
+                    ? intl.formatMessage({
+                        defaultMessage: 'Select an endpoint',
+                        description: 'Placeholder for budget policy endpoint selector',
+                      })
+                    : intl.formatMessage({
+                        defaultMessage: 'No endpoints available',
+                        description: 'Placeholder for the budget policy endpoint selector when no endpoints exist',
+                      })
+                }
+              >
+                {endpoints.map((endpoint) => (
+                  <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>
+                    {endpoint.name}
+                  </SimpleSelectOption>
+                ))}
+              </SimpleSelect>
+              {isEndpointMissing && (
+                <FormUI.Message
+                  type="error"
+                  message={intl.formatMessage(
+                    {
+                      defaultMessage:
+                        'The endpoint this policy applied to ({endpointId}) no longer exists. Select another endpoint, or change this policy to apply to all endpoints and users.',
+                      description: 'Validation error shown when a budget policy targets a deleted endpoint',
+                    },
+                    { endpointId: formData.endpointId },
+                  )}
+                />
+              )}
+            </>
           )}
           {isUserScope && (
             <>

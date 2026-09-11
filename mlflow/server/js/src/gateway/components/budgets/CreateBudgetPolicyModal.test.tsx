@@ -115,6 +115,24 @@ describe('CreateBudgetPolicyModal', () => {
     expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled();
   });
 
+  test('shows an empty-state placeholder when no endpoints exist', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    const [scopeSelect] = screen.getAllByRole('combobox');
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    expect(screen.getByText('No endpoints available')).toBeInTheDocument();
+    expect(screen.queryByText('Select an endpoint')).not.toBeInTheDocument();
+  });
+
   test('submits ENDPOINT payload with target_value', async () => {
     const onClose = jest.fn();
     const onSuccess = jest.fn();
