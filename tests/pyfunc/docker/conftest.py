@@ -10,6 +10,7 @@ import requests
 from packaging.version import Version
 
 import mlflow
+from mlflow.models import docker_utils
 from mlflow.models.docker_utils import UBUNTU_BASE_IMAGE
 
 TEST_IMAGE_NAME = "test_image"
@@ -42,12 +43,33 @@ def use_azure_apt_mirror(context_dir):
         return
 
     dockerfile = Path(context_dir) / "Dockerfile"
-    lines = dockerfile.read_text().splitlines(keepends=True)
+    dockerfile_text = dockerfile.read_text()
+    if _APT_MIRROR_STEP in dockerfile_text:
+        return
+
+    lines = dockerfile_text.splitlines(keepends=True)
     for i, line in enumerate(lines):
         if line.startswith(f"FROM {UBUNTU_BASE_IMAGE}"):
             lines.insert(i + 1, "\n" + _APT_MIRROR_STEP)
             dockerfile.write_text("".join(lines))
             return
+
+
+@pytest.fixture(autouse=True)
+def _azure_apt_mirror(monkeypatch):
+    """
+    Apply the Azure mirror rewrite to build paths that do not go through a copied context.
+
+    `PyFuncBackend.build_image` generates and builds in one call, so there is no point for the
+    test to call `use_azure_apt_mirror` itself.
+    """
+    original = docker_utils.build_image_from_context
+
+    def _patched(context_dir, *args, **kwargs):
+        use_azure_apt_mirror(context_dir)
+        return original(context_dir, *args, **kwargs)
+
+    monkeypatch.setattr(docker_utils, "build_image_from_context", _patched)
 
 
 @pytest.fixture(autouse=True)
