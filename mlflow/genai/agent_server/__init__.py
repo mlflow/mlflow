@@ -10,10 +10,12 @@ from mlflow.genai.agent_server.utils import (
     set_request_headers,
     setup_mlflow_git_based_version_tracking,
 )
+from mlflow.types.agent_info import AgentInfo
 
 __all__ = [
     "set_request_headers",
     "get_request_headers",
+    "AgentInfo",
     "AgentServer",
     "invoke",
     "stream",
