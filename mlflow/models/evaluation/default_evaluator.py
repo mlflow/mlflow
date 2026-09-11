@@ -764,6 +764,9 @@ class BuiltInEvaluator(ModelEvaluator):
         ):
             return
 
+        if isinstance(y_pred, pd.Series):
+            y_pred = y_pred.to_numpy()
+
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if not isinstance(metric_prefix, str):
             metric_prefix = ""
@@ -790,7 +793,7 @@ class BuiltInEvaluator(ModelEvaluator):
         # Include other_output_columns used in evaluation to the eval table
         if other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
             for column in self.other_output_columns_for_eval:
-                data[column] = other_output_columns[column]
+                data[column] = other_output_columns[column].to_numpy()
 
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():
