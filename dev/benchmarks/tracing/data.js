@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789088510121,
+  "lastUpdate": 1789145909569,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sai.ravuri@swiggy.in",
-            "name": "Sai Nikitha Ravuri",
-            "username": "sairavuri-sudo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a968b7371c1c0069016c2018e1655d468c4d27f8",
-          "message": "Fix OTLP trace ingestion: double-encoded request ID and missing trace tags (#23067)\n\nSigned-off-by: Sai Ravuri <sai.ravuri@swiggy.in>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Pat Sukprasert <pattara.sk127@gmail.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
-          "timestamp": "2026-05-08T07:09:54Z",
-          "tree_id": "7dc392b41b61a2d74740b0f8a1b8020c0a883c16",
-          "url": "https://github.com/mlflow/mlflow/commit/a968b7371c1c0069016c2018e1655d468c4d27f8"
-        },
-        "date": 1778224440188,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 43.093766199999095,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 28.344394058821617,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 22.201236967212065,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 23.559907781819078,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 23.29248961017144,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.246139400008133,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.764350499996833,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "198982749+Copilot@users.noreply.github.com",
+            "name": "Copilot",
+            "username": "Copilot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fe97be06a8d690f6b012925db4db927104cb687",
+          "message": "Bound apt socket timeouts in generated serving Dockerfiles (#25800)\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: harupy <17039389+harupy@users.noreply.github.com>",
+          "timestamp": "2026-09-11T16:57:01Z",
+          "tree_id": "d10dcb07e42113187b2bd0f03d59b20ec844f083",
+          "url": "https://github.com/mlflow/mlflow/commit/8fe97be06a8d690f6b012925db4db927104cb687"
+        },
+        "date": 1789145907169,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 46.725043849996695,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.496360517240187,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.530930595890066,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.432673627118054,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.091757568965467,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.504289000004974,
             "unit": "ms"
           }
         ]
