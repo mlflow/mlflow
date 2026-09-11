@@ -64,11 +64,12 @@ jobs:
               if [ "$name" = "protect" ]; then
                 protect_id=$id
               else
-                rerun "$id"
+                rerun "$id" &
               fi
             done <<< "$rows"
           fi
 
+          wait
           if [ -n "$protect_id" ]; then
             rerun "$protect_id"
           fi
