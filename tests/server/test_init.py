@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils import find_free_port
@@ -329,6 +330,7 @@ def test_mlflow_server_shuts_down_on_signal(sig: signal.Signals, tmp_path):
 
 def test_run_server_bootstraps_basic_auth_admin_before_spawning_workers(mock_exec_cmd, monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.setenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, "my-secret-key")
     with mock.patch("mlflow.server.auth.bootstrap_admin_user") as bootstrap:
         server._run_server(
             file_store_path="",
@@ -353,6 +355,7 @@ def test_run_server_fails_before_spawning_workers_when_admin_bootstrap_fails(
     mock_exec_cmd, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.setenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, "my-secret-key")
     with (
         mock.patch(
             "mlflow.server.auth.bootstrap_admin_user",
@@ -371,6 +374,30 @@ def test_run_server_fails_before_spawning_workers_when_admin_bootstrap_fails(
             port="",
             app_name="basic-auth",
         )
+    mock_exec_cmd.assert_not_called()
+
+
+def test_run_server_fails_before_spawning_workers_when_secret_key_missing(
+    mock_exec_cmd, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.delenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, raising=False)
+    with (
+        mock.patch("mlflow.server.auth.bootstrap_admin_user") as bootstrap,
+        pytest.raises(MlflowException, match="MLFLOW_FLASK_SERVER_SECRET_KEY"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            app_name="basic-auth",
+        )
+    bootstrap.assert_not_called()
     mock_exec_cmd.assert_not_called()
 
 

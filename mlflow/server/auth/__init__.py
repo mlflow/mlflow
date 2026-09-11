@@ -6030,6 +6030,26 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
 ]
 
 
+def get_flask_server_secret_key() -> str:
+    """Return the static secret key the basic-auth app needs for CSRF protection.
+
+    Like ``bootstrap_admin_user``, this runs in every worker via ``create_app`` and, before
+    any worker exists, in the ``mlflow server`` process so a missing key fails the command
+    with one clear error instead of an endless worker restart loop.
+    """
+    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    if not secret_key:
+        raise MlflowException(
+            "A static secret key needs to be set for CSRF protection. Please set the "
+            "`MLFLOW_FLASK_SERVER_SECRET_KEY` environment variable before starting the "
+            "server. For example:\n\n"
+            "export MLFLOW_FLASK_SERVER_SECRET_KEY='my-secret-key'\n\n"
+            "If you are using multiple servers, please ensure this key is consistent between "
+            "them, in order to prevent validation issues."
+        )
+    return secret_key
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -6049,17 +6069,7 @@ def create_app(app: Flask = app):
     # a secret key is required for flashing, and also for
     # CSRF protection. it's important that this is a static key,
     # otherwise CSRF validation won't work across workers.
-    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
-    if not secret_key:
-        raise MlflowException(
-            "A static secret key needs to be set for CSRF protection. Please set the "
-            "`MLFLOW_FLASK_SERVER_SECRET_KEY` environment variable before starting the "
-            "server. For example:\n\n"
-            "export MLFLOW_FLASK_SERVER_SECRET_KEY='my-secret-key'\n\n"
-            "If you are using multiple servers, please ensure this key is consistent between "
-            "them, in order to prevent validation issues."
-        )
-    app.secret_key = secret_key
+    app.secret_key = get_flask_server_secret_key()
 
     # we only need to protect the CREATE_USER_UI route, since that's
     # the only browser-accessible route. the rest are client / REST
