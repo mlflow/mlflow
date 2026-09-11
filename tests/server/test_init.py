@@ -8,7 +8,11 @@ from unittest import mock
 import pytest
 
 from mlflow import server
-from mlflow.environment_variables import _MLFLOW_SERVER_BOOT_ID, _MLFLOW_SGI_NAME
+from mlflow.environment_variables import (
+    _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
+    _MLFLOW_SERVER_BOOT_ID,
+    _MLFLOW_SGI_NAME,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.utils import find_free_port
 from mlflow.utils.os import is_windows
@@ -321,3 +325,67 @@ def test_mlflow_server_shuts_down_on_signal(sig: signal.Signals, tmp_path):
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 proc.kill()
+
+
+def test_run_server_bootstraps_basic_auth_admin_before_spawning_workers(mock_exec_cmd, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    with mock.patch("mlflow.server.auth.bootstrap_admin_user") as bootstrap:
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            app_name="basic-auth",
+        )
+    bootstrap.assert_called_once_with()
+    mock_exec_cmd.assert_called_once()
+    # Workers are told the bootstrap already happened so they skip the PBKDF2 checks.
+    assert mock_exec_cmd.call_args.kwargs["extra_env"][_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name] == (
+        "true"
+    )
+
+
+def test_run_server_fails_before_spawning_workers_when_admin_bootstrap_fails(
+    mock_exec_cmd, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    with (
+        mock.patch(
+            "mlflow.server.auth.bootstrap_admin_user",
+            side_effect=MlflowException("no admin password"),
+        ),
+        pytest.raises(MlflowException, match="no admin password"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            app_name="basic-auth",
+        )
+    mock_exec_cmd.assert_not_called()
+
+
+def test_run_server_skips_admin_bootstrap_for_default_app(mock_exec_cmd, monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    with mock.patch("mlflow.server.auth.bootstrap_admin_user") as bootstrap:
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+        )
+    bootstrap.assert_not_called()
+    assert _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name not in mock_exec_cmd.call_args.kwargs["extra_env"]
