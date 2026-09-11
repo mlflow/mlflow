@@ -60,7 +60,11 @@ import type { LoggedModelArtifactViewerProps } from './artifact-view-components/
 import { MlflowService } from '../sdk/MlflowService';
 import type { KeyValueEntity } from '../../common/types';
 import { getMultipartDownloadsEnabledSync } from '../hooks/useServerInfo';
-import { ARTIFACT_PROXY_ROUTE_ANCHORS } from '../../common/utils/artifactProxy';
+import {
+  ARTIFACT_PROXY_ROUTE_ANCHORS,
+  getArtifactProxyDownloadUrl,
+  isEligibleArtifactProxyUri,
+} from '../../common/utils/artifactProxy';
 
 const { Text } = Typography;
 // Derived from the shared anchors so the two artifact-proxy URI parsers in the
@@ -353,7 +357,13 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           }
         }
       }
-      await this.downloadArtifactViaBlob(getArtifactLocationUrl(artifactPath, runUuid), artifactPath);
+      // Inside this branch the artifact root belongs to the run itself (the logged-model
+      // fallback is handled below), so an eligible proxy URI can be read directly.
+      const { artifactRootUri } = this.props;
+      const downloadUrl = isEligibleArtifactProxyUri(artifactRootUri)
+        ? getArtifactProxyDownloadUrl(artifactRootUri, artifactPath)
+        : getArtifactLocationUrl(artifactPath, runUuid);
+      await this.downloadArtifactViaBlob(downloadUrl, artifactPath);
     } else if (loggedModelId) {
       await this.downloadArtifactViaBlob(getLoggedModelArtifactLocationUrl(artifactPath, loggedModelId), artifactPath);
     }
