@@ -924,8 +924,8 @@ async def test_gemini_chat_function_calling_thought_signature():
                             "id": "call_001",
                             "name": "get_weather",
                             "args": {"location": "Singapore"},
-                            "thoughtSignature": "opaque_thought_sig_token",
-                        }
+                        },
+                        "thoughtSignature": "opaque_thought_sig_token",
                     }
                 ],
             },
@@ -967,6 +967,91 @@ async def test_gemini_chat_function_calling_thought_signature():
         json=expected_payload,
         timeout=mock.ANY,
     )
+
+
+@pytest.mark.parametrize(
+    ("native_part", "expected_sig", "description"),
+    [
+        # Gemini 3.x: thoughtSignature is a sibling of functionCall on the Part.
+        (
+            {
+                "functionCall": {
+                    "name": "get_weather",
+                    "args": {"city": "Seattle"},
+                    "id": "call_426398",
+                },
+                "thoughtSignature": "opaque-sig-token",
+            },
+            "opaque-sig-token",
+            "Gemini 3 (Part-level thoughtSignature)",
+        ),
+        # Gemini 2.5: thoughtSignature is nested inside functionCall.
+        (
+            {
+                "functionCall": {
+                    "name": "get_weather",
+                    "args": {"city": "Seattle"},
+                    "id": "call_426398",
+                    "thoughtSignature": "opaque-sig-token",
+                },
+            },
+            "opaque-sig-token",
+            "Gemini 2.5 (functionCall-level thoughtSignature)",
+        ),
+    ],
+    ids=["gemini-3-part-level", "gemini-2.5-functioncall-level"],
+)
+def test_gemini_function_call_thought_signature_response(native_part, expected_sig, description):
+    # The adapter must capture thoughtSignature from both the Gemini 3.x Part-level
+    # location and the 2.5 functionCall-level location so it is not silently dropped
+    # on the way out to the OpenAI-compatible client.
+    choice = GeminiAdapter._convert_function_call_to_openai_choice(
+        content_parts=[native_part],
+        finish_reason="stop",
+        choice_idx=0,
+        stream=False,
+    )
+    tc = choice.message.tool_calls[0]
+
+    assert tc.thought_signature == expected_sig, f"thought_signature was dropped for {description}"
+
+
+def test_chat_to_model_thought_signature_emitted_as_part_sibling():
+    # When the client echoes thought_signature back at the top level of the OpenAI
+    # tool_call, the adapter must emit thoughtSignature as a sibling of functionCall
+    # on the Gemini Part (the 3.x shape). Nesting it inside functionCall (the 2.5
+    # shape) is rejected by Gemini 3 with:
+    #   Unknown name "thoughtSignature" at 'contents[1].parts[0].function_call'
+    payload = {
+        "messages": [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_426398",
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "arguments": '{"city": "Seattle"}',
+                        },
+                        "thought_signature": "opaque-sig-token",
+                    }
+                ],
+            }
+        ]
+    }
+
+    gemini_payload = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+    part = gemini_payload["contents"][0]["parts"][0]
+
+    assert "thoughtSignature" in part, (
+        "thoughtSignature should be a sibling of functionCall on the Part (Gemini 3)"
+    )
+    assert "thoughtSignature" not in part["functionCall"], (
+        "thoughtSignature must NOT be nested inside functionCall (Gemini 3 rejects it)"
+    )
+    assert part["thoughtSignature"] == "opaque-sig-token"
 
 
 def chat_stream_response():
