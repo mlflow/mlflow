@@ -210,11 +210,11 @@ printf '%s\n' '{
     assert result.stdout == "catalog.schema.prefix\n"
 
 
-def test_json_warehouse_rows_lists_running_warehouses_first():
-    result = run_shell(
-        """
-json_warehouse_rows <<'EOF'
-{
+@pytest.mark.parametrize(
+    "warehouse_json",
+    [
+        pytest.param(
+            """{
   "warehouses": [
     {
       "id": "stopped-1",
@@ -237,9 +237,35 @@ json_warehouse_rows <<'EOF'
       "state": "STOPPED"
     }
   ]
-}
-EOF
-"""
+}""",
+            id="pretty",
+        ),
+        pytest.param(
+            '{"warehouses": [{"id": "stopped-1", "name": "Stopped Warehouse", '
+            '"state": "STOPPED"}, {"id": "running-1", '
+            '"name": "First Running Warehouse", "state": "RUNNING"}, '
+            '{"id": "running-2", "name": "Second Running Warehouse", '
+            '"state": "RUNNING"}, {"id": "stopped-2", '
+            '"name": "Another Stopped Warehouse", "state": "STOPPED"}]}',
+            id="compact",
+        ),
+        pytest.param(
+            """{
+  "warehouses": [
+    {"state": "STOPPED", "name": "Stopped Warehouse", "id": "stopped-1"},
+    {"name": "First Running Warehouse", "state": "RUNNING", "id": "running-1"},
+    {"state": "RUNNING", "id": "running-2", "name": "Second Running Warehouse"},
+    {"name": "Another Stopped Warehouse", "id": "stopped-2", "state": "STOPPED"}
+  ]
+}""",
+            id="reordered-fields",
+        ),
+    ],
+)
+def test_json_warehouse_rows_lists_running_warehouses_first(warehouse_json: str):
+    result = run_shell(
+        """printf '%s\n' "$1" | json_warehouse_rows""",
+        warehouse_json,
     )
 
     assert result.returncode == 0, result.stderr

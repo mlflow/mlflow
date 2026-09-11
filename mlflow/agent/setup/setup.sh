@@ -607,15 +607,16 @@ s/"name"/\
 }
 
 json_warehouse_rows() {
-	awk '
-		/"id"[[:space:]]*:/ { line=$0; sub(/^.*"id"[[:space:]]*:[[:space:]]*"/, "", line); sub(/".*$/, "", line); id=line }
-		/"name"[[:space:]]*:/ { line=$0; sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", line); sub(/".*$/, "", line); name=line }
-		/"state"[[:space:]]*:/ {
-			line=$0
-			sub(/^.*"state"[[:space:]]*:[[:space:]]*"/, "", line)
-			sub(/".*$/, "", line)
-			state=line
-			if (id != "" && name != "") {
+	sed '
+s/"id"[[:space:]]*:/\
+"id":/g
+s/"name"[[:space:]]*:/\
+"name":/g
+s/"state"[[:space:]]*:/\
+"state":/g
+' | awk '
+		function emit_if_complete() {
+			if (id != "" && name != "" && state != "") {
 				row=id "|" name "|" state
 				if (state == "RUNNING") { running[++running_count]=row }
 				else { not_running[++not_running_count]=row }
@@ -623,6 +624,27 @@ json_warehouse_rows() {
 				name=""
 				state=""
 			}
+		}
+		/"id"[[:space:]]*:/ {
+			line=$0
+			sub(/^.*"id"[[:space:]]*:[[:space:]]*"/, "", line)
+			sub(/".*$/, "", line)
+			id=line
+			emit_if_complete()
+		}
+		/"name"[[:space:]]*:/ {
+			line=$0
+			sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", line)
+			sub(/".*$/, "", line)
+			name=line
+			emit_if_complete()
+		}
+		/"state"[[:space:]]*:/ {
+			line=$0
+			sub(/^.*"state"[[:space:]]*:[[:space:]]*"/, "", line)
+			sub(/".*$/, "", line)
+			state=line
+			emit_if_complete()
 		}
 		END {
 			for (i=1; i<=running_count; i++) print running[i]
