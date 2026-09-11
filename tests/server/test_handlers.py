@@ -3426,9 +3426,7 @@ def test_batch_get_traces_handler(mock_get_request_message, mock_tracking_store)
     response = _batch_get_traces()
 
     # Verify the store was called with the correct trace IDs
-    mock_tracking_store.batch_get_traces.assert_called_once_with(
-        [trace_id_1, trace_id_2], None, experiment_ids=None
-    )
+    mock_tracking_store.batch_get_traces.assert_called_once_with([trace_id_1, trace_id_2], None)
 
     # Verify response was created
     assert response is not None
@@ -3448,10 +3446,25 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
 
     response = _batch_get_traces()
 
-    mock_tracking_store.batch_get_traces.assert_called_once_with([], None, experiment_ids=None)
+    mock_tracking_store.batch_get_traces.assert_called_once_with([], None)
 
     # Verify response was created
     assert response is not None
+    assert response.status_code == 200
+
+
+def test_batch_get_traces_handler_omits_scope_keyword_for_legacy_store(mock_get_request_message):
+    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"])
+
+    class LegacyStore:
+        def batch_get_traces(self, trace_ids, location=None):
+            assert trace_ids == ["t1"]
+            assert location is None
+            return []
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=LegacyStore()):
+        response = _batch_get_traces()
+
     assert response.status_code == 200
 
 
@@ -3532,9 +3545,7 @@ def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_s
 
     response = _batch_get_trace_infos()
 
-    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(
-        [trace_id_1, trace_id_2], experiment_ids=None
-    )
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with([trace_id_1, trace_id_2])
 
     assert response is not None
     assert response.status_code == 200
@@ -3542,6 +3553,23 @@ def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_s
     assert len(trace_infos) == 2
     assert trace_infos[0]["trace_id"] == trace_id_1
     assert trace_infos[1]["trace_id"] == trace_id_2
+
+
+def test_batch_get_trace_infos_handler_omits_scope_keyword_for_legacy_store(
+    mock_get_request_message,
+):
+    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=["t1"])
+
+    class LegacyStore:
+        def batch_get_trace_infos(self, trace_ids, location=None):
+            assert trace_ids == ["t1"]
+            assert location is None
+            return []
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=LegacyStore()):
+        response = _batch_get_trace_infos()
+
+    assert response.status_code == 200
 
 
 def test_batch_get_trace_infos_handler_with_experiment_ids(
@@ -3669,7 +3697,7 @@ def test_batch_get_traces_handler_experiment_ids_field_detection_not_mocked(
         method="POST", content_type="application/json", data=json.dumps({"trace_ids": ["t1"]})
     ):
         response = _batch_get_traces()
-    mock_tracking_store.batch_get_traces.assert_called_once_with(["t1"], None, experiment_ids=None)
+    mock_tracking_store.batch_get_traces.assert_called_once_with(["t1"], None)
     assert response.status_code == 200
 
 

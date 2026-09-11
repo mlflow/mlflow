@@ -4176,8 +4176,14 @@ def _batch_get_traces() -> Response:
             "Databricks-hosted backend.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    experiment_ids = list(request_message.experiment_ids) if has_experiment_ids else None
-    traces = store.batch_get_traces(request_message.trace_ids, None, experiment_ids=experiment_ids)
+    if has_experiment_ids:
+        traces = store.batch_get_traces(
+            request_message.trace_ids,
+            None,
+            experiment_ids=list(request_message.experiment_ids),
+        )
+    else:
+        traces = store.batch_get_traces(request_message.trace_ids, None)
     response_message = BatchGetTraces.Response()
     response_message.traces.extend([t.to_proto() for t in traces])
     return _wrap_response(response_message, pretty=False)
@@ -4200,10 +4206,12 @@ def _batch_get_trace_infos() -> Response:
         )
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
-    experiment_ids = list(request_message.experiment_ids) if has_experiment_ids else None
-    trace_infos = store.batch_get_trace_infos(
-        request_message.trace_ids, experiment_ids=experiment_ids
-    )
+    if has_experiment_ids:
+        trace_infos = store.batch_get_trace_infos(
+            request_message.trace_ids, experiment_ids=list(request_message.experiment_ids)
+        )
+    else:
+        trace_infos = store.batch_get_trace_infos(request_message.trace_ids)
     response_message = BatchGetTraceInfos.Response()
     response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
     return _wrap_trace_info_response(response_message)
