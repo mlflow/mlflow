@@ -32,6 +32,7 @@ def get_text_extensions():
         "tsv",
         "md",
         "rst",
+        "ipynb",
     ]
 
     if not IS_TRACING_SDK_ONLY:
