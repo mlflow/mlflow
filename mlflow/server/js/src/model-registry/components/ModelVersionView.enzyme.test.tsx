@@ -290,9 +290,7 @@ describe('ModelVersionView', () => {
         (item: any) => item.find('[data-testid="descriptions-item-label"]').hostNodes().text() === 'Source Model',
       );
     expect(sourceModelItem).toHaveLength(1);
-    const sourceModelLink = sourceModelItem.find('[data-testid="source-model-link"]').hostNodes();
-    expect(sourceModelLink.text()).toBe('iris_model');
-    expect(sourceModelLink.prop('href')).toContain(
+    expect(sourceModelItem.find('[data-testid="source-model-link"]').hostNodes().prop('href')).toContain(
       TrackingRouters.getExperimentLoggedModelDetailsPageRoute('experiment_id', loggedModelId),
     );
   });

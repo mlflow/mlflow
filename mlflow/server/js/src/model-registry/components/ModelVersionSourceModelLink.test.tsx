@@ -46,6 +46,17 @@ describe('ModelVersionSourceModelLink', () => {
     expect(screen.queryByTestId('source-model-loading')).not.toBeInTheDocument();
   });
 
+  test('uses the model ID as the link text when the logged model has an empty name', async () => {
+    server.use(
+      rest.get(loggedModelUrl, (req, res, ctx) =>
+        res(ctx.json({ model: { info: { model_id: loggedModelId, experiment_id: '123', name: '' } } })),
+      ),
+    );
+    renderComponent();
+
+    expect(await screen.findByTestId('source-model-link')).toHaveTextContent(loggedModelId);
+  });
+
   test('falls back to the plain model ID when the logged model cannot be fetched', async () => {
     server.use(
       rest.get(loggedModelUrl, (req, res, ctx) =>

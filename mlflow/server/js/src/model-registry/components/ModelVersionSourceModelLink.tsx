@@ -36,7 +36,7 @@ export const ModelVersionSourceModelLink = ({ loggedModelId }: { loggedModelId: 
       data-testid="source-model-link"
       to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId, loggedModelId)}
     >
-      {data?.info?.name ?? loggedModelId}
+      {data?.info?.name || loggedModelId}
     </Link>
   );
 };
