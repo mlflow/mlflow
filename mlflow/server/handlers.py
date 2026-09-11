@@ -1079,12 +1079,12 @@ def _validate_request_json_with_schema(
             )
 
 
-def _raw_request_has_field(field_name: str) -> bool:
-    """Check whether *field_name* was present in the raw HTTP request.
+def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
+    """Check whether a protobuf field was present in the incoming HTTP request.
 
     Protobuf ``repeated`` fields deserialise to ``[]`` whether the caller
-    sent an empty list *or* omitted the field entirely.  For auth-scoping
-    fields (e.g. ``experiment_ids``) the difference matters:
+    sent an empty list *or* omitted the field entirely.  For
+    fields where the difference matters (e.g. ``experiment_ids``) :
 
     * absent  → no auth restriction (``None``)
     * ``[]``  → deny-all (empty authorised set)
@@ -1094,8 +1094,9 @@ def _raw_request_has_field(field_name: str) -> bool:
     """
     try:
         if request.method == "GET":
-            return field_name in request.args
-        return field_name in (request.get_json(force=True, silent=True) or {})
+            return field.name in request.args
+        request_json = _get_normalized_request_json()
+        return field.name in request_json or field.json_name in request_json
     except RuntimeError:
         return False
 
@@ -4184,15 +4185,16 @@ def _batch_get_traces() -> Response:
         },
     )
     store = _get_tracking_store()
-    has_experiment_ids = _raw_request_has_field("experiment_ids")
-    if has_experiment_ids and isinstance(store, DatabricksTracingRestStore):
-        raise MlflowException(
-            "`experiment_ids` is not supported by `batch_get_traces` against the "
-            "Databricks-hosted backend.",
-            error_code=INVALID_PARAMETER_VALUE,
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    if has_experiment_ids:
+        traces = store.batch_get_traces(
+            request_message.trace_ids,
+            None,
+            experiment_ids=list(request_message.experiment_ids),
         )
-    experiment_ids = list(request_message.experiment_ids) if has_experiment_ids else None
-    traces = store.batch_get_traces(request_message.trace_ids, None, experiment_ids=experiment_ids)
+    else:
+        traces = store.batch_get_traces(request_message.trace_ids, None)
     response_message = BatchGetTraces.Response()
     response_message.traces.extend([t.to_proto() for t in traces])
     return _wrap_response(response_message, pretty=False)
@@ -4209,15 +4211,14 @@ def _batch_get_trace_infos() -> Response:
         },
     )
     store = _get_tracking_store()
-    if isinstance(store, DatabricksTracingRestStore):
-        raise MlflowNotImplementedException(
-            "`batch_get_trace_infos` is not implemented for the Databricks-hosted backend."
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
+    if has_experiment_ids:
+        trace_infos = store.batch_get_trace_infos(
+            request_message.trace_ids, experiment_ids=list(request_message.experiment_ids)
         )
-    has_experiment_ids = _raw_request_has_field("experiment_ids")
-    experiment_ids = list(request_message.experiment_ids) if has_experiment_ids else None
-    trace_infos = store.batch_get_trace_infos(
-        request_message.trace_ids, experiment_ids=experiment_ids
-    )
+    else:
+        trace_infos = store.batch_get_trace_infos(request_message.trace_ids)
     response_message = BatchGetTraceInfos.Response()
     response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
     return _wrap_trace_info_response(response_message)
@@ -5861,7 +5862,7 @@ def _search_active_experiment_ids(store):
     ``search_experiments`` search API. Use this only for genuine open-ended
     enumeration where the result size is unknown ahead of time and must be
     discovered by paging. For validating a bounded, caller-supplied ID list,
-    use ``store.list_active_experiment_ids`` instead — stuffing an
+    use ``store.filter_active_experiment_ids`` instead — stuffing an
     arbitrarily large ID list into a ``search_experiments`` filter string
     risks the SQLite bound-parameter limit that the narrow batch API avoids
     by chunking.
@@ -5892,7 +5893,8 @@ def _list_scorers():
     )
     response_message = ListScorers.Response()
     store = _get_tracking_store()
-    has_experiment_ids = _raw_request_has_field("experiment_ids")
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
     if request_message.experiment_id and has_experiment_ids:
         raise MlflowException(
             "Cannot specify both 'experiment_id' and 'experiment_ids'. Use "
@@ -5901,18 +5903,11 @@ def _list_scorers():
             error_code=INVALID_PARAMETER_VALUE,
         )
     if has_experiment_ids:
-        if isinstance(store, DatabricksTracingRestStore):
-            raise MlflowException(
-                "`experiment_ids` is not supported by `list_scorers` against the "
-                "Databricks-hosted backend.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if requested_experiment_ids := list(dict.fromkeys(request_message.experiment_ids)):
+        requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
+        if requested_experiment_ids:
             for eid in requested_experiment_ids:
                 _validate_experiment_id(eid)
-            valid_experiment_ids = store.list_active_experiment_ids(requested_experiment_ids)
-        else:
-            valid_experiment_ids = []
+        valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
         scorers = store.list_scorers_across_experiments(valid_experiment_ids)
     elif request_message.experiment_id:
         scorers = store.list_scorers(request_message.experiment_id)

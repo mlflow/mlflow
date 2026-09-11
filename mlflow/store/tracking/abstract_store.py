@@ -42,6 +42,7 @@ from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -1703,7 +1704,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             result.extend(self.list_scorers(exp_id))
         return result
 
-    def list_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+    def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
         """
         Given a bounded, caller-supplied batch of experiment IDs, return the
         subset that exist and are ACTIVE. This is NOT a general-purpose search:
@@ -1719,7 +1720,9 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         for exp_id in experiment_ids:
             try:
                 experiment = self.get_experiment(exp_id)
-            except MlflowException:
+            except MlflowException as exc:
+                if exc.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
                 continue
             if experiment.lifecycle_stage == LifecycleStage.ACTIVE:
                 result.append(exp_id)

@@ -67,7 +67,11 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
 )
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    ENDPOINT_NOT_FOUND,
+    PERMISSION_DENIED,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
@@ -578,6 +582,29 @@ def test_get_experiment_by_name():
             message_to_json(expected_message1),
         )
         assert mock_http.call_count == 1
+
+
+def test_filter_active_experiment_ids_ignores_not_found():
+    store = RestStore(lambda: None)
+    active_experiment = Experiment(
+        experiment_id="1",
+        name="active",
+        artifact_location="/active",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+    )
+    not_found = MlflowException("Experiment does not exist", RESOURCE_DOES_NOT_EXIST)
+
+    with mock.patch.object(store, "get_experiment", side_effect=[active_experiment, not_found]):
+        assert store.filter_active_experiment_ids(["1", "2"]) == ["1"]
+
+
+def test_filter_active_experiment_ids_propagates_remote_errors():
+    store = RestStore(lambda: None)
+    permission_denied = MlflowException("Permission denied", PERMISSION_DENIED)
+
+    with mock.patch.object(store, "get_experiment", side_effect=permission_denied):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            store.filter_active_experiment_ids(["1"])
 
 
 def test_search_experiments():

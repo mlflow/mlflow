@@ -306,6 +306,12 @@ class DatabricksTracingRestStore(RestStore):
         )
         return TraceInfo.from_proto(response_proto)
 
+    def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+        raise MlflowException.invalid_parameter_value(
+            "`experiment_ids` is not supported by `list_scorers` against the "
+            "Databricks-hosted backend."
+        )
+
     def batch_get_traces(
         self,
         trace_ids: list[str],
@@ -357,8 +363,8 @@ class DatabricksTracingRestStore(RestStore):
         Args:
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace.
-            experiment_ids: Unused. The Databricks-hosted backend's API has no
-                corresponding field for this scoping.
+            experiment_ids: Not supported because this method is not implemented for the
+                Databricks-hosted backend.
         """
         raise MlflowNotImplementedException()
 

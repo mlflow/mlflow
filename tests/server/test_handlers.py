@@ -3024,10 +3024,11 @@ def test_list_scorers_rejects_both_experiment_id_and_experiment_ids(
     mock_tracking_store.list_scorers_across_experiments.assert_not_called()
 
 
+@pytest.mark.parametrize("experiment_ids", [[], ["123"]])
 def test_list_scorers_with_experiment_ids_against_databricks_backend_not_supported(
-    mock_get_request_message,
+    mock_get_request_message, experiment_ids
 ):
-    mock_get_request_message.return_value = ListScorers(experiment_ids=["123"])
+    mock_get_request_message.return_value = ListScorers(experiment_ids=experiment_ids)
     creds = MlflowHostCreds("https://hello")
     databricks_store = DatabricksTracingRestStore(lambda: creds)
 
@@ -3045,6 +3046,7 @@ def test_list_scorers_with_experiment_ids_against_databricks_backend_not_support
 
 def test_list_scorers_with_empty_experiment_ids(mock_get_request_message, mock_tracking_store):
     mock_get_request_message.return_value = ListScorers(experiment_ids=[])
+    mock_tracking_store.filter_active_experiment_ids.return_value = []
     mock_tracking_store.list_scorers_across_experiments.return_value = []
 
     with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
@@ -3052,6 +3054,7 @@ def test_list_scorers_with_empty_experiment_ids(mock_get_request_message, mock_t
 
     mock_tracking_store.get_experiment.assert_not_called()
     mock_tracking_store.search_experiments.assert_not_called()
+    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with([])
     mock_tracking_store.list_scorers_across_experiments.assert_called_once_with([])
     mock_tracking_store.list_scorers.assert_not_called()
     assert resp.status_code == 200
@@ -3061,11 +3064,11 @@ def test_list_scorers_with_experiment_ids_batches_validation(
     mock_get_request_message, mock_tracking_store
 ):
     # experiment_ids should be validated via a single batched
-    # list_active_experiment_ids call rather than one get_experiment call per
+    # filter_active_experiment_ids call rather than one get_experiment call per
     # id, and must not go through the general-purpose search_experiments API
     # (which risks the SQLite bound-parameter limit for large id lists).
     mock_get_request_message.return_value = ListScorers(experiment_ids=["123"])
-    mock_tracking_store.list_active_experiment_ids.return_value = ["123"]
+    mock_tracking_store.filter_active_experiment_ids.return_value = ["123"]
     mock_tracking_store.list_scorers_across_experiments.return_value = []
 
     with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
@@ -3073,7 +3076,7 @@ def test_list_scorers_with_experiment_ids_batches_validation(
 
     mock_tracking_store.get_experiment.assert_not_called()
     mock_tracking_store.search_experiments.assert_not_called()
-    mock_tracking_store.list_active_experiment_ids.assert_called_once_with(["123"])
+    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with(["123"])
     mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(["123"])
     assert resp.status_code == 200
 
@@ -3095,18 +3098,18 @@ def test_list_scorers_with_invalid_experiment_id(mock_get_request_message, mock_
 def test_list_scorers_with_experiment_ids_drops_inactive_or_missing(
     mock_get_request_message, mock_tracking_store
 ):
-    # Simulates "456" being inactive or nonexistent: list_active_experiment_ids
+    # Simulates "456" being inactive or nonexistent: filter_active_experiment_ids
     # only resolves "123", and the handler passes along just the surviving id
     # instead of failing the whole request (best-effort scoping).
     mock_get_request_message.return_value = ListScorers(experiment_ids=["123", "456"])
-    mock_tracking_store.list_active_experiment_ids.return_value = ["123"]
+    mock_tracking_store.filter_active_experiment_ids.return_value = ["123"]
     mock_tracking_store.list_scorers_across_experiments.return_value = []
 
     with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
         _list_scorers()
 
     mock_tracking_store.get_experiment.assert_not_called()
-    mock_tracking_store.list_active_experiment_ids.assert_called_once_with(["123", "456"])
+    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with(["123", "456"])
     mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(["123"])
 
 
@@ -3668,9 +3671,7 @@ def test_batch_get_traces_handler(mock_get_request_message, mock_tracking_store)
     response = _batch_get_traces()
 
     # Verify the store was called with the correct trace IDs
-    mock_tracking_store.batch_get_traces.assert_called_once_with(
-        [trace_id_1, trace_id_2], None, experiment_ids=None
-    )
+    mock_tracking_store.batch_get_traces.assert_called_once_with([trace_id_1, trace_id_2], None)
 
     # Verify response was created
     assert response is not None
@@ -3690,10 +3691,25 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
 
     response = _batch_get_traces()
 
-    mock_tracking_store.batch_get_traces.assert_called_once_with([], None, experiment_ids=None)
+    mock_tracking_store.batch_get_traces.assert_called_once_with([], None)
 
     # Verify response was created
     assert response is not None
+    assert response.status_code == 200
+
+
+def test_batch_get_traces_handler_omits_scope_keyword_for_legacy_store(mock_get_request_message):
+    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"])
+
+    class LegacyStore:
+        def batch_get_traces(self, trace_ids, location=None):
+            assert trace_ids == ["t1"]
+            assert location is None
+            return []
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=LegacyStore()):
+        response = _batch_get_traces()
+
     assert response.status_code == 200
 
 
@@ -3774,9 +3790,7 @@ def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_s
 
     response = _batch_get_trace_infos()
 
-    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(
-        [trace_id_1, trace_id_2], experiment_ids=None
-    )
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with([trace_id_1, trace_id_2])
 
     assert response is not None
     assert response.status_code == 200
@@ -3784,6 +3798,23 @@ def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_s
     assert len(trace_infos) == 2
     assert trace_infos[0]["trace_id"] == trace_id_1
     assert trace_infos[1]["trace_id"] == trace_id_2
+
+
+def test_batch_get_trace_infos_handler_omits_scope_keyword_for_legacy_store(
+    mock_get_request_message,
+):
+    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=["t1"])
+
+    class LegacyStore:
+        def batch_get_trace_infos(self, trace_ids, location=None):
+            assert trace_ids == ["t1"]
+            assert location is None
+            return []
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=LegacyStore()):
+        response = _batch_get_trace_infos()
+
+    assert response.status_code == 200
 
 
 def test_batch_get_trace_infos_handler_with_experiment_ids(
@@ -3816,6 +3847,20 @@ def test_batch_get_trace_infos_handler_with_empty_experiment_ids(
     assert response.status_code == 200
 
 
+def test_batch_get_trace_infos_handler_with_camel_case_empty_experiment_ids(mock_tracking_store):
+    mock_tracking_store.batch_get_trace_infos.return_value = []
+
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"trace_ids": ["t1"], "experimentIds": []}),
+    ):
+        response = _batch_get_trace_infos()
+
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["t1"], experiment_ids=[])
+    assert response.status_code == 200
+
+
 def test_batch_get_trace_infos_against_databricks_backend_not_implemented(
     mock_get_request_message,
 ):
@@ -3832,35 +3877,45 @@ def test_batch_get_trace_infos_against_databricks_backend_not_implemented(
 
 
 def test_raw_request_has_field_get_query_string():
+    experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
+
     with app.test_request_context(method="GET", query_string={"experiment_ids": "1"}):
-        assert _raw_request_has_field("experiment_ids") is True
+        assert _raw_request_has_field(experiment_ids_field) is True
 
     with app.test_request_context(method="GET"):
-        assert _raw_request_has_field("experiment_ids") is False
+        assert _raw_request_has_field(experiment_ids_field) is False
 
 
 def test_raw_request_has_field_post_json_body():
+    experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
+
     with app.test_request_context(
         method="POST",
         content_type="application/json",
         data=json.dumps({"experiment_ids": ["1", "2"]}),
     ):
-        assert _raw_request_has_field("experiment_ids") is True
+        assert _raw_request_has_field(experiment_ids_field) is True
 
     # An explicit empty list is still a present field.
     with app.test_request_context(
         method="POST", content_type="application/json", data=json.dumps({"experiment_ids": []})
     ):
-        assert _raw_request_has_field("experiment_ids") is True
+        assert _raw_request_has_field(experiment_ids_field) is True
+
+    with app.test_request_context(
+        method="POST", content_type="application/json", data=json.dumps({"experimentIds": []})
+    ):
+        assert _raw_request_has_field(experiment_ids_field) is True
 
     with app.test_request_context(
         method="POST", content_type="application/json", data=json.dumps({"trace_ids": ["1"]})
     ):
-        assert _raw_request_has_field("experiment_ids") is False
+        assert _raw_request_has_field(experiment_ids_field) is False
 
 
 def test_raw_request_has_field_outside_request_context():
-    assert _raw_request_has_field("experiment_ids") is False
+    experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
+    assert _raw_request_has_field(experiment_ids_field) is False
 
 
 def test_batch_get_traces_handler_experiment_ids_field_detection_not_mocked(
@@ -3887,7 +3942,7 @@ def test_batch_get_traces_handler_experiment_ids_field_detection_not_mocked(
         method="POST", content_type="application/json", data=json.dumps({"trace_ids": ["t1"]})
     ):
         response = _batch_get_traces()
-    mock_tracking_store.batch_get_traces.assert_called_once_with(["t1"], None, experiment_ids=None)
+    mock_tracking_store.batch_get_traces.assert_called_once_with(["t1"], None)
     assert response.status_code == 200
 
 

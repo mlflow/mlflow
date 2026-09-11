@@ -981,9 +981,8 @@ def test_batch_get_trace_infos_is_workspace_scoped(workspace_tracking_store):
 
 def test_batch_get_traces_is_workspace_scoped_with_chunking(workspace_tracking_store, monkeypatch):
     """
-    The `experiment_ids` IN-list is chunked before the workspace-scoping hook
-    (`_filter_experiment_ids`) runs on each chunk; force chunk size 1 to
-    confirm that reordering doesn't let a cross-workspace id slip through.
+    Force both trace-ID and experiment-ID chunks to size 1. Every cross-product
+    query must retain the workspace scope applied by ``_trace_query``.
     """
     trace_id_a = f"tr-{uuid.uuid4().hex}"
     trace_id_b = f"tr-{uuid.uuid4().hex}"
@@ -1000,23 +999,25 @@ def test_batch_get_traces_is_workspace_scoped_with_chunking(workspace_tracking_s
             exp_b, [create_test_span(trace_id=trace_id_b, span_id=206, trace_num=920006)]
         )
 
-        monkeypatch.setattr(SqlAlchemyStore, "_ID_CHUNK_SIZE", 1)
+        monkeypatch.setattr(SqlAlchemyStore, "_TRACE_BATCH_QUERY_ID_CHUNK_SIZE", 1)
         traces = workspace_tracking_store.batch_get_traces(
             [trace_id_a, trace_id_b], experiment_ids=[exp_a, exp_b]
         )
         assert [t.info.trace_id for t in traces] == [trace_id_b]
 
 
-def test_list_active_experiment_ids_is_workspace_scoped(workspace_tracking_store):
+def test_filter_active_experiment_ids_is_workspace_scoped_and_active(workspace_tracking_store):
     with WorkspaceContext("team-a"):
         exp_a = workspace_tracking_store.create_experiment("list-active-exp-a")
 
     with WorkspaceContext("team-b"):
         exp_b = workspace_tracking_store.create_experiment("list-active-exp-b")
+        deleted_exp = workspace_tracking_store.create_experiment("list-deleted-exp-b")
+        workspace_tracking_store.delete_experiment(deleted_exp)
 
-        # `exp_a` belongs to a different workspace: it must be silently
-        # dropped rather than honored.
-        result = workspace_tracking_store.list_active_experiment_ids([exp_a, exp_b])
+        # `exp_a` belongs to a different workspace and `deleted_exp` is not active:
+        # both must be silently dropped rather than honored.
+        result = workspace_tracking_store.filter_active_experiment_ids([exp_a, exp_b, deleted_exp])
         assert result == [exp_b]
 
 
