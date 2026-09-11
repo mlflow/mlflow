@@ -271,12 +271,26 @@ describe('ModelVersionView', () => {
     };
     jest.mocked(useGetLoggedModelQuery).mockReturnValue({
       data: { info: { model_id: loggedModelId, experiment_id: 'experiment_id', name: 'iris_model' } },
-    } as any);
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      refetch: jest.fn(),
+    } as ReturnType<typeof useGetLoggedModelQuery>);
     wrapper = createComponentInstance(props);
-    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(3).text()).toBe('Source Run');
-    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(4).text()).toBe('Source Model');
-    expect(wrapper.find('[data-testid="descriptions-item-label"]').at(5).text()).toBe('Aliases');
-    const sourceModelLink = wrapper.find('[data-testid="source-model-link"]').hostNodes();
+    const descriptionLabels = wrapper
+      .find('[data-testid="descriptions-item-label"]')
+      .hostNodes()
+      .map((label: any) => label.text());
+    expect(descriptionLabels).toContain('Source Run');
+    expect(descriptionLabels).toContain('Source Model');
+    const sourceModelItem = wrapper
+      .find('[data-testid="descriptions-item"]')
+      .hostNodes()
+      .filterWhere(
+        (item: any) => item.find('[data-testid="descriptions-item-label"]').hostNodes().text() === 'Source Model',
+      );
+    expect(sourceModelItem).toHaveLength(1);
+    const sourceModelLink = sourceModelItem.find('[data-testid="source-model-link"]').hostNodes();
     expect(sourceModelLink.text()).toBe('iris_model');
     expect(sourceModelLink.prop('href')).toContain(
       TrackingRouters.getExperimentLoggedModelDetailsPageRoute('experiment_id', loggedModelId),

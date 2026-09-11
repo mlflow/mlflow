@@ -1287,6 +1287,10 @@
     "defaultMessage": "No traces yet",
     "description": "Title for the traces empty state"
   },
+  "3LhJyC": {
+    "defaultMessage": "Loading source model",
+    "description": "Screen reader label shown while the source logged model of a model version is loading"
+  },
   "3MZ6H+": {
     "defaultMessage": "Submit",
     "description": "Label for the submit button on the playground page that runs the chat completion request"
