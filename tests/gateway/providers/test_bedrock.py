@@ -219,6 +219,55 @@ bedrock_model_provider_fixtures = [
         },
     },
     {
+        # Titan names the nucleus-sampling field `topP`; forwarding `top_p` verbatim
+        # sends a key Bedrock does not recognise and silently ignores.
+        "provider": AmazonBedrockModelProvider.AMAZON,
+        "config": {
+            "name": "completions",
+            "endpoint_type": "llm/v1/completions",
+            "model": {
+                "provider": "bedrock",
+                "name": "amazon.titan-tg1-large",
+            },
+        },
+        "request": {
+            "prompt": "This is a test",
+            "max_tokens": 1000,
+            "top_p": 0.9,
+        },
+        "response": {
+            "results": [
+                {
+                    "tokenCount": 5,
+                    "outputText": "\nThis is a test",
+                    "completionReason": "FINISH",
+                }
+            ],
+            "inputTextTokenCount": 4,
+        },
+        "expected": {
+            "id": None,
+            "object": "text_completion",
+            "created": 1677858242,
+            "model": "amazon.titan-tg1-large",
+            "choices": [
+                {
+                    "text": "\nThis is a test",
+                    "index": 0,
+                    "finish_reason": None,
+                }
+            ],
+            "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+        },
+        "model_request": {
+            "inputText": "This is a test",
+            "textGenerationConfig": {
+                "maxTokenCount": 1000,
+                "topP": 0.9,
+            },
+        },
+    },
+    {
         "provider": AmazonBedrockModelProvider.AI21,
         "config": {
             "name": "completions",
@@ -234,6 +283,30 @@ bedrock_model_provider_fixtures = [
         "response": ai21_completion_response(),
         "expected": ai21_parsed_completion_response("ai21.j2-ultra"),
         "model_request": {"prompt": "This is a test"},
+    },
+    {
+        # Same as above for Jurassic, which also names the field `topP`.
+        "provider": AmazonBedrockModelProvider.AI21,
+        "config": {
+            "name": "completions",
+            "endpoint_type": "llm/v1/completions",
+            "model": {
+                "provider": "bedrock",
+                "name": "ai21.j2-ultra",
+            },
+        },
+        "request": {
+            "prompt": "This is a test",
+            "max_tokens": 1000,
+            "top_p": 0.9,
+        },
+        "response": ai21_completion_response(),
+        "expected": ai21_parsed_completion_response("ai21.j2-ultra"),
+        "model_request": {
+            "prompt": "This is a test",
+            "maxTokens": 1000,
+            "topP": 0.9,
+        },
     },
     {
         "provider": AmazonBedrockModelProvider.AI21,

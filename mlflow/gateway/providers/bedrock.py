@@ -58,7 +58,9 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
 
 
 class AWSTitanAdapter(ProviderAdapter):
-    # TODO handle top_p, top_k, etc.
+    # NB: `top_k` and the penalty parameters are deliberately left unmapped. Titan's
+    # textGenerationConfig accepts only maxTokenCount, stopSequences, temperature and
+    # topP, so renaming them would forward a key Bedrock still ignores.
     @classmethod
     def completions_to_model(cls, payload, config):
         n = payload.pop("n", 1)
@@ -74,7 +76,8 @@ class AWSTitanAdapter(ProviderAdapter):
         return {
             "inputText": payload.pop("prompt"),
             "textGenerationConfig": rename_payload_keys(
-                payload, {"max_tokens": "maxTokenCount", "stop": "stopSequences"}
+                payload,
+                {"max_tokens": "maxTokenCount", "stop": "stopSequences", "top_p": "topP"},
             ),
         }
 
@@ -109,7 +112,11 @@ class AWSTitanAdapter(ProviderAdapter):
 
 
 class AI21Adapter(ProviderAdapter):
-    # TODO handle top_p, top_k, etc.
+    # NB: `top_k` is deliberately left unmapped. Jurassic models expose `topKReturn`,
+    # which controls how many alternative tokens are reported rather than top-k
+    # sampling, so mapping `top_k` onto it would change the response instead of the
+    # sampling behaviour. The penalty parameters are objects here, not scalars, so
+    # they need a structural transform rather than a rename.
     @classmethod
     def completions_to_model(cls, payload, config):
         return rename_payload_keys(
@@ -118,6 +125,7 @@ class AI21Adapter(ProviderAdapter):
                 "stop": "stopSequences",
                 "n": "numResults",
                 "max_tokens": "maxTokens",
+                "top_p": "topP",
             },
         )
 
