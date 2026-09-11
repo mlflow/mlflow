@@ -482,21 +482,32 @@ def _wrap_generator(
 
             i = 0
             outputs = []
-            while True:
+            try:
+                while True:
+                    try:
+                        # NB: Set the span to active only when the generator is running
+                        with safe_set_span_in_context(span):
+                            value = next(generator)
+                    except StopIteration:
+                        break
+                    except Exception as e:
+                        _end_stream_span(span, error=e)
+                        raise e
+                    else:
+                        outputs.append(value)
+                        _record_chunk_event(span, value, i)
+                        yield value
+                        i += 1
+            except GeneratorExit:
+                # The consumer stopped early (break, close(), or garbage collection), so the
+                # span would otherwise never be ended. Close the wrapped generator under the
+                # span so its cleanup is attributed correctly, then end with the partial output.
                 try:
-                    # NB: Set the span to active only when the generator is running
                     with safe_set_span_in_context(span):
-                        value = next(generator)
-                except StopIteration:
-                    break
-                except Exception as e:
-                    _end_stream_span(span, error=e)
-                    raise e
-                else:
-                    outputs.append(value)
-                    _record_chunk_event(span, value, i)
-                    yield value
-                    i += 1
+                        generator.close()
+                finally:
+                    _end_stream_span(span, inputs, outputs, output_reducer)
+                raise
             _end_stream_span(span, inputs, outputs, output_reducer)
 
     else:
@@ -509,20 +520,28 @@ def _wrap_generator(
 
             i = 0
             outputs = []
-            while True:
+            try:
+                while True:
+                    try:
+                        with safe_set_span_in_context(span):
+                            value = await generator.__anext__()
+                    except StopAsyncIteration:
+                        break
+                    except Exception as e:
+                        _end_stream_span(span, error=e)
+                        raise e
+                    else:
+                        outputs.append(value)
+                        _record_chunk_event(span, value, i)
+                        yield value
+                        i += 1
+            except GeneratorExit:
                 try:
                     with safe_set_span_in_context(span):
-                        value = await generator.__anext__()
-                except StopAsyncIteration:
-                    break
-                except Exception as e:
-                    _end_stream_span(span, error=e)
-                    raise e
-                else:
-                    outputs.append(value)
-                    _record_chunk_event(span, value, i)
-                    yield value
-                    i += 1
+                        await generator.aclose()
+                finally:
+                    _end_stream_span(span, inputs, outputs, output_reducer)
+                raise
             _end_stream_span(span, inputs, outputs, output_reducer)
 
     return _wrap_function_safe(fn, wrapper)

@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 import json
 import os
 import subprocess
@@ -622,6 +623,83 @@ def test_trace_handle_exception_during_streaming():
     assert len(spans[0].events) == 2
     assert spans[0].events[0].name == "mlflow.chunk.item.0"
     assert spans[0].events[1].name == "exception"
+
+
+def _assert_partial_stream_trace(expected_outputs):
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == TraceState.OK
+    span = trace.data.spans[0]
+    assert span.outputs == expected_outputs
+    assert [e.name for e in span.events] == [
+        f"mlflow.chunk.item.{i}" for i in range(len(expected_outputs))
+    ]
+
+
+@pytest.mark.parametrize("stop_with_close", [False, True])
+def test_trace_stream_ended_when_consumer_stops_early(stop_with_close):
+    cleanup_span_active = []
+
+    @mlflow.trace
+    def stream():
+        try:
+            for i in range(5):
+                yield i
+        finally:
+            cleanup_span_active.append(mlflow.get_current_active_span() is not None)
+
+    if stop_with_close:
+        gen = stream()
+        assert next(gen) == 0
+        assert next(gen) == 1
+        gen.close()
+    else:
+        for chunk in stream():
+            if chunk == 1:
+                break
+
+    # The wrapped generator's cleanup must run while the stream span is active
+    assert cleanup_span_active == [True]
+    _assert_partial_stream_trace([0, 1])
+
+
+def test_trace_async_stream_ended_when_consumer_stops_early():
+    @mlflow.trace
+    async def astream():
+        for i in range(5):
+            yield i
+
+    async def consume():
+        gen = astream()
+        async for chunk in gen:
+            if chunk == 1:
+                break
+        await gen.aclose()
+
+    asyncio.run(consume())
+    _assert_partial_stream_trace([0, 1])
+
+
+def test_trace_nested_stream_ended_when_consumer_stops_early():
+    @mlflow.trace
+    def stream():
+        for i in range(5):
+            yield i
+
+    @mlflow.trace
+    def agent():
+        return list(itertools.islice(stream(), 2))
+
+    assert agent() == [0, 1]
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert [s.name for s in spans] == ["agent", "stream"]
+    assert spans[1].parent_id == spans[0].span_id
+    assert spans[1].outputs == [0, 1]
+    assert spans[1].status.status_code == SpanStatusCode.OK
 
 
 @pytest.mark.parametrize(
