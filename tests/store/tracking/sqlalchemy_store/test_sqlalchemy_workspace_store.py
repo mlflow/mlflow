@@ -933,6 +933,93 @@ async def test_log_spans_async_is_workspace_scoped(workspace_tracking_store):
         assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
+def test_batch_get_traces_is_workspace_scoped(workspace_tracking_store):
+    trace_id_a = f"tr-{uuid.uuid4().hex}"
+    trace_id_b = f"tr-{uuid.uuid4().hex}"
+
+    with WorkspaceContext("team-a"):
+        exp_a = workspace_tracking_store.create_experiment("batch-traces-exp-a")
+        workspace_tracking_store.log_spans(
+            exp_a, [create_test_span(trace_id=trace_id_a, span_id=201, trace_num=920001)]
+        )
+
+    with WorkspaceContext("team-b"):
+        exp_b = workspace_tracking_store.create_experiment("batch-traces-exp-b")
+        workspace_tracking_store.log_spans(
+            exp_b, [create_test_span(trace_id=trace_id_b, span_id=202, trace_num=920002)]
+        )
+
+        # `exp_a` belongs to a different workspace: it must be silently dropped rather
+        # than honored, so the cross-workspace trace doesn't leak into the response.
+        traces = workspace_tracking_store.batch_get_traces(
+            [trace_id_a, trace_id_b], experiment_ids=[exp_a, exp_b]
+        )
+        assert [t.info.trace_id for t in traces] == [trace_id_b]
+
+
+def test_batch_get_trace_infos_is_workspace_scoped(workspace_tracking_store):
+    trace_id_a = f"tr-{uuid.uuid4().hex}"
+    trace_id_b = f"tr-{uuid.uuid4().hex}"
+
+    with WorkspaceContext("team-a"):
+        exp_a = workspace_tracking_store.create_experiment("batch-trace-infos-exp-a")
+        workspace_tracking_store.log_spans(
+            exp_a, [create_test_span(trace_id=trace_id_a, span_id=203, trace_num=920003)]
+        )
+
+    with WorkspaceContext("team-b"):
+        exp_b = workspace_tracking_store.create_experiment("batch-trace-infos-exp-b")
+        workspace_tracking_store.log_spans(
+            exp_b, [create_test_span(trace_id=trace_id_b, span_id=204, trace_num=920004)]
+        )
+
+        trace_infos = workspace_tracking_store.batch_get_trace_infos(
+            [trace_id_a, trace_id_b], experiment_ids=[exp_a, exp_b]
+        )
+        assert [ti.trace_id for ti in trace_infos] == [trace_id_b]
+
+
+def test_batch_get_traces_is_workspace_scoped_with_chunking(workspace_tracking_store, monkeypatch):
+    """
+    The `experiment_ids` IN-list is chunked before the workspace-scoping hook
+    (`_filter_experiment_ids`) runs on each chunk; force chunk size 1 to
+    confirm that reordering doesn't let a cross-workspace id slip through.
+    """
+    trace_id_a = f"tr-{uuid.uuid4().hex}"
+    trace_id_b = f"tr-{uuid.uuid4().hex}"
+
+    with WorkspaceContext("team-a"):
+        exp_a = workspace_tracking_store.create_experiment("batch-traces-chunk-exp-a")
+        workspace_tracking_store.log_spans(
+            exp_a, [create_test_span(trace_id=trace_id_a, span_id=205, trace_num=920005)]
+        )
+
+    with WorkspaceContext("team-b"):
+        exp_b = workspace_tracking_store.create_experiment("batch-traces-chunk-exp-b")
+        workspace_tracking_store.log_spans(
+            exp_b, [create_test_span(trace_id=trace_id_b, span_id=206, trace_num=920006)]
+        )
+
+        monkeypatch.setattr(SqlAlchemyStore, "_ID_CHUNK_SIZE", 1)
+        traces = workspace_tracking_store.batch_get_traces(
+            [trace_id_a, trace_id_b], experiment_ids=[exp_a, exp_b]
+        )
+        assert [t.info.trace_id for t in traces] == [trace_id_b]
+
+
+def test_list_active_experiment_ids_is_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_a = workspace_tracking_store.create_experiment("list-active-exp-a")
+
+    with WorkspaceContext("team-b"):
+        exp_b = workspace_tracking_store.create_experiment("list-active-exp-b")
+
+        # `exp_a` belongs to a different workspace: it must be silently
+        # dropped rather than honored.
+        result = workspace_tracking_store.list_active_experiment_ids([exp_a, exp_b])
+        assert result == [exp_b]
+
+
 def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_tracking_store):
     trace_id = f"tr-{uuid.uuid4().hex}"
 

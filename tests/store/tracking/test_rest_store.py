@@ -71,6 +71,8 @@ from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_E
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
+    BatchGetTraceInfos,
+    BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
@@ -1522,6 +1524,88 @@ def test_get_trace_raises_other_errors():
     with mock.patch.object(store, "_call_endpoint", side_effect=genuine_error):
         with pytest.raises(MlflowException, match=error_message):
             store.get_trace("abc123")
+
+
+def test_batch_get_traces_forwards_explicit_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraces.Response()
+    ) as mock_call:
+        store.batch_get_traces(["tr-1", "tr-2"], experiment_ids=["1", "2"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraces,
+            message_to_json(BatchGetTraces(trace_ids=["tr-1", "tr-2"], experiment_ids=["1", "2"])),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGet",
+        )
+
+
+def test_batch_get_traces_omits_experiment_ids_when_not_set():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraces.Response()
+    ) as mock_call:
+        store.batch_get_traces(["tr-1"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraces,
+            message_to_json(BatchGetTraces(trace_ids=["tr-1"])),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGet",
+        )
+
+
+def test_batch_get_traces_short_circuits_on_empty_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        result = store.batch_get_traces(["tr-1"], experiment_ids=[])
+
+        assert result == []
+        mock_call.assert_not_called()
+
+
+def test_batch_get_trace_infos_forwards_explicit_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraceInfos.Response()
+    ) as mock_call:
+        store.batch_get_trace_infos(["tr-1", "tr-2"], experiment_ids=["1", "2"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraceInfos,
+            message_to_json(
+                BatchGetTraceInfos(trace_ids=["tr-1", "tr-2"], experiment_ids=["1", "2"])
+            ),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGetInfos",
+        )
+
+
+def test_batch_get_trace_infos_omits_experiment_ids_when_not_set():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraceInfos.Response()
+    ) as mock_call:
+        store.batch_get_trace_infos(["tr-1"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraceInfos,
+            message_to_json(BatchGetTraceInfos(trace_ids=["tr-1"])),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGetInfos",
+        )
+
+
+def test_batch_get_trace_infos_short_circuits_on_empty_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        result = store.batch_get_trace_infos(["tr-1"], experiment_ids=[])
+
+        assert result == []
+        mock_call.assert_not_called()
 
 
 def test_log_logged_model_params():
