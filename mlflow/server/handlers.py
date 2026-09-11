@@ -1075,8 +1075,8 @@ def _validate_request_json_with_schema(
             )
 
 
-def _raw_request_has_field(field_name: str) -> bool:
-    """Check whether *field_name* was present in the raw HTTP request.
+def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
+    """Check whether a protobuf field was present in the incoming HTTP request.
 
     Protobuf ``repeated`` fields deserialise to ``[]`` whether the caller
     sent an empty list *or* omitted the field entirely.  For auth-scoping
@@ -1090,8 +1090,9 @@ def _raw_request_has_field(field_name: str) -> bool:
     """
     try:
         if request.method == "GET":
-            return field_name in request.args
-        return field_name in (request.get_json(force=True, silent=True) or {})
+            return field.name in request.args
+        request_json = _get_normalized_request_json()
+        return field.name in request_json or field.json_name in request_json
     except RuntimeError:
         return False
 
@@ -4167,7 +4168,8 @@ def _batch_get_traces() -> Response:
         },
     )
     store = _get_tracking_store()
-    has_experiment_ids = _raw_request_has_field("experiment_ids")
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
     if has_experiment_ids and isinstance(store, DatabricksTracingRestStore):
         raise MlflowException(
             "`experiment_ids` is not supported by `batch_get_traces` against the "
@@ -4196,7 +4198,8 @@ def _batch_get_trace_infos() -> Response:
         raise MlflowNotImplementedException(
             "`batch_get_trace_infos` is not implemented for the Databricks-hosted backend."
         )
-    has_experiment_ids = _raw_request_has_field("experiment_ids")
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
     experiment_ids = list(request_message.experiment_ids) if has_experiment_ids else None
     trace_infos = store.batch_get_trace_infos(
         request_message.trace_ids, experiment_ids=experiment_ids
@@ -5875,7 +5878,8 @@ def _list_scorers():
     )
     response_message = ListScorers.Response()
     store = _get_tracking_store()
-    has_experiment_ids = _raw_request_has_field("experiment_ids")
+    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
     if request_message.experiment_id and has_experiment_ids:
         raise MlflowException(
             "Cannot specify both 'experiment_id' and 'experiment_ids'. Use "

@@ -3574,6 +3574,20 @@ def test_batch_get_trace_infos_handler_with_empty_experiment_ids(
     assert response.status_code == 200
 
 
+def test_batch_get_trace_infos_handler_with_camel_case_empty_experiment_ids(mock_tracking_store):
+    mock_tracking_store.batch_get_trace_infos.return_value = []
+
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"trace_ids": ["t1"], "experimentIds": []}),
+    ):
+        response = _batch_get_trace_infos()
+
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["t1"], experiment_ids=[])
+    assert response.status_code == 200
+
+
 def test_batch_get_trace_infos_against_databricks_backend_not_implemented(
     mock_get_request_message,
 ):
@@ -3590,35 +3604,45 @@ def test_batch_get_trace_infos_against_databricks_backend_not_implemented(
 
 
 def test_raw_request_has_field_get_query_string():
+    experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
+
     with app.test_request_context(method="GET", query_string={"experiment_ids": "1"}):
-        assert _raw_request_has_field("experiment_ids") is True
+        assert _raw_request_has_field(experiment_ids_field) is True
 
     with app.test_request_context(method="GET"):
-        assert _raw_request_has_field("experiment_ids") is False
+        assert _raw_request_has_field(experiment_ids_field) is False
 
 
 def test_raw_request_has_field_post_json_body():
+    experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
+
     with app.test_request_context(
         method="POST",
         content_type="application/json",
         data=json.dumps({"experiment_ids": ["1", "2"]}),
     ):
-        assert _raw_request_has_field("experiment_ids") is True
+        assert _raw_request_has_field(experiment_ids_field) is True
 
     # An explicit empty list is still a present field.
     with app.test_request_context(
         method="POST", content_type="application/json", data=json.dumps({"experiment_ids": []})
     ):
-        assert _raw_request_has_field("experiment_ids") is True
+        assert _raw_request_has_field(experiment_ids_field) is True
+
+    with app.test_request_context(
+        method="POST", content_type="application/json", data=json.dumps({"experimentIds": []})
+    ):
+        assert _raw_request_has_field(experiment_ids_field) is True
 
     with app.test_request_context(
         method="POST", content_type="application/json", data=json.dumps({"trace_ids": ["1"]})
     ):
-        assert _raw_request_has_field("experiment_ids") is False
+        assert _raw_request_has_field(experiment_ids_field) is False
 
 
 def test_raw_request_has_field_outside_request_context():
-    assert _raw_request_has_field("experiment_ids") is False
+    experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
+    assert _raw_request_has_field(experiment_ids_field) is False
 
 
 def test_batch_get_traces_handler_experiment_ids_field_detection_not_mocked(
