@@ -90,10 +90,13 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
+    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactUri } = this.props;
 
     this.props
-      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags }, getArtifactContent)
+      .getArtifact?.(
+        { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags, artifactUri },
+        getArtifactContent,
+      )
       .then((html: string) => {
         this.setState({ html: html, loading: false, path: this.props.path });
       })

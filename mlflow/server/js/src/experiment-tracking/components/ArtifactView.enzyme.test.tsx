@@ -441,6 +441,24 @@ describe('ArtifactView', () => {
       },
     );
 
+    test('should download run artifacts from an eligible same-origin artifact-proxy root', async () => {
+      presignedSpy.mockResolvedValue({ presigned_url: 'https://s3.example.com/signed', file_size: 100 });
+      proxiedPresignedSpy.mockResolvedValue({ url: 'https://s3.example.com/proxied-signed', file_size: 100 });
+
+      const implInstance = getImplInstance({
+        artifactRootUri: `${window.location.origin}/api/2.0/mlflow-artifacts/artifacts/0/fakeUuid/artifacts`,
+        multipartDownloadsEnabled: false,
+      });
+      await implInstance.onDownloadClick('fakeUuid', 'summary.txt');
+
+      expect(presignedSpy).not.toHaveBeenCalled();
+      expect(proxiedPresignedSpy).not.toHaveBeenCalled();
+      expect(assignMock).not.toHaveBeenCalled();
+      expectBlobDownload(
+        `${window.location.origin}/api/2.0/mlflow-artifacts/artifacts/0/fakeUuid/artifacts/summary.txt`,
+      );
+    });
+
     test('should fail closed without fallback when the presigned request is denied with 403', async () => {
       const notifySpy = jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
       presignedSpy.mockRejectedValue(new ErrorWrapper('permission denied', 403));
