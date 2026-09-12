@@ -1233,8 +1233,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
         """
         with self.ManagedSessionMaker(read_only=False) as session:
-            run = self._get_run(run_uuid=run_id, session=session)
-            session.delete(run)
+            # ORM delete cascades load every child row into the session, which can exhaust memory
+            # for runs with large metric histories. Bulk deletes keep memory usage independent of
+            # history size.
+            self._get_run(run_uuid=run_id, session=session)
+            for model in (SqlMetric, SqlLatestMetric, SqlParam, SqlTag):
+                session.query(model).filter(model.run_uuid == run_id).delete(
+                    synchronize_session=False
+                )
+            session.query(SqlRun).filter(SqlRun.run_uuid == run_id).delete(
+                synchronize_session=False
+            )
 
     def _get_deleted_runs(self, older_than=0):
         """
