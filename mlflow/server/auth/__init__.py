@@ -4,6 +4,7 @@ Usage
 
 .. code-block:: bash
 
+    export MLFLOW_AUTH_ADMIN_PASSWORD="<strong-password>"  # required on first start
     mlflow server --app-name basic-auth
 """
 
@@ -50,8 +51,12 @@ from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
+    _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
+    MLFLOW_AUTH_ADMIN_PASSWORD,
+    MLFLOW_AUTH_ADMIN_USERNAME,
+    MLFLOW_AUTH_CONFIG_PATH,
     MLFLOW_BASIC_AUTH_FAIL_CLOSED,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -416,6 +421,7 @@ from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.validation import _validate_password
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 try:
@@ -485,9 +491,10 @@ def _authenticate_cached(username: str, password: str) -> User | None:
         if not store.authenticate_user(username, password):
             return None
         try:
-            return store.get_user(username)
+            user = store.get_user(username)
         except MlflowException:
             return None
+        return None if _is_disabled_legacy_admin_login(username, password, user) else user
 
     key = _auth_cache_key(username, password)
     with _USER_AUTH_CACHE_LOCK:
@@ -504,6 +511,9 @@ def _authenticate_cached(username: str, password: str) -> User | None:
     except MlflowException:
         # User was deleted between authenticate_user and get_user — treat as auth
         # failure and don't cache anything.
+        return None
+    if _is_disabled_legacy_admin_login(username, password, user):
+        # A rejected credential must not be cached as valid either.
         return None
     with _USER_AUTH_CACHE_LOCK:
         _USER_AUTH_CACHE[key] = user
@@ -3355,7 +3365,9 @@ def authenticate_request_basic_auth() -> Authorization | Response:
     # _authenticate_cached does for the sake of cache-population — the Flask
     # path only cares about the yes/no auth decision.
     if _USER_AUTH_CACHE is None:
-        if store.authenticate_user(username, password):
+        if store.authenticate_user(username, password) and not _is_disabled_legacy_admin_login(
+            username, password
+        ):
             return request.authorization
     elif _authenticate_cached(username, password):
         return request.authorization
@@ -4378,37 +4390,156 @@ def _after_request(resp: Response):
     return resp
 
 
-def create_admin_user(username, password):
-    if not store.has_user(username):
+# The admin credentials that earlier MLflow versions shipped in basic_auth.ini
+# (https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). The password is never accepted for
+# bootstrapping a new admin user or for logging in as an admin, and deployments where an admin
+# still has it are warned at startup.
+_LEGACY_DEFAULT_ADMIN_USERNAME = "admin"
+_LEGACY_DEFAULT_ADMIN_PASSWORD = "password1234"
+
+
+def _is_disabled_legacy_admin_login(username: str, password: str, user: User | None = None) -> bool:
+    """Whether a credential that passed ``store.authenticate_user`` is the legacy default password
+    on an admin account, which the server no longer accepts.
+
+    Upgraded deployments keep starting so nobody is locked out of the server, but the publicly
+    known admin credential must not stay usable. Rotation needs no working admin login: set
+    ``MLFLOW_AUTH_ADMIN_PASSWORD`` (or ``admin_password``) and restart, see ``create_admin_user``.
+    """
+    if password != _LEGACY_DEFAULT_ADMIN_PASSWORD:
+        return False
+    if user is None:
+        try:
+            user = store.get_user(username)
+        except MlflowException:
+            return False
+    if not user.is_admin:
+        return False
+    _logger.warning(
+        f"Rejected a login by admin user '{username}' with the insecure default password that "
+        "older MLflow versions shipped in basic_auth.ini "
+        "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). To rotate it, set "
+        f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} (or `admin_password` in the configuration file "
+        f"referenced by {MLFLOW_AUTH_CONFIG_PATH.name}) to a new password and restart the server."
+    )
+    return True
+
+
+def _validate_bootstrap_admin_username(username: str | None) -> None:
+    if not username:
+        raise MlflowException(
+            "MLflow Authentication needs a username for the admin user, but none is configured "
+            f"(or it is empty). Set the {MLFLOW_AUTH_ADMIN_USERNAME.name} environment variable, "
+            "or set `admin_username` in the configuration file referenced by "
+            f"{MLFLOW_AUTH_CONFIG_PATH.name}, and restart the server."
+        )
+
+
+def _validate_bootstrap_admin_password(username: str, password: str | None) -> None:
+    if not password:
+        raise MlflowException(
+            f"MLflow Authentication needs a password to create the admin user '{username}', "
+            "but none is configured (or it is empty). MLflow ships no default admin password. "
+            "Set the "
+            f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} environment variable, or set `admin_password` "
+            f"in the configuration file referenced by {MLFLOW_AUTH_CONFIG_PATH.name}, and "
+            "restart the server."
+        )
+    if password == _LEGACY_DEFAULT_ADMIN_PASSWORD:
+        raise MlflowException(
+            "Refusing to use the insecure default password that older MLflow versions shipped "
+            f"in basic_auth.ini for the admin user '{username}' "
+            "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr). Set "
+            f"{MLFLOW_AUTH_ADMIN_PASSWORD.name} or `admin_password` in the configuration file "
+            f"referenced by {MLFLOW_AUTH_CONFIG_PATH.name} to a different password."
+        )
+    # Apply the store's password policy here so a too-short bootstrap password names the
+    # setting to fix, like the other misconfigurations, instead of failing inside create_user.
+    try:
+        _validate_password(password)
+    except MlflowException as e:
+        raise MlflowException(
+            f"The configured password for the admin user '{username}' is invalid: {e.message} "
+            f"Set {MLFLOW_AUTH_ADMIN_PASSWORD.name} or `admin_password` in the configuration "
+            f"file referenced by {MLFLOW_AUTH_CONFIG_PATH.name} to a valid password."
+        ) from e
+
+
+def bootstrap_admin_user() -> None:
+    """Initialize the auth store and create the admin user if it does not exist yet.
+
+    Runs in every worker via ``create_app`` and, before any worker exists, in the
+    ``mlflow server`` process. The uvicorn supervisor restarts workers that die while loading
+    the app, so a bootstrap failure inside a worker would otherwise turn into an endless
+    restart loop instead of one clear error that exits the command.
+    """
+    store.init_db(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
+    create_admin_user(auth_config.admin_username, auth_config.admin_password)
+
+
+def _warn_if_legacy_default_password_in_use(username: str) -> None:
+    # The configured password only matters for bootstrapping, so inspect the stored credentials
+    # instead. Besides the configured admin, always check the historical `admin` account: an
+    # operator who overrides the bootstrap username on an upgraded deployment must still hear
+    # that the publicly known credential is usable.
+    for candidate in dict.fromkeys((username, _LEGACY_DEFAULT_ADMIN_USERNAME)):
+        if store.authenticate_user(candidate, _LEGACY_DEFAULT_ADMIN_PASSWORD, use_primary=True):
+            _logger.warning(
+                f"The MLflow basic auth user '{candidate}' still uses the insecure default "
+                "password that older MLflow versions shipped in basic_auth.ini "
+                "(https://github.com/advisories/GHSA-gq3w-7jj3-x7gr); admin logins with it are "
+                f"rejected. Rotate it by setting {MLFLOW_AUTH_ADMIN_PASSWORD.name} (or "
+                "`admin_password` in the configuration file) to a new password and restarting "
+                f"the server, or have another admin update it via {UPDATE_USER_PASSWORD} or "
+                "delete the user."
+            )
+
+
+def _init_store_for_app() -> None:
+    if _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.get():
+        # The `mlflow server` CLI already bootstrapped the admin user and ran the legacy-password
+        # check before spawning this worker, so only the store engine needs initializing here.
+        # This trusts that the CLI resolved the same `database_uri` as this worker. The variable
+        # is private and only the CLI sets it; importing `create_app` directly with it set skips
+        # both checks.
+        store.init_db(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
+    else:
+        bootstrap_admin_user()
+
+
+def create_admin_user(username: str | None, password: str | None) -> None:
+    _validate_bootstrap_admin_username(username)
+    # Read from the primary database: with a read replica configured, replication lag during a
+    # restart could make an existing admin look absent and fail bootstrap for a missing password.
+    if not store.has_user(username, use_primary=True):
+        _validate_bootstrap_admin_password(username, password)
         try:
             store.create_user(username, password, is_admin=True)
-            _logger.info(
-                f"Created admin user '{username}'. "
-                "It is recommended that you set a new password as soon as possible "
-                f"on {UPDATE_USER_PASSWORD}."
-            )
+            _logger.info(f"Created admin user '{username}'.")
         except MlflowException as e:
-            if isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
-                # When multiple workers are starting up at the same time, it's possible
-                # that they try to create the admin user at the same time and one of them
-                # will succeed while the others will fail with an IntegrityError.
-                return
-            raise
-
-
-# Must match the admin_password shipped in mlflow/server/auth/basic_auth.ini.
-_DEFAULT_ADMIN_PASSWORD = "password1234"
-
-
-def _warn_if_default_admin_password(password):
-    if password == _DEFAULT_ADMIN_PASSWORD:
+            # When multiple workers are starting up at the same time, it's possible
+            # that they try to create the admin user at the same time and one of them
+            # will succeed while the others will fail with an IntegrityError.
+            if not isinstance(e.__cause__, sqlalchemy.exc.IntegrityError):
+                raise
+    elif (
+        password is not None
+        and password != _LEGACY_DEFAULT_ADMIN_PASSWORD
+        and store.authenticate_user(username, _LEGACY_DEFAULT_ADMIN_PASSWORD, use_primary=True)
+    ):
+        # Upgrade path for deployments bootstrapped with the shipped default: logins with it are
+        # rejected, so the configured bootstrap password doubles as the rotation mechanism that
+        # needs no working admin credential. A configured legacy value is a stale copy of the old
+        # ini rather than a rotation request, so it must not fail startup: the deployment keeps
+        # running with the login block and the warning below.
+        _validate_bootstrap_admin_password(username, password)
+        store.update_user(username, password=password)
         _logger.warning(
-            "The MLflow basic auth admin account is using the default password shipped "
-            "in basic_auth.ini. Change it before exposing this server beyond localhost. "
-            "To override, set the MLFLOW_AUTH_CONFIG_PATH environment variable to point "
-            "to a custom basic_auth.ini with a non-default admin_password, or update the "
-            f"password via {UPDATE_USER_PASSWORD} after startup."
+            f"Replaced the insecure default password of admin user '{username}' with the "
+            f"configured one. Unset {MLFLOW_AUTH_ADMIN_PASSWORD.name} (or remove "
+            "`admin_password` from the configuration file) now that the rotation is done."
         )
+    _warn_if_legacy_default_password_in_use(username)
 
 
 def alert(href: str):
@@ -5899,6 +6030,26 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
 ]
 
 
+def get_flask_server_secret_key() -> str:
+    """Return the static secret key the basic-auth app needs for CSRF protection.
+
+    Like ``bootstrap_admin_user``, this runs in every worker via ``create_app`` and, before
+    any worker exists, in the ``mlflow server`` process so a missing key fails the command
+    with one clear error instead of an endless worker restart loop.
+    """
+    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    if not secret_key:
+        raise MlflowException(
+            "A static secret key needs to be set for CSRF protection. Please set the "
+            "`MLFLOW_FLASK_SERVER_SECRET_KEY` environment variable before starting the "
+            "server. For example:\n\n"
+            "export MLFLOW_FLASK_SERVER_SECRET_KEY='my-secret-key'\n\n"
+            "If you are using multiple servers, please ensure this key is consistent between "
+            "them, in order to prevent validation issues."
+        )
+    return secret_key
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -5918,17 +6069,7 @@ def create_app(app: Flask = app):
     # a secret key is required for flashing, and also for
     # CSRF protection. it's important that this is a static key,
     # otherwise CSRF validation won't work across workers.
-    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
-    if not secret_key:
-        raise MlflowException(
-            "A static secret key needs to be set for CSRF protection. Please set the "
-            "`MLFLOW_FLASK_SERVER_SECRET_KEY` environment variable before starting the "
-            "server. For example:\n\n"
-            "export MLFLOW_FLASK_SERVER_SECRET_KEY='my-secret-key'\n\n"
-            "If you are using multiple servers, please ensure this key is consistent between "
-            "them, in order to prevent validation issues."
-        )
-    app.secret_key = secret_key
+    app.secret_key = get_flask_server_secret_key()
 
     # we only need to protect the CREATE_USER_UI route, since that's
     # the only browser-accessible route. the rest are client / REST
@@ -5937,12 +6078,7 @@ def create_app(app: Flask = app):
     csrf = CSRFProtect()
     csrf.init_app(app)
 
-    store.init_db(
-        auth_config.database_uri,
-        read_db_uri=auth_config.read_database_uri,
-    )
-    create_admin_user(auth_config.admin_username, auth_config.admin_password)
-    _warn_if_default_admin_password(auth_config.admin_password)
+    _init_store_for_app()
 
     _auth_initialized = True
 
