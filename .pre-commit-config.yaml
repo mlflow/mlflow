@@ -109,7 +109,7 @@ repos:
 
       - id: check-github-workflows
         name: check-github-workflows
-        entry: uv run --only-group lint check-jsonschema --builtin-schema vendor.github-workflows
+        entry: uv run --only-group lint check-jsonschema --schemafile https://raw.githubusercontent.com/SchemaStore/schemastore/a1bfb2b17627062b6a938153c065cb58baef6fe7/src/schemas/json/github-workflow.json
         language: system
         files: ^\.github/workflows/[^/]+\.ya?ml$
         stages: [pre-commit]

@@ -32,6 +32,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   build:
@@ -148,16 +149,17 @@ jobs:
         run: |
           # Test the exact commit that was checked out and used to build the wheel.
           REF=$(git rev-parse HEAD)
-          if [ "$MATRIX_TYPE" == "skinny" ]; then
-            URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/skinny"
-          elif [ "$MATRIX_TYPE" == "tracing" ]; then
-            URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/tracing"
+          # A source tarball resolves the commit without fetching the repository's
+          # full history, which `uv` does for a `git+` requirement.
+          if [ "$MATRIX_TYPE" == "dev" ]; then
+            FRAGMENT=""
           else
-            URL="git+https://github.com/${REPO}.git@${REF}"
+            FRAGMENT="#subdirectory=libs/${MATRIX_TYPE}"
           fi
+          URL="https://github.com/${REPO}/archive/${REF}.tar.gz${FRAGMENT}"
 
           for attempt in 1 2 3; do
-            if timeout -k 10 240 uv run --isolated --no-project --with "$URL" python -I -c 'import mlflow; print(mlflow.__version__)'; then
+            if timeout -k 10 120 uv run --isolated --no-project --with "$URL" python -I -c 'import mlflow; print(mlflow.__version__)'; then
               exit 0
             fi
             echo "::warning::Installation attempt ${attempt} failed or timed out"

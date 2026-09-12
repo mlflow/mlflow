@@ -52,6 +52,7 @@ env:
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 permissions: {}
+cache-mode: none
 
 jobs:
   set-matrix:
