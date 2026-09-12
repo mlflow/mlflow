@@ -118,6 +118,25 @@ class LiteLLMProvider(BaseProvider):
 
         return kwargs
 
+    async def _prepare_litellm_kwargs(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Build LiteLLM kwargs and refuse a private ``api_base`` first.
+
+        LiteLLM sends requests through its own HTTP client rather than ``_aiohttp_post``, so
+        the connect-time guard in ``mlflow.gateway.providers.utils`` never sees them. The
+        upstream host is therefore checked here, before the URL is handed to LiteLLM.
+        """
+        from fastapi import HTTPException
+
+        from mlflow.gateway.ssrf import GatewaySSRFProtectionError, assert_public_upstream_host
+
+        kwargs = self._build_litellm_kwargs(payload)
+        if api_base := kwargs.get("api_base"):
+            try:
+                await assert_public_upstream_host(api_base)
+            except GatewaySSRFProtectionError as e:
+                raise HTTPException(status_code=502, detail=str(e)) from e
+        return kwargs
+
     async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         import litellm
         from fastapi.encoders import jsonable_encoder
@@ -125,7 +144,7 @@ class LiteLLMProvider(BaseProvider):
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
-        kwargs = self._build_litellm_kwargs(
+        kwargs = await self._prepare_litellm_kwargs(
             self.adapter_class.chat_to_model(payload_dict, self.config)
         )
 
@@ -177,7 +196,7 @@ class LiteLLMProvider(BaseProvider):
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
-        kwargs = self._build_litellm_kwargs(
+        kwargs = await self._prepare_litellm_kwargs(
             self.adapter_class.chat_to_model(payload_dict, self.config)
         )
         kwargs["stream"] = True
@@ -243,7 +262,7 @@ class LiteLLMProvider(BaseProvider):
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
-        kwargs = self._build_litellm_kwargs(
+        kwargs = await self._prepare_litellm_kwargs(
             self.adapter_class.embeddings_to_model(payload_dict, self.config)
         )
 
@@ -453,7 +472,7 @@ class LiteLLMProvider(BaseProvider):
         self._validate_passthrough_action(action)
 
         model_name = self.adapter_class._get_litellm_model_name(self.config)
-        kwargs = self._build_litellm_kwargs(payload)
+        kwargs = await self._prepare_litellm_kwargs(payload)
         kwargs["model"] = model_name
 
         match action:

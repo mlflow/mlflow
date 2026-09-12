@@ -21,6 +21,8 @@ from mlflow.environment_variables import (
     _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS,
+    MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES,
     MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS,
     MLFLOW_ICON_URL_ALLOWED_DOMAINS,
     MLFLOW_ICON_URL_ALLOWED_SCHEMES,
@@ -922,6 +924,28 @@ def _is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return _embedded_ipv4(ip).is_global
 
 
+def _is_ip_literal_like(hostname: str) -> bool:
+    """Mirror aiohttp's heuristic for hosts it dials as IP literals without a DNS lookup."""
+    return ":" in hostname or hostname.replace(".", "").isdigit()
+
+
+def _validate_canonical_ip_literal(hostname: str, field_name: str) -> None:
+    """Reject numeric hosts that are not canonical IP literals.
+
+    ``socket`` maps legacy spellings like ``127.1`` or ``0177.0.0.1`` onto an address at
+    connect time, and validators may parse them differently (``0177.0.0.1`` is loopback to
+    ``inet_aton`` but ``177.0.0.1`` to ``getaddrinfo``).
+    """
+    if not _is_ip_literal_like(hostname):
+        return
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} host {hostname!r} is not a canonical IP address literal."
+        ) from e
+
+
 def _resolve_hostname_with_timeout(hostname: str, field_name: str):
     acquired = _HOSTNAME_RESOLUTION_SEMAPHORE.acquire(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
     if not acquired:
@@ -1015,8 +1039,64 @@ def _validate_public_https_url(
             f"{field_name} must include a hostname: {url!r}"
         )
 
+    _validate_canonical_ip_literal(hostname, field_name)
+
     if not allow_private_ips:
         _validate_hostname_resolves_to_public_ips(hostname, field_name)
+
+
+def _validate_gateway_api_base(url: str) -> None:
+    """Validate an AI Gateway secret's ``api_base``: public HTTPS only by default.
+
+    The gateway sends requests to this URL, so it follows the webhook and icon URL SSRF
+    policy. ``MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES`` and
+    ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS`` relax it.
+    """
+    _validate_public_https_url(
+        url,
+        field_name="Gateway secret api_base",
+        allowed_schemes=MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES.get(),
+        allow_private_ips=MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS.get(),
+    )
+
+
+# Egress-controlling keys belong in the validated ``auth_config``, never in the encrypted,
+# unvalidated ``secret_value`` map.
+_GATEWAY_SECRET_VALUE_RESERVED_KEYS = frozenset({"api_base"})
+
+
+def _validate_gateway_secret_auth_config(
+    auth_config: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Validate a gateway secret's ``auth_config`` on write and return a normalized copy.
+
+    ``api_base`` is the only key naming an outbound target. A blank value is dropped rather
+    than stored, since providers fall back to their default by truthiness.
+    """
+    if not auth_config:
+        return None
+    normalized = dict(auth_config)
+    api_base = normalized.get("api_base")
+    if isinstance(api_base, str):
+        api_base = api_base.strip()
+    if not api_base:
+        normalized.pop("api_base", None)
+        return normalized
+    _validate_gateway_api_base(api_base)
+    normalized["api_base"] = api_base
+    return normalized
+
+
+def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
+    """Reject ``secret_value`` keys that would steer gateway egress (see reserved keys)."""
+    if not secret_value:
+        return
+    if reserved := sorted(_GATEWAY_SECRET_VALUE_RESERVED_KEYS & set(secret_value)):
+        raise MlflowException.invalid_parameter_value(
+            f"secret_value must not contain {', '.join(map(repr, reserved))}: these keys "
+            "configure where the gateway sends requests and belong in auth_config, where "
+            "they are validated."
+        )
 
 
 def _validate_mcp_icon_url(url: str) -> None:

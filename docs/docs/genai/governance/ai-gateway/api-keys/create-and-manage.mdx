@@ -28,6 +28,22 @@ Navigate to `http://localhost:5000/#/settings` and click on the **LLM Connection
 
 ![Create LLM Connection](/images/genai/settings/create-api-key.png)
 
+### Custom Base URL Validation
+
+Some providers accept a custom **API Base URL** (`api_base`), for example Azure OpenAI, Databricks, or Portkey. Because the gateway forwards requests, including caller-controlled raw proxy paths, to this URL, MLflow validates it to prevent Server-Side Request Forgery (SSRF). By default:
+
+- Only **HTTPS** URLs are allowed
+- URLs with embedded credentials are rejected
+- URLs that resolve to **private**, **loopback**, **link-local**, or **reserved** IP addresses are rejected
+
+This prevents a connection from being pointed at internal services, cloud metadata endpoints (e.g., `169.254.169.254`), or localhost services. Leaving the field blank is always allowed and uses the provider's default base URL.
+
+The private-IP policy is also enforced when the gateway actually connects to a custom base URL: every address it dials is checked at connection time and redirects from the upstream are never followed. This means connections created before this validation existed, and hostnames that change what they resolve to after creation, are still blocked from reaching internal addresses. Providers routed through LiteLLM use LiteLLM's own HTTP client, so for them the base URL is resolved and checked immediately before each request instead. A provider's built-in base URL, such as Ollama's `localhost:11434`, is not subject to this check on the chat, embeddings and passthrough routes; it is checked on the raw proxy route, where the caller also controls the request path.
+
+:::note
+Deployments whose custom base URL points at a private address, such as an in-cluster vLLM server or an Azure OpenAI Private Link endpoint, must set `MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS=true`. If that server does not use TLS, also set `MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES=http,https` so its URL can be saved. Only enable these when every user who can create LLM connections is trusted with access to your private network.
+:::
+
 ## Working with Existing Connections
 
 The LLM Connections page displays all your configured connections along with important metadata:
