@@ -21,7 +21,11 @@ supply chain attacks, and skip the action's download overhead.
     label: needs-review
 
 # Good
-- run: gh pr edit "$PR_NUMBER" --add-label needs-review
+- env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    PR_NUMBER: ${{ github.event.pull_request.number }}
+    REPO: ${{ github.repository }}
+  run: gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label needs-review
 ```
 
 Use a third-party action when it provides substantial functionality that would
