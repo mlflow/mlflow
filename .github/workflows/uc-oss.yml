@@ -23,6 +23,7 @@ env:
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 permissions: {}
+cache-mode: none
 
 jobs:
   uc-oss-integration-test:

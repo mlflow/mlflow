@@ -46,6 +46,7 @@ env:
   PYTHONFAULTHANDLER: "1"
 
 permissions: {}
+cache-mode: none
 
 jobs:
   examples:

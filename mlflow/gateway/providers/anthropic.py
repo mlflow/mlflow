@@ -14,6 +14,7 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     ProviderAdapter,
     _client_provides_auth,
+    _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
     parse_base64_data_url,
@@ -577,6 +578,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 # Preserve the client's own credentials for subscription-based tools
                 # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
                 result_headers.pop("x-api-key", None)
+            else:
+                # Never forward client auth headers: they would be sent alongside the
+                # provider credential (e.g. Vertex AI's OAuth bearer token) and shadow it.
+                client_headers = _drop_client_auth_headers(client_headers)
             result_headers = client_headers | result_headers
 
         return result_headers
