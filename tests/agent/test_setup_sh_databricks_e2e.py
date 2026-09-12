@@ -42,7 +42,14 @@ with calls_path.open("a") as calls:
         "args": args,
         "host": os.environ.get("DATABRICKS_HOST"),
         "profile": os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+        "workspace_id": os.environ.get("DATABRICKS_WORKSPACE_ID"),
     }) + "\n")
+
+if args == ["auth", "profiles", "--help"]:
+    print("Global Flags:\n  --workspace-id string")
+    raise SystemExit(0)
+if args == ["auth", "describe", "--help"]:
+    raise SystemExit(0)
 
 if "--host" in args and args[:2] != ["auth", "login"]:
     print(f"unknown flag: --host for {' '.join(args[:2])}", file=sys.stderr)
@@ -117,6 +124,7 @@ def databricks_config(tmp_path: Path) -> DatabricksTestConfig:
     for name in (
         "DATABRICKS_CONFIG_PROFILE",
         "DATABRICKS_HOST",
+        "DATABRICKS_WORKSPACE_ID",
         "MLFLOW_TRACKING_URI",
     ):
         env.pop(name, None)
@@ -160,7 +168,15 @@ def _base_routes(
     return [
         {
             "args": ["auth", "profiles"],
-            "stdout": "Name Host Valid\nDEFAULT https://workspace.example.com YES",
+            "stdout": json.dumps({
+                "profiles": [
+                    {
+                        "name": "DEFAULT",
+                        "host": "https://workspace.example.com",
+                        "workspace_id": "111",
+                    }
+                ]
+            }),
         },
         {
             "args": ["auth", "token"],
@@ -535,7 +551,15 @@ def test_authentication_fallback_uses_host_and_profile_flags(
 @pytest.mark.timeout(30)
 def test_host_only_workspace_propagates_environment(databricks_config: DatabricksTestConfig):
     routes = _base_routes(token_responses=[{"returncode": 1}, {"stdout": "{}"}])
-    routes[0]["stdout"] = "Name Host Valid\nDEFAULT https://other.example.com YES"
+    routes[0]["stdout"] = json.dumps({
+        "profiles": [
+            {
+                "name": "DEFAULT",
+                "host": "https://other.example.com",
+                "workspace_id": "222",
+            }
+        ]
+    })
     _set_routes(
         databricks_config,
         routes
@@ -554,6 +578,8 @@ def test_host_only_workspace_propagates_environment(databricks_config: Databrick
             str(SETUP_SCRIPT),
             "--workspace-url",
             "https://workspace.example.com",
+            "--workspace-id",
+            "111",
             "--experiment-id",
             "existing-id",
             "--agent",
@@ -570,6 +596,7 @@ def test_host_only_workspace_propagates_environment(databricks_config: Databrick
     assert token_calls
     assert all(call["host"] == "https://workspace.example.com" for call in token_calls)
     assert all(call["profile"] == "" for call in token_calls)
+    assert all(call["workspace_id"] == "111" for call in token_calls)
     login_call = next(call for call in invocations if call["args"][:2] == ["auth", "login"])
     assert login_call["args"] == [
         "auth",
@@ -578,11 +605,62 @@ def test_host_only_workspace_propagates_environment(databricks_config: Databrick
         "https://workspace.example.com",
     ]
     assert login_call["profile"] == ""
+    assert login_call["workspace_id"] == "111"
     experiment_call = next(
         call for call in invocations if call["args"][:2] == ["experiments", "get-experiment"]
     )
     assert experiment_call["host"] == "https://workspace.example.com"
     assert experiment_call["profile"] == ""
+    assert experiment_call["workspace_id"] == "111"
+
+
+@pytest.mark.timeout(30)
+def test_spog_workspace_selects_profile_by_workspace_id(databricks_config: DatabricksTestConfig):
+    routes = _base_routes()
+    routes[0]["stdout"] = json.dumps({
+        "profiles": [
+            {
+                "name": "dogfood",
+                "host": "https://e2-dogfood.staging.cloud.databricks.com",
+                "workspace_id": "6051921418418893",
+            }
+        ]
+    })
+    _set_routes(
+        databricks_config,
+        routes
+        + [
+            {
+                "args": ["experiments", "get-experiment"],
+                "stdout": _experiment_json(trace_destination=None),
+            }
+        ],
+    )
+
+    result = _run_setup(
+        databricks_config,
+        "--workspace-url",
+        "https://dogfood.staging.databricks.com",
+        "--workspace-id",
+        "6051921418418893",
+        "--experiment-id",
+        "existing-id",
+        "--agent",
+        "codex",
+    )
+
+    assert result.returncode == 0, result.stderr
+    invocations = _read_invocations(databricks_config)
+    token_calls = [call for call in invocations if call["args"][:2] == ["auth", "token"]]
+    assert token_calls
+    assert all(call["args"][2] == "dogfood" for call in token_calls)
+    assert all(call["host"] == "" for call in token_calls)
+    assert all(call["workspace_id"] == "" for call in token_calls)
+    experiment_call = next(
+        call for call in invocations if call["args"][:2] == ["experiments", "get-experiment"]
+    )
+    assert experiment_call["args"][-2:] == ["--profile", "dogfood"]
+    assert "databricks://dogfood" in databricks_config.prompt_path.read_text()
 
 
 @pytest.mark.timeout(30)
