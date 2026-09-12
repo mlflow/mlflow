@@ -60,6 +60,15 @@ deny_top_level_cache_mode contains msg if {
 	)
 }
 
+deny_redundant_job_cache_mode contains msg if {
+	some job_id, job in input.jobs
+	job["cache-mode"] == "none"
+	msg := sprintf(
+		"Job '%s' sets redundant 'cache-mode: none'. Omit it to inherit the workflow's default-deny cache access.",
+		[job_id],
+	)
+}
+
 deny_workflow_without_concurrency contains msg if {
 	# Workflow files only (composite actions have 'runs')
 	input.jobs
