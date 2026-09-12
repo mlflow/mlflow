@@ -150,13 +150,12 @@ jobs:
           REF=$(git rev-parse HEAD)
           # A source tarball resolves the commit without fetching the repository's
           # full history, which `uv` does for a `git+` requirement.
-          if [ "$MATRIX_TYPE" == "skinny" ]; then
-            URL="https://github.com/${REPO}/archive/${REF}.tar.gz#subdirectory=libs/skinny"
-          elif [ "$MATRIX_TYPE" == "tracing" ]; then
-            URL="https://github.com/${REPO}/archive/${REF}.tar.gz#subdirectory=libs/tracing"
+          if [ "$MATRIX_TYPE" == "dev" ]; then
+            FRAGMENT=""
           else
-            URL="https://github.com/${REPO}/archive/${REF}.tar.gz"
+            FRAGMENT="#subdirectory=libs/${MATRIX_TYPE}"
           fi
+          URL="https://github.com/${REPO}/archive/${REF}.tar.gz${FRAGMENT}"
 
           for attempt in 1 2 3; do
             if timeout -k 10 120 uv run --isolated --no-project --with "$URL" python -I -c 'import mlflow; print(mlflow.__version__)'; then
