@@ -41,6 +41,25 @@ deny_top_level_permissions contains msg if {
 	msg := "Top-level 'permissions' must be empty ({}). Grant least-privilege permissions per job instead."
 }
 
+deny_top_level_cache_mode contains msg if {
+	# Workflow files only (composite actions have 'runs')
+	input.jobs
+	not input["cache-mode"]
+	msg := concat("", [
+		"Workflow must set top-level 'cache-mode: none' to deny cache access by default. ",
+		"Grant 'cache-mode: read' (or 'write' for jobs that must populate a cache) per job.",
+	])
+}
+
+deny_top_level_cache_mode contains msg if {
+	input.jobs
+	input["cache-mode"] != "none"
+	msg := sprintf(
+		"Top-level 'cache-mode' must be 'none', not '%s'. Grant cache access per job instead.",
+		[input["cache-mode"]],
+	)
+}
+
 deny_workflow_without_concurrency contains msg if {
 	# Workflow files only (composite actions have 'runs')
 	input.jobs
