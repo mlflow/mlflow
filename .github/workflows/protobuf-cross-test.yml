@@ -33,6 +33,7 @@ env:
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 permissions: {}
+cache-mode: none
 
 jobs:
   core_tests:
@@ -40,6 +41,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
+    cache-mode: read
     strategy:
       fail-fast: false
       matrix:
@@ -71,8 +73,6 @@ jobs:
             "protobuf==$PROTOBUF_MAJOR_VERSION.*"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/cache-hf
-        with:
-          restore-only: true
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}

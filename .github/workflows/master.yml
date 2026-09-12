@@ -39,6 +39,7 @@ env:
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
@@ -68,6 +69,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
+    cache-mode: write
     strategy:
       fail-fast: false
       matrix:
