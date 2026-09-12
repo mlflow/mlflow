@@ -184,6 +184,21 @@ class GeminiAdapter(ProviderAdapter):
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
                 call_id = message["tool_call_id"]
+                raw_content = message["content"]
+                # The OpenAI Chat Completions spec defines tool-message ``content`` as an
+                # arbitrary string. Real-world tool results (e.g. LangChain, custom tools)
+                # are usually plain text rather than JSON, but Gemini's ``functionResponse``
+                # ``response`` field must be a JSON object. Parse when the content is already
+                # a JSON object; otherwise wrap the raw value so the request doesn't crash
+                # with ``json.JSONDecodeError`` before the model is even called.
+                try:
+                    parsed_content = json.loads(raw_content)
+                    if isinstance(parsed_content, dict):
+                        response_value = parsed_content
+                    else:
+                        response_value = {"result": parsed_content}
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    response_value = {"result": raw_content}
                 contents.append({
                     "role": "user",
                     "parts": [
@@ -192,7 +207,7 @@ class GeminiAdapter(ProviderAdapter):
                                 "id": call_id,
                                 # the function name field is required by Gemini request format
                                 "name": call_id_to_function_name_map[call_id],
-                                "response": json.loads(message["content"]),
+                                "response": response_value,
                             }
                         }
                     ],

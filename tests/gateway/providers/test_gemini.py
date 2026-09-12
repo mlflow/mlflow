@@ -1725,3 +1725,154 @@ def test_chat_to_model_unknown_content_part_passed_through():
     result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
 
     assert result["contents"] == [{"role": "user", "parts": [{"text": "transcribe"}, audio_part]}]
+
+
+def test_chat_to_model_tool_message_with_json_object_response():
+    # A tool message whose ``content`` is a JSON object must be passed through unchanged
+    # (existing behavior): Gemini receives the object as the ``functionResponse.response``.
+    payload = {
+        "messages": [
+            {"role": "user", "content": "what is the weather?"},
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_001",
+                        "function": {
+                            "arguments": '{"location": "Singapore"}',
+                            "name": "get_weather",
+                        },
+                        "type": "function",
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_001",
+                "content": '{"temperature": 31.2, "condition": "sunny"}',
+            },
+        ],
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"] == [
+        {"role": "user", "parts": [{"text": "what is the weather?"}]},
+        {
+            "role": "model",
+            "parts": [
+                {
+                    "functionCall": {
+                        "id": "call_001",
+                        "name": "get_weather",
+                        "args": {"location": "Singapore"},
+                    }
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "parts": [
+                {
+                    "functionResponse": {
+                        "id": "call_001",
+                        "name": "get_weather",
+                        "response": {"temperature": 31.2, "condition": "sunny"},
+                    }
+                }
+            ],
+        },
+    ]
+
+
+def test_chat_to_model_tool_message_with_plain_text_response():
+    # A tool message whose ``content`` is plain text (not JSON) must be wrapped under a
+    # ``result`` key so the request doesn't crash with ``json.JSONDecodeError`` before the
+    # model is called. Per the OpenAI Chat Completions spec, tool message content is an
+    # arbitrary string, and real-world tool results (LangChain, custom tools) are usually
+    # plain text rather than JSON.
+    payload = {
+        "messages": [
+            {"role": "user", "content": "what is the weather?"},
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_001",
+                        "function": {
+                            "arguments": '{"location": "Singapore"}',
+                            "name": "get_weather",
+                        },
+                        "type": "function",
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_001",
+                "content": "Status: 200 OK\nTemperature: 31.2C",
+            },
+        ],
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"] == [
+        {"role": "user", "parts": [{"text": "what is the weather?"}]},
+        {
+            "role": "model",
+            "parts": [
+                {
+                    "functionCall": {
+                        "id": "call_001",
+                        "name": "get_weather",
+                        "args": {"location": "Singapore"},
+                    }
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "parts": [
+                {
+                    "functionResponse": {
+                        "id": "call_001",
+                        "name": "get_weather",
+                        "response": {"result": "Status: 200 OK\nTemperature: 31.2C"},
+                    }
+                }
+            ],
+        },
+    ]
+
+
+def test_chat_to_model_tool_message_with_non_object_json_response():
+    # A tool message whose ``content`` is JSON but not an object (e.g. an array, number,
+    # or quoted string) must also be wrapped under ``result`` so the value remains an
+    # object as Gemini's ``functionResponse.response`` field requires.
+    payload = {
+        "messages": [
+            {"role": "user", "content": "how many items?"},
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_002",
+                        "function": {"arguments": "{}", "name": "count"},
+                        "type": "function",
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_002",
+                "content": "[1, 2, 3]",
+            },
+        ],
+    }
+
+    result = GeminiAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
+
+    assert result["contents"][2]["parts"][0]["functionResponse"]["response"] == {
+        "result": [1, 2, 3]
+    }
