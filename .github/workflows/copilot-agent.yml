@@ -13,6 +13,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # The coding agent signals it is done by requesting a review on its own PR
