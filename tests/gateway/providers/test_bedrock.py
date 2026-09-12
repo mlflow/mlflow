@@ -487,6 +487,37 @@ async def test_bedrock_request_response(
         mock_request.assert_called_once_with(model_request)
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("aws_config", [c[0] for c in bedrock_aws_configs])
+async def test_bedrock_titan_rejects_top_p_zero(aws_config):
+    # MLflow accepts top_p=0, but Titan requires topP to be strictly greater than 0.
+    config = {
+        "name": "completions",
+        "endpoint_type": "llm/v1/completions",
+        "model": {
+            "provider": "bedrock",
+            "name": "amazon.titan-tg1-large",
+        },
+    }
+    provider = AmazonBedrockProvider(
+        EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
+    )
+    payload = completions.RequestPayload(prompt="This is a test", max_tokens=1000, top_p=0)
+
+    with (
+        mock.patch(
+            "mlflow.gateway.providers.bedrock.AmazonBedrockProvider._request"
+        ) as mock_request,
+        pytest.raises(
+            AIGatewayException, match="'top_p' must be greater than 0 for AWS Titan models"
+        ) as exc_info,
+    ):
+        await provider.completions(payload)
+
+    assert exc_info.value.status_code == 422
+    mock_request.assert_not_called()
+
+
 @pytest.mark.parametrize(
     ("model_name", "expected"),
     [

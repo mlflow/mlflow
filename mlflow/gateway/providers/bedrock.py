@@ -70,6 +70,17 @@ class AWSTitanAdapter(ProviderAdapter):
                 detail=f"'n' must be '1' for AWS Titan models. Received value: '{n}'.",
             )
 
+        # Titan requires topP to be strictly greater than 0, while MLflow accepts 0.
+        top_p = payload.get("top_p")
+        if top_p == 0:
+            raise AIGatewayException(
+                status_code=422,
+                detail=(
+                    "'top_p' must be greater than 0 for AWS Titan models. "
+                    f"Received value: '{top_p}'."
+                ),
+            )
+
         # The range of Titan's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
