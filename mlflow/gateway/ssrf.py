@@ -16,9 +16,16 @@ This module closes those gaps at the egress point instead:
   that is not public. aiohttp connects to exactly the addresses the resolver returns, so
   there is no second lookup between the check and the connection.
 - ``assert_public_upstream_url`` covers IP-literal hosts, which aiohttp dials without
-  consulting the resolver.
+  consulting the resolver, and rejects non-canonical numeric spellings (``2130706433``,
+  ``127.1``, ``0177.0.0.1``) that aiohttp also treats as literals but ``ipaddress`` cannot
+  parse, so they would otherwise slip past both checks.
 - ``_aiohttp_post`` disables redirect following, so a redirect can never introduce a host
   that bypasses the checks above.
+- ``assert_public_upstream_host`` resolves and checks a host for providers that use their
+  own HTTP client instead of ``_aiohttp_post`` (LiteLLM). That lookup is separate from the
+  client's own, so it cannot pin the connection the way the resolver above does; it still
+  blocks plain private hosts, non-canonical literals and rows stored before write-time
+  validation existed.
 
 Enforcement is scoped to requests served by the tracking server: its middleware sets
 ``upstream_ssrf_protection`` for every request it handles, because there the upstream host
@@ -29,6 +36,7 @@ deployments that legitimately talk to private upstreams (self-hosted Ollama, vLL
 similar).
 """
 
+import asyncio
 import ipaddress
 import socket
 from contextvars import ContextVar
@@ -40,7 +48,7 @@ from aiohttp.abc import AbstractResolver
 from aiohttp.resolver import DefaultResolver
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS
-from mlflow.utils.validation import _is_public_ip
+from mlflow.utils.validation import _is_ip_literal_like, _is_public_ip
 
 
 class GatewaySSRFProtectionError(Exception):
@@ -79,26 +87,66 @@ def _assert_public_ip(ip_str: str, host: str) -> None:
         )
 
 
-def assert_public_upstream_url(url: str) -> None:
-    """Reject an upstream URL whose host is a non-public IP literal.
-
-    Hostnames are intentionally not resolved here; they are checked by
-    ``SSRFGuardedResolver`` at connection time so there is no window between the check and
-    the connection. No-op when private upstreams are allowed.
-    """
-    if not _is_protection_enabled():
-        return
+def _parse_upstream_hostname(url: str) -> str:
     try:
         hostname = urlparse(url).hostname
     except ValueError as e:
         raise GatewaySSRFProtectionError(f"Invalid gateway upstream URL {url!r}: {e}") from e
     if not hostname:
         raise GatewaySSRFProtectionError(f"Gateway upstream URL must include a hostname: {url!r}")
+    return hostname
+
+
+def assert_public_upstream_url(url: str) -> None:
+    """Reject an upstream URL whose host is a non-public or non-canonical IP literal.
+
+    Hostnames are intentionally not resolved here; they are checked by
+    ``SSRFGuardedResolver`` at connection time so there is no window between the check and
+    the connection. Anything aiohttp would dial as a literal must parse as a canonical
+    address, since aiohttp skips the resolver for such hosts and ``socket`` would map a
+    legacy numeric spelling onto an address unseen. No-op when private upstreams are allowed.
+    """
+    if not _is_protection_enabled():
+        return
+    hostname = _parse_upstream_hostname(url)
+    if not _is_ip_literal_like(hostname):
+        return
     try:
         ipaddress.ip_address(hostname)
-    except ValueError:
-        return
+    except ValueError as e:
+        raise GatewaySSRFProtectionError(
+            f"Gateway upstream host {hostname!r} is not a canonical IP address literal."
+        ) from e
     _assert_public_ip(hostname, hostname)
+
+
+async def _getaddrinfo(hostname: str) -> list[Any]:
+    return await asyncio.get_running_loop().getaddrinfo(hostname, None)
+
+
+async def assert_public_upstream_host(url: str) -> None:
+    """Resolve an upstream URL's host and reject it unless every address is public.
+
+    For provider clients that do not go through ``_aiohttp_post`` (LiteLLM uses its own HTTP
+    client), so ``SSRFGuardedResolver`` cannot sit on the connection. The lookup here is
+    separate from the client's own, which leaves a DNS-rebinding attacker a narrow window
+    between the two; it still blocks plain private hosts, non-canonical literals and rows
+    stored before write-time validation existed. No-op when private upstreams are allowed.
+    """
+    if not _is_protection_enabled():
+        return
+    assert_public_upstream_url(url)
+    hostname = _parse_upstream_hostname(url)
+    if _is_ip_literal_like(hostname):
+        return
+    try:
+        addr_infos = await _getaddrinfo(hostname)
+    except (OSError, UnicodeError, ValueError) as e:
+        raise GatewaySSRFProtectionError(
+            f"Cannot resolve gateway upstream host {hostname!r}: {e}"
+        ) from e
+    for addr_info in addr_infos:
+        _assert_public_ip(addr_info[4][0], hostname)
 
 
 class SSRFGuardedResolver(AbstractResolver):

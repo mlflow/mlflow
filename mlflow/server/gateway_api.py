@@ -499,10 +499,15 @@ def _build_endpoint_config(
         # Store the original provider name for LiteLLM's provider/model format
         original_provider = model_config.provider
         auth_config = model_config.auth_config or {}
-        # Merge auth_config with secret_value (secret_value contains api_key and other secrets)
+        # Merge auth_config with secret_value (secret_value contains api_key and other secrets).
+        # api_base is validated on auth_config at write time, so the encrypted, unvalidated
+        # secret map must never be allowed to override it.
+        secret_value = {
+            k: v for k, v in model_config.secret_value.items() if k != _AuthConfigKey.API_BASE
+        }
         litellm_config = {
             "litellm_provider": original_provider,
-            "litellm_auth_config": auth_config | model_config.secret_value,
+            "litellm_auth_config": auth_config | secret_value,
         }
         provider_config = LiteLLMConfig(**litellm_config)
         model_config.provider = Provider.LITELLM

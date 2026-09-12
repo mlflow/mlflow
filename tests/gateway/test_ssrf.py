@@ -11,6 +11,7 @@ from mlflow.gateway.providers.utils import _aiohttp_post, send_request
 from mlflow.gateway.ssrf import (
     GatewaySSRFProtectionError,
     SSRFGuardedResolver,
+    assert_public_upstream_host,
     assert_public_upstream_url,
     build_ssrf_guarded_connector,
     upstream_ssrf_protection,
@@ -230,3 +231,69 @@ async def test_send_request_explicit_bypass_reaches_private_upstream(upstream):
     )
     assert result == {"ok": True, "path": "/v1/chat"}
     assert upstream.hits == ["/v1/chat"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://2130706433/v1",
+        "https://127.1/v1",
+        "https://0177.0.0.1/v1",
+        "https://0/v1",
+        "https://127.000.000.001/v1",
+    ],
+)
+def test_assert_public_upstream_url_rejects_noncanonical_ip_literals(url):
+    # aiohttp treats an all-numeric host as an IP literal and skips the resolver, so these
+    # would otherwise reach socket.connect, which maps them onto loopback.
+    with pytest.raises(GatewaySSRFProtectionError, match="not a canonical IP address literal"):
+        assert_public_upstream_url(url)
+
+
+def _addrinfo(*ips: str):
+    return [(None, None, None, None, (ip, 0)) for ip in ips]
+
+
+@pytest.mark.asyncio
+async def test_assert_public_upstream_host_rejects_hostname_resolving_to_private_ip():
+    with mock.patch(
+        "mlflow.gateway.ssrf._getaddrinfo",
+        mock.AsyncMock(return_value=_addrinfo("8.8.8.8", "169.254.169.254")),
+    ):
+        with pytest.raises(GatewaySSRFProtectionError, match="169.254.169.254"):
+            await assert_public_upstream_host("https://metadata.example/latest")
+
+
+@pytest.mark.asyncio
+async def test_assert_public_upstream_host_accepts_public_hostname():
+    getaddrinfo = mock.AsyncMock(return_value=_addrinfo("8.8.8.8", "2001:4860:4860::8888"))
+    with mock.patch("mlflow.gateway.ssrf._getaddrinfo", getaddrinfo):
+        await assert_public_upstream_host("https://api.example.com/v1")
+    getaddrinfo.assert_awaited_once_with("api.example.com")
+
+
+@pytest.mark.asyncio
+async def test_assert_public_upstream_host_rejects_unresolvable_hostname():
+    with mock.patch(
+        "mlflow.gateway.ssrf._getaddrinfo",
+        mock.AsyncMock(side_effect=socket.gaierror("Name or service not known")),
+    ):
+        with pytest.raises(GatewaySSRFProtectionError, match="Cannot resolve"):
+            await assert_public_upstream_host("https://does-not-exist.invalid/v1")
+
+
+@pytest.mark.asyncio
+async def test_assert_public_upstream_host_checks_ip_literals_without_lookup():
+    with mock.patch("mlflow.gateway.ssrf._getaddrinfo") as getaddrinfo:
+        with pytest.raises(GatewaySSRFProtectionError, match="not a public IP address"):
+            await assert_public_upstream_host("https://10.0.0.1/v1")
+        await assert_public_upstream_host("https://8.8.8.8/v1")
+    getaddrinfo.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_assert_public_upstream_host_skipped_when_private_ips_allowed(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", "true")
+    with mock.patch("mlflow.gateway.ssrf._getaddrinfo") as getaddrinfo:
+        await assert_public_upstream_host("http://localhost:11434/v1")
+    getaddrinfo.assert_not_called()

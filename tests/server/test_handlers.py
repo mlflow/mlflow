@@ -8655,3 +8655,60 @@ def test_gateway_secret_handlers_skip_api_base_validation_when_unset(
 
     assert response.status_code == 200
     mock_getaddrinfo.assert_not_called()
+
+
+def test_create_gateway_secret_rejects_api_base_in_secret_value(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = CreateGatewaySecret(
+        secret_name="my-secret",
+        secret_value={"api_key": "sk-123", "api_base": "https://169.254.169.254/latest"},
+        provider="litellm",
+    )
+    response = _create_gateway_secret()
+
+    assert response.status_code == 400
+    assert "secret_value must not contain 'api_base'" in json.loads(response.get_data())["message"]
+    mock_tracking_store.create_gateway_secret.assert_not_called()
+
+
+def test_update_gateway_secret_rejects_api_base_in_secret_value(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = UpdateGatewaySecret(
+        secret_id="s-123", secret_value={"api_key": "sk-123", "api_base": "http://10.0.0.1/v1"}
+    )
+    response = _update_gateway_secret()
+
+    assert response.status_code == 400
+    assert "secret_value must not contain 'api_base'" in json.loads(response.get_data())["message"]
+    mock_tracking_store.update_gateway_secret.assert_not_called()
+
+
+def test_create_gateway_secret_drops_blank_api_base_before_storing(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = _create_gateway_secret_request({
+        "auth_mode": "api_key",
+        "api_base": "   ",
+    })
+    mock_tracking_store.create_gateway_secret.return_value = _gateway_secret_info({
+        "auth_mode": "api_key"
+    })
+    response = _create_gateway_secret()
+
+    assert response.status_code == 200
+    _, kwargs = mock_tracking_store.create_gateway_secret.call_args
+    assert kwargs["auth_config"] == {"auth_mode": "api_key"}
+
+
+def test_update_gateway_secret_blank_api_base_alone_clears_auth_config(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = _update_gateway_secret_request({"api_base": ""})
+    mock_tracking_store.update_gateway_secret.return_value = _gateway_secret_info(None)
+    response = _update_gateway_secret()
+
+    assert response.status_code == 200
+    _, kwargs = mock_tracking_store.update_gateway_secret.call_args
+    assert kwargs["auth_config"] == {}

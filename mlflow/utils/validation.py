@@ -924,6 +924,30 @@ def _is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return _embedded_ipv4(ip).is_global
 
 
+def _is_ip_literal_like(hostname: str) -> bool:
+    """Mirror aiohttp's heuristic for hosts it dials as IP literals without a DNS lookup."""
+    return ":" in hostname or hostname.replace(".", "").isdigit()
+
+
+def _validate_canonical_ip_literal(hostname: str, field_name: str) -> None:
+    """Reject numeric hosts that are not canonical IP address literals.
+
+    ``socket`` accepts legacy spellings such as ``2130706433``, ``127.1`` or ``0177.0.0.1``
+    and maps them onto an address at connect time, but resolvers and validators can parse
+    them differently: ``0177.0.0.1`` is octal loopback to ``inet_aton`` and decimal
+    ``177.0.0.1`` to ``getaddrinfo``. Requiring the canonical form removes that parser
+    differential before any address check runs.
+    """
+    if not _is_ip_literal_like(hostname):
+        return
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} host {hostname!r} is not a canonical IP address literal."
+        ) from e
+
+
 def _resolve_hostname_with_timeout(hostname: str, field_name: str):
     acquired = _HOSTNAME_RESOLUTION_SEMAPHORE.acquire(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
     if not acquired:
@@ -1017,6 +1041,8 @@ def _validate_public_https_url(
             f"{field_name} must include a hostname: {url!r}"
         )
 
+    _validate_canonical_ip_literal(hostname, field_name)
+
     if not allow_private_ips:
         _validate_hostname_resolves_to_public_ips(hostname, field_name)
 
@@ -1042,19 +1068,50 @@ def _validate_gateway_api_base(url: str) -> None:
     )
 
 
-def _validate_gateway_secret_auth_config(auth_config: dict[str, Any] | None) -> None:
+# Keys that configure where the gateway sends requests. They must live in ``auth_config``,
+# where they are validated, never in the encrypted ``secret_value`` map, which is stored as-is.
+_GATEWAY_SECRET_VALUE_RESERVED_KEYS = frozenset({"api_base"})
+
+
+def _validate_gateway_secret_auth_config(
+    auth_config: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     """Validate the user-controlled ``auth_config`` of an AI Gateway secret on write.
 
     Only ``api_base`` (see ``mlflow.gateway.config._AuthConfigKey.API_BASE``) names an
-    outbound target, so it is the only key checked. An empty value is treated as unset,
-    matching how the providers fall back to their default base URL.
+    outbound target, so it is the only key checked. Returns a normalized copy: a blank
+    ``api_base`` means "use the provider default", so the key is dropped rather than stored,
+    because providers select the default by truthiness and a whitespace-only string would
+    otherwise become the upstream URL. ``None`` or an empty map returns ``None``.
     """
     if not auth_config:
-        return
-    api_base = auth_config.get("api_base")
-    if api_base is None or (isinstance(api_base, str) and not api_base.strip()):
-        return
+        return None
+    normalized = dict(auth_config)
+    api_base = normalized.get("api_base")
+    if isinstance(api_base, str):
+        api_base = api_base.strip()
+    if not api_base:
+        normalized.pop("api_base", None)
+        return normalized
     _validate_gateway_api_base(api_base)
+    normalized["api_base"] = api_base
+    return normalized
+
+
+def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
+    """Reject ``secret_value`` keys that would steer gateway egress.
+
+    Providers built from the LiteLLM fallback merge ``secret_value`` over ``auth_config``, so
+    an ``api_base`` smuggled into the encrypted map would override the validated one.
+    """
+    if not secret_value:
+        return
+    if reserved := sorted(_GATEWAY_SECRET_VALUE_RESERVED_KEYS & set(secret_value)):
+        raise MlflowException.invalid_parameter_value(
+            f"secret_value must not contain {', '.join(map(repr, reserved))}: these keys "
+            "configure where the gateway sends requests and belong in auth_config, where "
+            "they are validated."
+        )
 
 
 def _validate_mcp_icon_url(url: str) -> None:

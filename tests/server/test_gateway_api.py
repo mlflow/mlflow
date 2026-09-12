@@ -511,6 +511,43 @@ def test_create_provider_from_endpoint_name_litellm_with_api_base(store: SqlAlch
     assert provider.config.model.config.litellm_provider == "litellm"
 
 
+def test_create_provider_from_endpoint_name_litellm_ignores_api_base_in_secret_value(
+    store: SqlAlchemyStore,
+):
+    # Simulates a row written before the handler rejected api_base inside secret_value: the
+    # encrypted map is never validated, so it must not override the validated auth_config.
+    secret = store.create_gateway_secret(
+        secret_name="litellm-smuggled-key",
+        secret_value={"api_key": "litellm-key", "api_base": "http://169.254.169.254/latest"},
+        provider="litellm",
+        auth_config={"api_base": "https://custom-api.example.com"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="litellm-smuggled-model",
+        secret_id=secret.secret_id,
+        provider="litellm",
+        model_name="custom-model",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-litellm-smuggled-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    auth_config = provider.config.model.config.litellm_auth_config
+    assert auth_config["api_base"] == "https://custom-api.example.com"
+    assert auth_config["api_key"] == "litellm-key"
+
+
 @pytest.mark.parametrize(
     "input_url",
     [

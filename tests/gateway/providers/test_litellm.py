@@ -1,12 +1,14 @@
 from unittest import mock
 
 import pytest
+from fastapi import HTTPException
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
 from mlflow.gateway.schemas import chat, embeddings
+from mlflow.gateway.ssrf import upstream_ssrf_protection
 
 TEST_MESSAGE = "This is a test"
 
@@ -986,3 +988,74 @@ def test_litellm_extract_streaming_token_usage_responses_api_with_cached_tokens(
         "total_tokens": 150,
         "cache_read_input_tokens": 40,
     }
+
+
+def _addrinfo(*ips: str):
+    return [(None, None, None, None, (ip, 0)) for ip in ips]
+
+
+@pytest.fixture
+def protected_request():
+    # Simulates a tracking-server request, where the middleware turns the upstream guard on.
+    token = upstream_ssrf_protection.set(True)
+    try:
+        yield
+    finally:
+        upstream_ssrf_protection.reset(token)
+
+
+@pytest.mark.asyncio
+async def test_chat_blocks_private_api_base_when_upstream_protection_is_on(protected_request):
+    # LiteLLM uses its own HTTP client, so the aiohttp connect-time guard never sees this
+    # request; the provider must check the host itself before handing the URL to LiteLLM.
+    config = chat_config_with_api_base()
+    with (
+        mock.patch("litellm.acompletion") as mock_completion,
+        mock.patch(
+            "mlflow.gateway.ssrf._getaddrinfo", mock.AsyncMock(return_value=_addrinfo("10.0.0.1"))
+        ),
+    ):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_MESSAGE}]}
+        with pytest.raises(HTTPException, match="not a public IP address") as exc:
+            await provider.chat(chat.RequestPayload(**payload))
+
+    assert exc.value.status_code == 502
+    mock_completion.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_chat_reaches_public_api_base_when_upstream_protection_is_on(protected_request):
+    config = chat_config_with_api_base()
+    mock_response = mock_litellm_chat_response()
+    with (
+        mock.patch("litellm.acompletion", return_value=mock_response) as mock_completion,
+        mock.patch(
+            "mlflow.gateway.ssrf._getaddrinfo", mock.AsyncMock(return_value=_addrinfo("8.8.8.8"))
+        ),
+    ):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        payload = {"messages": [{"role": "user", "content": TEST_MESSAGE}]}
+        await provider.chat(chat.RequestPayload(**payload))
+
+    assert mock_completion.call_args[1]["api_base"] == "https://custom-api.example.com"
+
+
+@pytest.mark.asyncio
+async def test_embeddings_block_private_api_base_when_upstream_protection_is_on(
+    protected_request,
+):
+    config = chat_config_with_api_base()
+    config["endpoint_type"] = "llm/v1/embeddings"
+    with (
+        mock.patch("litellm.aembedding") as mock_embedding,
+        mock.patch(
+            "mlflow.gateway.ssrf._getaddrinfo",
+            mock.AsyncMock(return_value=_addrinfo("169.254.169.254")),
+        ),
+    ):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        with pytest.raises(HTTPException, match="not a public IP address"):
+            await provider.embeddings(embeddings.RequestPayload(input="hello"))
+
+    mock_embedding.assert_not_called()

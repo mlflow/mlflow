@@ -38,7 +38,7 @@ Some providers accept a custom **API Base URL** (`api_base`), for example Azure 
 
 This prevents a connection from being pointed at internal services, cloud metadata endpoints (e.g., `169.254.169.254`), or localhost services. Leaving the field blank is always allowed and uses the provider's default base URL.
 
-The private-IP policy is also enforced when the gateway actually connects to an upstream: every address the gateway dials is checked at connection time and redirects from the upstream are never followed. This means connections created before this validation existed, and hostnames that change what they resolve to after creation, are still blocked from reaching internal addresses.
+The private-IP policy is also enforced when the gateway actually connects to an upstream: every address the gateway dials is checked at connection time and redirects from the upstream are never followed. This means connections created before this validation existed, and hostnames that change what they resolve to after creation, are still blocked from reaching internal addresses. Providers routed through LiteLLM use LiteLLM's own HTTP client, so for them the base URL is resolved and checked immediately before each request instead.
 
 :::note
 Deployments that legitimately use a private upstream, such as a self-hosted Ollama or vLLM server, must set `MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS=true`. If that server does not use TLS, also set `MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES=http,https` so its URL can be saved. Only enable these when every user who can create LLM connections is trusted with access to your private network.
