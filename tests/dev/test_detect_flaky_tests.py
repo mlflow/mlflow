@@ -9,6 +9,7 @@ from detect_flaky_tests import (
     Framework,
     failing_tests_from_log,
     gh_api_objects,
+    parse_jest_failures,
     parse_pytest_failures,
 )
 
@@ -67,6 +68,82 @@ def test_error_message_is_truncated():
 
 def test_empty_log_yields_no_failures():
     assert parse_pytest_failures("") == {}
+
+
+# A captured jest failure block as its default reporter renders it: a `FAIL <path>`
+# header (with a trailing `(7.812 s)` timing), then one bullet block per failing test
+# (`  <bullet> <suite chain> <test>`) whose first body line is the assertion message.
+# ANSI SGR codes and the Actions ISO-timestamp prefix wrap the real lines and must be
+# stripped first.
+_JEST_TIMESTAMP = "2026-07-20T10:00:00.1234567Z "
+_JEST_LOG = (
+    f"{_JEST_TIMESTAMP}\x1b[1m\x1b[31m FAIL \x1b[0m src/\x1b[1m__flaky_probe__.test.tsx\x1b[0m "
+    "(7.812 s)\n"
+    f"{_JEST_TIMESTAMP}  \x1b[31m✕\x1b[0m top level failing test (1 ms)\n"
+    f"{_JEST_TIMESTAMP}\n"
+    f"{_JEST_TIMESTAMP}\x1b[1m\x1b[31m  ● \x1b[1mFlaky probe suite › renders the widget\x1b[0m\n"
+    f"{_JEST_TIMESTAMP}\n"
+    f"{_JEST_TIMESTAMP}    expect(received).toBe(expected) // Object.is equality\n"
+    f"{_JEST_TIMESTAMP}    Expected: 3\n"
+    f"{_JEST_TIMESTAMP}    Received: 2\n"
+    f"{_JEST_TIMESTAMP}\x1b[1m\x1b[31m  ● \x1b[1mtop level failing test\x1b[0m\n"
+    f"{_JEST_TIMESTAMP}\n"
+    f"{_JEST_TIMESTAMP}    expect(received).toBe(expected) // Object.is equality\n"
+)
+
+
+def test_parses_jest_file_suite_and_test_into_id_with_error():
+    assert parse_jest_failures(_JEST_LOG) == {
+        "src/__flaky_probe__.test.tsx › Flaky probe suite › renders the widget": (
+            "expect(received).toBe(expected) // Object.is equality"
+        ),
+        "src/__flaky_probe__.test.tsx › top level failing test": (
+            "expect(received).toBe(expected) // Object.is equality"
+        ),
+    }
+
+
+def test_jest_test_without_a_preceding_fail_file_is_ignored():
+    # A bare ● with no `FAIL <path>` header before it has no file to attach to; the
+    # detector must not emit a fileless id.
+    assert parse_jest_failures("2026-07-20T10:00:00Z   ● Some suite › a test\n") == {}
+
+
+def test_jest_second_fail_header_rebinds_the_file_for_following_bullets():
+    # Two FAIL blocks in one log: each bullet must attach to the FAIL header directly
+    # above it, so the second file's failure is not misattributed to the first file.
+    log = (
+        "2026-07-20T10:00:00Z FAIL src/a.test.tsx (1 s)\n"
+        "2026-07-20T10:00:00Z   ● Suite A › first\n"
+        "2026-07-20T10:00:00Z     Error: boom-a\n"
+        "2026-07-20T10:00:00Z FAIL src/b.test.tsx (2 s)\n"
+        "2026-07-20T10:00:00Z   ● Suite B › second\n"
+        "2026-07-20T10:00:00Z     Error: boom-b\n"
+    )
+    assert parse_jest_failures(log) == {
+        "src/a.test.tsx › Suite A › first": "Error: boom-a",
+        "src/b.test.tsx › Suite B › second": "Error: boom-b",
+    }
+
+
+def test_jest_accepts_spec_suffix_files():
+    # `.spec.` is also valid jest naming; failures in such files must not be dropped.
+    log = (
+        "2026-07-20T10:00:00Z FAIL src/widget.spec.ts (1 s)\n"
+        "2026-07-20T10:00:00Z   ● Widget › renders\n"
+        "2026-07-20T10:00:00Z     Error: nope\n"
+    )
+    assert parse_jest_failures(log) == {"src/widget.spec.ts › Widget › renders": "Error: nope"}
+
+
+def test_jest_empty_log_yields_no_failures():
+    assert parse_jest_failures("") == {}
+
+
+def test_jest_framework_is_registered_scanning_the_js_workflow():
+    fw = FRAMEWORKS["jest"]
+    assert fw.workflow_name == "JS"
+    assert fw.parse_log is parse_jest_failures
 
 
 def test_gh_api_objects_parses_concatenated_pages(monkeypatch):

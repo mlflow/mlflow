@@ -1,0 +1,125 @@
+name: Flaky JS test detector
+
+# Weekly report-only flaky-test pipeline for the JS suite (detect -> classify -> issue):
+#   1. Detect: mine user-triggered CI re-runs of the "JS" workflow for ground-truth
+#      flakes (a shard that failed on one run attempt and passed on the next attempt of
+#      the same commit; the failing test + error are parsed from that attempt's logs).
+#   2. Classify: an LLM judges each flake's likely root cause and points a human at the
+#      fix.
+#
+# Unlike the Python pipeline, this one is REPORT-ONLY: it never edits tests and never
+# opens a PR. The MLflow frontend forbids `jest.retryTimes` ("Tests must pass without
+# retries. If a test is flaky, fix it instead of adding retries."), so a JS flake is
+# always something a human fixes — the weekly issue just tells them where to look.
+on:
+  schedule:
+    # Thursdays at 01:00 UTC — a day before the Python detector (Fridays) so the two
+    # weekly reports don't land at once. The detector scans a trailing 14-day window.
+    - cron: "0 1 * * 4"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "ISO date to scan from (default: 14 days ago)"
+        required: false
+
+# Deny all permissions by default; the single job grants only what it needs.
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  detect:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # actions: read is required for the GitHub API calls the detector makes
+      # (workflow runs, per-attempt jobs, and job logs); without it they 403.
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Only the detector/classifier scripts are needed; skip the full tree.
+          sparse-checkout: |
+            dev
+            .github
+      - uses: ./.github/actions/setup-python
+      - name: Detect flaky JS tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SINCE: ${{ inputs.since }}
+        run: |
+          ARGS=(--repo "$REPO" --framework jest --out flakes.json --summary flakes.md)
+          if [ -n "$SINCE" ]; then
+            ARGS+=(--since "$SINCE")
+          fi
+          python dev/detect_flaky_tests.py "${ARGS[@]}"
+          # Mirror the report into the run's step summary for at-a-glance viewing.
+          cat flakes.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Classify flaky JS tests
+        if: hashFiles('flakes.json') != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.EXPERIMENTAL_ANTHROPIC_API_KEY }}
+        run: |
+          # The detector always writes flakes.json (even `[]`), so the hashFiles guard
+          # above only proves it exists. Skip the classifier when there are zero flakes
+          # so we don't burn Anthropic quota on an empty run, mirroring the jq guard in
+          # the publish step below.
+          if [ "$(jq 'length' flakes.json)" = "0" ]; then
+            echo "No flakes detected; skipping classify."
+            exit 0
+          fi
+          python dev/classify_flaky_tests.py --in flakes.json --framework jest \
+            --out classified.json --summary classified.md
+
+      - name: Upload report
+        if: "!cancelled()"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: flaky-js-report
+          path: |
+            flakes.json
+            flakes.md
+            classified.json
+            classified.md
+          if-no-files-found: ignore
+          retention-days: 90
+
+      # File/update a single rolling GitHub issue with the week's report so JS flakes
+      # have a visible home. Report-only: there is no PR stage.
+      - name: Publish weekly issue
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          # flakes.md always carries a header, so gate on the JSON actually
+          # holding flakes — otherwise we'd file a "0 flakes" issue every week.
+          if [ ! -s flakes.json ] || [ "$(jq 'length' flakes.json)" = "0" ]; then
+            echo "No flakes detected; skipping issue."
+            exit 0
+          fi
+          # Publish the classified report (verdicts + fix guidance). Fall back to the
+          # detector's verdict-less flakes.md only if classify didn't run/produce one.
+          body_file=flakes.md
+          if [ -s classified.md ]; then
+            body_file=classified.md
+          fi
+          title="Weekly flaky JS-test report"
+          # Scope the dedup search to issues this bot authored so we never comment on
+          # an unrelated issue that happens to share the title.
+          existing=$(gh issue list --repo "$REPO" --author "@me" \
+            --search "in:title \"$title\"" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body-file "$body_file"
+          else
+            gh issue create --repo "$REPO" \
+              --title "$title" --body-file "$body_file" --label "area/build"
+          fi
