@@ -28,7 +28,6 @@ from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.utils import provider_call_duration_ms
-from mlflow.gateway.ssrf import upstream_ssrf_protection
 from mlflow.server import app as flask_app
 from mlflow.server.artifact_router import artifact_router
 from mlflow.server.asgi_utils import get_routed_asgi_path
@@ -136,29 +135,6 @@ def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
         return response
 
     fastapi_app.state.workspace_middleware_added = True
-
-
-def add_gateway_upstream_protection_middleware(fastapi_app: FastAPI) -> None:
-    """Enable connect-time SSRF protection for provider calls made while serving a request.
-
-    Gateway secrets created through this server carry user-supplied upstream hosts, so every
-    outbound provider connection opened on behalf of a request must be checked against the
-    private-IP policy (see ``mlflow.gateway.ssrf``). The handler task inherits a copy of this
-    context, so the flag is visible to ``_aiohttp_post`` for the whole request, including
-    streamed bodies.
-    """
-    if getattr(fastapi_app.state, "gateway_upstream_protection_middleware_added", False):
-        return
-
-    @fastapi_app.middleware("http")
-    async def gateway_upstream_protection_middleware(request: Request, call_next):
-        token = upstream_ssrf_protection.set(True)
-        try:
-            return await call_next(request)
-        finally:
-            upstream_ssrf_protection.reset(token)
-
-    fastapi_app.state.gateway_upstream_protection_middleware_added = True
 
 
 def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
@@ -297,7 +273,6 @@ def create_fastapi_app(flask_app: Flask = flask_app):
 
     add_fastapi_workspace_middleware(fastapi_app)
     add_gateway_timing_middleware(fastapi_app)
-    add_gateway_upstream_protection_middleware(fastapi_app)
 
     # Include OpenTelemetry API router BEFORE mounting Flask app
     # This ensures FastAPI routes take precedence over the catch-all Flask mount

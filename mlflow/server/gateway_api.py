@@ -69,6 +69,7 @@ from mlflow.gateway.providers.base import (
 )
 from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
+from mlflow.gateway.ssrf import upstream_ssrf_protection
 from mlflow.gateway.tracing_utils import (
     aggregate_anthropic_messages_stream_chunks,
     aggregate_chat_stream_chunks,
@@ -634,6 +635,29 @@ def _create_provider(
     return primary_provider
 
 
+def _enable_upstream_ssrf_protection(
+    endpoint_config: GatewayEndpointConfig, *, raw_proxy: bool = False
+) -> None:
+    """Turn on connect-time SSRF protection for the rest of this request when it is needed.
+
+    A provider's built-in base URL (e.g. Ollama's ``localhost:11434``) is operator code, not
+    attacker input, and the typed routes only ever hit fixed inference paths on it, so
+    guarding those calls buys nothing and would break the common local setup. Protection
+    is required when a model's secret carries a user-supplied ``api_base``, which is the
+    SSRF vector, and on the raw proxy route, where the caller also controls the path and
+    could otherwise reach a provider default's full API surface.
+
+    The flag is set on the request's context (the gateway timing middleware runs each
+    handler in a copy), so it covers every provider call made while serving the request,
+    including streamed bodies, and never leaks into other requests.
+    """
+    if raw_proxy or any(
+        model.auth_config and model.auth_config.get(_AuthConfigKey.API_BASE)
+        for model in endpoint_config.models
+    ):
+        upstream_ssrf_protection.set(True)
+
+
 def _create_provider_from_endpoint_name(
     store: SqlAlchemyStore,
     endpoint_name: str,
@@ -653,6 +677,7 @@ def _create_provider_from_endpoint_name(
         Tuple of (provider instance, endpoint config)
     """
     endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
+    _enable_upstream_ssrf_protection(endpoint_config)
     return _create_provider(
         endpoint_config, endpoint_type, enable_tracing=enable_tracing
     ), endpoint_config
@@ -1637,6 +1662,8 @@ async def raw_proxy(endpoint_name: str, path: str, request: Request):
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    # The caller controls the upstream path here, so guard even provider-default base URLs.
+    _enable_upstream_ssrf_protection(endpoint_config, raw_proxy=True)
     _set_gateway_telemetry_state(request, endpoint_config)
     check_budget_limit(
         store, endpoint_config, workspace=workspace, username=_get_request_username(request)

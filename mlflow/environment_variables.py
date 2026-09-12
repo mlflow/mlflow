@@ -1554,10 +1554,12 @@ MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES = _EnvironmentVariable(
 #: Whether the AI Gateway may talk to upstreams at private, loopback, link-local or
 #: otherwise non-public IP addresses (e.g. ``localhost`` or cloud metadata endpoints such
 #: as ``169.254.169.254``). When false, a secret's ``api_base`` is rejected on write if it
-#: resolves to such an address, and every upstream connection the gateway opens is checked
-#: again at connect time (with redirects never followed), so DNS rebinding and rows written
-#: before validation existed cannot reach internal services. Set to true for deployments
-#: that legitimately use private upstreams such as self-hosted Ollama or vLLM.
+#: resolves to such an address, and connections to a user-supplied ``api_base`` (or any
+#: connection made by the raw proxy route) are checked again at connect time with redirects
+#: never followed, so DNS rebinding and rows written before validation existed cannot reach
+#: internal services. Providers' built-in base URLs on the typed routes are not affected.
+#: Set to true for deployments whose configured ``api_base`` is private, such as in-cluster
+#: vLLM or Private Link endpoints.
 #: (default: ``False``)
 MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
     "MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", False

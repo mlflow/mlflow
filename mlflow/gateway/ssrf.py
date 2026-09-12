@@ -27,13 +27,16 @@ This module closes those gaps at the egress point instead:
   blocks plain private hosts, non-canonical literals and rows stored before write-time
   validation existed.
 
-Enforcement is scoped to requests served by the tracking server: its middleware sets
-``upstream_ssrf_protection`` for every request it handles, because there the upstream host
-comes from user-created gateway secrets. The standalone ``mlflow gateway`` server reads its
-provider configuration from an operator-owned file and is not affected. Every check is also
-skipped when ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS`` is true, which is required for
-deployments that legitimately talk to private upstreams (self-hosted Ollama, vLLM, and
-similar).
+Enforcement is scoped per request through ``upstream_ssrf_protection``, which the
+tracking server's gateway routes set when the endpoint's secret carries a user-supplied
+``api_base`` or when the request is the raw proxy route (see
+``mlflow.server.gateway_api._enable_upstream_ssrf_protection``). A provider's built-in base
+URL on a typed route is operator code rather than attacker input, so it is left alone and
+the common local Ollama setup keeps working. The standalone ``mlflow gateway`` server reads
+its provider configuration from an operator-owned file and is not affected. Every check is
+also skipped when ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS`` is true, which is required
+for deployments whose configured ``api_base`` is private (in-cluster vLLM, Private Link
+endpoints, and similar).
 """
 
 import asyncio
@@ -59,10 +62,10 @@ class GatewaySSRFProtectionError(Exception):
     """
 
 
-# True while handling a request whose upstream targets may be user-controlled. Set by the
-# tracking server's FastAPI middleware (see mlflow.server.fastapi_app); the handler task
-# inherits a copy of the middleware's context, so provider calls made while serving the
-# request, including streamed response bodies, observe it.
+# True while handling a request whose upstream target may be attacker-controlled. Set on the
+# request's context by mlflow.server.gateway_api once the endpoint config is known, so every
+# provider call made while serving the request, including streamed response bodies, observes
+# it, and it never leaks into other requests.
 upstream_ssrf_protection: ContextVar[bool] = ContextVar(
     "gateway_upstream_ssrf_protection", default=False
 )
