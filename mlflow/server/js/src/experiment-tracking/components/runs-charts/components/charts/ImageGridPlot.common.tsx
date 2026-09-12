@@ -98,7 +98,7 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
   }, [compressedImageUrl]);
 
   return (
-    <div css={{ width: imageSize || '100%', height: imageSize || '100%' }}>
+    <div css={{ width: imageSize || '100%', height: imageSize || '100%', minHeight: 0 }}>
       <div css={{ display: 'contents' }}>
         {compressedImageUrl === undefined || imageLoading ? (
           <div
@@ -122,7 +122,9 @@ export const ImagePlot = ({ imageUrl, compressedImageUrl, imageSize, maxImageSiz
               width: imageSize || '100%',
               aspectRatio: '1',
               maxWidth: maxImageSize,
-              maxHeight: maxImageSize,
+              // Bound by height as well as width so a square image shrinks to fit a
+              // short card rather than overflowing it.
+              maxHeight: maxImageSize ?? '100%',
               backgroundColor: theme.colors.backgroundSecondary,
               '.rc-image': {
                 cursor: 'pointer',

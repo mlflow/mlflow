@@ -114,7 +114,11 @@ export const RunsChartsImageChartCard = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        height: fullScreen ? '100%' : undefined,
+        // The card wrapper has a definite height (ChartCard.common defaults to 360).
+        // Leaving this auto outside fullscreen left the scrolling body below with no
+        // height to divide, so the media sized itself from the card's width instead.
+        height: '100%',
+        minHeight: 0,
         width: '100%',
         overflow: 'hidden',
         marginTop: theme.spacing.sm,
@@ -124,6 +128,7 @@ export const RunsChartsImageChartCard = ({
       <div
         css={{
           flex: 1,
+          minHeight: 0,
           overflow: 'auto',
         }}
       >
