@@ -1,3 +1,4 @@
+import logging
 from unittest import mock
 
 import pytest
@@ -10,12 +11,12 @@ from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
 
 
-def _experiment(experiment_id="789"):
+def _experiment(experiment_id="789", lifecycle_stage="active"):
     return Experiment(
         experiment_id=experiment_id,
         name="test-experiment",
         artifact_location="file:/tmp",
-        lifecycle_stage="active",
+        lifecycle_stage=lifecycle_stage,
         tags=[ExperimentTag("key", "val")],
     )
 
@@ -119,7 +120,39 @@ def test_does_not_sync_provider_or_set_active():
         assert fluent_module._active_experiment_id == original_active
 
 
-def test_link_failure_includes_retry_guidance():
+def test_link_failure_rolls_back_experiment():
+    with (
+        mock.patch("mlflow.tracking.fluent.MlflowClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            side_effect=MlflowException("backend error"),
+        ),
+    ):
+        client = mock_client_cls.return_value
+        client.create_experiment.return_value = "456"
+        # First call: before delete (inside create_experiment). Second call: our
+        # post-cleanup assertion below, simulating the soft-deleted state a user
+        # would observe after cleanup.
+        client.get_experiment.side_effect = [
+            _experiment(experiment_id="456"),
+            _experiment(experiment_id="456", lifecycle_stage="deleted"),
+        ]
+
+        with pytest.raises(MlflowException, match="soft-deleted") as exc_info:
+            mlflow.create_experiment(
+                "new-exp",
+                trace_location=UnityCatalog("cat", "sch", "pfx"),
+            )
+
+        # The just-created experiment is soft-deleted so nothing active is left behind.
+        client.delete_experiment.assert_called_once_with("456")
+        # Assert that the experiment is now observable as soft-deleted.
+        assert client.get_experiment("456").lifecycle_stage == "deleted"
+        assert "was created" in exc_info.value.message
+        assert "backend error" in exc_info.value.message
+
+
+def test_link_failure_rollback_failure_logs_warning(caplog):
     with (
         mock.patch("mlflow.tracking.fluent.MlflowClient") as mock_client_cls,
         mock.patch(
@@ -130,12 +163,14 @@ def test_link_failure_includes_retry_guidance():
         client = mock_client_cls.return_value
         client.create_experiment.return_value = "456"
         client.get_experiment.return_value = _experiment(experiment_id="456")
+        client.delete_experiment.side_effect = MlflowException("cleanup failed")
 
-        with pytest.raises(MlflowException, match="delete the experiment and retry") as exc_info:
-            mlflow.create_experiment(
-                "new-exp",
-                trace_location=UnityCatalog("cat", "sch", "pfx"),
-            )
+        with caplog.at_level(logging.WARNING, logger="mlflow.tracking.fluent"):
+            with pytest.raises(MlflowException, match="backend error"):
+                mlflow.create_experiment(
+                    "new-exp",
+                    trace_location=UnityCatalog("cat", "sch", "pfx"),
+                )
 
-        assert "was created" in exc_info.value.message
-        assert "backend error" in exc_info.value.message
+        # Cleanup failure is surfaced as a warning, not silently swallowed.
+        assert "Failed to soft-delete experiment" in caplog.text
