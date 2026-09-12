@@ -1786,6 +1786,7 @@ module.exports = {
   "mlflow.model_registry.version_view.breadcrumb_model_link": "",
   "mlflow.model_registry.version_view.breadcrumb_registered_models_link": "",
   "mlflow.model_registry.version_view.copied_from_link": "",
+  "mlflow.model_registry.version_view.source_model_link": "",
   "mlflow.model_registry.version_view.source_run_link": "",
 
   // -- mlflow.model_trace_explorer --
