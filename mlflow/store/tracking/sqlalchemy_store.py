@@ -127,6 +127,10 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_THRESHOLD,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking._sqlalchemy_workspace_lifecycle import (
+    delete_entity_associations,
+    delete_scorer_endpoint_bindings,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
@@ -3154,10 +3158,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # and clean up associated endpoint bindings
             if version is None:
                 # Delete endpoint bindings for this scorer (resource_id stores scorer_id)
-                session.query(SqlGatewayEndpointBinding).filter(
-                    SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
-                    SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
-                ).delete()
+                delete_scorer_endpoint_bindings(session, [scorer.scorer_id])
 
                 session.delete(scorer)
 
@@ -7333,20 +7334,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 _logger.warning(f"Evaluation dataset with id '{dataset_id}' not found.")
                 return
 
-            session.query(SqlEntityAssociation).filter(
-                or_(
-                    and_(
-                        SqlEntityAssociation.destination_type
-                        == EntityAssociationType.EVALUATION_DATASET,
-                        SqlEntityAssociation.destination_id == dataset_id,
-                    ),
-                    and_(
-                        SqlEntityAssociation.source_type
-                        == EntityAssociationType.EVALUATION_DATASET,
-                        SqlEntityAssociation.source_id == dataset_id,
-                    ),
-                )
-            ).delete()
+            delete_entity_associations(
+                session,
+                EntityAssociationType.EVALUATION_DATASET,
+                [dataset_id],
+            )
 
             session.delete(sql_dataset)
 
