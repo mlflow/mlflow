@@ -276,6 +276,7 @@ repos:
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false
+        always_run: true
 
       - id: no-yaml
         name: no-yaml
