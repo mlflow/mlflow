@@ -166,12 +166,12 @@ class GeminiAdapter(ProviderAdapter):
                                 "name": tool_call["function"]["name"],
                                 "args": json.loads(tool_call["function"]["arguments"]),
                             }
+                            part = {"functionCall": fc}
                             if tool_call["id"] in call_id_to_thought_signature_map:
-                                fc["thoughtSignature"] = call_id_to_thought_signature_map[
+                                part["thoughtSignature"] = call_id_to_thought_signature_map[
                                     tool_call["id"]
                                 ]
-
-                            gemini_function_calls.append({"functionCall": fc})
+                            gemini_function_calls.append(part)
                 if gemini_function_calls:
                     contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
@@ -261,8 +261,13 @@ class GeminiAdapter(ProviderAdapter):
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
-            thought_sig = function_call.get("thoughtSignature") or function_call.get(
-                "thought_signature"
+            # Gemini 3.x nests thoughtSignature at Part-level; fall back to the
+            # Gemini 2.5 functionCall-level location.
+            thought_sig = (
+                part.get("thoughtSignature")
+                or part.get("thought_signature")
+                or function_call.get("thoughtSignature")
+                or function_call.get("thought_signature")
             )
             if call_id is None:
                 # Gemini model response might not contain function call id,
