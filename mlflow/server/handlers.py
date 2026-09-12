@@ -5985,7 +5985,9 @@ def _create_gateway_secret():
             "created_by": [_assert_string],
         },
     )
-    # Empty map means no auth_config was provided
+    # Empty map means no auth_config was provided. Unlike update, the store's create path
+    # persists {} and None identically (NULL), so a map that normalizes to empty is folded
+    # into None here.
     auth_config = _validate_gateway_secret_auth_config(dict(request_message.auth_config)) or None
     secret_value = dict(request_message.secret_value)
     _validate_gateway_secret_value(secret_value)

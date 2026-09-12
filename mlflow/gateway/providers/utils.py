@@ -85,6 +85,8 @@ async def _aiohttp_post(
             connector=connector, headers=request_headers, read_bufsize=2**20
         ) as session:
             timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get())
+            # ClientSession.__aenter__ opens no connection; the resolver runs while
+            # session.post(...).__aenter__ acquires one, which this try encloses.
             try:
                 async with session.post(
                     url, json=payload, timeout=timeout, allow_redirects=False
