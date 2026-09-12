@@ -69,7 +69,7 @@
     "whatwg-fetch": "^3.6.20"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "files": [
     "dist/",

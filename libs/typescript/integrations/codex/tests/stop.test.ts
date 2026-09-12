@@ -21,7 +21,7 @@ describe('runNotifyHook', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('logs only the error message when an exception has credential-bearing properties', async () => {
+  it('logs the error stack without credential-bearing properties', async () => {
     const error = Object.assign(new Error('authentication failed'), {
       config: { token: 'secret-token' },
     });
@@ -29,7 +29,15 @@ describe('runNotifyHook', () => {
 
     await runNotifyHook(JSON.stringify({ type: 'agent-turn-complete' }));
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('[mlflow]', 'authentication failed');
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[mlflow]', error.stack);
     expect(JSON.stringify(consoleErrorSpy.mock.calls)).not.toContain('secret-token');
+  });
+
+  it('logs a string representation when a non-Error value is thrown', async () => {
+    processNotifyMock.mockRejectedValue('notify failed');
+
+    await runNotifyHook(JSON.stringify({ type: 'agent-turn-complete' }));
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith('[mlflow]', 'notify failed');
   });
 });
