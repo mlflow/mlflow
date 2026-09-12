@@ -182,6 +182,8 @@ def reset_experiment_id():
     """
     yield
     mlflow.tracking.fluent._active_experiment_id = None
+    MLFLOW_EXPERIMENT_ID.unset()
+    MLFLOW_EXPERIMENT_NAME.unset()
 
 
 @pytest.fixture(autouse=True)
@@ -284,6 +286,19 @@ def test_get_experiment_id_with_active_experiment_returns_active_experiment_id()
     assert exp_id is not None
     mlflow.set_experiment(name)
     assert _get_experiment_id() == exp_id
+
+
+def test_set_experiment_sets_environment_variables():
+    name = f"Random experiment {random.randint(1, int(1e6))}"
+    exp = mlflow.set_experiment(name)
+    assert MLFLOW_EXPERIMENT_ID.get() == exp.experiment_id
+    assert MLFLOW_EXPERIMENT_NAME.get() == name
+    assert os.environ.get(MLFLOW_EXPERIMENT_ID.name) == exp.experiment_id
+    assert os.environ.get(MLFLOW_EXPERIMENT_NAME.name) == name
+
+    # Verify Ultralytics-style callback experiment name resolution
+    resolved_exp_name = os.environ.get(MLFLOW_EXPERIMENT_NAME.name) or "runs/detect"
+    assert resolved_exp_name == name
 
 
 def test_get_experiment_id_with_no_active_experiments_returns_zero():

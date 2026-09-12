@@ -12,8 +12,8 @@ from click.testing import CliRunner
 
 import mlflow.db
 
-# Import workspace models temporarily for tests to pass.
-# This can be removed once we have a workspace store imported.
+# Import model registry and workspace models for tests to pass.
+import mlflow.store.model_registry.dbmodels as _model_registry_models  # noqa: F401
 import mlflow.store.workspace.dbmodels as _workspace_models  # noqa: F401
 from mlflow.exceptions import MlflowException
 from mlflow.store.db import workspace_migration
