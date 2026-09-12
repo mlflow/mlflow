@@ -96,7 +96,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    cache-mode: read
+    cache-mode: write
     strategy:
       fail-fast: false
       matrix:
