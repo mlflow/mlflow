@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789189405294,
+  "lastUpdate": 1789194034493,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "55605301+khaledsulayman@users.noreply.github.com",
-            "name": "Khaled Sulayman",
-            "username": "khaledsulayman"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e054abba2e1e16fa971e3e491b2250bca48affc8",
-          "message": "Add `Link` entity and `LiveSpan.add_link()` for OpenTelemetry Span Links (#22797)\n\nSigned-off-by: Khaled Sulayman <ksulayma@redhat.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-05-08T20:54:30Z",
-          "tree_id": "ccc08e179124bca5f72a45e6963a3a63eb54bbaa",
-          "url": "https://github.com/mlflow/mlflow/commit/e054abba2e1e16fa971e3e491b2250bca48affc8"
-        },
-        "date": 1778273980855,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.43717890000087,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 20.142289147058282,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 19.221413890625485,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 18.58148380357148,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 20.69386855932226,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.970809399996369,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 13.058842714278692,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110020083+Hasnaathussain@users.noreply.github.com",
+            "name": "Hasnaat hussain",
+            "username": "Hasnaathussain"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d957d7bb5235074b5abcbe34ee317d4edc99b196",
+          "message": "Fix `strands.autolog` crash on foreign OpenTelemetry spans (#25807)\n\nSigned-off-by: Hasnaat Hussain <hasnaat.hussain.2@gmail.com>\nCo-authored-by: Haoji Tang <haoji.tang@databricks.com>",
+          "timestamp": "2026-09-12T15:19:11+09:00",
+          "tree_id": "eff7fef45e28266fcd64ae335d0848fd60a0b205",
+          "url": "https://github.com/mlflow/mlflow/commit/d957d7bb5235074b5abcbe34ee317d4edc99b196"
+        },
+        "date": 1789194031334,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.281229049998245,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.163073725807112,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.330718571428378,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.189624893805162,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.683536870228567,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.992913600000406,
             "unit": "ms"
           }
         ]
