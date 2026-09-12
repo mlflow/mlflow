@@ -6,6 +6,27 @@ paths:
 
 # GitHub Actions Workflow Guidelines
 
+## Reinvent the Wheel When It's Cheap
+
+Prefer a small `run:` step or repository script over a third-party action when
+the behavior is straightforward and cheap to implement and maintain. Use tools
+already available in the job, such as `gh`, `curl`, or Python. A few lines of
+code can avoid another dependency to audit, pin, and update, reduce exposure to
+supply chain attacks, and skip the action's download overhead.
+
+```yaml
+# Bad: adds a dependency just to label a PR
+- uses: example/label-pr@...
+  with:
+    label: needs-review
+
+# Good
+- run: gh pr edit "$PR_NUMBER" --add-label needs-review
+```
+
+Use a third-party action when it provides substantial functionality that would
+be costly or error-prone to reproduce.
+
 ## Use `ubuntu-slim` for Lightweight Tasks
 
 Prefer `ubuntu-slim` over `ubuntu-latest` for simple jobs (e.g., labeling, commenting, notifications).
