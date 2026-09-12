@@ -1,3 +1,4 @@
+import json
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -1642,10 +1643,54 @@ def test_evaluate_with_simulator_creates_single_run(tmp_path):
         "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
         return_value='{"rationale": "Goal achieved!", "result": "yes"}',
     ):
-        mlflow.genai.evaluate(data=simulator, predict_fn=mock_predict_fn, scorers=[])
+        result = mlflow.genai.evaluate(data=simulator, predict_fn=mock_predict_fn, scorers=[])
 
     runs = mlflow.search_runs()
     assert len(runs) == 1
+
+    run = mlflow.get_run(result.run_id)
+    assert len(run.inputs.dataset_inputs) == 1
+    dataset_input = run.inputs.dataset_inputs[0].dataset
+    assert dataset_input.name == "conversational_dataset"
+    assert dataset_input.source_type == "code"
+
+
+def test_evaluate_with_simulator_preserves_managed_dataset_identity(tmp_path):
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    experiment = mlflow.set_experiment("test-experiment")
+    dataset = create_dataset(
+        name="conversation-test-cases",
+        experiment_id=experiment.experiment_id,
+    )
+    dataset.merge_records([{"inputs": {"goal": "get help"}}])
+
+    simulator = ConversationSimulator(
+        test_cases=dataset,
+        max_turns=2,
+        user_agent_class=MockUserAgent,
+    )
+
+    def mock_predict_fn(input: list[dict[str, Any]], **kwargs):
+        return {"content": "Response"}
+
+    with mock.patch(
+        "mlflow.genai.simulators.simulator.invoke_model_without_tracing",
+        return_value='{"rationale": "Goal achieved!", "result": "yes"}',
+    ):
+        result = mlflow.genai.evaluate(
+            data=simulator,
+            predict_fn=mock_predict_fn,
+            scorers=[has_trace],
+        )
+
+    run = mlflow.get_run(result.run_id)
+    assert result.metrics["has_trace/mean"] == 1.0
+    assert len(run.inputs.dataset_inputs) == 1
+    dataset_input = run.inputs.dataset_inputs[0].dataset
+    assert dataset_input.name == dataset.name
+    assert dataset_input.digest == dataset.digest
+    assert dataset_input.source_type == "mlflow_evaluation_dataset"
+    assert json.loads(dataset_input.source)["dataset_id"] == dataset.dataset_id
 
 
 def test_evaluate_with_simulator_within_parent_run(tmp_path):
