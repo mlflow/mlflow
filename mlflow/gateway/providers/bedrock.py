@@ -420,6 +420,9 @@ class AmazonBedrockProvider(BaseProvider):
         if inference_config:
             kwargs["inferenceConfig"] = inference_config
 
+        if custom_inputs := payload.get("custom_inputs"):
+            kwargs["additionalModelRequestFields"] = custom_inputs
+
         # Convert tools to Bedrock format
         if tools := payload.get("tools"):
             bedrock_tools = []
@@ -456,12 +459,20 @@ class AmazonBedrockProvider(BaseProvider):
         message = output.get("message", {})
         content_blocks = message.get("content", [])
 
-        text_parts = []
+        content_parts = []
+        has_reasoning = False
         tool_calls = []
 
         for block in content_blocks:
             if "text" in block:
-                text_parts.append(block["text"])
+                content_parts.append({"type": "text", "text": block["text"]})
+            elif reasoning := block.get("reasoningContent", {}).get("reasoningText"):
+                has_reasoning = True
+                content_parts.append({
+                    "type": "reasoning",
+                    "summary": [{"type": "summary_text", "text": reasoning["text"]}],
+                    **({"signature": reasoning["signature"]} if "signature" in reasoning else {}),
+                })
             elif "toolUse" in block:
                 tool_use = block["toolUse"]
                 tool_calls.append(
@@ -487,7 +498,11 @@ class AmazonBedrockProvider(BaseProvider):
                     index=0,
                     message=chat.ResponseMessage(
                         role="assistant",
-                        content="\n".join(text_parts) if text_parts else None,
+                        content=(
+                            content_parts
+                            if has_reasoning
+                            else "\n".join(part["text"] for part in content_parts) or None
+                        ),
                         tool_calls=tool_calls or None,
                     ),
                     finish_reason=finish_reason,
