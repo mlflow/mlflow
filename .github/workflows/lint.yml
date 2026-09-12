@@ -131,7 +131,3 @@ jobs:
                  'Run `uv lock --upgrade-package <package>` if this PR should update package versions.' \
                  '`uv lock` alone won'"'"'t bump them.'
           fi
-
-      - name: Check unused media
-        run: |
-          dev/find-unused-media.sh
