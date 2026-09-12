@@ -401,7 +401,12 @@ from mlflow.utils.server_info import (
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
+from mlflow.utils.uri import (
+    get_uri_scheme,
+    is_local_uri,
+    validate_path_is_safe,
+    validate_query_string,
+)
 from mlflow.utils.validation import (
     MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
     _validate_batch_log_api_req,
@@ -1409,7 +1414,20 @@ def _validate_optional_workspace_storage_location(value: str | None, field_name:
 
 
 def _validate_workspace_default_artifact_root(value: str | None) -> str | None:
-    return _validate_optional_workspace_storage_location(value, "default_artifact_root")
+    validated = _validate_optional_workspace_storage_location(value, "default_artifact_root")
+    if validated in (None, ""):
+        return validated
+    # A scheme-less relative value is resolved by tracking clients against their own working
+    # directory, so artifacts would silently be written to the client machine. Use the same
+    # scheme classification as the artifact repository registry so that values it treats as
+    # local paths (including single-letter "schemes" such as 'C:team-a') are rejected here.
+    if not get_uri_scheme(validated) and not os.path.isabs(validated):
+        raise MlflowException.invalid_parameter_value(
+            "Invalid value for 'default_artifact_root'. Expected a URI (for example "
+            "'s3://bucket/prefix' or 'mlflow-artifacts:/prefix') or an absolute path, got "
+            f"'{validated}'."
+        )
+    return validated
 
 
 def _validate_workspace_trace_archival_location(value: str | None) -> str | None:
