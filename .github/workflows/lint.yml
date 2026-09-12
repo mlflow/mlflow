@@ -124,12 +124,8 @@ jobs:
 
       - name: Check uv.lock changes
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          files=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json files --jq '.files[].path')
+          files=$(git diff --name-only HEAD^1 HEAD)
           if echo "$files" | grep -q '^uv.lock$' && echo "$files" | grep -q '^pyproject.toml$'; then
             echo '::warning file=pyproject.toml,line=1,col=1::[Non-blocking]' \
                  'Run `uv lock --upgrade-package <package>` if this PR should update package versions.' \
