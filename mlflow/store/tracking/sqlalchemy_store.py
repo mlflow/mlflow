@@ -9497,6 +9497,16 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                 val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
                     entity.value, value
                 )
+                if entity is SqlLatestMetric:
+                    # NaN metrics are stored as value=0 with is_nan=True. Every comparison
+                    # against NaN is false except "!=", so the placeholder 0 must never
+                    # satisfy a numeric filter and a NaN metric always satisfies "!=".
+                    if comparator == "!=":
+                        val_filter = sqlalchemy.or_(val_filter, entity.is_nan == sqlalchemy.true())
+                    else:
+                        val_filter = sqlalchemy.and_(
+                            val_filter, entity.is_nan == sqlalchemy.false()
+                        )
                 non_attribute_filters.append(
                     session.query(entity).filter(key_filter, val_filter).subquery()
                 )
