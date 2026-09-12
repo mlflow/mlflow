@@ -5,7 +5,9 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import { jest, beforeEach, afterEach, describe, it, expect } from '@jest/globals';
+import { jest, beforeAll, beforeEach, afterAll, afterEach, describe, it, expect } from '@jest/globals';
+import { rest } from 'msw';
+import { setupServer } from '../common/utils/setup-msw';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -17,6 +19,7 @@ import {
   getEvaluationTableArtifact,
   getParentRunIdsToFetch,
   getParentRunTagName,
+  listArtifactsApi,
   searchRunsPayload,
 } from './actions';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
@@ -417,5 +420,49 @@ describe('getEvaluationArtifact', () => {
     expect(fetchEvaluationTableArtifact).toHaveBeenCalledTimes(2);
     expect(fetchEvaluationTableArtifact).toHaveBeenCalledWith('run_1', '/path/to/artifact');
     expect(fetchEvaluationTableArtifact).toHaveBeenCalledWith('run_1', '/path/to/other/artifact');
+  });
+});
+
+describe('listArtifactsApi', () => {
+  const runUuid = 'test-run-uuid';
+  const proxyOrigin = 'http://localhost';
+  const proxyAnchor = '/api/2.0/mlflow-artifacts/artifacts';
+  const eligibleArtifactUri = `${proxyOrigin}${proxyAnchor}/my-root`;
+
+  let capturedUrls: string[] = [];
+  const server = setupServer(
+    rest.get(/\/api\/2\.0\/mlflow-artifacts\/artifacts/, (req, res, ctx) => {
+      capturedUrls.push(req.url.toString());
+      return res(ctx.json({ files: [{ path: 'file1', is_dir: false, file_size: '159' }] }));
+    }),
+  );
+
+  beforeAll(() => server.listen());
+
+  afterEach(() => {
+    capturedUrls = [];
+    server.resetHandlers();
+  });
+
+  afterAll(() => server.close());
+
+  it('lists artifacts from an eligible artifact proxy URI', async () => {
+    const listArtifactsSpy = jest.spyOn(MlflowService, 'listArtifacts');
+
+    const action = listArtifactsApi(runUuid, 'sub', undefined, undefined, undefined, eligibleArtifactUri);
+    const result = await action.payload;
+
+    expect(listArtifactsSpy).not.toHaveBeenCalled();
+    expect(capturedUrls).toEqual([`${proxyOrigin}${proxyAnchor}?path=my-root%2Fsub`]);
+    expect(result).toEqual({ files: [{ path: 'sub/file1', is_dir: false, file_size: '159' }] });
+  });
+
+  it('lists artifacts through the tracking server when no artifact URI is given', async () => {
+    const listArtifactsSpy = jest.spyOn(MlflowService, 'listArtifacts').mockResolvedValue({ files: [] } as any);
+
+    await listArtifactsApi(runUuid, 'sub').payload;
+
+    expect(listArtifactsSpy).toHaveBeenCalledWith({ run_uuid: runUuid, path: 'sub' });
+    expect(capturedUrls).toEqual([]);
   });
 });
