@@ -414,7 +414,7 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
     const llmSpans = getSpansByType('LLM');
     const toolSpans = getSpansByType('TOOL');
 
-    // 2 assistant messages -> 2 LLM spans; 1 function_call -> 1 TOOL span
+    // 2 model responses -> 2 LLM spans; 1 function_call -> 1 TOOL span
     expect(llmSpans.length).toBe(2);
     expect(toolSpans.length).toBe(1);
 
@@ -423,7 +423,7 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
       expect(span.parentId).toBe('root');
     }
 
-    // First LLM span: only the user message is in scope, no tool_calls yet
+    // First LLM response contains both commentary and a tool call.
     expect(llmSpans[0].name).toBe('llm_call');
     expect(llmSpans[0].inputs).toEqual({
       model: 'gpt-4',
@@ -431,7 +431,21 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
     });
     const firstLlmEnd = (llmSpans[0].end as jest.Mock).mock.calls[0][0];
     expect(firstLlmEnd.outputs).toEqual({
-      choices: [{ message: { role: 'assistant', content: "I'll list the files for you." } }],
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: "I'll list the files for you.",
+            tool_calls: [
+              {
+                id: 'call_abc123',
+                type: 'function',
+                function: { name: 'exec_command', arguments: '{"cmd":"ls"}' },
+              },
+            ],
+          },
+        },
+      ],
     });
 
     // TOOL span
@@ -495,7 +509,7 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
     //   10:00:05Z task_complete
     //
     // Expected:
-    //   LLM #1: task_started (00) -> assistant #1 (01)           = 1s
+    //   LLM #1: task_started (00) -> function_call (02)          = 2s
     //   TOOL:   function_call (02) -> function_call_output (03)  = 1s
     //   LLM #2: function_call_output (03) -> assistant #2 (04)   = 1s
     const records = readTranscript(resolve(FIXTURES_DIR, 'with-tool-call.jsonl'));
@@ -511,10 +525,10 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
     const llmSpans = getSpansByType('LLM');
     const toolSpans = getSpansByType('TOOL');
 
-    // LLM #1: task_started -> first assistant message
+    // LLM #1: task_started -> final output record in the response
     expect(llmSpans[0].startTimeNs).toBe(parseNs('2026-04-05T10:00:00Z'));
-    expect(llmSpans[0].endTimeNs).toBe(parseNs('2026-04-05T10:00:01Z'));
-    expect(llmSpans[0].endTimeNs - llmSpans[0].startTimeNs).toBe(NS_PER_SEC);
+    expect(llmSpans[0].endTimeNs).toBe(parseNs('2026-04-05T10:00:02Z'));
+    expect(llmSpans[0].endTimeNs - llmSpans[0].startTimeNs).toBe(2 * NS_PER_SEC);
 
     // TOOL: function_call -> matching function_call_output (by call_id)
     expect(toolSpans[0].startTimeNs).toBe(parseNs('2026-04-05T10:00:02Z'));
@@ -565,6 +579,85 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
       cache_read_input_tokens: 24832,
       cache_creation_input_tokens: 0,
     });
+  });
+
+  it('creates token-counted LLM spans for tool-only model responses', () => {
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-tool-only-calls.jsonl'));
+    const turn = getLastTurnRecords(records);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = { spanId: 'root' } as any;
+    createChildSpans(parent, turn, 'gpt-5.6-sol');
+
+    const llmSpans = getSpansByType('LLM');
+    const toolSpans = getSpansByType('TOOL');
+    expect(llmSpans).toHaveLength(3);
+    expect(toolSpans).toHaveLength(2);
+
+    expect((llmSpans[0].end as jest.Mock).mock.calls[0][0].outputs).toEqual({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: {
+                  name: 'exec',
+                  arguments: 'await tools.exec_command({"cmd":"pwd"});',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    expect((llmSpans[1].end as jest.Mock).mock.calls[0][0].outputs).toEqual({
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_2',
+                type: 'function',
+                function: {
+                  name: 'exec',
+                  arguments: 'await tools.exec_command({"cmd":"git status --short"});',
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    expect((llmSpans[2].end as jest.Mock).mock.calls[0][0].outputs).toEqual({
+      choices: [{ message: { role: 'assistant', content: 'The repository is clean.' } }],
+    });
+
+    expect(llmSpans.map((span) => span.attributes['mlflow.chat.tokenUsage'])).toEqual([
+      {
+        input_tokens: 100,
+        output_tokens: 10,
+        total_tokens: 110,
+        cache_read_input_tokens: 80,
+      },
+      {
+        input_tokens: 120,
+        output_tokens: 15,
+        total_tokens: 135,
+        cache_read_input_tokens: 96,
+      },
+      {
+        input_tokens: 140,
+        output_tokens: 20,
+        total_tokens: 160,
+        cache_read_input_tokens: 112,
+      },
+    ]);
   });
 });
 
