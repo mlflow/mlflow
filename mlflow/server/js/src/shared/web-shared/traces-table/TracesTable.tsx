@@ -943,10 +943,10 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                                           ? flexRender(firstCell.column.columnDef.cell, firstCell.getContext())
                                           : header.column.id === 'state' && lastCell
                                             ? flexRender(lastCell.column.columnDef.cell, lastCell.getContext())
-                                            // Suppress product-owned aggregates when the page may not
-                                            // contain all traces for this session — a partial total is
-                                            // more confusing than a blank. Mirrors onToggleBulkRows.
-                                            : sessionsMayBeIncomplete
+                                            : // Suppress product-owned aggregates when the page may not
+                                              // contain all traces for this session — a partial total is
+                                              // more confusing than a blank. Mirrors onToggleBulkRows.
+                                              sessionsMayBeIncomplete
                                               ? null
                                               : (sessionCellRenderers.get(header.column.id)?.(tracesInSession) ?? null)}
                                 </TableCell>

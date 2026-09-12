@@ -652,8 +652,8 @@ export const TraceTokensCell: React.MemoExoticComponent<(props: { trace: ModelTr
 );
 
 /** Session token count, aggregated across all traces in the collapsed session header. */
-export const SessionTokensCell: React.MemoExoticComponent<(props: { traces: ModelTraceInfoV3[] }) => JSX.Element> = memo(
-  function SessionTokensCell({ traces }: { traces: ModelTraceInfoV3[] }) {
+export const SessionTokensCell: React.MemoExoticComponent<(props: { traces: ModelTraceInfoV3[] }) => JSX.Element> =
+  memo(function SessionTokensCell({ traces }: { traces: ModelTraceInfoV3[] }) {
     const usage = traces.reduce<TokenUsage>((totals, trace) => {
       const traceUsage = getTraceTokenUsage(trace) ?? {};
       return {
@@ -672,8 +672,7 @@ export const SessionTokensCell: React.MemoExoticComponent<(props: { traces: Mode
       };
     }, {});
     return <TokenUsageCell usage={usage} />;
-  },
-);
+  });
 
 /** Total cost in USD in a tag, with an input/output breakdown on hover. */
 export const TraceCostCell: React.MemoExoticComponent<(props: { trace: ModelTraceInfoV3 }) => JSX.Element> = memo(
