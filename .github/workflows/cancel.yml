@@ -28,9 +28,18 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
         run: |
-          gh run list --repo "$REPO" --commit "$HEAD_SHA" --event pull_request \
-            --json databaseId,status,name \
-            --jq '.[] | select(.status != "completed" and .name != "release-note") | .databaseId' |
-          while read -r run_id; do
-            gh run cancel "$run_id" --repo "$REPO" || true
-          done
+          run_ids=$(
+            gh api --paginate \
+              "repos/$REPO/actions/runs?head_sha=$HEAD_SHA&event=pull_request&per_page=100" \
+              --jq '.workflow_runs[] | select(.status != "completed" and .name != "release-note") | .id'
+          )
+
+          if [ -n "$run_ids" ]; then
+            while read -r run_id; do
+              (
+                echo "Cancelling https://github.com/$REPO/actions/runs/$run_id"
+                gh run cancel "$run_id" --repo "$REPO" || true
+              ) &
+            done <<< "$run_ids"
+          fi
+          wait

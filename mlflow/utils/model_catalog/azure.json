@@ -473,7 +473,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-09-10"
     },
     "eu/gpt-5.6": {
       "mode": "chat",
@@ -2375,7 +2376,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-09-10"
     },
     "gpt-5.6": {
       "mode": "chat",
@@ -4215,7 +4217,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-09-10"
     },
     "us/gpt-5.6": {
       "mode": "chat",

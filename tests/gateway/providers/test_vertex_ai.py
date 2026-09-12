@@ -74,6 +74,24 @@ def test_headers_use_bearer_token():
     assert provider.headers == {"Authorization": "Bearer mock-access-token"}
 
 
+def test_passthrough_headers_keep_provider_bearer_token():
+    provider = _make_provider()
+    # ASGI servers lower-case inbound header names, so a client Authorization arrives
+    # as "authorization". Forwarding it alongside Vertex's own bearer token would leave
+    # the upstream with two conflicting Authorization headers (Google returns 401).
+    merged = provider._get_headers(
+        headers={
+            "authorization": "Bearer client-token",
+            "user-agent": "python-httpx/0.27.0",
+            "X-Custom": "value",
+        }
+    )
+    assert merged["Authorization"] == "Bearer mock-access-token"
+    assert "authorization" not in merged
+    assert merged["user-agent"] == "python-httpx/0.27.0"
+    assert merged["X-Custom"] == "value"
+
+
 def test_name():
     provider = _make_provider()
     assert provider.DISPLAY_NAME == "Vertex AI"
