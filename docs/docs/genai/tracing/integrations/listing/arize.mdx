@@ -11,7 +11,9 @@ import ServerSetup from "@site/src/content/setup_server_slim.mdx";
 
 # Tracing Arize / Phoenix
 
-[Arize Phoenix](https://github.com/Arize-ai/phoenix) is an open-source AI observability platform. Its [OpenInference](https://github.com/Arize-ai/openinference) instrumentation libraries produce OpenTelemetry spans with rich AI-specific attributes for model providers like OpenAI, Anthropic, and others.
+[Arize Phoenix](https://arize.com/phoenix/) is the open-source AI observability option from [Arize AI](https://arize.com/?utm_source=mlflow-docs&utm_medium=partner&utm_campaign=partner-docs&utm_content=tracing-arize-phoenix). Its [OpenInference](https://github.com/Arize-ai/openinference) instrumentation libraries produce OpenTelemetry spans with rich AI-specific attributes for model providers like OpenAI, Anthropic, and others.
+
+This page focuses on mirroring OpenInference traces to MLflow. Teams that need managed cloud or enterprise self-hosted observability and evaluation for production AI systems can use [Arize AX](https://arize.com/products/ax/) with the same OpenInference trace data.
 
 Because OpenInference is built on OpenTelemetry, you can use `mlflow.otel.autolog()` to mirror every instrumented call to the MLflow backend. The MLflow server automatically translates OpenInference attributes to MLflow span types, inputs, outputs, token usage, and model name. Phoenix tracing is completely unaffected; this is purely additive.
 
@@ -31,6 +33,8 @@ MLflow automatically captures the following information from OpenInference spans
 - Model name
 - Parent-child span nesting
 - Any exception if raised
+
+For evaluation workflows that build on trace data, see Arize's [agent evaluation guide](https://arize.com/guides/ai-agent-handbook/agent-evaluation/) and [LLM evaluation guide](https://arize.com/resources/llm-evaluation/).
 
 ## Getting Started
 
