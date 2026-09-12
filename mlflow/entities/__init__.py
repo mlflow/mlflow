@@ -5,13 +5,12 @@ The ``mlflow.entities`` module defines entities returned by the MLflow
 
 from mlflow.entities.assessment import (
     Assessment,
-    AssessmentError,
-    AssessmentSource,
-    AssessmentSourceType,
     Expectation,
     Feedback,
     IssueReference,
 )
+from mlflow.entities.assessment_error import AssessmentError
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.dataset_record import DatasetRecord

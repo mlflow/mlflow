@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from mlflow.data import Dataset
+from mlflow.data.dataset import Dataset
 from mlflow.data.evaluation_dataset_source import EvaluationDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -19,7 +19,7 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 if TYPE_CHECKING:
-    import pandas as pd
+    import pandas as pd  # type: ignore[import-untyped]
 
     from mlflow.entities.trace import Trace
 
@@ -56,7 +56,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         created_by: str | None = None,
         last_updated_by: str | None = None,
         version: dict[str, Any] | int | None = None,
-    ):
+    ) -> None:
         """Initialize the EvaluationDataset."""
         self.dataset_id = dataset_id
         self.created_time = created_time
@@ -67,8 +67,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         self.created_by = created_by
         self.last_updated_by = last_updated_by
         self.version = version
-        self._experiment_ids = None
-        self._records = None
+        self._experiment_ids: list[str] | None = None
+        self._records: list[DatasetRecord] | None = None
 
         source = EvaluationDatasetSource(dataset_id=self.dataset_id)
         Dataset.__init__(self, source=source, name=name, digest=digest)
@@ -83,7 +83,9 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def source(self) -> EvaluationDatasetSource:
         """Override source property to return the correct type."""
-        return self._source
+        # The base class stores the wider `DatasetSource` type, but this dataset
+        # always constructs its own `EvaluationDatasetSource`.
+        return cast(EvaluationDatasetSource, self._source)
 
     @property
     def schema(self) -> str | None:
@@ -112,7 +114,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         return self._experiment_ids or []
 
     @experiment_ids.setter
-    def experiment_ids(self, value: list[str]):
+    def experiment_ids(self, value: list[str]) -> None:
         """Set experiment IDs directly."""
         self._experiment_ids = value or []
 
@@ -154,6 +156,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Returns:
             List of dictionaries with 'inputs', 'expectations', and 'source' fields
         """
+        from mlflow.entities.assessment import Expectation
         from mlflow.entities.trace import Trace
 
         record_dicts = []
@@ -169,7 +172,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             outputs = root_span.outputs if root_span and root_span.outputs is not None else None
 
             expectations = {}
-            expectation_assessments = trace.search_assessments(type="expectation")
+            # `type="expectation"` filters to Expectation instances only.
+            expectation_assessments = cast(
+                "list[Expectation]", trace.search_assessments(type="expectation")
+            )
             for expectation in expectation_assessments:
                 expectations[expectation.name] = expectation.value
 
@@ -212,7 +218,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             return self._process_trace_records(traces)
         else:
-            return df.to_dict("records")
+            # `DataFrame.to_dict("records")` returns rows as dicts keyed by column name.
+            # pandas is untyped here; the typed local converts it statically.
+            record_dicts: list[dict[str, Any]] = df.to_dict("records")
+            return record_dicts
 
     @record_usage_event(MergeRecordsEvent)
     def merge_records(
@@ -260,12 +269,16 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         from mlflow.entities.trace import Trace
         from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 
+        record_dicts: list[dict[str, Any]]
         if isinstance(records, pd.DataFrame):
             record_dicts = self._process_dataframe_records(records)
         elif isinstance(records, list) and records and isinstance(records[0], Trace):
-            record_dicts = self._process_trace_records(records)
+            # The element check above guarantees a list of traces; the callee
+            # re-validates every element anyway.
+            record_dicts = self._process_trace_records(cast("list[Trace]", records))
         else:
-            record_dicts = records
+            # Remaining inputs are plain record dictionaries (validated below).
+            record_dicts = cast("list[dict[str, Any]]", records)
 
         self._validate_record_dicts(record_dicts)
 
@@ -476,7 +489,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         from mlflow.tracking._tracking_service.utils import _get_store
 
         tracking_store = _get_store()
-        deleted_count = tracking_store.delete_dataset_records(
+        deleted_count: int = tracking_store.delete_dataset_records(
             dataset_id=self.dataset_id,
             dataset_record_ids=record_ids,
         )
@@ -578,7 +591,9 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
-        result = super().to_dict()
+        # The base class declares `dict[str, str]`, but this subclass adds
+        # nested (non-string) values such as records and tags.
+        result: dict[str, Any] = super().to_dict()
 
         result.update({
             "dataset_id": self.dataset_id,

@@ -8,7 +8,6 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
-from mlflow.protos.service_pb2 import TraceStatus as ProtoTraceStatus
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
 
 
@@ -79,7 +78,7 @@ class TraceInfoV2(_MlflowObject):
         # as we only put None when starting a trace i.e. the execution time is actually 0.
         proto.execution_time_ms = self.execution_time_ms or 0
         # The proto enum field is typed as its EnumTypeWrapper class; cast the raw int back.
-        proto.status = cast(ProtoTraceStatus, self.status.to_proto())
+        proto.status = self.status.to_proto()
 
         request_metadata = []
         for key, value in _truncate_request_metadata(self.request_metadata).items():

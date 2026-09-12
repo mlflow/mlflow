@@ -215,6 +215,7 @@ test = [
   "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
+protos = ["mypy-protobuf"]
 docs = [
   "sphinx==4.2.0",
   "sphinx-autobuild",
