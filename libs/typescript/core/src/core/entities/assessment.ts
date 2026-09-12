@@ -1,6 +1,7 @@
 /**
  * TypeScript counterparts of Python `mlflow.entities.assessment` for the
- * V3 assessments REST API. Field names on the wire are proto JSON (snake_case).
+ * V3 and Databricks V4 assessments REST APIs. Field names on the wire are proto JSON
+ * (snake_case).
  */
 
 export const AssessmentSourceType = {
@@ -20,6 +21,15 @@ export type FeedbackValueType =
   | FeedbackPrimitive
   | FeedbackPrimitive[]
   | { [key: string]: FeedbackPrimitive | FeedbackValueType };
+
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+export type ExpectationValueType = Exclude<JsonValue, null>;
 
 /** Matches Python `mlflow.entities.assessment_error` truncation. */
 export const STACK_TRACE_TRUNCATION_PREFIX = '[Stack trace is truncated]\n...\n';
@@ -52,6 +62,27 @@ export interface SerializedFeedbackValue {
   error?: SerializedAssessmentError;
 }
 
+export interface SerializedExpectationValue {
+  value?: unknown;
+  serialized_value?: {
+    serialization_format?: string;
+    value?: string;
+  };
+}
+
+export interface SerializedV4TraceLocation {
+  type: 'UC_SCHEMA' | 'UC_TABLE_PREFIX';
+  uc_schema?: {
+    catalog_name: string;
+    schema_name: string;
+  };
+  uc_table_prefix?: {
+    catalog_name: string;
+    schema_name: string;
+    table_prefix: string;
+  };
+}
+
 export interface SerializedAssessment {
   assessment_id?: string;
   assessment_name: string;
@@ -61,13 +92,14 @@ export interface SerializedAssessment {
   create_time?: string;
   last_update_time?: string;
   feedback?: SerializedFeedbackValue;
-  expectation?: unknown;
+  expectation?: SerializedExpectationValue;
   issue?: unknown;
   rationale?: string;
   error?: SerializedAssessmentError;
   metadata?: Record<string, string>;
   overrides?: string;
   valid?: boolean;
+  trace_location?: SerializedV4TraceLocation;
 }
 
 export class Feedback {
@@ -188,7 +220,7 @@ export class Feedback {
             stackTrace: errorJson.stack_trace,
           }
         : undefined,
-      traceId: json.trace_id,
+      traceId: traceIdFromJson(json),
       spanId: json.span_id,
       rationale: json.rationale,
       metadata: json.metadata,
@@ -201,10 +233,117 @@ export class Feedback {
   }
 }
 
-export type Assessment = Feedback | SerializedAssessment;
+const JSON_SERIALIZATION_FORMAT = 'JSON_FORMAT';
+
+export class Expectation {
+  name: string;
+  source: AssessmentSource;
+  value: ExpectationValueType;
+  traceId?: string;
+  spanId?: string;
+  metadata?: Record<string, string>;
+  assessmentId?: string;
+  createTime?: string;
+  lastUpdateTime?: string;
+  valid?: boolean;
+
+  constructor(params: {
+    name: string;
+    value: ExpectationValueType;
+    source?: AssessmentSource;
+    traceId?: string;
+    spanId?: string;
+    metadata?: Record<string, string>;
+    assessmentId?: string;
+    createTime?: string;
+    lastUpdateTime?: string;
+    valid?: boolean;
+  }) {
+    if (params.value == null) {
+      throw new Error('logExpectation requires `value`.');
+    }
+    this.name = params.name;
+    this.source = params.source
+      ? {
+          sourceType: standardizeSourceType(params.source.sourceType),
+          sourceId: params.source.sourceId || 'default',
+        }
+      : { sourceType: AssessmentSourceType.HUMAN, sourceId: 'default' };
+    this.value = params.value;
+    this.traceId = params.traceId;
+    this.spanId = params.spanId;
+    this.metadata = params.metadata;
+    this.assessmentId = params.assessmentId;
+    this.createTime = params.createTime;
+    this.lastUpdateTime = params.lastUpdateTime;
+    this.valid = params.valid;
+  }
+
+  toJson(): SerializedAssessment {
+    const json: SerializedAssessment = {
+      assessment_name: this.name,
+      source: {
+        source_type: this.source.sourceType,
+        source_id: this.source.sourceId,
+      },
+      expectation: serializeExpectationValue(this.value),
+    };
+    if (this.assessmentId != null) {
+      json.assessment_id = this.assessmentId;
+    }
+    if (this.traceId != null) {
+      json.trace_id = this.traceId;
+    }
+    if (this.spanId != null) {
+      json.span_id = this.spanId;
+    }
+    if (this.createTime != null) {
+      json.create_time = this.createTime;
+    }
+    if (this.lastUpdateTime != null) {
+      json.last_update_time = this.lastUpdateTime;
+    }
+    if (this.metadata != null) {
+      json.metadata = this.metadata;
+    }
+    if (this.valid != null) {
+      json.valid = this.valid;
+    }
+    return json;
+  }
+
+  static fromJson(json: SerializedAssessment): Expectation {
+    if (!json.expectation) {
+      throw new Error('Invalid expectation assessment: missing expectation value.');
+    }
+    return new Expectation({
+      name: json.assessment_name,
+      source: json.source
+        ? {
+            sourceType: standardizeSourceType(json.source.source_type),
+            sourceId: json.source.source_id || 'default',
+          }
+        : undefined,
+      value: deserializeExpectationValue(json.expectation),
+      traceId: traceIdFromJson(json),
+      spanId: json.span_id,
+      metadata: json.metadata,
+      assessmentId: json.assessment_id,
+      createTime: json.create_time,
+      lastUpdateTime: json.last_update_time,
+      valid: json.valid,
+    });
+  }
+}
+
+export type Assessment = Feedback | Expectation | SerializedAssessment;
 
 export function isFeedback(assessment: Assessment): assessment is Feedback {
   return assessment instanceof Feedback;
+}
+
+export function isExpectation(assessment: Assessment): assessment is Expectation {
+  return assessment instanceof Expectation;
 }
 
 /** Truncate stack traces the same way as Python `AssessmentError.to_proto`. */
@@ -234,14 +373,94 @@ export function assessmentFromJson(json: SerializedAssessment): Assessment {
   if (json.feedback) {
     return Feedback.fromJson(json);
   }
+  if (json.expectation) {
+    return Expectation.fromJson(json);
+  }
   return json;
 }
 
 export function assessmentToJson(assessment: Assessment): SerializedAssessment {
-  if (assessment instanceof Feedback) {
+  if (assessment instanceof Feedback || assessment instanceof Expectation) {
     return assessment.toJson();
   }
   return assessment;
+}
+
+export function serializeV4TraceLocation(location: string): SerializedV4TraceLocation {
+  const parts = location.split('.');
+  if (parts.length === 2 && parts.every(Boolean)) {
+    const [catalogName, schemaName] = parts;
+    return {
+      type: 'UC_SCHEMA',
+      uc_schema: { catalog_name: catalogName, schema_name: schemaName },
+    };
+  }
+  if (parts.length === 3 && parts.every(Boolean)) {
+    const [catalogName, schemaName, tablePrefix] = parts;
+    return {
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: {
+        catalog_name: catalogName,
+        schema_name: schemaName,
+        table_prefix: tablePrefix,
+      },
+    };
+  }
+  throw new Error(
+    `Invalid UC location: ${location}. Expected format: <catalog>.<schema>[.<table_prefix>].`,
+  );
+}
+
+function traceIdFromJson(json: SerializedAssessment): string | undefined {
+  if (!json.trace_id || !json.trace_location) {
+    return json.trace_id;
+  }
+  const location = json.trace_location.uc_schema
+    ? `${json.trace_location.uc_schema.catalog_name}.${json.trace_location.uc_schema.schema_name}`
+    : json.trace_location.uc_table_prefix
+      ? `${json.trace_location.uc_table_prefix.catalog_name}.${json.trace_location.uc_table_prefix.schema_name}.${json.trace_location.uc_table_prefix.table_prefix}`
+      : undefined;
+  return location ? `trace:/${location}/${json.trace_id}` : json.trace_id;
+}
+
+function serializeExpectationValue(value: ExpectationValueType): SerializedExpectationValue {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return { value };
+  }
+  let serialized: string | undefined;
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    throw new Error('Expectation value must be JSON-serializable.');
+  }
+  if (serialized === undefined) {
+    throw new Error('Expectation value must be JSON-serializable.');
+  }
+  return {
+    serialized_value: {
+      serialization_format: JSON_SERIALIZATION_FORMAT,
+      value: serialized,
+    },
+  };
+}
+
+function deserializeExpectationValue(value: SerializedExpectationValue): ExpectationValueType {
+  if (value.serialized_value) {
+    if (value.serialized_value.serialization_format !== JSON_SERIALIZATION_FORMAT) {
+      throw new Error(
+        `Unknown expectation serialization format: ${value.serialized_value.serialization_format}. ` +
+          `Only ${JSON_SERIALIZATION_FORMAT} is supported.`,
+      );
+    }
+    if (value.serialized_value.value == null) {
+      throw new Error('Invalid serialized expectation: missing value.');
+    }
+    return JSON.parse(value.serialized_value.value) as ExpectationValueType;
+  }
+  if (value.value == null) {
+    throw new Error('Invalid expectation assessment: missing value.');
+  }
+  return value.value as ExpectationValueType;
 }
 
 export function standardizeSourceType(sourceType: string): AssessmentSourceTypeName {

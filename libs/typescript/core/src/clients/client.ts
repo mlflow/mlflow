@@ -2,6 +2,7 @@ import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
 import {
   CreateAssessment,
+  CreateAssessmentV4,
   CreateExperiment,
   CreateTraceInfoV4,
   DeleteExperiment,
@@ -17,12 +18,17 @@ import {
   AssessmentSourceType,
   assertFeedbackPayload,
   assertMetadataStringMap,
+  Expectation,
   Feedback,
+  serializeV4TraceLocation,
   standardizeSourceType,
   type AssessmentError,
   type AssessmentSource,
   type FeedbackValueType,
+  type ExpectationValueType,
+  type SerializedAssessment,
 } from '../core/entities/assessment';
+import { parseTraceIdV4 } from '../core/utils/trace_id';
 import { makeRawRequest, makeRequest, MlflowHttpError } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
@@ -335,10 +341,8 @@ export class MlflowClient {
   }
 
   /**
-   * Log feedback on a persisted trace via the V3 assessments API.
+   * Log feedback on a persisted trace.
    * Corresponds to Python `mlflow.log_feedback`.
-   *
-   * Databricks Unity Catalog V4 assessment posting is not included in this method.
    */
   async logFeedback(params: {
     traceId: string;
@@ -370,15 +374,72 @@ export class MlflowClient {
       traceId: params.traceId,
     });
 
-    const url = CreateAssessment.getEndpoint(this.hostUrl, params.traceId);
-    const payload: CreateAssessment.Request = { assessment: feedback.toJson() };
+    return Feedback.fromJson(await this.createAssessment(params.traceId, feedback.toJson()));
+  }
+
+  /**
+   * Log an expectation, such as a ground-truth label, on a persisted trace.
+   * Corresponds to Python `mlflow.log_expectation`.
+   */
+  async logExpectation(params: {
+    traceId: string;
+    name: string;
+    value: ExpectationValueType;
+    source?: AssessmentSource;
+    metadata?: Record<string, string>;
+    spanId?: string;
+  }): Promise<Expectation> {
+    const metadata = assertMetadataStringMap(params.metadata);
+    const source = params.source
+      ? {
+          sourceType: standardizeSourceType(params.source.sourceType),
+          sourceId: params.source.sourceId || 'default',
+        }
+      : { sourceType: AssessmentSourceType.HUMAN, sourceId: 'default' };
+    const expectation = new Expectation({
+      name: params.name,
+      value: params.value,
+      source,
+      metadata,
+      spanId: params.spanId,
+      traceId: params.traceId,
+    });
+
+    return Expectation.fromJson(await this.createAssessment(params.traceId, expectation.toJson()));
+  }
+
+  private async createAssessment(
+    traceId: string,
+    assessment: SerializedAssessment,
+  ): Promise<SerializedAssessment> {
+    const [location, parsedTraceId] = parseTraceIdV4(traceId);
+    if (location && parsedTraceId) {
+      const payload: CreateAssessmentV4.Request = {
+        ...assessment,
+        trace_id: parsedTraceId,
+        trace_location: serializeV4TraceLocation(location),
+      };
+      const response = await makeRequest<CreateAssessmentV4.Response>(
+        'POST',
+        CreateAssessmentV4.getEndpoint(this.hostUrl, location, parsedTraceId),
+        this.headersProvider,
+        payload,
+      );
+      return {
+        ...response,
+        trace_id: response.trace_id ?? parsedTraceId,
+        trace_location: response.trace_location ?? payload.trace_location,
+      };
+    }
+
+    const payload: CreateAssessment.Request = { assessment };
     const response = await makeRequest<CreateAssessment.Response>(
       'POST',
-      url,
+      CreateAssessment.getEndpoint(this.hostUrl, traceId),
       this.headersProvider,
       payload,
     );
-    return Feedback.fromJson(response.assessment);
+    return response.assessment;
   }
 
   // === EXPERIMENT METHODS  ===
