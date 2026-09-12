@@ -54,4 +54,8 @@ class RunBatch:
             self.completion_event.set()
 
         for child_batch in self.child_batches:
+            # Child batches are logged as part of this merged batch, so they share its
+            # outcome. Without this, a caller waiting on a child batch observes a successful
+            # completion for data that was never logged.
+            child_batch.exception = self._exception
             child_batch.complete()
