@@ -4,15 +4,21 @@ from collections.abc import AsyncIterable
 from typing import Any
 
 from mlflow.gateway.config import EndpointConfig, MistralConfig
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+    _client_provides_auth,
+    _drop_client_auth_headers,
+)
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat as chat_schema
 from mlflow.gateway.schemas import completions as completions_schema
 from mlflow.gateway.schemas import embeddings as embeddings_schema
-from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.gateway.utils import handle_incomplete_chunks, parse_sse_lines, strip_sse_prefix
 
-
-class MistralAdapter(ProviderAdapter):
+class MistralAdapter(ProviderAdapter, BaseProvider):
     @classmethod
     def model_to_completions(cls, resp, config):
         # Response example (https://docs.mistral.ai/api/#operation/createChatCompletion)
@@ -201,6 +207,10 @@ class MistralProvider(BaseProvider):
     DISPLAY_NAME = "Mistral"
     CONFIG_TYPE = MistralConfig
 
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.MISTRAL_CHAT: "chat/completions",
+    }
+
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, MistralConfig):
@@ -296,3 +306,82 @@ class MistralProvider(BaseProvider):
             MistralAdapter.embeddings_to_model(payload, self.config),
         )
         return MistralAdapter.model_to_embeddings(resp, self.config)
+
+
+    def _get_headers(
+        self,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        result_headers = self.headers.copy()
+
+        if headers:
+            client_headers = headers.copy()
+            client_headers.pop("host", None)
+            client_headers.pop("content-length", None)
+            if _client_provides_auth(headers):
+                result_headers.pop("authorization", None)
+            else:
+                client_headers = _drop_client_auth_headers(client_headers)
+            result_headers = client_headers | result_headers
+
+        return result_headers
+
+    async def _passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        provider_path = self._validate_passthrough_action(action)
+
+        # Add model name from config
+        payload["model"] = self.config.model.name
+
+        request_headers = self._get_headers(payload, headers)
+
+        if payload.get("stream"):
+            stream = send_stream_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )
+            return self._stream_passthrough_with_usage(stream)
+        else:
+            return await send_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=provider_path,
+                payload=payload,
+            )
+
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        usage = result.get("usage")
+        if not usage:
+            return None
+        return self._extract_token_usage_from_dict(
+            usage,
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+            cache_read_key="prompt_tokens_details.cached_tokens",
+        )
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        for data in parse_sse_lines(chunk):
+            usage = data.get("usage")
+            if not usage:
+                continue
+            token_usage = self._extract_token_usage_from_dict(
+                usage,
+                "prompt_tokens",
+                "completion_tokens",
+                "total_tokens",
+                cache_read_key="prompt_tokens_details.cached_tokens",
+            )
+            if token_usage:
+                return token_usage
+        return {}
