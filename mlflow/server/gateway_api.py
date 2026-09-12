@@ -638,18 +638,11 @@ def _create_provider(
 def _enable_upstream_ssrf_protection(
     endpoint_config: GatewayEndpointConfig, *, raw_proxy: bool = False
 ) -> None:
-    """Turn on connect-time SSRF protection for the rest of this request when it is needed.
+    """Enable connect-time SSRF protection for the rest of this request when needed.
 
-    A provider's built-in base URL (e.g. Ollama's ``localhost:11434``) is operator code, not
-    attacker input, and the typed routes only ever hit fixed inference paths on it, so
-    guarding those calls buys nothing and would break the common local setup. Protection
-    is required when a model's secret carries a user-supplied ``api_base``, which is the
-    SSRF vector, and on the raw proxy route, where the caller also controls the path and
-    could otherwise reach a provider default's full API surface.
-
-    The flag is set on the request's context (the gateway timing middleware runs each
-    handler in a copy), so it covers every provider call made while serving the request,
-    including streamed bodies, and never leaks into other requests.
+    Needed when a secret carries a user-supplied ``api_base`` (the SSRF vector) and on the
+    raw proxy, where the caller also controls the path. Providers' built-in base URLs such
+    as Ollama's ``localhost:11434`` are operator code, so typed routes leave them alone.
     """
     if raw_proxy or any(
         model.auth_config and model.auth_config.get(_AuthConfigKey.API_BASE)

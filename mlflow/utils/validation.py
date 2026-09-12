@@ -930,13 +930,11 @@ def _is_ip_literal_like(hostname: str) -> bool:
 
 
 def _validate_canonical_ip_literal(hostname: str, field_name: str) -> None:
-    """Reject numeric hosts that are not canonical IP address literals.
+    """Reject numeric hosts that are not canonical IP literals.
 
-    ``socket`` accepts legacy spellings such as ``2130706433``, ``127.1`` or ``0177.0.0.1``
-    and maps them onto an address at connect time, but resolvers and validators can parse
-    them differently: ``0177.0.0.1`` is octal loopback to ``inet_aton`` and decimal
-    ``177.0.0.1`` to ``getaddrinfo``. Requiring the canonical form removes that parser
-    differential before any address check runs.
+    ``socket`` maps legacy spellings like ``127.1`` or ``0177.0.0.1`` onto an address at
+    connect time, and validators may parse them differently (``0177.0.0.1`` is loopback to
+    ``inet_aton`` but ``177.0.0.1`` to ``getaddrinfo``).
     """
     if not _is_ip_literal_like(hostname):
         return
@@ -1048,17 +1046,11 @@ def _validate_public_https_url(
 
 
 def _validate_gateway_api_base(url: str) -> None:
-    """Validate the ``api_base`` override supplied in an AI Gateway secret's ``auth_config``.
+    """Validate an AI Gateway secret's ``api_base``: public HTTPS only by default.
 
-    The gateway sends upstream requests to this URL, and the raw proxy route appends a
-    caller-supplied path to it, so an unrestricted value turns the gateway into an SSRF
-    primitive against internal services and cloud metadata endpoints. Default behavior
-    accepts only public HTTPS targets, following the webhook and icon URL policies.
-
-    Operators can further configure:
-    - ``MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES`` to allow schemes like ``http``
-    - ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS=true`` to allow localhost /
-      loopback / private-network targets
+    The gateway sends requests to this URL, so it follows the webhook and icon URL SSRF
+    policy. ``MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES`` and
+    ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS`` relax it.
     """
     _validate_public_https_url(
         url,
@@ -1068,21 +1060,18 @@ def _validate_gateway_api_base(url: str) -> None:
     )
 
 
-# Keys that configure where the gateway sends requests. They must live in ``auth_config``,
-# where they are validated, never in the encrypted ``secret_value`` map, which is stored as-is.
+# Egress-controlling keys belong in the validated ``auth_config``, never in the encrypted,
+# unvalidated ``secret_value`` map.
 _GATEWAY_SECRET_VALUE_RESERVED_KEYS = frozenset({"api_base"})
 
 
 def _validate_gateway_secret_auth_config(
     auth_config: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Validate the user-controlled ``auth_config`` of an AI Gateway secret on write.
+    """Validate a gateway secret's ``auth_config`` on write and return a normalized copy.
 
-    Only ``api_base`` (see ``mlflow.gateway.config._AuthConfigKey.API_BASE``) names an
-    outbound target, so it is the only key checked. Returns a normalized copy: a blank
-    ``api_base`` means "use the provider default", so the key is dropped rather than stored,
-    because providers select the default by truthiness and a whitespace-only string would
-    otherwise become the upstream URL. ``None`` or an empty map returns ``None``.
+    ``api_base`` is the only key naming an outbound target. A blank value is dropped rather
+    than stored, since providers fall back to their default by truthiness.
     """
     if not auth_config:
         return None
@@ -1099,11 +1088,7 @@ def _validate_gateway_secret_auth_config(
 
 
 def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
-    """Reject ``secret_value`` keys that would steer gateway egress.
-
-    Providers built from the LiteLLM fallback merge ``secret_value`` over ``auth_config``, so
-    an ``api_base`` smuggled into the encrypted map would override the validated one.
-    """
+    """Reject ``secret_value`` keys that would steer gateway egress (see reserved keys)."""
     if not secret_value:
         return
     if reserved := sorted(_GATEWAY_SECRET_VALUE_RESERVED_KEYS & set(secret_value)):
