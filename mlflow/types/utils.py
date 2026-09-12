@@ -627,7 +627,10 @@ def _is_spark_df(x) -> bool:
         import pyspark.sql.connect.dataframe
 
         return isinstance(x, pyspark.sql.connect.dataframe.DataFrame)
-    except ImportError:
+    # pyspark >= 4.2 runs `check_dependencies()` on importing `pyspark.sql.connect`, which
+    # calls `sys.exit(0)` when Spark Connect extras are missing and it mistakes the running
+    # interpreter for a doctest session (`__main__` has no `__file__`, as under pytest)
+    except (ImportError, SystemExit):
         return False
 
 
