@@ -149,7 +149,8 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
-        prefix = dest_path if dest_path.endswith("/") else dest_path + "/"
+        dest_path = dest_path.rstrip("/")
+        prefix = dest_path + "/" if dest_path else ""
 
         bkt = self._get_bucket(bucket)
 
@@ -161,7 +162,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             # returns subdirectories as well
             if result.name == prefix:
                 continue
-            blob_path = result.name[len(artifact_path) + 1 :]
+            blob_path = posixpath.relpath(result.name, artifact_path)
             infos.append(FileInfo(blob_path, False, result.size))
 
         return sorted(infos, key=lambda f: f.path)
@@ -172,7 +173,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         for page in results.pages:
             dir_paths.update(page.prefixes)
 
-        return [FileInfo(path[len(artifact_path) + 1 : -1], True, None) for path in dir_paths]
+        return [FileInfo(posixpath.relpath(path, artifact_path), True, None) for path in dir_paths]
 
     def _download_file(self, remote_file_path, local_path):
         (bucket, remote_root_path) = self.parse_gcs_uri(self.artifact_uri)
