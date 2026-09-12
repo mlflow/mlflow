@@ -7944,16 +7944,30 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             experiment_ids_str = [str(exp_id) for exp_id in experiment_ids]
 
+            # ``SqlExperiment.experiment_id`` is an INTEGER column but REST callers
+            # pass string IDs. psycopg2 sent them as untyped literals PostgreSQL
+            # would coerce; psycopg v3 binds them as typed VARCHAR and PostgreSQL
+            # rejects the comparison ("operator does not exist:
+            # integer = character varying"). Coerce with the same error contract
+            # as ``_get_experiment``/``list_scorers_across_experiments``.
+            try:
+                experiment_ids_int = [int(exp_id) for exp_id in experiment_ids]
+            except (ValueError, TypeError):
+                raise MlflowException(
+                    "Invalid experiment IDs: experiment IDs must be valid integers.",
+                    INVALID_PARAMETER_VALUE,
+                )
+
             accessible_exp_ids = (
                 {
                     str(row[0])
                     for row in self
                     ._get_query(session, SqlExperiment)
-                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_str))
+                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_int))
                     .with_entities(SqlExperiment.experiment_id)
                     .all()
                 }
-                if experiment_ids_str
+                if experiment_ids_int
                 else set()
             )
 

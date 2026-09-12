@@ -713,6 +713,49 @@ def test_dataset_get_experiment_ids(store):
     assert result == []
 
 
+def test_add_dataset_to_experiments(store):
+    experiment_ids = _create_experiments(store, ["add_exp_1", "add_exp_2", "add_exp_3"])
+    created_dataset = store.create_dataset(
+        name="add_to_experiments_dataset",
+        experiment_ids=[experiment_ids[0]],
+    )
+
+    store.add_dataset_to_experiments(
+        created_dataset.dataset_id, [experiment_ids[1], experiment_ids[2]]
+    )
+
+    fetched_experiment_ids = store.get_dataset_experiment_ids(created_dataset.dataset_id)
+    assert set(fetched_experiment_ids) == set(experiment_ids)
+
+
+def test_add_dataset_to_experiments_nonexistent_experiment_raises(store):
+    experiment_ids = _create_experiments(store, ["add_exp_missing"])
+    created_dataset = store.create_dataset(
+        name="add_to_missing_experiment_dataset",
+        experiment_ids=experiment_ids,
+    )
+
+    with pytest.raises(MlflowException, match="No Experiment with id="):
+        store.add_dataset_to_experiments(created_dataset.dataset_id, ["999999"])
+
+
+def test_add_dataset_to_experiments_non_numeric_id_raises(store):
+    # Regression test: SqlExperiment.experiment_id is an INTEGER column. Passing a
+    # non-numeric id must raise a clean validation error instead of reaching the
+    # database, where it would previously fail with a raw
+    # "operator does not exist: integer = character varying" error on
+    # PostgreSQL + psycopg v3 backends (silently coerced by SQLite/psycopg2, which
+    # is why this went unnoticed in CI).
+    experiment_ids = _create_experiments(store, ["add_exp_non_numeric"])
+    created_dataset = store.create_dataset(
+        name="add_to_non_numeric_experiment_dataset",
+        experiment_ids=experiment_ids,
+    )
+
+    with pytest.raises(MlflowException, match="must be valid integers"):
+        store.add_dataset_to_experiments(created_dataset.dataset_id, ["not-a-number"])
+
+
 def test_dataset_tags_with_sql_backend(store):
     tags = {"environment": "production", "version": "2.0", "team": "ml-ops"}
 
