@@ -33,6 +33,7 @@ env:
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 permissions: {}
+cache-mode: none
 
 jobs:
   core_tests:
@@ -40,6 +41,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
+    cache-mode: read
     strategy:
       fail-fast: false
       matrix:
