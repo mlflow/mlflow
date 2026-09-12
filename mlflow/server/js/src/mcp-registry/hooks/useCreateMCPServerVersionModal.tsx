@@ -25,7 +25,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { ConnectOptionsMap, MCPIcon, MCPServer, MCPServerVersion } from '../types';
 import { MCPStatus } from '../types';
 import { useCreateMCPServerVersionMutation } from './useCreateMCPServerVersionMutation';
-import { deriveConnectOptionKeys, validateServerJson } from '../utils';
+import { deriveConnectOptionKeys, unwrapServerJson, validateServerJson } from '../utils';
 import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import type { KeyValueEntity } from '../../common/types';
@@ -122,8 +122,8 @@ export const useCreateMCPServerVersionModal = ({
 
   const serverJsonIcons = useMemo(() => {
     try {
-      const parsed = JSON.parse(formState.serverJsonText);
-      return Array.isArray(parsed?.icons) ? (parsed.icons as MCPIcon[]) : undefined;
+      const parsed = unwrapServerJson(JSON.parse(formState.serverJsonText));
+      return Array.isArray(parsed?.['icons']) ? (parsed['icons'] as MCPIcon[]) : undefined;
     } catch {
       return undefined;
     }
