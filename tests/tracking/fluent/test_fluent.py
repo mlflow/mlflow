@@ -1900,7 +1900,9 @@ def test_create_external_model(tmp_path):
     assert mlflow_model.metadata is not None
     assert mlflow_model.metadata.get(mlflow_tags.MLFLOW_MODEL_IS_EXTERNAL) is True
 
-    exp_id = mlflow.create_experiment("test")
+    exp_id = mlflow.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
     with mlflow.start_run(experiment_id=exp_id) as run:
         pass
     with mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value=None) as m:
@@ -2658,8 +2660,10 @@ def test_start_run_sgc_resumption_handles_tag_set_error(empty_active_run_stack, 
         mock_set_tag.assert_called_once()
 
 
-def test_import_checkpoints_overwrite():
-    exp_id = mlflow.create_experiment("test_import_checkpoints_overwrite")
+def test_import_checkpoints_overwrite(tmp_path):
+    exp_id = mlflow.create_experiment(
+        "test_import_checkpoints_overwrite", artifact_location=(tmp_path / "artifacts").as_uri()
+    )
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()
@@ -2758,8 +2762,11 @@ def test_import_checkpoints_overwrite():
             )
 
 
-def test_import_checkpoints_skip_name_with_invalid_char():
-    exp_id = mlflow.create_experiment("test_import_checkpoints_skip_name_with_invalid_char")
+def test_import_checkpoints_skip_name_with_invalid_char(tmp_path):
+    exp_id = mlflow.create_experiment(
+        "test_import_checkpoints_skip_name_with_invalid_char",
+        artifact_location=(tmp_path / "artifacts").as_uri(),
+    )
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()
@@ -2789,8 +2796,10 @@ def test_import_checkpoints_skip_name_with_invalid_char():
         assert "ckpt1.a" in warn_msg
 
 
-def test_import_checkpoints_without_run():
-    exp_id = mlflow.create_experiment("test_import_checkpoints_without_run")
+def test_import_checkpoints_without_run(tmp_path):
+    exp_id = mlflow.create_experiment(
+        "test_import_checkpoints_without_run", artifact_location=(tmp_path / "artifacts").as_uri()
+    )
     mlflow.set_experiment(experiment_id=exp_id)
 
     ws = mock.MagicMock()
