@@ -67,5 +67,51 @@ mlartifacts
 To delete the logged artifacts, run the following command:
 
 ```bash
-mlflow gc --backend-store-uri=mlruns --run-ids
+mlflow gc --backend-store-uri=mlruns --run-ids <run_id>
+```
+
+### Clean up
+
+```sh
+# Remove experiment and run data
+$ rm -rf mlruns
+
+# Remove artifacts
+$ rm -rf mlartifacts
+```
+
+## Advanced example using `docker-compose`
+
+[`docker-compose.yml`](./docker-compose.yml) provides a more advanced setup than the quick-start example above:
+
+- Tracking service uses PostgreSQL as a backend store.
+- Artifact service uses RustFS as an artifact store, with AWS CLI creating the S3 bucket.
+- Tracking and artifacts services are running on different servers.
+
+```sh
+# Build services
+$ docker-compose build
+
+# Launch tracking and artifacts servers in the background
+$ docker-compose up -d
+
+# Run `example.py` in the client container
+$ docker-compose run -v ${PWD}/example.py:/app/example.py client python example.py
+```
+
+You can view the logged artifacts on RustFS Console served at http://localhost:9001. The login username and password are `user` and `password`.
+
+### Clean up
+
+```sh
+# Remove containers, networks, volumes, and images
+$ docker-compose down --rmi all --volumes --remove-orphans
+```
+
+### Development
+
+```sh
+# Build services using the dev version of mlflow
+$ ./build.sh
+$ docker-compose run -v ${PWD}/example.py:/app/example.py client python example.py
 ```
