@@ -4280,6 +4280,21 @@ def test_create_and_get_secret(mlflow_client_with_secrets):
     assert fetched.secret_id == secret.secret_id
 
 
+def test_create_secret_requires_provider(mlflow_client_with_secrets):
+    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
+
+    response = requests.post(
+        f"{base_url}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "providerless-secret",
+            "secret_value": {"api_key": "sk-test-12345"},
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+
+
 def test_update_secret(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 
@@ -4324,6 +4339,7 @@ def test_delete_secret(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 
     secret = store.create_gateway_secret(
+        provider="openai",
         secret_name="temp-key",
         secret_value={"api_key": "temp-value"},
     )
@@ -5182,21 +5198,47 @@ def test_update_model_definition_provider(mlflow_client_with_secrets):
     assert model_def.provider == "openai"
     assert model_def.model_name == "gpt-4"
 
+    with pytest.raises(
+        MlflowException,
+        match="Gateway secret provider 'openai' cannot be used with provider 'anthropic'",
+    ) as exc:
+        store.update_gateway_model_definition(
+            model_definition_id=model_def.model_definition_id,
+            provider="anthropic",
+            model_name="claude-3-5-haiku-latest",
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+    fetched = store.get_gateway_model_definition(model_def.model_definition_id)
+    assert fetched.provider == "openai"
+    assert fetched.model_name == "gpt-4"
+    assert fetched.secret_id == secret.secret_id
+
+    anthropic_secret = store.create_gateway_secret(
+        secret_name="anthropic-provider-update-secret",
+        secret_value={"api_key": "sk-anthropic-provider-test"},
+        provider="anthropic",
+    )
+
     updated = store.update_gateway_model_definition(
         model_definition_id=model_def.model_definition_id,
+        secret_id=anthropic_secret.secret_id,
         provider="anthropic",
         model_name="claude-3-5-haiku-latest",
     )
 
     assert updated.provider == "anthropic"
     assert updated.model_name == "claude-3-5-haiku-latest"
+    assert updated.secret_id == anthropic_secret.secret_id
 
     fetched = store.get_gateway_model_definition(model_def.model_definition_id)
     assert fetched.provider == "anthropic"
     assert fetched.model_name == "claude-3-5-haiku-latest"
+    assert fetched.secret_id == anthropic_secret.secret_id
 
     store.delete_gateway_model_definition(model_def.model_definition_id)
     store.delete_gateway_secret(secret.secret_id)
+    store.delete_gateway_secret(anthropic_secret.secret_id)
 
 
 def test_create_issue_with_all_fields(mlflow_client, store_type):

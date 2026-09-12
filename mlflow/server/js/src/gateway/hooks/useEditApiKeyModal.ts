@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 import { useUpdateSecret } from './useUpdateSecret';
 import { useProviderConfigQuery } from './useProviderConfigQuery';
 import type { SecretFormData } from '../components/secrets/types';
-import type { SecretInfo } from '../types';
+import type { AuthMode, SecretInfo } from '../types';
 
 interface UseEditApiKeyModalParams {
   secret: SecretInfo | null;
@@ -16,6 +16,33 @@ const INITIAL_FORM_DATA: SecretFormData = {
   authMode: '',
   secretFields: {},
   configFields: {},
+};
+
+const CREDENTIAL_BOUND_CONFIG_FIELD = 'api_base';
+
+const normalizeCredentialBoundConfigValue = (value: string | undefined) => value?.trim() || '';
+
+const hasCredentialBoundConfigChanged = (formData: SecretFormData, initialFormData: SecretFormData): boolean =>
+  normalizeCredentialBoundConfigValue(formData.configFields[CREDENTIAL_BOUND_CONFIG_FIELD]) !==
+  normalizeCredentialBoundConfigValue(initialFormData.configFields[CREDENTIAL_BOUND_CONFIG_FIELD]);
+
+const getCredentialReplacementFieldNames = (
+  secret: SecretInfo,
+  selectedAuthMode: AuthMode | undefined,
+  formData: SecretFormData,
+  initialFormData: SecretFormData,
+): string[] => {
+  const fieldNames = new Set(
+    selectedAuthMode?.secret_fields.filter((field) => field.required).map((field) => field.name) ?? [],
+  );
+
+  // The backend replaces the entire encrypted value. When the auth mode is unchanged,
+  // require all existing fields so optional credentials are not silently discarded.
+  if (formData.authMode === initialFormData.authMode) {
+    Object.keys(secret.masked_values).forEach((fieldName) => fieldNames.add(fieldName));
+  }
+
+  return [...fieldNames];
 };
 
 export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKeyModalParams) => {
@@ -34,6 +61,16 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
 
   const resetMutationRef = useRef(resetMutation);
   resetMutationRef.current = resetMutation;
+
+  const selectedAuthMode = useMemo(() => {
+    if (!providerConfig?.auth_modes?.length) return undefined;
+    if (formData.authMode) {
+      return providerConfig.auth_modes.find((m) => m.mode === formData.authMode);
+    }
+    return (
+      providerConfig.auth_modes.find((m) => m.mode === providerConfig.default_mode) ?? providerConfig.auth_modes[0]
+    );
+  }, [providerConfig, formData.authMode]);
 
   useEffect(() => {
     if (secret) {
@@ -81,9 +118,29 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       }
     }
 
+    if (secret && hasCredentialBoundConfigChanged(formData, initialFormData)) {
+      const requiredSecretFieldNames = getCredentialReplacementFieldNames(
+        secret,
+        selectedAuthMode,
+        formData,
+        initialFormData,
+      );
+      const missingSecretFieldNames = requiredSecretFieldNames.filter((fieldName) => {
+        return !formData.secretFields[fieldName]?.trim();
+      });
+
+      if (missingSecretFieldNames.length > 0) {
+        const message = intl.formatMessage({
+          defaultMessage: 'Re-enter this credential when changing the API Base URL.',
+          description: 'Validation message shown when editing API Base URL without re-entering API key',
+        });
+        newErrors.secretFields = Object.fromEntries(missingSecretFieldNames.map((fieldName) => [fieldName, message]));
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [secret, formData.secretFields]);
+  }, [secret, formData, initialFormData, selectedAuthMode, intl]);
 
   const resetForm = useCallback(() => {
     setFormData(initialFormData);
@@ -111,16 +168,6 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
 
     return message;
   }, [mutationError, intl]);
-
-  const selectedAuthMode = useMemo(() => {
-    if (!providerConfig?.auth_modes?.length) return undefined;
-    if (formData.authMode) {
-      return providerConfig.auth_modes.find((m) => m.mode === formData.authMode);
-    }
-    return (
-      providerConfig.auth_modes.find((m) => m.mode === providerConfig.default_mode) ?? providerConfig.auth_modes[0]
-    );
-  }, [providerConfig, formData.authMode]);
 
   const handleSubmit = useCallback(async () => {
     if (!secret || !validateForm()) return;
@@ -173,6 +220,21 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       if (!allRequiredSecretsProvided) return false;
     }
 
+    if (secret && hasCredentialBoundConfigChanged(formData, initialFormData)) {
+      const requiredSecretFieldNames = getCredentialReplacementFieldNames(
+        secret,
+        selectedAuthMode,
+        formData,
+        initialFormData,
+      );
+      if (
+        requiredSecretFieldNames.length === 0 ||
+        requiredSecretFieldNames.some((fieldName) => !formData.secretFields[fieldName]?.trim())
+      ) {
+        return false;
+      }
+    }
+
     const requiredConfigFields = selectedAuthMode?.config_fields?.filter((f) => f.required) ?? [];
     const allRequiredConfigsProvided = requiredConfigFields.every((field) =>
       Boolean(formData.configFields[field.name]?.trim()),
@@ -180,7 +242,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     if (!allRequiredConfigsProvided) return false;
 
     return true;
-  }, [secret, isDirty, formData.secretFields, formData.configFields, selectedAuthMode]);
+  }, [secret, isDirty, formData, initialFormData, selectedAuthMode]);
 
   return {
     formData,

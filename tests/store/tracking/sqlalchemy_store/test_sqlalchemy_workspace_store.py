@@ -1890,7 +1890,7 @@ def test_secrets_are_workspace_scoped(gateway_workspace_store):
 def test_endpoints_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-endpoint-a"):
         secret_a = gateway_workspace_store.create_gateway_secret(
-            secret_name="secret-a", secret_value={"api_key": "val-a"}
+            provider="openai", secret_name="secret-a", secret_value={"api_key": "val-a"}
         )
         def_a = gateway_workspace_store.create_gateway_model_definition(
             name="def-a",
@@ -1912,7 +1912,7 @@ def test_endpoints_are_workspace_scoped(gateway_workspace_store):
 
     with WorkspaceContext("team-endpoint-b"):
         secret_b = gateway_workspace_store.create_gateway_secret(
-            secret_name="secret-b", secret_value={"api_key": "val-b"}
+            provider="anthropic", secret_name="secret-b", secret_value={"api_key": "val-b"}
         )
         def_b = gateway_workspace_store.create_gateway_model_definition(
             name="def-b",
@@ -1957,7 +1957,7 @@ def test_budget_policies_are_workspace_scoped(gateway_workspace_store):
     store = gateway_workspace_store
     with WorkspaceContext("team-budget-a"):
         secret = store.create_gateway_secret(
-            secret_name="budget-secret-a", secret_value={"api_key": "val-a"}
+            provider="openai", secret_name="budget-secret-a", secret_value={"api_key": "val-a"}
         )
         model_def = store.create_gateway_model_definition(
             name="budget-def-a",
@@ -2037,7 +2037,7 @@ def test_user_budget_policies_are_workspace_scoped_rows(gateway_workspace_store)
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-def-a"):
         secret_a = gateway_workspace_store.create_gateway_secret(
-            secret_name="secret-a", secret_value={"api_key": "val-a"}
+            provider="openai", secret_name="secret-a", secret_value={"api_key": "val-a"}
         )
         definition_a = gateway_workspace_store.create_gateway_model_definition(
             name="my-model",
@@ -2049,7 +2049,7 @@ def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
 
     with WorkspaceContext("team-def-b"):
         secret_b = gateway_workspace_store.create_gateway_secret(
-            secret_name="secret-b", secret_value={"api_key": "val-b"}
+            provider="anthropic", secret_name="secret-b", secret_value={"api_key": "val-b"}
         )
         definition_b = gateway_workspace_store.create_gateway_model_definition(
             name="my-model",
@@ -2090,7 +2090,7 @@ def test_endpoint_bindings_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-bind-a"):
         gateway_workspace_store.create_experiment("exp-bind-a")
         secret_a = gateway_workspace_store.create_gateway_secret(
-            secret_name="secret-a", secret_value={"api_key": "val-a"}
+            provider="openai", secret_name="secret-a", secret_value={"api_key": "val-a"}
         )
         def_a = gateway_workspace_store.create_gateway_model_definition(
             name="def-a",
@@ -2119,7 +2119,7 @@ def test_endpoint_bindings_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-bind-b"):
         gateway_workspace_store.create_experiment("exp-bind-b")
         secret_b = gateway_workspace_store.create_gateway_secret(
-            secret_name="secret-b", secret_value={"api_key": "val-b"}
+            provider="anthropic", secret_name="secret-b", secret_value={"api_key": "val-b"}
         )
         def_b = gateway_workspace_store.create_gateway_model_definition(
             name="def-b",
@@ -2737,6 +2737,7 @@ def test_search_issues_is_workspace_scoped(workspace_tracking_store):
 def _create_scorer_in_workspace(store, workspace_name):
     suffix = uuid.uuid4().hex[:8]
     secret = store.create_gateway_secret(
+        provider="openai",
         secret_name=f"secret-{suffix}",
         secret_value={"api_key": f"key-{suffix}"},
     )
