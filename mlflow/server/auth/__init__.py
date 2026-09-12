@@ -938,10 +938,9 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _get_permission_from_run_id() -> Permission:
+def _get_run_permission(run_id: str) -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
-    run_id = _get_request_param("run_id")
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     username = authenticate_request().username
@@ -955,6 +954,10 @@ def _get_permission_from_run_id() -> Permission:
             workspace_label="experiment",
         ),
     )
+
+
+def _get_permission_from_run_id() -> Permission:
+    return _get_run_permission(_get_request_param("run_id"))
 
 
 def _get_model_permission(model_id: str) -> Permission:
@@ -1288,6 +1291,25 @@ def validate_can_delete_logged_model():
 
 def validate_can_manage_logged_model():
     return _get_permission_from_model_id().can_manage
+
+
+def validate_can_update_run_or_logged_model():
+    # The presigned upload endpoint accepts exactly one of run_id / model_id. The
+    # handler enforces this with a 400, but this validator runs first — without the
+    # same check here, a malformed request carrying both IDs would resolve the
+    # model's permission and could surface 403/404 instead of the documented 400.
+    # Mirror the check before looking up either resource. Parse through the proto,
+    # exactly as the handler does, so the camelCase `runId` / `modelId` aliases the
+    # handler accepts are authorized against the same IDs it will act on.
+    msg = _get_request_message(CreatePresignedUploadUrl())
+    if bool(msg.run_id) == bool(msg.model_id):
+        raise MlflowException(
+            "Exactly one of run_id and model_id must be provided.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if msg.model_id:
+        return _get_model_permission(msg.model_id).can_update
+    return _get_run_permission(msg.run_id).can_update
 
 
 # Registered models
@@ -2747,8 +2769,10 @@ BEFORE_REQUEST_HANDLERS = {
     # artifacts, so it requires the same per-run READ permission as the
     # proxied artifact download paths.
     CreatePresignedDownloadUrl: validate_can_read_run,
-    # Presigned upload URL grants direct artifact write -> same per-run UPDATE as upload.
-    CreatePresignedUploadUrl: validate_can_update_run,
+    # Minting a presigned upload URL grants direct WRITE access to the owning
+    # resource's artifacts (a run's or a logged model's), so it requires the
+    # corresponding UPDATE permission.
+    CreatePresignedUploadUrl: validate_can_update_run_or_logged_model,
     # Routes for model registry (shared with prompts — dispatch via
     # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
