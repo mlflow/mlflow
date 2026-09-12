@@ -197,7 +197,7 @@ export function buildToolResultMap(records: RolloutLine[]): Record<string, strin
  *
  * Codex stores transcripts at:
  *   $CODEX_HOME/sessions/YYYY/MM/DD/rollout-<timestamp>-<thread-id>.jsonl
- * or, when CODEX_HOME is unset:
+ * or, when CODEX_HOME is unset or empty:
  *   ~/.codex/sessions/YYYY/MM/DD/rollout-<timestamp>-<thread-id>.jsonl
  *
  * This is optional enrichment — if not found, tracing still works
@@ -205,7 +205,7 @@ export function buildToolResultMap(records: RolloutLine[]): Record<string, strin
  */
 export function findTranscriptForThread(threadId: string): string | null {
   try {
-    const codexHome = process.env.CODEX_HOME ?? join(homedir(), '.codex');
+    const codexHome = process.env.CODEX_HOME || join(homedir(), '.codex');
     const sessionsDir = join(codexHome, 'sessions');
     if (!existsSync(sessionsDir)) {
       return null;

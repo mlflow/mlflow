@@ -114,6 +114,7 @@ describe('findTranscriptForThread', () => {
   beforeEach(() => {
     originalCodexHome = process.env.CODEX_HOME;
     testRoot = mkdtempSync(join(tmpdir(), 'mlflow-codex-transcript-'));
+    jest.useFakeTimers().setSystemTime(new Date(2026, 3, 5, 10));
   });
 
   afterEach(() => {
@@ -123,6 +124,7 @@ describe('findTranscriptForThread', () => {
       process.env.CODEX_HOME = originalCodexHome;
     }
     jest.mocked(homedir).mockReset();
+    jest.useRealTimers();
     rmSync(testRoot, { recursive: true, force: true });
   });
 
@@ -154,5 +156,15 @@ describe('findTranscriptForThread', () => {
     const expectedPath = writeTranscript(join(legacyHome, '.codex'), 'legacy-thread-id');
 
     expect(findTranscriptForThread('legacy-thread-id')).toBe(expectedPath);
+  });
+
+  it('uses ~/.codex when CODEX_HOME is empty', () => {
+    const legacyHome = join(testRoot, 'legacy-home');
+    process.env.CODEX_HOME = '';
+    jest.mocked(homedir).mockReturnValue(legacyHome);
+
+    const expectedPath = writeTranscript(join(legacyHome, '.codex'), 'empty-home-thread-id');
+
+    expect(findTranscriptForThread('empty-home-thread-id')).toBe(expectedPath);
   });
 });
