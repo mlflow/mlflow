@@ -95,8 +95,6 @@ jobs:
           uv pip install --system '.[gateway]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/cache-hf
-        with:
-          restore-only: true
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
