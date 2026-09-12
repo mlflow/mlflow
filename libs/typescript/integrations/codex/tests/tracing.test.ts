@@ -69,6 +69,8 @@ jest.mock('@mlflow/core', () => {
       INPUT_TOKENS: 'input_tokens',
       OUTPUT_TOKENS: 'output_tokens',
       TOTAL_TOKENS: 'total_tokens',
+      CACHE_READ_INPUT_TOKENS: 'cache_read_input_tokens',
+      CACHE_CREATION_INPUT_TOKENS: 'cache_creation_input_tokens',
     },
     InMemoryTraceManager: {
       getInstance: jest.fn(() => ({
@@ -289,6 +291,47 @@ describe('reconstructMessages', () => {
     ]);
   });
 
+  it('maps current Codex custom tool records to chat format', () => {
+    const items = [
+      responseItem({
+        type: 'custom_tool_call',
+        name: 'exec',
+        call_id: 'call_custom_1',
+        input: 'await tools.exec_command({"cmd":"pwd"});',
+      }),
+      responseItem({
+        type: 'custom_tool_call_output',
+        call_id: 'call_custom_1',
+        output: [
+          { type: 'input_text', text: 'Script completed\nOutput:\n' },
+          { type: 'input_text', text: '/tmp/test\n' },
+        ],
+      }),
+    ];
+
+    expect(reconstructMessages(items, items.length)).toEqual([
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [
+          {
+            id: 'call_custom_1',
+            type: 'function',
+            function: {
+              name: 'exec',
+              arguments: 'await tools.exec_command({"cmd":"pwd"});',
+            },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call_custom_1',
+        content: 'Script completed\nOutput:\n/tmp/test\n',
+      },
+    ]);
+  });
+
   it('stops at uptoIndex and preserves order across a tool-use turn', () => {
     const items = [
       responseItem({
@@ -488,6 +531,40 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
     // Sanity: spans don't overlap
     expect(llmSpans[0].endTimeNs).toBeLessThanOrEqual(toolSpans[0].startTimeNs);
     expect(toolSpans[0].endTimeNs).toBeLessThanOrEqual(llmSpans[1].startTimeNs);
+  });
+
+  it('creates custom TOOL spans and records usage on each LLM span', () => {
+    const records = readTranscript(resolve(FIXTURES_DIR, 'with-custom-tool-call.jsonl'));
+    const turn = getLastTurnRecords(records);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const parent = { spanId: 'root' } as any;
+    createChildSpans(parent, turn, 'gpt-5.6-sol');
+
+    const [tool] = getSpansByType('TOOL');
+    expect(tool.name).toBe('tool_exec');
+    expect(tool.inputs).toEqual({
+      input: 'await tools.exec_command({"cmd":"sed -n \'1,5p\' package.json"});',
+    });
+    expect((tool.end as jest.Mock).mock.calls[0][0].outputs).toEqual({
+      result: 'Script completed\nOutput:\n  "version": "0.4.0"\n',
+    });
+
+    const [firstLlm, secondLlm] = getSpansByType('LLM');
+    expect(firstLlm.attributes['mlflow.chat.tokenUsage']).toEqual({
+      input_tokens: 25025,
+      output_tokens: 102,
+      total_tokens: 25127,
+      cache_read_input_tokens: 11904,
+      cache_creation_input_tokens: 0,
+    });
+    expect(secondLlm.attributes['mlflow.chat.tokenUsage']).toEqual({
+      input_tokens: 25180,
+      output_tokens: 22,
+      total_tokens: 25202,
+      cache_read_input_tokens: 24832,
+      cache_creation_input_tokens: 0,
+    });
   });
 });
 

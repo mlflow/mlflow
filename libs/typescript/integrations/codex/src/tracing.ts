@@ -34,15 +34,20 @@ import type {
   NotifyPayload,
   RolloutLine,
   ResponseItemPayload,
+  TokenUsage,
 } from './types.js';
 import {
   parseTimestampToNs,
   extractTextFromContent,
+  getToolCallArguments,
+  getToolCallOutput,
   getTokenUsage,
   getModel,
   buildToolResultMap,
   findTranscriptForThread,
   getLastTurnRecords,
+  isToolCallOutputPayload,
+  isToolCallPayload,
   readTranscript,
 } from './transcript.js';
 
@@ -104,11 +109,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
 
     const tokenUsage = getTokenUsage(turnRecords);
     if (tokenUsage) {
-      rootSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
-        [TokenUsageKey.INPUT_TOKENS]: tokenUsage.input_tokens,
-        [TokenUsageKey.OUTPUT_TOKENS]: tokenUsage.output_tokens,
-        [TokenUsageKey.TOTAL_TOKENS]: tokenUsage.total_tokens,
-      });
+      rootSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, buildUsageDict(tokenUsage));
     }
   } else {
     // Fallback: create a simple LLM span from the notify data using the same
@@ -162,8 +163,8 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
  *
  * Maps Codex's Responses-API-style records to standard chat messages:
  * - `message` (user/assistant/system) → `{role, content}`
- * - `function_call` → assistant message with `tool_calls: [{id, type, function}]`
- * - `function_call_output` → `{role: 'tool', tool_call_id, content}`
+ * - function/custom tool calls → assistant message with `tool_calls`
+ * - function/custom tool outputs → `{role: 'tool', tool_call_id, content}`
  */
 export function reconstructMessages(
   responseItems: RolloutLine[],
@@ -184,7 +185,7 @@ export function reconstructMessages(
         // Codex uses "developer" for system-style instructions; render as system
         messages.push({ role: 'system', content: text });
       }
-    } else if (payload.type === 'function_call') {
+    } else if (isToolCallPayload(payload)) {
       messages.push({
         role: 'assistant',
         content: null,
@@ -194,16 +195,16 @@ export function reconstructMessages(
             type: 'function',
             function: {
               name: payload.name ?? 'unknown',
-              arguments: payload.arguments ?? '{}',
+              arguments: getToolCallArguments(payload),
             },
           },
         ],
       });
-    } else if (payload.type === 'function_call_output') {
+    } else if (isToolCallOutputPayload(payload)) {
       messages.push({
         role: 'tool',
         tool_call_id: payload.call_id ?? '',
-        content: payload.output ?? '',
+        content: getToolCallOutput(payload),
       });
     }
   }
@@ -233,6 +234,7 @@ export function createChildSpans(
   const toolResults = buildToolResultMap(turnRecords);
   const toolEndTimes = buildToolEndTimes(turnRecords);
   const toolStatuses = buildToolStatuses(turnRecords);
+  const llmTokenUsage = buildLlmTokenUsageMap(turnRecords);
 
   // Initial boundary for the first LLM span: the turn's task_started event,
   // if present. Falls back to null so the LLM span omits startTimeNs.
@@ -260,6 +262,10 @@ export function createChildSpans(
           inputs: { model, messages },
           attributes: { model },
         });
+        const usage = llmTokenUsage.get(record);
+        if (usage) {
+          llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, buildUsageDict(usage));
+        }
         llmSpan.end({
           outputs: {
             choices: [{ message: { role: 'assistant', content: text } }],
@@ -268,15 +274,10 @@ export function createChildSpans(
         });
         prevBoundaryNs = timestampNs;
       }
-    } else if (payload.type === 'function_call') {
+    } else if (isToolCallPayload(payload)) {
       const callId = payload.call_id ?? '';
       const funcName = payload.name ?? 'unknown';
-      let args: Record<string, unknown> = {};
-      try {
-        args = JSON.parse(payload.arguments ?? '{}');
-      } catch {
-        // keep empty
-      }
+      const args = parseToolInputs(payload);
 
       const toolSpan = startSpan({
         name: `tool_${funcName}`,
@@ -302,11 +303,68 @@ export function createChildSpans(
         outputs: { result: toolResults[callId] ?? '' },
         endTimeNs: toolEndTimes[callId] ?? timestampNs,
       });
-    } else if (payload.type === 'function_call_output') {
+    } else if (isToolCallOutputPayload(payload)) {
       // Tool result logged; the next LLM span should start from here, since
       // the LLM is waiting on tool output until this point.
       prevBoundaryNs = timestampNs;
     }
+  }
+}
+
+function buildUsageDict(usage: TokenUsage): Record<string, number> {
+  const result: Record<string, number> = {
+    [TokenUsageKey.INPUT_TOKENS]: usage.input_tokens,
+    [TokenUsageKey.OUTPUT_TOKENS]: usage.output_tokens,
+    [TokenUsageKey.TOTAL_TOKENS]: usage.total_tokens,
+  };
+  if (usage.cached_input_tokens != null) {
+    result[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = usage.cached_input_tokens;
+  }
+  if (usage.cache_write_input_tokens != null) {
+    result[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = usage.cache_write_input_tokens;
+  }
+  return result;
+}
+
+function buildLlmTokenUsageMap(turnRecords: RolloutLine[]): Map<RolloutLine, TokenUsage> {
+  const usages = new Map<RolloutLine, TokenUsage>();
+  let pendingAssistantMessage: RolloutLine | null = null;
+
+  for (const record of turnRecords) {
+    if (record.type === 'response_item') {
+      const payload = record.payload as ResponseItemPayload;
+      if (
+        payload.type === 'message' &&
+        payload.role === 'assistant' &&
+        extractTextFromContent(payload.content).trim()
+      ) {
+        pendingAssistantMessage = record;
+      }
+      continue;
+    }
+
+    if (record.type === 'event_msg') {
+      const payload = record.payload as EventMsgPayload;
+      if (payload.type === 'token_count') {
+        if (pendingAssistantMessage && payload.info?.last_token_usage) {
+          usages.set(pendingAssistantMessage, payload.info.last_token_usage);
+        }
+        pendingAssistantMessage = null;
+      }
+    }
+  }
+  return usages;
+}
+
+function parseToolInputs(payload: ResponseItemPayload): Record<string, unknown> {
+  const rawInput = getToolCallArguments(payload);
+  if (payload.type === 'custom_tool_call') {
+    return { input: rawInput };
+  }
+  try {
+    return JSON.parse(rawInput) as Record<string, unknown>;
+  } catch {
+    return { arguments: rawInput };
   }
 }
 
@@ -356,7 +414,7 @@ function buildToolEndTimes(turnRecords: RolloutLine[]): Record<string, number> {
       continue;
     }
     const payload = record.payload as ResponseItemPayload;
-    if (payload.type === 'function_call_output' && payload.call_id) {
+    if (isToolCallOutputPayload(payload) && payload.call_id) {
       const ts = parseTimestampToNs(record.timestamp);
       if (ts != null) {
         endTimes[payload.call_id] = ts;

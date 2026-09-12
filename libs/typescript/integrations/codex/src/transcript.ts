@@ -75,6 +75,25 @@ export function extractTextFromContent(content: ContentBlock[] | string | undefi
     .join('\n');
 }
 
+export function isToolCallPayload(payload: ResponseItemPayload): boolean {
+  return payload.type === 'function_call' || payload.type === 'custom_tool_call';
+}
+
+export function isToolCallOutputPayload(payload: ResponseItemPayload): boolean {
+  return payload.type === 'function_call_output' || payload.type === 'custom_tool_call_output';
+}
+
+export function getToolCallArguments(payload: ResponseItemPayload): string {
+  return payload.type === 'custom_tool_call' ? (payload.input ?? '') : (payload.arguments ?? '{}');
+}
+
+export function getToolCallOutput(payload: ResponseItemPayload): string {
+  if (Array.isArray(payload.output)) {
+    return payload.output.map((block) => block.text).join('');
+  }
+  return payload.output ?? '';
+}
+
 /**
  * Find the last user prompt in the transcript.
  * User prompts are response_item records with payload.type=message and payload.role=user
@@ -128,12 +147,23 @@ export function getLastTurnRecords(records: RolloutLine[]): RolloutLine[] {
   return records;
 }
 
-/**
- * Extract cumulative token usage from the last token_count event in a set of records.
- */
+/** Aggregate per-inference usage for model outputs recorded in this turn. */
 export function getTokenUsage(records: RolloutLine[]): TokenUsage | null {
   let usage: TokenUsage | null = null;
+  let hasPendingModelOutput = false;
+
   for (const record of records) {
+    if (record.type === 'response_item') {
+      const payload = record.payload as ResponseItemPayload;
+      if (
+        (payload.type === 'message' && payload.role === 'assistant') ||
+        isToolCallPayload(payload)
+      ) {
+        hasPendingModelOutput = true;
+      }
+      continue;
+    }
+
     if (record.type !== 'event_msg') {
       continue;
     }
@@ -141,9 +171,27 @@ export function getTokenUsage(records: RolloutLine[]): TokenUsage | null {
     if (payload.type !== 'token_count') {
       continue;
     }
-    if (payload.info?.last_token_usage) {
-      usage = payload.info.last_token_usage;
+
+    const lastUsage = payload.info?.last_token_usage;
+    if (hasPendingModelOutput && lastUsage) {
+      usage ??= { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+      usage.input_tokens += lastUsage.input_tokens;
+      usage.output_tokens += lastUsage.output_tokens;
+      usage.total_tokens += lastUsage.total_tokens;
+      if (lastUsage.cached_input_tokens != null) {
+        usage.cached_input_tokens =
+          (usage.cached_input_tokens ?? 0) + lastUsage.cached_input_tokens;
+      }
+      if (lastUsage.cache_write_input_tokens != null) {
+        usage.cache_write_input_tokens =
+          (usage.cache_write_input_tokens ?? 0) + lastUsage.cache_write_input_tokens;
+      }
+      if (lastUsage.reasoning_output_tokens != null) {
+        usage.reasoning_output_tokens =
+          (usage.reasoning_output_tokens ?? 0) + lastUsage.reasoning_output_tokens;
+      }
     }
+    hasPendingModelOutput = false;
   }
   return usage;
 }
@@ -175,9 +223,7 @@ export function getSessionId(records: RolloutLine[]): string | null {
   return null;
 }
 
-/**
- * Build a map from function_call call_id to function_call_output output.
- */
+/** Build a map from tool call IDs to their output text. */
 export function buildToolResultMap(records: RolloutLine[]): Record<string, string> {
   const results: Record<string, string> = {};
   for (const record of records) {
@@ -185,8 +231,8 @@ export function buildToolResultMap(records: RolloutLine[]): Record<string, strin
       continue;
     }
     const payload = record.payload as ResponseItemPayload;
-    if (payload.type === 'function_call_output' && payload.call_id) {
-      results[payload.call_id] = payload.output ?? '';
+    if (isToolCallOutputPayload(payload) && payload.call_id) {
+      results[payload.call_id] = getToolCallOutput(payload);
     }
   }
   return results;
