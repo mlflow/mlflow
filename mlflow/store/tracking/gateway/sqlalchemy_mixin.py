@@ -69,8 +69,6 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.gateway.credential_scope import (
     load_gateway_auth_config,
-    validate_gateway_secret_has_provider_scope,
-    validate_gateway_secret_provider_scope,
     validate_gateway_secret_update_does_not_retarget_credential,
 )
 from mlflow.telemetry.events import (
@@ -201,7 +199,7 @@ class SqlAlchemyGatewayStoreMixin:
         self,
         secret_name: str,
         secret_value: dict[str, str],
-        provider: str,
+        provider: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -214,7 +212,7 @@ class SqlAlchemyGatewayStoreMixin:
                 For simple API keys: {"api_key": "sk-xxx"}
                 For compound credentials: {"aws_access_key_id": "...",
                   "aws_secret_access_key": "..."}
-            provider: Required LLM provider (e.g., "openai", "anthropic").
+            provider: Optional LLM provider (e.g., "openai", "anthropic").
             auth_config: Optional provider-specific auth configuration dict.
                 Should include "auth_mode" for providers with multiple auth options.
             created_by: Username of the creator.
@@ -222,8 +220,6 @@ class SqlAlchemyGatewayStoreMixin:
         Returns:
             Secret entity with metadata (encrypted value not included).
         """
-        validate_gateway_secret_has_provider_scope(provider)
-
         with self.ManagedSessionMaker(read_only=False) as session:
             secret_id = f"s-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
@@ -318,6 +314,9 @@ class SqlAlchemyGatewayStoreMixin:
                 auth_config. If None, auth_config is unchanged. If empty dict, clears auth_config.
             updated_by: Username of the updater.
 
+        When auth_config adds, changes, or removes api_base, supply secret_value
+        in the same request. Otherwise, the update raises INVALID_PARAMETER_VALUE.
+
         Returns:
             Updated Secret entity.
         """
@@ -325,6 +324,7 @@ class SqlAlchemyGatewayStoreMixin:
             sql_secret = self._get_entity_or_raise(
                 session, SqlGatewaySecret, {"secret_id": secret_id}, "GatewaySecret"
             )
+
             existing_auth_config = load_gateway_auth_config(sql_secret.auth_config)
             validate_gateway_secret_update_does_not_retarget_credential(
                 existing_auth_config,
@@ -428,12 +428,6 @@ class SqlAlchemyGatewayStoreMixin:
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_secret = self._get_entity_or_raise(
                 session, SqlGatewaySecret, {"secret_id": secret_id}, "GatewaySecret"
-            )
-            secret_auth_config = load_gateway_auth_config(sql_secret.auth_config)
-            validate_gateway_secret_provider_scope(
-                sql_secret.provider,
-                provider,
-                secret_auth_config,
             )
 
             model_definition_id = f"d-{uuid.uuid4().hex}"
@@ -569,11 +563,10 @@ class SqlAlchemyGatewayStoreMixin:
                 "GatewayModelDefinition",
             )
 
-            sql_secret = sql_model_def.secret
             if name is not None:
                 sql_model_def.name = name
             if secret_id is not None:
-                sql_secret = self._get_entity_or_raise(
+                self._get_entity_or_raise(
                     session, SqlGatewaySecret, {"secret_id": secret_id}, "GatewaySecret"
                 )
                 sql_model_def.secret_id = secret_id
@@ -581,13 +574,6 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_model_def.model_name = model_name
             if provider is not None:
                 sql_model_def.provider = provider
-            if sql_secret is not None and (secret_id is not None or provider is not None):
-                secret_auth_config = load_gateway_auth_config(sql_secret.auth_config)
-                validate_gateway_secret_provider_scope(
-                    sql_secret.provider,
-                    sql_model_def.provider,
-                    secret_auth_config,
-                )
 
             sql_model_def.last_updated_at = get_current_time_millis()
             if updated_by:

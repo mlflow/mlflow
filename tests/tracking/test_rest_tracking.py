@@ -4280,21 +4280,6 @@ def test_create_and_get_secret(mlflow_client_with_secrets):
     assert fetched.secret_id == secret.secret_id
 
 
-def test_create_secret_requires_provider(mlflow_client_with_secrets):
-    base_url = mlflow_client_with_secrets._tracking_client.tracking_uri
-
-    response = requests.post(
-        f"{base_url}/api/3.0/mlflow/gateway/secrets/create",
-        json={
-            "secret_name": "providerless-secret",
-            "secret_value": {"api_key": "sk-test-12345"},
-        },
-    )
-
-    assert response.status_code == 400
-    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
-
-
 def test_update_secret(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 
@@ -4311,6 +4296,61 @@ def test_update_secret(mlflow_client_with_secrets):
 
     assert updated.secret_id == secret.secret_id
     assert updated.secret_name == "test-key"
+
+
+@pytest.mark.parametrize("provider", [None, "openai"])
+@pytest.mark.parametrize(
+    ("original_auth_config", "updated_auth_config"),
+    [
+        ({"api_base": "https://original.example/v1"}, {"api_base": "https://new.example/v1"}),
+        ({"auth_mode": "api_key"}, {"api_base": "https://new.example/v1"}),
+        ({"api_base": "https://original.example/v1"}, {"auth_mode": "api_key"}),
+    ],
+    ids=["change", "add", "remove"],
+)
+def test_update_secret_api_base_requires_credentials(
+    mlflow_client_with_secrets, provider, original_auth_config, updated_auth_config
+):
+    store = mlflow_client_with_secrets._tracking_client.store
+    base_url = mlflow_client_with_secrets.tracking_uri
+    secret_input = {
+        "secret_name": "destination-update-key",
+        "secret_value": {"api_key": "original-key"},
+        "auth_config": original_auth_config,
+    }
+    if provider is not None:
+        secret_input["provider"] = provider
+    response = requests.post(f"{base_url}/api/3.0/mlflow/gateway/secrets/create", json=secret_input)
+    assert response.status_code == 200
+    secret_id = response.json()["secret"]["secret_id"]
+    original = store.get_secret_info(secret_id)
+    assert original.provider == provider
+
+    update = {"secret_id": secret_id, "auth_config": updated_auth_config}
+    response = requests.post(f"{base_url}/api/3.0/mlflow/gateway/secrets/update", json=update)
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    unchanged = store.get_secret_info(secret_id)
+    assert unchanged.auth_config == original_auth_config
+    assert unchanged.masked_values == original.masked_values
+
+    # An empty credential map also means "keep the stored credentials" over REST.
+    response = requests.post(
+        f"{base_url}/api/3.0/mlflow/gateway/secrets/update",
+        json={**update, "secret_value": {}},
+    )
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+
+    response = requests.post(
+        f"{base_url}/api/3.0/mlflow/gateway/secrets/update",
+        json={**update, "secret_value": {"api_key": "replacement-key"}},
+    )
+    assert response.status_code == 200
+    updated = store.get_secret_info(secret_id)
+    assert updated.auth_config == updated_auth_config
+    assert updated.provider == provider
+    assert updated.masked_values != original.masked_values
 
 
 def test_list_secret_infos(mlflow_client_with_secrets):
@@ -4339,7 +4379,6 @@ def test_delete_secret(mlflow_client_with_secrets):
     store = mlflow_client_with_secrets._tracking_client.store
 
     secret = store.create_gateway_secret(
-        provider="openai",
         secret_name="temp-key",
         secret_value={"api_key": "temp-value"},
     )
@@ -5198,47 +5237,21 @@ def test_update_model_definition_provider(mlflow_client_with_secrets):
     assert model_def.provider == "openai"
     assert model_def.model_name == "gpt-4"
 
-    with pytest.raises(
-        MlflowException,
-        match="Gateway secret provider 'openai' cannot be used with provider 'anthropic'",
-    ) as exc:
-        store.update_gateway_model_definition(
-            model_definition_id=model_def.model_definition_id,
-            provider="anthropic",
-            model_name="claude-3-5-haiku-latest",
-        )
-    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-
-    fetched = store.get_gateway_model_definition(model_def.model_definition_id)
-    assert fetched.provider == "openai"
-    assert fetched.model_name == "gpt-4"
-    assert fetched.secret_id == secret.secret_id
-
-    anthropic_secret = store.create_gateway_secret(
-        secret_name="anthropic-provider-update-secret",
-        secret_value={"api_key": "sk-anthropic-provider-test"},
-        provider="anthropic",
-    )
-
     updated = store.update_gateway_model_definition(
         model_definition_id=model_def.model_definition_id,
-        secret_id=anthropic_secret.secret_id,
         provider="anthropic",
         model_name="claude-3-5-haiku-latest",
     )
 
     assert updated.provider == "anthropic"
     assert updated.model_name == "claude-3-5-haiku-latest"
-    assert updated.secret_id == anthropic_secret.secret_id
 
     fetched = store.get_gateway_model_definition(model_def.model_definition_id)
     assert fetched.provider == "anthropic"
     assert fetched.model_name == "claude-3-5-haiku-latest"
-    assert fetched.secret_id == anthropic_secret.secret_id
 
     store.delete_gateway_model_definition(model_def.model_definition_id)
     store.delete_gateway_secret(secret.secret_id)
-    store.delete_gateway_secret(anthropic_secret.secret_id)
 
 
 def test_create_issue_with_all_fields(mlflow_client, store_type):

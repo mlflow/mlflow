@@ -2034,7 +2034,6 @@ def test_gateway_secret_crud_telemetry(
     )
 
     secret2 = store.create_gateway_secret(
-        provider="openai",
         secret_name="test-secret-2",
         secret_value={"api_key": "test-api-key-2"},
         created_by="test-user",
@@ -2043,7 +2042,7 @@ def test_gateway_secret_crud_telemetry(
         mock_telemetry_client,
         mock_requests,
         GatewayCreateSecretEvent.name,
-        {"provider": "openai"},
+        {"provider": None},
     )
 
     store.list_secret_infos()

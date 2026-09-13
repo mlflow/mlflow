@@ -127,7 +127,7 @@ class RestGatewayStoreMixin:
         self,
         secret_name: str,
         secret_value: dict[str, str],
-        provider: str,
+        provider: str | None = None,
         auth_config: dict[str, Any] | None = None,
         created_by: str | None = None,
     ) -> GatewaySecretInfo:
@@ -140,7 +140,7 @@ class RestGatewayStoreMixin:
                 For simple API keys: {"api_key": "sk-xxx"}
                 For compound credentials: {"aws_access_key_id": "...",
                   "aws_secret_access_key": "..."}
-            provider: Required provider name (e.g., "openai", "anthropic").
+            provider: Optional provider name (e.g., "openai", "anthropic").
             auth_config: Optional dict with authentication configuration. For providers
                 with multiple auth modes, include "auth_mode" key (e.g.,
                 {"auth_mode": "access_keys", "aws_region_name": "us-east-1"}).
@@ -199,6 +199,9 @@ class RestGatewayStoreMixin:
                   "aws_secret_access_key": "..."}
             auth_config: Optional dict with authentication configuration.
             updated_by: Optional identifier of the user updating the secret.
+
+        When auth_config adds, changes, or removes api_base, supply secret_value
+        in the same request. Otherwise, the update raises INVALID_PARAMETER_VALUE.
 
         Returns:
             The updated GatewaySecretInfo object with masked value.

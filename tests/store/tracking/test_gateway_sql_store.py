@@ -192,25 +192,12 @@ def test_create_gateway_secret_with_dict_value(store: SqlAlchemyStore):
     assert "secret-key-here" not in secret.masked_values["aws_secret_access_key"]
 
 
-def test_create_gateway_secret_requires_provider(store: SqlAlchemyStore):
-    with pytest.raises(MlflowException, match="provider is required") as exc:
-        store.create_gateway_secret(
-            secret_name="unscoped-secret",
-            secret_value={"api_key": "value"},
-            provider=None,
-        )
-
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
 def test_create_gateway_secret_duplicate_name_raises(store: SqlAlchemyStore):
-    store.create_gateway_secret(
-        provider="openai", secret_name="duplicate-name", secret_value={"api_key": "value1"}
-    )
+    store.create_gateway_secret(secret_name="duplicate-name", secret_value={"api_key": "value1"})
 
     with pytest.raises(MlflowException, match="already exists") as exc:
         store.create_gateway_secret(
-            provider="openai", secret_name="duplicate-name", secret_value={"api_key": "value2"}
+            secret_name="duplicate-name", secret_value={"api_key": "value2"}
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
@@ -231,7 +218,6 @@ def test_get_gateway_secret_info_by_id(store: SqlAlchemyStore):
 
 def test_get_gateway_secret_info_by_name(store: SqlAlchemyStore):
     created = store.create_gateway_secret(
-        provider="openai",
         secret_name="named-secret",
         secret_value={"api_key": "secret-value"},
     )
@@ -260,7 +246,6 @@ def test_get_gateway_secret_info_not_found(store: SqlAlchemyStore):
 
 def test_update_gateway_secret(store: SqlAlchemyStore):
     created = store.create_gateway_secret(
-        provider="openai",
         secret_name="rotate-me",
         secret_value={"api_key": "old-value"},
     )
@@ -279,7 +264,6 @@ def test_update_gateway_secret(store: SqlAlchemyStore):
 
 def test_update_gateway_secret_with_auth_config(store: SqlAlchemyStore):
     created = store.create_gateway_secret(
-        provider="openai",
         secret_name="auth-update",
         secret_value={"api_key": "value"},
         auth_config={"region": "us-east-1"},
@@ -292,13 +276,15 @@ def test_update_gateway_secret_with_auth_config(store: SqlAlchemyStore):
     )
 
 
+@pytest.mark.parametrize("provider", [None, "openai"])
 def test_update_gateway_secret_rejects_api_base_change_without_secret_value(
     store: SqlAlchemyStore,
+    provider,
 ):
     created = store.create_gateway_secret(
         secret_name="retarget-me",
         secret_value={"api_key": "victim-key"},
-        provider="openai",
+        provider=provider,
         auth_config={"api_base": "https://provider.example/v1", "api_version": "2024-02-01"},
     )
 
@@ -316,13 +302,15 @@ def test_update_gateway_secret_rejects_api_base_change_without_secret_value(
     assert store._get_decrypted_secret(created.secret_id) == {"api_key": "victim-key"}
 
 
+@pytest.mark.parametrize("provider", [None, "openai"])
 def test_update_gateway_secret_rejects_api_base_addition_without_secret_value(
     store: SqlAlchemyStore,
+    provider,
 ):
     created = store.create_gateway_secret(
         secret_name="add-base",
         secret_value={"api_key": "victim-key"},
-        provider="openai",
+        provider=provider,
         auth_config={"api_version": "2024-02-01"},
     )
 
@@ -339,13 +327,15 @@ def test_update_gateway_secret_rejects_api_base_addition_without_secret_value(
     assert store._get_decrypted_secret(created.secret_id) == {"api_key": "victim-key"}
 
 
+@pytest.mark.parametrize("provider", [None, "openai"])
 def test_update_gateway_secret_rejects_api_base_removal_without_secret_value(
     store: SqlAlchemyStore,
+    provider,
 ):
     created = store.create_gateway_secret(
         secret_name="remove-base",
         secret_value={"api_key": "victim-key"},
-        provider="openai",
+        provider=provider,
         auth_config={"api_base": "https://provider.example/v1", "api_version": "2024-02-01"},
     )
 
@@ -363,13 +353,15 @@ def test_update_gateway_secret_rejects_api_base_removal_without_secret_value(
     assert store._get_decrypted_secret(created.secret_id) == {"api_key": "victim-key"}
 
 
+@pytest.mark.parametrize("provider", [None, "openai"])
 def test_update_gateway_secret_allows_api_base_change_with_secret_value(
     store: SqlAlchemyStore,
+    provider,
 ):
     created = store.create_gateway_secret(
         secret_name="rotate-and-retarget",
         secret_value={"api_key": "old-key"},
-        provider="openai",
+        provider=provider,
         auth_config={"api_base": "https://provider.example/v1"},
     )
 
@@ -383,13 +375,15 @@ def test_update_gateway_secret_allows_api_base_change_with_secret_value(
     assert store._get_decrypted_secret(created.secret_id) == {"api_key": "new-key"}
 
 
+@pytest.mark.parametrize("provider", [None, "openai"])
 def test_update_gateway_secret_allows_non_destination_auth_config_change_without_secret_value(
     store: SqlAlchemyStore,
+    provider,
 ):
     created = store.create_gateway_secret(
         secret_name="same-base-new-version",
         secret_value={"api_key": "victim-key"},
-        provider="azure",
+        provider=provider,
         auth_config={"api_base": "https://resource.openai.azure.com", "api_version": "2024-02-01"},
     )
 
@@ -405,9 +399,49 @@ def test_update_gateway_secret_allows_non_destination_auth_config_change_without
     assert store._get_decrypted_secret(created.secret_id) == {"api_key": "victim-key"}
 
 
+def test_providerless_secret_endpoint_config_survives_rejected_api_base_update(
+    store: SqlAlchemyStore,
+):
+    secret = store.create_gateway_secret(
+        secret_name="providerless-key",
+        secret_value={"api_key": "original-key"},
+        auth_config={"api_base": "https://original.example/v1"},
+    )
+    assert secret.provider is None
+    model = store.create_gateway_model_definition(
+        name="providerless-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="providerless-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            )
+        ],
+        usage_tracking=False,
+    )
+    config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config.models[0].secret_value == {"api_key": "original-key"}
+    assert config.models[0].provider == "openai"
+
+    with pytest.raises(MlflowException, match="replacement secret_value"):
+        store.update_gateway_secret(
+            secret_id=secret.secret_id,
+            auth_config={"api_base": "https://new.example/v1"},
+        )
+
+    config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config.models[0].secret_value == {"api_key": "original-key"}
+    assert config.models[0].auth_config == {"api_base": "https://original.example/v1"}
+
+
 def test_update_gateway_secret_clear_auth_config(store: SqlAlchemyStore):
     created = store.create_gateway_secret(
-        provider="openai",
         secret_name="clear-auth",
         secret_value={"api_key": "value"},
         auth_config={"region": "us-east-1"},
@@ -422,7 +456,7 @@ def test_update_gateway_secret_clear_auth_config(store: SqlAlchemyStore):
 
 def test_delete_gateway_secret(store: SqlAlchemyStore):
     created = store.create_gateway_secret(
-        provider="openai", secret_name="to-delete", secret_value={"api_key": "value"}
+        secret_name="to-delete", secret_value={"api_key": "value"}
     )
 
     store.delete_gateway_secret(created.secret_id)
@@ -492,9 +526,7 @@ def test_secret_id_and_name_are_immutable_at_database_level(store: SqlAlchemySto
 
 
 def test_create_gateway_model_definition(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        provider="openai", secret_name="test-key", secret_value={"api_key": "value"}
-    )
+    secret = store.create_gateway_secret(secret_name="test-key", secret_value={"api_key": "value"})
 
     model_def = store.create_gateway_model_definition(
         name="gpt-4-turbo",
@@ -514,9 +546,7 @@ def test_create_gateway_model_definition(store: SqlAlchemyStore):
 
 
 def test_create_gateway_model_definition_duplicate_name_raises(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        provider="openai", secret_name="dup-key", secret_value={"api_key": "value"}
-    )
+    secret = store.create_gateway_secret(secret_name="dup-key", secret_value={"api_key": "value"})
 
     store.create_gateway_model_definition(
         name="duplicate-model",
@@ -546,55 +576,8 @@ def test_create_gateway_model_definition_nonexistent_secret_raises(store: SqlAlc
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def test_create_gateway_model_definition_provider_mismatch_raises(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        secret_name="openai-provider-secret",
-        secret_value={"api_key": "value"},
-        provider="openai",
-    )
-
-    with pytest.raises(MlflowException, match="cannot be used") as exc:
-        store.create_gateway_model_definition(
-            name="anthropic-with-openai-secret",
-            secret_id=secret.secret_id,
-            provider="anthropic",
-            model_name="claude-3-sonnet",
-        )
-
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
-def test_update_gateway_model_definition_provider_mismatch_raises(store: SqlAlchemyStore):
-    openai_secret = store.create_gateway_secret(
-        secret_name="openai-secret",
-        secret_value={"api_key": "openai-key"},
-        provider="openai",
-    )
-    anthropic_secret = store.create_gateway_secret(
-        secret_name="anthropic-secret",
-        secret_value={"api_key": "anthropic-key"},
-        provider="anthropic",
-    )
-    model_def = store.create_gateway_model_definition(
-        name="openai-model",
-        secret_id=openai_secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
-    )
-
-    with pytest.raises(MlflowException, match="cannot be used") as exc:
-        store.update_gateway_model_definition(
-            model_definition_id=model_def.model_definition_id,
-            secret_id=anthropic_secret.secret_id,
-        )
-
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
 def test_get_gateway_model_definition_by_id(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        provider="anthropic", secret_name="get-key", secret_value={"api_key": "value"}
-    )
+    secret = store.create_gateway_secret(secret_name="get-key", secret_value={"api_key": "value"})
     created = store.create_gateway_model_definition(
         name="model-by-id",
         secret_id=secret.secret_id,
@@ -609,9 +592,7 @@ def test_get_gateway_model_definition_by_id(store: SqlAlchemyStore):
 
 
 def test_get_gateway_model_definition_by_name(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        provider="openai", secret_name="name-key", secret_value={"api_key": "value"}
-    )
+    secret = store.create_gateway_secret(secret_name="name-key", secret_value={"api_key": "value"})
     created = store.create_gateway_model_definition(
         name="model-by-name",
         secret_id=secret.secret_id,
@@ -631,24 +612,14 @@ def test_get_gateway_model_definition_requires_one_of_id_or_name(store: SqlAlche
 
 
 def test_list_gateway_model_definitions(store: SqlAlchemyStore):
-    openai_secret = store.create_gateway_secret(
-        provider="openai", secret_name="list-key", secret_value={"api_key": "value"}
-    )
-    anthropic_secret = store.create_gateway_secret(
-        provider="anthropic",
-        secret_name="list-anthropic-key",
-        secret_value={"api_key": "value"},
-    )
+    secret = store.create_gateway_secret(secret_name="list-key", secret_value={"api_key": "value"})
 
     store.create_gateway_model_definition(
-        name="list-model-1",
-        secret_id=openai_secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
+        name="list-model-1", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     store.create_gateway_model_definition(
         name="list-model-2",
-        secret_id=anthropic_secret.secret_id,
+        secret_id=secret.secret_id,
         provider="anthropic",
         model_name="claude-3",
     )
@@ -662,7 +633,7 @@ def test_list_gateway_model_definitions(store: SqlAlchemyStore):
 
 def test_update_gateway_model_definition(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="update-key", secret_value={"api_key": "value"}
+        secret_name="update-key", secret_value={"api_key": "value"}
     )
     created = store.create_gateway_model_definition(
         name="update-model",
@@ -683,7 +654,7 @@ def test_update_gateway_model_definition(store: SqlAlchemyStore):
 
 def test_delete_gateway_model_definition(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="delete-key", secret_value={"api_key": "value"}
+        secret_name="delete-key", secret_value={"api_key": "value"}
     )
     created = store.create_gateway_model_definition(
         name="delete-model",
@@ -700,7 +671,7 @@ def test_delete_gateway_model_definition(store: SqlAlchemyStore):
 
 def test_delete_gateway_model_definition_in_use_raises(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="in-use-key", secret_value={"api_key": "value"}
+        secret_name="in-use-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="in-use-model",
@@ -730,9 +701,7 @@ def test_delete_gateway_model_definition_in_use_raises(store: SqlAlchemyStore):
 
 
 def test_create_gateway_endpoint(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        provider="openai", secret_name="ep-key", secret_value={"api_key": "value"}
-    )
+    secret = store.create_gateway_secret(secret_name="ep-key", secret_value={"api_key": "value"})
     model_def = store.create_gateway_model_definition(
         name="ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -765,7 +734,7 @@ def test_create_gateway_endpoint(store: SqlAlchemyStore):
 
 def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="auto-exp-key", secret_value={"api_key": "value"}
+        secret_name="auto-exp-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="auto-exp-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -795,7 +764,7 @@ def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore)
 
 def test_create_gateway_endpoint_usage_tracking_defaults_to_true(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="default-ut-key", secret_value={"api_key": "value"}
+        secret_name="default-ut-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="default-ut-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -841,7 +810,7 @@ def test_create_gateway_endpoint_nonexistent_model_raises(store: SqlAlchemyStore
 
 def test_get_gateway_endpoint_by_id(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="get-ep-key", secret_value={"api_key": "value"}
+        secret_name="get-ep-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="get-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -865,7 +834,7 @@ def test_get_gateway_endpoint_by_id(store: SqlAlchemyStore):
 
 def test_get_gateway_endpoint_by_name(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="name-ep-key", secret_value={"api_key": "value"}
+        secret_name="name-ep-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="name-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -894,18 +863,16 @@ def test_get_gateway_endpoint_requires_one_of_id_or_name(store: SqlAlchemyStore)
 
 def test_update_gateway_endpoint(store: SqlAlchemyStore):
     secret1 = store.create_gateway_secret(
-        provider="openai", secret_name="upd-ep-key1", secret_value={"api_key": "value1"}
+        secret_name="upd-ep-key1", secret_value={"api_key": "value1"}
     )
     secret2 = store.create_gateway_secret(
-        provider="anthropic",
-        secret_name="upd-ep-key2",
-        secret_value={"api_key": "value2"},
+        secret_name="upd-ep-key2", secret_value={"api_key": "value2"}
     )
     secret3 = store.create_gateway_secret(
-        provider="cohere", secret_name="upd-ep-key3", secret_value={"api_key": "value3"}
+        secret_name="upd-ep-key3", secret_value={"api_key": "value3"}
     )
     secret4 = store.create_gateway_secret(
-        provider="openai", secret_name="upd-ep-key4", secret_value={"api_key": "value4"}
+        secret_name="upd-ep-key4", secret_value={"api_key": "value4"}
     )
 
     model_def1 = store.create_gateway_model_definition(
@@ -1048,7 +1015,7 @@ def test_update_gateway_endpoint(store: SqlAlchemyStore):
 
 def test_delete_gateway_endpoint(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="del-ep-key", secret_value={"api_key": "value"}
+        secret_name="del-ep-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="del-ep-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -1072,12 +1039,10 @@ def test_delete_gateway_endpoint(store: SqlAlchemyStore):
 
 def test_list_gateway_endpoints(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="list-ep-key", secret_value={"api_key": "value"}
+        secret_name="list-ep-key", secret_value={"api_key": "value"}
     )
     secret_fallback = store.create_gateway_secret(
-        provider="anthropic",
-        secret_name="list-ep-fallback-key",
-        secret_value={"api_key": "fallback-value"},
+        secret_name="list-ep-fallback-key", secret_value={"api_key": "fallback-value"}
     )
 
     model_def = store.create_gateway_model_definition(
@@ -1142,23 +1107,15 @@ def test_list_gateway_endpoints(store: SqlAlchemyStore):
 
 
 def test_attach_model_to_gateway_endpoint(store: SqlAlchemyStore):
-    openai_secret = store.create_gateway_secret(
-        provider="openai", secret_name="attach-key", secret_value={"api_key": "value"}
-    )
-    anthropic_secret = store.create_gateway_secret(
-        provider="anthropic",
-        secret_name="attach-anthropic-key",
-        secret_value={"api_key": "value"},
+    secret = store.create_gateway_secret(
+        secret_name="attach-key", secret_value={"api_key": "value"}
     )
     model_def1 = store.create_gateway_model_definition(
-        name="attach-model-1",
-        secret_id=openai_secret.secret_id,
-        provider="openai",
-        model_name="gpt-4",
+        name="attach-model-1", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
     model_def2 = store.create_gateway_model_definition(
         name="attach-model-2",
-        secret_id=anthropic_secret.secret_id,
+        secret_id=secret.secret_id,
         provider="anthropic",
         model_name="claude-3",
     )
@@ -1192,7 +1149,7 @@ def test_attach_model_to_gateway_endpoint(store: SqlAlchemyStore):
 
 def test_attach_duplicate_model_raises(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="dup-attach-key", secret_value={"api_key": "value"}
+        secret_name="dup-attach-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="dup-attach-model",
@@ -1224,23 +1181,18 @@ def test_attach_duplicate_model_raises(store: SqlAlchemyStore):
 
 
 def test_detach_model_from_gateway_endpoint(store: SqlAlchemyStore):
-    openai_secret = store.create_gateway_secret(
-        provider="openai", secret_name="detach-key", secret_value={"api_key": "value"}
-    )
-    anthropic_secret = store.create_gateway_secret(
-        provider="anthropic",
-        secret_name="detach-anthropic-key",
-        secret_value={"api_key": "value"},
+    secret = store.create_gateway_secret(
+        secret_name="detach-key", secret_value={"api_key": "value"}
     )
     model_def1 = store.create_gateway_model_definition(
         name="detach-model-1",
-        secret_id=openai_secret.secret_id,
+        secret_id=secret.secret_id,
         provider="openai",
         model_name="gpt-4",
     )
     model_def2 = store.create_gateway_model_definition(
         name="detach-model-2",
-        secret_id=anthropic_secret.secret_id,
+        secret_id=secret.secret_id,
         provider="anthropic",
         model_name="claude-3",
     )
@@ -1273,7 +1225,7 @@ def test_detach_model_from_gateway_endpoint(store: SqlAlchemyStore):
 
 def test_detach_nonexistent_mapping_raises(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="no-map-key", secret_value={"api_key": "value"}
+        secret_name="no-map-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="no-map-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -1303,9 +1255,7 @@ def test_detach_nonexistent_mapping_raises(store: SqlAlchemyStore):
 
 
 def test_create_gateway_endpoint_binding(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        provider="openai", secret_name="bind-key", secret_value={"api_key": "value"}
-    )
+    secret = store.create_gateway_secret(secret_name="bind-key", secret_value={"api_key": "value"})
     model_def = store.create_gateway_model_definition(
         name="bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -1336,7 +1286,7 @@ def test_create_gateway_endpoint_binding(store: SqlAlchemyStore):
 
 def test_delete_gateway_endpoint_binding(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="del-bind-key", secret_value={"api_key": "value"}
+        secret_name="del-bind-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="del-bind-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -1369,7 +1319,7 @@ def test_delete_gateway_endpoint_binding(store: SqlAlchemyStore):
 
 def test_list_gateway_endpoint_bindings(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="list-bind-key", secret_value={"api_key": "value"}
+        secret_name="list-bind-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="list-bind-model",
@@ -1558,23 +1508,16 @@ def test_get_resource_endpoint_configs_no_bindings(store: SqlAlchemyStore):
 
 
 def test_get_resource_endpoint_configs_multiple_endpoints(store: SqlAlchemyStore):
-    openai_secret = store.create_gateway_secret(
-        provider="openai", secret_name="multi-key", secret_value={"api_key": "value"}
-    )
-    anthropic_secret = store.create_gateway_secret(
-        provider="anthropic",
-        secret_name="multi-anthropic-key",
-        secret_value={"api_key": "value"},
-    )
+    secret = store.create_gateway_secret(secret_name="multi-key", secret_value={"api_key": "value"})
     model_def1 = store.create_gateway_model_definition(
         name="multi-model-1",
-        secret_id=openai_secret.secret_id,
+        secret_id=secret.secret_id,
         provider="openai",
         model_name="gpt-4",
     )
     model_def2 = store.create_gateway_model_definition(
         name="multi-model-2",
-        secret_id=anthropic_secret.secret_id,
+        secret_id=secret.secret_id,
         provider="anthropic",
         model_name="claude-3",
     )
@@ -1693,91 +1636,12 @@ def test_get_gateway_endpoint_config_with_auth_config(store: SqlAlchemyStore):
     assert model_config.auth_config == {"region": "eu-west-1", "project_id": "test-project"}
 
 
-def test_get_gateway_endpoint_config_rejects_provider_mismatch_from_legacy_row(
-    store: SqlAlchemyStore,
-):
-    secret = store.create_gateway_secret(
-        secret_name="legacy-openai-secret",
-        secret_value={"api_key": "openai-key"},
-        provider="openai",
-    )
-    model_def = store.create_gateway_model_definition(
-        name="legacy-openai-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4o",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="legacy-provider-mismatch-endpoint",
-        model_configs=[
-            GatewayEndpointModelConfig(
-                model_definition_id=model_def.model_definition_id,
-                linkage_type=GatewayModelLinkageType.PRIMARY,
-                weight=1.0,
-            ),
-        ],
-    )
-
-    with store.ManagedSessionMaker(read_only=False) as session:
-        sql_model_def = (
-            session
-            .query(SqlGatewayModelDefinition)
-            .filter_by(model_definition_id=model_def.model_definition_id)
-            .one()
-        )
-        sql_model_def.provider = "anthropic"
-        session.flush()
-
-    with pytest.raises(MlflowException, match="cannot be used") as exc:
-        get_endpoint_config(endpoint_name=endpoint.name, store=store)
-
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
-def test_get_gateway_endpoint_config_rejects_missing_provider_from_legacy_row(
-    store: SqlAlchemyStore,
-):
-    secret = store.create_gateway_secret(
-        secret_name="legacy-unscoped-secret",
-        secret_value={"api_key": "openai-key"},
-        provider="openai",
-    )
-    model_def = store.create_gateway_model_definition(
-        name="legacy-unscoped-model",
-        secret_id=secret.secret_id,
-        provider="openai",
-        model_name="gpt-4o",
-    )
-    endpoint = store.create_gateway_endpoint(
-        name="legacy-unscoped-endpoint",
-        model_configs=[
-            GatewayEndpointModelConfig(
-                model_definition_id=model_def.model_definition_id,
-                linkage_type=GatewayModelLinkageType.PRIMARY,
-                weight=1.0,
-            ),
-        ],
-    )
-
-    with store.ManagedSessionMaker(read_only=False) as session:
-        sql_secret = session.query(SqlGatewaySecret).filter_by(secret_id=secret.secret_id).one()
-        sql_secret.provider = None
-        session.flush()
-
-    with pytest.raises(MlflowException, match="no provider scope") as exc:
-        get_endpoint_config(endpoint_name=endpoint.name, store=store)
-
-    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-
 def test_get_gateway_endpoint_config_multiple_models(store: SqlAlchemyStore):
     secret1 = store.create_gateway_secret(
-        provider="openai", secret_name="ep-multi-key-1", secret_value={"api_key": "secret-1"}
+        secret_name="ep-multi-key-1", secret_value={"api_key": "secret-1"}
     )
     secret2 = store.create_gateway_secret(
-        provider="anthropic",
-        secret_name="ep-multi-key-2",
-        secret_value={"api_key": "secret-2"},
+        secret_name="ep-multi-key-2", secret_value={"api_key": "secret-2"}
     )
 
     model_def1 = store.create_gateway_model_definition(
@@ -1832,7 +1696,7 @@ def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlche
 
 def test_get_gateway_endpoint_config_experiment_id_is_string(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="exp-id-test-key", secret_value={"api_key": "value"}
+        secret_name="exp-id-test-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="exp-id-test-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -1937,7 +1801,7 @@ def test_gateway_endpoint_config_roundtrip_no_fallback():
 
 def test_endpoint_config_cache_hit_skips_db(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="cache-hit-key", secret_value={"api_key": "sk-cache"}
+        secret_name="cache-hit-key", secret_value={"api_key": "sk-cache"}
     )
     model_def = store.create_gateway_model_definition(
         name="cache-hit-model",
@@ -1974,7 +1838,7 @@ def test_endpoint_config_cache_hit_skips_db(store: SqlAlchemyStore):
 
 def test_endpoint_config_cache_invalidated_on_secret_update(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="cache-inv-key", secret_value={"api_key": "sk-old"}
+        secret_name="cache-inv-key", secret_value={"api_key": "sk-old"}
     )
     model_def = store.create_gateway_model_definition(
         name="cache-inv-model",
@@ -2010,7 +1874,7 @@ def test_endpoint_config_cache_invalidated_on_secret_update(store: SqlAlchemySto
 
 def test_endpoint_config_cache_invalidated_on_endpoint_delete(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="cache-del-key", secret_value={"api_key": "sk-del"}
+        secret_name="cache-del-key", secret_value={"api_key": "sk-del"}
     )
     model_def = store.create_gateway_model_definition(
         name="cache-del-model",
@@ -2065,7 +1929,7 @@ def test_endpoint_config_cache_workspace_isolation(store: SqlAlchemyStore, works
         pytest.skip("workspace isolation only relevant when workspaces enabled")
 
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="ws-iso-key", secret_value={"api_key": "sk-ws"}
+        secret_name="ws-iso-key", secret_value={"api_key": "sk-ws"}
     )
     model_def = store.create_gateway_model_definition(
         name="ws-iso-model",
@@ -2100,9 +1964,7 @@ def test_endpoint_config_cache_workspace_isolation(store: SqlAlchemyStore, works
 
 
 def test_set_gateway_endpoint_tag(store: SqlAlchemyStore):
-    secret = store.create_gateway_secret(
-        provider="openai", secret_name="tag-key", secret_value={"api_key": "value"}
-    )
+    secret = store.create_gateway_secret(secret_name="tag-key", secret_value={"api_key": "value"})
     model_def = store.create_gateway_model_definition(
         name="tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
     )
@@ -2128,7 +1990,7 @@ def test_set_gateway_endpoint_tag(store: SqlAlchemyStore):
 
 def test_set_gateway_endpoint_tag_update_existing(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="tag-upd-key", secret_value={"api_key": "value"}
+        secret_name="tag-upd-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="tag-upd-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -2157,7 +2019,7 @@ def test_set_gateway_endpoint_tag_update_existing(store: SqlAlchemyStore):
 
 def test_set_multiple_endpoint_tags(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="multi-tag-key", secret_value={"api_key": "value"}
+        secret_name="multi-tag-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="multi-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -2196,7 +2058,7 @@ def test_set_gateway_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlchemyS
 
 def test_delete_gateway_endpoint_tag(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="del-tag-key", secret_value={"api_key": "value"}
+        secret_name="del-tag-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="del-tag-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -2231,7 +2093,7 @@ def test_delete_gateway_endpoint_tag_nonexistent_endpoint_raises(store: SqlAlche
 
 def test_delete_gateway_endpoint_tag_nonexistent_key_no_op(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="del-noop-key", secret_value={"api_key": "value"}
+        secret_name="del-noop-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="del-noop-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -2256,7 +2118,7 @@ def test_delete_gateway_endpoint_tag_nonexistent_key_no_op(store: SqlAlchemyStor
 
 def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name="cascade-tag-key", secret_value={"api_key": "value"}
+        secret_name="cascade-tag-key", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name="cascade-tag-model",
@@ -2292,7 +2154,7 @@ def test_endpoint_tags_deleted_with_endpoint(store: SqlAlchemyStore):
 def _create_gateway_endpoint(store: SqlAlchemyStore, name: str) -> GatewayEndpoint:
     """Helper to create a gateway endpoint for scorer tests."""
     secret = store.create_gateway_secret(
-        provider="openai", secret_name=f"{name}-secret", secret_value={"api_key": "value"}
+        secret_name=f"{name}-secret", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name=f"{name}-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
@@ -2445,12 +2307,10 @@ def test_list_scorers_batch_resolves_endpoint_ids(store: SqlAlchemyStore):
 def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
     # Create secrets and model definitions
     secret1 = store.create_gateway_secret(
-        provider="openai", secret_name="fallback-key-1", secret_value={"api_key": "sk-model1"}
+        secret_name="fallback-key-1", secret_value={"api_key": "sk-model1"}
     )
     secret2 = store.create_gateway_secret(
-        provider="anthropic",
-        secret_name="fallback-key-2",
-        secret_value={"api_key": "sk-model2"},
+        secret_name="fallback-key-2", secret_value={"api_key": "sk-model2"}
     )
 
     model_def1 = store.create_gateway_model_definition(
@@ -2468,7 +2328,7 @@ def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
 
     # Create a third model for PRIMARY
     secret3 = store.create_gateway_secret(
-        provider="openai", secret_name="primary-key", secret_value={"api_key": "sk-primary"}
+        secret_name="primary-key", secret_value={"api_key": "sk-primary"}
     )
     model_def3 = store.create_gateway_model_definition(
         name="primary-model",
@@ -2536,10 +2396,10 @@ def test_create_gateway_endpoint_with_fallback_routing(store: SqlAlchemyStore):
 
 def test_create_gateway_endpoint_with_traffic_split(store: SqlAlchemyStore):
     secret1 = store.create_gateway_secret(
-        provider="openai", secret_name="traffic-split-key-1", secret_value={"api_key": "sk-test1"}
+        secret_name="traffic-split-key-1", secret_value={"api_key": "sk-test1"}
     )
     secret2 = store.create_gateway_secret(
-        provider="openai", secret_name="traffic-split-key-2", secret_value={"api_key": "sk-test2"}
+        secret_name="traffic-split-key-2", secret_value={"api_key": "sk-test2"}
     )
 
     model_def1 = store.create_gateway_model_definition(
@@ -2760,7 +2620,7 @@ def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
 
 def _create_endpoint_for_budget(store, name):
     secret = store.create_gateway_secret(
-        provider="openai", secret_name=f"{name}-secret", secret_value={"api_key": "value"}
+        secret_name=f"{name}-secret", secret_value={"api_key": "value"}
     )
     model_def = store.create_gateway_model_definition(
         name=f"{name}-model",

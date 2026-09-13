@@ -51,7 +51,6 @@ describe('GatewayApi', () => {
         GatewayApi.createSecret({
           secret_name: 'duplicate-secret',
           secret_value: { api_key: 'test-value' },
-          provider: 'openai',
         }),
       ).rejects.toThrow('Secret name already exists');
     });
