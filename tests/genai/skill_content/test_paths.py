@@ -269,3 +269,12 @@ def test_collect_tree_applies_archive_rules(tmp_path, names, message):
         pytest.skip("requires a case-sensitive filesystem")
     with pytest.raises(MlflowException, match=message):
         collect_tree(tmp_path)
+
+
+def test_canonical_relative_path_bounds_depth_and_length():
+    # Layout tracking registers every parent prefix, so depth must be bounded up front.
+    assert canonical_relative_path("/".join(["d"] * 128)) == "/".join(["d"] * 128)
+    with pytest.raises(MlflowException, match="deeper than 128 directories"):
+        canonical_relative_path("/".join(["d"] * 129))
+    with pytest.raises(MlflowException, match="longer than 4096 bytes"):
+        canonical_relative_path("/".join(["a" * 200] * 21))

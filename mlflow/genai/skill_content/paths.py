@@ -12,6 +12,11 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
 # Every supported filesystem caps a single name at 255 bytes; longer names cannot be written.
 MAX_PATH_SEGMENT_BYTES = 255
+# Bounds on a whole relative path. Layout tracking registers every parent prefix, so an
+# unbounded depth would let one archive entry cost quadratic memory; 4096 bytes matches the
+# common PATH_MAX and 128 segments is far beyond any real skill tree.
+MAX_PATH_DEPTH = 128
+MAX_PATH_BYTES = 4096
 # Names Windows refuses to create as regular files, with or without an extension. A tree
 # containing them cannot be materialized on every supported OS, so it is rejected everywhere.
 _WINDOWS_RESERVED_NAMES = frozenset({
@@ -62,6 +67,14 @@ def canonical_relative_path(value: str) -> str | None:
     if value.startswith("/"):
         raise invalid_content(f"Path '{display_path(value)}' must be relative to the content root.")
     parts = [part for part in value.split("/") if part != ""]
+    if len(parts) > MAX_PATH_DEPTH:
+        raise invalid_content(
+            f"Path '{display_path(value)}' is nested deeper than {MAX_PATH_DEPTH} directories."
+        )
+    if len(value.encode("utf-8", "surrogatepass")) > MAX_PATH_BYTES:
+        raise invalid_content(
+            f"Path '{display_path(value)}' is longer than {MAX_PATH_BYTES} bytes."
+        )
     for part in parts:
         _validate_segment(part, value)
     return "/".join(parts) if parts else None

@@ -461,3 +461,11 @@ def test_directory_size_cannot_expand_metadata_budget(tmp_path, monkeypatch, ope
     }[operation]
     with pytest.raises(MlflowException, match="allowance for tar headers"):
         run()
+
+
+def test_deeply_nested_archive_entry_is_rejected_before_layout_tracking(tmp_path):
+    # One entry with thousands of parent directories used to cost quadratic memory in the
+    # prefix tracker; the depth bound rejects it before any prefix is built.
+    archive = _make_zip(tmp_path / "deep.zip", [("/".join(["d"] * 2048 + ["f"]), b"x", None)])
+    with pytest.raises(MlflowException, match="deeper than"):
+        validate_zip_archive(archive)
