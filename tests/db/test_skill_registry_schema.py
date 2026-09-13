@@ -9,6 +9,13 @@
 # normal test suite, while these re-prove the same guarantees on every engine, where
 # constraint enforcement (foreign keys, primary keys) and text sort order can differ
 # between databases. Each such test names its counterpart.
+#
+# NOTE: all tests here deliberately share one database, unlike the SQLite twin file, where
+# each test can create and discard its own database cheaply. So keep every test to its own
+# data: give skills and plugins names unique to the test that creates them, and filter
+# queries by those names rather than relying on a bare `.all()`. Also remember that
+# test_db_backend_migration_downgrade_and_reupgrade drops and recreates these tables in
+# that same database mid-run.
 
 from contextlib import contextmanager
 from pathlib import Path
@@ -195,3 +202,85 @@ def test_db_backend_migration_downgrade_and_reupgrade(store):
     finally:
         command.upgrade(config, "head")
     assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
+
+
+def test_db_backend_version_identity_is_case_sensitive(store):
+    # SemVer compares prerelease identifiers in ASCII order, so `1.0.0-A` and `1.0.0-a`
+    # are two different versions of one plugin. MySQL and SQL Server default to
+    # case-insensitive collations, so they would be treated as same : registering the second
+    # violates the primary key, and an exact lookup for one returns the other. The
+    # version columns pin a case-sensitive collation on those dialects
+    # (AGENT_PLUGIN_VERSION_STRING), so this must hold on every engine -- and it can
+    # only be proved on the matrix, since SQLite is case-sensitive either way.
+    upper, lower = "1.0.0-A", "1.0.0-a"
+    with session_scope(store) as session:
+        session.add(SqlAgentPlugin(organization="acme", name="case"))
+        for version in (upper, lower):
+            session.add(
+                SqlAgentPluginVersion(
+                    organization="acme",
+                    name="case",
+                    version=version,
+                    plugin_json={"name": "case", "version": version},
+                    source_type="assembled",
+                    source="assembled",
+                )
+            )
+
+    with session_scope(store, commit=False) as session:
+        # Both exist, and each exact lookup returns itself rather than its twin.
+        assert session.get(SqlAgentPluginVersion, ("default", "acme", "case", upper)).version == (
+            upper
+        )
+        assert session.get(SqlAgentPluginVersion, ("default", "acme", "case", lower)).version == (
+            lower
+        )
+        stored = {
+            row.version
+            for row in session.query(SqlAgentPluginVersion).filter(
+                SqlAgentPluginVersion.name == "case"
+            )
+        }
+        assert stored == {upper, lower}
+
+
+def test_db_backend_member_version_collation_matches_parent(store):
+    # agent_plugin_version_members.plugin_version has to carry the same collation as
+    # agent_plugin_versions.version, because MySQL rejects a foreign key whose columns
+    # disagree on collation (error 3780). That is already proved before this body runs:
+    # the FK is declared by `op.create_table` in the skill-registry migration, applied
+    # once when the first test in this file creates the tables (see the header), so a
+    # collation mismatch would abort the module during setup rather than fail here.
+    #
+    # The rows inserted below add the behaviour: given two plugin versions differing only
+    # in case, the member row stays attached to the one it was created against.
+    with session_scope(store) as session:
+        _seed_skill(session, organization="acme", name="members-case-skill")
+        _seed_assembled_plugin(
+            session,
+            organization="acme",
+            name="members-case",
+            version="2.0.0-A",
+            members=[("acme", "members-case-skill", 1)],
+        )
+        session.add(
+            SqlAgentPluginVersion(
+                organization="acme",
+                name="members-case",
+                version="2.0.0-a",
+                plugin_json={"name": "members-case", "version": "2.0.0-a"},
+                source_type="assembled",
+                source="assembled",
+            )
+        )
+
+    with session_scope(store, commit=False) as session:
+        members = (
+            session
+            .query(SqlAgentPluginVersionMember)
+            .filter(SqlAgentPluginVersionMember.plugin_name == "members-case")
+            .all()
+        )
+        assert [(m.plugin_version, m.member_name) for m in members] == [
+            ("2.0.0-A", "members-case-skill")
+        ]

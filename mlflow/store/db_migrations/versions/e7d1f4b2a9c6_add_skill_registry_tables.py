@@ -6,7 +6,7 @@ Create Date: 2026-09-01
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mssql
+from sqlalchemy.dialects import mssql, mysql
 
 revision = "e7d1f4b2a9c6"
 down_revision = "b7e2c1a4d9f3"
@@ -20,6 +20,21 @@ def _get_json_type():
         return mssql.JSON
     else:
         return sa.JSON
+
+
+# Agent plugin version columns must be case-sensitive: SemVer treats `1.0.0-A` and
+# `1.0.0-a` as different versions, while MySQL and SQL Server default to collations that
+# merge them. SQLite and PostgreSQL are already case-sensitive and are left alone.
+#
+# Must match `AGENT_PLUGIN_VERSION_STRING` in mlflow/store/tracking/dbmodels/models.py, and
+# must be identical on every column holding a plugin version string -- MySQL rejects a
+# foreign key whose columns disagree on collation (error 3780).
+AGENT_PLUGIN_VERSION_STRING = (
+    sa
+    .String(length=128)
+    .with_variant(mysql.VARCHAR(128, collation="utf8mb4_bin"), "mysql")
+    .with_variant(mssql.VARCHAR(128, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
+)
 
 
 def upgrade():
@@ -229,7 +244,7 @@ def upgrade():
             server_default=sa.text("''"),
         ),
         sa.Column("name", sa.String(length=128), nullable=False),
-        sa.Column("version", sa.String(length=128), nullable=False),
+        sa.Column("version", AGENT_PLUGIN_VERSION_STRING, nullable=False),
         sa.Column("version_major", sa.Integer(), nullable=False),
         sa.Column("version_minor", sa.Integer(), nullable=False),
         sa.Column("version_patch", sa.Integer(), nullable=False),
@@ -306,7 +321,7 @@ def upgrade():
             server_default=sa.text("''"),
         ),
         sa.Column("name", sa.String(length=128), nullable=False),
-        sa.Column("version", sa.String(length=128), nullable=False),
+        sa.Column("version", AGENT_PLUGIN_VERSION_STRING, nullable=False),
         sa.Column("key", sa.String(length=250), nullable=False),
         sa.Column("value", sa.Text(), nullable=True),
         sa.ForeignKeyConstraint(
@@ -347,7 +362,7 @@ def upgrade():
         ),
         sa.Column("name", sa.String(length=128), nullable=False),
         sa.Column("alias", sa.String(length=256), nullable=False),
-        sa.Column("version", sa.String(length=128), nullable=False),
+        sa.Column("version", AGENT_PLUGIN_VERSION_STRING, nullable=False),
         sa.ForeignKeyConstraint(
             ["workspace", "organization", "name"],
             ["agent_plugins.workspace", "agent_plugins.organization", "agent_plugins.name"],
@@ -375,7 +390,7 @@ def upgrade():
             server_default=sa.text("''"),
         ),
         sa.Column("plugin_name", sa.String(length=128), nullable=False),
-        sa.Column("plugin_version", sa.String(length=128), nullable=False),
+        sa.Column("plugin_version", AGENT_PLUGIN_VERSION_STRING, nullable=False),
         sa.Column("member_name", sa.String(length=128), nullable=False),
         sa.Column(
             "member_organization",

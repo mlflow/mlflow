@@ -23,7 +23,9 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mssql import NVARCHAR
+from sqlalchemy.dialects.mssql import VARCHAR as MSSQL_VARCHAR
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
+from sqlalchemy.dialects.mysql import VARCHAR as MYSQL_VARCHAR
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import (
@@ -4325,6 +4327,24 @@ class SqlMCPAccessEndpoint(Base):
         )
 
 
+# Agent plugin version columns must be case-sensitive: SemVer treats `1.0.0-A` and
+# `1.0.0-a` as different versions. MySQL and SQL Server default to case-insensitive
+# collations, which merge them -- registering both violates the primary key, and an exact
+# lookup for one returns the other. SQLite and PostgreSQL already compare case-sensitively,
+# so only the MySQL and MSSQL goldens carry a COLLATE clause.
+#
+# Every column holding a plugin version string must use this type: MySQL rejects a foreign
+# key whose columns disagree on collation (error 3780).
+#
+# TODO : ``mcp_server_versions.version`` has the same defect and is deliberately NOT changed here
+# Need to address maintainers.
+AGENT_PLUGIN_VERSION_STRING = (
+    String(128)
+    .with_variant(MYSQL_VARCHAR(128, collation="utf8mb4_bin"), "mysql")
+    .with_variant(MSSQL_VARCHAR(128, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
+)
+
+
 # ---------------------------------------------------------------------------
 # Skill Registry (RFC-0008) ORM models
 #
@@ -4852,7 +4872,7 @@ class SqlAgentPluginVersion(Base):
     )
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
-    version = Column(String(128), nullable=False)
+    version = Column(AGENT_PLUGIN_VERSION_STRING, nullable=False)
     version_major = Column(Integer, nullable=False)
     version_minor = Column(Integer, nullable=False)
     version_patch = Column(Integer, nullable=False)
@@ -5003,7 +5023,7 @@ class SqlAgentPluginVersionTag(Base):
     )
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
-    version = Column(String(128), nullable=False)
+    version = Column(AGENT_PLUGIN_VERSION_STRING, nullable=False)
     key = Column(String(250), nullable=False)
     value = Column(Text, nullable=True)
 
@@ -5052,7 +5072,7 @@ class SqlAgentPluginAlias(Base):
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
     alias = Column(String(256), nullable=False)
-    version = Column(String(128), nullable=False)
+    version = Column(AGENT_PLUGIN_VERSION_STRING, nullable=False)
 
     plugin = relationship(
         "SqlAgentPlugin",
@@ -5094,7 +5114,7 @@ class SqlAgentPluginVersionMember(Base):
         String(64), nullable=False, default="", server_default=sa.text("''")
     )
     plugin_name = Column(String(128), nullable=False)
-    plugin_version = Column(String(128), nullable=False)
+    plugin_version = Column(AGENT_PLUGIN_VERSION_STRING, nullable=False)
     member_name = Column(String(128), nullable=False)
     # member_organization and member_version are held only for the skill_versions
     # FK and as stored data; they are intentionally out of the primary key so the
