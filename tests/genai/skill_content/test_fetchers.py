@@ -327,3 +327,24 @@ def test_fetch_git_does_not_execute_repository_hooks(tmp_path, monkeypatch):
     with fetch_source(GitSource(url=repo.as_uri())) as fetched:
         assert (fetched.root / "SKILL.md").is_file()
     assert not marker.exists()
+
+
+def test_fetch_git_same_commit_same_digest_regardless_of_autocrlf(tmp_path, monkeypatch):
+    # The digest hashes committed bytes; a caller's checkout settings must not rewrite them.
+    config = tmp_path / "gitconfig"
+    config.write_text("")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    repo = tmp_path / "fixture.git"
+    repo.mkdir()
+    _git("init", "-q", "-b", "main", cwd=repo)
+    (repo / "SKILL.md").write_bytes(b"---\nname: demo\n---\nHello\n")
+    _git("add", "SKILL.md", cwd=repo)
+    _git("commit", "-q", "-m", "fixture", cwd=repo)
+    digests = []
+    for setting in ("false", "true"):
+        config.write_text(f"[core]\n    autocrlf = {setting}\n")
+        with fetch_source(GitSource(url=repo.as_uri())) as fetched:
+            assert (fetched.root / "SKILL.md").read_bytes() == b"---\nname: demo\n---\nHello\n"
+            digests.append(compute_tree_digest(fetched.root))
+    assert digests[0] == digests[1]

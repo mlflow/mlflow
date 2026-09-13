@@ -26,13 +26,17 @@ def _git_environment(no_hooks_dir: Path) -> dict[str, str]:
     credentials still come from the caller's helpers, SSH agent, or netrc. The
     ``GIT_CONFIG_*`` entries override every config scope, including the caller's global one:
     ``core.hooksPath`` points at an empty directory so a repository that ships hooks (reachable
-    through a global ``core.hooksPath=.githooks``) can never execute them during checkout.
+    through a global ``core.hooksPath=.githooks``) can never execute them during checkout, and
+    ``core.autocrlf`` is off so the checkout holds the committed bytes and the same commit
+    hashes identically on every machine.
     """
     return {
         "GIT_TERMINAL_PROMPT": "0",
-        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_COUNT": "2",
         "GIT_CONFIG_KEY_0": "core.hooksPath",
         "GIT_CONFIG_VALUE_0": str(no_hooks_dir),
+        "GIT_CONFIG_KEY_1": "core.autocrlf",
+        "GIT_CONFIG_VALUE_1": "false",
     }
 
 
