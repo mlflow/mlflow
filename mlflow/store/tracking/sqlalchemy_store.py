@@ -5949,24 +5949,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         if not trace_ids:
             return []
 
-        order_case = case(
-            {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
-            value=SqlTraceInfo.request_id,
-        )
         with self.ManagedSessionMaker() as session:
             # Load trace metadata first; DB-backed span rows are fetched separately only for traces
             # that still read from the tracking store.
-            sql_trace_infos = (
-                self
-                ._trace_query(session)
-                .options(
+            sql_trace_infos = self._query_trace_infos_in_batches(
+                session,
+                trace_ids,
+                options=(
                     selectinload(SqlTraceInfo.tags),
                     selectinload(SqlTraceInfo.request_metadata),
                     selectinload(SqlTraceInfo.assessments),
-                )
-                .filter(SqlTraceInfo.request_id.in_(trace_ids))
-                .order_by(order_case)
-                .all()
+                ),
             )
             trace_infos = [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
             tracking_store_trace_ids = [
@@ -6030,20 +6023,31 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         if not trace_ids:
             return []
 
-        order_case = case(
-            {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
-            value=SqlTraceInfo.request_id,
-        )
         with self.ManagedSessionMaker() as session:
-            sql_trace_infos = (
+            sql_trace_infos = self._query_trace_infos_in_batches(session, trace_ids)
+            return [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
+
+    def _query_trace_infos_in_batches(self, session, trace_ids, options=()):
+        trace_id_to_index = {trace_id: index for index, trace_id in enumerate(trace_ids)}
+        trace_infos = {}
+        for trace_id_batch in chunk_list(list(trace_id_to_index), _TRACE_METADATA_QUERY_BATCH_SIZE):
+            order_case = case(
+                {trace_id: trace_id_to_index[trace_id] for trace_id in trace_id_batch},
+                value=SqlTraceInfo.request_id,
+            )
+            rows = (
                 self
                 ._trace_query(session)
-                .filter(SqlTraceInfo.request_id.in_(trace_ids))
-                .order_by(order_case)
+                .options(*options)
+                .filter(SqlTraceInfo.request_id.in_(trace_id_batch))
+                .add_columns(order_case)
                 .all()
             )
-
-            return [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
+            for trace_info, index in rows:
+                # Collation-equivalent spellings can match across batches. The original CASE
+                # selects the first matching dictionary key, whose value is its last input index.
+                trace_infos.setdefault(trace_info.request_id, (trace_info, index))
+        return [info for info, _ in sorted(trace_infos.values(), key=lambda row: row[1])]
 
     def _get_trace_ids_outside_tracking_store(
         self, session: Session, trace_ids: Iterable[str]
@@ -7002,28 +7006,29 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         span_snapshots_by_trace_id: dict[str, list[_TraceSpanSnapshot]] = defaultdict(list)
         traces_with_cleared_payloads: set[str] = set()
-        rows = (
-            session
-            .query(
-                SqlSpan.trace_id,
-                SqlSpan.content,
-                SqlSpan.parent_span_id,
-                SqlSpan.start_time_unix_nano,
-            )
-            .filter(SqlSpan.trace_id.in_(trace_ids))
-            .all()
-        )
-        for trace_id, content, parent_span_id, start_time_unix_nano in rows:
-            if content == "":
-                traces_with_cleared_payloads.add(trace_id)
-                continue
-            span_snapshots_by_trace_id[trace_id].append(
-                _TraceSpanSnapshot(
-                    content=content,
-                    parent_span_id=parent_span_id,
-                    start_time_unix_nano=start_time_unix_nano,
+        for trace_id_batch in chunk_list(trace_ids, _TRACE_QUERY_BATCH_SIZE):
+            rows = (
+                session
+                .query(
+                    SqlSpan.trace_id,
+                    SqlSpan.content,
+                    SqlSpan.parent_span_id,
+                    SqlSpan.start_time_unix_nano,
                 )
+                .filter(SqlSpan.trace_id.in_(trace_id_batch))
+                .all()
             )
+            for trace_id, content, parent_span_id, start_time_unix_nano in rows:
+                if content == "":
+                    traces_with_cleared_payloads.add(trace_id)
+                    continue
+                span_snapshots_by_trace_id[trace_id].append(
+                    _TraceSpanSnapshot(
+                        content=content,
+                        parent_span_id=parent_span_id,
+                        start_time_unix_nano=start_time_unix_nano,
+                    )
+                )
         return span_snapshots_by_trace_id, traces_with_cleared_payloads
 
     def _refresh_transitioning_trace_snapshot(
@@ -9659,8 +9664,11 @@ def _get_search_experiments_order_by_clauses(order_by):
 
 
 _TRACE_INFO_COLUMNS = tuple(SqlTraceInfo.__table__.columns)
-# Keep child-query IN clauses below SQLite and MSSQL bound-parameter limits.
-_TRACE_CHILD_QUERY_BATCH_SIZE = 500
+# Keep trace-ID IN clauses below SQLite and MSSQL bound-parameter limits.
+_TRACE_QUERY_BATCH_SIZE = 500
+# Metadata queries bind each ID in IN and CASE, plus a CASE result and one workspace bind:
+# 3 * 332 + 1 = 997, below SQLite's historical 999-variable limit.
+_TRACE_METADATA_QUERY_BATCH_SIZE = 332
 
 
 def _build_trace_infos_from_rows(session, trace_rows):
@@ -9671,7 +9679,7 @@ def _build_trace_infos_from_rows(session, trace_rows):
     tags_by_trace = defaultdict(dict)
     metadata_by_trace = defaultdict(dict)
     assessments_by_trace = defaultdict(list)
-    for trace_id_batch in chunk_list(trace_ids, _TRACE_CHILD_QUERY_BATCH_SIZE):
+    for trace_id_batch in chunk_list(trace_ids, _TRACE_QUERY_BATCH_SIZE):
         for trace_id, key, value in session.execute(
             select(SqlTraceTag.request_id, SqlTraceTag.key, SqlTraceTag.value).where(
                 SqlTraceTag.request_id.in_(trace_id_batch)

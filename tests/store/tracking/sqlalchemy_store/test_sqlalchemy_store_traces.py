@@ -64,6 +64,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _TraceArchiveCandidate
+from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
@@ -5324,6 +5325,88 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
 
     trace3 = traces_by_id[trace_id_3]
     assert trace3.info.token_usage is None
+
+
+@pytest.mark.parametrize("method", ["batch_get_traces", "batch_get_trace_infos"])
+def test_batch_get_traces_chunking(store: SqlAlchemyStore, method: str) -> None:
+    experiment_id = store.create_experiment("batch-get-chunking")
+    trace_ids = [f"tr-{uuid.uuid4().hex}" for _ in range(1101)]
+    spans = [
+        create_test_span(trace_id=trace_id, trace_num=i + 1) for i, trace_id in enumerate(trace_ids)
+    ]
+    store.log_spans(experiment_id, spans)
+    requested_ids = [trace_ids[0], "missing", *reversed(trace_ids), trace_ids[-1], "missing"]
+    expected_ids = [*reversed(trace_ids[:-1]), trace_ids[-1]]
+
+    def enforce_parameter_limit(conn, cursor, statement, parameters, context, executemany):
+        # Enforce a portable ceiling even when SQLite is built with a higher variable limit.
+        for parameter_set in parameters if executemany else [parameters]:
+            assert len(parameter_set) <= 999
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", enforce_parameter_limit)
+    try:
+        batch_get = getattr(store, method)
+        assert batch_get([]) == []
+        assert batch_get(["missing"]) == []
+        results = batch_get(requested_ids)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", enforce_parameter_limit)
+
+    if method == "batch_get_traces":
+        assert [trace.info.trace_id for trace in results] == expected_ids
+        spans_by_trace = {span.trace_id: span.to_dict() for span in spans}
+        for trace in results:
+            assert [span.to_dict() for span in trace.data.spans] == [
+                spans_by_trace[trace.info.trace_id]
+            ]
+    else:
+        assert [info.trace_id for info in results] == expected_ids
+
+
+@pytest.fixture
+def nocase_store(tmp_path: Path, db_uri: str, workspaces_enabled: bool):
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
+    store = store_cls(db_uri, artifact_dir.as_uri())
+    try:
+        metadata = sqlalchemy.MetaData()
+        SqlTraceInfo.__table__.metadata.tables["experiments"].to_metadata(metadata)
+        trace_table = SqlTraceInfo.__table__.to_metadata(metadata)
+        trace_table.c.request_id.type = sqlalchemy.String(50, collation="NOCASE")
+        with store.engine.begin() as connection:
+            SqlTraceInfo.__table__.drop(connection)
+            trace_table.create(connection)
+        yield store
+    finally:
+        store._dispose_engine()
+
+
+@pytest.mark.parametrize("method", ["batch_get_traces", "batch_get_trace_infos"])
+def test_batch_get_traces_nocase(nocase_store: SqlAlchemyStore, method: str) -> None:
+    store = nocase_store
+    experiment_id = store.create_experiment("batch-get-nocase")
+    store.log_spans(
+        experiment_id,
+        [create_test_span(trace_id="tr-abc"), create_test_span(trace_id="x", trace_num=2)],
+    )
+    missing_ids = [f"missing-{i}" for i in range(332)]
+    cases = [
+        (["tr-ABC"], ["tr-abc"]),
+        (["x", "tr-ABC"], ["x", "tr-abc"]),
+        (["tr-ABC", "tr-abc"], ["tr-abc"]),
+        (["tr-abc", "tr-ABC"], ["tr-abc"]),
+        (["tr-ABC", "x", "tr-abc"], ["tr-abc", "x"]),
+        (["tr-abc", "x", "tr-ABC"], ["tr-abc", "x"]),
+        (["tr-abc", "x", "tr-abc"], ["x", "tr-abc"]),
+        (["tr-ABC", "x", *missing_ids, "tr-abc"], ["tr-abc", "x"]),
+        (["tr-abc", "x", *missing_ids, "tr-ABC"], ["tr-abc", "x"]),
+        (["tr-ABC", "x", *missing_ids, "tr-abc", "tr-ABC"], ["x", "tr-abc"]),
+    ]
+    for requested_ids, expected_ids in cases:
+        results = getattr(store, method)(requested_ids)
+        infos = [trace.info for trace in results] if method == "batch_get_traces" else results
+        assert [info.trace_id for info in infos] == expected_ids
 
 
 def test_batch_get_trace_infos_basic(store: SqlAlchemyStore) -> None:
