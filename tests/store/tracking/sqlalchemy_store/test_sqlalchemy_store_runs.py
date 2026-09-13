@@ -50,7 +50,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
 )
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_store import (
+    _RUN_DELETE_CASCADE_MODELS,
+    SqlAlchemyStore,
+)
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
@@ -354,6 +357,16 @@ def test_delete_run(store: SqlAlchemyStore):
 
         deleted_run = store.get_run(run.info.run_id)
         assert actual.run_uuid == deleted_run.info.run_id
+
+
+def test_run_delete_cascade_models_match_orm_relationships():
+    orm_delete_cascade_models = {
+        relationship.mapper.class_
+        for relationship in sqlalchemy.inspect(models.SqlRun).relationships
+        if "delete" in relationship.cascade
+    }
+
+    assert set(_RUN_DELETE_CASCADE_MODELS) == orm_delete_cascade_models
 
 
 def test_hard_delete_run(store: SqlAlchemyStore):

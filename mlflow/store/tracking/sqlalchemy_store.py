@@ -273,6 +273,8 @@ _T = TypeVar("_T")
 
 _logger = logging.getLogger(__name__)
 
+_RUN_DELETE_CASCADE_MODELS = (SqlMetric, SqlLatestMetric, SqlParam, SqlTag)
+
 # Chunk size for exact-identity recovery lookups in _log_metrics.
 # 100 keeps bound-parameter counts well under all supported dialect limits.
 _METRIC_DEDUP_CHUNK_SIZE = 100
@@ -1237,7 +1239,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # for runs with large metric histories. Bulk deletes keep memory usage independent of
             # history size.
             self._get_run(run_uuid=run_id, session=session)
-            for model in (SqlMetric, SqlLatestMetric, SqlParam, SqlTag):
+            for model in _RUN_DELETE_CASCADE_MODELS:
                 session.query(model).filter(model.run_uuid == run_id).delete(
                     synchronize_session=False
                 )
