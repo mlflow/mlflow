@@ -59,3 +59,16 @@ def test_invalid_content_redacts():
     exc = invalid_content("bad entry from https://u:p@h/x")
     assert exc.error_code == "INVALID_PARAMETER_VALUE"
     assert "u:p@" not in exc.message
+
+
+@pytest.mark.parametrize("error_path", ["source_failure", "size_failure"])
+def test_query_credentials_are_absent_from_errors(error_path):
+    # Presigned URLs carry their credential in the query string, which fetch errors echo.
+    secret = "invented-review-secret"
+    url = f"https://example.invalid/skill.zip?X-Amz-Signature={secret}"
+    if error_path == "source_failure":
+        error = source_unavailable(url, "HTTP 403 Forbidden")
+    else:
+        error = invalid_content(f"Download from '{url}' exceeds the size limit")
+    assert secret not in str(error)
+    assert "https://example.invalid/skill.zip?***" in str(error)

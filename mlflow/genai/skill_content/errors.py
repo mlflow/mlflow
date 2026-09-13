@@ -17,12 +17,15 @@ _USERINFO_PATTERN = re.compile(r"(?<=://)[^/@\s]+@")
 _SCP_USERINFO_PATTERN = re.compile(r"(?<![\w/])[^\s/:@]+:[^\s/@]+@(?=[\w.-]+:)")
 # Bearer / Basic tokens that transport libraries sometimes echo into messages.
 _AUTH_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
+# The query string of any URL: presigned links carry their signature or token there.
+_URL_QUERY_PATTERN = re.compile(r"(https?://[^\s'\"?#<>]+)\?[^\s'\"#<>]*")
 
 
 def redact_credentials(text: str) -> str:
-    """Remove URL userinfo and auth tokens from ``text`` so it is safe to surface."""
+    """Remove URL userinfo, URL query strings, and auth tokens from ``text``."""
     text = _USERINFO_PATTERN.sub("***@", text)
     text = _SCP_USERINFO_PATTERN.sub("***@", text)
+    text = _URL_QUERY_PATTERN.sub(r"\1?***", text)
     return _AUTH_TOKEN_PATTERN.sub(r"\1 ***", text)
 
 
