@@ -272,7 +272,7 @@ def submit_job(
     # the code executes on both. This is a security control, so it is enforced at submission.
     is_custom_scorer = params_contain_custom_scorer_code(fn_meta.name, params)
     if is_custom_scorer and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get():
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             "Custom scorers defined with the @scorer decorator are disabled on this server "
             "because they execute arbitrary code. To run them, an operator must set the "
             "environment variable 'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'."
@@ -290,7 +290,7 @@ def submit_job(
             # MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND and ignores the persisted per-job backend.
             # Routing custom scorers to a different backend would therefore persist a backend that
             # is silently never used, so reject the differing config until per-job dispatch lands.
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 f"Routing custom scorers to a separate executor backend is not supported yet: "
                 f"MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND ({executor_backend!r}) must match "
                 f"MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND ({runner_backend!r}) until the runner "
@@ -306,7 +306,7 @@ def submit_job(
             and not executor.supports_direct_provider_models
             and scorer_params_use_direct_provider_model(fn_meta.name, params)
         ):
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "The executor backend runs jobs remotely and can only reach models through the "
                 "gateway, but this scorer references a direct-provider model. Use a gateway-backed "
                 "model URI (e.g. 'gateway:/', 'endpoints:/', or 'databricks:/') or a local "
