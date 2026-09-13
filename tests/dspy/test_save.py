@@ -630,3 +630,21 @@ def test_load_model_wraps_dspy_error_when_pickle_disabled(monkeypatch):
     with mock.patch("dspy.load", side_effect=ValueError("pickle disallowed by dspy")):
         with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
             mlflow.dspy.load_model(model_info.model_uri)
+
+
+@pytest.mark.parametrize("use_dspy_model_save", [use_dspy_model_save_param, False])
+def test_load_model_saved_with_windows_separators(tmp_path, monkeypatch, use_dspy_model_save):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+    model_path = tmp_path / "model"
+    mlflow.dspy.save_model(dspy_model, model_path, use_dspy_model_save=use_dspy_model_save)
+
+    # `save_model` on Windows writes the flavor's `model_path` with backslashes
+    mlmodel = Model.load(model_path)
+    flavor_conf = mlmodel.flavors["dspy"]
+    flavor_conf["model_path"] = flavor_conf["model_path"].replace("/", "\\")
+    mlmodel.save(model_path / "MLmodel")
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "true")
+    loaded_model = mlflow.dspy.load_model(str(model_path))
+    assert isinstance(loaded_model, CoT)
