@@ -297,9 +297,11 @@ def test_exclusive_conflict_not_failed_when_cancel_errors(registered_jobs, job_s
     j1 = job_store.create_job("executor_engine_exclusive", params, timeout=30.0)
     j2 = job_store.create_job("executor_engine_exclusive", params, timeout=30.0)
 
-    with mock.patch.object(job_store, "cancel_job", side_effect=RuntimeError("boom")):
+    with mock.patch.object(job_store, "cancel_job", side_effect=RuntimeError("boom")) as cancel_job:
         _run_to_completion(job_store, executor, lease_duration=60.0)
 
+    # The conflict path attempted exactly one cancellation (which raised).
+    cancel_job.assert_called_once()
     # One runs to success; the conflicting job, whose cancel failed, is left RUNNING (no worker) for
     # recovery rather than being marked FAILED.
     statuses = {job_store.get_job(j1.job_id).status, job_store.get_job(j2.job_id).status}
@@ -1018,16 +1020,21 @@ def test_submit_job_executor_engine_defaults_timeout_for_exclusive(
     fake_registry = mock.MagicMock()
     fake_registry.get.return_value = fake_executor
     with (
-        mock.patch("mlflow.server.jobs._get_job_store", return_value=store),
-        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+        mock.patch("mlflow.server.jobs._get_job_store", return_value=store) as get_store,
+        mock.patch("mlflow.server.jobs.utils._check_requirements") as check_reqs,
         mock.patch(
             "mlflow.server.jobs.executor_registry.get_executor_registry",
             return_value=fake_registry,
-        ),
+        ) as get_registry,
     ):
         submit_job(executor_engine_exclusive, {"sleep_secs": 1, "key": "k"}, timeout=timeout)
 
-    # The persisted timeout is the executor default, not the unusable caller value.
+    # Proves the intended resolution path ran: it consulted the executor registry for the default
+    # backend's configured timeout rather than the unusable caller value.
+    check_reqs.assert_called_once()
+    get_store.assert_called_once()
+    get_registry.assert_called_once()
+    fake_registry.get.assert_called_once()
     assert store.create_job.call_args.args[2] == 1234.0
 
 
@@ -1036,11 +1043,13 @@ def test_submit_job_executor_engine_keeps_valid_timeout_for_exclusive(monkeypatc
     store = mock.MagicMock()
     store.create_job.return_value = _make_job(status=JobStatus.PENDING)
     with (
-        mock.patch("mlflow.server.jobs._get_job_store", return_value=store),
-        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+        mock.patch("mlflow.server.jobs._get_job_store", return_value=store) as get_store,
+        mock.patch("mlflow.server.jobs.utils._check_requirements") as check_reqs,
     ):
         submit_job(executor_engine_exclusive, {"sleep_secs": 1, "key": "k"}, timeout=42.0)
 
+    check_reqs.assert_called_once()
+    get_store.assert_called_once()
     # A usable caller timeout is persisted as-is (no default lookup needed).
     assert store.create_job.call_args.args[2] == 42.0
 

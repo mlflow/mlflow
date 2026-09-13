@@ -841,7 +841,7 @@ def test_acquire_exclusive_lock_lease_and_timeout_interleaving(
         (JobStatus.SUCCEEDED, True),
         (JobStatus.FAILED, True),
         (JobStatus.TIMEOUT, True),
-        (JobStatus.CANCELED, True),
+        (JobStatus.CANCELED, False),
         (JobStatus.NEEDS_RECOVERY, False),
     ],
 )

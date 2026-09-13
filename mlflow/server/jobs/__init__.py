@@ -346,9 +346,9 @@ def submit_job(
     if engine == "executor" and fn_meta.exclusive:
         # The executor engine deduplicates exclusive jobs with a database lock
         # (mlflow.server.jobs.lock_manager) whose staleness is bounded by the job's timeout (plus a
-        # grace window), so an exclusive job must carry a positive, finite timeout. The RFC does not
-        # require callers to pass one -- the production online-scoring jobs do not -- so fall back
-        # to the selected executor's configured default_timeout and persist the effective value, so
+        # grace window), so an exclusive job must carry a positive, finite timeout. Callers are not
+        # required to pass one -- the production online-scoring jobs do not -- so fall back to the
+        # selected executor's configured default_timeout and persist the effective value, so
         # lock expiry and execution use the same number. (The Huey engine uses its own in-process
         # lock and does not need this.)
         timeout = _resolve_exclusive_job_timeout(timeout)
