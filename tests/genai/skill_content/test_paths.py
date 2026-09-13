@@ -278,3 +278,14 @@ def test_canonical_relative_path_bounds_depth_and_length():
         canonical_relative_path("/".join(["d"] * 129))
     with pytest.raises(MlflowException, match="longer than 4096 bytes"):
         canonical_relative_path("/".join(["a" * 200] * 21))
+
+
+def test_segment_length_is_checked_after_nfc_normalization():
+    # NFC can grow a name: 64 U+0344 characters are 128 bytes raw but 256 bytes normalized,
+    # and the packaged archive carries the NFC form.
+    name = "̈́" * 64
+    assert len(name.encode("utf-8")) == 128
+    assert len(unicodedata.normalize("NFC", name).encode("utf-8")) == 256
+    with pytest.raises(MlflowException, match="longer than 255 bytes"):
+        canonical_relative_path(name)
+    assert canonical_relative_path("̈́" * 63) == "̈́" * 63

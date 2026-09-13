@@ -44,7 +44,10 @@ def _validate_segment(segment: str, original: str) -> None:
     except UnicodeEncodeError:
         # Archive readers map undecodable bytes to lone surrogates, which no filesystem accepts.
         raise invalid_content(f"Path '{shown}' is not valid UTF-8.")
-    if len(encoded) > MAX_PATH_SEGMENT_BYTES:
+    # The digest and the packaged archive carry the NFC form, which can be longer than the
+    # raw name; both must fit so an accepted tree can be extracted again.
+    normalized = unicodedata.normalize("NFC", segment).encode("utf-8")
+    if max(len(encoded), len(normalized)) > MAX_PATH_SEGMENT_BYTES:
         raise invalid_content(
             f"Path '{shown}' has a name longer than {MAX_PATH_SEGMENT_BYTES} bytes."
         )
