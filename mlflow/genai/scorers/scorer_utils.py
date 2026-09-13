@@ -23,14 +23,16 @@ BUILTIN_SCORER_PYDANTIC_DATA = "builtin_scorer_pydantic_data"
 # server handler (_register_scorer) to consistently reject decorator scorer registration
 # outside of Databricks environments.
 DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR = (
-    "Custom scorer registration (using @scorer decorator) is not supported "
+    "Custom scorer registration (using @scorer decorator) is disabled by default "
     "outside of Databricks tracking environments due to security concerns. "
     "Custom scorers require arbitrary code execution during deserialization.\n\n"
     "To use custom scorers:\n"
     "1. Configure MLflow to use a Databricks tracking URI, or\n"
     "2. Manage your custom scorer code in a source code repository "
     "(e.g., GitHub) and import it directly, or\n"
-    "3. Use built-in scorers or make_judge() scorers instead."
+    "3. On a self-managed MLflow server (or local environment) that you trust to run the "
+    "scorer's code, set the MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS environment variable to true, or\n"
+    "4. Use built-in scorers or make_judge() scorers instead."
 )
 
 THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (

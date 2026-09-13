@@ -296,11 +296,16 @@ def submit_job(
                 f"MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND ({runner_backend!r}) until the runner "
                 f"dispatches per job."
             )
-        # A remote executor gets only a Gateway-scoped token and no provider API keys, so it
-        # cannot resolve a direct-provider model URI unless it opts in via
-        # supports_direct_provider_models (e.g. it provisions provider creds another way). Reject
-        # such a scorer before it is persisted.
-        executor = get_executor_registry().get(runner_backend)
+        # Remote executor backends are refused at startup today (see
+        # JobExecutorRegistry.validate_backends), so this check does not fire yet. It is kept as
+        # the model-resolution policy that becomes live once remote execution is supported: a
+        # remote executor gets only a Gateway-scoped token and no provider API keys, so it cannot
+        # resolve a direct-provider model URI unless it opts in via supports_direct_provider_models
+        # (e.g. it provisions provider creds another way). Reject such a scorer before it is
+        # persisted. Resolve the backend the job will actually run on (executor_backend); it
+        # equals runner_backend today because a differing backend is rejected above, but this
+        # stays correct once per-job dispatch honors a separate custom-scorer backend.
+        executor = get_executor_registry().get(executor_backend)
         if (
             executor.remote_execution
             and not executor.supports_direct_provider_models

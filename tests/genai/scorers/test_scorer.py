@@ -343,7 +343,7 @@ def test_custom_scorer_registration_blocked_for_non_databricks_uri():
 
     with pytest.raises(
         mlflow.exceptions.MlflowException,
-        match="Custom scorer registration.*not supported outside of Databricks tracking",
+        match="Custom scorer registration.*disabled by default outside of Databricks tracking",
     ):
         test_custom_scorer.register(experiment_id=experiment_id, name="test_scorer")
 
@@ -360,7 +360,7 @@ def test_custom_scorer_loading_blocked_for_non_databricks_uri():
     )
 
     with pytest.raises(
-        mlflow.exceptions.MlflowException, match="Custom scorer registration.*not supported"
+        mlflow.exceptions.MlflowException, match="Custom scorer registration.*disabled by default"
     ):
         Scorer._reconstruct_decorator_scorer(serialized)
 
@@ -402,7 +402,7 @@ def test_custom_scorer_registration_allowed_when_flag_enabled(monkeypatch):
     monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
     with pytest.raises(
         mlflow.exceptions.MlflowException,
-        match="Custom scorer registration.*not supported outside of Databricks tracking",
+        match="Custom scorer registration.*disabled by default outside of Databricks tracking",
     ):
         flagged_scorer._check_can_be_registered()
 
@@ -446,7 +446,7 @@ def test_custom_scorer_error_message_renders_code_snippet_legibly():
     )
 
     with pytest.raises(
-        mlflow.exceptions.MlflowException, match="is not supported outside of"
+        mlflow.exceptions.MlflowException, match="is disabled by default outside of"
     ) as exc_info:
         Scorer._reconstruct_decorator_scorer(serialized)
 
