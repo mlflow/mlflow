@@ -36,6 +36,31 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Probe branch setup selection
+        run: echo "COPILOT_BACKGROUND_PROBE_20260913 branch setup selected"
+      - name: Probe background execution
+        id: copilot_background_probe
+        background: true
+        run: |
+          echo "COPILOT_BACKGROUND_PROBE_20260913 background start $(date -u +%FT%TZ)"
+          sleep 12
+          echo "COPILOT_BACKGROUND_PROBE_20260913 background end $(date -u +%FT%TZ)"
+          touch "$RUNNER_TEMP/copilot-background-probe-20260913.done"
+      - name: Probe foreground overlap
+        run: |
+          echo "COPILOT_BACKGROUND_PROBE_20260913 foreground start $(date -u +%FT%TZ)"
+          sleep 2
+          if [ -f "$RUNNER_TEMP/copilot-background-probe-20260913.done" ]; then
+            echo "COPILOT_BACKGROUND_PROBE_20260913 background already finished"
+          else
+            echo "COPILOT_BACKGROUND_PROBE_20260913 foreground overlapped background"
+          fi
+      - name: Wait for background probe
+        wait: copilot_background_probe
+      - name: Probe wait completion
+        run: |
+          test -f "$RUNNER_TEMP/copilot-background-probe-20260913.done"
+          echo "COPILOT_BACKGROUND_PROBE_20260913 wait completed $(date -u +%FT%TZ)"
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
         with:
