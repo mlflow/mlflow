@@ -110,6 +110,17 @@ class JobExecutorRegistry:
         """Run fail-fast validation for the given configured backend names."""
         for name in backend_names:
             executor = self.get(name)
+            if executor.remote_execution:
+                # Remote execution (running a job off the server box and handing it credentials
+                # through a scoped token) is not implemented yet: no in-tree executor sets
+                # remote_execution=True, and the framework cannot yet provision a remote job's
+                # auth. Refuse to start with such a backend configured, so that adding a remote
+                # executor has to remove this guard and, at that point, wire up the direct-provider
+                # model validation in submit_job that it gates.
+                raise MlflowException.invalid_parameter_value(
+                    f"Job executor backend '{name}' declares remote_execution=True, which is not "
+                    "supported yet. Configure a local executor backend instead."
+                )
             try:
                 executor.check_requirements()
             except MlflowException:
