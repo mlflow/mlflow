@@ -593,27 +593,13 @@ def test_delete_workspace_set_default_blocks_same_organization_and_name(workspac
     assert workspace_store.get_workspace("team-a").name == "team-a"
 
 
-def test_current_behaviour_merging_two_unnamed_gateway_endpoints(workspace_store):
-    """Records today's behaviour for gateway endpoints with no name
-
-    An endpoint's name is optional in the database, so these two rows coexist:
-
-        endpoint_id  name  workspace
-        e-a          NULL  team-a
-        e-default    NULL  default
-
-    Deleting `team-a` with SET_DEFAULT moves `e-a` across, leaving both unnamed endpoints
-    in `default`. The database allows that: `UNIQUE (workspace, name)` does not treat two
-    NULLs as duplicates. This test pins it, because comparing the two names in Python
-    rather than in SQL would read them as a clash and refuse the whole delete.
-
-    You cannot reach this state through the REST API -- creating an endpoint rejects a
-    missing or empty name. Unnamed rows come from direct store calls, which accept
-    `name=None`.
-
-    TODO: confirm with maintainers that two unnamed endpoints sharing one workspace is
-    intended and not merely tolerated. This test records the behaviour either way.
-    """
+def test_delete_workspace_set_default_merges_unnamed_endpoints(workspace_store):
+    # Fast guard to record the following behaviour: `endpoints.name` is nullable, and SQL
+    # treats NULL = NULL as unknown, so two unnamed endpoints are not a clash currently.
+    # Comparing the names in Python, where None == None, would refuse this merge (i.e. the
+    # reassignment of each resource's workspace to `default`). The cross-dialect version,
+    # which also covers SQL Server refusing that merge at the database level, is
+    # tests/db/test_workspace_set_default.py.
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
     with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.add_all([
@@ -624,6 +610,7 @@ def test_current_behaviour_merging_two_unnamed_gateway_endpoints(workspace_store
         ])
 
     workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
     with workspace_store.ManagedSessionMaker() as session:
         moved = {
             (endpoint.endpoint_id, endpoint.workspace)
@@ -633,7 +620,6 @@ def test_current_behaviour_merging_two_unnamed_gateway_endpoints(workspace_store
         ("e-a", DEFAULT_WORKSPACE_NAME),
         ("e-default", DEFAULT_WORKSPACE_NAME),
     }
-    assert "team-a" not in {workspace.name for workspace in workspace_store.list_workspaces()}
 
 
 def test_workspace_root_models_order_agent_plugin_before_skill():
