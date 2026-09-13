@@ -935,6 +935,74 @@ def test_maas_get_endpoint_url():
     )
 
 
+@pytest.mark.parametrize(
+    "path", ["chat/completions", "v1/chat/completions", "/v1/chat/completions"]
+)
+@pytest.mark.asyncio
+async def test_maas_proxy_posts_to_openapi_endpoint(path):
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    resp = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "meta/llama-3.1-405b-instruct-maas",
+        "choices": [
+            {"index": 0, "message": {"role": "assistant", "content": "Hi"}, "finish_reason": "stop"}
+        ],
+    }
+    payload = {
+        "model": "meta/llama-3.1-405b-instruct-maas",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+    captured_session_headers = {}
+    mock_client = mock_http_client(MockAsyncResponse(resp))
+
+    def mock_client_session(headers=None, **kwargs):
+        captured_session_headers.update(headers or {})
+        return mock_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        response = await provider._delegate.proxy(
+            path, payload, headers={"authorization": "Bearer client-token", "x-request-id": "req-1"}
+        )
+
+    assert response == resp
+    # The "/openapi" segment is part of the API root and must survive, unlike the "/v1"
+    # suffix that OpenAICompatibleProvider._proxy is written to strip.
+    mock_client.post.assert_called_once_with(
+        "https://us-central1-aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi/chat/completions",
+        json=payload,
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+    )
+    assert captured_session_headers["Authorization"] == "Bearer mock-access-token"
+    assert "authorization" not in captured_session_headers
+    assert captured_session_headers["x-request-id"] == "req-1"
+
+
+@pytest.mark.asyncio
+async def test_maas_proxy_streams_when_upstream_sends_event_stream():
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    stream_data = [
+        b'data: {"id": "chatcmpl-123", "choices": [{"index": 0, "delta": {"content": "Hi"}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    mock_client = mock_http_client(
+        MockAsyncStreamingResponse(stream_data, headers={"Content-Type": "text/event-stream"})
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider._delegate.proxy(
+            "v1/chat/completions",
+            {"messages": [{"role": "user", "content": "Hello"}], "stream": True},
+        )
+        chunks = [chunk async for chunk in result]
+
+    assert chunks == stream_data
+    mock_client.post.assert_called_once()
+    assert mock_client.post.call_args[0][0].endswith("/endpoints/openapi/chat/completions")
+
+
 @pytest.mark.asyncio
 async def test_claude_completions_raises_gateway_exception():
     provider = _make_claude_provider()

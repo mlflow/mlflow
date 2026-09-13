@@ -307,6 +307,29 @@ class _VertexAIMaaSProvider(OpenAICompatibleProvider):
         host = _get_vertex_ai_host(location)
         return f"{host}/v1/projects/{project}/locations/{location}/endpoints/openapi"
 
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # OpenAICompatibleProvider._proxy strips the last segment of _api_base to undo a
+        # "/v1" suffix. Here that segment is "/openapi", which is part of the Vertex API
+        # root, so post to _api_base as is and drop the "v1/" prefix that OpenAI SDK
+        # clients put on the path instead.
+        gen = send_proxy_request(
+            self._get_headers(headers),
+            self._api_base,
+            path.lstrip("/").removeprefix("v1/"),
+            payload,
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
+
 
 class VertexAIProvider(GeminiProvider):
     """Vertex AI provider supporting Google, Anthropic, and OpenAI-compatible MaaS models.
