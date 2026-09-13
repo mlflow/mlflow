@@ -93,6 +93,37 @@ def test_passthrough_headers_keep_provider_bearer_token():
     assert merged["X-Custom"] == "value"
 
 
+@pytest.mark.parametrize(
+    ("betas", "expected"),
+    [
+        (None, "interleaved-thinking-2025-05-14, advisor-tool-2026-03-01"),
+        ([], None),
+        (["interleaved-thinking-2025-05-14"], "interleaved-thinking-2025-05-14"),
+        (["web-search-2025-03-05"], None),
+    ],
+)
+def test_claude_passthrough_headers_filter_anthropic_beta(betas, expected):
+    # Vertex rejects the whole request on an anthropic-beta value it does not support, so
+    # the endpoint config chooses which client betas are forwarded: None keeps the header
+    # as is, [] drops it, and a list keeps only the listed values.
+    provider = _make_claude_provider(vertex_anthropic_betas=betas)
+    merged = provider._delegate._get_headers(
+        headers={
+            "anthropic-beta": "interleaved-thinking-2025-05-14, advisor-tool-2026-03-01",
+            "x-request-id": "req-1",
+        }
+    )
+    assert merged.get("anthropic-beta") == expected
+    assert merged["x-request-id"] == "req-1"
+    assert merged["Authorization"] == "Bearer mock-access-token"
+
+
+def test_claude_passthrough_headers_without_anthropic_beta_are_unchanged():
+    provider = _make_claude_provider(vertex_anthropic_betas=[])
+    merged = provider._delegate._get_headers(headers={"x-request-id": "req-1"})
+    assert merged == {"Authorization": "Bearer mock-access-token", "x-request-id": "req-1"}
+
+
 def test_name():
     provider = _make_provider()
     assert provider.DISPLAY_NAME == "Vertex AI"
@@ -339,6 +370,12 @@ def test_basic_config():
     assert config.vertex_project == "my-project"
     assert config.vertex_location is None
     assert config.vertex_credentials is None
+    assert config.vertex_anthropic_betas is None
+
+
+def test_anthropic_betas_config():
+    config = VertexAIConfig(vertex_project="my-project", vertex_anthropic_betas=[])
+    assert config.vertex_anthropic_betas == []
 
 
 def test_custom_location():
@@ -491,7 +528,7 @@ def test_anthropic_model_multi_region_location(location):
     )
 
 
-def _make_claude_provider() -> VertexAIProvider:
+def _make_claude_provider(**config) -> VertexAIProvider:
     endpoint_config = EndpointConfig(
         name="vertex-claude-endpoint",
         endpoint_type="llm/v1/chat",
@@ -501,6 +538,7 @@ def _make_claude_provider() -> VertexAIProvider:
             "config": {
                 "vertex_project": "my-gcp-project",
                 "vertex_location": "us-east5",
+                **config,
             },
         },
     )

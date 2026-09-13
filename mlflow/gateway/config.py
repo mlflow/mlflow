@@ -323,6 +323,9 @@ class VertexAIConfig(ConfigModel):
     vertex_project: str
     vertex_location: str | None = None
     vertex_credentials: str | None = None
+    # Client-supplied `anthropic-beta` values to forward to Claude models. None forwards the
+    # header unchanged, an empty list drops it, and a non-empty list keeps only those values.
+    vertex_anthropic_betas: list[str] | None = None
 
 
 class LiteLLMConfig(ConfigModel):

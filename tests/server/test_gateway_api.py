@@ -33,6 +33,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     PortkeyConfig,
+    VertexAIConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.guardrails import _SANITIZE_BYPASS_HEADER, JudgeGuardrail
@@ -138,6 +139,23 @@ def test_build_endpoint_config_allows_provider_when_no_filter():
         "test-ep", _make_model_config("openai"), EndpointType.LLM_V1_CHAT
     )
     assert config.name == "test-ep"
+
+
+def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config():
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="vertex_ai",
+        model_name="claude-sonnet-4-5@20251101",
+        secret_value={"vertex_credentials": "{}"},
+        auth_config={
+            "vertex_project": "my-project",
+            "vertex_location": "us-east5",
+            "vertex_anthropic_betas": ["web-search-2025-03-05"],
+        },
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, VertexAIConfig)
+    assert config.model.config.vertex_anthropic_betas == ["web-search-2025-03-05"]
 
 
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):
