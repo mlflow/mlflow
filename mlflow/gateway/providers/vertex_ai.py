@@ -21,14 +21,15 @@ Three model types are supported:
 import json
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicAdapter, AnthropicProvider
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
+from mlflow.gateway.providers.utils import send_proxy_request, send_request, send_stream_request
 
 _DEFAULT_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
@@ -134,10 +135,16 @@ class _VertexAIClaudeProvider(AnthropicProvider):
     DISPLAY_NAME = "Vertex AI"
     CONFIG_TYPE = VertexAIConfig
 
-    def __init__(self, config: EndpointConfig, vertex_config: VertexAIConfig, get_credentials_fn):
+    def __init__(
+        self,
+        config: EndpointConfig,
+        vertex_config: VertexAIConfig,
+        get_credentials_fn,
+        enable_tracing: bool = False,
+    ):
         # Call BaseProvider.__init__ directly — AnthropicProvider.__init__ would reject
         # VertexAIConfig since it expects AnthropicConfig.
-        BaseProvider.__init__(self, config)
+        BaseProvider.__init__(self, config, enable_tracing=enable_tracing)
         self.vertex_config = vertex_config
         self._get_creds = get_credentials_fn
 
@@ -174,6 +181,70 @@ class _VertexAIClaudeProvider(AnthropicProvider):
         # not `self.adapter_class`.
         return _VertexAIClaudeAdapter._apply_vertex_fields(payload)
 
+    def _get_passthrough_path(self, payload: dict[str, Any]) -> str:
+        return self._get_chat_stream_path() if payload.get("stream") else self._get_chat_path()
+
+    async def _passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # AnthropicProvider._passthrough posts to base_url + "messages" with the model in the
+        # body. Vertex addresses the model in the URL (:rawPredict / :streamRawPredict) and
+        # takes `anthropic_version` in the body instead, so reuse the hooks `_chat` uses.
+        self._validate_passthrough_action(action)
+        payload = self._prepare_payload(payload)
+        request_headers = self._get_headers(payload, headers)
+        path = self._get_passthrough_path(payload)
+
+        if payload.get("stream"):
+            stream = send_stream_request(
+                headers=request_headers,
+                base_url=self.base_url,
+                path=path,
+                payload=payload,
+            )
+            return self._stream_passthrough_with_usage(stream)
+        return await send_request(
+            headers=request_headers,
+            base_url=self.base_url,
+            path=path,
+            payload=payload,
+        )
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # Vertex exposes Claude only through the Messages API, at a per-model
+        # :rawPredict / :streamRawPredict path, so the caller's path cannot be appended to
+        # base_url the way AnthropicProvider._proxy does. Accept the Anthropic API path and
+        # pick the streaming variant from the body.
+        if path.split("?", 1)[0].strip("/") not in ("v1/messages", "messages"):
+            raise AIGatewayException(
+                status_code=501,
+                detail=(
+                    f"The proxy path '{path}' is not supported for {self.config.model.name} on "
+                    "Vertex AI, which only exposes the Messages API. Use 'v1/messages'."
+                ),
+            )
+        payload = self._prepare_payload(payload)
+        gen = send_proxy_request(
+            self._get_headers(payload, headers),
+            self.base_url,
+            self._get_passthrough_path(payload),
+            payload,
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
+
 
 class _VertexAIMaaSProvider(OpenAICompatibleProvider):
     """OpenAICompatibleProvider adapted for MaaS models hosted on Vertex AI.
@@ -186,10 +257,16 @@ class _VertexAIMaaSProvider(OpenAICompatibleProvider):
     DISPLAY_NAME = "Vertex AI"
     CONFIG_TYPE = VertexAIConfig
 
-    def __init__(self, config: EndpointConfig, vertex_config: VertexAIConfig, get_credentials_fn):
+    def __init__(
+        self,
+        config: EndpointConfig,
+        vertex_config: VertexAIConfig,
+        get_credentials_fn,
+        enable_tracing: bool = False,
+    ):
         # Call BaseProvider.__init__ directly — OpenAICompatibleProvider.__init__ would
         # reject VertexAIConfig since it expects an _OpenAICompatibleConfig.
-        BaseProvider.__init__(self, config)
+        BaseProvider.__init__(self, config, enable_tracing=enable_tracing)
         self.vertex_config = vertex_config
         self._get_creds = get_credentials_fn
 
@@ -241,11 +318,11 @@ class VertexAIProvider(GeminiProvider):
         self._model_type = _classify_model(config.model.name)
         if self._model_type == "claude":
             self._delegate = _VertexAIClaudeProvider(
-                config, self.vertex_config, self._get_credentials
+                config, self.vertex_config, self._get_credentials, enable_tracing=enable_tracing
             )
         elif self._model_type == "maas":
             self._delegate = _VertexAIMaaSProvider(
-                config, self.vertex_config, self._get_credentials
+                config, self.vertex_config, self._get_credentials, enable_tracing=enable_tracing
             )
         else:
             self._delegate = None
@@ -318,6 +395,23 @@ class VertexAIProvider(GeminiProvider):
             return
         async for chunk in super()._chat_stream(payload):
             yield chunk
+
+    async def _passthrough(self, action, payload, headers=None):
+        if self._delegate:
+            return await self._delegate._passthrough(action, payload, headers)
+        return await super()._passthrough(action, payload, headers)
+
+    async def _proxy(self, path, payload, headers=None):
+        if self._delegate:
+            return await self._delegate._proxy(path, payload, headers)
+        return await super()._proxy(path, payload, headers)
+
+    def _extract_passthrough_token_usage(self, action, result):
+        # The public `passthrough` runs on this class, so the delegate's response
+        # format (Anthropic / OpenAI usage) has to be read through the delegate.
+        if self._delegate:
+            return self._delegate._extract_passthrough_token_usage(action, result)
+        return super()._extract_passthrough_token_usage(action, result)
 
     async def _completions(self, payload):
         if self._model_type in ("claude", "maas"):
