@@ -507,6 +507,17 @@ def test_set_trial_state_values_for_state(setup_storage):
             assert storage.get_trial(trial_id).datetime_complete is None
 
 
+def test_set_trial_state_values_transitions_waiting_trial_to_running(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = storage.create_new_trial(study_id)
+
+    assert storage.set_trial_state_values(trial_id, state=TrialState.WAITING)
+    assert storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+    assert storage.get_trial(trial_id).state == TrialState.RUNNING
+    assert not storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+
+
 def test_get_trial_param_and_get_trial_params(setup_storage):
     storage = setup_storage
     _, study_to_trials = _setup_studies(storage, n_study=2, n_trial=5, seed=1)
