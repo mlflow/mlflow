@@ -162,7 +162,10 @@ def test_resolve_source_type_rejects_empty(source):
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"source": "https://h/r.git", "subpath": "a/" * 1025}, "Subpath is 2049 characters"),
+        (
+            {"source": "https://h/r.git", "subpath": "/".join(["a" * 102] * 20)},
+            "Subpath is 2059 characters",
+        ),
         ({"source": "https://h/r.git", "ref": "v" * 2049}, "Git ref is 2049 characters"),
         ({"source": "https://h/" + "a" * 2040 + ".git"}, "Git URL is 2054 characters"),
         ({"source": "https://h/r.git", "ref": "v\x011"}, "control characters"),
@@ -175,5 +178,7 @@ def test_resolve_source_type_enforces_storage_bounds(kwargs, message):
 
 
 def test_resolve_source_type_typed_subpath_bound():
-    with pytest.raises(MlflowException, match="Subpath is 2049 characters"):
-        resolve_source_type(GitSource(url="https://h/r.git", subpath="a/" * 1025))
+    # Twenty long segments stay under the path depth bound but exceed the storage column.
+    subpath = "/".join(["a" * 102] * 20)
+    with pytest.raises(MlflowException, match="Subpath is 2059 characters"):
+        resolve_source_type(GitSource(url="https://h/r.git", subpath=subpath))

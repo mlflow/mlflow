@@ -232,7 +232,8 @@ def test_fetch_zip_redirect_body_is_not_buffered(http_server, skill_tree, monkey
         assert (f.root / "SKILL.md").exists()
     redirects = [response for response in responses if response.is_redirect]
     assert redirects
-    assert all(response._content is False for response in redirects)
+    # The closed redirect response yields no body: `_content` stays unset or reads as empty.
+    assert all(not response._content for response in redirects)
 
 
 @pytest.mark.no_mock_requests_get
