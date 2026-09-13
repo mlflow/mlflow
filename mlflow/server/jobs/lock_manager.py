@@ -324,7 +324,12 @@ class JobLockManager:
         The statement joins ``job_locks`` to ``jobs`` and updates the lock row only if the lock
         matches ``lock_key`` AND one of these conditions is true:
 
-        - The job status is terminal or pending (not RUNNING or NEEDS_RECOVERY).
+        - The job status is PENDING, SUCCEEDED, FAILED, or TIMEOUT. CANCELED is intentionally
+          excluded: a job canceled through the store flips to CANCELED immediately, but its worker
+          is still forwarding the cancellation to the executor and only releases the lock in its
+          ``finally`` block, so treating CANCELED as stale here would let a second same-key job
+          start while the canceled job's backend work is still stopping. RUNNING and NEEDS_RECOVERY
+          are also excluded.
         - The job has a timeout and the lock age exceeds 115% of that timeout.
 
         If neither condition is true, the statement updates zero rows.
@@ -358,7 +363,6 @@ class JobLockManager:
             JobStatus.SUCCEEDED.to_int(),
             JobStatus.FAILED.to_int(),
             JobStatus.TIMEOUT.to_int(),
-            JobStatus.CANCELED.to_int(),
         ]
         job_has_timed_out_or_status_is_eligible = or_(
             job_has_timed_out, SqlJob.status.in_(eligible_status)

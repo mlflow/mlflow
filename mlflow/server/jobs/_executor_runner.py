@@ -181,13 +181,23 @@ def _backoff_after_transient_retry(retry_count: int) -> None:
 
 
 def _record_result(
-    job_store: AbstractJobStore, job_id: str, job_name: str, result: JobResult
+    job_store: AbstractJobStore,
+    job_id: str,
+    job_name: str,
+    result: JobResult,
+    on_transient_release: Callable[[], bool] | None = None,
 ) -> int | None:
     """Map an executor ``JobResult`` onto the terminal job-store transition.
 
     Returns the ``retry_count`` when a transient error re-pended the job for retry (so the caller
-    can release the exclusivity lock and then back off), or ``None`` otherwise. Mirrors the outcome
-    handling in the Huey ``_exec_job`` path.
+    can back off), or ``None`` otherwise. Mirrors the outcome handling in the Huey ``_exec_job``
+    path.
+
+    ``on_transient_release`` (when given) releases the exclusivity lock and returns whether it
+    succeeded. It is called BEFORE the transient ``RUNNING -> PENDING`` re-pend so another replica
+    cannot claim the re-pended row while this worker still holds the lock. If it returns False the
+    job is NOT re-pended (leaving the row for recovery), since publishing a retry behind a
+    still-held lock would strand whoever re-claims it.
     """
     # If the job was canceled after it was claimed, it still ran to completion (or was killed by
     # a forwarded cancel), but the cancel already finalized the row. Recording a terminal result
@@ -212,9 +222,16 @@ def _record_result(
                 raise
     elif result.is_transient_error:
         # A transient error resets the job to PENDING (non-terminal) so a later poll can
-        # re-claim it, so this cannot go through report_job_result. The caller releases the
-        # exclusivity lock at this RUNNING -> PENDING transition (before backing off) so any
-        # replica can re-claim the retry.
+        # re-claim it, so this cannot go through report_job_result. Release the exclusivity lock
+        # first: a re-pended PENDING row whose lock is still held would strand any replica that
+        # re-claims it (its acquire raises on the same job_id). If release fails, do not re-pend --
+        # leave the row for recovery.
+        if on_transient_release is not None and not on_transient_release():
+            _logger.error(
+                "Could not release exclusive lock before retrying job %s; leaving it for recovery",
+                job_id,
+            )
+            return None
         return job_store.retry_or_fail_job(job_id, result.error_message or "")
     else:
         _logger.error(f"Job {job_id} ({job_name}) failed with error: {result.error_message}")
@@ -231,6 +248,7 @@ def _execute_claimed_job(
     on_submitted: Callable[[], None] | None = None,
     lease_duration: float | None = None,
     workspace: str | None = None,
+    on_transient_release: Callable[[], bool] | None = None,
 ) -> int | None:
     """Execute a job that has already been claimed (moved to RUNNING) and record its result.
 
@@ -286,7 +304,9 @@ def _execute_claimed_job(
             on_submitted()
         result = executor.wait_for_job(job.job_id)
     _logger.info(f"Executor engine job {job.job_id} finished with status {result.status.value}")
-    return _record_result(job_store, job.job_id, job.job_name, result)
+    return _record_result(
+        job_store, job.job_id, job.job_name, result, on_transient_release=on_transient_release
+    )
 
 
 def _max_workers_for(job_name: str) -> int:
@@ -559,7 +579,7 @@ class _JobScheduler:
 
         Cancellation is terminal and does NOT requeue or preserve the work item; correctness
         depends on the scheduler's level-triggered discovery recreating a fresh PENDING job later
-        if the work is still needed (RFC 0002). The job was claimed (RUNNING) but no backend work
+        if the work is still needed. The job was claimed (RUNNING) but no backend work
         was submitted, so cancelling moves it to CANCELED without anything having run. Runs inside
         the caller's workspace context.
         """
@@ -660,6 +680,28 @@ class _JobScheduler:
     def _run_worker(self, job: Job, workspace: str | None, sem: threading.Semaphore) -> None:
         retry_count: int | None = None
         needs_recovery = False
+        lock_released = False
+
+        def _release_before_retry() -> bool:
+            # Release the exclusive lock at the RUNNING -> PENDING transient re-pend, before the row
+            # becomes claimable again. Returns whether the release succeeded; on failure the caller
+            # does not re-pend (the row is left for recovery rather than published behind our lock).
+            nonlocal lock_released
+            with self._in_flight_lock:
+                handle = self._in_flight.get(job.job_id)
+            job_lock = handle.job_lock if handle is not None else None
+            if job_lock is None:
+                return True
+            try:
+                self._lock_manager.release_exclusive_lock(job_lock)
+            except Exception:
+                _logger.exception(
+                    "Failed to release exclusive lock before retrying job %s", job.job_id
+                )
+                return False
+            lock_released = True
+            return True
+
         try:
             with ServerWorkspaceContext(workspace):
                 retry_count = _execute_claimed_job(
@@ -669,6 +711,7 @@ class _JobScheduler:
                     on_submitted=lambda: self._mark_submitted(job.job_id),
                     lease_duration=self._lease_duration,
                     workspace=workspace,
+                    on_transient_release=_release_before_retry,
                 )
         except Exception as exc:
             with self._in_flight_lock:
@@ -678,8 +721,7 @@ class _JobScheduler:
                 # The failure happened after backend work was submitted, so that work may still be
                 # running and its monitoring is now untrustworthy. Do NOT fail-and-release (a
                 # same-key job could then start alongside it). Mark NEEDS_RECOVERY and keep the
-                # lock; backend recovery later confirms termination and decides requeue/fail
-                # (RFC 0002).
+                # lock; backend recovery later confirms termination and decides requeue/fail.
                 needs_recovery = True
                 _logger.error(
                     "Job %s (%s) monitoring failed after submission: %r; marking NEEDS_RECOVERY",
@@ -704,11 +746,9 @@ class _JobScheduler:
             with self._in_flight_lock:
                 handle = self._in_flight.pop(job.job_id, None)
             # Release the exclusive lock so a later same-key job can run -- EXCEPT when the job is
-            # NEEDS_RECOVERY, whose backend work may still be running (recovery releases it after
-            # confirming termination). A transient retry (retry_count set) releases here too, at the
-            # RUNNING -> PENDING transition and before the backoff below, so any replica can
-            # immediately re-claim the retry.
-            if handle is not None and not needs_recovery:
+            # NEEDS_RECOVERY (its backend work may still be running; recovery releases it after
+            # confirming termination) or it was already released at the transient re-pend above.
+            if handle is not None and not needs_recovery and not lock_released:
                 self._release_lock(handle.job_lock)
             # Back off only this replica's slot for a transient retry; the lock is already released.
             if retry_count is not None:
@@ -749,8 +789,8 @@ class _JobScheduler:
 
         An orphan's exclusive lock (if any) is intentionally NOT released here, nor at startup
         recovery: a daemon worker may still be executing during this best-effort shutdown, and no
-        code path clears lock rows (RFC 0002 forbids it, since a rolling restart could delete a
-        lock still protecting another replica's work). The leftover lock is reclaimed through normal
+        code path clears lock rows at startup or shutdown, since a rolling restart could delete a
+        lock still protecting another replica's work. The leftover lock is reclaimed through normal
         acquisition once its holder is terminal or its timeout + grace window elapses.
         """
         with self._in_flight_lock:
@@ -848,10 +888,9 @@ def _recover_orphaned_executor_jobs(job_store: AbstractJobStore) -> None:
 
     def _reset(job: Job, _workspace: str | None) -> None:
         # Do NOT clear the job's exclusivity lock here. Startup must not delete lock rows: in a
-        # rolling restart another replica may still be protecting active work under the same key
-        # (RFC 0002, "Locking and scheduler coordination"). A lock left by a crashed holder is
-        # reclaimed through normal acquisition instead -- it points to a job that is terminal or
-        # goes stale once its timeout + grace window elapses.
+        # rolling restart another replica may still be protecting active work under the same key.
+        # A lock left by a crashed holder is reclaimed through normal acquisition instead -- it
+        # points to a job that is terminal or goes stale once its timeout + grace window elapses.
         try:
             job_store.reset_job(job.job_id)
             _logger.info("Recovered orphaned job %s (%s) to PENDING", job.job_id, job.job_name)
