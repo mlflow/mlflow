@@ -31,6 +31,15 @@ class _NoAuthSession(requests.Session):
         prepared_request.headers.pop("Authorization", None)
 
 
+def _discard_redirect_body(response, **kwargs):
+    # `requests` reads the whole body of every redirect response before following it, even
+    # with stream=True, so a hostile redirect could buffer an unbounded body past the download
+    # limit. Closing the response first releases the connection without reading the body.
+    if response.is_redirect:
+        response.close()
+    return response
+
+
 def download_with_budget(url: str, target: Path, *, max_bytes: int) -> Path:
     """
     Stream ``url`` to ``target``, failing once more than ``max_bytes`` have been received.
@@ -40,6 +49,7 @@ def download_with_budget(url: str, target: Path, *, max_bytes: int) -> Path:
     hostile or oversized download is cut off rather than buffered.
     """
     session = _NoAuthSession()
+    session.hooks["response"].append(_discard_redirect_body)
     try:
         with session.get(
             url, stream=True, timeout=_REQUEST_TIMEOUT_SECONDS, auth=_no_auth

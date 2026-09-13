@@ -7,6 +7,7 @@ from functools import partial
 from pathlib import Path
 
 import pytest
+import requests
 
 import mlflow
 from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
@@ -42,6 +43,7 @@ def git_repo(tmp_path, skill_tree):
 class _RecordingHTTPHandler(http.server.SimpleHTTPRequestHandler):
     authorizations = []
     redirects = {}
+    redirect_body = b""
 
     def log_message(self, *args):
         pass
@@ -51,7 +53,12 @@ class _RecordingHTTPHandler(http.server.SimpleHTTPRequestHandler):
         if (target := self.redirects.get(self.path)) is not None:
             self.send_response(302)
             self.send_header("Location", target)
+            self.send_header("Content-Length", str(len(self.redirect_body)))
             self.end_headers()
+            try:
+                self.wfile.write(self.redirect_body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             return
         super().do_GET()
 
@@ -201,6 +208,30 @@ def test_fetch_zip_redirect_never_uses_netrc(http_server, skill_tree, tmp_path, 
     with fetch_source(f"{base_url}/redirect.zip", subpath="skills/demo") as fetched:
         assert (fetched.root / "SKILL.md").exists()
     assert handler.authorizations == [None, None]
+
+
+@pytest.mark.no_mock_requests_get
+def test_fetch_zip_redirect_body_is_not_buffered(http_server, skill_tree, monkeypatch):
+    # `requests` reads each redirect body before following it; the download budget must not
+    # be bypassable through a redirect that carries a large body.
+    serve_dir, base_url, handler = http_server
+    shutil.make_archive(str(serve_dir / "skills"), "zip", root_dir=skill_tree)
+    handler.redirects["/redirect.zip"] = "/skills.zip"
+    handler.redirect_body = b"x" * 65536
+    responses = []
+    original = requests.adapters.HTTPAdapter.build_response
+
+    def record_response(adapter, request, raw):
+        response = original(adapter, request, raw)
+        responses.append(response)
+        return response
+
+    monkeypatch.setattr(requests.adapters.HTTPAdapter, "build_response", record_response)
+    with fetch_source(f"{base_url}/redirect.zip", subpath="skills/demo", max_bytes=8192) as f:
+        assert (f.root / "SKILL.md").exists()
+    redirects = [response for response in responses if response.is_redirect]
+    assert redirects
+    assert all(response._content is False for response in redirects)
 
 
 @pytest.mark.no_mock_requests_get
