@@ -117,7 +117,7 @@ repos:
 
       - id: check-github-actions
         name: check-github-actions
-        entry: uv run --only-group lint check-jsonschema --builtin-schema vendor.github-actions
+        entry: uv run --only-group lint check-jsonschema --schemafile https://raw.githubusercontent.com/SchemaStore/schemastore/acc1b653da7696b7fd374058562001534ef51b32/src/schemas/json/github-action.json
         language: system
         files: ^\.github/actions/[^/]+/action\.ya?ml$
         stages: [pre-commit]
