@@ -10,6 +10,7 @@ import zipfile
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.genai.skill_content import archive as archive_module
 from mlflow.genai.skill_content.archive import (
     MAX_ARCHIVE_ENTRIES,
     extract_skill_archive,
@@ -437,3 +438,26 @@ def test_tar_budget_counts_only_selected_content(tmp_path, operation):
         assert not (dest / "unrelated").exists()
     with pytest.raises(MlflowException, match="exceeds the skill content size limit"):
         validate_skill_archive(archive)
+
+
+@pytest.mark.parametrize("operation", ["validate", "extract"])
+def test_directory_size_cannot_expand_metadata_budget(tmp_path, monkeypatch, operation):
+    # tarfile never reads a payload for a directory entry, so a directory header that declares
+    # a size must not earn metadata slack for the PAX headers that follow it.
+    monkeypatch.setattr(archive_module, "_TAR_METADATA_ALLOWANCE", 16384)
+    archive = tmp_path / "content.tar.gz"
+    with tarfile.open(archive, "w:gz", format=tarfile.PAX_FORMAT) as tf:
+        directory = tarfile.TarInfo("directory")
+        directory.type = tarfile.DIRTYPE
+        directory.size = 65536
+        tf.addfile(directory)
+        manifest = tarfile.TarInfo("SKILL.md")
+        manifest.size = 1
+        manifest.pax_headers = {"comment": "x" * 20000}
+        tf.addfile(manifest, io.BytesIO(b"x"))
+    run = {
+        "validate": lambda: validate_skill_archive(archive),
+        "extract": lambda: extract_skill_archive(archive, tmp_path / "extracted"),
+    }[operation]
+    with pytest.raises(MlflowException, match="allowance for tar headers"):
+        run()

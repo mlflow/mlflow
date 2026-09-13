@@ -204,7 +204,10 @@ def _iter_tar_members(tar: tarfile.TarFile, bounded: _BoundedStream) -> Iterator
                 raise invalid_content(f"Archive contains more than {MAX_ARCHIVE_ENTRIES} entries.")
             # The header has been parsed; its payload (which the caller either copies under
             # the content budget or skips) is about to stream through and is not metadata.
-            bounded.grant(_padded_payload(member.size))
+            # tarfile only consumes a payload for regular files and unknown types; a
+            # directory's declared size is never read, so it must not buy metadata slack.
+            if member.isreg() or member.type not in tarfile.SUPPORTED_TYPES:
+                bounded.grant(_padded_payload(member.size))
             yield member
     except _TAR_FAILURES as e:
         raise invalid_content(f"Archive is malformed: {e}")
