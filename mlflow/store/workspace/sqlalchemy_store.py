@@ -4,9 +4,10 @@ import logging
 from threading import Lock
 from typing import Iterable
 
+import sqlalchemy as sa
 from cachetools import TTLCache
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import aliased, sessionmaker
 
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace, WorkspaceDeletionMode
 from mlflow.environment_variables import (
@@ -369,23 +370,43 @@ class SqlAlchemyStore(AbstractStore):
         for model in _WORKSPACE_ROOT_MODELS:
             if not hasattr(model, "name"):
                 continue
-            # Skills and agent plugins are identified by (organization, name); every
-            # other root is keyed on name alone.
-            columns = ("organization", "name") if hasattr(model, "organization") else ("name",)
-            model_columns = [getattr(model, column) for column in columns]
-            source_identities = {
-                tuple(row)
-                for row in session.query(*model_columns).filter(model.workspace == workspace_name)
-            }
-            default_identities = {
-                tuple(row)
-                for row in session.query(*model_columns).filter(
-                    model.workspace == DEFAULT_WORKSPACE_NAME
+            if hasattr(model, "organization"):
+                # Skills and agent plugins are identified by (organization, name), so a
+                # shared name is not a conflict: acme/code-review and other/code-review
+                # are different skills. EXISTS keeps the comparison in the database, where
+                # a row-value IN would not be portable to SQL Server.
+                in_default = aliased(model)
+                overlapping = (
+                    session
+                    .query(model.organization, model.name)
+                    .filter(model.workspace == workspace_name)
+                    .filter(
+                        sa
+                        .exists()
+                        .where(in_default.workspace == DEFAULT_WORKSPACE_NAME)
+                        .where(in_default.organization == model.organization)
+                        .where(in_default.name == model.name)
+                    )
+                    .all()
                 )
-            }
-            for identity in sorted(source_identities & default_identities):
-                pairs = ", ".join(f"{c}={v!r}" for c, v in zip(columns, identity))
-                conflicts.append(f"  - {model.__tablename__}: {pairs}")
+                for organization, name in overlapping:
+                    conflicts.append(
+                        f"  - {model.__tablename__}: organization={organization!r}, name={name!r}"
+                    )
+                continue
+            overlapping = (
+                session
+                .query(model.name)
+                .filter(model.workspace == workspace_name)
+                .filter(
+                    model.name.in_(
+                        session.query(model.name).filter(model.workspace == DEFAULT_WORKSPACE_NAME)
+                    )
+                )
+                .all()
+            )
+            for (name,) in overlapping:
+                conflicts.append(f"  - {model.__tablename__}: {name!r}")
         if conflicts:
             details = "\n".join(conflicts)
             raise MlflowException(

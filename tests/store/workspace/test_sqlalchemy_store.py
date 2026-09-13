@@ -11,6 +11,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
     SqlAgentPluginVersion,
     SqlAgentPluginVersionMember,
+    SqlGatewayEndpoint,
     SqlSkill,
     SqlSkillVersion,
 )
@@ -590,6 +591,49 @@ def test_delete_workspace_set_default_blocks_same_organization_and_name(workspac
     with pytest.raises(MlflowException, match="already exist in the default workspace"):
         workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
     assert workspace_store.get_workspace("team-a").name == "team-a"
+
+
+def test_current_behaviour_merging_two_unnamed_gateway_endpoints(workspace_store):
+    """Records today's behaviour for gateway endpoints with no name
+
+    An endpoint's name is optional in the database, so these two rows coexist:
+
+        endpoint_id  name  workspace
+        e-a          NULL  team-a
+        e-default    NULL  default
+
+    Deleting `team-a` with SET_DEFAULT moves `e-a` across, leaving both unnamed endpoints
+    in `default`. The database allows that: `UNIQUE (workspace, name)` does not treat two
+    NULLs as duplicates. This test pins it, because comparing the two names in Python
+    rather than in SQL would read them as a clash and refuse the whole delete.
+
+    You cannot reach this state through the REST API -- creating an endpoint rejects a
+    missing or empty name. Unnamed rows come from direct store calls, which accept
+    `name=None`.
+
+    TODO: confirm with maintainers that two unnamed endpoints sharing one workspace is
+    intended and not merely tolerated. This test records the behaviour either way.
+    """
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlGatewayEndpoint(endpoint_id="e-a", name=None, workspace="team-a"),
+            SqlGatewayEndpoint(
+                endpoint_id="e-default", name=None, workspace=DEFAULT_WORKSPACE_NAME
+            ),
+        ])
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    with workspace_store.ManagedSessionMaker() as session:
+        moved = {
+            (endpoint.endpoint_id, endpoint.workspace)
+            for endpoint in session.query(SqlGatewayEndpoint)
+        }
+    assert moved == {
+        ("e-a", DEFAULT_WORKSPACE_NAME),
+        ("e-default", DEFAULT_WORKSPACE_NAME),
+    }
+    assert "team-a" not in {workspace.name for workspace in workspace_store.list_workspaces()}
 
 
 def test_workspace_root_models_order_agent_plugin_before_skill():
