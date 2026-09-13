@@ -1,4 +1,5 @@
 import http.server
+import os
 import shutil
 import subprocess
 import threading
@@ -297,3 +298,31 @@ def test_fetch_mlflow_artifacts_missing():
     with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
         fetch_source("runs:/does-not-exist/skill")
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="uses a POSIX shell hook fixture")
+def test_fetch_git_does_not_execute_repository_hooks(tmp_path, monkeypatch):
+    # A global `core.hooksPath=.githooks` would otherwise run a hook shipped inside the fetched
+    # repository during checkout, before any validation.
+    config = tmp_path / "gitconfig"
+    config.write_text("")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    marker = tmp_path / "hook-ran"
+    monkeypatch.setenv("SKILL_TEST_HOOK_MARKER", str(marker))
+    repo = tmp_path / "fixture.git"
+    repo.mkdir()
+    _git("init", "-q", "-b", "main", cwd=repo)
+    (repo / "SKILL.md").write_text(SKILL_MD)
+    hooks = repo / ".githooks"
+    hooks.mkdir()
+    hook = hooks / "post-checkout"
+    hook.write_text('#!/bin/sh\nprintf "ran\\n" > "$SKILL_TEST_HOOK_MARKER"\n')
+    hook.chmod(0o755)
+    _git("add", ".", cwd=repo)
+    _git("commit", "-q", "-m", "fixture", cwd=repo)
+    config.write_text("[core]\n    hooksPath = .githooks\n")
+
+    with fetch_source(GitSource(url=repo.as_uri())) as fetched:
+        assert (fetched.root / "SKILL.md").is_file()
+    assert not marker.exists()

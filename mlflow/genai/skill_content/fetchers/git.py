@@ -15,10 +15,27 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
 )
 
-# Never let git block on an interactive credential prompt; credentials come from the caller's
-# configured helpers, SSH agent, or netrc.
-_GIT_ENV = {"GIT_TERMINAL_PROMPT": "0"}
 _GIT_TIMEOUT_SECONDS = 600
+
+
+def _git_environment(no_hooks_dir: Path) -> dict[str, str]:
+    """
+    Environment for the fetch and checkout commands.
+
+    ``GIT_TERMINAL_PROMPT=0`` keeps git from blocking on an interactive credential prompt;
+    credentials still come from the caller's helpers, SSH agent, or netrc. The
+    ``GIT_CONFIG_*`` entries override every config scope, including the caller's global one:
+    ``core.hooksPath`` points at an empty directory so a repository that ships hooks (reachable
+    through a global ``core.hooksPath=.githooks``) can never execute them during checkout.
+    """
+    return {
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "core.hooksPath",
+        "GIT_CONFIG_VALUE_0": str(no_hooks_dir),
+    }
+
+
 _AUTH_MARKERS = (
     "authentication failed",
     "could not read username",
@@ -87,9 +104,11 @@ def fetch_git(
         )
 
     dest.mkdir(parents=True, exist_ok=True)
+    no_hooks_dir = dest.parent / "no-hooks"
+    no_hooks_dir.mkdir(exist_ok=True)
     repo = git.Repo.init(dest)
     try:
-        with repo.git.custom_environment(**_GIT_ENV):
+        with repo.git.custom_environment(**_git_environment(no_hooks_dir)):
             origin = repo.create_remote("origin", url)
             origin.fetch(refspec=ref or "HEAD", depth=1, kill_after_timeout=_GIT_TIMEOUT_SECONDS)
             repo.git.checkout("FETCH_HEAD")
