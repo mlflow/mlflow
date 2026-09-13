@@ -371,10 +371,9 @@ class SqlAlchemyStore(AbstractStore):
             if not hasattr(model, "name"):
                 continue
             if hasattr(model, "organization"):
-                # Skills and agent plugins are identified by (organization, name), so a
-                # shared name is not a conflict: acme/code-review and other/code-review
-                # are different skills. EXISTS keeps the comparison in the database, where
-                # a row-value IN would not be portable to SQL Server.
+                # Skills and agent plugins are identified by (organization, name).
+                # EXISTS compares the columns one at a time, which works on every engine;
+                # SQL Server cannot compare two columns at once with IN.
                 in_default = aliased(model)
                 overlapping = (
                     session
