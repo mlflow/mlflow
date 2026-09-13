@@ -484,6 +484,13 @@ def _get_provider_instance(
         config = _OpenAICompatibleConfig(api_key=os.environ.get("OPENROUTER_API_KEY"))
         return OpenRouterProvider(_get_route_config(config))
 
+    elif provider == Provider.CRUSOE:
+        from mlflow.gateway.config import _OpenAICompatibleConfig
+        from mlflow.gateway.providers.crusoe import CrusoeProvider
+
+        config = _OpenAICompatibleConfig(api_key=os.environ.get("CRUSOE_API_KEY"))
+        return CrusoeProvider(_get_route_config(config))
+
     elif provider == Provider.OLLAMA:
         from mlflow.gateway.providers.ollama import OllamaConfig, OllamaProvider
 
