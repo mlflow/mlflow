@@ -4671,6 +4671,35 @@ class SqlSkillAlias(Base):
         return f"<SqlSkillAlias ({self.name}, {self.alias} -> {self.version})>"
 
 
+def _agent_plugin_version_has_deleted_member():
+    """Whether this agent plugin version bundles a ``deleted`` skill version.
+
+    ``deleted`` only: a ``deprecated`` member must not withdraw the version.
+    """
+    return (
+        sa
+        .select(sa.literal(1))
+        .select_from(SqlAgentPluginVersionMember)
+        .join(
+            SqlSkillVersion,
+            sa.and_(
+                SqlSkillVersion.workspace == SqlAgentPluginVersionMember.plugin_workspace,
+                SqlSkillVersion.organization == SqlAgentPluginVersionMember.member_organization,
+                SqlSkillVersion.name == SqlAgentPluginVersionMember.member_name,
+                SqlSkillVersion.version == SqlAgentPluginVersionMember.member_version,
+            ),
+        )
+        .where(
+            SqlAgentPluginVersionMember.plugin_workspace == SqlAgentPluginVersion.workspace,
+            SqlAgentPluginVersionMember.plugin_organization == SqlAgentPluginVersion.organization,
+            SqlAgentPluginVersionMember.plugin_name == SqlAgentPluginVersion.name,
+            SqlAgentPluginVersionMember.plugin_version == SqlAgentPluginVersion.version,
+            SqlSkillVersion.status == SkillStatus.DELETED.value,
+        )
+        .exists()
+    )
+
+
 class SqlAgentPlugin(Base):
     __tablename__ = "agent_plugins"
 
@@ -4736,7 +4765,10 @@ class SqlAgentPlugin(Base):
                 order_by=(status_priority.asc(), *cls._version_order_by()),
             )
             .label("row_num"),
-        ).where(SqlAgentPluginVersion.status != SkillStatus.DELETED.value)
+        ).where(
+            SqlAgentPluginVersion.status != SkillStatus.DELETED.value,
+            ~_agent_plugin_version_has_deleted_member(),
+        )
 
     @classmethod
     def resolved_status_expression(cls):

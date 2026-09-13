@@ -1,5 +1,6 @@
 # ORM-level tests for the RFC-0008 skill registry models: ORM mappings,
-# ``to_mlflow_entity`` conversion, pure-SQL latest resolution, and database-level
+# ``to_mlflow_entity`` conversion, pure-SQL latest resolution (including the
+# withdrawal rule), and database-level
 # cascade / restrict / uniqueness constraints against a migrated SQLite database
 # (the store layer does not exist yet). Constraint proofs use a foreign-key-
 # enforcing session so they assert real DB behavior. These run on SQLite in the normal
@@ -653,3 +654,242 @@ def test_migration_downgrade_and_reupgrade(store, db_uri):
     # Re-upgrade restores them, proving the up/down pair round-trips.
     command.upgrade(config, "e7d1f4b2a9c6")
     assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
+
+
+# ---------------------------------------------------------------------------
+# Withdrawal (RFC-0008)
+#
+# A plugin version's *members* are the skill versions it bundles. Deleting a
+# skill version *withdraws* every plugin version that bundles it: that plugin
+# version stops taking part in resolving its parent's latest version and status,
+# as if it did not exist.
+#
+# Its own stored status is never rewritten, because the plugin may belong to
+# someone other than whoever deleted the skill version.
+#
+# Only plugin versions are withdrawn -- skill versions are simply deleted. And
+# only a member with `deleted` status withdraws; a `deprecated` member changes nothing.
+# ---------------------------------------------------------------------------
+
+
+def test_deleting_a_bundled_skill_takes_the_plugin_out_of_circulation(store):
+    """Deleting a skill version withdraws every plugin version that bundles it. The parent
+    plugin keeps resolving as long as one of its versions survives; when all of them are
+    deleted or bundle a deleted skill version, it has no latest version at all.
+
+    `pr` survives because its unreleased 2.0.0 draft bundles the newer skill version, so it
+    drops back to that draft. `changelog` has nothing left: its 1.0.0 is withdrawn by the
+    deleted skill, and its 2.0.0 was already deleted.
+    """
+    # (plugin, its version, that version's status, which code-review version it bundles)
+    plugin_versions = [
+        ("pr", "1.0.0", "active", 1),
+        ("pr", "2.0.0", "draft", 2),
+        ("changelog", "1.0.0", "active", 1),
+        ("changelog", "2.0.0", "deleted", 2),
+    ]
+    with session_scope(store) as session:
+        for skill_version in (1, 2):
+            _add_skill_version(
+                session,
+                version=skill_version,
+                status="active",
+                source_type="git",
+                source="pkg.git",
+            )
+        for name in ("pr", "changelog"):
+            session.add(SqlAgentPlugin(organization="acme", name=name))
+        for name, version, status, _ in plugin_versions:
+            session.add(
+                SqlAgentPluginVersion(
+                    organization="acme",
+                    name=name,
+                    version=version,
+                    plugin_json={"name": name, "version": version},
+                    status=status,
+                    source_type="assembled",
+                )
+            )
+        session.flush()
+        for name, version, _, skill_version in plugin_versions:
+            session.add(
+                SqlAgentPluginVersionMember(
+                    plugin_organization="acme",
+                    plugin_name=name,
+                    plugin_version=version,
+                    member_organization="acme",
+                    member_name="code-review",
+                    member_version=skill_version,
+                )
+            )
+
+    with session_scope(store, commit=False) as session:
+        # Both plugins resolve normally while every bundled skill is live. Each one's
+        # 1.0.0 outranks its newer 2.0.0: an active version beats a draft, and a deleted
+        # version never wins however high its SemVer.
+        assert {
+            p.name: (p.resolved_latest_version, p.resolved_status)
+            for p in SqlAgentPlugin.with_resolved_latest(session.query(SqlAgentPlugin))
+        } == {"pr": ("1.0.0", "active"), "changelog": ("1.0.0", "active")}
+
+    # code-review v1 turns out to be compromised, so acme deletes that version.
+    with session_scope(store) as session:
+        session.get(SqlSkillVersion, ("default", "acme", "code-review", 1)).status = "deleted"
+
+    with session_scope(store, commit=False) as session:
+        # Both 1.0.0s are withdrawn. pr falls back to its draft on v2 -- which also shows
+        # withdrawal keys on a plugin version's own members, not on any deleted skill in
+        # the registry. changelog is out of versions: 1.0.0 withdrawn, 2.0.0 deleted.
+        assert {
+            p.name: (p.resolved_latest_version, p.resolved_status)
+            for p in SqlAgentPlugin.with_resolved_latest(session.query(SqlAgentPlugin))
+        } == {"pr": ("2.0.0", "draft"), "changelog": (None, None)}
+
+
+def test_deleting_a_skill_does_not_write_to_plugin_version_rows(store):
+    """
+    `beta/dev-tools` 2.1.0 and `gamma/ci-suite` 1.4.0 both bundle `acme/code-review` v3.
+    `gamma/ci-suite` also keeps an older 1.3.0, which bundles the `deprecated` v2.
+
+    Deleting `acme/code-review` v3 then:
+    - writes one `skill_versions` row and nothing at all in `agent_plugin_versions` or
+      `agent_plugin_version_members`
+    - withdraws the two plugin versions that bundle it, 2.1.0 and 1.4.0, so neither
+      takes part in resolution any more
+    - leaves `beta/dev-tools` with no latest version, while `gamma/ci-suite` falls back
+      to 1.3.0, whose member is only `deprecated` and so does not withdraw it
+    """
+    # (organization, plugin, its version, that version's status, acme/code-review version bundled)
+    plugin_versions = [
+        ("beta", "dev-tools", "2.1.0", "active", 3),
+        ("gamma", "ci-suite", "1.3.0", "deprecated", 2),
+        ("gamma", "ci-suite", "1.4.0", "active", 3),
+    ]
+    with session_scope(store) as session:
+        _add_skill_version(session, version=2, status="deprecated")
+        _add_skill_version(session, version=3, status="active")
+        for organization, name in [("beta", "dev-tools"), ("gamma", "ci-suite")]:
+            session.add(SqlAgentPlugin(organization=organization, name=name))
+        for organization, name, version, status, _ in plugin_versions:
+            session.add(
+                SqlAgentPluginVersion(
+                    organization=organization,
+                    name=name,
+                    version=version,
+                    plugin_json={"name": name, "version": version},
+                    status=status,
+                    source_type="assembled",
+                )
+            )
+        session.flush()
+        for organization, name, version, _, member_version in plugin_versions:
+            session.add(
+                SqlAgentPluginVersionMember(
+                    plugin_organization=organization,
+                    plugin_name=name,
+                    plugin_version=version,
+                    member_organization="acme",
+                    member_name="code-review",
+                    member_version=member_version,
+                )
+            )
+
+    with session_scope(store, commit=False) as session:
+        # Every bundled skill is live, so both plugins resolve to their newest version.
+        assert {
+            p.organization: (p.resolved_latest_version, p.resolved_status)
+            for p in SqlAgentPlugin.with_resolved_latest(session.query(SqlAgentPlugin))
+        } == {"beta": ("2.1.0", "active"), "gamma": ("1.4.0", "active")}
+
+    # A user deletes acme/code-review v3. That is one UPDATE, on one skill_versions row.
+    with session_scope(store) as session:
+        session.get(SqlSkillVersion, ("default", "acme", "code-review", 3)).status = "deleted"
+
+    with session_scope(store, commit=False) as session:
+        # Every agent_plugin_versions.status is untouched: the delete wrote only to
+        # skill_versions, so these still read exactly what they read above.
+        assert {
+            (v.organization, v.version): v.status for v in session.query(SqlAgentPluginVersion)
+        } == {
+            ("beta", "2.1.0"): "active",
+            ("gamma", "1.3.0"): "deprecated",
+            ("gamma", "1.4.0"): "active",
+        }
+        # agent_plugin_version_members rows are a historical record, so none is removed.
+        assert session.query(SqlAgentPluginVersionMember).count() == 3
+
+        # 2.1.0 and 1.4.0 are withdrawn now, so beta/dev-tools has no latest version,
+        # and gamma/ci-suite resolves to 1.3.0, whose member is only `deprecated`.
+        assert {
+            p.organization: (p.resolved_latest_version, p.resolved_status)
+            for p in SqlAgentPlugin.with_resolved_latest(session.query(SqlAgentPlugin))
+        } == {"beta": (None, None), "gamma": ("1.3.0", "deprecated")}
+
+
+def test_one_deleted_skill_withdraws_a_plugin_version_even_if_its_other_skills_are_fine(store):
+    """
+    `p` 1.0.0 bundles three skills. Deleting just one of them withdraws 1.0.0, even
+    though the other two are fine, and `p` falls back to its older 0.9.0. That a
+    `deprecated` member does not withdraw is proved by the first assertion, where
+    1.0.0 still wins with `sb` deprecated.
+    """
+    with session_scope(store) as session:
+        for name, status in [
+            ("sa", "active"),
+            ("sb", "deprecated"),
+            ("sc", "active"),
+            ("sd", "active"),
+        ]:
+            _add_skill_version(
+                session,
+                name=name,
+                version=1,
+                status=status,
+                source_type="git",
+                source="pkg.git",
+            )
+        session.add(SqlAgentPlugin(organization="acme", name="p"))
+        # plugin version -> the skills it bundles (every skill here is at v1)
+        members_by_version = {"0.9.0": ["sd"], "1.0.0": ["sa", "sb", "sc"]}
+        for version in members_by_version:
+            session.add(
+                SqlAgentPluginVersion(
+                    organization="acme",
+                    name="p",
+                    version=version,
+                    plugin_json={"name": "p", "version": version},
+                    status="active",
+                    source_type="assembled",
+                )
+            )
+        session.flush()
+        for version, members in members_by_version.items():
+            for member_name in members:
+                session.add(
+                    SqlAgentPluginVersionMember(
+                        plugin_organization="acme",
+                        plugin_name="p",
+                        plugin_version=version,
+                        member_organization="acme",
+                        member_name=member_name,
+                        member_version=1,
+                    )
+                )
+
+    with session_scope(store, commit=False) as session:
+        # Nothing is deleted yet, so the newer 1.0.0 wins -- sb being deprecated is fine.
+        plugin = SqlAgentPlugin.with_resolved_latest(session.query(SqlAgentPlugin)).one()
+        assert (plugin.resolved_latest_version, plugin.resolved_status) == ("1.0.0", "active")
+
+    # One of 1.0.0's three skills is deleted. sb and sc are untouched.
+    with session_scope(store) as session:
+        session.get(SqlSkillVersion, ("default", "acme", "sa", 1)).status = "deleted"
+
+    with session_scope(store, commit=False) as session:
+        plugin = SqlAgentPlugin.with_resolved_latest(session.query(SqlAgentPlugin)).one()
+        assert (plugin.resolved_latest_version, plugin.resolved_status) == ("0.9.0", "active")
+
+        # Resolution only reads. Both plugin versions and all four member rows are still here.
+        assert session.query(SqlAgentPluginVersion).count() == 2
+        assert session.query(SqlAgentPluginVersionMember).count() == 4
+        assert session.query(SqlSkillVersion).count() == 4
