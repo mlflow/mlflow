@@ -145,3 +145,20 @@ def test_inspect_skill_dir_unreadable_manifest(tmp_path):
     with pytest.raises(MlflowException, match="Cannot read skill content") as exc:
         inspect_skill_dir(root)
     assert exc.value.error_code == "PERMISSION_DENIED"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "---\nbase: &b {a: 1}\nname: demo\nextra: *b\n---\n",
+        "---\nbase: &b {a: 1}\nname: demo\nmerged:\n  <<: *b\n---\n",
+        # Nested merges double the intermediate mapping at each level; SafeLoader would spend
+        # minutes on a few hundred bytes of this.
+        "---\nname: demo\n"
+        + "".join(f"l{i}: &l{i} [*l{i - 1}, *l{i - 1}]\n" for i in range(1, 12)).replace("*l0", "x")
+        + "---\n",
+    ],
+)
+def test_parse_skill_md_rejects_yaml_aliases(content):
+    with pytest.raises(MlflowException, match="aliases and merge keys are not allowed"):
+        parse_skill_md(content)
