@@ -239,15 +239,13 @@ class SqlAlchemyStore(AbstractStore):
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
                     self._check_set_default_conflicts(session, workspace_name)
-                    # The loop below moves this workspace's resources into the default
-                    # workspace -- it rewrites each root row's `workspace` to 'default',
-                    # and child rows follow via FK ON UPDATE CASCADE. That can't move
+                    # The loop below rewrites each root table's `workspace` to 'default',
+                    # and child rows follow via FK ON UPDATE CASCADE. That cannot move
                     # agent_plugin_version_members, which stores its workspace as
                     # `plugin_workspace` (shared with the skill_versions FK): the cascaded
                     # rewrite collides with that skill FK, so letting this proceed fails
                     # with a confusing foreign-key error. Reassigning plugin members is
-                    # deferred to the workspace-lifecycle branch, so fail loudly with a
-                    # clear message here instead. See:
+                    # deferred to the workspace-lifecycle branch, so fail loudly here. See:
                     # https://github.com/robinnarsinghranabhat/mlflow/tree/rhaieng-7108-workspace-lifecycle
                     blocking_members = (
                         session

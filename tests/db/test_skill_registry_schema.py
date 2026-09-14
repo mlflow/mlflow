@@ -101,6 +101,9 @@ def _seed_assembled_plugin(session, *, organization, name, version, members):
 
 def test_db_backend_cascade_delete_skill(store):
     # Cross-dialect twin of test_cascade_delete_skill_removes_children.
+    # Deletes through the ORM (not raw DB constraints), so relationship
+    # `cascade="all, delete-orphan"` removes the children.
+    # test_db_backend_cascade_is_enforced_by_the_database is the database-level proof.
     with session_scope(store) as session:
         _seed_skill(session, organization="acme", name="cascade-skill")
         session.add(SqlSkillTag(organization="acme", name="cascade-skill", key="k", value="v"))
@@ -122,8 +125,74 @@ def test_db_backend_cascade_delete_skill(store):
             assert remaining == 0
 
 
+def test_db_backend_cascade_is_enforced_by_the_database(store):
+    # Same as test_db_backend_cascade_delete_skill, but relies on the raw
+    # `ON DELETE CASCADE` rule.
+    with session_scope(store) as session:
+        _seed_skill(session, organization="acme", name="raw-cascade-skill")
+        session.add(SqlSkillTag(organization="acme", name="raw-cascade-skill", key="k", value="v"))
+        session.add(
+            SqlSkillVersionTag(
+                organization="acme", name="raw-cascade-skill", version=1, key="k", value="v"
+            )
+        )
+        session.add(
+            SqlSkillAlias(organization="acme", name="raw-cascade-skill", alias="prod", version=1)
+        )
+        _seed_assembled_plugin(
+            session,
+            organization="acme",
+            name="raw-cascade-plugin",
+            version="1.0.0",
+            members=[("acme", "raw-cascade-skill", 1)],
+        )
+
+    # Deleting the plugin version must take its members with it, and must NOT touch the
+    # skill version those members point at.
+    with session_scope(store) as session:
+        session.execute(
+            sa.delete(SqlAgentPluginVersion).where(
+                SqlAgentPluginVersion.workspace == "default",
+                SqlAgentPluginVersion.organization == "acme",
+                SqlAgentPluginVersion.name == "raw-cascade-plugin",
+                SqlAgentPluginVersion.version == "1.0.0",
+            )
+        )
+
+    with session_scope(store, commit=False) as session:
+        assert (
+            session
+            .query(SqlAgentPluginVersionMember)
+            .filter_by(plugin_name="raw-cascade-plugin")
+            .count()
+            == 0
+        )
+        assert session.query(SqlSkillVersion).filter_by(name="raw-cascade-skill").count() == 1
+
+    # Deleting the parent skill must take every child row with it.
+    with session_scope(store) as session:
+        session.execute(
+            sa.delete(SqlSkill).where(
+                SqlSkill.workspace == "default",
+                SqlSkill.organization == "acme",
+                SqlSkill.name == "raw-cascade-skill",
+            )
+        )
+
+    with session_scope(store, commit=False) as session:
+        for model in (SqlSkillVersion, SqlSkillTag, SqlSkillVersionTag, SqlSkillAlias):
+            assert (
+                session
+                .query(model)
+                .filter_by(organization="acme", name="raw-cascade-skill")
+                .count()
+                == 0
+            )
+
+
 def test_db_backend_restrict_delete_of_referenced_skill_version(store):
     # Cross-dialect twin of test_restrict_delete_of_skill_version_referenced_by_member.
+    # Deletes through SQLAlchemy Core, so it is the FK doing the rejecting.
     with session_scope(store) as session:
         _seed_skill(session, organization="acme", name="member-skill")
         _seed_assembled_plugin(
@@ -134,9 +203,15 @@ def test_db_backend_restrict_delete_of_referenced_skill_version(store):
             members=[("acme", "member-skill", 1)],
         )
     with session_scope(store, commit=False) as session:
-        session.delete(session.get(SqlSkillVersion, ("default", "acme", "member-skill", 1)))
         with pytest.raises(IntegrityError, match=r"(?i)(constraint|duplicate)"):
-            session.flush()
+            session.execute(
+                sa.delete(SqlSkillVersion).where(
+                    SqlSkillVersion.workspace == "default",
+                    SqlSkillVersion.organization == "acme",
+                    SqlSkillVersion.name == "member-skill",
+                    SqlSkillVersion.version == 1,
+                )
+            )
 
 
 def test_db_backend_duplicate_member_name_rejected(store):
@@ -204,24 +279,31 @@ def test_db_backend_migration_downgrade_and_reupgrade(store):
     assert _SKILL_REGISTRY_TABLES <= set(sa.inspect(store.engine).get_table_names())
 
 
-def test_db_backend_version_identity_is_case_sensitive(store):
-    # SemVer compares prerelease identifiers in ASCII order, so `1.0.0-A` and `1.0.0-a`
-    # are two different versions of one plugin. MySQL and SQL Server default to
-    # case-insensitive collations, so they would be treated as same : registering the second
-    # violates the primary key, and an exact lookup for one returns the other. The
-    # version columns pin a case-sensitive collation on those dialects
-    # (AGENT_PLUGIN_VERSION_STRING), so this must hold on every engine -- and it can
-    # only be proved on the matrix, since SQLite is case-sensitive either way.
-    upper, lower = "1.0.0-A", "1.0.0-a"
+@pytest.mark.parametrize(
+    ("label", "upper", "lower"),
+    [
+        ("prerelease", "1.0.0-A", "1.0.0-a"),
+        # SemVer excludes build metadata from precedence, so the raw `version`
+        # string is the only differentiator here.
+        ("build", "1.0.0+Build", "1.0.0+build"),
+    ],
+)
+def test_db_backend_version_identity_is_case_sensitive(store, label, upper, lower):
+    # SemVer treats `1.0.0-A` and `1.0.0-a`, or `1.0.0+Build` and `1.0.0+build`, as two
+    # different plugin versions. But MySQL and SQL Server default to case-insensitive
+    # collations and treat them as the same: registering the second violates the primary
+    # key, and an exact lookup for one returns the other. The version columns pin a
+    # case-sensitive collation on those dialects.
+    name = f"case-{label}"
     with session_scope(store) as session:
-        session.add(SqlAgentPlugin(organization="acme", name="case"))
+        session.add(SqlAgentPlugin(organization="acme", name=name))
         for version in (upper, lower):
             session.add(
                 SqlAgentPluginVersion(
                     organization="acme",
-                    name="case",
+                    name=name,
                     version=version,
-                    plugin_json={"name": "case", "version": version},
+                    plugin_json={"name": name, "version": version},
                     source_type="assembled",
                     source="assembled",
                 )
@@ -229,16 +311,16 @@ def test_db_backend_version_identity_is_case_sensitive(store):
 
     with session_scope(store, commit=False) as session:
         # Both exist, and each exact lookup returns itself rather than its twin.
-        assert session.get(SqlAgentPluginVersion, ("default", "acme", "case", upper)).version == (
+        assert session.get(SqlAgentPluginVersion, ("default", "acme", name, upper)).version == (
             upper
         )
-        assert session.get(SqlAgentPluginVersion, ("default", "acme", "case", lower)).version == (
+        assert session.get(SqlAgentPluginVersion, ("default", "acme", name, lower)).version == (
             lower
         )
         stored = {
             row.version
             for row in session.query(SqlAgentPluginVersion).filter(
-                SqlAgentPluginVersion.name == "case"
+                SqlAgentPluginVersion.name == name
             )
         }
         assert stored == {upper, lower}

@@ -348,6 +348,9 @@ def test_agent_plugin_latest_resolution_prerelease_precedence(store):
 
 
 def test_cascade_delete_skill_removes_children(store):
+    # Deletes through the ORM (not raw DB constraints), so `cascade="all, delete-orphan"`
+    # removes the children. The database-level proof is
+    # test_db_backend_cascade_is_enforced_by_the_database in tests/db.
     with session_scope(store) as session:
         _add_skill_version(session, version=1, source_type="git", source="s.git")
         session.add(SqlSkillTag(organization="acme", name="code-review", key="k", value="v"))
@@ -367,6 +370,7 @@ def test_cascade_delete_skill_removes_children(store):
 
 
 def test_cascade_delete_plugin_version_removes_members(store):
+    # As above: the ORM removes the members, not the FK.
     with session_scope(store) as session:
         _add_skill_version(session, version=1, source_type="git", source="s.git")
         session.add(SqlAgentPlugin(organization="acme", name="pr"))
@@ -399,6 +403,7 @@ def test_cascade_delete_plugin_version_removes_members(store):
 
 
 def test_restrict_delete_of_skill_version_referenced_by_member(store):
+    # Deletes through SQLAlchemy Core, so it is the FK doing the rejecting.
     with session_scope(store) as session:
         _add_skill_version(session, version=1, source_type="git", source="s.git")
         session.add(SqlAgentPlugin(organization="acme", name="pr"))
@@ -423,9 +428,15 @@ def test_restrict_delete_of_skill_version_referenced_by_member(store):
             )
         )
     with session_scope(store, commit=False) as session:
-        session.delete(session.get(SqlSkillVersion, ("default", "acme", "code-review", 1)))
         with pytest.raises(IntegrityError, match=r"(?i)(constraint|duplicate)"):
-            session.flush()
+            session.execute(
+                sa.delete(SqlSkillVersion).where(
+                    SqlSkillVersion.workspace == "default",
+                    SqlSkillVersion.organization == "acme",
+                    SqlSkillVersion.name == "code-review",
+                    SqlSkillVersion.version == 1,
+                )
+            )
 
 
 def test_duplicate_member_name_rejected(store):
