@@ -1086,8 +1086,7 @@ def _get_permission_from_scorer_permission_request() -> Permission:
     )
 
 
-def _get_permission_from_gateway_secret_id() -> Permission:
-    secret_id = _get_request_param("secret_id")
+def _get_gateway_secret_permission(secret_id: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
         _role_permission_for(
@@ -1099,6 +1098,10 @@ def _get_permission_from_gateway_secret_id() -> Permission:
             workspace_label="gateway secret",
         ),
     )
+
+
+def _get_permission_from_gateway_secret_id() -> Permission:
+    return _get_gateway_secret_permission(_get_request_param("secret_id"))
 
 
 def _get_permission_from_gateway_endpoint_id() -> Permission:
@@ -2036,9 +2039,10 @@ def validate_can_invoke_issue_detection():
         return False
     body = request.get_json(silent=True)
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
+    # An absent or empty secret_id is also a no-op in the handler (no credentials fetched).
     if not secret_id:
         return True
-    return _get_permission_from_gateway_secret_id().can_use
+    return _get_gateway_secret_permission(secret_id).can_use
 
 
 def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> bool:
