@@ -26,7 +26,12 @@ from typing import Any, AsyncIterable
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicAdapter, AnthropicProvider
-from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+    _drop_client_auth_headers,
+)
 from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
 from mlflow.gateway.providers.utils import send_proxy_request, send_request, send_stream_request
@@ -161,6 +166,18 @@ class _VertexAIClaudeProvider(AnthropicProvider):
         path = f"/v1/projects/{project}/locations/{location}/publishers/anthropic/models"
         return f"{host}{path}"
 
+    def _get_headers(
+        self,
+        payload: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        # AnthropicProvider keeps a credential agent's own auth header in place of the
+        # server key. A client's Anthropic credential is never valid on Vertex, and Google
+        # rejects a request carrying two Authorization headers, so always drop it.
+        if headers:
+            headers = _drop_client_auth_headers(headers)
+        return super()._get_headers(payload, headers)
+
     def get_endpoint_url(self, route_type: str) -> str:
         if route_type == "llm/v1/chat":
             return f"{self.base_url}/{self.config.model.name}:rawPredict"
@@ -274,6 +291,14 @@ class _VertexAIMaaSProvider(OpenAICompatibleProvider):
     def headers(self) -> dict[str, str]:
         creds = self._get_creds()
         return {"Authorization": f"Bearer {creds.token}"}
+
+    def _get_headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
+        # OpenAICompatibleProvider swaps the provider Authorization for a credential agent's
+        # own. On Vertex that would replace the OAuth token with an unusable client token,
+        # so always drop client auth headers first.
+        if headers:
+            headers = _drop_client_auth_headers(headers)
+        return super()._get_headers(headers)
 
     @property
     def _api_base(self) -> str:

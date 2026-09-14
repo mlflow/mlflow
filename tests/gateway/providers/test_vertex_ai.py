@@ -681,6 +681,24 @@ async def test_claude_passthrough_uses_raw_predict_endpoint():
     assert "host" not in captured_session_headers
 
 
+@pytest.mark.parametrize("auth_header", ["authorization", "x-api-key"])
+def test_claude_passthrough_headers_drop_credential_agent_auth(auth_header):
+    # AnthropicProvider keeps a Claude Code / Codex / Gemini CLI client's own credential in
+    # place of the server key. A client's Anthropic credential is never valid on Vertex, and
+    # Google rejects a request carrying two Authorization headers, so it must be dropped.
+    provider = _make_claude_provider()
+    merged = provider._delegate._get_headers(
+        headers={
+            "user-agent": "claude-cli/2.0.37 (external, cli)",
+            auth_header: "client-credential",
+        }
+    )
+    assert merged == {
+        "user-agent": "claude-cli/2.0.37 (external, cli)",
+        "Authorization": "Bearer mock-access-token",
+    }
+
+
 @pytest.mark.asyncio
 async def test_claude_passthrough_stream_uses_stream_raw_predict_endpoint():
     provider = _make_claude_provider()
@@ -880,6 +898,19 @@ async def test_maas_passthrough_uses_openapi_endpoint():
         },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
     )
+
+
+def test_maas_passthrough_headers_drop_credential_agent_auth():
+    # OpenAICompatibleProvider swaps the provider Authorization for a credential agent's
+    # own. On Vertex that would replace the OAuth token with an unusable client token.
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    merged = provider._delegate._get_headers(
+        headers={"user-agent": "codex_cli_rs/0.50.0", "authorization": "Bearer client-token"}
+    )
+    assert merged == {
+        "user-agent": "codex_cli_rs/0.50.0",
+        "Authorization": "Bearer mock-access-token",
+    }
 
 
 def test_claude_get_endpoint_url():
