@@ -310,7 +310,7 @@ CREATE TABLE experiment_tags (
 	value NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
-	CONSTRAINT "FK__experimen__exper__4F7CD00D" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT "FK__experimen__exper__628FA481" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -495,7 +495,7 @@ CREATE TABLE runs (
 	experiment_id INTEGER,
 	deleted_time BIGINT,
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid),
-	CONSTRAINT "FK__runs__experiment__3E52440B" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT "FK__runs__experiment__5165187F" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -570,7 +570,7 @@ CREATE TABLE webhook_events (
 	entity VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	action VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, entity, action),
-	CONSTRAINT "FK__webhook_e__webho__1332DBDC" FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
+	CONSTRAINT "FK__webhook_e__webho__2645B050" FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 
 
@@ -687,7 +687,7 @@ CREATE TABLE latest_metrics (
 	is_nan BIT NOT NULL,
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT latest_metric_pk PRIMARY KEY (key, run_uuid),
-	CONSTRAINT "FK__latest_me__run_u__52593CB8" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+	CONSTRAINT "FK__latest_me__run_u__656C112C" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 
@@ -750,7 +750,7 @@ CREATE TABLE metrics (
 	step BIGINT DEFAULT ('0') NOT NULL,
 	is_nan BIT DEFAULT ('0') NOT NULL,
 	CONSTRAINT metric_pk PRIMARY KEY (key, timestamp, step, run_uuid, value, is_nan),
-	CONSTRAINT "FK__metrics__run_uui__440B1D61" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+	CONSTRAINT "FK__metrics__run_uui__571DF1D5" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 
@@ -782,7 +782,7 @@ CREATE TABLE params (
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
-	CONSTRAINT "FK__params__run_uuid__46E78A0C" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+	CONSTRAINT "FK__params__run_uuid__59FA5E80" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 
@@ -862,7 +862,7 @@ CREATE TABLE tags (
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
-	CONSTRAINT "FK__tags__run_uuid__412EB0B6" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+	CONSTRAINT "FK__tags__run_uuid__5441852A" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 
