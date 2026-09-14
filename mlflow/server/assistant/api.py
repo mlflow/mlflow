@@ -14,7 +14,12 @@ from pydantic import BaseModel, Field
 from starlette.responses import Response
 
 from mlflow.assistant import clear_project_path_cache, get_project_path
-from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
+from mlflow.assistant.config import (
+    AssistantConfig,
+    PermissionsConfig,
+    ProjectConfig,
+    set_config_user,
+)
 from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
 from mlflow.assistant.gateway_connection import (
     _GATEWAY_VENDOR_MODELS,
@@ -214,6 +219,10 @@ class _AssistantAPIRoute(APIRoute):
                     raise HTTPException(
                         status_code=401, detail=str(e), headers=BASIC_AUTH_CHALLENGE_HEADERS
                     ) from e
+            # Bind the user for per-user config resolution (providers). Set on the request's own
+            # asyncio context, so it also applies while the streaming response body runs; each
+            # request runs in its own context, so this does not leak across requests.
+            set_config_user(request.state.assistant_username)
             return await original_route_handler(request)
 
         return route_handler
