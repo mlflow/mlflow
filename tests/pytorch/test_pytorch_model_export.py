@@ -1229,6 +1229,46 @@ def test_load_pt2_model_rejects_pickle_payload_when_pickle_deserialization_disal
     assert not marker_path.exists()
 
 
+def _create_marker_file(path: str) -> None:
+    Path(path).touch()
+
+
+class _SafeListedFunctionPayload:
+    """Calls a function the process has allowlisted via `add_safe_globals` when unpickled."""
+
+    def __init__(self, marker_path: Path):
+        self.marker_path = marker_path
+
+    def __reduce__(self):
+        return (_create_marker_file, (str(self.marker_path),))
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.6"), reason="This test requires torch>=2.6"
+)
+def test_load_pt2_model_validation_ignores_ambient_safe_globals(
+    model_path, data, monkeypatch, tmp_path
+):
+    mlflow.pytorch.save_model(
+        get_sequential_model(),
+        model_path,
+        serialization_format="pt2",
+        input_example=data[0].to_numpy(dtype=np.float32),
+    )
+    marker_path = tmp_path / "payload_executed"
+    record = _replace_pt2_sample_inputs_record(
+        Path(model_path) / "data" / "model.pt2", _SafeListedFunctionPayload(marker_path)
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with torch.serialization.safe_globals([_create_marker_file]):
+        with pytest.raises(MlflowException, match=f"record '{re.escape(record)}'"):
+            mlflow.pytorch.load_model(model_path)
+        assert not marker_path.exists()
+        # The caller's allowlist is restored after validation.
+        assert _create_marker_file in torch.serialization.get_safe_globals()
+
+
 @pytest.mark.skipif(
     Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
 )

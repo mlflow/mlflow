@@ -789,30 +789,47 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
             "using pickle."
         )
 
-    try:
-        with zipfile.ZipFile(model_path) as archive:
-            records = [
-                (info.filename, archive.read(info))
-                for info in archive.infolist()
-                if not info.is_dir()
-            ]
-    except zipfile.BadZipFile as e:
-        raise _violation(os.path.basename(model_path)) from e
-
-    raw_tensor_records = _pt2_raw_tensor_records(dict(records))
-    for name, content in records:
-        if name in raw_tensor_records:
-            continue
+    def _is_pickle_free_record(name: str, content: bytes) -> bool:
         if name.rsplit("/", 1)[-1] in _PT2_TEXT_RECORD_NAMES and (
             _PT2_TEXT_RECORD_CONTENT.fullmatch(content.decode("ascii", errors="replace"))
         ):
-            continue
+            return True
         if _parse_json_record(content)[0]:
-            continue
+            return True
         try:
             torch.load(io.BytesIO(content), map_location="cpu", weights_only=True)
-        except Exception as e:
-            raise _violation(name) from e
+        except Exception:
+            return False
+        return True
+
+    try:
+        archive = zipfile.ZipFile(model_path)
+    except zipfile.BadZipFile as e:
+        raise _violation(os.path.basename(model_path)) from e
+
+    # Globals registered through `torch.serialization.add_safe_globals` are honored by the
+    # `weights_only` unpickler, which would let a crafted record invoke their reducers during
+    # validation. Validate against torch's built-in allowlist only, then restore them.
+    ambient_safe_globals = torch.serialization.get_safe_globals()
+    torch.serialization.clear_safe_globals()
+    try:
+        with archive:
+            infos = [info for info in archive.infolist() if not info.is_dir()]
+            payload_configs = {
+                info.filename: archive.read(info)
+                for info in infos
+                if _PT2_PAYLOAD_CONFIG_RECORD.search(info.filename)
+            }
+            raw_tensor_records = _pt2_raw_tensor_records(payload_configs)
+            # Records are read one at a time so validation never holds more than one payload
+            # in memory alongside the model that `torch.export.load` allocates afterwards.
+            for info in infos:
+                if info.filename in raw_tensor_records:
+                    continue
+                if not _is_pickle_free_record(info.filename, archive.read(info)):
+                    raise _violation(info.filename)
+    finally:
+        torch.serialization.add_safe_globals(ambient_safe_globals)
 
 
 def _load_model(path, device=None, **kwargs):
