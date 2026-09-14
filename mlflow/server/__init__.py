@@ -485,9 +485,12 @@ def _run_server(
                 "Errors will be surfaced at job invocation time."
             )
 
-    if app_name == "basic-auth" and job_execution_enabled:
-        # Generate the token here (before forking uvicorn workers) so that all
-        # worker processes and job subprocesses share the same token.
+    if app_name == "basic-auth":
+        # Generate the token here (before forking uvicorn workers) so that all worker processes
+        # and job subprocesses share the same token. Server-internal callers of the in-server
+        # gateway (job workers, and the MLflow Assistant's gateway provider) authenticate their
+        # own requests with it, so it must exist on any auth-enabled server, independent of
+        # whether job execution is available.
         env_map[_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name] = secrets.token_hex(32)
 
     if job_execution_enabled:
