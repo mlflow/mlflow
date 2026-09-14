@@ -6869,6 +6869,80 @@ def test_invoke_endpoints_require_experiment_update_permission(client):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_issue_detection_invoke_requires_use_permission_on_secret(client):
+    # issues/invoke decrypts the referenced gateway secret into the job environment, so
+    # UPDATE on the caller's own experiment must not be enough to consume someone else's
+    # secret (GHSA-2m86-c5q7-rxgr).
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    resp = requests.post(
+        f"{base}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "owner-openai-key",
+            "secret_value": {"api_key": "sk-owner"},
+            "provider": "openai",
+        },
+        auth=(owner, owner_pw),
+    )
+    resp.raise_for_status()
+    secret_id = resp.json()["secret"]["secret_id"]
+
+    attacker_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "attacker-exp"},
+        auth=(attacker, attacker_pw),
+    ).json()["experiment_id"]
+
+    payload = {
+        "experiment_id": attacker_exp_id,
+        "trace_ids": ["tr-1"],
+        "categories": ["x"],
+        "provider": "openai",
+        "model": "gpt-4o",
+        "secret_id": secret_id,
+    }
+    url = f"{base}/ajax-api/3.0/mlflow/issues/invoke"
+
+    # UPDATE on the experiment alone: denied at the secret boundary.
+    resp = requests.post(url, json=payload, auth=(attacker, attacker_pw))
+    assert resp.status_code == 403
+
+    # READ on the secret only exposes masked metadata; consuming it still requires USE.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "READ")
+    resp = requests.post(url, json=payload, auth=(attacker, attacker_pw))
+    assert resp.status_code == 403
+
+    # Unknown secret id: fail closed rather than surface a permission oracle.
+    resp = requests.post(
+        url, json={**payload, "secret_id": "s-does-not-exist"}, auth=(attacker, attacker_pw)
+    )
+    assert resp.status_code == 403
+
+    # With USE the auth gate passes. The handler may still fail later (e.g. the job
+    # backend isn't wired in this test env), so only assert it is no longer a 403.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "USE")
+    resp = requests.post(url, json=payload, auth=(attacker, attacker_pw))
+    assert resp.status_code != 403
+
+    # The secret owner (MANAGE) passes the gate against their own experiment.
+    owner_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "owner-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    resp = requests.post(
+        url, json={**payload, "experiment_id": owner_exp_id}, auth=(owner, owner_pw)
+    )
+    assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_presigned_upload_url_requires_run_update_permission(client):
     # Presigned upload URL grants direct artifact write -> denied without run update.
     base = client.tracking_uri

@@ -16,14 +16,14 @@ The AI Gateway supports providers across these categories:
 
 ### Major Cloud Providers
 
-| Provider          | Chat | Embeddings | Passthrough API              |
-| ----------------- | ---- | ---------- | ---------------------------- |
-| **OpenAI**        | Yes  | Yes        | `/gateway/openai/v1/...`     |
-| **Anthropic**     | Yes  | No         | `/gateway/anthropic/v1/...`  |
-| **Google Gemini** | Yes  | Yes        | `/gateway/gemini/v1beta/...` |
-| **Azure OpenAI**  | Yes  | Yes        | Via OpenAI passthrough       |
-| **AWS Bedrock**   | Yes  | Yes        | -                            |
-| **Vertex AI**     | Yes  | Yes        | -                            |
+| Provider          | Chat | Embeddings | Passthrough API                                    |
+| ----------------- | ---- | ---------- | -------------------------------------------------- |
+| **OpenAI**        | Yes  | Yes        | `/gateway/openai/v1/...`                           |
+| **Anthropic**     | Yes  | No         | `/gateway/anthropic/v1/...`                        |
+| **Google Gemini** | Yes  | Yes        | `/gateway/gemini/v1beta/...`                       |
+| **Azure OpenAI**  | Yes  | Yes        | Via OpenAI passthrough                             |
+| **AWS Bedrock**   | Yes  | Yes        | -                                                  |
+| **Vertex AI**     | Yes  | Yes        | Anthropic, Gemini, or OpenAI passthrough, by model |
 
 ### Additional Providers
 
