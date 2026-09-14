@@ -1,11 +1,18 @@
 import ast
+import sys
 from pathlib import Path
 from unittest import mock
+
+import pytest
 
 from dev.check_function_signatures import (
     check_signature_compatibility,
     get_changed_python_files,
     get_file_content_at_revision,
+)
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32", reason="Function signature checks only run on Linux"
 )
 
 

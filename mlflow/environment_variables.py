@@ -171,6 +171,14 @@ MLFLOW_ASSISTANT_SANDBOX_CLI_IMAGE = _EnvironmentVariable(
 #: current generation just launched. Not intended to be set by users.
 _MLFLOW_SERVER_BOOT_ID = _EnvironmentVariable("_MLFLOW_SERVER_BOOT_ID", str, None)
 
+#: Internal. Set by ``mlflow server --app-name basic-auth`` for its worker processes once the
+#: admin user has been bootstrapped in the CLI process, so each worker skips the redundant
+#: bootstrap and legacy-password checks (each one a PBKDF2 hash comparison against the primary
+#: database). Not intended to be set by users.
+_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED = _BooleanEnvironmentVariable(
+    "_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED", False
+)
+
 #: **Experimental** — subject to change or removal in a future release.
 #: URL of an outbound proxy for sandbox container egress (e.g. ``http://proxy.internal:3128``).
 #: When set, it is injected as ``HTTP_PROXY``/``HTTPS_PROXY`` into every sandbox container, with
@@ -540,6 +548,22 @@ MLFLOW_EXPERIMENT_NAME = _EnvironmentVariable("MLFLOW_EXPERIMENT_NAME", str, Non
 #: Specified the path to the configuration file for MLflow Authentication.
 #: (default: ``None``)
 MLFLOW_AUTH_CONFIG_PATH = _EnvironmentVariable("MLFLOW_AUTH_CONFIG_PATH", str, None)
+
+#: Specifies the username of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_username`` in the
+#: authentication configuration file.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_USERNAME = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_USERNAME", str, None)
+
+#: Specifies the password of the admin user that MLflow Authentication creates the first time
+#: it starts against an empty user store. Takes precedence over ``admin_password`` in the
+#: authentication configuration file. MLflow ships no default admin password, so this variable
+#: (or ``admin_password`` in the configuration file) must be set before the admin user exists.
+#: On upgraded deployments whose admin user still has the legacy default password
+#: ``password1234`` (https://github.com/advisories/GHSA-gq3w-7jj3-x7gr), which the server no
+#: longer accepts, it is also used once at startup to replace that password.
+#: (default: ``None``)
+MLFLOW_AUTH_ADMIN_PASSWORD = _EnvironmentVariable("MLFLOW_AUTH_ADMIN_PASSWORD", str, None)
 
 #: Specifies and takes precedence for setting the UC OSS basic/bearer auth on http requests.
 #: (default: ``None``)

@@ -1,5 +1,5 @@
 import { FormattedMessage, type IntlShape } from '@databricks/i18n';
-import type { CellContext, ColumnDef } from '@tanstack/react-table';
+import type { CellContext } from '@tanstack/react-table';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 import { COLUMN_SIZES } from './constants';
 import { TRACE_COLUMN_LABELS } from './columnLabels';
@@ -19,6 +19,7 @@ import {
   TraceTagsCell,
   TraceMetadataCell,
   TraceTokensCell,
+  SessionTokensCell,
   TraceUserCell,
 } from './TraceCell';
 
@@ -57,7 +58,7 @@ export const openLabel = (intl: IntlShape, traceId: string, column: string): str
 
 // A column def whose `id` is a known TraceColumnId (TanStack widens `id` to `string`; narrowing it
 // here lets the visibility lookups stay cast-free and gives an exhaustiveness check on the list).
-type StandardColumnDef = ColumnDef<ModelTraceInfoV3> & { id: TraceColumnId };
+type StandardColumnDef = TraceTableColumn & { id: TraceColumnId };
 
 /**
  * One ColumnDef per TraceColumnId, at module scope (never rebuilt per render — the load-bearing perf
@@ -172,6 +173,7 @@ export const STANDARD_COLUMNS: StandardColumnDef[] = [
     ...COLUMN_SIZES.tokens,
     header: () => <FormattedMessage {...TRACE_COLUMN_LABELS.tokens} />,
     cell: (ctx) => <TraceTokensCell trace={ctx.row.original} />,
+    renderSessionCell: (traces) => <SessionTokensCell traces={traces} />,
   },
   {
     id: 'cost',

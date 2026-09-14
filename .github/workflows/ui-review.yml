@@ -17,6 +17,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # Auth gate: only users with admin or maintain role on the repo can trigger

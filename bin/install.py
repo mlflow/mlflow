@@ -186,12 +186,12 @@ def get_platform_key() -> PlatformKey | None:
 def urlopen_with_retry(
     url: str, max_retries: int = 7, base_delay: float = 1.0
 ) -> http.client.HTTPResponse:
-    """Open a URL with retry logic for transient HTTP errors (e.g., 503)."""
+    """Open a URL with retry logic for transient HTTP errors (e.g., 500)."""
     for attempt in range(max_retries):
         try:
             return urllib.request.urlopen(url)
         except HTTPError as e:
-            if e.code in (502, 503, 504) and attempt < max_retries - 1:
+            if e.code in (500, 502, 503, 504) and attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)
                 print(f"  HTTP {e.code}, retrying in {delay}s... ({attempt + 1}/{max_retries})")
                 time.sleep(delay)

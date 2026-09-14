@@ -809,13 +809,19 @@ def remove_on_error(path: os.PathLike, onerror=None):
         if onerror:
             onerror(e)
         if os.path.exists(path):
+            remover = None
             if os.path.isfile(path):
-                os.remove(path)
+                remover = os.remove
             elif os.path.isdir(path):
-                shutil.rmtree(path)
-        _logger.warning(
-            f"Failed to remove {path}" if os.path.exists(path) else f"Successfully removed {path}"
-        )
+                remover = shutil.rmtree
+            else:
+                _logger.warning(f"Not removing {path}: neither a regular file nor a directory")
+            if remover is not None:
+                try:
+                    remover(path)
+                    _logger.warning(f"Successfully removed {path}")
+                except Exception as remove_error:
+                    _logger.warning(f"Failed to remove {path}: {remove_error}")
         raise
 
 

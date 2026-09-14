@@ -58,7 +58,9 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
 
 
 class AWSTitanAdapter(ProviderAdapter):
-    # TODO handle top_p, top_k, etc.
+    # NB: `top_k` and the penalty parameters are deliberately left unmapped. Titan's
+    # textGenerationConfig accepts only maxTokenCount, stopSequences, temperature and
+    # topP, so renaming them would forward a key Bedrock still ignores.
     @classmethod
     def completions_to_model(cls, payload, config):
         n = payload.pop("n", 1)
@@ -68,13 +70,25 @@ class AWSTitanAdapter(ProviderAdapter):
                 detail=f"'n' must be '1' for AWS Titan models. Received value: '{n}'.",
             )
 
+        # Titan requires topP to be strictly greater than 0, while MLflow accepts 0.
+        top_p = payload.get("top_p")
+        if top_p == 0:
+            raise AIGatewayException(
+                status_code=422,
+                detail=(
+                    "'top_p' must be greater than 0 for AWS Titan models. "
+                    f"Received value: '{top_p}'."
+                ),
+            )
+
         # The range of Titan's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
         return {
             "inputText": payload.pop("prompt"),
             "textGenerationConfig": rename_payload_keys(
-                payload, {"max_tokens": "maxTokenCount", "stop": "stopSequences"}
+                payload,
+                {"max_tokens": "maxTokenCount", "stop": "stopSequences", "top_p": "topP"},
             ),
         }
 
@@ -109,7 +123,11 @@ class AWSTitanAdapter(ProviderAdapter):
 
 
 class AI21Adapter(ProviderAdapter):
-    # TODO handle top_p, top_k, etc.
+    # NB: `top_k` is deliberately left unmapped. Jurassic models expose `topKReturn`,
+    # which controls how many alternative tokens are reported rather than top-k
+    # sampling, so mapping `top_k` onto it would change the response instead of the
+    # sampling behaviour. The penalty parameters are objects here, not scalars, so
+    # they need a structural transform rather than a rename.
     @classmethod
     def completions_to_model(cls, payload, config):
         return rename_payload_keys(
@@ -118,6 +136,7 @@ class AI21Adapter(ProviderAdapter):
                 "stop": "stopSequences",
                 "n": "numResults",
                 "max_tokens": "maxTokens",
+                "top_p": "topP",
             },
         )
 
