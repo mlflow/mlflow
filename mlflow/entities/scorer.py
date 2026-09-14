@@ -163,7 +163,7 @@ class ScorerVersion(_MlflowObject):
         """
         return cls(
             # The proto stores experiment IDs as integers while the entity contract is str
-            experiment_id=proto.experiment_id,  # type: ignore[arg-type]
+            experiment_id=str(proto.experiment_id),
             scorer_name=proto.scorer_name,
             scorer_version=proto.scorer_version,
             serialized_scorer=proto.serialized_scorer,
