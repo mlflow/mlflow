@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import ipaddress
+import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -43,11 +44,14 @@ from mlflow.server.assistant.identity import (
     resolve_authenticated_username,
 )
 from mlflow.server.assistant.session import (
+    Session,
     SessionManager,
     terminate_session_container,
     terminate_session_process,
 )
 from mlflow.server.handlers import _add_static_prefix
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_provider(name: str):
@@ -137,6 +141,39 @@ def _get_route_provider(request: Request) -> AssistantProvider | None:
     if provider_name := request.path_params.get("provider"):
         return _get_provider(provider_name)
     return _resolve_provider(remote=not _is_localhost(request))
+
+
+def _current_username(request: Request) -> str | None:
+    # Set by _AssistantAPIRoute.route_handler before any endpoint runs; None on a no-auth server.
+    return request.state.assistant_username
+
+
+def _session_owned_by(session: Session, username: str | None) -> bool:
+    """Whether ``session`` belongs to ``username``.
+
+    On a no-auth server both sides are None, so this is a no-op match; on an authenticated server
+    ``username`` is always a real user (never None), so a session owned by a different user (or an
+    unowned legacy session, ``owner is None``) does not match.
+    """
+    return session.owner == username
+
+
+def _load_owned_session(session_id: str, username: str | None) -> Session | None:
+    """Load a session only if it belongs to ``username``.
+
+    Returns None when the session does not exist OR is owned by a different user, so callers treat
+    "not yours" the same as "not found" (a 404) and one user cannot read or drive another user's
+    session by its id.
+    """
+    session = SessionManager.load(session_id)
+    if session is None:
+        return None
+    if not _session_owned_by(session, username):
+        _logger.debug(
+            "Assistant session %s requested by a user that does not own it; denying", session_id
+        )
+        return None
+    return session
 
 
 class _AssistantAPIRoute(APIRoute):
@@ -359,16 +396,18 @@ class SkillsInstallResponse(BaseModel):
 
 @assistant_router.post("/message")
 @_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
-async def send_message(request: MessageRequest) -> MessageResponse:
+async def send_message(request: MessageRequest, http_request: Request) -> MessageResponse:
     """
     Send a message to the assistant and get a session for streaming the response.
 
     Args:
         request: MessageRequest with message, context, and optional session_id
+        http_request: The FastAPI request object, carrying the authenticated user
 
     Returns:
         MessageResponse with session_id and stream_url
     """
+    username = _current_username(http_request)
     # Generate or use existing session ID
     session_id = request.session_id or str(uuid.uuid4())
 
@@ -376,9 +415,17 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
     # Create or update session
     session = SessionManager.load(session_id)
+    if session is not None and not _session_owned_by(session, username):
+        # The id belongs to another user; treat as not found rather than reading or overwriting it.
+        _logger.debug(
+            "Assistant session %s requested by a user that does not own it; denying", session_id
+        )
+        raise HTTPException(status_code=404, detail="Session not found")
     if session is None:
         session = SessionManager.create(
-            context=request.context, working_dir=Path(project_path) if project_path else None
+            context=request.context,
+            working_dir=Path(project_path) if project_path else None,
+            owner=username,
         )
     else:
         # Page context is merged for conversation continuity, but feature modes
@@ -421,7 +468,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     Returns:
         StreamingResponse with SSE events
     """
-    session = SessionManager.load(session_id)
+    session = _load_owned_session(session_id, _current_username(request))
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -498,7 +545,9 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
 
 @assistant_router.patch("/sessions/{session_id}")
 @_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
-async def patch_session(session_id: str, request: SessionPatchRequest) -> SessionPatchResponse:
+async def patch_session(
+    session_id: str, request: SessionPatchRequest, http_request: Request
+) -> SessionPatchResponse:
     """
     Update session status.
 
@@ -508,11 +557,12 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
     Args:
         session_id: The session ID
         request: SessionPatchRequest with status to set
+        http_request: The FastAPI request object, carrying the authenticated user
 
     Returns:
         SessionPatchResponse indicating success
     """
-    session = SessionManager.load(session_id)
+    session = _load_owned_session(session_id, _current_username(http_request))
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -543,7 +593,9 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
 
 @assistant_router.post("/sessions/{session_id}/permission")
 @_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
-async def resolve_permission(session_id: str, request: PermissionDecision) -> MessageResponse:
+async def resolve_permission(
+    session_id: str, request: PermissionDecision, http_request: Request
+) -> MessageResponse:
     """Deliver a tool-call permission decision and resume the paused turn on a new stream.
 
     The decision is stored on the session and consumed by the next stream, which
@@ -556,7 +608,7 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    session = SessionManager.load(session_id)
+    session = _load_owned_session(session_id, _current_username(http_request))
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -573,7 +625,9 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
 
 @assistant_router.post("/sessions/{session_id}/tool-result")
 @_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
-async def resolve_client_tool_result(session_id: str, request: ClientToolResult) -> MessageResponse:
+async def resolve_client_tool_result(
+    session_id: str, request: ClientToolResult, http_request: Request
+) -> MessageResponse:
     """Deliver a client-executed tool's result and resume the paused turn on a new stream.
 
     Mirrors `resolve_permission`: the result is stored on the session and consumed
@@ -585,7 +639,7 @@ async def resolve_client_tool_result(session_id: str, request: ClientToolResult)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    session = SessionManager.load(session_id)
+    session = _load_owned_session(session_id, _current_username(http_request))
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
