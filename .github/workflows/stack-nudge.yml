@@ -40,6 +40,7 @@ jobs:
             any(.comments[]; .author.login == \"github-actions\" and ((.body // \"\") | contains(\"$marker\")))
           ")
           if [[ "$already_nudged" == true ]]; then
+            echo "Stack Nudge comment already exists; skipping."
             exit 0
           fi
 
