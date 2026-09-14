@@ -1060,9 +1060,23 @@ def _validate_gateway_api_base(url: str) -> None:
     )
 
 
-# Egress-controlling keys belong in the validated ``auth_config``, never in the encrypted,
-# unvalidated ``secret_value`` map.
-_GATEWAY_SECRET_VALUE_RESERVED_KEYS = frozenset({"api_base"})
+# LiteLLM keyword arguments that choose where a request is sent. The LiteLLM provider spreads
+# a secret's ``auth_config`` into litellm kwargs, so each of these is as sensitive as
+# ``api_base``: ``base_url`` is litellm's alias for ``api_base``, ``model_list`` and
+# ``fallbacks`` carry per-deployment ``api_base`` values, and ``custom_llm_provider`` swaps
+# the provider and with it the default endpoint.
+GATEWAY_DESTINATION_KEYS = frozenset({
+    "api_base",
+    "base_url",
+    "model_list",
+    "fallbacks",
+    "custom_llm_provider",
+})
+# ``api_base`` is the one validated way to choose the upstream, so the aliases are rejected in
+# ``auth_config`` and nothing egress-controlling may hide in the encrypted, unvalidated
+# ``secret_value`` map.
+_GATEWAY_AUTH_CONFIG_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS - {"api_base"}
+_GATEWAY_SECRET_VALUE_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS
 
 
 def _validate_gateway_secret_auth_config(
@@ -1076,6 +1090,12 @@ def _validate_gateway_secret_auth_config(
     if not auth_config:
         return None
     normalized = dict(auth_config)
+    if reserved := sorted(_GATEWAY_AUTH_CONFIG_RESERVED_KEYS & set(normalized)):
+        raise MlflowException.invalid_parameter_value(
+            f"auth_config must not contain {', '.join(map(repr, reserved))}: these LiteLLM "
+            "options choose where the gateway sends requests. Set the upstream with "
+            "'api_base', which is validated."
+        )
     api_base = normalized.get("api_base")
     if isinstance(api_base, str):
         api_base = api_base.strip()
@@ -1094,8 +1114,8 @@ def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
     if reserved := sorted(_GATEWAY_SECRET_VALUE_RESERVED_KEYS & set(secret_value)):
         raise MlflowException.invalid_parameter_value(
             f"secret_value must not contain {', '.join(map(repr, reserved))}: these keys "
-            "configure where the gateway sends requests and belong in auth_config, where "
-            "they are validated."
+            "choose where the gateway sends requests. Set the upstream with 'api_base' in "
+            "auth_config, where it is validated."
         )
 
 

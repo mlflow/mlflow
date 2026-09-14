@@ -8712,3 +8712,31 @@ def test_update_gateway_secret_blank_api_base_alone_clears_auth_config(
     assert response.status_code == 200
     _, kwargs = mock_tracking_store.update_gateway_secret.call_args
     assert kwargs["auth_config"] == {}
+
+
+def test_create_gateway_secret_rejects_base_url_alias_in_auth_config(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = _create_gateway_secret_request({
+        "api_key": "sk-123",
+        "base_url": "http://169.254.169.254/latest/meta-data/",
+    })
+    response = _create_gateway_secret()
+
+    assert response.status_code == 400
+    assert "auth_config must not contain 'base_url'" in json.loads(response.get_data())["message"]
+    mock_tracking_store.create_gateway_secret.assert_not_called()
+
+
+def test_update_gateway_secret_rejects_model_list_in_auth_config(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = _update_gateway_secret_request({
+        "model_list": "[]",
+        "api_base": "https://api.example.com/v1",
+    })
+    response = _update_gateway_secret()
+
+    assert response.status_code == 400
+    assert "auth_config must not contain 'model_list'" in json.loads(response.get_data())["message"]
+    mock_tracking_store.update_gateway_secret.assert_not_called()

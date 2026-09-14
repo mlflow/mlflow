@@ -41,7 +41,8 @@ upstream_ssrf_protection: ContextVar[bool] = ContextVar(
 )
 
 
-def _is_protection_enabled() -> bool:
+def upstream_protection_enabled() -> bool:
+    """Whether upstream connections made for the current request must target public IPs."""
     return upstream_ssrf_protection.get() and not MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS.get()
 
 
@@ -77,7 +78,7 @@ def assert_public_upstream_url(url: str) -> None:
     dial as a literal must parse canonically, since aiohttp skips the resolver for it and
     ``socket`` would silently map a legacy spelling such as ``127.1`` onto an address.
     """
-    if not _is_protection_enabled():
+    if not upstream_protection_enabled():
         return
     hostname = _parse_upstream_hostname(url)
     if not _is_ip_literal_like(hostname):
@@ -101,7 +102,7 @@ async def assert_public_upstream_host(url: str) -> None:
     For clients that bypass ``_aiohttp_post`` (LiteLLM). The lookup is separate from the
     client's own, so a DNS-rebinding window remains between the two.
     """
-    if not _is_protection_enabled():
+    if not upstream_protection_enabled():
         return
     assert_public_upstream_url(url)
     hostname = _parse_upstream_hostname(url)
@@ -140,6 +141,6 @@ class SSRFGuardedResolver(AbstractResolver):
 
 def build_ssrf_guarded_connector() -> aiohttp.TCPConnector | None:
     """Return a guarded connector, or ``None`` for aiohttp's default when protection is off."""
-    if not _is_protection_enabled():
+    if not upstream_protection_enabled():
         return None
     return aiohttp.TCPConnector(resolver=SSRFGuardedResolver())

@@ -93,6 +93,7 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils.provider_filter import is_provider_allowed, normalize_provider_name
+from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
 from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
@@ -640,12 +641,14 @@ def _enable_upstream_ssrf_protection(
 ) -> None:
     """Enable connect-time SSRF protection for the rest of this request when needed.
 
-    Needed when a secret carries a user-supplied ``api_base`` (the SSRF vector) and on the
-    raw proxy, where the caller also controls the path. Providers' built-in base URLs such
-    as Ollama's ``localhost:11434`` are operator code, so typed routes leave them alone.
+    Needed when a secret carries a user-supplied destination (``api_base``, or any of its
+    LiteLLM aliases in ``GATEWAY_DESTINATION_KEYS`` on rows stored before those were
+    rejected on write) and on the raw proxy, where the caller also controls the path.
+    Providers' built-in base URLs such as Ollama's ``localhost:11434`` are operator code,
+    so typed routes leave them alone.
     """
     if raw_proxy or any(
-        model.auth_config and model.auth_config.get(_AuthConfigKey.API_BASE)
+        model.auth_config and any(model.auth_config.get(key) for key in GATEWAY_DESTINATION_KEYS)
         for model in endpoint_config.models
     ):
         upstream_ssrf_protection.set(True)

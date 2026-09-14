@@ -962,6 +962,21 @@ def test_validate_gateway_secret_value_rejects_api_base():
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases(key):
+    # The LiteLLM provider spreads auth_config into litellm kwargs, where these keys steer the
+    # request past the api_base check.
+    with pytest.raises(MlflowException, match=f"auth_config must not contain '{key}'") as exc:
+        _validate_gateway_secret_auth_config({"api_key": "x", key: "http://169.254.169.254/"})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
+    with pytest.raises(MlflowException, match=f"secret_value must not contain '{key}'"):
+        _validate_gateway_secret_value({"api_key": "x", key: "http://169.254.169.254/"})
+
+
 def test_validate_gateway_secret_auth_config_rejects_private_api_base():
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",

@@ -558,6 +558,19 @@ def test_upstream_ssrf_protection_enabled_for_user_supplied_api_base(store: SqlA
         assert_public_upstream_url("http://127.0.0.1:11434/v1")
 
 
+def test_upstream_ssrf_protection_enabled_for_stored_base_url_alias(store: SqlAlchemyStore):
+    # Rows written before base_url was rejected on write must still arm the guard, since the
+    # LiteLLM provider treats base_url as api_base.
+    endpoint = _create_endpoint(
+        store, "alias-base", "litellm", auth_config={"base_url": "https://llm.example.com/v1"}
+    )
+    assert upstream_ssrf_protection.get() is False
+
+    _create_provider_from_endpoint_name(store, endpoint.name, EndpointType.LLM_V1_CHAT)
+
+    assert upstream_ssrf_protection.get() is True
+
+
 def test_upstream_ssrf_protection_not_enabled_for_provider_default_on_typed_routes(
     store: SqlAlchemyStore,
 ):
