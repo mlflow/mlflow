@@ -433,9 +433,8 @@ def test_all_workspace_root_models_have_spec():
     # dependencies that make moving them independently unsafe.
     #
     # Skill registry roots are handled for workspace CASCADE/RESTRICT delete, but
-    # move and set-default/migrate-to-default reassignment are deferred to the
-    # workspace-lifecycle branch:
-    # https://github.com/robinnarsinghranabhat/mlflow/tree/rhaieng-7108-workspace-lifecycle
+    # move and set-default/migrate-to-default reassignment are deferred to
+    # https://github.com/mlflow/mlflow/pull/25777 (WIP).
     # agent_plugin_version_members carries its workspace as ``plugin_workspace``
     # (shared with its skill_versions FK), which the generic mover/reassigner (keyed
     # on a ``workspace`` column) cannot retarget without dependency-aware handling.

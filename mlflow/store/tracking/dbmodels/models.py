@@ -4336,8 +4336,9 @@ class SqlMCPAccessEndpoint(Base):
 # Every column holding a plugin version string must use this type: MySQL rejects a foreign
 # key whose columns disagree on collation (error 3780).
 #
-# TODO : ``mcp_server_versions.version`` has the same defect and is deliberately NOT changed here
-# Need to address maintainers.
+# ``mcp_server_versions.version`` has the same defect but is a shipped table, so it is a
+# maintainer call. Raised at
+# https://github.com/mlflow/mlflow/pull/25771#issuecomment-5656548329
 AGENT_PLUGIN_VERSION_STRING = (
     String(128)
     .with_variant(MYSQL_VARCHAR(128, collation="utf8mb4_bin"), "mysql")

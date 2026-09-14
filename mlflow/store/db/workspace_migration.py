@@ -105,9 +105,8 @@ def _assert_no_workspace_conflicts(
 # _WORKSPACE_TABLES and the generic per-table loop below (which moves rows into the
 # default workspace) cannot move it. Moving its parent plugins would leave every member
 # row pointing at its old workspace (orphaned, or an FK failure), so migrate-to-default
-# of plugin members is deferred to the workspace-lifecycle branch; until then, fail
-# loudly instead of corrupting rows. See:
-# https://github.com/robinnarsinghranabhat/mlflow/tree/rhaieng-7108-workspace-lifecycle
+# of plugin members is deferred to https://github.com/mlflow/mlflow/pull/25777 (WIP);
+# until then, fail loudly instead of corrupting rows.
 _PLUGIN_MEMBER_TABLE = "agent_plugin_version_members"
 
 
