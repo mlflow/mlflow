@@ -49,6 +49,8 @@ _logger = logging.getLogger(__name__)
 _MAX_SESSION_BYTES = 500 * 1024
 _JSON_LIST_OVERHEAD_BYTES = 2
 _JSON_LIST_SEPARATOR_BYTES = 2
+_GENERIC_PROVIDER_ERROR = "The assistant provider returned an error. Please try again."
+_TURN_CONTROL_CONTEXT_KEYS = {"tool_decisions", "client_tool_results"}
 
 # Callable signature for the per-preset model-listing strategy.
 # Takes (base_url, api_key) and returns a list of model/endpoint names.
@@ -429,22 +431,32 @@ class OpenAICompatibleProvider(AssistantProvider):
                 return
             model = available[0]
 
-        if context:
-            user_text = f"<context>\n{json.dumps(context)}\n</context>\n\n{prompt}"
+        model_context = {
+            k: v for k, v in (context or {}).items() if k not in _TURN_CONTROL_CONTEXT_KEYS
+        }
+        if model_context:
+            user_text = f"<context>\n{json.dumps(model_context)}\n</context>\n\n{prompt}"
         else:
             user_text = prompt
 
         messages: list[dict[str, Any]] = []
         if conversation_history:
             try:
-                messages = json.loads(conversation_history)
+                decoded = json.loads(conversation_history)
+                if isinstance(decoded, list):
+                    # History is untrusted client input. Preserve generated conversation turns,
+                    # but never let the client replace or add system instructions.
+                    messages = [
+                        message
+                        for message in decoded
+                        if isinstance(message, dict) and message.get("role") != "system"
+                    ]
             except (json.JSONDecodeError, TypeError):
                 _logger.warning("Failed to decode conversation history; starting fresh")
                 messages = []
 
-        if not messages:
-            sys_content = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
-            messages.append({"role": "system", "content": sys_content})
+        sys_content = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
+        messages.insert(0, {"role": "system", "content": sys_content})
 
         tool_decisions = (context or {}).get("tool_decisions") or {}
         # tool_call_id -> {"content": str, "is_error": bool}, delivered by the client
@@ -478,6 +490,7 @@ class OpenAICompatibleProvider(AssistantProvider):
 
         headers = self._auth_headers(api_key)
 
+        tool_was_executed = False
         try:
             async with aiohttp.ClientSession() as session:
                 while True:
@@ -530,8 +543,16 @@ class OpenAICompatibleProvider(AssistantProvider):
                         ) as resp:
                             if resp.status != 200:
                                 body = await resp.text()
+                                _logger.error(
+                                    "%s returned HTTP %s: %s", self._display_name, resp.status, body
+                                )
+                                history = (
+                                    json.dumps(_trim_session(messages))
+                                    if tool_was_executed
+                                    else None
+                                )
                                 yield Event.from_error(
-                                    f"{self._display_name} error {resp.status}: {body}"
+                                    _GENERIC_PROVIDER_ERROR, conversation_history=history
                                 )
                                 return
 
@@ -565,10 +586,18 @@ class OpenAICompatibleProvider(AssistantProvider):
                                     message = (
                                         error.get("message") if isinstance(error, dict) else error
                                     )
+                                    _logger.error(
+                                        "%s returned a streamed error: %s",
+                                        self._display_name,
+                                        message or error,
+                                    )
+                                    history = (
+                                        json.dumps(_trim_session(messages))
+                                        if tool_was_executed
+                                        else None
+                                    )
                                     yield Event.from_error(
-                                        f"{self._display_name} error: {message}"
-                                        if message
-                                        else f"{self._display_name} returned an error: {error}"
+                                        _GENERIC_PROVIDER_ERROR, conversation_history=history
                                     )
                                     return
 
@@ -702,6 +731,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                                 "tool_call_id": tc["id"],
                                 "content": content,
                             })
+                            tool_was_executed = True
                             continue
 
                         # Permission gating. With full access (config) tools run without
@@ -717,11 +747,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                             static_permission_error(tool_name, tool_input, caller_permissions, cwd)
                             is not None
                         )
-                        gated = (
-                            not remote
-                            and not caller_permissions.full_access
-                            and needs_prompt
-                        )
+                        gated = not remote and not caller_permissions.full_access and needs_prompt
                         decision = tool_decisions.get(tc["id"])
 
                         # Emit the tool-use block when a call is first surfaced
@@ -794,6 +820,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                             "tool_call_id": tc["id"],
                             "content": result_str,
                         })
+                        tool_was_executed = True
 
                     if paused:
                         break
@@ -801,6 +828,7 @@ class OpenAICompatibleProvider(AssistantProvider):
             new_history = json.dumps(_trim_session(messages))
             yield Event.from_conversation_history(new_history)
 
-        except Exception as e:
+        except Exception:
             _logger.exception("Error communicating with %s", self._display_name)
-            yield Event.from_exception(e)
+            history = json.dumps(_trim_session(messages)) if tool_was_executed else None
+            yield Event.from_error(_GENERIC_PROVIDER_ERROR, conversation_history=history)

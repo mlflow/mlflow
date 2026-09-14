@@ -75,10 +75,17 @@ class Event(BaseModel):
         return f"event: {self.type}\ndata: {json.dumps(self.data)}\n\n"
 
     @classmethod
-    def from_error(cls, error: str, session_id: str | None = None) -> "Event":
+    def from_error(
+        cls,
+        error: str,
+        session_id: str | None = None,
+        conversation_history: str | None = None,
+    ) -> "Event":
         data = {"error": error}
         if session_id:
             data["session_id"] = session_id
+        if conversation_history:
+            data["conversation_history"] = conversation_history
         return cls(type=EventType.ERROR, data=data)
 
     @classmethod

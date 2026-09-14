@@ -259,6 +259,7 @@ assistant_router = APIRouter(
 )
 
 _TURN_SCOPED_CONTEXT_KEYS = {"customTraceView"}
+_TURN_CONTROL_CONTEXT_KEYS = {"tool_decisions", "client_tool_results"}
 
 
 class MessageRequest(BaseModel):
@@ -284,6 +285,14 @@ class ChatRequest(BaseModel):
     # permission prompt; the provider applies it to the matching pending tool_call already in the
     # carried history. Keeps permission state off the server on the stateless path.
     tool_decisions: dict[str, Literal["allow", "deny"]] | None = None
+    # Results for browser-executed tools, keyed by the pending tool-call ID. Like permission
+    # decisions, these are turn controls rather than model-visible page context.
+    client_tool_results: dict[str, "ClientToolResultPayload"] | None = None
+
+
+class ClientToolResultPayload(BaseModel):
+    content: str
+    is_error: bool = False
 
 
 # Config-related models
@@ -307,6 +316,7 @@ class ProviderInfo(BaseModel):
     requires_api_key: bool
     has_api_key: bool
     allows_remote_access: bool
+    client_carries_history: bool
     # How client-executed actions are delivered: as native tool calls, terminal
     # structured output, or not supported by this provider.
     client_tool_delivery: ClientToolDelivery = "unsupported"
@@ -319,6 +329,7 @@ class ResolvedProviderInfo(BaseModel):
     auto_selected: bool
     requires_api_key: bool
     has_api_key: bool
+    client_carries_history: bool
     client_tool_delivery: ClientToolDelivery = "unsupported"
     model_provider: str | None = None
     model_options: list[str] = Field(default_factory=list)
@@ -406,6 +417,7 @@ def _resolved_provider_info(
         auto_selected=auto_selected,
         requires_api_key=False,
         has_api_key=False,
+        client_carries_history=provider.client_carries_history,
         client_tool_delivery=provider.client_tool_delivery,
     )
     if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
@@ -653,9 +665,18 @@ async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
 
     # On resume the decision rides in the context; the provider detects the pending tool_calls in
     # the carried history and applies it instead of starting a new turn.
-    context = dict(body.context)
+    # Turn controls have typed top-level fields. Never accept lookalikes from the arbitrary page
+    # context map: doing so would bypass validation and let context metadata drive tool execution.
+    context = {
+        key: value for key, value in body.context.items() if key not in _TURN_CONTROL_CONTEXT_KEYS
+    }
     if body.tool_decisions:
         context["tool_decisions"] = body.tool_decisions
+    if body.client_tool_results:
+        context["client_tool_results"] = {
+            request_id: result.model_dump()
+            for request_id, result in body.client_tool_results.items()
+        }
 
     async def event_generator() -> AsyncGenerator[str, None]:
         start_stream = (
@@ -829,6 +850,7 @@ async def get_providers() -> ProvidersResponse:
             requires_api_key=False,
             has_api_key=False,
             allows_remote_access=provider.allows_remote_access,
+            client_carries_history=provider.client_carries_history,
             client_tool_delivery=provider.client_tool_delivery,
             model_options=[],
         )
