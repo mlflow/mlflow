@@ -527,21 +527,39 @@ def test_acquire_exclusive_lock_evicts_stale_lock_terminal_job(
     assert isinstance(lock_mgr.acquire_exclusive_lock("shared-key", job2.job_id), JobLock)
 
 
-def test_acquire_exclusive_lock_is_not_reentrant(
+def test_acquire_exclusive_lock_reacquires_own_valid_lock(
     job_store: SqlAlchemyJobStore, lock_mgr: JobLockManager
 ) -> None:
-    """A second attempt to acquire a valid exclusive lock raises an exception.
-    A simple refusal could cause the caller to mark the active job as CANCELED.
-    The same job_id can acquire the lock after the lock becomes stale.
-    See: test_acquire_exclusive_lock_evicts_stale_lock_terminal_job_for_same_job
+    """The same job_id reacquiring its own still-valid lock gets the held lock back, refreshed.
+
+    This is the recovery path: a job keeps its lock while unfinished, is reset to PENDING, and
+    re-claimed; the re-claimed run must resume ownership of its own lock rather than be refused.
+    acquired_at is re-stamped so the recovered run gets a full staleness window instead of
+    inheriting the pre-crash acquisition time (which could let the lock be stolen mid-run).
     """
+    from mlflow.store.tracking.dbmodels.models import SqlJobLock
 
     job = job_store.create_job(job_name="job", params="{}", timeout=60.0)
     job_store.claim_job(job.job_id)
 
-    assert isinstance(lock_mgr.acquire_exclusive_lock("test-key", job.job_id), JobLock)
-    with pytest.raises(MlflowException, match="A valid lock already exists for this job_id"):
-        _ = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    first = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(first, JobLock)
+
+    # Simulate a pre-crash acquisition in the past so the reacquire must refresh acquired_at rather
+    # than inherit the stale timestamp.
+    stale_acquired_at = first.acquired_at - 10_000
+    with job_store.ManagedSessionMaker() as session:
+        session.query(SqlJobLock).filter(SqlJobLock.lock_key == "test-key").update({
+            SqlJobLock.acquired_at: stale_acquired_at
+        })
+
+    second = lock_mgr.acquire_exclusive_lock("test-key", job.job_id)
+    assert isinstance(second, JobLock)
+    assert second.lock_key == first.lock_key
+    assert second.job_id == first.job_id
+    # Refreshed forward to ~now, not left at the injected pre-crash time.
+    assert second.acquired_at > stale_acquired_at
+    assert second.acquired_at >= first.acquired_at
 
 
 def test_acquire_exclusive_lock_evicts_stale_lock_terminal_job_for_same_job(
@@ -841,7 +859,7 @@ def test_acquire_exclusive_lock_lease_and_timeout_interleaving(
         (JobStatus.SUCCEEDED, True),
         (JobStatus.FAILED, True),
         (JobStatus.TIMEOUT, True),
-        (JobStatus.CANCELED, True),
+        (JobStatus.CANCELED, False),
         (JobStatus.NEEDS_RECOVERY, False),
     ],
 )
