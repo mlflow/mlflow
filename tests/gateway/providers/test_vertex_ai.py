@@ -974,6 +974,7 @@ async def test_maas_proxy_posts_to_openapi_endpoint(path):
         "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi/chat/completions",
         json=payload,
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
     )
     assert captured_session_headers["Authorization"] == "Bearer mock-access-token"
     assert "authorization" not in captured_session_headers
