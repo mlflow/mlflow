@@ -21,7 +21,10 @@ jobs:
     if: >-
       github.event.pull_request.user.type != 'Bot' &&
       contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
-      contains(github.event.pull_request.body, 'Stacked') &&
+      (
+        contains(github.event.pull_request.body, 'stacked pr') ||
+        contains(github.event.pull_request.body, 'stacked on')
+      ) &&
       !github.event.pull_request.stack
     runs-on: ubuntu-slim
     timeout-minutes: 5
