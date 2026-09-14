@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import logging
 import os
 import shlex
@@ -12,6 +13,37 @@ from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
 from mlflow.assistant.providers.base import assistant_sandbox_enabled
 
 _logger = logging.getLogger(__name__)
+
+# Whether the current request comes from a non-localhost (remote) caller. Set per request by the
+# Assistant route layer. Remote callers are capped at the restricted permission profile (no
+# full_access) as defense-in-depth: remote access already requires the sandbox (enforced in the
+# API layer), so remote tool calls run isolated in a container rather than on the host, and this
+# cap additionally stops a remote caller's stored config or an interactive approval from unlocking
+# full_access inside it. A local caller (operator on the server host) keeps their configured
+# permissions. Defaults to False so non-request contexts (e.g. the local CLI) are unrestricted.
+_remote_caller: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "mlflow_assistant_remote_caller", default=False
+)
+
+
+def set_remote_caller(remote: bool) -> None:
+    """Bind whether the current request is from a remote (non-localhost) caller."""
+    _remote_caller.set(remote)
+
+
+def is_remote_caller() -> bool:
+    return _remote_caller.get()
+
+
+def restrict_permissions_for_remote(perms: PermissionsConfig) -> PermissionsConfig:
+    """Cap ``perms`` at the restricted profile for a remote caller; a no-op for a local caller.
+
+    ``full_access`` is the arbitrary-code / out-of-workspace escape hatch, so it is the field a
+    remote caller must never obtain; the workspace-confined file and CLI allowances are unchanged.
+    """
+    if not is_remote_caller() or not perms.full_access:
+        return perms
+    return perms.model_copy(update={"full_access": False})
 
 
 def _uri_without_credentials(name: str, uri: str) -> str | None:
@@ -144,7 +176,10 @@ async def execute_tool(
     tracking_uri: str | None = None,
     permissions: PermissionsConfig | None = None,
 ) -> tuple[str, bool]:
-    perms = permissions or PermissionsConfig()
+    # Cap a remote caller at the restricted profile here as the final enforcement point, so no
+    # caller-supplied permissions (config-derived or an interactive full-access grant) can hand a
+    # remote request full_access, independent of what the provider passed in.
+    perms = restrict_permissions_for_remote(permissions or PermissionsConfig())
 
     if (denial := static_permission_error(tool_name, tool_input, perms, cwd)) is not None:
         return denial, True
