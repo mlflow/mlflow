@@ -5,7 +5,7 @@
  * same response, so the server holds no per-session state.
  */
 
-import type { ChatRequest } from '../types';
+import type { ChatRequest, PendingClientToolCall } from '../types';
 import {
   API_BASE,
   processContentBlocks,
@@ -21,7 +21,8 @@ import { getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
  * happened this turn to avoid finalizing it.
  */
 interface TurnState {
-  sawPermissionRequest: boolean;
+  sawPause: boolean;
+  terminalClientToolCall: PendingClientToolCall | null;
 }
 
 /**
@@ -30,12 +31,12 @@ interface TurnState {
  * nothing more. This is the single source of truth for "what is terminal": callers read the
  * return value instead of re-listing event names, so the two can't drift.
  */
-const dispatchSseFrame = (
+const dispatchSseFrame = async (
   event: string,
   data: any,
   callbacks: SendMessageStreamCallbacks,
   state: TurnState,
-): boolean => {
+): Promise<boolean> => {
   const {
     onMessage,
     onError,
@@ -47,6 +48,7 @@ const dispatchSseFrame = (
     onConversationHistory,
     onUsage,
     onPermissionRequest,
+    onClientToolCall,
   } = callbacks;
   switch (event) {
     case 'message': {
@@ -76,22 +78,25 @@ const dispatchSseFrame = (
         toolName: data.tool_name,
         toolInput: data.tool_input ?? {},
       });
-      state.sawPermissionRequest = true;
+      state.sawPause = true;
       // Not terminal: the provider still emits a DONE carrying the paused history (with the
       // unresolved tool_call) so a later resume can continue from it.
       return false;
     }
     case 'done': {
       // For client-carried-history providers the DONE event carries the updated history blob.
-      if (data.conversation_history) {
+      if (typeof data.conversation_history === 'string') {
         onConversationHistory?.(data.conversation_history);
       }
       // A DONE that follows a permission_request is a *pause*, not a completion: skip onDone so
       // the Allow/Deny prompt stays up and isStreaming stays true. The decision is replayed via a
       // fresh /chat POST carrying the history + tool_decisions. The stream still ends here (the
       // socket closes), so this is terminal for the read loop.
-      if (state.sawPermissionRequest) {
+      if (state.sawPause) {
         return true;
+      }
+      if (state.terminalClientToolCall) {
+        await onClientToolCall?.(state.terminalClientToolCall);
       }
       onToolUse?.([]);
       onDone();
@@ -100,7 +105,25 @@ const dispatchSseFrame = (
     case 'interrupted':
       onInterrupted?.();
       return true;
+    case 'client_tool_call': {
+      const request: PendingClientToolCall = {
+        requestId: data.request_id,
+        toolName: data.tool_name,
+        toolInput: data.tool_input ?? {},
+        ...(data.continuation === 'terminal' ? { continuation: 'terminal' as const } : {}),
+      };
+      if (request.continuation === 'terminal') {
+        state.terminalClientToolCall = request;
+      } else {
+        await onClientToolCall?.(request);
+        state.sawPause = true;
+      }
+      return false;
+    }
     case 'error':
+      if (typeof data.conversation_history === 'string') {
+        onConversationHistory?.(data.conversation_history);
+      }
       onError(data.error || 'Unknown error', data.error_code);
       return true;
     default:
@@ -126,34 +149,35 @@ export const streamChatViaFetch = async (
   const controller = new AbortController();
   const cancel = () => controller.abort();
 
-  let response: Response;
-  try {
-    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
-    response = await fetch(`${API_BASE}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getDefaultHeaders(document.cookie),
-      },
-      body: JSON.stringify(request),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (!controller.signal.aborted) {
-      callbacks.onError(error instanceof Error ? error.message : 'Unknown error');
-    }
-    return { cancel };
-  }
-
-  if (!response.ok || !response.body) {
-    const error = await response.text().catch(() => response.statusText);
-    callbacks.onError(`Failed to send message: ${error}`);
-    return { cancel };
-  }
-
-  // Read in the background so the caller gets the cancel handle immediately.
-  const body = response.body;
+  // Start the request in the background so the caller receives the abort handle even while
+  // fetch is still waiting for response headers.
   void (async () => {
+    let response: Response;
+    try {
+      // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
+      response = await fetch(`${API_BASE}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getDefaultHeaders(document.cookie),
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        callbacks.onError(error instanceof Error ? error.message : 'Unknown error');
+      }
+      return;
+    }
+
+    if (!response.ok || !response.body) {
+      const error = await response.text().catch(() => response.statusText);
+      callbacks.onError(`Failed to send message: ${error}`);
+      return;
+    }
+
+    const body = response.body;
     let watchdog: ReturnType<typeof setTimeout> | undefined;
     const clearWatchdog = () => {
       if (watchdog) clearTimeout(watchdog);
@@ -172,11 +196,11 @@ export const streamChatViaFetch = async (
     };
 
     let sawTerminal = false;
-    const turnState: TurnState = { sawPermissionRequest: false };
+    const turnState: TurnState = { sawPause: false, terminalClientToolCall: null };
     try {
       armWatchdog();
       for await (const { event, data } of readSseFrames(body)) {
-        if (dispatchSseFrame(event, data, callbacks, turnState)) {
+        if (await dispatchSseFrame(event, data, callbacks, turnState)) {
           sawTerminal = true;
           clearWatchdog(); // turn is done; a slow socket close shouldn't trip the watchdog
           // The server sends nothing after a terminal frame, so release the reader now rather

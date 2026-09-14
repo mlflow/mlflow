@@ -347,6 +347,7 @@ describe('AssistantChatPanel', () => {
       requires_api_key: true,
       has_api_key: false,
       client_tool_delivery: 'tool',
+      client_carries_history: true,
     };
     mockNeedsApiKey = true;
     const user = userEvent.setup();
@@ -374,6 +375,7 @@ describe('AssistantChatPanel', () => {
       requires_api_key: true,
       has_api_key: false,
       client_tool_delivery: 'tool',
+      client_carries_history: true,
     };
     mockNeedsApiKey = true;
     mockPendingAutomaticMessage = {
@@ -405,6 +407,7 @@ describe('AssistantChatPanel', () => {
       requires_api_key: false,
       has_api_key: false,
       client_tool_delivery: 'tool',
+      client_carries_history: false,
     };
     mockNeedsApiKey = false;
     mockPendingAutomaticMessage = {
@@ -428,6 +431,7 @@ describe('AssistantChatPanel', () => {
       requires_api_key: true,
       has_api_key: false,
       client_tool_delivery: 'tool',
+      client_carries_history: true,
     };
     mockError = 'OpenAI requires an API key.';
     mockErrorCode = 'api_key_missing';

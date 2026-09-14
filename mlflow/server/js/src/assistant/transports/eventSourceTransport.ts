@@ -4,7 +4,7 @@
  * (Ollama, Claude Code, Codex) whose conversation state is persisted server-side.
  */
 
-import type { MessageRequest } from '../types';
+import type { MessageRequest, PendingClientToolCall } from '../types';
 import {
   API_BASE,
   NOOP_STREAM_RESULT,
@@ -30,8 +30,19 @@ const attachStreamListeners = (
   sessionId: string,
   callbacks: SendMessageStreamCallbacks,
 ): void => {
-  const { onMessage, onError, onDone, onStatus, onToolUse, onToolResult, onInterrupted, onPermissionRequest, onUsage } =
-    callbacks;
+  const {
+    onMessage,
+    onError,
+    onDone,
+    onStatus,
+    onToolUse,
+    onToolResult,
+    onInterrupted,
+    onPermissionRequest,
+    onClientToolCall,
+    onUsage,
+  } = callbacks;
+  let terminalClientToolCall: PendingClientToolCall | null = null;
 
   // Listen for 'message' events (contains assistant's response)
   eventSource.addEventListener('message', (event) => {
@@ -93,13 +104,46 @@ const attachStreamListeners = (
     eventSource.close();
   });
 
+  eventSource.addEventListener('client_tool_call', (event) => {
+    let continuation: PendingClientToolCall['continuation'] = 'resume';
+    try {
+      const data = JSON.parse((event as MessageEvent).data);
+      continuation = data.continuation === 'terminal' ? 'terminal' : 'resume';
+      const request: PendingClientToolCall = {
+        sessionId,
+        requestId: data.request_id,
+        toolName: data.tool_name,
+        toolInput: data.tool_input ?? {},
+        ...(continuation === 'terminal' ? { continuation } : {}),
+      };
+      if (continuation === 'terminal') {
+        terminalClientToolCall = request;
+      } else {
+        onClientToolCall?.(request);
+      }
+    } catch {
+      onError('Failed to read a client tool call from the assistant.');
+    }
+    if (continuation === 'resume') {
+      eventSource.close();
+    }
+  });
+
   // Listen for 'done' event (completion). The DONE session_id for these providers is an
   // opaque server-side session token (persisted by the server), not a client-carried
   // history blob, so it is not surfaced here.
   eventSource.addEventListener('done', () => {
-    onToolUse?.([]);
-    onDone();
     eventSource.close();
+    const finish = async () => {
+      if (terminalClientToolCall) {
+        await onClientToolCall?.(terminalClientToolCall);
+      }
+      onToolUse?.([]);
+      onDone();
+    };
+    void finish().catch((error) => {
+      onError(error instanceof Error ? error.message : 'Failed to execute the client tool.');
+    });
   });
 
   // Listen for 'interrupted' event (cancelled by user)

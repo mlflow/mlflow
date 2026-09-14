@@ -87,7 +87,7 @@ export interface PermissionRequest {
  */
 export interface PendingClientToolCall {
   /** The session that produced this call, so the result targets the right session */
-  sessionId: string;
+  sessionId?: string;
   requestId: string;
   toolName: string;
   toolInput: Record<string, any>;
@@ -158,6 +158,8 @@ export interface ProviderInfo {
   has_api_key: boolean;
   allows_remote_access: boolean;
   client_tool_delivery: ClientToolDelivery;
+  /** Whether turns use stateless POST /chat with opaque history carried by the browser. */
+  client_carries_history: boolean;
   /** Curated model options for simple assistant controls; empty when provider decides. */
   model_options: string[];
 }
@@ -171,6 +173,8 @@ export interface ResolvedProviderInfo {
   has_api_key: boolean;
   /** See `ProviderInfo.client_tool_delivery`. */
   client_tool_delivery: ClientToolDelivery;
+  /** Whether turns use stateless POST /chat with opaque history carried by the browser. */
+  client_carries_history: boolean;
   /** LLM provider behind a gateway endpoint (e.g. 'openai'); null/absent otherwise. */
   model_provider?: string | null;
   /** Curated vendor model choices when resolved to an assistant-managed Gateway endpoint. */
@@ -350,6 +354,8 @@ export interface ChatRequest {
    * provider applies it to the matching pending tool_call in the carried history.
    */
   tool_decisions?: Record<string, 'allow' | 'deny'>;
+  /** Results from client-executed tools when resuming a stateless turn. */
+  client_tool_results?: Record<string, { content: string; is_error: boolean }>;
 }
 
 /**

@@ -55,6 +55,16 @@ afterEach(() => {
 });
 
 describe('streamChatViaFetch', () => {
+  it('returns a cancel handle before fetch receives response headers', async () => {
+    mockFetch.mockReturnValue(new Promise(() => {}));
+
+    const result = await streamChatViaFetch({ message: 'hi' }, makeCallbacks());
+    result.cancel();
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.signal?.aborted).toBe(true);
+  });
+
   it('dispatches message and done callbacks, buffering a frame split across chunks', async () => {
     // The "Hello world" message frame is deliberately split across two reads so the
     // parser must hold the trailing partial frame until the next chunk completes it.
@@ -107,6 +117,7 @@ describe('streamChatViaFetch', () => {
 
     const callbacks = makeCallbacks();
     await streamChatViaFetch({ message: 'hi' }, callbacks);
+    await tick();
 
     expect(callbacks.onError).toHaveBeenCalledWith(expect.stringContaining('boom'));
     expect(callbacks.onDone).not.toHaveBeenCalled();
@@ -179,6 +190,47 @@ describe('streamChatViaFetch', () => {
 
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toMatchObject({ tool_decisions: { 'call-1': 'allow' } });
+  });
+
+  it('persists updated history before surfacing a terminal provider error', async () => {
+    const frames =
+      'event: error\ndata: {"error":"The assistant provider returned an error. Please try again.","conversation_history":"[AFTER_TOOL]"}\n\n';
+    mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => makeReader([frames]) } });
+    const order: string[] = [];
+    const callbacks = makeCallbacks({
+      onConversationHistory: jest.fn(() => order.push('history')),
+      onError: jest.fn(() => order.push('error')),
+    });
+
+    await streamChatViaFetch({ message: 'run tool' }, callbacks);
+    await tick();
+
+    expect(callbacks.onConversationHistory).toHaveBeenCalledWith('[AFTER_TOOL]');
+    expect(callbacks.onError).toHaveBeenCalledWith(
+      'The assistant provider returned an error. Please try again.',
+      undefined,
+    );
+    expect(order).toEqual(['history', 'error']);
+  });
+
+  it('sends client tool results when resuming a stateless turn', async () => {
+    mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => makeReader(['event: done\ndata: {}\n\n']) } });
+
+    await streamChatViaFetch(
+      {
+        message: '',
+        conversation_history: '[PAUSED]',
+        client_tool_results: { 'call-1': { content: 'rendered', is_error: false } },
+      },
+      makeCallbacks(),
+    );
+    await tick();
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      conversation_history: '[PAUSED]',
+      client_tool_results: { 'call-1': { content: 'rendered', is_error: false } },
+    });
   });
 
   it('aborts and stops reading immediately on a terminal frame instead of waiting for EOF', async () => {

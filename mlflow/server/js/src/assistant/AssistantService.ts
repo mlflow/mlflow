@@ -129,6 +129,8 @@ export interface SendMessageStreamCallbacks {
   onToolUse?: (tools: ToolUseInfo[]) => void;
   onToolResult?: (result: ToolResultInfo) => void;
   onInterrupted?: () => void;
+  /** Updated opaque history for a stateless provider turn. */
+  onConversationHistory?: (history: string) => void;
   onPermissionRequest?: (request: PermissionRequest) => void;
   onClientToolCall?: (request: PendingClientToolCall) => void | Promise<void>;
   onUsage?: (usage: {
@@ -141,7 +143,10 @@ export interface SendMessageStreamCallbacks {
 }
 
 export interface SendMessageStreamResult {
-  eventSource: EventSource | null;
+  /** Cancel the active transport (close EventSource or abort fetch). */
+  cancel: () => void;
+  /** Kept for compatibility with callers/tests that inspect the legacy transport. */
+  eventSource?: EventSource | null;
 }
 
 /**
@@ -323,7 +328,7 @@ export const sendMessageStream = async (
     if (!response.ok) {
       const error = await response.text();
       onError(`Failed to send message: ${error}`);
-      return { eventSource: null };
+      return { cancel: () => {}, eventSource: null };
     }
 
     // Step 2: Get the session_id from the response
@@ -332,7 +337,7 @@ export const sendMessageStream = async (
 
     if (!sessionId) {
       onError('No session_id returned from server');
-      return { eventSource: null };
+      return { cancel: () => {}, eventSource: null };
     }
 
     // Notify caller of the session ID
@@ -341,10 +346,10 @@ export const sendMessageStream = async (
     // Step 3: Connect to the SSE endpoint to receive the stream
     const eventSource = createEventSource(sessionId);
     attachStreamListeners(eventSource, sessionId, callbacks);
-    return { eventSource };
+    return { cancel: () => eventSource.close(), eventSource };
   } catch (error) {
     onError(error instanceof Error ? error.message : 'Unknown error');
-    return { eventSource: null };
+    return { cancel: () => {}, eventSource: null };
   }
 };
 
@@ -366,12 +371,12 @@ export const resumeStream = async (
     });
   } catch (error) {
     callbacks.onError('Failed to send your permission decision. Please try again.');
-    return { eventSource: null };
+    return { cancel: () => {}, eventSource: null };
   }
 
   const eventSource = createEventSource(sessionId);
   attachStreamListeners(eventSource, sessionId, callbacks);
-  return { eventSource };
+  return { cancel: () => eventSource.close(), eventSource };
 };
 
 /**
@@ -393,12 +398,12 @@ export const submitClientToolResult = async (
     });
   } catch (error) {
     callbacks.onError('Failed to send the client tool result. Please try again.');
-    return { eventSource: null };
+    return { cancel: () => {}, eventSource: null };
   }
 
   const eventSource = createEventSource(sessionId);
   attachStreamListeners(eventSource, sessionId, callbacks);
-  return { eventSource };
+  return { cancel: () => eventSource.close(), eventSource };
 };
 
 export const listProviderModels = async (provider: string, baseUrl?: string, apiKey?: string): Promise<string[]> => {

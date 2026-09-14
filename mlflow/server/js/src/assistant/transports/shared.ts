@@ -5,7 +5,7 @@
  * from here, and neither imports the other or the AssistantService REST client.
  */
 
-import type { PermissionRequest, ToolResultInfo, ToolUseInfo } from '../types';
+import type { PendingClientToolCall, PermissionRequest, ToolResultInfo, ToolUseInfo } from '../types';
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 export const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
@@ -24,6 +24,7 @@ export interface SendMessageStreamCallbacks {
   onConversationHistory?: (history: string) => void;
   /** Called when the assistant pauses at a tool-call permission prompt awaiting an allow/deny. */
   onPermissionRequest?: (request: PermissionRequest) => void;
+  onClientToolCall?: (request: PendingClientToolCall) => void | Promise<void>;
   onUsage?: (usage: {
     prompt_tokens: number;
     completion_tokens: number;
