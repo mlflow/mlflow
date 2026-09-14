@@ -44,4 +44,4 @@ jobs:
 
           gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$marker
 
-          GitHub now supports [stacked pull requests](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs) natively. Please use those for your stack."
+          ⚠️ GitHub now supports [stacked pull requests](https://docs.github.com/en/pull-requests/get-started/about-stacked-prs) natively. Please use those for your stack."
