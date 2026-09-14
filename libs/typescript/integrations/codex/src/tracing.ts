@@ -94,7 +94,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
     name: 'codex_conversation',
     spanType: SpanType.AGENT,
     inputs: userPrompt,
-    attributes: { model },
+    attributes: { model, 'service.name': 'codex' },
     ...(rootStartNs != null ? { startTimeNs: rootStartNs } : {}),
   });
 
