@@ -9,9 +9,17 @@ from crewai.tools import BaseTool
 from packaging.version import Version
 
 import mlflow
-from mlflow.crewai.autolog import patched_class_call, patched_standalone_call
+from mlflow.crewai.autolog import (
+    _construct_full_inputs,
+    _get_agent_attributes,
+    _sanitize_value,
+    _set_span_attributes,
+    patched_class_call,
+    patched_standalone_call,
+)
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import TokenUsageKey
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
@@ -721,3 +729,110 @@ def test_patched_standalone_call_original_when_traces_disabled(monkeypatch):
 
     original.assert_called_once_with("arg", kw="val")
     assert result == "ok"
+
+
+_FAKE_API_KEY = "sk-proj-fake-crewai-provider-key"
+
+
+def llm_with_api_key():
+    from crewai import LLM
+
+    kwargs = {"is_litellm": True} if _IS_CREWAI_V1_OR_LATER else {}
+    return LLM(model="openai/gpt-4o-mini", api_key=_FAKE_API_KEY, **kwargs)
+
+
+@pytest.fixture
+def agent_with_api_key():
+    return Agent(
+        role="City Selection Expert",
+        goal=_AGENT_1_GOAL,
+        backstory=_AGENT_1_BACKSTORY,
+        llm=llm_with_api_key(),
+        function_calling_llm=llm_with_api_key(),
+    )
+
+
+def test_agent_attributes_do_not_expose_llm_api_key(agent_with_api_key):
+    attributes = _get_agent_attributes(agent_with_api_key)
+
+    assert _FAKE_API_KEY not in json.dumps(attributes, cls=TraceJSONEncoder)
+    assert attributes["llm"] == "openai/gpt-4o-mini"
+    assert attributes["function_calling_llm"] == "openai/gpt-4o-mini"
+
+
+def test_crew_attributes_do_not_expose_llm_api_key(agent_with_api_key):
+    task = Task(description="d", expected_output="o", agent=agent_with_api_key)
+    crew = Crew(
+        agents=[agent_with_api_key],
+        tasks=[task],
+        manager_llm=llm_with_api_key(),
+        function_calling_llm=llm_with_api_key(),
+    )
+    span = Mock()
+
+    _set_span_attributes(span, crew)
+
+    attributes = {call.args[0]: call.args[1] for call in span.set_attribute.call_args_list}
+    assert _FAKE_API_KEY not in json.dumps(attributes, cls=TraceJSONEncoder)
+    assert attributes["manager_llm"] == "openai/gpt-4o-mini"
+    assert attributes["function_calling_llm"] == "openai/gpt-4o-mini"
+
+
+def test_span_inputs_do_not_expose_llm_api_key(agent_with_api_key):
+    task = Task(description="d", expected_output="o", agent=agent_with_api_key)
+
+    # Task.execute_sync receives the Agent directly; Agent.execute_task receives it via Task.agent
+    task_inputs = _construct_full_inputs(Task.execute_sync, task, agent=agent_with_api_key)
+    agent_inputs = _construct_full_inputs(Agent.execute_task, agent_with_api_key, task=task)
+
+    assert _FAKE_API_KEY not in json.dumps(task_inputs, cls=TraceJSONEncoder)
+    assert _FAKE_API_KEY not in json.dumps(agent_inputs, cls=TraceJSONEncoder)
+    assert task_inputs["agent"]["llm"] == "openai/gpt-4o-mini"
+    assert agent_inputs["task"]["agent"]["llm"] == "openai/gpt-4o-mini"
+
+
+def test_sanitize_value_drops_credential_keys_but_keeps_llm_config():
+    value = {
+        "api_key": "a",
+        "openai_api_key": "b",
+        "client_secret": "c",
+        "password": "d",
+        "auth_token": "e",
+        "max_tokens": 10,
+        "tokenizer": "tiktoken",
+        "nested": [{"apiKey": "f", "model": "gpt"}],
+    }
+
+    assert _sanitize_value(value) == {
+        "max_tokens": 10,
+        "tokenizer": "tiktoken",
+        "nested": [{"model": "gpt"}],
+    }
+
+
+def test_sanitize_value_handles_reference_cycles(agent_with_api_key):
+    task = Task(description="d", expected_output="o", agent=agent_with_api_key)
+    crew = Crew(agents=[agent_with_api_key], tasks=[task])
+    agent_with_api_key.crew = crew
+
+    sanitized = _sanitize_value(agent_with_api_key)
+
+    assert _FAKE_API_KEY not in json.dumps(sanitized, cls=TraceJSONEncoder)
+    assert sanitized["crew"]["agents"][0] == "Agent"
+
+
+def test_kickoff_trace_does_not_expose_llm_api_key(agent_with_api_key, autolog, mock_litellm_cost):
+    task = Task(
+        description=_TASK_1_DESCRIPTION,
+        agent=agent_with_api_key,
+        expected_output=_TASK_1_OUTPUT,
+    )
+    crew = Crew(agents=[agent_with_api_key], tasks=[task])
+    with patch("litellm.completion", side_effect=_simple_chat_completion):
+        autolog()
+        crew.kickoff()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert _FAKE_API_KEY not in traces[0].to_json()
