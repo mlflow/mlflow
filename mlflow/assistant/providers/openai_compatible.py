@@ -35,7 +35,7 @@ from mlflow.assistant.providers.tool_executor import (
     restrict_permissions_for_remote,
     static_permission_error,
 )
-from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
+from mlflow.assistant.types import Event, EventType, Message, ToolResultBlock, ToolUseBlock
 from mlflow.tracing.constant import CostKey, TokenUsageKey
 from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 
@@ -386,6 +386,31 @@ class OpenAICompatibleProvider(AssistantProvider):
     def resolve_skills_path(self, base_directory: Path) -> Path:
         return base_directory / self._skills_dirname / "skills"
 
+    async def astream(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        session_id: str | None = None,
+        mlflow_session_id: str | None = None,
+        cwd: Path | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[Event, None]:
+        """Adapt client-carried history to the legacy server-managed session protocol."""
+        async for event in self.astream_stateless(
+            prompt=prompt,
+            tracking_uri=tracking_uri,
+            conversation_history=session_id,
+            cwd=cwd,
+            context=context,
+        ):
+            history = event.data.get("conversation_history")
+            if history and event.type == EventType.DONE:
+                yield Event.from_result(result=event.data.get("result"), session_id=history)
+            elif history and event.type == EventType.ERROR:
+                yield Event.from_error(event.data["error"], session_id=history)
+            else:
+                yield event
+
     async def astream_stateless(
         self,
         prompt: str,
@@ -637,10 +662,14 @@ class OpenAICompatibleProvider(AssistantProvider):
                                         _merge_tool_call_chunk(tool_calls_acc, tc)
 
                         if not stream_had_signal:
+                            history = (
+                                json.dumps(_trim_session(messages)) if tool_was_executed else None
+                            )
                             yield Event.from_error(
                                 f"{self._display_name} returned an empty response and ended "
                                 "unexpectedly. The upstream provider likely failed before "
-                                "producing any output (e.g. an invalid API key or a rate limit)."
+                                "producing any output (e.g. an invalid API key or a rate limit).",
+                                conversation_history=history,
                             )
                             return
 

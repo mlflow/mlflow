@@ -574,6 +574,46 @@ async def test_astream_yields_error_on_http_error(provider):
 
 
 @pytest.mark.asyncio
+async def test_astream_stateful_compatibility_carries_history_in_session_id(provider):
+    first_session, _ = _make_aiohttp_session([
+        [_sse(_delta(content="first answer")), b"data: [DONE]\n"]
+    ])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=first_session,
+    ):
+        first_events = [event async for event in provider.astream("first", "http://localhost:5000")]
+
+    first_done = next(event for event in first_events if event.type == EventType.DONE)
+    assert "conversation_history" not in first_done.data
+    history = first_done.data["session_id"]
+
+    second_session, calls = _make_aiohttp_session([
+        [_sse(_delta(content="second answer")), b"data: [DONE]\n"]
+    ])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=second_session,
+    ):
+        second_events = [
+            event
+            async for event in provider.astream(
+                "second", "http://localhost:5000", session_id=history
+            )
+        ]
+
+    messages = calls[0]["json"]["messages"]
+    assert [message["content"] for message in messages if message["role"] != "system"][:3] == [
+        "first",
+        "first answer",
+        "second",
+    ]
+    second_done = next(event for event in second_events if event.type == EventType.DONE)
+    assert "session_id" in second_done.data
+    assert "conversation_history" not in second_done.data
+
+
+@pytest.mark.asyncio
 async def test_astream_yields_error_on_empty_truncated_stream(provider):
     # The gateway commits a 200 before proxying upstream, so an upstream failure
     # (e.g. a bad API key) truncates the body instead of returning a non-200. When
@@ -1285,6 +1325,31 @@ async def test_astream_error_after_tool_execution_carries_updated_history(provid
     error = next(e for e in events if e.type == EventType.ERROR)
     assert error.data["error"] == "The assistant provider returned an error. Please try again."
     assert "upstream secret detail" not in error.data["error"]
+    history = json.loads(error.data["conversation_history"])
+    assert [message["role"] for message in history][-2:] == ["assistant", "tool"]
+    assert history[-1]["content"] == "side effect complete"
+
+
+@pytest.mark.asyncio
+async def test_astream_truncated_after_tool_execution_carries_updated_history(provider):
+    turn1 = _tool_call_turn("mlflow experiments search")
+    turn2: list[bytes] = []
+    session, _ = _make_aiohttp_session([turn1, turn2])
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("side effect complete", False)),
+        ) as mock_tool,
+    ):
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
+
+    mock_tool.assert_awaited_once()
+    assert not any(e.type == EventType.DONE for e in events)
+    error = next(e for e in events if e.type == EventType.ERROR)
     history = json.loads(error.data["conversation_history"])
     assert [message["role"] for message in history][-2:] == ["assistant", "tool"]
     assert history[-1]["content"] == "side effect complete"
