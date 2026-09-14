@@ -1,9 +1,11 @@
 import importlib
+import io
 import json
 import logging
 import os
 import pickle
 import re
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -1150,6 +1152,102 @@ def test_load_state_dict_disallows_pickle_deserialization(model_path, monkeypatc
     monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
     with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
         mlflow.pytorch.load_state_dict(model_path)
+
+
+class _FileCreatingPayload:
+    """Executes a harmless, observable side effect if it is ever unpickled."""
+
+    def __init__(self, marker_path: Path):
+        self.marker_path = marker_path
+
+    def __reduce__(self):
+        return (open, (str(self.marker_path), "w"))
+
+
+def _replace_pt2_sample_inputs_record(pt2_path: Path, payload: object) -> str:
+    # `torch.export.load` unpickles the example-inputs record with `weights_only=False`.
+    # The record name depends on the torch version (legacy export format vs. PT2 archive).
+    buffer = io.BytesIO()
+    torch.save(payload, buffer)
+    with zipfile.ZipFile(pt2_path) as archive:
+        records = {info.filename: archive.read(info) for info in archive.infolist()}
+    target = next(
+        name
+        for name in records
+        if name.endswith("serialized_example_inputs.pt") or "/sample_inputs/" in f"/{name}"
+    )
+    records[target] = buffer.getvalue()
+    with zipfile.ZipFile(pt2_path, "w") as archive:
+        for name, content in records.items():
+            archive.writestr(name, content)
+    return target
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.6"), reason="This test requires torch>=2.6"
+)
+def test_load_pt2_model_allowed_when_pickle_deserialization_disallowed(
+    model_path, data, monkeypatch
+):
+    model = get_sequential_model()
+    mlflow.pytorch.save_model(
+        model,
+        model_path,
+        serialization_format="pt2",
+        input_example=data[0].to_numpy(dtype=np.float32),
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    loaded_model = mlflow.pytorch.load_model(model_path)
+    np.testing.assert_array_equal(_predict(loaded_model, data), _predict(model, data))
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.6"), reason="This test requires torch>=2.6"
+)
+def test_load_pt2_model_rejects_pickle_payload_when_pickle_deserialization_disallowed(
+    model_path, data, monkeypatch, tmp_path
+):
+    mlflow.pytorch.save_model(
+        get_sequential_model(),
+        model_path,
+        serialization_format="pt2",
+        input_example=data[0].to_numpy(dtype=np.float32),
+    )
+    marker_path = tmp_path / "payload_executed"
+    record = _replace_pt2_sample_inputs_record(
+        Path(model_path) / "data" / "model.pt2", _FileCreatingPayload(marker_path)
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match=f"record '{re.escape(record)}'"):
+        mlflow.pytorch.load_model(model_path)
+    assert not marker_path.exists()
+
+    with pytest.raises(MlflowException, match=f"record '{re.escape(record)}'"):
+        mlflow.pyfunc.load_model(model_path)
+    assert not marker_path.exists()
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
+)
+def test_load_pt2_model_rejected_on_unverifiable_torch_when_pickle_deserialization_disallowed(
+    model_path, data, monkeypatch
+):
+    mlflow.pytorch.save_model(
+        get_sequential_model(),
+        model_path,
+        serialization_format="pt2",
+        input_example=data[0].to_numpy(dtype=np.float32),
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with (
+        mock.patch("torch.__version__", "2.5.1"),
+        pytest.raises(MlflowException, match="Upgrade to `torch` >= 2.6"),
+    ):
+        mlflow.pytorch.load_model(model_path)
 
 
 @pytest.mark.parametrize("not_state_dict", [0, "", get_sequential_model()])
