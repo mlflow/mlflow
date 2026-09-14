@@ -696,7 +696,7 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
                 provider={activeProvider}
                 providers={providers}
                 gatewayVendorOptions={gatewayVendorOptions}
-                disabled={!canUseAssistant}
+                disabled={!canUseAssistant || isStreaming}
                 onSelect={selectProvider}
               />
             )}

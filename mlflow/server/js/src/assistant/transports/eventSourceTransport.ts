@@ -216,7 +216,7 @@ export const sendMessageStream = async (
     // Step 3: Connect to the SSE endpoint to receive the stream
     const eventSource = createEventSource(sessionId);
     attachStreamListeners(eventSource, sessionId, callbacks);
-    return { cancel: () => eventSource.close() };
+    return { cancel: () => eventSource.close(), eventSource };
   } catch (error) {
     onError(error instanceof Error ? error.message : 'Unknown error');
     return NOOP_STREAM_RESULT;
@@ -255,7 +255,7 @@ export const resumeStream = async (
 
   const eventSource = createEventSource(sessionId);
   attachStreamListeners(eventSource, sessionId, callbacks);
-  return { cancel: () => eventSource.close() };
+  return { cancel: () => eventSource.close(), eventSource };
 };
 
 export const submitClientToolResult = async (
@@ -285,5 +285,5 @@ export const submitClientToolResult = async (
 
   const eventSource = createEventSource(sessionId);
   attachStreamListeners(eventSource, sessionId, callbacks);
-  return { cancel: () => eventSource.close() };
+  return { cancel: () => eventSource.close(), eventSource };
 };

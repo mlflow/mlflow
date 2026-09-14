@@ -37,9 +37,11 @@ export interface SendMessageStreamCallbacks {
 export interface SendMessageStreamResult {
   /** Cancel the in-flight stream (closes the EventSource or aborts the fetch). */
   cancel: () => void;
+  /** Exposed for compatibility with callers/tests that inspect the legacy transport. */
+  eventSource?: EventSource | null;
 }
 
-export const NOOP_STREAM_RESULT: SendMessageStreamResult = { cancel: () => {} };
+export const NOOP_STREAM_RESULT: SendMessageStreamResult = { cancel: () => {}, eventSource: null };
 
 /**
  * Parse a single SSE frame ("event: <type>\ndata: <json>") into its event name and JSON data.

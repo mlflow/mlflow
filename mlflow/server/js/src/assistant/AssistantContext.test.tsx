@@ -1214,6 +1214,26 @@ describe('trimForStorage', () => {
 
     expect(trimForStorage(messages, messagesOnlyBudget, 'x'.repeat(200)).map((message) => message.id)).toEqual(['new']);
   });
+
+  it('does not let an oversized opaque history exceed the localStorage budget', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('large turn'));
+
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('x'.repeat(1_600_000));
+      capturedCallbacks?.onDone();
+    });
+
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
+      expect(stored.conversationHistory).toBeNull();
+      expect(stored.messages.some((message: ChatMessage) => message.content === 'large turn')).toBe(true);
+    });
+  });
 });
 
 describe('AssistantContext — localStorage chat persistence', () => {
@@ -1509,9 +1529,108 @@ describe('AssistantContext — respondToPermission on the stateless gateway path
       expect.any(Object),
     );
   });
+
+  it('resumes with the originating turn context after navigation', async () => {
+    mockPageContext = { experimentId: 'experiment-a', traceId: 'trace-a' };
+    const { result } = await renderAssistant();
+    await pauseGatewayTurn(result);
+    mockPageContext = { experimentId: 'experiment-b', traceId: 'trace-b' };
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => result.current.respondToPermission(true));
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        experiment_id: 'experiment-a',
+        context: { experimentId: 'experiment-a', traceId: 'trace-a' },
+      }),
+      expect.any(Object),
+    );
+  });
 });
 
 describe('AssistantContext — provider-selected transport', () => {
+  it('starts a requested new session without replaying stale stateless history', async () => {
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({ messages: [], tokenUsage: EMPTY_TOKEN_USAGE, conversationHistory: '[OLD]' }),
+    );
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+
+    await act(async () => result.current.sendMessage('fresh', { newSession: true }));
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ conversation_history: '[OLD]' }),
+      expect.any(Object),
+    );
+  });
+
+  it('regenerates a stateless turn from its pre-turn history checkpoint', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('turn one'));
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('[AFTER_ONE]');
+      capturedCallbacks?.onDone();
+    });
+    await act(async () => result.current.sendMessage('turn two'));
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('[AFTER_TWO]');
+      capturedCallbacks?.onDone();
+    });
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => result.current.regenerateLastMessage());
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ message: 'turn two', conversation_history: '[AFTER_ONE]' }),
+      expect.any(Object),
+    );
+  });
+
+  it('clears provider-owned conversation state when switching providers', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', model: 'endpoint-a', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('endpoint a'));
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('[ENDPOINT_A]');
+      capturedCallbacks?.onDone();
+    });
+
+    act(() => result.current.selectProvider({ kind: 'gateway', endpointName: 'endpoint-b' }));
+    expect(result.current.messages).toEqual([]);
+    mockStreamChatViaFetch.mockClear();
+    await act(async () => result.current.sendMessage('endpoint b'));
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ conversation_history: '[ENDPOINT_A]' }),
+      expect.any(Object),
+    );
+  });
+
+  it('ignores provider switches while a turn is streaming', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', model: 'endpoint-a', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('still running'));
+
+    act(() => result.current.selectProvider({ kind: 'gateway', endpointName: 'endpoint-b' }));
+
+    expect(result.current.activeProvider?.model).toBe('endpoint-a');
+  });
+
   it('uses fetch POST for stateless providers and the legacy stream for CLI providers', async () => {
     mockGetProviders.mockResolvedValue({
       providers: [
@@ -1586,6 +1705,32 @@ describe('AssistantContext — provider-selected transport', () => {
       expect.any(Object),
     );
     expect(mockSubmitClientToolResult).not.toHaveBeenCalled();
+    unregister();
+  });
+
+  it('replays client tool results with the originating experiment context', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const unregister = registerClientToolHandler('browser_tool', async () => ({ content: 'browser result' }));
+    mockPageContext = { experimentId: 'experiment-a', traceId: 'trace-a' };
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('use browser'));
+    act(() => capturedCallbacks?.onConversationHistory?.('[PAUSED_TOOL]'));
+    mockPageContext = { experimentId: 'experiment-b', traceId: 'trace-b' };
+    await act(async () => {
+      capturedCallbacks?.onClientToolCall?.({ requestId: 'tool-1', toolName: 'browser_tool', toolInput: {} });
+    });
+
+    await waitFor(() => expect(mockStreamChatViaFetch).toHaveBeenCalledTimes(2));
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        experiment_id: 'experiment-a',
+        context: { experimentId: 'experiment-a', traceId: 'trace-a' },
+      }),
+      expect.any(Object),
+    );
     unregister();
   });
 });
