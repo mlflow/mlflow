@@ -25,6 +25,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   check-component-ids:
