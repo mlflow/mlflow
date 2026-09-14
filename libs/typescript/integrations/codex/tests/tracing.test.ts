@@ -638,7 +638,7 @@ describe('createChildSpans (integration with real transcript fixture)', () => {
       choices: [{ message: { role: 'assistant', content: 'The repository is clean.' } }],
     });
 
-    expect(llmSpans.map((span) => span.attributes['mlflow.chat.tokenUsage'])).toEqual([
+    expect(llmSpans.map((span) => span.attributes['mlflow.chat.tokenUsage'] as unknown)).toEqual([
       {
         input_tokens: 100,
         output_tokens: 10,
