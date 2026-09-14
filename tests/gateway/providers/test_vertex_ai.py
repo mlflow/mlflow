@@ -962,7 +962,7 @@ async def test_maas_proxy_posts_to_openapi_endpoint(path):
         return mock_client
 
     with mock.patch("aiohttp.ClientSession", mock_client_session):
-        response = await provider._delegate.proxy(
+        response = await provider.proxy(
             path, payload, headers={"authorization": "Bearer client-token", "x-request-id": "req-1"}
         )
 
@@ -993,7 +993,7 @@ async def test_maas_proxy_streams_when_upstream_sends_event_stream():
     )
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client):
-        result = await provider._delegate.proxy(
+        result = await provider.proxy(
             "v1/chat/completions",
             {"messages": [{"role": "user", "content": "Hello"}], "stream": True},
         )
