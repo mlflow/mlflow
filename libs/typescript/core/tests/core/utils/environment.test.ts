@@ -19,6 +19,18 @@ describe('resolveGitMetadata', () => {
     expect(resolveGitMetadata('/not-a-repo', () => undefined)).toEqual({});
   });
 
+  it('keeps available branch and remote metadata in a repository without commits', () => {
+    const values = new Map([
+      ['branch --show-current', 'main'],
+      ['config --get remote.origin.url', 'git@github.com:mlflow/mlflow.git'],
+    ]);
+
+    expect(resolveGitMetadata('/repo', (args) => values.get(args.join(' ')))).toEqual({
+      'mlflow.source.git.branch': 'main',
+      'mlflow.source.git.repoURL': 'git@github.com:mlflow/mlflow.git',
+    });
+  });
+
   it('omits unavailable branch and remote values', () => {
     expect(
       resolveGitMetadata('/repo', (args) =>

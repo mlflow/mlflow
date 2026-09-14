@@ -43,15 +43,11 @@ export function resolveGitMetadata(
   run: GitCommandRunner = runGitCommand,
 ): Record<string, string> {
   const commit = run(['rev-parse', 'HEAD'], cwd);
-  if (!commit) {
-    return {};
-  }
-
   const branch = run(['branch', '--show-current'], cwd);
   const repoUrl = run(['config', '--get', 'remote.origin.url'], cwd);
 
   return {
-    [GIT_COMMIT_METADATA_KEY]: commit,
+    ...(commit ? { [GIT_COMMIT_METADATA_KEY]: commit } : {}),
     ...(branch ? { [GIT_BRANCH_METADATA_KEY]: branch } : {}),
     ...(repoUrl ? { [GIT_REPO_URL_METADATA_KEY]: stripCredentialsFromUrl(repoUrl) } : {}),
   };
