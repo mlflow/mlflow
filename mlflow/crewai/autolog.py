@@ -295,11 +295,13 @@ def _construct_full_inputs(func, *args, **kwargs):
         arguments.pop("self")
 
     # Avoid non serializable objects and circular references
-    return {
-        k: _sanitize_value(v.__dict__ if hasattr(v, "__dict__") else v)
+    inputs = {
+        k: v.__dict__ if hasattr(v, "__dict__") else v
         for k, v in arguments.items()
         if v is not None and _is_serializable(v)
     }
+    # Sanitize the whole dict so credential-named arguments are dropped along with nested ones
+    return _sanitize_value(inputs)
 
 
 def _set_span_attributes(span: LiveSpan, instance):
@@ -360,6 +362,10 @@ def _set_span_attributes(span: LiveSpan, instance):
 
 
 def _set_sanitized_attribute(span: LiveSpan, key: str, value: Any):
+    # The key itself may name a credential (e.g. a provider's `auth_token` field), in which
+    # case the value is a plain string that `_sanitize_value` cannot recognize.
+    if _SENSITIVE_KEY_PATTERN.search(key):
+        return
     value = _sanitize_value(value)
     span.set_attribute(key, str(value) if isinstance(value, list) else value)
 

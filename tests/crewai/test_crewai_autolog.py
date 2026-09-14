@@ -13,6 +13,7 @@ from mlflow.crewai.autolog import (
     _construct_full_inputs,
     _get_agent_attributes,
     _sanitize_value,
+    _set_sanitized_attribute,
     _set_span_attributes,
     patched_class_call,
     patched_standalone_call,
@@ -810,6 +811,24 @@ def test_sanitize_value_drops_credential_keys_but_keeps_llm_config():
     }
 
 
+@pytest.mark.parametrize(
+    ("key", "expected_calls"),
+    [
+        ("auth_token", 0),
+        ("client_secret", 0),
+        ("api_key", 0),
+        ("max_tokens", 1),
+        ("model", 1),
+    ],
+)
+def test_set_sanitized_attribute_skips_credential_keys(key, expected_calls):
+    span = Mock()
+
+    _set_sanitized_attribute(span, key, "value")
+
+    assert span.set_attribute.call_count == expected_calls
+
+
 def test_sanitize_value_handles_reference_cycles(agent_with_api_key):
     task = Task(description="d", expected_output="o", agent=agent_with_api_key)
     crew = Crew(agents=[agent_with_api_key], tasks=[task])
@@ -828,10 +847,11 @@ def test_kickoff_trace_does_not_expose_llm_api_key(agent_with_api_key, autolog, 
         expected_output=_TASK_1_OUTPUT,
     )
     crew = Crew(agents=[agent_with_api_key], tasks=[task])
-    with patch("litellm.completion", side_effect=_simple_chat_completion):
+    with patch("litellm.completion", side_effect=_simple_chat_completion) as mock_completion:
         autolog()
         crew.kickoff()
 
+    mock_completion.assert_called()
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
