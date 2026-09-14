@@ -45,6 +45,7 @@ from mlflow.assistant.skill_installer import install_skills, list_installed_skil
 from mlflow.assistant.types import EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.server.asgi_utils import get_server_base_url
+from mlflow.server.assistant.gateway_permissions import ensure_assistant_gateway_use_permission
 from mlflow.server.assistant.identity import (
     BASIC_AUTH_CHALLENGE_HEADERS,
     AssistantAuthError,
@@ -519,7 +520,8 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     Returns:
         StreamingResponse with SSE events
     """
-    session = _load_owned_session(session_id, _current_username(request))
+    username = _current_username(request)
+    session = _load_owned_session(session_id, username)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -565,6 +567,11 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
                 "No assistant provider is configured or available."
             ).to_sse_event()
             return
+        if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+            # The in-server gateway enforces a per-endpoint USE permission. The Assistant's
+            # managed endpoints are created outside the HTTP route that would grant it, so
+            # authorize this caller for them before the turn calls the gateway.
+            await asyncio.to_thread(ensure_assistant_gateway_use_permission, username)
         async for event in provider.astream(
             prompt=prompt,
             tracking_uri=tracking_uri,

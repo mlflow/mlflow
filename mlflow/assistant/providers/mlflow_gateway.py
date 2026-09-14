@@ -1,9 +1,13 @@
 """MLflow AI Gateway preset of the OpenAI-compatible assistant provider."""
 
+import base64
 import logging
 from typing import ClassVar
 
+from mlflow.assistant.config import get_config_user
 from mlflow.assistant.providers.openai_compatible import OpenAICompatibleProvider
+from mlflow.environment_variables import _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN
+from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
 
 _logger = logging.getLogger(__name__)
 
@@ -40,6 +44,22 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
             chat_url_builder=self._build_chat_url,
             allows_remote_access=True,
         )
+
+    def _auth_headers(self, api_key: str | None) -> dict[str, str]:
+        headers = super()._auth_headers(api_key)
+        # The in-server gateway sits behind the same authentication as the rest of the server,
+        # so this internal call has to authenticate too -- otherwise it is rejected with 401 on
+        # an auth-enabled server. Reuse the server's internal gateway token (generated at startup
+        # and shared across all worker processes; also used by scorer and evaluation jobs) and
+        # attribute the call to the current user. The credential goes in the dedicated gateway
+        # auth header so it is not forwarded upstream to the LLM provider. When there is no token
+        # (a server without auth), the gateway needs no credential, so no header is added.
+        token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
+        username = get_config_user()
+        if token and username:
+            credential = base64.b64encode(f"{username}:{token}".encode()).decode("ascii")
+            headers[MLFLOW_GATEWAY_AUTH_HEADER] = f"Basic {credential}"
+        return headers
 
     @staticmethod
     def _list_endpoints():
