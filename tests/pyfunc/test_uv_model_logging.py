@@ -14,6 +14,7 @@ from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
     _PYTHON_VERSION_FILE,
     _UV_LOCK_FILE,
+    UvConfig,
     is_uv_available,
 )
 
@@ -168,7 +169,7 @@ def test_pyfunc_log_model_with_explicit_uv_project_path_parameter(
         mlflow.pyfunc.log_model(
             name="model",
             python_model=python_model,
-            uv_project_path=tmp_uv_project,
+            uv=UvConfig(project_path=tmp_uv_project),
         )
 
         artifact_path = mlflow.artifacts.download_artifacts(
@@ -318,7 +319,7 @@ def test_pyfunc_save_model_with_explicit_uv_project_path(
     mlflow.pyfunc.save_model(
         model_path,
         python_model=python_model,
-        uv_project_path=tmp_uv_project,
+        uv=UvConfig(project_path=tmp_uv_project),
     )
 
     assert (model_path / _UV_LOCK_FILE).exists()
@@ -501,3 +502,109 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
     python_bin = sync_dir / "bin" / "python"
 
     subprocess.check_call([python_bin, "-c", "import numpy"])
+
+
+# --- Deprecated parameter backwards-compatibility (3.11 surface) ---
+
+
+@requires_uv
+def test_pyfunc_log_model_with_legacy_uv_project_path(
+    tmp_path, tmp_uv_project, python_model, monkeypatch
+):
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.chdir(work_dir)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    with mlflow.start_run() as run, pytest.warns(FutureWarning, match="uv_project_path"):
+        mlflow.pyfunc.log_model(
+            name="m",
+            python_model=python_model,
+            uv_project_path=str(tmp_uv_project),
+        )
+
+    client = mlflow.MlflowClient()
+    run_data = client.get_run(run.info.run_id)
+    artifact_dir = Path(run_data.info.artifact_uri.replace("file://", "")) / "m"
+    assert (artifact_dir / _UV_LOCK_FILE).exists()
+    assert (artifact_dir / _PYPROJECT_FILE).exists()
+
+
+@requires_uv
+def test_pyfunc_save_model_with_legacy_uv_groups_and_extras(
+    uv_project_with_groups, python_model, tmp_path
+):
+    model_path = tmp_path / "saved_model"
+    with pytest.warns(FutureWarning, match="uv_groups"):
+        mlflow.pyfunc.save_model(
+            path=model_path,
+            python_model=python_model,
+            uv_project_path=str(uv_project_with_groups),
+            uv_groups=["serving"],
+            uv_extras=["gpu"],
+        )
+
+    assert (model_path / _REQUIREMENTS_FILE_NAME).exists()
+    requirements = (model_path / _REQUIREMENTS_FILE_NAME).read_text()
+    # `serving` group adds gunicorn; `gpu` extra adds scipy. Both should appear.
+    assert "gunicorn" in requirements.lower()
+    assert "scipy" in requirements.lower()
+
+
+@requires_uv
+def test_pyfunc_log_model_mixing_legacy_and_uv_raises(tmp_uv_project, python_model):
+    with mlflow.start_run():
+        with pytest.raises(Exception, match="Cannot specify both"):
+            mlflow.pyfunc.log_model(
+                name="m",
+                python_model=python_model,
+                uv=UvConfig(project_path=str(tmp_uv_project)),
+                uv_project_path=str(tmp_uv_project),
+            )
+
+
+@requires_uv
+def test_pyfunc_log_model_with_uvconfig_does_not_warn(
+    tmp_path, tmp_uv_project, python_model, monkeypatch, recwarn
+):
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.chdir(work_dir)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            name="m",
+            python_model=python_model,
+            uv=UvConfig(project_path=str(tmp_uv_project)),
+        )
+
+    future_warnings = [
+        w for w in recwarn if issubclass(w.category, FutureWarning) and "uv_" in str(w.message)
+    ]
+    assert not future_warnings
+
+
+@requires_uv
+def test_legacy_and_uvconfig_produce_equivalent_requirements(
+    tmp_uv_project, python_model, tmp_path
+):
+    legacy_path = tmp_path / "legacy"
+    new_path = tmp_path / "new"
+
+    with pytest.warns(FutureWarning, match="uv_project_path"):
+        mlflow.pyfunc.save_model(
+            path=legacy_path,
+            python_model=python_model,
+            uv_project_path=str(tmp_uv_project),
+        )
+
+    mlflow.pyfunc.save_model(
+        path=new_path,
+        python_model=python_model,
+        uv=UvConfig(project_path=str(tmp_uv_project)),
+    )
+
+    legacy_reqs = (legacy_path / _REQUIREMENTS_FILE_NAME).read_text()
+    new_reqs = (new_path / _REQUIREMENTS_FILE_NAME).read_text()
+    assert legacy_reqs == new_reqs
