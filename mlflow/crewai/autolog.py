@@ -19,11 +19,12 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 _logger = logging.getLogger(__name__)
 
 # Matches credential-like keys such as `api_key`, `client_secret`, `auth_token`, or
-# `accessToken`, but not `max_tokens` / `tokenizer`, which are legitimate LLM configuration.
+# `accessToken`. Credential keys end with `token`, so `max_tokens`, `tokenizer`, and
+# `token_usage` (legitimate LLM configuration and usage fields) are kept.
 _SENSITIVE_KEY_PATTERN = re.compile(
     r"(?i:api_?key|secret|password)"  # anywhere in the key
-    r"|(?<![A-Za-z])(?i:token)(?![a-z])"  # snake_case / standalone `token`
-    r"|(?<=[a-z])Token(?![a-z])"  # camelCase `accessToken`
+    r"|(?<![A-Za-z])(?i:token)$"  # snake_case / standalone `token`
+    r"|(?<=[a-z])Token$"  # camelCase `accessToken`
 )
 
 
@@ -45,7 +46,7 @@ def patched_standalone_call(original, *args, **kwargs):
         result = original(*args, **kwargs)
 
         # Need to convert the response of generate_content for better visualization
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _sanitize_value(result.__dict__ if hasattr(result, "__dict__") else result)
         span.set_outputs(outputs)
 
         return result
@@ -86,7 +87,7 @@ def patched_class_call(original, self, *args, **kwargs):
             result = original(self, *args, **kwargs)
 
         # Need to convert the response of generate_content for better visualization
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        outputs = _sanitize_value(result.__dict__ if hasattr(result, "__dict__") else result)
 
         if span_type == SpanType.LLM and (usage_dict := _parse_usage(self)):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
@@ -375,6 +376,8 @@ def _set_sanitized_attribute(span: LiveSpan, key: str, value: Any):
 def _get_agent_attributes(instance):
     agent = {}
     for key, value in instance.__dict__.items():
+        if _SENSITIVE_KEY_PATTERN.search(key):
+            continue
         if key == "tools":
             value = _parse_tools(value)
         # Sanitize before stringifying: `str(agent.llm)` would otherwise embed the api_key
@@ -389,7 +392,7 @@ def _get_agent_attributes(instance):
 def _get_task_attributes(instance):
     task = {}
     for key, value in instance.__dict__.items():
-        if value is None:
+        if value is None or _SENSITIVE_KEY_PATTERN.search(key):
             continue
         if key == "tools":
             value = _parse_tools(value)
@@ -404,9 +407,9 @@ def _get_task_attributes(instance):
 def _get_llm_attributes(instance):
     llm = {SpanAttributeKey.MESSAGE_FORMAT: "crewai"}
     for key, value in instance.__dict__.items():
-        if value is None:
+        if value is None or _SENSITIVE_KEY_PATTERN.search(key):
             continue
-        elif key in ["callbacks", "api_key"]:
+        elif key == "callbacks":
             # Skip callbacks until how they should be logged are decided
             continue
         else:
@@ -510,7 +513,9 @@ def _sanitize_value(val, _ancestors: set[int] | None = None):
                 if not (isinstance(k, str) and _SENSITIVE_KEY_PATTERN.search(k))
             }
         if isinstance(val, (list, tuple, set)):
-            return [_sanitize_value(item, ancestors) for item in val]
+            sanitized = [_sanitize_value(item, ancestors) for item in val]
+            # Sets become lists: sanitized items (e.g. expanded models) may be unhashable
+            return tuple(sanitized) if isinstance(val, tuple) else sanitized
         if _is_crewai_llm(val):
             return _get_llm_summary(val)
         if isinstance(val, pydantic.BaseModel):

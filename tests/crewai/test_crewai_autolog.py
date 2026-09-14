@@ -12,6 +12,7 @@ import mlflow
 from mlflow.crewai.autolog import (
     _construct_full_inputs,
     _get_agent_attributes,
+    _get_llm_attributes,
     _sanitize_value,
     _set_sanitized_attribute,
     _set_span_attributes,
@@ -825,6 +826,7 @@ def test_sanitize_value_drops_credential_keys_but_keeps_llm_config():
         ("apiKey", 0),
         ("max_tokens", 1),
         ("tokenizer", 1),
+        ("token_usage", 1),
         ("model", 1),
     ],
 )
@@ -834,6 +836,34 @@ def test_set_sanitized_attribute_skips_credential_keys(key, expected_calls):
     _set_sanitized_attribute(span, key, "value")
 
     assert span.set_attribute.call_count == expected_calls
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ((1, {"api_key": "a"}), (1, {})),
+        ({1, 2}, [1, 2]),
+    ],
+)
+def test_sanitize_value_preserves_tuples_and_flattens_sets(value, expected):
+    assert _sanitize_value(value) == expected
+
+
+def test_llm_attributes_skip_credential_fields():
+    llm = Mock(spec=[])
+    llm.__dict__.update({
+        "model": "gpt",
+        "api_key": "a",
+        "auth_token": "b",
+        "callbacks": [],
+        "max_tokens": 5,
+    })
+
+    attributes = _get_llm_attributes(llm)
+
+    assert attributes["model"] == "gpt"
+    assert attributes["max_tokens"] == "5"
+    assert not {"api_key", "auth_token", "callbacks"} & attributes.keys()
 
 
 def test_sanitize_value_handles_reference_cycles(agent_with_api_key):
