@@ -69,14 +69,17 @@ def test_all_workspace_models_handled_in_get_query():
     for ws_path in WORKSPACE_STORE_PATHS:
         handled |= _models_handled_by_get_query(ws_path)
 
+    # Match column named `workspace` or ending in `_workspace`. A table does not
+    # always own the column outright: `agent_plugin_version_members` calls it
+    # `plugin_workspace`
     models_with_column: set[str] = set()
     for mapper in Base.registry.mappers:
-        if "workspace" in {col.key for col in mapper.columns}:
+        if any(col.key == "workspace" or col.key.endswith("_workspace") for col in mapper.columns):
             models_with_column.add(mapper.class_.__name__)
 
     missing = models_with_column - handled
     assert not missing, (
-        f"These models have a `workspace` column but are not handled by any "
+        f"These models have a workspace column but are not handled by any "
         f"workspace store's _get_query: {sorted(missing)}. "
         f"Add handling in the appropriate workspace store's _get_query method."
     )
