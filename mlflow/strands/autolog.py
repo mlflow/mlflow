@@ -54,6 +54,8 @@ class StrandsSpanProcessor(SimpleSpanProcessor):
 
             tracer.span_processor.on_start(span, parent_context)
             trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+            if trace_id is None:
+                return
             mlflow_span = create_mlflow_span(span, trace_id)
             InMemoryTraceManager.get_instance().register_span(mlflow_span)
         finally:

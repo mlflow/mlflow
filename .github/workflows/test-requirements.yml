@@ -28,6 +28,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   skinny:
@@ -63,6 +64,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
+    cache-mode: read
     if: (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || github.event_name == 'pull_request'
     strategy:
       fail-fast: false

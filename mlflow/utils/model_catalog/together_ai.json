@@ -19,6 +19,25 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "MiniMaxAI/MiniMax-M2.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 196608
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.06
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-14"
+    },
     "MiniMaxAI/MiniMax-M3": {
       "mode": "chat",
       "context_window": {
@@ -71,6 +90,13 @@
     },
     "Qwen/Qwen2.5-7B-Instruct-Turbo": {
       "mode": "chat",
+      "context_window": {
+        "max_input": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 0.3
+      },
       "capabilities": {
         "function_calling": true,
         "vision": false,
@@ -78,7 +104,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-14"
     },
     "Qwen/Qwen3-235B-A22B-Instruct-2507-tput": {
       "mode": "chat",
@@ -379,6 +405,24 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "deepseek-ai/DeepSeek-R1-0528": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 7.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-14"
+    },
     "deepseek-ai/DeepSeek-R1-0528-tput": {
       "mode": "chat",
       "context_window": {
@@ -534,7 +578,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-09-14",
+      "last_updated_at": "2026-09-14"
     },
     "intfloat/multilingual-e5-large-instruct": {
       "mode": "embedding",
@@ -553,7 +598,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-26"
+      "deprecation_date": "2026-09-14",
+      "last_updated_at": "2026-09-14"
     },
     "meta-llama/Llama-3.2-3B-Instruct-Turbo": {
       "mode": "chat",
@@ -715,6 +761,24 @@
       },
       "last_updated_at": "2026-08-31"
     },
+    "mistralai/Ministral-3-14B-Instruct-2512": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-14"
+    },
     "mistralai/Mistral-7B-Instruct-v0.1": {
       "mode": "chat",
       "capabilities": {
@@ -725,6 +789,24 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-24"
+    },
+    "mistralai/Mistral-7B-Instruct-v0.3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-14"
     },
     "mistralai/Mistral-Small-24B-Instruct-2501": {
       "mode": "chat",
@@ -805,6 +887,24 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "moonshotai/Kimi-K2.5-fp4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 2.8
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-14"
+    },
     "moonshotai/Kimi-K2.7-Code": {
       "mode": "chat",
       "context_window": {
@@ -844,6 +944,24 @@
         "response_schema": true
       },
       "last_updated_at": "2026-08-31"
+    },
+    "nvidia/NVIDIA-Nemotron-Nano-9B-v2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-14"
     },
     "nvidia/nemotron-3-ultra-550b-a55b": {
       "mode": "chat",
@@ -900,7 +1018,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-09-14",
+      "last_updated_at": "2026-09-14"
     },
     "pearl-ai/gemma-4-31b-it": {
       "mode": "chat",
@@ -960,7 +1079,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "deprecation_date": "2026-09-14",
+      "last_updated_at": "2026-09-14"
     },
     "together-ai-21.1b-41b": {
       "mode": "chat",

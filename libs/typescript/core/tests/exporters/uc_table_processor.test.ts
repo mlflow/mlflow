@@ -22,6 +22,14 @@ jest.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({
     }),
 }));
 
+jest.mock('../../src/core/utils/environment', () => ({
+  resolveEnvironmentMetadata: () => ({
+    'mlflow.source.git.branch': 'main',
+    'mlflow.source.git.commit': 'abc123',
+    'mlflow.source.git.repoURL': 'https://github.com/mlflow/mlflow.git',
+  }),
+}));
+
 import { AuthProvider } from '../../src/auth';
 import { MlflowClient } from '../../src/clients/client';
 import {
@@ -137,6 +145,11 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     const trace = mgr.getTrace(mlflowTraceId)!;
     expect(isUcTraceLocation(trace.info.traceLocation)).toBe(true);
     expect(trace.info.traceMetadata[TraceMetadataKey.SCHEMA_VERSION]).toBe('4');
+    expect(trace.info.traceMetadata).toMatchObject({
+      'mlflow.source.git.branch': 'main',
+      'mlflow.source.git.commit': 'abc123',
+      'mlflow.source.git.repoURL': 'https://github.com/mlflow/mlflow.git',
+    });
     expect(trace.info.tags).toMatchObject({
       user_id: 'u1',
       family_id: 'f1',

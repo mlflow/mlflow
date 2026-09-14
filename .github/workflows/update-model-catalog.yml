@@ -28,6 +28,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 env:
   CATALOG_PATHS: mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts

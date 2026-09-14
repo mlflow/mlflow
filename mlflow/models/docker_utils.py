@@ -68,6 +68,17 @@ ENTRYPOINT ["python", "-c", "{entrypoint}"]
 """
 
 
+# apt has no default socket timeout, so a mirror that accepts the connection and then stops
+# sending data hangs the build indefinitely instead of failing and being retried.
+SETUP_APT_TIMEOUTS = """# Fail fast on a stalled package mirror
+RUN printf '%s\\n' \\
+    'Acquire::http::Timeout "30";' \\
+    'Acquire::https::Timeout "30";' \\
+    'Acquire::Retries "3";' \\
+    > /etc/apt/apt.conf.d/99-mlflow-timeouts
+"""
+
+
 SETUP_MINICONDA = """# Setup miniconda
 RUN curl --fail -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
@@ -104,12 +115,16 @@ def generate_dockerfile(
                 "switch to UBUNTU_BASE_IMAGE to enable java installation."
             )
         setup_python_venv_steps = (
-            "RUN apt-get -y update && apt-get install -y --no-install-recommends nginx"
+            SETUP_APT_TIMEOUTS
+            + "RUN apt-get -y update && apt-get install -y --no-install-recommends "
+            "nginx"
         )
 
     elif base_image == UBUNTU_BASE_IMAGE:
         setup_python_venv_steps = (
-            "RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y "
+            SETUP_APT_TIMEOUTS
+            + "RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC "
+            "apt-get install -y "
             "--no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake "
             "git-core\n\n"
         )
@@ -118,7 +133,8 @@ def generate_dockerfile(
             jdk_ver = MLFLOW_DOCKER_OPENJDK_VERSION.get()
             setup_java_steps = (
                 "# Setup Java\n"
-                f"RUN apt-get install -y --no-install-recommends openjdk-{jdk_ver}-jdk maven\n"
+                "RUN apt-get install -y --no-install-recommends "
+                f"openjdk-{jdk_ver}-jdk-headless maven\n"
                 f"ENV JAVA_HOME=/usr/lib/jvm/java-{jdk_ver}-openjdk-amd64"
             )
 

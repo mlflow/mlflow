@@ -42,6 +42,28 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "deepseek-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 393216,
+        "max_tokens": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006,
+        "cache_write_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-14"
+    },
     "deepseek-r1": {
       "mode": "chat",
       "context_window": {
@@ -133,31 +155,9 @@
         "max_tokens": 393216
       },
       "pricing": {
-        "input_per_million_tokens": 0.44,
-        "output_per_million_tokens": 1.32,
-        "cache_read_per_million_tokens": 0.014,
-        "cache_write_per_million_tokens": 0.0
-      },
-      "capabilities": {
-        "function_calling": true,
-        "vision": false,
-        "reasoning": true,
-        "prompt_caching": true,
-        "response_schema": true
-      },
-      "last_updated_at": "2026-08-25"
-    },
-    "deepseek-v4-flash-vision-exp": {
-      "mode": "chat",
-      "context_window": {
-        "max_input": 1000000,
-        "max_output": 393216,
-        "max_tokens": 393216
-      },
-      "pricing": {
-        "input_per_million_tokens": 0.44,
-        "output_per_million_tokens": 1.32,
-        "cache_read_per_million_tokens": 0.014,
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006,
         "cache_write_per_million_tokens": 0.0
       },
       "capabilities": {
@@ -167,7 +167,29 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-14"
+    },
+    "deepseek-v4-flash-vision-exp": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 393216,
+        "max_tokens": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006,
+        "cache_write_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-14"
     },
     "deepseek-v4-pro": {
       "mode": "chat",

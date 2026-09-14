@@ -11,6 +11,7 @@ from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, Provi
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
+from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
 
 
 def _usage_to_dict(usage: Any) -> dict[str, Any]:
@@ -118,6 +119,53 @@ class LiteLLMProvider(BaseProvider):
 
         return kwargs
 
+    async def _prepare_litellm_kwargs(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Build LiteLLM kwargs and refuse any destination LiteLLM must not be sent to.
+
+        LiteLLM sends requests through its own HTTP client rather than ``_aiohttp_post``, so
+        the connect-time guard in ``mlflow.gateway.providers.utils`` never sees them. The
+        destination is therefore policed here, before anything is handed to LiteLLM:
+
+        - The request payload never chooses the destination. Request models allow extra
+          fields and LiteLLM would honor ``api_base``, its ``base_url`` alias and the other
+          ``GATEWAY_DESTINATION_KEYS``, so those are rejected whatever the secret holds.
+        - When upstream protection is on, the stored configuration may choose the upstream
+          only through ``api_base`` (``base_url`` is folded in, since litellm prefers it),
+          which is resolved and checked. The remaining destination keys are refused because
+          only ``api_base`` is validated on write.
+        """
+        from fastapi import HTTPException
+
+        from mlflow.gateway.ssrf import (
+            GatewaySSRFProtectionError,
+            assert_public_upstream_host,
+            upstream_protection_enabled,
+        )
+
+        if caller_keys := sorted(GATEWAY_DESTINATION_KEYS & set(payload)):
+            raise HTTPException(
+                status_code=400,
+                detail=f"The request must not set {', '.join(map(repr, caller_keys))}: the "
+                "upstream destination is fixed by the endpoint configuration.",
+            )
+        kwargs = self._build_litellm_kwargs(payload)
+        if not upstream_protection_enabled():
+            return kwargs
+        if base_url := kwargs.pop("base_url", None):
+            kwargs["api_base"] = base_url
+        if stored_keys := sorted((GATEWAY_DESTINATION_KEYS - {"api_base"}) & set(kwargs)):
+            raise HTTPException(
+                status_code=502,
+                detail=f"The endpoint's secret sets {', '.join(map(repr, stored_keys))}, which "
+                "is not supported: only 'api_base' may choose the upstream.",
+            )
+        if api_base := kwargs.get("api_base"):
+            try:
+                await assert_public_upstream_host(api_base)
+            except GatewaySSRFProtectionError as e:
+                raise HTTPException(status_code=502, detail=str(e)) from e
+        return kwargs
+
     async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         import litellm
         from fastapi.encoders import jsonable_encoder
@@ -125,7 +173,7 @@ class LiteLLMProvider(BaseProvider):
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
-        kwargs = self._build_litellm_kwargs(
+        kwargs = await self._prepare_litellm_kwargs(
             self.adapter_class.chat_to_model(payload_dict, self.config)
         )
 
@@ -177,7 +225,7 @@ class LiteLLMProvider(BaseProvider):
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
-        kwargs = self._build_litellm_kwargs(
+        kwargs = await self._prepare_litellm_kwargs(
             self.adapter_class.chat_to_model(payload_dict, self.config)
         )
         kwargs["stream"] = True
@@ -243,7 +291,7 @@ class LiteLLMProvider(BaseProvider):
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
-        kwargs = self._build_litellm_kwargs(
+        kwargs = await self._prepare_litellm_kwargs(
             self.adapter_class.embeddings_to_model(payload_dict, self.config)
         )
 
@@ -453,7 +501,7 @@ class LiteLLMProvider(BaseProvider):
         self._validate_passthrough_action(action)
 
         model_name = self.adapter_class._get_litellm_model_name(self.config)
-        kwargs = self._build_litellm_kwargs(payload)
+        kwargs = await self._prepare_litellm_kwargs(payload)
         kwargs["model"] = model_name
 
         match action:

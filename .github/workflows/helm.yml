@@ -28,6 +28,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   lint:
@@ -84,6 +85,53 @@ jobs:
           # An unset path must not render as an empty value, which strict schema
           # validation rejects as null.
           render --set metrics.path= | grep -q '^      path: /metrics$'
+
+      - name: Render probes
+        run: |
+          render() {
+            helm template mlflow charts/ \
+              --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db" "$@"
+          }
+          # Extract just one probe's rendered field block (the 10-space-indented
+          # keys under e.g. "readinessProbe:") so assertions can't accidentally
+          # match a sibling probe or another part of the manifest.
+          probe_block() {
+            awk -v key="^          $1\$" '
+              $0 ~ key { infield=1; next }
+              infield && /^          [A-Za-z]/ { infield=0 }
+              infield { print }
+            '
+          }
+
+          # All three probes render by default, with the chart-owned /health path.
+          default=$(render)
+          echo "$default" | grep -q '^          livenessProbe:$'
+          echo "$default" | grep -q '^          readinessProbe:$'
+          echo "$default" | grep -q '^          startupProbe:$'
+          echo "$default" | grep -q '^              path: /health$'
+          # A 0-valued field must still render (the reason for hasKey over `with`):
+          # the startup probe's initialDelaySeconds: 0 must appear, not be dropped.
+          echo "$default" | probe_block 'startupProbe:' | grep -q '^            initialDelaySeconds: 0$'
+
+          # enabled: false cleanly omits a probe. Capture the render into a
+          # variable first (rather than piping straight into the `if`) so a
+          # `helm template` failure stays fatal instead of looking identical
+          # to "the probe was correctly omitted".
+          disabled=$(render --set probes.startup.enabled=false)
+          if echo "$disabled" | grep -q 'startupProbe:'; then
+            echo "startupProbe should have been omitted" >&2
+            exit 1
+          fi
+
+          # TLS and staticPrefix flow through to the probe's httpGet request.
+          tls=$(render --set tls.enabled=true --set server.staticPrefix=/mlflow)
+          echo "$tls" | probe_block 'livenessProbe:' | grep -q '^              path: /mlflow/health$'
+          echo "$tls" | probe_block 'livenessProbe:' | grep -q '^              scheme: HTTPS$'
+
+          # Threshold/timing overrides are honored, scoped to the probe they
+          # target so a misrouted override can't slip past this check.
+          overridden=$(render --set probes.readiness.failureThreshold=9)
+          echo "$overridden" | probe_block 'readinessProbe:' | grep -q '^            failureThreshold: 9$'
 
   e2e:
     runs-on: ubuntu-latest

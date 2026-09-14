@@ -23,6 +23,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # Must be named `copilot-setup-steps` even in this file, otherwise Copilot

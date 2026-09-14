@@ -511,6 +511,7 @@ async def test_claude_chat_uses_raw_predict_endpoint():
             "anthropic_version": "vertex-2023-10-16",
         },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
     )
 
 
@@ -686,6 +687,7 @@ async def test_maas_chat_uses_openai_format():
             "messages": [{"role": "user", "content": "Hello"}],
         },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
     )
 
 

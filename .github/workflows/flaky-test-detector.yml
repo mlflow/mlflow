@@ -29,6 +29,7 @@ concurrency:
 
 # Deny all permissions by default; each job grants only what it needs.
 permissions: {}
+cache-mode: none
 
 defaults:
   run:

@@ -38,7 +38,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@databricks/sdk-experimental": "0.15.0",
+    "@databricks/sdk-experimental": "0.18.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-trace-otlp-proto": "^0.205.0",
     "@opentelemetry/otlp-transformer": "^0.205.0",
@@ -69,7 +69,7 @@
     "whatwg-fetch": "^3.6.20"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "files": [
     "dist/",

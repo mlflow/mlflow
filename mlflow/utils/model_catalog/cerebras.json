@@ -121,6 +121,26 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "qwen-3.8-27b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.99,
+        "output_per_million_tokens": 1.49
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-14"
+    },
     "zai-glm-4.6": {
       "mode": "chat",
       "context_window": {

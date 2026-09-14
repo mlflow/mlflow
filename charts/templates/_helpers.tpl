@@ -47,3 +47,34 @@ Build mlflow server args from .Values.server.
 - --{{ . | replace "_" "-" }}
 {{- end }}
 {{- end }}
+
+{{/*
+Render a liveness/readiness/startup probe body from a probes.* values entry.
+The chart always owns the httpGet request (path, port, scheme); only the
+timing/threshold fields are read from the probe values.
+Expects a dict with:
+  probe: the .Values.probes.<name> map (must have .enabled == true)
+  path:  the health check path
+  port:  the named container port
+  tls:   whether to set scheme: HTTPS
+*/}}
+{{- define "mlflow.probe" -}}
+httpGet:
+  path: {{ .path }}
+  port: {{ .port }}
+  {{- if .tls }}
+  scheme: HTTPS
+  {{- end }}
+{{- if hasKey .probe "initialDelaySeconds" }}
+initialDelaySeconds: {{ .probe.initialDelaySeconds }}
+{{- end }}
+{{- if hasKey .probe "periodSeconds" }}
+periodSeconds: {{ .probe.periodSeconds }}
+{{- end }}
+{{- if hasKey .probe "timeoutSeconds" }}
+timeoutSeconds: {{ .probe.timeoutSeconds }}
+{{- end }}
+{{- if hasKey .probe "failureThreshold" }}
+failureThreshold: {{ .probe.failureThreshold }}
+{{- end }}
+{{- end }}

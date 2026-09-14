@@ -1,6 +1,12 @@
 # Build an image that can serve mlflow models.
 FROM ubuntu:24.04
 
+# Fail fast on a stalled package mirror
+RUN printf '%s\n' \
+    'Acquire::http::Timeout "30";' \
+    'Acquire::https::Timeout "30";' \
+    'Acquire::Retries "3";' \
+    > /etc/apt/apt.conf.d/99-mlflow-timeouts
 RUN apt-get -y update && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends wget curl nginx ca-certificates bzip2 build-essential cmake git-core
 
 # Setup miniconda
@@ -13,7 +19,7 @@ RUN conda config --system --remove channels defaults && conda config --system --
 
 
 # Setup Java
-RUN apt-get install -y --no-install-recommends openjdk-17-jdk maven
+RUN apt-get install -y --no-install-recommends openjdk-17-jdk-headless maven
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 WORKDIR /opt/mlflow

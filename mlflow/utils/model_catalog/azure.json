@@ -678,8 +678,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2026-10-21",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "eu/o1-mini-2024-09-12": {
       "mode": "chat",
@@ -754,8 +754,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2026-10-01",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "global-standard/gpt-4o-2024-08-06": {
       "mode": "chat",
@@ -3239,8 +3239,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2026-10-21",
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "o1-2024-12-17": {
       "mode": "chat",
@@ -3261,8 +3261,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2026-10-21",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "o1-mini": {
       "mode": "chat",
@@ -3367,8 +3367,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-21",
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "o3-2025-04-16": {
       "mode": "chat",
@@ -3389,8 +3389,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-21",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "o3-mini": {
       "mode": "chat",
@@ -3411,8 +3411,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-01",
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "o3-mini-2025-01-31": {
       "mode": "chat",
@@ -3433,8 +3433,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2026-10-01",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "o4-mini": {
       "mode": "chat",
@@ -3455,8 +3455,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-16",
-      "last_updated_at": "2026-08-25"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "o4-mini-2025-04-16": {
       "mode": "chat",
@@ -3477,8 +3477,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-16",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "sora-2": {
       "mode": "video_generation",
@@ -4460,8 +4460,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2026-10-21",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "us/o1-mini-2024-09-12": {
       "mode": "chat",
@@ -4530,8 +4530,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-21",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "us/o3-mini-2025-01-31": {
       "mode": "chat",
@@ -4558,8 +4558,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2026-10-01",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     },
     "us/o4-mini-2025-04-16": {
       "mode": "chat",
@@ -4580,8 +4580,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-10-16",
-      "last_updated_at": "2026-08-12"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-09-14"
     }
   }
 }

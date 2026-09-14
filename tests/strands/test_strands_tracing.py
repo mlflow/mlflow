@@ -2,6 +2,7 @@ import json
 from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
+from opentelemetry import trace as otel_trace
 from strands import Agent
 from strands.models.model import Model
 from strands.tools.tools import PythonAgentTool
@@ -326,3 +327,23 @@ def test_strands_autolog_shared_provider_no_recursion(monkeypatch):
     agent_span = next(span for span in spans if span.span_type == SpanType.AGENT)
     assert agent_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
     assert agent_span.outputs.strip() == "hi"
+
+
+def test_strands_autolog_shared_provider_skips_foreign_span(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    mlflow.strands.autolog()
+
+    parent = otel_trace.SpanContext(
+        trace_id=0x1234567890ABCDEF1234567890ABCDEF,
+        span_id=0x1234567890ABCDEF,
+        is_remote=True,
+        trace_flags=otel_trace.TraceFlags(otel_trace.TraceFlags.SAMPLED),
+    )
+    context = otel_trace.set_span_in_context(otel_trace.NonRecordingSpan(parent))
+
+    tracer = otel_trace.get_tracer("external")
+    with tracer.start_as_current_span("foreign-server-span", context=context):
+        pass
+
+    assert not get_traces()

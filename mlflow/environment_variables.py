@@ -1544,6 +1544,21 @@ MLFLOW_ICON_URL_ALLOWED_DOMAINS = _EnvironmentVariable(
     "MLFLOW_ICON_URL_ALLOWED_DOMAINS", _split_strip, None
 )
 
+#: Allowed URL schemes for an AI Gateway secret's ``api_base``. Set to ``http,https`` to
+#: allow plaintext upstreams. (default: ``https``)
+MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+#: Whether an AI Gateway secret's ``api_base`` may target private, loopback or link-local
+#: addresses (e.g. cloud metadata at ``169.254.169.254``). When false, such values are
+#: rejected on write and again at connect time, on the raw proxy route as well. Set to true
+#: for private upstreams such as in-cluster vLLM or Private Link endpoints.
+#: (default: ``False``)
+MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", False
+)
+
 #: Specifies the secret key used to encrypt webhook secrets in MLflow.
 MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY", str, None

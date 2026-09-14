@@ -271,8 +271,11 @@ class JudgeGuardrail(Guardrail):
                 san_span.set_inputs({"payload": payload, "rationale": rationale})
 
             try:
+                # This calls back into this server's own gateway route, which is commonly
+                # bound to localhost, so the upstream SSRF guard (meant for user-supplied
+                # provider hosts) must not apply here.
                 resp_json = await send_request(
-                    headers=headers, base_url=url, path=path, payload=body
+                    headers=headers, base_url=url, path=path, payload=body, ssrf_protect=False
                 )
             except HTTPException as e:
                 raise GuardrailViolation(
