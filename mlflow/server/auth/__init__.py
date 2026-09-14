@@ -2026,6 +2026,21 @@ def validate_can_update_gateway_model_definition():
     return permission.can_use
 
 
+def validate_can_invoke_issue_detection():
+    """
+    Issue detection creates a run in the request's experiment and, when ``secret_id`` is
+    given, decrypts that gateway secret into the job environment. Require UPDATE on the
+    experiment and USE on the secret, mirroring model-definition creation.
+    """
+    if not validate_can_update_experiment():
+        return False
+    body = request.get_json(silent=True)
+    secret_id = body.get("secret_id") if isinstance(body, dict) else None
+    if not secret_id:
+        return True
+    return _get_permission_from_gateway_secret_id().can_use
+
+
 def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> bool:
     """
     Helper to validate USE permission on all model definitions in model_configs.
@@ -2991,7 +3006,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     # Invoke endpoints create runs in an experiment -> require update on it.
     (INVOKE_SCORER, "POST"): validate_can_update_experiment,
-    (INVOKE_ISSUE_DETECTION, "POST"): validate_can_update_experiment,
+    # Issue detection may also consume a gateway secret -> additionally require USE on it.
+    (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
     (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
     # Demo: generate is open to any authenticated user; delete is admin-only.
     (DEMO_GENERATE, "POST"): _allow_authenticated,
