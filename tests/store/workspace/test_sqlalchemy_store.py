@@ -630,48 +630,75 @@ def test_workspace_root_models_order_agent_plugin_before_skill():
     assert _WORKSPACE_ROOT_MODELS.index(SqlAgentPlugin) < _WORKSPACE_ROOT_MODELS.index(SqlSkill)
 
 
+def _seed_plugin_with_member(session, workspace):
+    """A plugin version whose single member points at a skill version in the same workspace."""
+    session.add(SqlSkill(workspace=workspace, organization="acme", name="code-review"))
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            source_type="git",
+            source="s.git",
+        )
+    )
+    session.add(SqlAgentPlugin(workspace=workspace, organization="acme", name="pr"))
+    session.add(
+        SqlAgentPluginVersion(
+            workspace=workspace,
+            organization="acme",
+            name="pr",
+            version="1.0.0",
+            plugin_json={"name": "pr", "version": "1.0.0"},
+            source_type="assembled",
+            source="assembled",
+        )
+    )
+    # Flush the parents first: the member has no ORM relationship to
+    # skill_versions (only a DB FK), so its insert must follow that row.
+    session.flush()
+    session.add(
+        SqlAgentPluginVersionMember(
+            plugin_workspace=workspace,
+            plugin_organization="acme",
+            plugin_name="pr",
+            plugin_version="1.0.0",
+            member_organization="acme",
+            member_name="code-review",
+            member_version=1,
+        )
+    )
+
+
+def test_delete_workspace_set_default_refuses_to_move_plugin_members(workspace_store):
+    # SET_DEFAULT rewrites each root table's `workspace` and lets the children follow via
+    # ON UPDATE CASCADE. Members are reached by the plugin FK's cascade but not by the
+    # skill FK, which has no ON UPDATE, so the rewrite would orphan them. Moving them is
+    # handled in https://github.com/mlflow/mlflow/pull/25777; until then this must
+    # refuse by name rather than surface a foreign-key error.
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_plugin_with_member(session, "team-a")
+
+    with pytest.raises(MlflowException, match="agent plugin member row") as exc:
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert exc.value.error_code == "INVALID_STATE"
+
+    # Refused before anything moved: the workspace and its rows are untouched.
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+    with workspace_store.ManagedSessionMaker() as session:
+        member = session.query(SqlAgentPluginVersionMember).one()
+        assert member.plugin_workspace == "team-a"
+        assert session.query(SqlAgentPlugin).one().workspace == "team-a"
+
+
 def test_delete_workspace_cascade_removes_skill_and_plugin_graph(workspace_store):
     # End-to-end guard for the ordering above: a plugin whose member references a
     # skill version, all in one workspace, must CASCADE-delete cleanly.
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
     with workspace_store.ManagedSessionMaker(read_only=False) as session:
-        session.add(SqlSkill(workspace="team-a", organization="acme", name="code-review"))
-        session.add(
-            SqlSkillVersion(
-                workspace="team-a",
-                organization="acme",
-                name="code-review",
-                version=1,
-                source_type="git",
-                source="s.git",
-            )
-        )
-        session.add(SqlAgentPlugin(workspace="team-a", organization="acme", name="pr"))
-        session.add(
-            SqlAgentPluginVersion(
-                workspace="team-a",
-                organization="acme",
-                name="pr",
-                version="1.0.0",
-                plugin_json={"name": "pr", "version": "1.0.0"},
-                source_type="assembled",
-                source="assembled",
-            )
-        )
-        # Flush the parents first: the member has no ORM relationship to
-        # skill_versions (only a DB FK), so its insert must follow that row.
-        session.flush()
-        session.add(
-            SqlAgentPluginVersionMember(
-                plugin_workspace="team-a",
-                plugin_organization="acme",
-                plugin_name="pr",
-                plugin_version="1.0.0",
-                member_organization="acme",
-                member_name="code-review",
-                member_version=1,
-            )
-        )
+        _seed_plugin_with_member(session, "team-a")
 
     workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
 

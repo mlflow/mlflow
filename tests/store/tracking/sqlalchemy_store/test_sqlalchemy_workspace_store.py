@@ -47,8 +47,19 @@ from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACE_ARCHIVAL_CONFIG
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
+    SqlAgentPluginAlias,
+    SqlAgentPluginTag,
+    SqlAgentPluginVersion,
+    SqlAgentPluginVersionMember,
+    SqlAgentPluginVersionTag,
     SqlEntityAssociation,
     SqlExperiment,
+    SqlSkill,
+    SqlSkillAlias,
+    SqlSkillTag,
+    SqlSkillVersion,
+    SqlSkillVersionTag,
     SqlTraceInfo,
     SqlTraceTag,
 )
@@ -3016,3 +3027,116 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
             workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
         updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
         assert updated.users == ["alice"]
+
+
+def _seed_skill_registry_graph(session, workspace):
+    """One row in every skill-registry table, all belonging to *workspace*."""
+    session.add(SqlSkill(workspace=workspace, organization="acme", name="code-review"))
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            source_type="git",
+            source="s.git",
+        )
+    )
+    session.add(
+        SqlSkillTag(
+            workspace=workspace, organization="acme", name="code-review", key="k", value="v"
+        )
+    )
+    session.add(
+        SqlSkillVersionTag(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            key="k",
+            value="v",
+        )
+    )
+    session.add(
+        SqlSkillAlias(
+            workspace=workspace, organization="acme", name="code-review", alias="prod", version=1
+        )
+    )
+    session.add(SqlAgentPlugin(workspace=workspace, organization="acme", name="pr"))
+    session.add(
+        SqlAgentPluginVersion(
+            workspace=workspace,
+            organization="acme",
+            name="pr",
+            version="1.0.0",
+            plugin_json={"name": "pr", "version": "1.0.0"},
+            source_type="assembled",
+            source="assembled",
+        )
+    )
+    session.add(
+        SqlAgentPluginTag(workspace=workspace, organization="acme", name="pr", key="k", value="v")
+    )
+    session.add(
+        SqlAgentPluginVersionTag(
+            workspace=workspace,
+            organization="acme",
+            name="pr",
+            version="1.0.0",
+            key="k",
+            value="v",
+        )
+    )
+    session.add(
+        SqlAgentPluginAlias(
+            workspace=workspace, organization="acme", name="pr", alias="prod", version="1.0.0"
+        )
+    )
+    # The member has no ORM relationship to skill_versions (only a DB FK), so its
+    # insert must follow that row.
+    session.flush()
+    session.add(
+        SqlAgentPluginVersionMember(
+            plugin_workspace=workspace,
+            plugin_organization="acme",
+            plugin_name="pr",
+            plugin_version="1.0.0",
+            member_organization="acme",
+            member_name="code-review",
+            member_version=1,
+        )
+    )
+
+
+@pytest.mark.parametrize(
+    ("model", "workspace_attribute"),
+    [
+        (SqlSkill, "workspace"),
+        (SqlSkillVersion, "workspace"),
+        (SqlSkillTag, "workspace"),
+        (SqlSkillVersionTag, "workspace"),
+        (SqlSkillAlias, "workspace"),
+        (SqlAgentPlugin, "workspace"),
+        (SqlAgentPluginVersion, "workspace"),
+        (SqlAgentPluginTag, "workspace"),
+        (SqlAgentPluginVersionTag, "workspace"),
+        (SqlAgentPluginAlias, "workspace"),
+        # Members are the one table that does not call the column `workspace`, so they
+        # need their own branch in _get_query. The coverage test only reads the source;
+        # this runs the filter.
+        (SqlAgentPluginVersionMember, "plugin_workspace"),
+    ],
+)
+def test_get_query_scopes_skill_registry_models_to_active_workspace(
+    workspace_tracking_store, model, workspace_attribute
+):
+    # Identical rows in two workspaces: a query that forgot to filter returns both.
+    with workspace_tracking_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_registry_graph(session, "team-a")
+        _seed_skill_registry_graph(session, "team-b")
+
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            with workspace_tracking_store.ManagedSessionMaker() as session:
+                rows = workspace_tracking_store._get_query(session, model).all()
+                assert [getattr(row, workspace_attribute) for row in rows] == [workspace]

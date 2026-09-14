@@ -710,3 +710,47 @@ def test_migrate_to_default_workspace_moves_rows(tmp_path):
             )
             assert conn.execute(stmt).scalar_one() == 0
     engine.dispose()
+
+
+def _insert_plugin_member(conn, plugin_workspace):
+    conn.execute(
+        sqlalchemy.text(
+            "INSERT INTO agent_plugin_version_members (plugin_workspace, plugin_organization, "
+            "plugin_name, plugin_version, member_name, member_organization, member_version) "
+            "VALUES (:ws, 'acme', 'pr-review', '1.0.0', 'code-review', 'acme', 1)"
+        ),
+        {"ws": plugin_workspace},
+    )
+
+
+def test_migrate_to_default_workspace_refuses_plugin_members_outside_default(tmp_path):
+    # The per-table loop moves rows by their `workspace` column, but the members table stores
+    # its own as `plugin_workspace`, so moving it raises today. Deferred to
+    # https://github.com/mlflow/mlflow/pull/25777 (WIP).
+    db_url = f"sqlite:///{tmp_path / 'members.db'}"
+    artifacts = tmp_path / "artifacts-members"
+    artifacts.mkdir()
+    SqlAlchemyStore(db_url, artifacts.as_uri())
+    engine = sqlalchemy.create_engine(db_url)
+    with engine.begin() as conn:
+        conn.execute(sqlalchemy.text("PRAGMA foreign_keys = OFF"))
+        _insert_plugin_member(conn, "team-a")
+
+    with pytest.raises(RuntimeError, match="agent plugin members to the default workspace"):
+        migrate_to_default_workspace(engine, dry_run=True)
+    engine.dispose()
+
+
+def test_migrate_to_default_workspace_allows_plugin_members_already_in_default(tmp_path):
+    # The guard above must key on the workspace, not on the table being non-empty.
+    db_url = f"sqlite:///{tmp_path / 'members-default.db'}"
+    artifacts = tmp_path / "artifacts-members-default"
+    artifacts.mkdir()
+    SqlAlchemyStore(db_url, artifacts.as_uri())
+    engine = sqlalchemy.create_engine(db_url)
+    with engine.begin() as conn:
+        conn.execute(sqlalchemy.text("PRAGMA foreign_keys = OFF"))
+        _insert_plugin_member(conn, DEFAULT_WORKSPACE_NAME)
+
+    migrate_to_default_workspace(engine, dry_run=True)
+    engine.dispose()
