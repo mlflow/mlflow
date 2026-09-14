@@ -436,6 +436,9 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
             renderRunName={renderRunName}
             onHideColumn={handleHideColumn}
             isGroupedBySession={controller.isGroupedBySession}
+            // Session-level aggregates (e.g. token totals) may be incomplete when off-page traces
+            // exist — suppress them for the same reason onToggleBulkRows is disabled above.
+            sessionsMayBeIncomplete={controller.isGroupedBySession && (page.hasNext || page.hasPrev)}
             onReorderColumn={columnOrder.reorderColumn}
             // Toolbar slots (built by useTracesV4ToolbarSlots) + banner slot
             searchValue={searchInput.input}

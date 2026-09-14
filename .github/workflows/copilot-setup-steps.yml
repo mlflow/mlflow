@@ -23,6 +23,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   copilot-setup-steps:
@@ -30,6 +31,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+    cache-mode: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

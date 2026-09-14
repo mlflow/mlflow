@@ -19,6 +19,7 @@ defaults:
     working-directory: docs
 
 permissions: {}
+cache-mode: none
 
 jobs:
   check-external-links:

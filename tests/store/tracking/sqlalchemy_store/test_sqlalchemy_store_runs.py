@@ -50,7 +50,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
 )
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_store import (
+    _RUN_DELETE_CASCADE_MODELS,
+    SqlAlchemyStore,
+)
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
@@ -356,6 +359,16 @@ def test_delete_run(store: SqlAlchemyStore):
         assert actual.run_uuid == deleted_run.info.run_id
 
 
+def test_run_delete_cascade_models_match_orm_relationships():
+    orm_delete_cascade_models = {
+        relationship.mapper.class_
+        for relationship in sqlalchemy.inspect(models.SqlRun).relationships
+        if "delete" in relationship.cascade
+    }
+
+    assert set(_RUN_DELETE_CASCADE_MODELS) == orm_delete_cascade_models
+
+
 def test_hard_delete_run(store: SqlAlchemyStore):
     run = _run_factory(store)
     metric = entities.Metric("blahmetric", 100.0, get_current_time_millis(), 0)
@@ -376,6 +389,38 @@ def test_hard_delete_run(store: SqlAlchemyStore):
         assert actual_param is None
         actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
         assert actual_tag is None
+        actual_latest_metric = (
+            session.query(models.SqlLatestMetric).filter_by(run_uuid=run.info.run_id).first()
+        )
+        assert actual_latest_metric is None
+
+
+def test_hard_delete_run_does_not_load_child_rows(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    store.log_metric(
+        run.info.run_id,
+        entities.Metric("metric", 1.0, get_current_time_millis(), 0),
+    )
+    store.log_param(run.info.run_id, entities.Param("param", "value"))
+    store.set_tag(run.info.run_id, entities.RunTag("tag", "value"))
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        store._hard_delete_run(run.info.run_id)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    child_tables = ("metrics", "latest_metrics", "params", "tags")
+    assert not any(
+        statement.lstrip().startswith("select") and f"from {table}" in statement
+        for statement in statements
+        for table in child_tables
+    )
 
 
 def test_get_deleted_runs(store: SqlAlchemyStore):
