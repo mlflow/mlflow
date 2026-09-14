@@ -21,29 +21,24 @@ jobs:
     if: >-
       github.event.pull_request.user.type != 'Bot' &&
       contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
-      contains(github.event.pull_request.body, 'Stacked') &&
+      contains(github.event.pull_request.body, 'stacked') &&
       !github.event.pull_request.stack
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
       pull-requests: write
     steps:
-      - id: detect
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: |
-          if printf '%s\n' "$PR_BODY" | grep -Ei '\bStacked[[:space:]]+(PRs?|on)\b' > /dev/null; then
-            echo "matched=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "matched=false" >> "$GITHUB_OUTPUT"
-          fi
       - name: Nudge
-        if: steps.detect.outputs.matched == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
+          if ! printf '%s\n' "$PR_BODY" | grep -Ei '\bStacked[[:space:]]+(PRs?|on)\b' > /dev/null; then
+            exit 0
+          fi
+
           marker='<!-- mlflow-stack-nudge -->'
           already_nudged=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json comments --jq "
             any(.comments[]; .author.login == \"github-actions\" and ((.body // \"\") | contains(\"$marker\")))
