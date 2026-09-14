@@ -407,6 +407,8 @@ from mlflow.utils.validation import (
     _validate_batch_log_api_req,
     _validate_experiment_artifact_location,
     _validate_experiment_artifact_location_length,
+    _validate_gateway_secret_auth_config,
+    _validate_gateway_secret_value,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
     invalid_value,
@@ -5983,12 +5985,16 @@ def _create_gateway_secret():
             "created_by": [_assert_string],
         },
     )
-    # Empty map means no auth_config was provided
-    auth_config = dict(request_message.auth_config) or None
+    # Empty map means no auth_config was provided. Unlike update, the store's create path
+    # persists {} and None identically (NULL), so a map that normalizes to empty is folded
+    # into None here.
+    auth_config = _validate_gateway_secret_auth_config(dict(request_message.auth_config)) or None
+    secret_value = dict(request_message.secret_value)
+    _validate_gateway_secret_value(secret_value)
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
-        secret_value=dict(request_message.secret_value),
+        secret_value=secret_value,
         provider=request_message.provider or None,
         auth_config=auth_config,
         created_by=request_message.created_by or None,
@@ -6025,11 +6031,14 @@ def _update_gateway_secret():
             "updated_by": [_assert_string],
         },
     )
-    # Empty map means no auth_config was provided
-    auth_config = dict(request_message.auth_config) or None
+    # Empty map means no auth_config was provided. A map that normalizes to empty (e.g. only
+    # a blank api_base) is an explicit clear and is passed through as {}.
+    raw_auth_config = dict(request_message.auth_config)
+    auth_config = _validate_gateway_secret_auth_config(raw_auth_config) if raw_auth_config else None
 
     # Empty map means no update to secret_value
     secret_value = dict(request_message.secret_value) or None
+    _validate_gateway_secret_value(secret_value)
 
     secret = _get_tracking_store().update_gateway_secret(
         secret_id=request_message.secret_id,
