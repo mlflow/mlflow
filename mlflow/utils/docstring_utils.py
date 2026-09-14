@@ -220,6 +220,15 @@ section of the model's conda environment (``conda.yaml``) file.
 `This example <https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py>`_ demonstrates how to specify pip requirements using
 ``pip_requirements`` and ``extra_pip_requirements``."""  # noqa: E501
     ),
+    "uv": (
+        """An optional :class:`~mlflow.utils.uv_utils.UvConfig` instance describing a
+uv project to use when capturing dependencies. When provided, MLflow runs
+``uv export`` against the specified project, uses the resulting lockfile-pinned
+requirements instead of package-capture inference, and logs
+``uv.lock``/``pyproject.toml`` alongside the model so the environment can be
+reproduced deterministically with ``uv sync``. If ``None``, standard pip-based
+requirement inference is used."""
+    ),
     "signature": (
         """an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
 class that describes the model's inputs and outputs. If not specified but an
