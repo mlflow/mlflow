@@ -675,6 +675,7 @@ async def test_claude_passthrough_uses_raw_predict_endpoint():
             "anthropic_version": "vertex-2023-10-16",
         },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
     )
     assert captured_session_headers["Authorization"] == "Bearer mock-access-token"
     assert "authorization" not in captured_session_headers
@@ -757,6 +758,7 @@ async def test_claude_proxy_maps_messages_path_to_raw_predict(path):
             "anthropic_version": "vertex-2023-10-16",
         },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
     )
 
 
@@ -899,6 +901,7 @@ async def test_maas_passthrough_uses_openapi_endpoint():
             "messages": [{"role": "user", "content": "Hello"}],
         },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
     )
 
 
