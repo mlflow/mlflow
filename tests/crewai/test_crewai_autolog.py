@@ -799,6 +799,8 @@ def test_sanitize_value_drops_credential_keys_but_keeps_llm_config():
         "client_secret": "c",
         "password": "d",
         "auth_token": "e",
+        "accessToken": "g",
+        "refreshToken": "h",
         "max_tokens": 10,
         "tokenizer": "tiktoken",
         "nested": [{"apiKey": "f", "model": "gpt"}],
@@ -815,9 +817,14 @@ def test_sanitize_value_drops_credential_keys_but_keeps_llm_config():
     ("key", "expected_calls"),
     [
         ("auth_token", 0),
+        ("accessToken", 0),
+        ("BearerToken", 0),
+        ("TOKEN", 0),
         ("client_secret", 0),
         ("api_key", 0),
+        ("apiKey", 0),
         ("max_tokens", 1),
+        ("tokenizer", 1),
         ("model", 1),
     ],
 )

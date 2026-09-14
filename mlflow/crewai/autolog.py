@@ -18,10 +18,12 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
 
-# Matches credential-like keys such as `api_key`, `client_secret`, or `auth_token`, but not
-# `max_tokens` / `tokenizer`, which are legitimate LLM configuration.
+# Matches credential-like keys such as `api_key`, `client_secret`, `auth_token`, or
+# `accessToken`, but not `max_tokens` / `tokenizer`, which are legitimate LLM configuration.
 _SENSITIVE_KEY_PATTERN = re.compile(
-    r"api_?key|secret|password|(?<![a-z])token(?![a-z])", re.IGNORECASE
+    r"(?i:api_?key|secret|password)"  # anywhere in the key
+    r"|(?<![A-Za-z])(?i:token)(?![a-z])"  # snake_case / standalone `token`
+    r"|(?<=[a-z])Token(?![a-z])"  # camelCase `accessToken`
 )
 
 
