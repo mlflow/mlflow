@@ -156,6 +156,18 @@ def _select_executor() -> AbstractJobExecutor:
     return get_executor_registry().get(backend)
 
 
+def _job_backend_mismatch(job: Job, active_backend: str) -> bool:
+    """Whether ``job`` was assigned an executor backend this runner does not serve.
+
+    The runner serves one backend at a time (``active_backend``). If a job was submitted against a
+    different backend, running it here would silently reroute it, so callers fail it closed
+    instead. ``executor_backend`` is unset (None) on every job until per-job backend persistence
+    lands, so this is inert today; it exists so the persisted backend becomes authoritative the
+    moment jobs start recording it.
+    """
+    return job.executor_backend is not None and job.executor_backend != active_backend
+
+
 def _build_execution_context(job: Job) -> JobExecutionContext:
     workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
     # Jobs get the backend store URI (the DB), not MLFLOW_TRACKING_URI. The runner is launched with
@@ -223,9 +235,9 @@ def _record_result(
     elif result.is_transient_error:
         # A transient error resets the job to PENDING (non-terminal) so a later poll can
         # re-claim it, so this cannot go through report_job_result. Release the exclusivity lock
-        # first: a re-pended PENDING row whose lock is still held would strand any replica that
-        # re-claims it (its acquire raises on the same job_id). If release fails, do not re-pend --
-        # leave the row for recovery.
+        # first so the re-pended PENDING row does not keep holding it: the row is then cleanly
+        # re-claimable and the re-claiming run acquires the lock fresh (a full staleness budget).
+        # If release fails, do not re-pend -- leave the row for recovery.
         if on_transient_release is not None and not on_transient_release():
             _logger.error(
                 "Could not release exclusive lock before retrying job %s; leaving it for recovery",
@@ -531,6 +543,20 @@ class _JobScheduler:
                         # A concurrent worker claimed it first, or its status changed.
                         sem.release()
                         continue
+                    active_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+                    if _job_backend_mismatch(job, active_backend):
+                        # Fail closed rather than run the job on a backend it was not submitted to.
+                        # This also subsumes the cancellation case: a mismatched job is failed here
+                        # before any backend work is submitted, so there is nothing to route a
+                        # cancel to. (Inert today; executor_backend is always None.)
+                        sem.release()
+                        self._fail_claimed_job(
+                            job.job_id,
+                            workspace,
+                            f"Job was submitted to executor backend {job.executor_backend!r} but "
+                            f"this runner serves {active_backend!r}.",
+                        )
+                        continue
                     # Acquire the exclusive lock AFTER claiming, so the lock always references a
                     # RUNNING job. A lock on a still-PENDING job is treated as stale (and stealable)
                     # by other replicas, so acquiring before the claim would let a second same-key
@@ -722,6 +748,10 @@ class _JobScheduler:
                 # running and its monitoring is now untrustworthy. Do NOT fail-and-release (a
                 # same-key job could then start alongside it). Mark NEEDS_RECOVERY and keep the
                 # lock; backend recovery later confirms termination and decides requeue/fail.
+                # If the mark itself fails (a store hiccup), _mark_needs_recovery swallows it and
+                # the row stays RUNNING holding its lock: that is safe here -- startup recovery
+                # re-claims RUNNING orphans and reacquires the preserved lock, and the lock self-
+                # heals via staleness in the meantime, so exclusivity is never permanently wedged.
                 needs_recovery = True
                 _logger.error(
                     "Job %s (%s) monitoring failed after submission: %r; marking NEEDS_RECOVERY",
@@ -743,6 +773,13 @@ class _JobScheduler:
                 )
                 self._fail_claimed_job(job.job_id, workspace, repr(exc))
         finally:
+            # Back off BEFORE removing the job from _in_flight on a transient retry: while the job
+            # is in _in_flight the claim loop's already_in_flight guard keeps the re-pended PENDING
+            # row unclaimable, so a free slot cannot re-claim it mid-backoff and skip the retry
+            # delay (matters for job types with max_workers > 1). The exclusive lock was already
+            # released at the re-pend, so backing off here does not hold it.
+            if retry_count is not None:
+                _backoff_after_transient_retry(retry_count)
             with self._in_flight_lock:
                 handle = self._in_flight.pop(job.job_id, None)
             # Release the exclusive lock so a later same-key job can run -- EXCEPT when the job is
@@ -750,9 +787,6 @@ class _JobScheduler:
             # confirming termination) or it was already released at the transient re-pend above.
             if handle is not None and not needs_recovery and not lock_released:
                 self._release_lock(handle.job_lock)
-            # Back off only this replica's slot for a transient retry; the lock is already released.
-            if retry_count is not None:
-                _backoff_after_transient_retry(retry_count)
             sem.release()
 
     def _mark_needs_recovery(self, job_id: str, workspace: str | None) -> None:
@@ -833,7 +867,7 @@ def run_executor_loop(
     # store error here must not crash the runner (same reasoning as the tick loop below): log it
     # and proceed to claim PENDING jobs; the next launch's recovery retries the reset.
     try:
-        _recover_orphaned_executor_jobs(job_store)
+        _recover_orphaned_executor_jobs(job_store, executor)
     except Exception:
         _logger.exception("Executor job recovery failed at startup; continuing.")
     scheduler = _JobScheduler(job_store, executor, lease_duration)
@@ -857,12 +891,21 @@ def run_executor_loop(
         scheduler.mark_orphans_for_recovery()
 
 
-def _recover_orphaned_executor_jobs(job_store: AbstractJobStore) -> None:
-    """Reset jobs left unfinished by a previous server generation back to PENDING.
+def _recover_orphaned_executor_jobs(
+    job_store: AbstractJobStore, executor: AbstractJobExecutor
+) -> None:
+    """Recover jobs left unfinished by a previous server generation.
 
     Only jobs created before this server launch are touched, so it never races jobs submitted to
-    the running server. Unlike the Huey recovery path there is nothing to re-enqueue: the scheduler
-    claims PENDING jobs on its next tick.
+    the running server. Each job is put to the executor via ``recover_jobs`` and the returned
+    action is honored: ``requeue`` resets it to PENDING for the scheduler to re-claim, ``fail``
+    marks it FAILED, and ``reattach`` leaves it RUNNING because the executor is still monitoring it.
+
+    NOTE: with the in-tree ``LocalJobExecutor`` this always resolves to ``requeue`` (its only
+    action), and its kill/reap step is a no-op here because a fresh runner has no in-memory record
+    of the previous generation's subprocesses. So today the effect is the same reset-to-PENDING as
+    before; the call is routed through the executor so a remote executor (a follow-up) can reattach
+    to still-running work or fail it instead of blindly requeuing.
 
     This is the single-instance crash/restart recovery. Reclaiming a job whose lease expires while
     the runner is still live (a wedged worker, or another replica's jobs) is a follow-up that the
@@ -886,20 +929,71 @@ def _recover_orphaned_executor_jobs(job_store: AbstractJobStore) -> None:
         )
         return
 
-    def _reset(job: Job, _workspace: str | None) -> None:
-        # Do NOT clear the job's exclusivity lock here. Startup must not delete lock rows: in a
-        # rolling restart another replica may still be protecting active work under the same key.
-        # A lock left by a crashed holder is reclaimed through normal acquisition instead -- it
-        # points to a job that is terminal or goes stale once its timeout + grace window elapses.
-        try:
-            job_store.reset_job(job.job_id)
-            _logger.info("Recovered orphaned job %s (%s) to PENDING", job.job_id, job.job_name)
-        except Exception:
-            _logger.exception("Failed to recover orphaned job %s", job.job_id)
-
+    # Collect the orphaned jobs first, keeping each job's workspace so the store transitions below
+    # run in the right workspace context. recover_jobs itself is workspace-agnostic (it acts on
+    # backend job ids), so it is called once for all of them.
+    orphaned: list[tuple[Job, str | None]] = []
     _for_each_unfinished_job(
-        job_store, [JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY], launch_ts, _reset
+        job_store,
+        [JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY],
+        launch_ts,
+        lambda job, workspace: orphaned.append((job, workspace)),
     )
+    if not orphaned:
+        return
+
+    try:
+        recovery_by_id = {
+            result.job_id: result
+            for result in executor.recover_jobs([job.job_id for job, _ in orphaned])
+        }
+    except Exception:
+        # A failure asking the executor how to recover must not strand every orphan. Fall back to
+        # requeue (the reset-to-PENDING the runner did before recovery routed through the executor)
+        # so the scheduler re-claims them on a later tick.
+        _logger.exception("executor.recover_jobs failed; requeuing all orphaned jobs")
+        recovery_by_id = {}
+    active_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+
+    for job, workspace in orphaned:
+        result = recovery_by_id.get(job.job_id)
+        action = result.action if result is not None else "requeue"
+        with ServerWorkspaceContext(workspace):
+            # Do NOT clear the job's exclusivity lock here. Startup must not delete lock rows: in a
+            # rolling restart another replica may still be protecting active work under the same
+            # key. A lock left by a crashed holder is reclaimed through normal acquisition instead;
+            # a recovered job reacquires its own preserved lock when it is re-claimed.
+            try:
+                if _job_backend_mismatch(job, active_backend):
+                    # Fail closed rather than requeue onto a backend the job was not submitted to.
+                    # (Inert today; executor_backend is always None.)
+                    job_store.fail_job(
+                        job.job_id,
+                        f"Job was submitted to executor backend {job.executor_backend!r} but this "
+                        f"runner serves {active_backend!r}.",
+                    )
+                elif action == "fail":
+                    job_store.fail_job(
+                        job.job_id,
+                        result.error_message or "Executor could not recover the job.",
+                    )
+                elif action == "reattach":
+                    # Reattach means the executor is still monitoring the job, but this runner does
+                    # not yet re-establish monitoring (no in-flight entry, no lease renewer) and
+                    # there is no live lease-based recovery. No in-tree executor returns reattach
+                    # today; fail loudly so whoever adds a remote executor that does must wire up
+                    # monitoring here rather than silently leaving a RUNNING job unmonitored.
+                    raise NotImplementedError(
+                        "reattach recovery is not implemented yet; the runner cannot resume "
+                        f"monitoring job {job.job_id}."
+                    )
+                else:  # "requeue"
+                    job_store.reset_job(job.job_id)
+                    _logger.info(
+                        "Recovered orphaned job %s (%s) to PENDING", job.job_id, job.job_name
+                    )
+            except Exception:
+                _logger.exception("Failed to recover orphaned job %s", job.job_id)
 
 
 def main() -> None:

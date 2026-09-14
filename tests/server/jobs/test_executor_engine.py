@@ -3,6 +3,7 @@ import os
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -14,7 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
 from mlflow.server.jobs import _ALLOWED_JOB_NAME_LIST, _SUPPORTED_JOB_FUNCTION_LIST, job, submit_job
 from mlflow.server.jobs import _executor_runner as runner
-from mlflow.server.jobs.executor import JobExecutorConfig, JobResult
+from mlflow.server.jobs.executor import JobExecutorConfig, JobRecoveryResult, JobResult
 from mlflow.server.jobs.executor_registry import shutdown_executor_registry
 from mlflow.server.jobs.local_executor import LocalJobExecutor
 from mlflow.server.jobs.utils import (
@@ -233,6 +234,9 @@ class _BlockingExecutor:
             self.canceled.append(job_id)
         self._release.set()
 
+    def recover_jobs(self, ids):
+        return [JobRecoveryResult(job_id=job_id, action="requeue") for job_id in ids]
+
     def wait_until_submitted(self, count=1, timeout=10.0):
         # Workers submit from their own threads, so tests wait for the jobs to actually reach the
         # executor before inspecting or cancelling them, rather than racing the workers.
@@ -365,7 +369,7 @@ def test_exclusive_lock_namespaced_by_workspace(registered_jobs, tmp_path, execu
         assert store.get_job(jb.job_id).status == JobStatus.SUCCEEDED
 
 
-def test_startup_recovery_does_not_clear_lock(registered_jobs, job_store, monkeypatch):
+def test_startup_recovery_does_not_clear_lock(registered_jobs, job_store, executor, monkeypatch):
     # RFC 0002: startup recovery must NOT delete lock rows -- during a rolling restart another
     # replica may still be protecting active work under the same key. The orphan is reset to
     # PENDING, but its lock row remains; normal acquisition reclaims it later via staleness.
@@ -380,7 +384,7 @@ def test_startup_recovery_does_not_clear_lock(registered_jobs, job_store, monkey
     JobLockManager(job_store).acquire_exclusive_lock(lock_key, orphan.job_id)
     monkeypatch.setenv("_MLFLOW_SERVER_UP_TIME", str(orphan.creation_time))
 
-    runner._recover_orphaned_executor_jobs(job_store)
+    runner._recover_orphaned_executor_jobs(job_store, executor)
 
     assert job_store.get_job(orphan.job_id).status == JobStatus.PENDING
     with job_store.ManagedSessionMaker(read_only=True) as session:
@@ -708,7 +712,7 @@ def test_build_execution_context_uses_backend_store_uri(monkeypatch, registered_
 
 @pytest.mark.parametrize("orphan_status", [JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY])
 def test_recover_orphaned_executor_jobs_resets_to_pending(
-    registered_jobs, job_store, monkeypatch, orphan_status
+    registered_jobs, job_store, executor, monkeypatch, orphan_status
 ):
     # A job left RUNNING or NEEDS_RECOVERY by a previous server generation (created at/before this
     # launch) is reset to PENDING so the scheduler re-claims it, while a RUNNING job created after
@@ -727,14 +731,14 @@ def test_recover_orphaned_executor_jobs_resets_to_pending(
     job_store.claim_job(new.job_id, lease_duration=60.0)
     assert job_store.get_job(new.job_id).creation_time > launch_ts
 
-    runner._recover_orphaned_executor_jobs(job_store)
+    runner._recover_orphaned_executor_jobs(job_store, executor)
 
     assert job_store.get_job(old.job_id).status == JobStatus.PENDING
     assert job_store.get_job(new.job_id).status == JobStatus.RUNNING
 
 
 def test_recover_orphaned_executor_jobs_skips_without_launch_time(
-    registered_jobs, job_store, monkeypatch
+    registered_jobs, job_store, executor, monkeypatch
 ):
     # Without a recorded launch time, recovery cannot bound itself to the previous generation, so
     # it must skip rather than risk resetting freshly submitted jobs.
@@ -742,9 +746,96 @@ def test_recover_orphaned_executor_jobs_skips_without_launch_time(
     job_store.claim_job(created.job_id, lease_duration=60.0)
     monkeypatch.delenv("_MLFLOW_SERVER_UP_TIME", raising=False)
 
-    runner._recover_orphaned_executor_jobs(job_store)
+    runner._recover_orphaned_executor_jobs(job_store, executor)
 
     assert job_store.get_job(created.job_id).status == JobStatus.RUNNING
+
+
+def test_recover_orphaned_executor_jobs_honors_executor_actions(
+    registered_jobs, job_store, monkeypatch
+):
+    # Recovery routes each orphan through executor.recover_jobs and honors the returned action:
+    # "fail" marks the job FAILED, "reattach" leaves it RUNNING (the executor still monitors it).
+    # LocalJobExecutor only ever returns "requeue"; this uses a stub to cover the other actions.
+    to_fail = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    to_reattach = job_store.create_job("executor_engine_add", json.dumps({"x": 3, "y": 4}))
+    for orphan in (to_fail, to_reattach):
+        job_store.claim_job(orphan.job_id, lease_duration=60.0)
+    launch_ts = max(job_store.get_job(j.job_id).creation_time for j in (to_fail, to_reattach))
+    monkeypatch.setenv("_MLFLOW_SERVER_UP_TIME", str(launch_ts))
+
+    class _ActionExecutor:
+        config = JobExecutorConfig(default_timeout=60.0)
+
+        def start_executor(self): ...
+
+        def stop_executor(self): ...
+
+        def submit_job(self, **kwargs): ...
+
+        def wait_for_job(self, job_id): ...
+
+        def cancel_job(self, job_id): ...
+
+        def recover_jobs(self, ids):
+            return [
+                JobRecoveryResult(job_id=to_fail.job_id, action="fail", error_message="gone"),
+                JobRecoveryResult(job_id=to_reattach.job_id, action="reattach"),
+            ]
+
+    runner._recover_orphaned_executor_jobs(job_store, _ActionExecutor())
+
+    assert job_store.get_job(to_fail.job_id).status == JobStatus.FAILED
+    assert job_store.get_job(to_reattach.job_id).status == JobStatus.RUNNING
+
+
+def test_job_backend_mismatch_helper():
+    # Inert today (executor_backend is always None), so an unset backend never mismatches; a set
+    # backend mismatches only when it differs from the active one.
+    assert runner._job_backend_mismatch(SimpleNamespace(executor_backend=None), "local") is False
+    assert runner._job_backend_mismatch(SimpleNamespace(executor_backend="local"), "local") is False
+    assert runner._job_backend_mismatch(SimpleNamespace(executor_backend="other"), "local") is True
+
+
+def test_scheduler_fails_job_with_mismatched_backend_on_claim(registered_jobs, job_store, executor):
+    # A PENDING job persisted with an executor_backend the runner does not serve is failed closed
+    # at claim rather than run on the wrong backend. executor_backend is unset by create_job today,
+    # so the mismatch is injected directly to exercise the guard.
+    from mlflow.store.tracking.dbmodels.models import SqlJob
+
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    with job_store.ManagedSessionMaker() as session:
+        session.query(SqlJob).filter(SqlJob.id == created.job_id).update({
+            SqlJob.executor_backend: "some-other-backend"
+        })
+
+    scheduler = runner._JobScheduler(job_store, executor, lease_duration=60.0)
+    scheduler.tick()
+    scheduler.join(timeout=30.0)
+
+    assert job_store.get_job(created.job_id).status == JobStatus.FAILED
+
+
+def test_recover_orphaned_executor_jobs_fails_backend_mismatch(
+    registered_jobs, job_store, executor, monkeypatch
+):
+    # On recovery, an orphan persisted with a backend the runner does not serve is failed closed
+    # rather than requeued onto the wrong backend. Mismatch injected directly (see above).
+    from mlflow.store.tracking.dbmodels.models import SqlJob
+
+    orphan = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(orphan.job_id, lease_duration=60.0)
+    with job_store.ManagedSessionMaker() as session:
+        session.query(SqlJob).filter(SqlJob.id == orphan.job_id).update({
+            SqlJob.executor_backend: "some-other-backend"
+        })
+    monkeypatch.setenv(
+        "_MLFLOW_SERVER_UP_TIME", str(job_store.get_job(orphan.job_id).creation_time)
+    )
+
+    runner._recover_orphaned_executor_jobs(job_store, executor)
+
+    assert job_store.get_job(orphan.job_id).status == JobStatus.FAILED
 
 
 def test_fail_claimed_job_retries_once_on_transient_store_error(registered_jobs):
