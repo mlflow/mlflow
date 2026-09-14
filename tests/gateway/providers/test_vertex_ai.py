@@ -124,6 +124,29 @@ def test_claude_passthrough_headers_without_anthropic_beta_are_unchanged():
     assert merged == {"Authorization": "Bearer mock-access-token", "x-request-id": "req-1"}
 
 
+@pytest.mark.asyncio
+async def test_claude_passthrough_request_omits_filtered_anthropic_beta():
+    provider = _make_claude_provider(vertex_anthropic_betas=["web-search-2025-03-05"])
+    captured_session_headers = {}
+    mock_client = mock_http_client(MockAsyncResponse(_claude_chat_response()))
+
+    def mock_client_session(headers=None, **kwargs):
+        captured_session_headers.update(headers or {})
+        return mock_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            _claude_passthrough_payload(),
+            headers={"anthropic-beta": "advisor-tool-2026-03-01", "x-request-id": "req-1"},
+        )
+
+    mock_client.post.assert_called_once()
+    assert "anthropic-beta" not in captured_session_headers
+    assert captured_session_headers["x-request-id"] == "req-1"
+    assert captured_session_headers["Authorization"] == "Bearer mock-access-token"
+
+
 def test_name():
     provider = _make_provider()
     assert provider.DISPLAY_NAME == "Vertex AI"
