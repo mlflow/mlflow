@@ -19,6 +19,7 @@ concurrency:
 jobs:
   nudge:
     if: >-
+      github.event.pull_request.state == 'open' &&
       github.event.pull_request.user.type != 'Bot' &&
       contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
       contains(github.event.pull_request.body, '🥞 Stacked PR') &&
@@ -39,6 +40,7 @@ jobs:
             any(.comments[]; .author.login == \"github-actions\" and ((.body // \"\") | contains(\"$marker\")))
           ")
           if [[ "$already_nudged" == true ]]; then
+            echo "Stack Nudge comment already exists; skipping."
             exit 0
           fi
 
