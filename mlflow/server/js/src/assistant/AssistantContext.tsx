@@ -313,8 +313,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     persistedChat.conversationHistory ?? null,
   );
   const conversationHistoryRef = useRef<string | null>(persistedChat.conversationHistory ?? null);
-  const conversationHistoryBeforeLastTurnRef = useRef<string | null>(
-    persistedChat.conversationHistoryBeforeLastTurn ?? null,
+  // `undefined` means a restored legacy payload has no safe regenerate checkpoint. `null` is a
+  // valid checkpoint for the first turn of a new conversation.
+  const conversationHistoryBeforeLastTurnRef = useRef<string | null | undefined>(
+    persistedChat.conversationHistoryBeforeLastTurn,
   );
   const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
   const [isStreaming, setIsStreaming] = useState(false);
@@ -895,7 +897,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     }
     setSessionId(null);
     conversationHistoryRef.current = null;
-    conversationHistoryBeforeLastTurnRef.current = null;
+    conversationHistoryBeforeLastTurnRef.current = undefined;
     statelessTurnContextRef.current = null;
     setConversationHistory(null);
     setMessages([]);
@@ -909,7 +911,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       messages: [],
       tokenUsage: EMPTY_TOKEN_USAGE,
       conversationHistory: null,
-      conversationHistoryBeforeLastTurn: null,
+      conversationHistoryBeforeLastTurn: undefined,
     });
     openTextBufferRef.current = '';
     setPendingPermission(null);
@@ -1350,6 +1352,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     if (lastUserMessageIndex === -1) {
       return; // No user message to regenerate from
     }
+    const historyBeforeTurn = conversationHistoryBeforeLastTurnRef.current;
+    if (clientCarriesHistory && historyBeforeTurn === undefined) {
+      // Older persisted chats have current history but no pre-turn checkpoint. Replaying from an
+      // empty history would silently fork the model context from the restored transcript.
+      return;
+    }
 
     structuredRepairAttemptsRef.current = 0;
     const isCurrent = beginRequest();
@@ -1398,10 +1406,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       const turnContext = { ...pageContext };
       structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
       const callbacks = withGuard(isCurrent, streamCallbacks);
-      const historyBeforeTurn = conversationHistoryBeforeLastTurnRef.current;
       if (clientCarriesHistory) {
-        conversationHistoryRef.current = historyBeforeTurn;
-        setConversationHistory(historyBeforeTurn);
+        conversationHistoryRef.current = historyBeforeTurn ?? null;
+        setConversationHistory(historyBeforeTurn ?? null);
         statelessTurnContextRef.current = {
           context: turnContext,
           experimentId: turnContext['experimentId'] as string | undefined,

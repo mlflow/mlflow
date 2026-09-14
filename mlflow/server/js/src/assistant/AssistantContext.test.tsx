@@ -1595,6 +1595,30 @@ describe('AssistantContext — provider-selected transport', () => {
     );
   });
 
+  it('does not regenerate restored stateless history when no pre-turn checkpoint exists', async () => {
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({
+        messages: [
+          makeMessage({ id: 'question', content: 'restored question' }),
+          makeMessage({ id: 'answer', role: 'assistant', content: 'restored answer' }),
+        ],
+        tokenUsage: EMPTY_TOKEN_USAGE,
+        conversationHistory: '[RESTORED_WITHOUT_CHECKPOINT]',
+      }),
+    );
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+
+    await act(async () => result.current.regenerateLastMessage());
+
+    expect(mockStreamChatViaFetch).not.toHaveBeenCalled();
+    expect(result.current.messages.map((message) => message.content)).toEqual(['restored question', 'restored answer']);
+  });
+
   it('clears provider-owned conversation state when switching providers', async () => {
     mockGetProviders.mockResolvedValue({
       providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
