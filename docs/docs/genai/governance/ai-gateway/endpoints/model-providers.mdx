@@ -212,7 +212,7 @@ Vertex AI validates the `anthropic-beta` header against the betas it supports, w
 - An empty list: the header is dropped.
 - A list of values, for example `["web-search-2025-03-05"]`: only those values are kept, and the header is dropped if none remain.
 
-The option is part of the model's Vertex AI configuration (`auth_config` when the model definition is created through the API), alongside `vertex_project` and `vertex_location`.
+The option is part of the model's Vertex AI configuration, alongside `vertex_project` and `vertex_location`. Through the API, `auth_config` values are strings, so pass the betas as a comma-separated string such as `"web-search-2025-03-05,interleaved-thinking-2025-05-14"`; an empty string drops the header.
 
 ### Azure OpenAI
 

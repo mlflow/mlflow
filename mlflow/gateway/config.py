@@ -327,6 +327,14 @@ class VertexAIConfig(ConfigModel):
     # header unchanged, an empty list drops it, and a non-empty list keeps only those values.
     vertex_anthropic_betas: list[str] | None = None
 
+    @field_validator("vertex_anthropic_betas", mode="before")
+    def validate_vertex_anthropic_betas(cls, value):
+        # The server API delivers auth_config values as strings, so accept the list as a
+        # comma-separated string too; "" drops the header.
+        if isinstance(value, str):
+            return [beta for beta in map(str.strip, value.split(",")) if beta]
+        return value
+
 
 class LiteLLMConfig(ConfigModel):
     litellm_provider: str | None = None

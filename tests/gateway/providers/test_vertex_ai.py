@@ -373,9 +373,23 @@ def test_basic_config():
     assert config.vertex_anthropic_betas is None
 
 
-def test_anthropic_betas_config():
-    config = VertexAIConfig(vertex_project="my-project", vertex_anthropic_betas=[])
-    assert config.vertex_anthropic_betas == []
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ([], []),
+        (["web-search-2025-03-05"], ["web-search-2025-03-05"]),
+        ("", []),
+        (
+            "web-search-2025-03-05, interleaved-thinking-2025-05-14",
+            ["web-search-2025-03-05", "interleaved-thinking-2025-05-14"],
+        ),
+    ],
+)
+def test_anthropic_betas_config(value, expected):
+    # auth_config is a string map on the server API, so the list also comes in as a
+    # comma-separated string.
+    config = VertexAIConfig(vertex_project="my-project", vertex_anthropic_betas=value)
+    assert config.vertex_anthropic_betas == expected
 
 
 def test_custom_location():
