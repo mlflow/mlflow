@@ -61,3 +61,19 @@ export interface PromptModelConfigFormData {
   presencePenalty?: string;
   stopSequences?: string;
 }
+
+export type SchemaPropertyType = 'string' | 'number' | 'integer' | 'boolean' | 'enum';
+
+/**
+ * A single field in the visual (field-by-field) JSON schema editor for structured output.
+ */
+export interface SchemaProperty {
+  // Local id for React key / lookups, not part of the emitted schema
+  id: string;
+  name: string;
+  type: SchemaPropertyType;
+  isArray: boolean;
+  required: boolean;
+  // Only used when type === 'enum'; emitted as the JSON schema `enum` keyword
+  enumValues: string[];
+}

@@ -6,8 +6,10 @@ import {
   getModelConfigFromTags,
   getResponseFormatFromTags,
   validateResponseFormatJson,
+  jsonSchemaToProperties,
+  propertiesToJsonSchema,
 } from './utils';
-import type { PromptModelConfig, PromptModelConfigFormData } from './types';
+import type { PromptModelConfig, PromptModelConfigFormData, SchemaProperty } from './types';
 
 describe('Model Config Utils', () => {
   describe('formDataToModelConfig', () => {
@@ -272,6 +274,167 @@ describe('Response format (structured output) utils', () => {
         valid: false,
         error: 'Structured output must be a JSON object (e.g. a JSON schema).',
       });
+    });
+  });
+});
+
+describe('Schema builder utils', () => {
+  const schema = {
+    type: 'object',
+    properties: {
+      name: { type: 'string' },
+      tags: { type: 'array', items: { type: 'string' } },
+      priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+    },
+    required: ['name'],
+  };
+
+  describe('jsonSchemaToProperties', () => {
+    test('returns an empty array for an empty string', () => {
+      expect(jsonSchemaToProperties('')).toEqual([]);
+    });
+
+    test('returns an empty array for invalid JSON without throwing', () => {
+      expect(() => jsonSchemaToProperties('{ broken')).not.toThrow();
+      expect(jsonSchemaToProperties('{ broken')).toEqual([]);
+    });
+
+    test('preserves property ordering from propertyOrdering when present, for backwards compatibility', () => {
+      const schemaWithCustomOrdering = {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          tags: { type: 'array', items: { type: 'string' } },
+          priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+        },
+        propertyOrdering: ['priority', 'name', 'tags'],
+        required: ['name'],
+      };
+
+      const properties = jsonSchemaToProperties(JSON.stringify(schemaWithCustomOrdering));
+      expect(properties.map((p) => p.name)).toEqual(['priority', 'name', 'tags']);
+    });
+
+    test('ignores `required` entries with no matching property', () => {
+      const withGhost = JSON.stringify({
+        type: 'object',
+        properties: { name: { type: 'string' } },
+        required: ['name', 'ghost'],
+      });
+
+      const result = JSON.parse(propertiesToJsonSchema(jsonSchemaToProperties(withGhost)));
+
+      expect(result.required).toEqual(['name']);
+    });
+
+    test('falls back to string for types the visual editor does not support', () => {
+      const withUnsupportedType = JSON.stringify({
+        type: 'object',
+        properties: { meta: { type: 'object' }, count: { type: 'integer' } },
+      });
+
+      const properties = jsonSchemaToProperties(withUnsupportedType);
+
+      expect(properties.map((p) => [p.name, p.type])).toEqual([
+        ['meta', 'string'],
+        ['count', 'integer'],
+      ]);
+    });
+  });
+
+  describe('propertiesToJsonSchema', () => {
+    test('skips properties with an empty name', () => {
+      const properties: SchemaProperty[] = [
+        { id: '1', name: '', type: 'string', isArray: false, required: false, enumValues: [] },
+        { id: '2', name: 'valid', type: 'string', isArray: false, required: false, enumValues: [] },
+      ];
+
+      const result = JSON.parse(propertiesToJsonSchema(properties));
+
+      expect(result.properties).toEqual({ valid: { type: 'string' } });
+    });
+
+    test('filters out empty enum values', () => {
+      const properties: SchemaProperty[] = [
+        { id: '1', name: 'priority', type: 'enum', isArray: false, required: false, enumValues: ['low', 'medium', ''] },
+      ];
+
+      const result = JSON.parse(propertiesToJsonSchema(properties));
+
+      expect(result.properties.priority).toEqual({ type: 'string', enum: ['low', 'medium'] });
+    });
+
+    test('deduplicates enum values while preserving order', () => {
+      const properties: SchemaProperty[] = [
+        {
+          id: '1',
+          name: 'priority',
+          type: 'enum',
+          isArray: false,
+          required: false,
+          enumValues: ['low', 'medium', 'low', 'high', 'medium'],
+        },
+      ];
+
+      const result = JSON.parse(propertiesToJsonSchema(properties));
+
+      expect(result.properties.priority).toEqual({ type: 'string', enum: ['low', 'medium', 'high'] });
+    });
+
+    test('omits the enum keyword when no non-empty values remain', () => {
+      const properties: SchemaProperty[] = [
+        { id: '1', name: 'priority', type: 'enum', isArray: false, required: false, enumValues: ['', '  '] },
+      ];
+
+      const result = JSON.parse(propertiesToJsonSchema(properties));
+
+      expect(result.properties.priority).toEqual({ type: 'string' });
+    });
+
+    test('emits an array of enum values as an array with enum on the items', () => {
+      const properties: SchemaProperty[] = [
+        {
+          id: '1',
+          name: 'tags',
+          type: 'enum',
+          isArray: true,
+          required: false,
+          enumValues: ['low', 'medium', 'high'],
+        },
+      ];
+
+      const result = JSON.parse(propertiesToJsonSchema(properties));
+
+      expect(result.properties.tags).toEqual({
+        type: 'array',
+        items: { type: 'string', enum: ['low', 'medium', 'high'] },
+      });
+    });
+
+    test('omits the required key when no property is marked required', () => {
+      const properties: SchemaProperty[] = [
+        { id: '1', name: 'name', type: 'string', isArray: false, required: false, enumValues: [] },
+      ];
+
+      const result = JSON.parse(propertiesToJsonSchema(properties));
+
+      expect(result).not.toHaveProperty('required');
+    });
+  });
+
+  describe('jsonSchemaToProperties / propertiesToJsonSchema round-trip', () => {
+    test('produces an equivalent schema', () => {
+      const properties = jsonSchemaToProperties(JSON.stringify(schema));
+      const result = JSON.parse(propertiesToJsonSchema(properties));
+
+      expect(result).toEqual(schema);
+    });
+
+    test('preserves field order', () => {
+      const properties = jsonSchemaToProperties(JSON.stringify(schema));
+      const result = JSON.parse(propertiesToJsonSchema(properties));
+
+      expect(Object.keys(result.properties)).toEqual(['name', 'tags', 'priority']);
     });
   });
 });
