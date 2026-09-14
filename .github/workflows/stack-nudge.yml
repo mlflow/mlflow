@@ -33,12 +33,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          if ! printf '%s\n' "$PR_BODY" | grep -F '🥞 Stacked PR' > /dev/null; then
-            exit 0
-          fi
-
           marker='<!-- mlflow-stack-nudge -->'
           already_nudged=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json comments --jq "
             any(.comments[]; .author.login == \"github-actions\" and ((.body // \"\") | contains(\"$marker\")))
