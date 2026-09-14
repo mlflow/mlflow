@@ -6,8 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from mlflow.assistant.config import PermissionsConfig, ProviderConfig
 from mlflow.assistant.providers.base import NotAuthenticatedError
 from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
+from mlflow.assistant.providers.tool_executor import set_remote_caller
 from mlflow.assistant.types import EventType
 
 
@@ -192,6 +194,47 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
         call_args[i + 1] for i, arg in enumerate(call_args) if arg == "--allowed-tools"
     ]
     assert "Skill" in allowed_tools
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("remote", "bypass_expected"),
+    [(False, True), (True, False)],
+    ids=["local_keeps_full_access", "remote_dropped"],
+)
+async def test_astream_remote_caller_drops_bypass_permissions(tmp_path, remote, bypass_expected):
+    # A config-granted full_access unlocks bypassPermissions for a local caller, but is clamped
+    # away for a remote caller so it cannot bypass the CLI's permission checks.
+    captured = {}
+
+    def _capture(cmd, **kwargs):
+        captured["argv"] = cmd
+        return _mock_process(stdout_lines=[b'{"type": "result"}\n'])
+
+    set_remote_caller(remote)
+    try:
+        with (
+            patch(
+                "mlflow.assistant.providers.claude_code.shutil.which",
+                return_value="/usr/bin/claude",
+            ),
+            patch(
+                "mlflow.assistant.providers.claude_code.load_config_or_default",
+                return_value=ProviderConfig(
+                    model="x", permissions=PermissionsConfig(full_access=True)
+                ),
+            ),
+            patch(
+                "mlflow.assistant.providers.claude_code.SubprocessLineStream",
+                side_effect=_capture,
+            ),
+        ):
+            provider = ClaudeCodeProvider()
+            _ = [e async for e in provider.astream("hi", "http://localhost:5000", cwd=tmp_path)]
+    finally:
+        set_remote_caller(False)
+
+    assert ("bypassPermissions" in captured["argv"]) is bypass_expected
 
 
 @pytest.mark.asyncio

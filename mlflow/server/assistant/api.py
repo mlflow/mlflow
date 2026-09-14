@@ -37,8 +37,10 @@ from mlflow.assistant.providers.base import (
     CLINotInstalledError,
     NotAuthenticatedError,
     ProviderNotConfiguredError,
+    assistant_sandbox_enabled,
     clear_config_cache,
 )
+from mlflow.assistant.providers.tool_executor import set_remote_caller
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
@@ -110,7 +112,16 @@ def _is_localhost(request: Request) -> bool:
 def _provider_allows_remote_access(provider: AssistantProvider | None) -> bool:
     if provider is None:
         return False
-    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and provider.allows_remote_access
+    # Remote access requires the sandbox: the Assistant's server-side tools (Bash and the file
+    # tools, including python) run on the host without it, so a remote caller could execute
+    # arbitrary code there. With the sandbox on, tool execution runs isolated in a container. The
+    # CLI providers already gate their own allows_remote_access on the sandbox; requiring it here
+    # makes the gateway provider require it too, so remote tool execution is always sandboxed.
+    return (
+        MLFLOW_ENABLE_REMOTE_ASSISTANT.get()
+        and assistant_sandbox_enabled()
+        and provider.allows_remote_access
+    )
 
 
 def _enforce_remote_access(request: Request, provider: AssistantProvider | None) -> None:
@@ -217,6 +228,9 @@ class _AssistantAPIRoute(APIRoute):
             # asyncio context, so it also applies while the streaming response body runs; each
             # request runs in its own context, so this does not leak across requests.
             set_config_user(request.state.assistant_username)
+            # Cap a remote (non-localhost) caller at the restricted tool-permission profile, so
+            # server-side tool execution cannot be driven with full_access over the network.
+            set_remote_caller(not _is_localhost(request))
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
                 if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
