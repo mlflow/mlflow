@@ -48,6 +48,7 @@ from mlflow.server.asgi_utils import get_server_base_url
 from mlflow.server.assistant.identity import (
     BASIC_AUTH_CHALLENGE_HEADERS,
     AssistantAuthError,
+    auth_plugin_active,
     resolve_authenticated_username,
 )
 from mlflow.server.assistant.session import (
@@ -134,10 +135,14 @@ def _enforce_remote_access(request: Request, provider: AssistantProvider | None)
 # Per-route remote-access policy:
 #   ONLY_SAFE_PROVIDER — gate on the provider identified by a {provider} path parameter,
 #                        falling back to whichever provider the user has currently selected
+#   AUTHENTICATED      — allow a remote caller only on an authenticated server (so the request has
+#                        an identity to attribute it to); used for per-user config writes, which
+#                        are not tool execution and so are not gated on a safe provider/the sandbox
 #   DENY               — always block remote access (stays localhost-only regardless of mode)
 #   NONE               — no gating (e.g. GET /config, which redacts secrets instead)
 class _RemoteAccessPolicy(str, enum.Enum):
     ONLY_SAFE_PROVIDER = "only_safe_provider"
+    AUTHENTICATED = "authenticated"
     DENY = "deny"
     NONE = "none"
 
@@ -234,11 +239,19 @@ class _AssistantAPIRoute(APIRoute):
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
                 if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
-                provider = _get_route_provider(request)
-                # A {provider} path param that doesn't resolve to a known provider is a
-                # 404, not a remote-access decision; let the endpoint handle it.
-                if not ("provider" in request.path_params and provider is None):
-                    _enforce_remote_access(request, provider)
+                if policy == _RemoteAccessPolicy.AUTHENTICATED:
+                    # Per-user config writes: allowed remotely only on an authenticated server, so
+                    # the write can be attributed to a user (a no-auth server has no identity and
+                    # stays localhost-only). No provider/sandbox gate -- this is not tool execution.
+                    # The identity resolution above rejects an unauthenticated remote caller (401).
+                    if not auth_plugin_active():
+                        raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
+                else:
+                    provider = _get_route_provider(request)
+                    # A {provider} path param that doesn't resolve to a known provider is a
+                    # 404, not a remote-access decision; let the endpoint handle it.
+                    if not ("provider" in request.path_params and provider is None):
+                        _enforce_remote_access(request, provider)
             return await original_route_handler(request)
 
         return route_handler
@@ -779,17 +792,50 @@ async def get_config(request: Request) -> ConfigResponse:
 
 
 @assistant_router.put("/config")
-@_remote_access_policy(_RemoteAccessPolicy.DENY)
-async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
+@_remote_access_policy(_RemoteAccessPolicy.AUTHENTICATED)
+async def update_config(request: ConfigUpdateRequest, http_request: Request) -> ConfigResponse:
     """
     Update the assistant configuration.
 
+    A remote (authenticated) caller may only change their own per-user provider settings (selected
+    provider, model, permissions, base URL), which are saved to their own config. Server-level
+    changes -- registering project directories, and creating gateway LLM connections (API keys) --
+    stay localhost-only, since they affect the whole server rather than one user.
+
     Args:
         request: Partial configuration update.
+        http_request: The FastAPI request object, used to distinguish local from remote callers.
 
     Returns:
         Updated configuration.
     """
+    if not _is_localhost(http_request):
+        if request.projects:
+            raise HTTPException(
+                status_code=403,
+                detail="Project directories can only be configured from the MLflow server host.",
+            )
+        for provider_data in (request.providers or {}).values():
+            # `providers` values are typed `Any`, so a malformed remote payload may not be a dict.
+            # Reject it up front instead of letting `.get` raise an unhandled 500.
+            if not isinstance(provider_data, dict):
+                raise HTTPException(status_code=400, detail="Invalid provider configuration.")
+            if provider_data.get("api_key") or provider_data.get("gateway_vendor"):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Gateway connections (API keys) can only be configured from the "
+                    "MLflow server host.",
+                )
+            # Full access bypasses all permission checks, so it is host-only like the fields above.
+            # The runtime clamp already neutralizes it for remote tool execution; rejecting the
+            # write keeps the persisted config honest and the enforcement in one place.
+            permissions = provider_data.get("permissions")
+            if isinstance(permissions, dict) and permissions.get("full_access"):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Full access can only be enabled from the MLflow server host.",
+                )
+
     config = AssistantConfig.load()
 
     # Update providers
