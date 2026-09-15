@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789453204491,
+  "lastUpdate": 1789467532991,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "198982749+Copilot@users.noreply.github.com",
-            "name": "Copilot",
-            "username": "Copilot"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1334930a4df657abe4159924b108c08aae62945b",
-          "message": "Fix `AmazonBedrockProvider._build_converse_kwargs` tool-call history and validation for Bedrock Converse (#23223)\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: TomeHirata <33407409+TomeHirata@users.noreply.github.com>\nCo-authored-by: Tomu Hirata <tomu.hirata@gmail.com>",
-          "timestamp": "2026-05-12T08:16:44Z",
-          "tree_id": "7e61a1ae96760d774a96b59be8799e8271af93aa",
-          "url": "https://github.com/mlflow/mlflow/commit/1334930a4df657abe4159924b108c08aae62945b"
-        },
-        "date": 1778574091445,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 37.33677924999981,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 24.40097511428446,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 22.213096344262528,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 23.824903615384038,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 24.803671576271437,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.437111000004393,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 21.582301428582337,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gargavanish@gmail.com",
+            "name": "Avanish Garg",
+            "username": "avanish-garg"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "df304d8666f4ce6f269d386235789389cabf2e3a",
+          "message": "Add `mlflow.restore_experiment()` and `mlflow.restore_run()` to the fluent API (#25852)\n\nSigned-off-by: Avanish Garg <gargavanish@gmail.com>\nSigned-off-by: avanish-garg <146908506+avanish-garg@users.noreply.github.com>",
+          "timestamp": "2026-09-15T10:16:03Z",
+          "tree_id": "55d6c6fb9d74562d2a1a05c0e6a7d1b9cc919c92",
+          "url": "https://github.com/mlflow/mlflow/commit/df304d8666f4ce6f269d386235789389cabf2e3a"
+        },
+        "date": 1789467529691,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.528471150000826,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.402696745454829,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.455527972973041,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.331855701753803,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.929858504065578,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 28.79193980000423,
             "unit": "ms"
           }
         ]
