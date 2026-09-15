@@ -1,10 +1,11 @@
 """Agent-directed pointers to the bundled MLflow skills.
 
-Emitted on ``import mlflow`` when a coding agent is driving. Whether the skill
-is already installed is deliberately not probed: skills end up in too many
-places for the check to be accurate, and the pointer stays useful either way.
-Without it, agents design tracing from scratch and produce traces with blank
-tool inputs and outputs.
+Emitted on ``import mlflow`` when a coding agent is driving. The trace-reading
+hint fires on the first fluent ``get_trace`` or ``search_traces`` call instead.
+Whether the skill is already installed is deliberately not probed: skills end
+up in too many places for the check to be accurate, and the pointer stays useful
+either way. Without it, agents design tracing from scratch and produce traces
+with blank tool inputs and outputs.
 
 Fires once per process; ``MLFLOW_DISABLE_AGENT_HINT=1`` silences it for good.
 """
@@ -63,6 +64,9 @@ _AGENT_ENV_VALUES_WITHOUT_TTY = {"TERM_PROGRAM": "kiro"}
 # Lives in https://github.com/mlflow/skills and is installed by `mlflow agent setup`.
 TRACING_SKILL = "instrumenting-with-mlflow-tracing"
 
+# The skill that teaches trace querying and debugging.
+TRACE_READING_SKILL = "retrieving-mlflow-traces"
+
 # All hints in this module are process-local. An agent only needs to see a
 # particular problem once to change course; repeating it on every span or row
 # makes the useful message indistinguishable from ordinary logs.
@@ -78,6 +82,11 @@ _EMITTED_HINTS_LOCK = threading.Lock()
 _HINT = (
     "Load the `{skill}` skill at {path} before writing any tracing code; it ships with this "
     "MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
+)
+_TRACE_READING_HINT = (
+    "Read traces with the `mlflow traces` CLI described in the `{skill}` skill at {path} "
+    "rather than hand-written `mlflow.search_traces()`/`mlflow.get_trace()` calls; it ships "
+    "with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
 )
 
 
@@ -124,6 +133,21 @@ def maybe_hint_tracing_skill() -> None:
     if (path := _bundled_skill_manifest()) is None:
         return
     _logger.info(_HINT.format(skill=TRACING_SKILL, path=path))
+
+
+def maybe_hint_trace_reading_skill() -> None:
+    """Log the trace-reading skill hint when a coding agent is driving."""
+    try:
+        if (skills_path := _claim_agent_hint(TRACE_READING_SKILL)) is None:
+            return
+        from mlflow.assistant.skill_installer import SKILL_MANIFEST_FILE
+
+        manifest = skills_path / TRACE_READING_SKILL / SKILL_MANIFEST_FILE
+        if manifest.is_file():
+            _logger.info(_TRACE_READING_HINT.format(skill=TRACE_READING_SKILL, path=manifest))
+    except Exception:
+        # User-configurable logging handlers must not affect MLflow behavior.
+        return
 
 
 def _claim_agent_hint(issue_id: str) -> Path | None:
