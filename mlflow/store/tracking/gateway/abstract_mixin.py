@@ -101,6 +101,9 @@ class GatewayStoreMixin:
                          auth_config is unchanged.
             updated_by: Username of the updater.
 
+        When auth_config adds, changes, or removes api_base, supply secret_value
+        in the same request. Otherwise, the update raises INVALID_PARAMETER_VALUE.
+
         Returns:
             Updated Secret entity.
         """
