@@ -132,6 +132,23 @@ deny_create_app_token_without_permissions contains msg if {
 	)
 }
 
+deny_create_app_token_without_repository_scope contains msg if {
+	some job_id, job in input.jobs
+	some step in job_steps(job)
+	startswith(step.uses, "actions/create-github-app-token@")
+	some key in {"owner", "repositories"}
+	inputs := object.get(step, "with", {})
+	value := object.get(inputs, key, "")
+	trim(value, " \t\n") == ""
+	msg := sprintf(
+		concat("", [
+			"actions/create-github-app-token in job '%s' must set a non-empty 'with.%s' ",
+			"to explicitly scope the token to its intended repositories.",
+		]),
+		[job_id, key],
+	)
+}
+
 deny_create_app_token_with_app_id contains msg if {
 	some job_id, job in input.jobs
 	some step in job_steps(job)
