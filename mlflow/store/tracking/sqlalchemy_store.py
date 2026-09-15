@@ -3602,7 +3602,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 if dataset_filters:
                     metric_filters.append(sqlalchemy.or_(*dataset_filters))
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelMetric).filter(*metric_filters).subquery()
+                    session
+                    .query(SqlLoggedModelMetric.model_id)
+                    .filter(*metric_filters)
+                    .distinct()
+                    .subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
