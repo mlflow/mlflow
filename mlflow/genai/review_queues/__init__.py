@@ -31,12 +31,13 @@ from mlflow.genai.review_queues.review_queues import (
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.client import TracingClient
-from mlflow.tracking import get_tracking_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.databricks_utils import databricks_api_disabled
 
 if TYPE_CHECKING:
     from mlflow.store.entities.paged_list import PagedList
+
+_REVIEWS_UI_ALTERNATIVE = "Use the workspace Reviews UI."
 
 __all__ = [
     "ReviewItemType",
@@ -65,21 +66,8 @@ def _resolve_experiment_id(experiment_id: str | None) -> str:
     return _get_experiment_id()
 
 
-def _reject_databricks_uri(operation: str) -> None:
-    # Databricks serves review queues from its workspace Reviews backend, not
-    # the OSS /api/3.0/mlflow/review-queues/* tracking routes. Until the SDK is
-    # wired to that backend, fail with a clear, actionable client error rather
-    # than the generic 500 the unimplemented OSS route returns, mirroring the
-    # guardrail on the sibling label_schemas APIs.
-    if is_databricks_uri(get_tracking_uri()):
-        raise MlflowException(
-            f"{operation} is not supported on a Databricks tracking URI; "
-            "use the workspace Reviews UI.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-
 @experimental(version="3.14.0")
+@databricks_api_disabled("create_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def create_review_queue(
     name: str,
     *,
@@ -110,7 +98,6 @@ def create_review_queue(
         The created :py:class:`ReviewQueue`. Its owner (``created_by``) is set
         by the server from the authenticated user, not by the caller.
     """
-    _reject_databricks_uri("create_review_queue")
     return TracingClient()._create_review_queue(
         _resolve_experiment_id(experiment_id),
         name=name,
@@ -121,6 +108,7 @@ def create_review_queue(
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("get_or_create_user_queue", _REVIEWS_UI_ALTERNATIVE)
 def get_or_create_user_queue(
     user: str,
     *,
@@ -139,13 +127,13 @@ def get_or_create_user_queue(
     Returns:
         The user's :py:class:`ReviewQueue` (owned by that user).
     """
-    _reject_databricks_uri("get_or_create_user_queue")
     return TracingClient()._get_or_create_user_queue(
         _resolve_experiment_id(experiment_id), user=user
     )
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("get_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def get_review_queue(
     queue_id: str | None = None,
     *,
@@ -161,7 +149,6 @@ def get_review_queue(
     Returns:
         The matching :py:class:`ReviewQueue`.
     """
-    _reject_databricks_uri("get_review_queue")
     if (queue_id is None) == (name is None):
         raise MlflowException(
             "Provide exactly one of `queue_id` or `name`.",
@@ -174,6 +161,7 @@ def get_review_queue(
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("list_review_queues", _REVIEWS_UI_ALTERNATIVE)
 def list_review_queues(
     *,
     user: str | None = None,
@@ -193,7 +181,6 @@ def list_review_queues(
     Returns:
         A :py:class:`PagedList` of :py:class:`ReviewQueue`.
     """
-    _reject_databricks_uri("list_review_queues")
     return TracingClient()._list_review_queues(
         _resolve_experiment_id(experiment_id),
         user=user,
@@ -203,6 +190,7 @@ def list_review_queues(
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("update_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def update_review_queue(
     queue_id: str,
     *,
@@ -223,24 +211,24 @@ def update_review_queue(
     Returns:
         The updated :py:class:`ReviewQueue`.
     """
-    _reject_databricks_uri("update_review_queue")
     return TracingClient()._update_review_queue(
         queue_id, name=name, new_owner=new_owner, users=users, schema_ids=schema_ids
     )
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("delete_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def delete_review_queue(queue_id: str) -> None:
     """
     Delete a queue and its associations. No-op if it doesn't exist.
 
     Reviewer assessments on the queue's items are unaffected.
     """
-    _reject_databricks_uri("delete_review_queue")
     TracingClient()._delete_review_queue(queue_id)
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("add_items_to_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def add_items_to_review_queue(queue_id: str, *, item_ids: list[str]) -> list[ReviewQueueItem]:
     """
     Attach items to a queue, returning the resulting queue items.
@@ -248,18 +236,18 @@ def add_items_to_review_queue(queue_id: str, *, item_ids: list[str]) -> list[Rev
     Idempotent per item (re-attaching preserves the existing status). The
     returned list covers every requested ``item_id``, in request order.
     """
-    _reject_databricks_uri("add_items_to_review_queue")
     return TracingClient()._add_items_to_review_queue(queue_id, item_ids=item_ids)
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("remove_items_from_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def remove_items_from_review_queue(queue_id: str, *, item_ids: list[str]) -> None:
     """Detach items from a queue. No-op for items not attached."""
-    _reject_databricks_uri("remove_items_from_review_queue")
     TracingClient()._remove_items_from_review_queue(queue_id, item_ids=item_ids)
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("list_review_queue_items", _REVIEWS_UI_ALTERNATIVE)
 def list_review_queue_items(
     queue_id: str,
     *,
@@ -279,13 +267,13 @@ def list_review_queue_items(
     Returns:
         A :py:class:`PagedList` of :py:class:`ReviewQueueItem`.
     """
-    _reject_databricks_uri("list_review_queue_items")
     return TracingClient()._list_review_queue_items(
         queue_id, status=status, max_results=max_results, page_token=page_token
     )
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("set_review_queue_item_status", _REVIEWS_UI_ALTERNATIVE)
 def set_review_queue_item_status(
     queue_id: str,
     *,
@@ -303,7 +291,6 @@ def set_review_queue_item_status(
     Returns:
         The updated :py:class:`ReviewQueueItem`.
     """
-    _reject_databricks_uri("set_review_queue_item_status")
     return TracingClient()._set_review_queue_item_status(
         queue_id, item_id=item_id, status=status, completed_by=completed_by
     )

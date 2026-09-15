@@ -193,14 +193,19 @@ def test_set_status_forwards_item_id():
         ),
     ],
 )
-def test_databricks_tracking_uri_rejected(fn, args, kwargs):
+@pytest.mark.parametrize("tracking_uri", ["databricks", "databricks://profile"])
+def test_databricks_tracking_uri_rejected(fn, args, kwargs, tracking_uri):
     with (
-        patch("mlflow.genai.review_queues.get_tracking_uri", return_value="databricks"),
+        patch("mlflow.tracking.get_tracking_uri", return_value=tracking_uri),
         patch(f"{_BASE}.__init__") as client_init,
-        pytest.raises(MlflowException, match="not supported on a Databricks tracking URI"),
+        pytest.raises(
+            MlflowException,
+            match=rf"{fn.__name__} is not supported in Databricks environments",
+        ) as exc,
     ):
         fn(*args, **kwargs)
-    # The guardrail fires before any client / network work is attempted.
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert "Use the workspace Reviews UI." in str(exc.value)
     client_init.assert_not_called()
 
 
