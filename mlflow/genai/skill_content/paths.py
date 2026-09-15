@@ -143,15 +143,14 @@ def resolve_contained(root: str | os.PathLike[str], subpath: str | None) -> Path
     redirect the lookup outside of ``root``. The resolved path must be an existing directory.
     """
     root_path = Path(root)
-    if not root_path.is_dir():
-        raise invalid_content(f"Content root '{root_path}' is not a directory.")
+    _require_plain_directory(root_path)
     normalized = normalize_subpath(subpath)
     if normalized is None:
         return root_path
     current = root_path
     for segment in normalized.split("/"):
         current = current / segment
-        if current.is_symlink():
+        if _is_link_like(current):
             raise invalid_content(f"Subpath '{normalized}' traverses a symbolic link.")
         if not current.exists():
             raise MlflowException(
@@ -248,6 +247,31 @@ class TreeLayout:
         return nfc
 
 
+def _is_link_like(path: Path) -> bool:
+    """
+    Whether ``path`` is a symbolic link, or on Windows any other reparse point.
+
+    A directory junction is not a symbolic link, so ``is_symlink`` and ``os.walk`` treat it
+    as an ordinary directory and would descend through it into content outside the tree.
+    """
+    if path.is_symlink():
+        return True
+    if os.name != "nt":
+        return False
+    try:
+        attributes = os.lstat(path).st_file_attributes
+    except OSError:
+        return False
+    return bool(attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+
+
+def _require_plain_directory(root_path: Path) -> None:
+    if _is_link_like(root_path):
+        raise invalid_content(f"Content root '{root_path}' must be a directory, not a link.")
+    if not root_path.is_dir():
+        raise invalid_content(f"Content root '{root_path}' is not a directory.")
+
+
 def _fail_on_walk_error(error: OSError) -> None:
     # os.walk skips a directory it cannot list unless told otherwise; a silently missing
     # subtree would change the digest and the packaged content without any error.
@@ -265,16 +289,16 @@ def collect_tree(root: str | os.PathLike[str]) -> list[TreeFile]:
     directories that collide after normalization or case folding, are rejected.
     """
     root_path = Path(root)
-    if not root_path.is_dir():
-        raise invalid_content(f"Content root '{root_path}' is not a directory.")
+    _require_plain_directory(root_path)
     layout = TreeLayout()
     files: list[TreeFile] = []
     for dirpath, dirnames, filenames in os.walk(
         root_path, onerror=_fail_on_walk_error, followlinks=False
     ):
         current = Path(dirpath)
-        # Do not descend into symlinked directories; os.walk lists them but must not follow.
-        dirnames[:] = sorted(d for d in dirnames if not (current / d).is_symlink())
+        # Do not descend into linked directories (symlinks, or junctions on Windows); os.walk
+        # lists them but must not follow.
+        dirnames[:] = sorted(d for d in dirnames if not _is_link_like(current / d))
         for filename in filenames:
             file_path = current / filename
             try:
@@ -298,8 +322,7 @@ def assert_regular_tree(root: str | os.PathLike[str]) -> None:
     is the publication-time check applied to every fetched or extracted skill tree.
     """
     root_path = Path(root)
-    if root_path.is_symlink() or not root_path.is_dir():
-        raise invalid_content(f"Content root '{root_path}' must be a directory, not a link.")
+    _require_plain_directory(root_path)
     for dirpath, dirnames, filenames in os.walk(
         root_path, onerror=_fail_on_walk_error, followlinks=False
     ):
@@ -311,7 +334,7 @@ def assert_regular_tree(root: str | os.PathLike[str]) -> None:
             except OSError as e:
                 raise content_unreadable(entry, e)
             relative = entry.relative_to(root_path).as_posix()
-            if stat.S_ISLNK(info.st_mode):
+            if stat.S_ISLNK(info.st_mode) or _is_link_like(entry):
                 raise invalid_content(
                     f"Skill content must not contain symbolic links: '{relative}'."
                 )

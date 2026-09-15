@@ -1,4 +1,5 @@
 import os
+import subprocess
 import unicodedata
 from pathlib import Path
 
@@ -310,3 +311,21 @@ def test_whole_path_length_is_checked_after_nfc_normalization():
     assert len(unicodedata.normalize("NFC", path).encode("utf-8")) > 4096
     with pytest.raises(MlflowException, match="longer than 4096 bytes"):
         canonical_relative_path(path)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="directory junctions exist only on Windows")
+def test_windows_junctions_are_treated_as_links(tmp_path):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("outside the tree")
+    root = tmp_path / "skill"
+    root.mkdir()
+    (root / "SKILL.md").write_text("---\nname: demo\n---\n")
+    subprocess.check_call(["cmd", "/c", "mklink", "/J", str(root / "junction"), str(outside)])
+    assert [f.path for f in collect_tree(root)] == ["SKILL.md"]
+    with pytest.raises(MlflowException, match="symbolic links"):
+        assert_regular_tree(root)
+    with pytest.raises(MlflowException, match="traverses a symbolic link"):
+        resolve_contained(root, "junction")
+    with pytest.raises(MlflowException, match="not a link"):
+        collect_tree(root / "junction")
