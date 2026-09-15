@@ -17,8 +17,8 @@ from mlflow.server.jobs.utils import (
 from mlflow.store.db.trace_rollups import RollupBuildStats, RollupFamilyBuildStats
 from mlflow.tracing import trace_rollup_service
 from mlflow.tracing.trace_rollup_service import (
-    get_sql_trace_rollup_schedule,
     run_sql_trace_rollup_scheduler,
+    validate_and_resolve_sql_trace_rollup_schedule,
 )
 
 
@@ -53,7 +53,7 @@ def _stats():
 def test_rollup_schedule_defaults_to_daily_0200_utc(monkeypatch):
     monkeypatch.delenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, raising=False)
 
-    schedule = get_sql_trace_rollup_schedule()
+    schedule = validate_and_resolve_sql_trace_rollup_schedule()
 
     assert (schedule.minute, schedule.hour, schedule.day, schedule.month, schedule.day_of_week) == (
         "0",
@@ -67,7 +67,7 @@ def test_rollup_schedule_defaults_to_daily_0200_utc(monkeypatch):
 def test_rollup_schedule_accepts_five_field_cron(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, "15 */6 * * 1-5")
 
-    schedule = get_sql_trace_rollup_schedule()
+    schedule = validate_and_resolve_sql_trace_rollup_schedule()
 
     assert schedule.minute == "15"
     assert schedule.hour == "*/6"
@@ -79,7 +79,7 @@ def test_rollup_schedule_rejects_invalid_cron(monkeypatch, schedule):
     monkeypatch.setenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, schedule)
 
     with pytest.raises(MlflowException, match="five-field UTC cron"):
-        get_sql_trace_rollup_schedule()
+        validate_and_resolve_sql_trace_rollup_schedule()
 
 
 def test_register_periodic_tasks_includes_locked_rollup_scheduler(monkeypatch):
@@ -151,24 +151,31 @@ def test_invalid_schedule_fails_registration_when_rollups_are_enabled(monkeypatc
         register_periodic_tasks(_RecordingHuey(), object())
 
 
-@pytest.mark.parametrize(
-    ("job_execution", "rollups_enabled"),
-    [(False, False), (False, True), (True, False)],
-)
-def test_scheduler_noops_when_prerequisites_disabled(
-    monkeypatch, job_execution: bool, rollups_enabled: bool
-):
-    monkeypatch.setenv(
-        MLFLOW_SERVER_ENABLE_JOB_EXECUTION.name, "true" if job_execution else "false"
-    )
-    monkeypatch.setenv(
-        MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true" if rollups_enabled else "false"
-    )
+def test_scheduler_noops_when_rollups_are_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_ENABLE_JOB_EXECUTION.name, "true")
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "false")
     maintenance = Mock()
     monkeypatch.setattr(trace_rollup_service, "run_sql_trace_rollups", maintenance)
 
     assert run_sql_trace_rollup_scheduler(object()) is None
     maintenance.assert_not_called()
+
+
+def test_service_entrypoint_runs_without_jobs_backend(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_ENABLE_JOB_EXECUTION.name, "false")
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
+    engine = object()
+    tracking_store = Mock(engine=engine)
+    expected = _stats()
+    maintenance = Mock(return_value=expected)
+    monkeypatch.setattr(trace_rollup_service, "run_sql_trace_rollups", maintenance)
+
+    assert run_sql_trace_rollup_scheduler(tracking_store) == expected
+    maintenance.assert_called_once_with(
+        engine,
+        max_partitions_per_run=MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN.get(),
+        max_workers=MLFLOW_TRACE_ROLLUPS_MAX_WORKERS.get(),
+    )
 
 
 def test_scheduler_noops_for_non_sql_tracking_store(monkeypatch):

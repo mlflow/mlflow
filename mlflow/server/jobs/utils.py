@@ -866,8 +866,8 @@ def register_periodic_tasks(huey_instance, tracking_store) -> None:
     )
 
     from mlflow.tracing.trace_rollup_service import (
-        get_sql_trace_rollup_schedule,
         run_sql_trace_rollup_scheduler,
+        validate_and_resolve_sql_trace_rollup_schedule,
     )
 
     # The schedule is irrelevant while SQL rollups are disabled. In particular, do not reject
@@ -878,7 +878,7 @@ def register_periodic_tasks(huey_instance, tracking_store) -> None:
 
     # An invalid schedule for an enabled feature is a startup configuration error. Let the
     # validation exception propagate instead of silently disabling maintenance.
-    rollup_schedule = get_sql_trace_rollup_schedule()
+    rollup_schedule = validate_and_resolve_sql_trace_rollup_schedule()
     rollup_crontab = crontab(
         minute=rollup_schedule.minute,
         hour=rollup_schedule.hour,

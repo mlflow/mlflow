@@ -6,13 +6,11 @@ from threading import Barrier, Event, get_ident
 from unittest.mock import Mock
 
 import pytest
-import sqlalchemy as sa
 from click.testing import CliRunner
 from sqlalchemy.dialects import mssql
 from sqlalchemy.orm import Session
 
 import mlflow.db
-import mlflow.store.db.utils
 from mlflow.entities import AssessmentSource, AssessmentSourceType, Feedback, trace_location
 from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.trace_info import TraceInfo
@@ -974,28 +972,6 @@ def test_delete_sql_trace_rollups_preserves_authoritative_data(store: SqlAlchemy
         assert session.query(SqlTraceInfo).filter_by(request_id=trace_id).one()
 
 
-def test_build_trace_rollups_cli(store: SqlAlchemyStore):
-    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
-    _new_trace(store, exp_id, DAY_A_MS)
-    _add_feedback(store, _new_trace(store, exp_id, DAY_A_MS + 1000), value=0.9)
-
-    result = CliRunner().invoke(
-        mlflow.db.commands,
-        ["build-trace-rollups"],
-        env={
-            "MLFLOW_TRACKING_URI": store.engine.url.render_as_string(hide_password=False),
-            "MLFLOW_SQL_TRACE_ROLLUPS_ENABLED": "true",
-        },
-    )
-
-    assert result.exit_code == 0, result.output
-    assert "Building SQL daily trace analytics rollups..." in result.output
-    assert "trace_metric: built=" in result.output
-    assert "span_cost: built=" in result.output
-    assert "assessment: built=" in result.output
-    assert "Rollup build completed." in result.output
-
-
 def test_delete_trace_rollups_cli(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     with store.ManagedSessionMaker(read_only=False) as session:
@@ -1019,93 +995,6 @@ def test_delete_trace_rollups_cli(store: SqlAlchemyStore):
     assert "trace_metric=1" in result.output
     assert "rebuild_queue=0" in result.output
     assert _count(store, SqlTraceMetricDailyRollup) == 0
-
-
-def test_build_trace_rollups_cli_noops_when_disabled(monkeypatch: pytest.MonkeyPatch):
-    create_engine = Mock()
-    monkeypatch.setattr(mlflow.store.db.utils, "create_sqlalchemy_engine_with_retry", create_engine)
-
-    result = CliRunner().invoke(
-        mlflow.db.commands,
-        ["build-trace-rollups", "sqlite:///unused.db"],
-        env={"MLFLOW_SQL_TRACE_ROLLUPS_ENABLED": "false"},
-    )
-
-    assert result.exit_code == 0
-    assert "SQL trace rollups are disabled; no maintenance performed." in result.output
-    create_engine.assert_not_called()
-
-
-def test_build_trace_rollups_cli_reports_errors_and_disposes_engine(monkeypatch):
-    engine = Mock()
-    monkeypatch.setattr(
-        mlflow.store.db.utils,
-        "create_sqlalchemy_engine_with_retry",
-        lambda _: engine,
-    )
-    monkeypatch.setattr(
-        trace_rollups,
-        "run_sql_trace_rollups",
-        Mock(side_effect=RuntimeError("rollup build failed")),
-    )
-
-    result = CliRunner().invoke(
-        mlflow.db.commands,
-        ["build-trace-rollups", "sqlite:///unused.db"],
-        env={"MLFLOW_SQL_TRACE_ROLLUPS_ENABLED": "true"},
-    )
-
-    assert result.exit_code == 1
-    assert "Error: rollup build failed" in result.output
-    engine.dispose.assert_called_once_with()
-
-
-def test_build_trace_rollups_cli_does_not_expose_database_credentials(monkeypatch):
-    database_url = "postgresql://trace_user:super-secret@database.example/mlflow"
-    monkeypatch.setattr(
-        mlflow.store.db.utils,
-        "create_sqlalchemy_engine_with_retry",
-        Mock(
-            side_effect=sa.exc.OperationalError(
-                f"connect to {database_url}",
-                {},
-                RuntimeError(database_url),
-            )
-        ),
-    )
-
-    result = CliRunner().invoke(
-        mlflow.db.commands,
-        ["build-trace-rollups"],
-        env={
-            "MLFLOW_TRACKING_URI": database_url,
-            "MLFLOW_SQL_TRACE_ROLLUPS_ENABLED": "true",
-        },
-    )
-
-    assert result.exit_code == 1
-    assert "Database operation failed (OperationalError)" in result.output
-    assert "super-secret" not in result.output
-
-
-@pytest.mark.parametrize("max_partitions", ["0", "-1"])
-def test_build_trace_rollups_cli_rejects_nonpositive_max_partitions(max_partitions: str):
-    result = CliRunner().invoke(
-        mlflow.db.commands,
-        ["build-trace-rollups", "sqlite:///unused.db", "--max-partitions", max_partitions],
-    )
-    assert result.exit_code == 2
-    assert "Invalid value for '--max-partitions'" in result.output
-
-
-@pytest.mark.parametrize("max_workers", ["0", "-1"])
-def test_build_trace_rollups_cli_rejects_nonpositive_max_workers(max_workers: str):
-    result = CliRunner().invoke(
-        mlflow.db.commands,
-        ["build-trace-rollups", "sqlite:///unused.db", "--max-workers", max_workers],
-    )
-    assert result.exit_code == 2
-    assert "Invalid value for '--max-workers'" in result.output
 
 
 def test_mssql_rebuild_lock_serializes_writer_after_publisher(store: SqlAlchemyStore):

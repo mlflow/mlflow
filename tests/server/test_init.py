@@ -295,10 +295,11 @@ def test_run_server_allows_disabled_rollups_for_a_new_sql_database(
 ):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
+    database_path = tmp_path / "new.db"
 
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
-            file_store_path=f"sqlite:///{tmp_path / 'new.db'}",
+            file_store_path=f"sqlite:///{database_path}",
             registry_store_uri="",
             default_artifact_root="",
             serve_artifacts="",
@@ -309,6 +310,7 @@ def test_run_server_allows_disabled_rollups_for_a_new_sql_database(
         )
 
     mock_exec_cmd.assert_called_once()
+    assert not database_path.exists()
 
 
 def test_run_server_passes_public_store_config_to_job_runner(mock_exec_cmd, monkeypatch):

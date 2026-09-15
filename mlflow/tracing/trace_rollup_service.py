@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
+
+from sqlalchemy.engine import make_url
 
 from mlflow.environment_variables import (
-    MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
     MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN,
     MLFLOW_TRACE_ROLLUPS_MAX_WORKERS,
     MLFLOW_TRACE_ROLLUPS_SCHEDULE,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.db.db_types import DATABASE_ENGINES, SQLITE
 from mlflow.store.db.trace_rollups import (
     RollupBuildStats,
     run_sql_trace_rollups,
@@ -36,8 +38,15 @@ def validate_sql_trace_rollup_startup(backend_store_uri: str | None) -> None:
     """Reject disabling rollups while previously materialized rows remain."""
     if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get() or not backend_store_uri:
         return
-    if get_uri_scheme(backend_store_uri) not in DATABASE_ENGINES:
+    db_type = get_uri_scheme(backend_store_uri)
+    if db_type not in DATABASE_ENGINES:
         return
+    if db_type == SQLITE:
+        database_path = make_url(backend_store_uri).database
+        if database_path not in {None, "", ":memory:"} and not Path(database_path).exists():
+            # Inspecting a missing SQLite database creates it. A database that does not exist
+            # cannot contain rollup rows, so avoid leaving an empty file during startup checks.
+            return
 
     engine = create_sqlalchemy_engine_with_retry(backend_store_uri)
     try:
@@ -52,8 +61,8 @@ def validate_sql_trace_rollup_startup(backend_store_uri: str | None) -> None:
         )
 
 
-def get_sql_trace_rollup_schedule() -> SqlTraceRollupSchedule:
-    """Resolve the configured five-field UTC cron expression."""
+def validate_and_resolve_sql_trace_rollup_schedule() -> SqlTraceRollupSchedule:
+    """Validate and resolve the configured five-field UTC cron expression."""
     schedule = MLFLOW_TRACE_ROLLUPS_SCHEDULE.get().strip()
     fields = schedule.split()
     if len(fields) != 5:
@@ -85,8 +94,8 @@ def get_sql_trace_rollup_schedule() -> SqlTraceRollupSchedule:
 
 
 def run_sql_trace_rollup_scheduler(tracking_store) -> RollupBuildStats | None:
-    """Run one server-owned rollup maintenance pass when scheduler prerequisites are enabled."""
-    if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get() or not MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+    """Run one rollup maintenance pass when SQL trace rollups are enabled."""
+    if not MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
         return None
 
     engine = getattr(tracking_store, "engine", None)
