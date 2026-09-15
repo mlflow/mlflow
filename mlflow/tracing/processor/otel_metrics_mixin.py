@@ -64,10 +64,24 @@ class OtelMetricsMixin:
             )
             return
 
-        metric_exporter = OTLPMetricExporter(endpoint=endpoint)
-        reader = PeriodicExportingMetricReader(metric_exporter)
-        provider = MeterProvider(metric_readers=[reader])
-        metrics.set_meter_provider(provider)
+        provider = metrics.get_meter_provider()
+        if not isinstance(provider, MeterProvider):
+            metric_exporter = OTLPMetricExporter(endpoint=endpoint)
+            reader = PeriodicExportingMetricReader(metric_exporter)
+            provider = MeterProvider(metric_readers=[reader])
+            metrics.set_meter_provider(provider)
+
+            if metrics.get_meter_provider() is not provider:
+                # Registration was refused. Shut down this provider so its
+                # metric reader thread does not leak.
+                provider.shutdown()
+        else:
+            _logger.debug(
+                "An OpenTelemetry MeterProvider is already configured. MLflow tracing metrics "
+                "will use the existing provider instead of creating a separate exporter for "
+                "the configured OTLP metrics endpoint."
+            )
+
         meter = metrics.get_meter("mlflow.tracing")
         self._duration_histogram = meter.create_histogram(
             name="mlflow.trace.span.duration",
