@@ -19,6 +19,8 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from MLflow during
             Haystack autologging. If ``False``, show all events and warnings.
     """
+    _autolog(log_traces=log_traces, disable=disable, silent=silent)
+
     if disable or not log_traces:
         teardown_haystack_tracing()
         return
