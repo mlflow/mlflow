@@ -47,12 +47,13 @@ def ensure_assistant_gateway_use_permission(username: str | None) -> None:
     from mlflow.tracking._tracking_service.utils import _get_store
 
     try:
-        endpoints = _get_store().list_gateway_endpoints()
-    except (AttributeError, NotImplementedError):
-        # A tracking store without gateway support has no Assistant endpoints to authorize.
-        return
-
-    try:
+        try:
+            endpoints = _get_store().list_gateway_endpoints()
+        except (AttributeError, NotImplementedError):
+            # A tracking store without gateway support has no Assistant endpoints to authorize;
+            # this is expected, so return quietly (no warning). Any other error from this lookup
+            # falls through to the fail-open handler below.
+            return
         managed_names = managed_gateway_endpoint_names()
         managed = [e for e in endpoints if e.name in managed_names]
         if not managed:
@@ -68,6 +69,9 @@ def ensure_assistant_gateway_use_permission(username: str | None) -> None:
                     username, "gateway_endpoint", endpoint.endpoint_id, USE.name
                 )
     except Exception:
+        # Any unexpected failure (an endpoint listing error, a permission-store read/write error, a
+        # workspace resolution error) must not break the turn: the gateway's own USE check stays
+        # the authoritative gate and returns a clear 403 if the user still lacks access.
         _logger.warning(
             "Could not ensure gateway USE permission for %s; the gateway will enforce access",
             username,
