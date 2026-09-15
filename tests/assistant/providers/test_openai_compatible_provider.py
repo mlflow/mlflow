@@ -17,6 +17,7 @@ from mlflow.assistant.providers.openai_compatible import (
 )
 from mlflow.assistant.providers.tool_executor import (
     RENDER_CUSTOM_VIEW_TOOL_NAME,
+    set_remote_caller,
     static_permission_error,
 )
 from mlflow.assistant.types import EventType
@@ -692,6 +693,63 @@ async def test_astream_tool_call_round_trip(provider):
     # Second request should include the tool message in history.
     second_payload = calls[1]["json"]
     assert any(m["role"] == "tool" for m in second_payload["messages"])
+
+
+@pytest.mark.asyncio
+async def test_astream_remote_caller_clamped_from_full_access(provider, config_file):
+    # A remote caller whose config grants full_access must still be capped: the loop drops
+    # full_access from the permissions it executes with and never offers the interactive
+    # full-access grant, even with a session present.
+    config_file.write_text(
+        json.dumps({
+            "providers": {"oai_test": {"model": "model-a", "permissions": {"full_access": True}}}
+        })
+    )
+    clear_config_cache()
+
+    lines_turn1 = [
+        _sse(
+            _delta(
+                tool_calls=[
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "function": {"name": "Bash", "arguments": '{"command": "ls"}'},
+                    }
+                ]
+            )
+        ),
+        b"data: [DONE]\n",
+    ]
+    lines_turn2 = [_sse(_delta(content="done")), b"data: [DONE]\n"]
+    session, _calls = _make_aiohttp_session([lines_turn1, lines_turn2])
+
+    set_remote_caller(True)
+    try:
+        with (
+            patch(
+                "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+                return_value=session,
+            ),
+            patch(
+                "mlflow.assistant.providers.openai_compatible.execute_tool",
+                AsyncMock(return_value=("ok", False)),
+            ) as mock_tool,
+        ):
+            events = [
+                e
+                async for e in provider.astream(
+                    "ls", "http://localhost:5000", mlflow_session_id="s1"
+                )
+            ]
+    finally:
+        set_remote_caller(False)
+
+    # The tool ran with full_access stripped, despite the config granting it.
+    mock_tool.assert_awaited_once()
+    assert mock_tool.await_args.kwargs["permissions"].full_access is False
+    # A remote caller is never offered the interactive full-access grant.
+    assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
 
 
 # ---------------------------------------------------------------------------
