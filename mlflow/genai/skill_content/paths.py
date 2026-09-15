@@ -84,7 +84,11 @@ def canonical_relative_path(value: str) -> str | None:
         raise invalid_content(
             f"Path '{display_path(value)}' is nested deeper than {MAX_PATH_DEPTH} directories."
         )
-    if len(value.encode("utf-8", "surrogatepass")) > MAX_PATH_BYTES:
+    # The digest and the packaged archive carry the NFC form, which can be longer than the raw
+    # path; both must fit or an accepted tree could not be extracted from its own package.
+    raw_length = len(value.encode("utf-8", "surrogatepass"))
+    nfc_length = len(unicodedata.normalize("NFC", value).encode("utf-8", "surrogatepass"))
+    if max(raw_length, nfc_length) > MAX_PATH_BYTES:
         raise invalid_content(
             f"Path '{display_path(value)}' is longer than {MAX_PATH_BYTES} bytes."
         )

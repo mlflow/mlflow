@@ -299,3 +299,14 @@ def test_segment_length_is_checked_after_nfc_normalization():
     with pytest.raises(MlflowException, match="longer than 255 bytes"):
         canonical_relative_path(name)
     assert canonical_relative_path("̈́" * 63) == "̈́" * 63
+
+
+def test_whole_path_length_is_checked_after_nfc_normalization():
+    # Each segment stays under the per-segment bound, but NFC roughly doubles this path from
+    # about 2.5 KB to about 5 KB, which the archive validator would refuse to extract.
+    segment = "̈́" * 63
+    path = "/".join([segment] * 20)
+    assert len(path.encode("utf-8")) < 4096
+    assert len(unicodedata.normalize("NFC", path).encode("utf-8")) > 4096
+    with pytest.raises(MlflowException, match="longer than 4096 bytes"):
+        canonical_relative_path(path)
