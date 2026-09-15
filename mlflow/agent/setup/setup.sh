@@ -606,6 +606,53 @@ s/"name"/\
 	fi
 }
 
+json_warehouse_rows() {
+	sed '
+s/"id"[[:space:]]*:/\
+"id":/g
+s/"name"[[:space:]]*:/\
+"name":/g
+s/"state"[[:space:]]*:/\
+"state":/g
+' | awk '
+		function emit_if_complete() {
+			if (id != "" && name != "" && state != "") {
+				row=id "|" name "|" state
+				if (state == "RUNNING") { running[++running_count]=row }
+				else { not_running[++not_running_count]=row }
+				id=""
+				name=""
+				state=""
+			}
+		}
+		/"id"[[:space:]]*:/ {
+			line=$0
+			sub(/^.*"id"[[:space:]]*:[[:space:]]*"/, "", line)
+			sub(/".*$/, "", line)
+			id=line
+			emit_if_complete()
+		}
+		/"name"[[:space:]]*:/ {
+			line=$0
+			sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", line)
+			sub(/".*$/, "", line)
+			name=line
+			emit_if_complete()
+		}
+		/"state"[[:space:]]*:/ {
+			line=$0
+			sub(/^.*"state"[[:space:]]*:[[:space:]]*"/, "", line)
+			sub(/".*$/, "", line)
+			state=line
+			emit_if_complete()
+		}
+		END {
+			for (i=1; i<=running_count; i++) print running[i]
+			for (i=1; i<=not_running_count; i++) print not_running[i]
+		}
+	'
+}
+
 json_escape() {
 	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
@@ -1233,11 +1280,7 @@ select_warehouse() {
 		selected_value="Enter a warehouse ID"
 	else
 		warehouse_json=$spinner_output
-		warehouse_rows=$(printf '%s\n' "$warehouse_json" | awk '
-		/"id"[[:space:]]*:/ { line=$0; sub(/^.*"id"[[:space:]]*:[[:space:]]*"/, "", line); sub(/".*$/, "", line); id=line }
-		/"name"[[:space:]]*:/ { line=$0; sub(/^.*"name"[[:space:]]*:[[:space:]]*"/, "", line); sub(/".*$/, "", line); name=line }
-		/"state"[[:space:]]*:/ { line=$0; sub(/^.*"state"[[:space:]]*:[[:space:]]*"/, "", line); sub(/".*$/, "", line); state=line; if (id != "" && name != "") { print id "|" name "|" state; id=""; name=""; state="" } }
-	')
+		warehouse_rows=$(printf '%s\n' "$warehouse_json" | json_warehouse_rows)
 		set -- "Enter a warehouse ID"
 		while IFS='|' read -r warehouse_id warehouse_name warehouse_state; do
 			[ -n "$warehouse_id" ] && set -- "$@" "$warehouse_name    $warehouse_state · $warehouse_id"

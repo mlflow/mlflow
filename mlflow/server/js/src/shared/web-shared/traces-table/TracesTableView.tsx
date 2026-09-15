@@ -71,6 +71,8 @@ export interface TracesTableViewProps {
   columnHeaderActions?: Readonly<Partial<Record<string, TraceColumnHeaderAction>>>;
   /** Groups traces with a session id into collapsible session rows — forwarded to the table. */
   isGroupedBySession?: boolean;
+  /** Blanks session-level column aggregates when the page may not hold every trace of a session — forwarded to the table. */
+  sessionsMayBeIncomplete?: boolean;
   /** Maximum lines shown by input and output previews before truncation. Defaults to one line. */
   previewLineClamp?: number;
   onReorderColumn?: (activeColumn: string, targetColumn: string) => void;
@@ -211,6 +213,7 @@ export const TracesTableView: React.FC<TracesTableViewProps> = (props: TracesTab
       onHideColumn={props.onHideColumn}
       columnHeaderActions={props.columnHeaderActions}
       isGroupedBySession={props.isGroupedBySession}
+      sessionsMayBeIncomplete={props.sessionsMayBeIncomplete}
       previewLineClamp={props.previewLineClamp}
       onReorderColumn={props.onReorderColumn}
     />

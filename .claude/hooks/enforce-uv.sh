@@ -31,7 +31,7 @@ fi
 deny_reason=""
 
 if echo "$command" | head -1 | grep -qE '^([^[:space:]]*/)?python3?[[:space:]]'; then
-  deny_reason="Direct python/python3 execution detected. Use 'uv run' instead."
+  deny_reason="Use 'uv run python' instead. For code using only built-in modules, use 'uv run --no-project python' to skip syncing project dependencies."
 fi
 
 # Block direct pip/pip3 commands
