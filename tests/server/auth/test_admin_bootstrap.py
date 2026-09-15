@@ -102,7 +102,7 @@ def test_create_admin_user_requires_username(store, username):
     [
         (None, "needs a password to create the admin user"),
         ("", "needs a password to create the admin user"),
-        ("short", "at least 12 characters"),
+        ("short", "longer than 12 characters"),
     ],
 )
 def test_create_admin_user_rejects_missing_or_short_password(store, password, match):
@@ -172,7 +172,7 @@ def test_create_admin_user_rotates_legacy_default_password_when_password_configu
 def test_create_admin_user_refuses_to_rotate_to_a_short_password(store):
     store.has_user.return_value = True
     store.authenticate_user.return_value = True
-    with pytest.raises(MlflowException, match="at least 12 characters"):
+    with pytest.raises(MlflowException, match="longer than 12 characters"):
         auth_module.create_admin_user("admin", "short")
     store.update_user.assert_not_called()
 
