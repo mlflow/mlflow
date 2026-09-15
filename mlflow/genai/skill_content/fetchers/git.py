@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import re
 import stat
 from pathlib import Path
 from typing import IO
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.skill_content.errors import display_path, invalid_content, source_unavailable
+from mlflow.genai.skill_content.errors import (
+    display_path,
+    error_code_for_http_status,
+    invalid_content,
+    source_unavailable,
+)
 from mlflow.genai.skill_content.paths import (
     TreeLayout,
     canonical_relative_path,
@@ -20,6 +26,7 @@ from mlflow.protos.databricks_pb2 import (
 
 _GIT_TIMEOUT_SECONDS = 600
 _COPY_CHUNK_SIZE = 1024 * 1024
+_HTTP_STATUS_PATTERN = re.compile(r"(?:returned error|http status|status code|error):?\s*(\d{3})\b")
 
 
 def _git_environment(no_hooks_dir: Path) -> dict[str, str]:
@@ -60,6 +67,9 @@ _AVAILABILITY_MARKERS = (
 
 def _error_code_for_git(detail: str) -> int:
     lowered = detail.lower()
+    # HTTP transports often report only the status, e.g. "returned error: 403".
+    if status := _HTTP_STATUS_PATTERN.search(lowered):
+        return error_code_for_http_status(int(status.group(1)))
     if any(marker in lowered for marker in _AUTH_MARKERS):
         return UNAUTHENTICATED
     if any(marker in lowered for marker in _AVAILABILITY_MARKERS):
@@ -131,14 +141,8 @@ def fetch_git(
     repository's attributes never touch the bytes. Submodules are not supported; a skill is a
     plain content tree. The size limit applies to the tree at ``subpath``.
     """
-    try:
-        # GitPython needs the git executable at import time, so import only when fetching.
-        import git
-    except ImportError as e:
-        raise MlflowException(
-            "Fetching Git sources requires GitPython and a git executable on PATH. "
-            f"Install git and `pip install gitpython`. Original error: {e}"
-        )
+    # GitPython needs the git executable at import time, so import only when fetching.
+    import git
 
     prefix = normalize_subpath(subpath)
     dest.mkdir(parents=True, exist_ok=True)
@@ -150,7 +154,15 @@ def fetch_git(
     try:
         with repo.git.custom_environment(**_git_environment(no_hooks_dir)):
             origin = repo.create_remote("origin", url)
-            origin.fetch(refspec=ref or "HEAD", depth=1, kill_after_timeout=_GIT_TIMEOUT_SECONDS)
+            # A partial fetch brings only commits and trees; blobs are retrieved on demand as
+            # they are read, so a small skill in a large repository transfers only its own
+            # files. Servers without partial-clone support ignore the filter and send all.
+            origin.fetch(
+                refspec=ref or "HEAD",
+                depth=1,
+                filter="blob:none",
+                kill_after_timeout=_GIT_TIMEOUT_SECONDS,
+            )
         try:
             tree = repo.commit("FETCH_HEAD").tree
         except (git.exc.BadName, ValueError) as e:

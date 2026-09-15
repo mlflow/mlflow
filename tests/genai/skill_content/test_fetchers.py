@@ -15,7 +15,9 @@ from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.fetchers import fetch_source
+from mlflow.genai.skill_content.fetchers.git import _error_code_for_git
 from mlflow.genai.skill_content.fetchers.zip import download_with_budget
+from mlflow.protos.databricks_pb2 import ErrorCode
 
 from tests.genai.skill_content.conftest import SKILL_MD
 
@@ -404,6 +406,49 @@ def test_fetch_git_subpath_must_exist_and_be_a_directory(git_repo):
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
     with pytest.raises(MlflowException, match="must point to a directory"):
         fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/demo/SKILL.md"))
+
+
+@pytest.mark.parametrize(
+    ("detail", "expected"),
+    [
+        (
+            "fatal: unable to access 'https://h/r.git/': The requested URL returned error: 403",
+            "PERMISSION_DENIED",
+        ),
+        (
+            "fatal: unable to access 'https://h/r.git/': The requested URL returned error: 401",
+            "UNAUTHENTICATED",
+        ),
+        (
+            "fatal: unable to access 'https://h/r.git/': The requested URL returned error: 404",
+            "RESOURCE_DOES_NOT_EXIST",
+        ),
+        ("fatal: Authentication failed for 'https://h/r.git/'", "UNAUTHENTICATED"),
+        (
+            "fatal: unable to access 'https://h/r.git/': Could not resolve host: h",
+            "TEMPORARILY_UNAVAILABLE",
+        ),
+        ("fatal: couldn't find remote ref nope", "RESOURCE_DOES_NOT_EXIST"),
+    ],
+)
+def test_git_error_codes(detail, expected):
+    assert ErrorCode.Name(_error_code_for_git(detail)) == expected
+
+
+def test_fetch_git_partial_fetch_skips_blobs_outside_subpath(git_repo):
+    # With partial clone enabled on the server, only the commit, trees, and the subpath's blobs
+    # are transferred; the 5000-byte big.bin outside the subpath never comes down.
+    _git("config", "uploadpack.allowFilter", "true", cwd=git_repo)
+    with fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/demo")) as fetched:
+        scratch = fetched.root.parent.parent.parent / "git-objects"
+        counts = subprocess.run(
+            ["git", "count-objects", "-v"], cwd=scratch, capture_output=True, text=True, check=True
+        ).stdout
+        size_pack_kb = int(
+            next(line.split()[1] for line in counts.splitlines() if line.startswith("size-pack"))
+        )
+        assert size_pack_kb < 4
+        assert (fetched.root / "SKILL.md").exists()
 
 
 def test_download_with_budget_refuses_credentialed_urls(tmp_path):
