@@ -593,6 +593,36 @@ def test_delete_workspace_set_default_blocks_same_organization_and_name(workspac
     assert workspace_store.get_workspace("team-a").name == "team-a"
 
 
+def test_delete_workspace_set_default_blocks_conflicting_secret_names(workspace_store):
+
+    def _insert_secret(session, *, workspace, secret_name, secret_id):
+        session.execute(
+            sa.text(
+                "INSERT INTO secrets (secret_id, secret_name, workspace, encrypted_value, "
+                "wrapped_dek, kek_version, masked_value, created_at, last_updated_at) "
+                "VALUES (:secret_id, :secret_name, :ws, :value, :dek, 1, 'masked', 0, 0)"
+            ),
+            {
+                "secret_id": secret_id,
+                "secret_name": secret_name,
+                "ws": workspace,
+                "value": b"encrypted",
+                "dek": b"dek",
+            },
+        )
+
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _insert_secret(session, workspace="team-a", secret_name="shared", secret_id="s-team-a")
+        _insert_secret(
+            session, workspace=DEFAULT_WORKSPACE_NAME, secret_name="shared", secret_id="s-default"
+        )
+
+    with pytest.raises(MlflowException, match=r"secrets: 'shared'"):
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+
+
 def test_delete_workspace_set_default_merges_unnamed_endpoints(workspace_store):
     # Fast guard to record the following behaviour: `endpoints.name` is nullable, and SQL
     # treats NULL = NULL as unknown, so two unnamed endpoints are not a clash currently.

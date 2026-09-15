@@ -366,6 +366,24 @@ class SqlAlchemyStore(AbstractStore):
         """
         conflicts: list[str] = []
         for model in _WORKSPACE_ROOT_MODELS:
+            if model is SqlGatewaySecret:
+                # `secrets` has no `name` column. Unique on (workspace, secret_name).
+                overlapping = (
+                    session
+                    .query(model.secret_name)
+                    .filter(model.workspace == workspace_name)
+                    .filter(
+                        model.secret_name.in_(
+                            session.query(model.secret_name).filter(
+                                model.workspace == DEFAULT_WORKSPACE_NAME
+                            )
+                        )
+                    )
+                    .all()
+                )
+                for (secret_name,) in overlapping:
+                    conflicts.append(f"  - {model.__tablename__}: {secret_name!r}")
+                continue
             if not hasattr(model, "name"):
                 continue
             if hasattr(model, "organization"):
