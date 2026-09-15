@@ -817,8 +817,22 @@ def _gc_tracking_resources(
     """
     from mlflow.utils.time import get_current_time_millis
 
+    # `--run-ids`, `--experiment-ids` and `--logged-model-ids` each name exactly what to
+    # delete, so naming one must not sweep up the kinds that were not named: `gc
+    # --run-ids <id>` deletes that run, not every soft-deleted experiment in the store
+    # as well. Only a bare `gc`, which names nothing, collects everything that is in the
+    # `deleted` lifecycle stage.
+    ids_were_given = any(ids is not None for ids in (run_ids, experiment_ids, logged_model_ids))
+
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
-    run_ids_to_delete = run_ids if run_ids is not None else list(deleted_run_ids_older_than)
+    if run_ids is not None:
+        # A copy, because the experiment sweep below extends this list and `run_ids`
+        # belongs to the caller.
+        run_ids_to_delete = list(run_ids)
+    elif ids_were_given:
+        run_ids_to_delete = []
+    else:
+        run_ids_to_delete = list(deleted_run_ids_older_than)
 
     deleted_logged_model_ids = (
         backend_store._get_deleted_logged_models() if not skip_logged_models else []
@@ -829,11 +843,12 @@ def _gc_tracking_resources(
         if not skip_logged_models
         else []
     )
-    logged_model_ids_to_delete = (
-        logged_model_ids
-        if logged_model_ids is not None
-        else list(deleted_logged_model_ids_older_than)
-    )
+    if logged_model_ids is not None:
+        logged_model_ids_to_delete = list(logged_model_ids)
+    elif ids_were_given:
+        logged_model_ids_to_delete = []
+    else:
+        logged_model_ids_to_delete = list(deleted_logged_model_ids_older_than)
 
     time_threshold = get_current_time_millis() - time_delta
     experiment_ids_to_delete = []
@@ -875,7 +890,7 @@ def _gc_tracking_resources(
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             experiment_ids_to_delete = list(experiment_ids)
-        else:
+        elif not ids_were_given:
             filter_string = f"last_update_time < {time_threshold}" if older_than else None
 
             def fetch_experiments(token=None):
