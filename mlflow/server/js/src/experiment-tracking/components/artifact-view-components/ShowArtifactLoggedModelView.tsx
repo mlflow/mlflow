@@ -435,7 +435,7 @@ mlflow.models.predict(
   /** Fetches artifacts and updates component state with the result */
   fetchLoggedModelMetadata() {
     const MLModelArtifactPath = `${this.props.path}/${MLMODEL_FILE_NAME}`;
-    const { getArtifact, path, runUuid, experimentId, entityTags } = this.props;
+    const { getArtifact, path, runUuid, experimentId, entityTags, artifactRootUri } = this.props;
 
     fetchArtifactUnified(
       {
@@ -443,6 +443,7 @@ mlflow.models.predict(
         runUuid,
         experimentId,
         entityTags,
+        artifactUri: artifactRootUri,
       },
       getArtifact,
     )
