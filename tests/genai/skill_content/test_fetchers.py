@@ -13,7 +13,7 @@ import requests
 
 import mlflow
 from mlflow.entities.file_info import FileInfo
-from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
+from mlflow.entities.skill_source import GitSource, SkillSourceType, ZipSource
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.fetchers import fetch_source
@@ -271,19 +271,6 @@ def test_fetch_zip_unreachable(closed_port):
         with fetch_source(f"http://127.0.0.1:{closed_port}/skills.zip"):
             pass
     assert exc.value.error_code == "TEMPORARILY_UNAVAILABLE"
-
-
-# --- oci --------------------------------------------------------------------------------------
-
-
-def test_fetch_oci_not_supported_yet():
-    # The source type resolves so callers get a precise message, but no registry is contacted.
-    with pytest.raises(MlflowException, match="OCI sources are not supported yet"):
-        with fetch_source(OCISource(image="oci://ghcr.io/acme/skills:v1")):
-            pass
-    with pytest.raises(MlflowException, match="OCI sources are not supported yet"):
-        with fetch_source("oci://ghcr.io/acme/skills:v1"):
-            pass
 
 
 # --- mlflow artifacts -------------------------------------------------------------------------
