@@ -98,15 +98,18 @@ def test_fetch_local_path(skill_tree):
 
 def test_fetch_local_path_rejects_symlink_and_missing_subpath(skill_tree):
     with pytest.raises(MlflowException, match="does not exist"):
-        fetch_source(str(skill_tree), subpath="skills/nope")
+        with fetch_source(str(skill_tree), subpath="skills/nope"):
+            pass
     (skill_tree / "skills" / "demo" / "link").symlink_to(skill_tree / "README.md")
     with pytest.raises(MlflowException, match="symbolic links"):
-        fetch_source(str(skill_tree), subpath="skills/demo")
+        with fetch_source(str(skill_tree), subpath="skills/demo"):
+            pass
 
 
 def test_fetch_local_path_size_limit_applies_to_subpath(skill_tree):
     with pytest.raises(MlflowException, match="exceeds the size limit"):
-        fetch_source(str(skill_tree), max_bytes=200)
+        with fetch_source(str(skill_tree), max_bytes=200):
+            pass
     with fetch_source(str(skill_tree), subpath="skills/demo", max_bytes=200) as fetched:
         assert (fetched.root / "SKILL.md").exists()
 
@@ -132,13 +135,15 @@ def test_fetch_git_by_ref_and_head(git_repo, skill_tree):
 
 def test_fetch_git_missing_ref(git_repo):
     with pytest.raises(MlflowException, match="Failed to fetch skill content.*ref 'nope'") as exc:
-        fetch_source(GitSource(url=f"file://{git_repo}", ref="nope"))
+        with fetch_source(GitSource(url=f"file://{git_repo}", ref="nope")):
+            pass
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
 def test_fetch_git_size_limit_applies_to_subpath(git_repo):
     with pytest.raises(MlflowException, match="exceeds the skill content size limit"):
-        fetch_source(GitSource(url=f"file://{git_repo}"), max_bytes=200)
+        with fetch_source(GitSource(url=f"file://{git_repo}"), max_bytes=200):
+            pass
     with fetch_source(
         GitSource(url=f"file://{git_repo}", subpath="skills/demo"), max_bytes=200
     ) as f:
@@ -147,13 +152,15 @@ def test_fetch_git_size_limit_applies_to_subpath(git_repo):
 
 def test_fetch_git_rejects_option_like_ref(git_repo):
     with pytest.raises(MlflowException, match="must not start with '-'"):
-        fetch_source(GitSource(url=f"file://{git_repo}", ref="--upload-pack=evil"))
+        with fetch_source(GitSource(url=f"file://{git_repo}", ref="--upload-pack=evil")):
+            pass
 
 
 def test_fetch_git_redacts_credentials_and_reports_availability(closed_port):
     url = f"https://user:s3cret-token@127.0.0.1:{closed_port}/skills.git"
     with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc_info:
-        fetch_source(url)
+        with fetch_source(url):
+            pass
     message = str(exc_info.value)
     assert "s3cret-token" not in message
     assert "***@127.0.0.1" in message
@@ -180,7 +187,8 @@ def test_fetch_zip_subpath_limits_budget(http_server, skill_tree):
     serve_dir, base_url, _ = http_server
     shutil.make_archive(str(serve_dir / "skills"), "zip", root_dir=skill_tree)
     with pytest.raises(MlflowException, match="exceeds the skill content size limit"):
-        fetch_source(f"{base_url}/skills.zip", max_bytes=2000)
+        with fetch_source(f"{base_url}/skills.zip", max_bytes=2000):
+            pass
     with fetch_source(f"{base_url}/skills.zip", subpath="skills/demo", max_bytes=2000) as fetched:
         assert (fetched.root / "SKILL.md").exists()
 
@@ -197,7 +205,8 @@ def test_fetch_zip_sends_no_credentials(http_server, skill_tree, tmp_path, monke
     assert handler.authorizations == [None]
 
     with pytest.raises(MlflowException, match="publicly accessible"):
-        fetch_source(base_url.replace("http://", "http://u:p@") + "/skills.zip")
+        with fetch_source(base_url.replace("http://", "http://u:p@") + "/skills.zip"):
+            pass
 
 
 @pytest.mark.no_mock_requests_get
@@ -245,19 +254,22 @@ def test_fetch_zip_redirect_body_is_not_buffered(http_server, skill_tree, monkey
 def test_fetch_zip_errors(http_server, skill_tree):
     serve_dir, base_url, _ = http_server
     with pytest.raises(MlflowException, match="HTTP 404") as exc:
-        fetch_source(f"{base_url}/missing.zip")
+        with fetch_source(f"{base_url}/missing.zip"):
+            pass
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
     with zipfile.ZipFile(serve_dir / "evil.zip", "w") as zf:
         zf.writestr("../escape.txt", "x")
     with pytest.raises(MlflowException, match="unsafe path"):
-        fetch_source(f"{base_url}/evil.zip")
+        with fetch_source(f"{base_url}/evil.zip"):
+            pass
 
 
 @pytest.mark.no_mock_requests_get
 def test_fetch_zip_unreachable(closed_port):
     with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
-        fetch_source(f"http://127.0.0.1:{closed_port}/skills.zip")
+        with fetch_source(f"http://127.0.0.1:{closed_port}/skills.zip"):
+            pass
     assert exc.value.error_code == "TEMPORARILY_UNAVAILABLE"
 
 
@@ -267,9 +279,11 @@ def test_fetch_zip_unreachable(closed_port):
 def test_fetch_oci_not_supported_yet():
     # The source type resolves so callers get a precise message, but no registry is contacted.
     with pytest.raises(MlflowException, match="OCI sources are not supported yet"):
-        fetch_source(OCISource(image="oci://ghcr.io/acme/skills:v1"))
+        with fetch_source(OCISource(image="oci://ghcr.io/acme/skills:v1")):
+            pass
     with pytest.raises(MlflowException, match="OCI sources are not supported yet"):
-        fetch_source("oci://ghcr.io/acme/skills:v1")
+        with fetch_source("oci://ghcr.io/acme/skills:v1"):
+            pass
 
 
 # --- mlflow artifacts -------------------------------------------------------------------------
@@ -294,7 +308,8 @@ def test_fetch_mlflow_artifacts_subpath_downloads_only_subtree(skill_tree):
         mlflow.log_artifacts(str(skill_tree), artifact_path="pkg")
     uri = f"runs:/{run.info.run_id}/pkg"
     with pytest.raises(MlflowException, match="exceeds"):
-        fetch_source(uri, max_bytes=2000)
+        with fetch_source(uri, max_bytes=2000):
+            pass
     with fetch_source(uri, subpath="skills/demo", max_bytes=2000) as fetched:
         assert (fetched.root / "SKILL.md").exists()
         assert not (fetched.root.parent.parent / "big.bin").exists()
@@ -306,7 +321,8 @@ def test_fetch_mlflow_artifacts_rejects_oversized_tree_before_downloading(skill_
     uri = f"runs:/{run.info.run_id}/pkg"
     with mock.patch("mlflow.genai.skill_content.fetchers.artifacts.download_artifacts") as download:
         with pytest.raises(MlflowException, match="at least [0-9]+ bytes, which exceeds"):
-            fetch_source(uri, max_bytes=2000)
+            with fetch_source(uri, max_bytes=2000):
+                pass
         download.assert_not_called()
 
 
@@ -319,14 +335,16 @@ def test_fetch_mlflow_artifacts_rejects_too_many_entries():
         mock.patch("mlflow.genai.skill_content.fetchers.artifacts.download_artifacts") as download,
     ):
         with pytest.raises(MlflowException, match="more than 10000 entries"):
-            fetch_source("runs:/run/skill")
+            with fetch_source("runs:/run/skill"):
+                pass
         listed.assert_called_once_with(artifact_uri="runs:/run/skill")
         download.assert_not_called()
 
 
 def test_fetch_mlflow_artifacts_missing():
     with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
-        fetch_source("runs:/does-not-exist/skill")
+        with fetch_source("runs:/does-not-exist/skill"):
+            pass
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
@@ -423,15 +441,18 @@ def test_fetch_git_rejects_symlinks_and_preserves_exec_bit(tmp_path):
     _git("add", ".", cwd=repo)
     _git("commit", "-q", "-m", "link", cwd=repo)
     with pytest.raises(MlflowException, match="symbolic links: 'link.md'"):
-        fetch_source(GitSource(url=repo.as_uri()))
+        with fetch_source(GitSource(url=repo.as_uri())):
+            pass
 
 
 def test_fetch_git_subpath_must_exist_and_be_a_directory(git_repo):
     with pytest.raises(MlflowException, match="does not exist") as exc:
-        fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/nope"))
+        with fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/nope")):
+            pass
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
     with pytest.raises(MlflowException, match="must point to a directory"):
-        fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/demo/SKILL.md"))
+        with fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/demo/SKILL.md")):
+            pass
 
 
 @pytest.mark.parametrize(
@@ -467,6 +488,7 @@ def test_fetch_git_partial_fetch_skips_blobs_outside_subpath(git_repo):
     _git("config", "uploadpack.allowFilter", "true", cwd=git_repo)
     with fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/demo")) as fetched:
         scratch = fetched.root.parent.parent.parent / "git-objects"
+        assert scratch.is_dir()
         counts = subprocess.run(
             ["git", "count-objects", "-v"], cwd=scratch, capture_output=True, text=True, check=True
         ).stdout
@@ -482,3 +504,50 @@ def test_download_with_budget_refuses_credentialed_urls(tmp_path):
         download_with_budget(
             "https://u:p@example.invalid/skills.zip", tmp_path / "x.zip", max_bytes=10
         )
+
+
+def test_fetch_source_destination_keeps_content_after_exit(git_repo, tmp_path):
+    destination = tmp_path / "cache" / "demo"
+    with fetch_source(
+        GitSource(url=f"file://{git_repo}", subpath="skills/demo"), destination=destination
+    ) as fetched:
+        assert fetched.root == destination / "skills" / "demo"
+        scratch = fetched._tmpdir.name
+        assert not (Path(scratch) / "content").exists()
+    assert not Path(scratch).exists()
+    assert (destination / "skills" / "demo" / "SKILL.md").read_text().startswith(SKILL_MD)
+    assert not (destination / "big.bin").exists()
+
+
+def test_fetch_source_destination_is_cleared_on_failure(git_repo, tmp_path):
+    destination = tmp_path / "dest"
+    destination.mkdir()
+    with pytest.raises(MlflowException, match="exceeds"):
+        with fetch_source(
+            GitSource(url=f"file://{git_repo}"), destination=destination, max_bytes=200
+        ):
+            pass
+    assert destination.is_dir()
+    assert list(destination.iterdir()) == []
+
+
+@pytest.mark.parametrize("prepare", ["file", "non_empty"])
+def test_fetch_source_destination_must_be_empty_directory(git_repo, tmp_path, prepare):
+    destination = tmp_path / "dest"
+    if prepare == "file":
+        destination.write_text("x")
+        message = "is not a directory"
+    else:
+        destination.mkdir()
+        (destination / "stale").write_text("x")
+        message = "must be empty"
+    with pytest.raises(MlflowException, match=message):
+        with fetch_source(GitSource(url=f"file://{git_repo}"), destination=destination):
+            pass
+
+
+def test_fetch_source_destination_rejected_for_local_sources(skill_tree, tmp_path):
+    with pytest.raises(MlflowException, match="applies to remote sources only"):
+        with fetch_source(str(skill_tree), destination=tmp_path / "dest"):
+            pass
+    assert not (tmp_path / "dest").exists()

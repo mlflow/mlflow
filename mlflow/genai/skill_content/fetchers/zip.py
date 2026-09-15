@@ -86,10 +86,16 @@ def download_with_budget(url: str, target: Path, *, max_bytes: int) -> Path:
     return target
 
 
-def fetch_zip(url: str, dest: Path, *, max_bytes: int, subpath: str | None = None) -> Path:
-    """Download the ZIP archive at ``url`` and extract it (or just ``subpath``) into ``dest``."""
+def fetch_zip(
+    url: str, dest: Path, *, scratch: Path, max_bytes: int, subpath: str | None = None
+) -> Path:
+    """
+    Download the ZIP archive at ``url`` into ``scratch`` and extract it (or just ``subpath``)
+    into ``dest``.
+    """
     dest.mkdir(parents=True, exist_ok=True)
-    archive = dest.parent / "source.zip"
+    scratch.mkdir(parents=True, exist_ok=True)
+    archive = scratch / "source.zip"
     download_with_budget(url, archive, max_bytes=max_bytes)
     extract_zip_archive(archive, dest, max_bytes=max_bytes, subpath=subpath)
     archive.unlink(missing_ok=True)

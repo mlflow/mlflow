@@ -130,13 +130,19 @@ def _materialize_tree(tree, dest: Path, *, max_bytes: int) -> None:
 
 
 def fetch_git(
-    url: str, ref: str | None, dest: Path, *, max_bytes: int, subpath: str | None = None
+    url: str,
+    ref: str | None,
+    dest: Path,
+    *,
+    scratch: Path,
+    max_bytes: int,
+    subpath: str | None = None,
 ) -> Path:
     """
     Materialize the tree at ``ref`` of the repository ``url`` under ``dest``.
 
     A shallow fetch of the single ref (or the remote ``HEAD`` when ``ref`` is omitted) brings
-    the objects into a scratch repository beside ``dest``; the committed blobs at ``subpath``
+    the objects into a repository under ``scratch``; the committed blobs at ``subpath``
     are then written straight from the object store, so the caller's checkout settings and the
     repository's attributes never touch the bytes. Submodules are not supported; a skill is a
     plain content tree. The size limit applies to the tree at ``subpath``.
@@ -146,11 +152,11 @@ def fetch_git(
 
     prefix = normalize_subpath(subpath)
     dest.mkdir(parents=True, exist_ok=True)
-    scratch = dest.parent / "git-objects"
-    no_hooks_dir = dest.parent / "no-hooks"
-    no_hooks_dir.mkdir(exist_ok=True)
+    objects = scratch / "git-objects"
+    no_hooks_dir = scratch / "no-hooks"
+    no_hooks_dir.mkdir(parents=True, exist_ok=True)
     target = f"{url} at ref '{ref}'" if ref else url
-    repo = git.Repo.init(scratch)
+    repo = git.Repo.init(objects)
     try:
         with repo.git.custom_environment(**_git_environment(no_hooks_dir)):
             origin = repo.create_remote("origin", url)
