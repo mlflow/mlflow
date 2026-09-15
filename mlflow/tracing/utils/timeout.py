@@ -208,7 +208,9 @@ class MlflowTraceTimeoutCache(_TimedCache):
 
         # End the expired traces and set the status to ERROR in background thread
         for request_id in expired:
-            trace = self[request_id]
+            trace = self.get(request_id)
+            if trace is None:
+                continue
             if root_span := trace.get_root_span():
                 try:
                     root_span.set_status(SpanStatusCode.ERROR)
@@ -222,8 +224,7 @@ class MlflowTraceTimeoutCache(_TimedCache):
 
                 # NB: root_span.end() should pop the trace from the cache. But we need to
                 # double-check it because it may not happens due to some errors.
-                if request_id in self:
-                    del self[request_id]
+                self.pop(request_id, None)
 
     def _get_expired_traces(self) -> list[str]:
         """
