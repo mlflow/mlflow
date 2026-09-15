@@ -469,3 +469,20 @@ def test_deeply_nested_archive_entry_is_rejected_before_layout_tracking(tmp_path
     archive = _make_zip(tmp_path / "deep.zip", [("/".join(["d"] * 2048 + ["f"]), b"x", None)])
     with pytest.raises(MlflowException, match="deeper than"):
         validate_zip_archive(archive)
+
+
+@pytest.mark.parametrize("operation", ["validate", "extract"])
+def test_tar_negative_member_size_is_rejected(tmp_path, operation):
+    # The GNU base-256 size encoding can express a negative size. The stream parser rejects
+    # most such headers as malformed; any it lets through must not reach the accounting.
+    info = tarfile.TarInfo("SKILL.md")
+    info.size = -1
+    header = info.tobuf(format=tarfile.GNU_FORMAT)
+    archive = tmp_path / "negative.tar.gz"
+    archive.write_bytes(gzip.compress(header + b"\0" * (tarfile.BLOCKSIZE * 2)))
+    run = {
+        "validate": lambda: validate_skill_archive(archive),
+        "extract": lambda: extract_skill_archive(archive, tmp_path / "out"),
+    }[operation]
+    with pytest.raises(MlflowException, match="negative size|not a readable tar archive"):
+        run()

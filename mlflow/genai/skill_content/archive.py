@@ -202,6 +202,12 @@ def _iter_tar_members(tar: tarfile.TarFile, bounded: _BoundedStream) -> Iterator
             count += 1
             if count > MAX_ARCHIVE_ENTRIES:
                 raise invalid_content(f"Archive contains more than {MAX_ARCHIVE_ENTRIES} entries.")
+            # The tar format can encode a negative size (base-256), which tarfile accepts;
+            # it would lower the budgets below instead of consuming them.
+            if member.size < 0:
+                raise invalid_content(
+                    f"Archive entry '{display_path(member.name)}' declares a negative size."
+                )
             # The header has been parsed; its payload (which the caller either copies under
             # the content budget or skips) is about to stream through and is not metadata.
             # tarfile only consumes a payload for regular files and unknown types; a
