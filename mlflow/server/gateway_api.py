@@ -495,6 +495,7 @@ def _build_endpoint_config(
             vertex_project=auth_config.get("vertex_project"),
             vertex_location=auth_config.get("vertex_location"),
             vertex_credentials=model_config.secret_value.get("vertex_credentials"),
+            vertex_anthropic_betas=auth_config.get("vertex_anthropic_betas"),
         )
     else:
         # Use LiteLLM as fallback for unsupported providers

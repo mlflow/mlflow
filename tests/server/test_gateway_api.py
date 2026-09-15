@@ -33,6 +33,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     PortkeyConfig,
+    VertexAIConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.guardrails import _SANITIZE_BYPASS_HEADER, JudgeGuardrail
@@ -138,6 +139,34 @@ def test_build_endpoint_config_allows_provider_when_no_filter():
         "test-ep", _make_model_config("openai"), EndpointType.LLM_V1_CHAT
     )
     assert config.name == "test-ep"
+
+
+@pytest.mark.parametrize(
+    ("betas", "expected"),
+    [
+        (
+            "web-search-2025-03-05, interleaved-thinking-2025-05-14",
+            ["web-search-2025-03-05", "interleaved-thinking-2025-05-14"],
+        ),
+        ("", []),
+    ],
+)
+def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config(betas, expected):
+    # auth_config is map<string, string> in the proto, so the option arrives as a string.
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="vertex_ai",
+        model_name="claude-sonnet-4-5@20251101",
+        secret_value={"vertex_credentials": "{}"},
+        auth_config={
+            "vertex_project": "my-project",
+            "vertex_location": "us-east5",
+            "vertex_anthropic_betas": betas,
+        },
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, VertexAIConfig)
+    assert config.model.config.vertex_anthropic_betas == expected
 
 
 def test_create_provider_from_endpoint_name_openai(store: SqlAlchemyStore):

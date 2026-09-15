@@ -98,6 +98,7 @@ jobs:
           client-id: ${{ vars.NAILAOPUS_APP_CLIENT_ID }}
           private-key: ${{ secrets.NAILAOPUS_APP_KEY }}
           owner: mlflow
+          repositories: mlflow,internal
           # Least-privilege: explicitly request only what the workflow uses
           # on each repo. The App's installation permissions are the upper
           # bound; these inputs narrow the issued token further.
