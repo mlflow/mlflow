@@ -16,7 +16,9 @@ _GIT_SCHEME = "git://"
 # already lives in MLflow) but are never what the registry records as a version's source.
 _MLFLOW_PREFIXES = ("mlflow-artifacts:/", "runs:/", "models:/")
 _WINDOWS_DRIVE_PATTERN = re.compile(r"^[A-Za-z]:[\\/]")
-_SCP_GIT_PATTERN = re.compile(r"^[\w.-]+@[\w.-]+:")
+# scp-style Git syntax: ``user@host:path`` or, with the optional user omitted, ``host:path``
+# where the host is dotted so that a bare word before a colon still reads as a local path.
+_SCP_GIT_PATTERN = re.compile(r"^(?:[\w.-]+@[\w.-]+|[\w-]+(?:\.[\w-]+)+):")
 _UNSAFE_REF_PATTERN = re.compile(r"[\s\x00-\x1f\x7f]")
 # RFC-0008 stores `source`, `ref`, and `subpath` in String(2048) columns; fail early rather
 # than at the database.

@@ -182,3 +182,25 @@ def test_resolve_source_type_typed_subpath_bound():
     subpath = "/".join(["a" * 102] * 20)
     with pytest.raises(MlflowException, match="Subpath is 2059 characters"):
         resolve_source_type(GitSource(url="https://h/r.git", subpath=subpath))
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_local"),
+    [
+        ("github.com:acme/skills.git", False),
+        ("git@github.com:acme/skills.git", False),
+        ("git@localhost:skills.git", False),
+        ("localhost:skills", True),
+        ("data:stream", True),
+        ("C:\\skills", True),
+    ],
+)
+def test_is_local_path_scp_forms(source, expected_local):
+    # The user part of scp-style syntax is optional; a dotted host before the colon is remote.
+    assert is_local_path(source) is expected_local
+
+
+def test_resolve_source_type_host_only_scp_is_git():
+    resolved = resolve_source_type("github.com:acme/skills.git")
+    assert resolved.source_type == SkillSourceType.GIT
+    assert resolved.is_local is False
