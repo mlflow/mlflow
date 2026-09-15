@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-import os
-import shutil
 import stat
-import sys
 from pathlib import Path
+from typing import IO
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.skill_content.errors import invalid_content, source_unavailable
-from mlflow.genai.skill_content.paths import resolve_contained, tree_size
+from mlflow.genai.skill_content.errors import display_path, invalid_content, source_unavailable
+from mlflow.genai.skill_content.paths import (
+    TreeLayout,
+    canonical_relative_path,
+    ensure_within,
+    normalize_subpath,
+)
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     TEMPORARILY_UNAVAILABLE,
@@ -16,27 +19,24 @@ from mlflow.protos.databricks_pb2 import (
 )
 
 _GIT_TIMEOUT_SECONDS = 600
+_COPY_CHUNK_SIZE = 1024 * 1024
 
 
 def _git_environment(no_hooks_dir: Path) -> dict[str, str]:
     """
-    Environment for the fetch and checkout commands.
+    Environment for the fetch command.
 
     ``GIT_TERMINAL_PROMPT=0`` keeps git from blocking on an interactive credential prompt;
-    credentials still come from the caller's helpers, SSH agent, or netrc. The
-    ``GIT_CONFIG_*`` entries override every config scope, including the caller's global one:
-    ``core.hooksPath`` points at an empty directory so a repository that ships hooks (reachable
-    through a global ``core.hooksPath=.githooks``) can never execute them during checkout, and
-    ``core.autocrlf`` is off so the checkout holds the committed bytes and the same commit
-    hashes identically on every machine.
+    credentials still come from the caller's helpers, SSH agent, or netrc. The ``GIT_CONFIG_*``
+    entries override every config scope, including the caller's global one: ``core.hooksPath``
+    points at an empty directory so nothing shipped in a repository can ever run as a hook.
+    No worktree is checked out, so this is defense in depth rather than the only barrier.
     """
     return {
         "GIT_TERMINAL_PROMPT": "0",
-        "GIT_CONFIG_COUNT": "2",
+        "GIT_CONFIG_COUNT": "1",
         "GIT_CONFIG_KEY_0": "core.hooksPath",
         "GIT_CONFIG_VALUE_0": str(no_hooks_dir),
-        "GIT_CONFIG_KEY_1": "core.autocrlf",
-        "GIT_CONFIG_VALUE_1": "false",
     }
 
 
@@ -67,36 +67,69 @@ def _error_code_for_git(detail: str) -> int:
     return RESOURCE_DOES_NOT_EXIST
 
 
-def _force_remove(func, path, _exc) -> None:
-    # Git writes pack and object files read-only; on Windows that makes unlink fail.
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
+def _copy_stream(source: IO[bytes], target: Path) -> None:
+    with open(target, "wb") as out:
+        while chunk := source.read(_COPY_CHUNK_SIZE):
+            out.write(chunk)
 
 
-def _remove_git_dir(dest: Path) -> None:
-    git_dir = dest / ".git"
-    if not git_dir.exists():
-        return
-    if sys.version_info >= (3, 12):
-        shutil.rmtree(git_dir, onexc=_force_remove)
-    else:
-        shutil.rmtree(git_dir, onerror=_force_remove)
-    if git_dir.exists():
-        raise invalid_content(
-            f"Could not remove the '.git' directory from the checkout at '{dest}'."
-        )
+def _materialize_tree(tree, dest: Path, *, max_bytes: int) -> None:
+    """
+    Write the committed blobs of ``tree`` into ``dest`` without a worktree checkout.
+
+    Reading objects directly means none of git's working-tree conversions apply: no smudge or
+    process filter selected by the repository's ``.gitattributes``, no ``core.autocrlf`` or
+    ``core.eol`` rewriting, and no symlink creation. Every path passes the same segment and
+    layout rules as archive entries, symbolic links and submodules are rejected, and the size
+    limit applies to the bytes written.
+    """
+    layout = TreeLayout()
+    written = 0
+    for item in tree.traverse():
+        relative = canonical_relative_path(item.path)
+        if relative is None:
+            continue
+        target = dest.joinpath(*relative.split("/"))
+        ensure_within(dest, target)
+        if item.type == "tree":
+            layout.add(relative, item.path, is_dir=True)
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        if item.type == "commit":
+            raise invalid_content(
+                f"Git source contains a submodule at '{display_path(item.path)}'; submodules "
+                "are not supported."
+            )
+        if item.type != "blob":
+            continue
+        if stat.S_ISLNK(item.mode):
+            raise invalid_content(
+                f"Skill content must not contain symbolic links: '{display_path(item.path)}'."
+            )
+        layout.add(relative, item.path, is_dir=False)
+        written += item.size
+        if written > max_bytes:
+            raise invalid_content(
+                f"Git content is at least {written} bytes, which exceeds the skill content "
+                f"size limit of {max_bytes} bytes."
+            )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _copy_stream(item.data_stream, target)
+        if item.mode & stat.S_IXUSR:
+            target.chmod(0o755)
 
 
 def fetch_git(
     url: str, ref: str | None, dest: Path, *, max_bytes: int, subpath: str | None = None
 ) -> Path:
     """
-    Materialize the tree at ``ref`` of the repository ``url`` into ``dest``.
+    Materialize the tree at ``ref`` of the repository ``url`` under ``dest``.
 
-    A shallow fetch of the single ref (or the remote ``HEAD`` when ``ref`` is omitted) keeps
-    transfer small. The ``.git`` directory is removed so only content remains and the digest
-    never sees repository internals. Submodules are not initialized; a skill is a plain
-    content tree. The size limit applies to the tree at ``subpath``.
+    A shallow fetch of the single ref (or the remote ``HEAD`` when ``ref`` is omitted) brings
+    the objects into a scratch repository beside ``dest``; the committed blobs at ``subpath``
+    are then written straight from the object store, so the caller's checkout settings and the
+    repository's attributes never touch the bytes. Submodules are not supported; a skill is a
+    plain content tree. The size limit applies to the tree at ``subpath``.
     """
     try:
         # GitPython needs the git executable at import time, so import only when fetching.
@@ -107,26 +140,36 @@ def fetch_git(
             f"Install git and `pip install gitpython`. Original error: {e}"
         )
 
+    prefix = normalize_subpath(subpath)
     dest.mkdir(parents=True, exist_ok=True)
+    scratch = dest.parent / "git-objects"
     no_hooks_dir = dest.parent / "no-hooks"
     no_hooks_dir.mkdir(exist_ok=True)
-    repo = git.Repo.init(dest)
+    target = f"{url} at ref '{ref}'" if ref else url
+    repo = git.Repo.init(scratch)
     try:
         with repo.git.custom_environment(**_git_environment(no_hooks_dir)):
             origin = repo.create_remote("origin", url)
             origin.fetch(refspec=ref or "HEAD", depth=1, kill_after_timeout=_GIT_TIMEOUT_SECONDS)
-            repo.git.checkout("FETCH_HEAD")
+        try:
+            tree = repo.commit("FETCH_HEAD").tree
+        except (git.exc.BadName, ValueError) as e:
+            raise source_unavailable(target, f"fetched ref has no commit: {e}")
+        if prefix is not None:
+            try:
+                tree = tree / prefix
+            except KeyError:
+                raise MlflowException(
+                    f"Subpath '{prefix}' does not exist in the fetched content.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            if tree.type != "tree":
+                raise invalid_content(f"Subpath '{prefix}' must point to a directory.")
+            dest.joinpath(*prefix.split("/")).mkdir(parents=True, exist_ok=True)
+        _materialize_tree(tree, dest, max_bytes=max_bytes)
     except git.exc.GitCommandError as e:
         detail = (e.stderr or str(e)).strip()
-        target = f"{url} at ref '{ref}'" if ref else url
         raise source_unavailable(target, detail, error_code=_error_code_for_git(detail))
     finally:
         repo.close()
-    _remove_git_dir(dest)
-    root = resolve_contained(dest, subpath)
-    if (size := tree_size(root)) > max_bytes:
-        raise invalid_content(
-            f"Git checkout is {size} bytes, which exceeds the skill content size limit of "
-            f"{max_bytes} bytes."
-        )
     return dest

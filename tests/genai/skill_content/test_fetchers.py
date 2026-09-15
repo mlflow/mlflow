@@ -348,3 +348,58 @@ def test_fetch_git_same_commit_same_digest_regardless_of_autocrlf(tmp_path, monk
             assert (fetched.root / "SKILL.md").read_bytes() == b"---\nname: demo\n---\nHello\n"
             digests.append(compute_tree_digest(fetched.root))
     assert digests[0] == digests[1]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="uses a POSIX shell filter fixture")
+def test_fetch_git_does_not_run_filter_drivers(tmp_path, monkeypatch):
+    # A repository's .gitattributes can select any filter driver the caller has configured;
+    # reading blobs from the object store instead of checking out means it never runs and the
+    # committed bytes are what land on disk.
+    marker = tmp_path / "filter-ran"
+    script = tmp_path / "review-smudge"
+    script.write_text(f'#!/bin/sh\ntouch "{marker}"\ncat\n')
+    script.chmod(0o755)
+    config = tmp_path / "gitconfig"
+    config.write_text("")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    repo = tmp_path / "fixture.git"
+    repo.mkdir()
+    _git("init", "-q", "-b", "main", cwd=repo)
+    (repo / "SKILL.md").write_text(SKILL_MD)
+    (repo / "payload").write_bytes(b"raw\r\nbytes")
+    (repo / ".gitattributes").write_text("payload filter=review\n")
+    _git("add", ".", cwd=repo)
+    _git("commit", "-q", "-m", "fixture", cwd=repo)
+    config.write_text(f'[filter "review"]\n    smudge = {script}\n    required = true\n')
+
+    with fetch_source(GitSource(url=repo.as_uri())) as fetched:
+        assert (fetched.root / "payload").read_bytes() == b"raw\r\nbytes"
+    assert not marker.exists()
+
+
+def test_fetch_git_rejects_symlinks_and_preserves_exec_bit(tmp_path):
+    repo = tmp_path / "fixture.git"
+    repo.mkdir()
+    _git("init", "-q", "-b", "main", cwd=repo)
+    (repo / "SKILL.md").write_text(SKILL_MD)
+    (repo / "run.sh").write_text("#!/bin/sh\n")
+    (repo / "run.sh").chmod(0o755)
+    _git("add", ".", cwd=repo)
+    _git("commit", "-q", "-m", "fixture", cwd=repo)
+    with fetch_source(GitSource(url=repo.as_uri())) as fetched:
+        assert os.access(fetched.root / "run.sh", os.X_OK)
+
+    (repo / "link.md").symlink_to("SKILL.md")
+    _git("add", ".", cwd=repo)
+    _git("commit", "-q", "-m", "link", cwd=repo)
+    with pytest.raises(MlflowException, match="symbolic links: 'link.md'"):
+        fetch_source(GitSource(url=repo.as_uri()))
+
+
+def test_fetch_git_subpath_must_exist_and_be_a_directory(git_repo):
+    with pytest.raises(MlflowException, match="does not exist") as exc:
+        fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/nope"))
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    with pytest.raises(MlflowException, match="must point to a directory"):
+        fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/demo/SKILL.md"))
