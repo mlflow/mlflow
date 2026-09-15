@@ -29,6 +29,7 @@ class PassthroughAction(str, Enum):
     ANTHROPIC_MESSAGES = "anthropic_messages"
     GEMINI_GENERATE_CONTENT = "gemini_generate_content"
     GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
+    MISTRAL_CHAT = "mistral_chat"
 
 
 # Mapping of passthrough actions to their gateway API routes
@@ -40,6 +41,7 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
     PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
     PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
+    PassthroughAction.MISTRAL_CHAT: "/mistral/v1/chat/completions",
 }
 
 # User-agent prefixes for subscription-based CLI tools that carry their own credentials.
