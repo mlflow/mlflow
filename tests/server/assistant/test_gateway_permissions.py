@@ -106,6 +106,21 @@ def test_no_gateway_support_is_a_quiet_noop(monkeypatch, auth_store):
     auth_store.grant_user_permission.assert_not_called()
 
 
+def test_endpoint_listing_failure_does_not_break_the_turn(monkeypatch, auth_store):
+    # An unexpected error listing endpoints (not the expected no-gateway-support case) must fail
+    # open rather than raise into the SSE stream.
+    monkeypatch.setattr(gp, "auth_plugin_active", lambda: True)
+    tracking_store = mock.MagicMock()
+    tracking_store.list_gateway_endpoints.side_effect = RuntimeError("store unavailable")
+    monkeypatch.setattr(
+        "mlflow.tracking._tracking_service.utils._get_store", lambda: tracking_store
+    )
+
+    gp.ensure_assistant_gateway_use_permission("alice")  # must not raise
+
+    auth_store.grant_user_permission.assert_not_called()
+
+
 def test_permission_read_failure_does_not_break_the_turn(monkeypatch, auth_store):
     # A failure reading existing permissions (e.g. a legacy permission name get_permission does
     # not know, or a workspace/store error) must fail open, not raise into the SSE stream.
