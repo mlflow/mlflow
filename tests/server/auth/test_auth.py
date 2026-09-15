@@ -4027,6 +4027,48 @@ def test_gateway_alias_spellings_cannot_bypass_secret_authorization(client, monk
         )
         assert response.status_code == 400
 
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "attacker_endpoint",
+                "model_configs": [
+                    {"model_definition_id": attacker_model_def_id, "linkage_type": "PRIMARY"}
+                ],
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+        attacker_endpoint_id = response.json()["endpoint"]["endpoint_id"]
+
+        # Attaching a model requires USE on the model definition, whichever spelling names it.
+        for model_config_key in ("model_config", "modelConfig"):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/models/attach",
+                json={
+                    "endpoint_id": attacker_endpoint_id,
+                    model_config_key: {
+                        "model_definition_id": victim_model_def_id,
+                        "linkage_type": "FALLBACK",
+                    },
+                },
+                auth=(user2, password2),
+            )
+            assert response.status_code == 403
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/models/attach",
+            json={
+                "endpoint_id": attacker_endpoint_id,
+                "model_config": {
+                    "model_definition_id": attacker_model_def_id,
+                    "modelDefinitionId": victim_model_def_id,
+                    "linkage_type": "FALLBACK",
+                },
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 400
+
     # The victim secret still points at its original provider.
     with User(user1, password1, monkeypatch):
         response = requests.get(
@@ -4039,6 +4081,11 @@ def test_gateway_alias_spellings_cannot_bypass_secret_authorization(client, monk
 
     # Cleanup
     with User(user2, password2, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": attacker_endpoint_id},
+            auth=(user2, password2),
+        ).raise_for_status()
         requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
             json={"model_definition_id": attacker_model_def_id},

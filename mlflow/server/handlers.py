@@ -1494,6 +1494,7 @@ def _get_workspace_request_message(
             proto_parsing_succeeded=None,
         )
 
+    _reject_conflicting_field_aliases(request_json, request_message.DESCRIPTOR)
     parse_dict(request_json, request_message)
     return request_message, request_json
 

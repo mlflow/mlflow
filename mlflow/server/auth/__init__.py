@@ -2140,6 +2140,21 @@ def validate_can_update_gateway_endpoint():
     return _validate_can_use_model_definitions(_model_configs_from_request(UpdateGatewayEndpoint()))
 
 
+def validate_can_attach_model_to_gateway_endpoint():
+    """
+    Attaching a model links a model definition to an endpoint, so require UPDATE on the
+    endpoint and USE on the model definition. The attach body carries a singular
+    ``model_config``, which ``UpdateGatewayEndpoint`` does not define, so it is parsed
+    through its own proto.
+    """
+    if not _get_permission_from_gateway_endpoint_id().can_update:
+        return False
+    model_config = _get_request_message(AttachModelToGatewayEndpoint()).model_config
+    return _validate_can_use_model_definitions([
+        {"model_definition_id": model_config.model_definition_id}
+    ])
+
+
 def _get_permission_from_run_id_or_uuid() -> Permission:
     """
     Get permission for Flask routes that use either run_id or run_uuid parameter.
@@ -2833,7 +2848,7 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateEndpointGuardrailConfig: validate_can_update_gateway_endpoint,
     ListEndpointGuardrailConfigs: validate_can_read_gateway_endpoint,
     # Routes for gateway endpoint-model mappings
-    AttachModelToGatewayEndpoint: validate_can_update_gateway_endpoint,
+    AttachModelToGatewayEndpoint: validate_can_attach_model_to_gateway_endpoint,
     DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
     # Routes for gateway endpoint bindings
     CreateGatewayEndpointBinding: validate_can_update_gateway_endpoint,
