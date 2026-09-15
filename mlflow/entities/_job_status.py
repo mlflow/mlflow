@@ -38,7 +38,7 @@ class JobStatus(str, Enum):
         """Convert JobStatus enum to integer."""
         return next(i for i, e in enumerate(JobStatus) if e == self)
 
-    def to_proto(self) -> int:
+    def to_proto(self) -> ProtoJobStatus.ValueType:
         """Convert JobStatus enum to proto JobStatus enum value."""
         mapping = {
             JobStatus.PENDING: ProtoJobStatus.JOB_STATUS_PENDING,

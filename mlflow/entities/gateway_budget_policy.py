@@ -30,9 +30,8 @@ class BudgetDurationUnit(str, Enum):
         except ValueError:
             return None
 
-    def to_proto(self) -> ProtoBudgetDurationUnit:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoBudgetDurationUnit, ProtoBudgetDurationUnit.Value(self.value))
+    def to_proto(self) -> ProtoBudgetDurationUnit.ValueType:
+        return ProtoBudgetDurationUnit.Value(self.value)
 
 
 class BudgetTargetScope(str, Enum):
@@ -50,9 +49,8 @@ class BudgetTargetScope(str, Enum):
         except ValueError:
             return None
 
-    def to_proto(self) -> ProtoBudgetTargetScope:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoBudgetTargetScope, ProtoBudgetTargetScope.Value(self.value))
+    def to_proto(self) -> ProtoBudgetTargetScope.ValueType:
+        return ProtoBudgetTargetScope.Value(self.value)
 
 
 class BudgetAction(str, Enum):
@@ -68,9 +66,8 @@ class BudgetAction(str, Enum):
         except ValueError:
             return None
 
-    def to_proto(self) -> ProtoBudgetAction:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoBudgetAction, ProtoBudgetAction.Value(self.value))
+    def to_proto(self) -> ProtoBudgetAction.ValueType:
+        return ProtoBudgetAction.Value(self.value)
 
 
 class BudgetUnit(str, Enum):
@@ -85,9 +82,8 @@ class BudgetUnit(str, Enum):
         except ValueError:
             return None
 
-    def to_proto(self) -> ProtoBudgetUnit:
-        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
-        return cast(ProtoBudgetUnit, ProtoBudgetUnit.Value(self.value))
+    def to_proto(self) -> ProtoBudgetUnit.ValueType:
+        return ProtoBudgetUnit.Value(self.value)
 
 
 @dataclass

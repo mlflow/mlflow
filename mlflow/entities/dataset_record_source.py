@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, cast
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
@@ -79,14 +79,16 @@ class DatasetRecordSourceType(str, Enum):
         return DatasetRecordSourceType(parsed)
 
     @classmethod
-    def from_proto(cls, proto_source_type) -> str:
-        name = cast(str, ProtoDatasetRecordSource.SourceType.Name(proto_source_type))
-        if name == _PROTO_UNSPECIFIED_SOURCE_TYPE_NAME:
-            return cls.UNSPECIFIED.value
-        return name
+    def from_proto(cls, proto_source_type: int) -> str:
+        # `EnumTypeWrapper.Name` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        source_type: str = ProtoDatasetRecordSource.SourceType.Name(proto_source_type)
+        return source_type
 
 
-def _source_type_to_proto(source_type: str | DatasetRecordSourceType) -> int:
+def _source_type_to_proto(
+    source_type: str | DatasetRecordSourceType,
+) -> ProtoDatasetRecordSource.SourceType.ValueType:
     """Convert a source type name to its proto enum value."""
     name = source_type.value if isinstance(source_type, DatasetRecordSourceType) else source_type
     if name == DatasetRecordSourceType.UNSPECIFIED.value:

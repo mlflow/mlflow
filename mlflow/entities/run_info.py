@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from typing import cast
-
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
-from mlflow.protos.service_pb2 import RunStatus as ProtoRunStatus
 
 
 def check_run_is_active(run_info: RunInfo) -> None:
@@ -149,7 +146,7 @@ class RunInfo(_MlflowObject):
         proto.user_id = self.user_id
         # The proto field is typed as the protobuf enum wrapper (an int subclass), while
         # `RunStatus.from_string` returns a plain `int`, hence the cast.
-        proto.status = cast(ProtoRunStatus, RunStatus.from_string(self.status))
+        proto.status = RunStatus.from_string(self.status)
         proto.start_time = self.start_time
         if self.end_time:
             proto.end_time = self.end_time

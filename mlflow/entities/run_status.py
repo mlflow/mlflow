@@ -4,19 +4,23 @@ from mlflow.protos.service_pb2 import RunStatus as ProtoRunStatus
 class RunStatus:
     """Enum for status of an :py:class:`mlflow.entities.Run`."""
 
-    RUNNING: int = ProtoRunStatus.Value("RUNNING")
-    SCHEDULED: int = ProtoRunStatus.Value("SCHEDULED")
-    FINISHED: int = ProtoRunStatus.Value("FINISHED")
-    FAILED: int = ProtoRunStatus.Value("FAILED")
-    KILLED: int = ProtoRunStatus.Value("KILLED")
+    RUNNING: ProtoRunStatus.ValueType = ProtoRunStatus.Value("RUNNING")
+    SCHEDULED: ProtoRunStatus.ValueType = ProtoRunStatus.Value("SCHEDULED")
+    FINISHED: ProtoRunStatus.ValueType = ProtoRunStatus.Value("FINISHED")
+    FAILED: ProtoRunStatus.ValueType = ProtoRunStatus.Value("FAILED")
+    KILLED: ProtoRunStatus.ValueType = ProtoRunStatus.Value("KILLED")
 
-    _STRING_TO_STATUS: dict[str, int] = {k: ProtoRunStatus.Value(k) for k in ProtoRunStatus.keys()}
+    _STRING_TO_STATUS: dict[str, ProtoRunStatus.ValueType] = {
+        k: ProtoRunStatus.Value(k) for k in ProtoRunStatus.keys()
+    }
     _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
     _TERMINATED_STATUSES = {FINISHED, FAILED, KILLED}
 
     @staticmethod
-    def from_string(status_str: str) -> int:
-        if status_str not in RunStatus._STRING_TO_STATUS:
+    def from_string(
+        status_str: str,
+    ) -> ProtoRunStatus.ValueType:
+        if status_str not in RunStatus._STRING_TO_STATUS:  # TODO: this could possibly be simplified
             raise Exception(
                 f"Could not get run status corresponding to string {status_str}. Valid run "
                 f"status strings: {list(RunStatus._STRING_TO_STATUS.keys())}"

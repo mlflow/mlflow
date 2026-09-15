@@ -2,7 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /mlflow
 
-RUN pip install protobuf packaging
+COPY uv.lock ./uv.lock
+RUN for pkg in protobuf packaging mypy-protobuf; do \
+        version=$(grep -A1 "^name = \"$pkg\"\$" uv.lock | grep '^version' | cut -d'"' -f2) && \
+        echo "$pkg==$version"; \
+    done > /tmp/pinned-versions.txt && \
+    pip install $(cat /tmp/pinned-versions.txt)
 
 # Copy only necessary files to compile protos
 COPY mlflow/protos ./mlflow/protos/

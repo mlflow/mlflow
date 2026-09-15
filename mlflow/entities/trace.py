@@ -34,7 +34,7 @@ class Trace(_MlflowObject):
     info: TraceInfo
     data: TraceData
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if isinstance(self.info, TraceInfoV2):
             self.info = self.info.to_v3(request=self.data.request, response=self.data.response)
 
@@ -44,7 +44,7 @@ class Trace(_MlflowObject):
     def to_dict(self) -> dict[str, Any]:
         return {"info": self.info.to_dict(), "data": self.data.to_dict()}
 
-    def to_json(self, pretty=False) -> str:
+    def to_json(self, pretty: bool = False) -> str:
         from mlflow.tracing.utils import TraceJSONEncoder
 
         return json.dumps(self.to_dict(), cls=TraceJSONEncoder, indent=2 if pretty else None)
@@ -122,8 +122,10 @@ class Trace(_MlflowObject):
             "state": self.info.state,
             "request_time": self.info.request_time,
             "execution_duration": self.info.execution_duration,
-            "request": self._deserialize_json_attr(self.data.request),
-            "response": self._deserialize_json_attr(self.data.response),
+            # The helper passes non-JSON values (including None) through unchanged, so the
+            # optional request/response fields are safe to pass despite its `str` annotation.
+            "request": self._deserialize_json_attr(self.data.request),  # type: ignore[arg-type]
+            "response": self._deserialize_json_attr(self.data.response),  # type: ignore[arg-type]
             "trace_metadata": self.info.trace_metadata,
             "tags": self.info.tags,
             "spans": [span.to_dict() for span in self.data.spans],
@@ -140,7 +142,7 @@ class Trace(_MlflowObject):
     def search_spans(
         self,
         span_type: SpanType | None = None,
-        name: str | re.Pattern | None = None,
+        name: str | re.Pattern[str] | None = None,
         span_id: str | None = None,
     ) -> list[Span]:
         """
@@ -312,7 +314,7 @@ class Trace(_MlflowObject):
             "assessments",
         ]
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoTrace:
         """
         Convert into a proto object to sent to the MLflow backend.
         """

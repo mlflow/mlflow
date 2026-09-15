@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import cast
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import FallbackConfig as ProtoFallbackConfig
@@ -18,6 +19,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import (
     GatewayEndpointModelMapping as ProtoGatewayEndpointModelMapping,
 )
+from mlflow.protos.service_pb2 import GatewayEndpointTag as ProtoGatewayEndpointTag
 from mlflow.protos.service_pb2 import (
     GatewayModelDefinition as ProtoGatewayModelDefinition,
 )
@@ -38,7 +40,7 @@ class RoutingStrategy(str, Enum):
     REQUEST_BASED_TRAFFIC_SPLIT = "REQUEST_BASED_TRAFFIC_SPLIT"
 
     @classmethod
-    def from_proto(cls, proto: ProtoRoutingStrategy) -> "RoutingStrategy":
+    def from_proto(cls, proto: ProtoRoutingStrategy) -> RoutingStrategy | None:
         try:
             return cls(ProtoRoutingStrategy.Name(proto))
         except ValueError:
@@ -46,7 +48,10 @@ class RoutingStrategy(str, Enum):
             return None
 
     def to_proto(self) -> ProtoRoutingStrategy:
-        return ProtoRoutingStrategy.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: ProtoRoutingStrategy = ProtoRoutingStrategy.Value(self.value)
+        return proto_value
 
 
 class FallbackStrategy(str, Enum):
@@ -55,7 +60,7 @@ class FallbackStrategy(str, Enum):
     SEQUENTIAL = "SEQUENTIAL"
 
     @classmethod
-    def from_proto(cls, proto: ProtoFallbackStrategy) -> "FallbackStrategy":
+    def from_proto(cls, proto: ProtoFallbackStrategy) -> FallbackStrategy | None:
         try:
             return cls(ProtoFallbackStrategy.Name(proto))
         except ValueError:
@@ -63,7 +68,10 @@ class FallbackStrategy(str, Enum):
             return None
 
     def to_proto(self) -> ProtoFallbackStrategy:
-        return ProtoFallbackStrategy.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: ProtoFallbackStrategy = ProtoFallbackStrategy.Value(self.value)
+        return proto_value
 
 
 class GatewayModelLinkageType(str, Enum):
@@ -73,7 +81,7 @@ class GatewayModelLinkageType(str, Enum):
     FALLBACK = "FALLBACK"
 
     @classmethod
-    def from_proto(cls, proto: ProtoGatewayModelLinkageType) -> "GatewayModelLinkageType":
+    def from_proto(cls, proto: ProtoGatewayModelLinkageType) -> GatewayModelLinkageType | None:
         try:
             return cls(ProtoGatewayModelLinkageType.Name(proto))
         except ValueError:
@@ -81,7 +89,10 @@ class GatewayModelLinkageType(str, Enum):
             return None
 
     def to_proto(self) -> ProtoGatewayModelLinkageType:
-        return ProtoGatewayModelLinkageType.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream; the typed local converts the
+        # resulting `Any` without adding a runtime call.
+        proto_value: ProtoGatewayModelLinkageType = ProtoGatewayModelLinkageType.Value(self.value)
+        return proto_value
 
 
 @dataclass
@@ -151,10 +162,14 @@ class GatewayEndpointModelConfig(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto: ProtoGatewayEndpointModelConfig) -> "GatewayEndpointModelConfig":
+    def from_proto(cls, proto: ProtoGatewayEndpointModelConfig) -> GatewayEndpointModelConfig:
+        # Well-formed protos always carry concrete enum values, so the
+        # optional results of the enum converters cannot occur here.
         return cls(
             model_definition_id=proto.model_definition_id,
-            linkage_type=GatewayModelLinkageType.from_proto(proto.linkage_type),
+            linkage_type=cast(
+                GatewayModelLinkageType, GatewayModelLinkageType.from_proto(proto.linkage_type)
+            ),
             weight=proto.weight if proto.HasField("weight") else 1.0,
             fallback_order=proto.fallback_order if proto.HasField("fallback_order") else None,
         )
@@ -194,10 +209,10 @@ class GatewayModelDefinition(_MlflowObject):
     last_updated_by: str | None = None
     workspace: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.workspace = resolve_entity_workspace_name(self.workspace)
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoGatewayModelDefinition:
         proto = ProtoGatewayModelDefinition()
         proto.model_definition_id = self.model_definition_id
         proto.name = self.name
@@ -216,7 +231,7 @@ class GatewayModelDefinition(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewayModelDefinition) -> GatewayModelDefinition:
         return cls(
             model_definition_id=proto.model_definition_id,
             name=proto.name,
@@ -261,7 +276,7 @@ class GatewayEndpointModelMapping(_MlflowObject):
     created_at: int
     created_by: str | None = None
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoGatewayEndpointModelMapping:
         proto = ProtoGatewayEndpointModelMapping()
         proto.mapping_id = self.mapping_id
         proto.endpoint_id = self.endpoint_id
@@ -278,17 +293,21 @@ class GatewayEndpointModelMapping(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewayEndpointModelMapping) -> GatewayEndpointModelMapping:
         model_def = None
         if proto.HasField("model_definition"):
             model_def = GatewayModelDefinition.from_proto(proto.model_definition)
+        # Well-formed protos always carry concrete enum values, so the
+        # optional results of the enum converters cannot occur here.
         return cls(
             mapping_id=proto.mapping_id,
             endpoint_id=proto.endpoint_id,
             model_definition_id=proto.model_definition_id,
             model_definition=model_def,
             weight=proto.weight,
-            linkage_type=GatewayModelLinkageType.from_proto(proto.linkage_type),
+            linkage_type=cast(
+                GatewayModelLinkageType, GatewayModelLinkageType.from_proto(proto.linkage_type)
+            ),
             fallback_order=proto.fallback_order if proto.HasField("fallback_order") else None,
             created_at=proto.created_at,
             created_by=proto.created_by or None,
@@ -310,9 +329,7 @@ class GatewayEndpointTag(_MlflowObject):
     key: str
     value: str | None
 
-    def to_proto(self):
-        from mlflow.protos.service_pb2 import GatewayEndpointTag as ProtoGatewayEndpointTag
-
+    def to_proto(self) -> ProtoGatewayEndpointTag:
         proto = ProtoGatewayEndpointTag()
         proto.key = self.key
         if self.value is not None:
@@ -320,7 +337,7 @@ class GatewayEndpointTag(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewayEndpointTag) -> GatewayEndpointTag:
         return cls(
             key=proto.key,
             value=proto.value or None,
@@ -362,10 +379,10 @@ class GatewayEndpoint(_MlflowObject):
     usage_tracking: bool = True
     workspace: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.workspace = resolve_entity_workspace_name(self.workspace)
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoGatewayEndpoint:
         proto = ProtoGatewayEndpoint()
         proto.endpoint_id = self.endpoint_id
         proto.name = self.name or ""
@@ -390,7 +407,7 @@ class GatewayEndpoint(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewayEndpoint) -> GatewayEndpoint:
         routing_strategy = None
         if proto.HasField("routing_strategy"):
             strategy_name = ProtoRoutingStrategy.Name(proto.routing_strategy)
@@ -453,7 +470,7 @@ class GatewayEndpointBinding(_MlflowObject):
     last_updated_by: str | None = None
     display_name: str | None = None
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoGatewayEndpointBinding:
         proto = ProtoGatewayEndpointBinding()
         proto.endpoint_id = self.endpoint_id
         proto.resource_type = self.resource_type.value
@@ -469,7 +486,7 @@ class GatewayEndpointBinding(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewayEndpointBinding) -> GatewayEndpointBinding:
         return cls(
             endpoint_id=proto.endpoint_id,
             resource_type=GatewayResourceType(proto.resource_type),
