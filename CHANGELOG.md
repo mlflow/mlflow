@@ -2,7 +2,7 @@
 
 ## 3.16.1 (2026-09-15)
 
-MLflow 3.16.1 is a patch release that includes several major features and improvements.
+MLflow 3.16.1 is a patch release that includes bug fixes and documentation updates.
 
 Breaking changes:
 
@@ -11,20 +11,13 @@ Breaking changes:
 Features:
 
 - [Evaluation] Add a `timeout` option to the `@scorer` decorator (#25720, @smoorjani)
+- [Evaluation] Propagate scorer version to assessment metadata (#25570, @B-Step62)
 - [Tracing] Support span links for Unity Catalog traces (#25597, @B-Step62)
 
 Bug fixes:
 
 - [Model Registry] Fix S3 multipart upload encryption arguments (#25772, @james-fletcher-db)
 - [Tracking / UI] basic-auth: serve the web UI to non-admins under fail-closed authorization (#25672, @mkBGD)
-
-Documentation updates:
-
-- [Docs] Replace MinIO with RustFS in `mlflow_artifacts` example (#25808, @copilot-swe-agent)
-
-Small bug fixes and documentation updates:
-
-#25570, @B-Step62
 
 ## 3.15.2 (2026-08-25)
 
