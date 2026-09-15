@@ -15,6 +15,7 @@ from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.fetchers import fetch_source
+from mlflow.genai.skill_content.fetchers.zip import download_with_budget
 
 from tests.genai.skill_content.conftest import SKILL_MD
 
@@ -403,3 +404,10 @@ def test_fetch_git_subpath_must_exist_and_be_a_directory(git_repo):
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
     with pytest.raises(MlflowException, match="must point to a directory"):
         fetch_source(GitSource(url=f"file://{git_repo}", subpath="skills/demo/SKILL.md"))
+
+
+def test_download_with_budget_refuses_credentialed_urls(tmp_path):
+    with pytest.raises(MlflowException, match="publicly accessible"):
+        download_with_budget(
+            "https://u:p@example.invalid/skills.zip", tmp_path / "x.zip", max_bytes=10
+        )

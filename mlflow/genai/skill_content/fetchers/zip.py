@@ -10,6 +10,7 @@ from mlflow.genai.skill_content.errors import (
     invalid_content,
     source_unavailable,
 )
+from mlflow.genai.skill_content.sources import _validate_zip
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
 
 _DOWNLOAD_CHUNK_SIZE = 1024 * 1024
@@ -45,9 +46,11 @@ def download_with_budget(url: str, target: Path, *, max_bytes: int) -> Path:
     Stream ``url`` to ``target``, failing once more than ``max_bytes`` have been received.
 
     No credentials are attached on any hop of the redirect chain, not even ambient ``~/.netrc``
-    entries: ZIP sources are public by policy. The byte budget is enforced on the wire so a
-    hostile or oversized download is cut off rather than buffered.
+    entries: ZIP sources are public by policy, and a URL carrying userinfo is refused here as
+    well so the contract holds for any caller of this helper. The byte budget is enforced on
+    the wire so a hostile or oversized download is cut off rather than buffered.
     """
+    _validate_zip(url)
     session = _NoAuthSession()
     session.hooks["response"].append(_discard_redirect_body)
     try:
