@@ -27,6 +27,26 @@ def test_disable_tracing_plugin_removes_env_only(tmp_path):
     assert config == {"other": "keep-me"}
 
 
+def test_disable_tracing_plugin_keeps_settings_without_mlflow_env(tmp_path):
+    settings_path = tmp_path / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    original = json.dumps({"other": "keep-me"})
+    settings_path.write_text(original)
+
+    assert disable_tracing_plugin(settings_path) is False
+    assert settings_path.read_text() == original
+
+
+def test_disable_tracing_plugin_keeps_malformed_settings(tmp_path):
+    settings_path = tmp_path / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    original = '{"other": "keep-me",}'
+    settings_path.write_text(original)
+
+    assert disable_tracing_plugin(settings_path) is False
+    assert settings_path.read_text() == original
+
+
 def test_ensure_plugin_installed_runs_marketplace_add_and_install(tmp_path):
     completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 

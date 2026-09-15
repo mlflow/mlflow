@@ -61,14 +61,17 @@ def disable_tracing_plugin(settings_path: Path) -> bool:
         return False
 
     config = load_claude_config(settings_path)
-    env_removed = _remove_mlflow_env(config)
+    # An unreadable or malformed file also loads as an empty dict, so only rewrite
+    # or delete the file once MLflow config has actually been found and removed.
+    if not _remove_mlflow_env(config):
+        return False
 
     if config:
         save_claude_config(settings_path, config)
     else:
         settings_path.unlink()
 
-    return env_removed
+    return True
 
 
 def _run_claude(target_dir: Path, *args: str) -> subprocess.CompletedProcess:
