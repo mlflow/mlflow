@@ -167,6 +167,44 @@ def test_set_status_forwards_item_id():
 
 
 # --------------------------------------------------------------------------
+# Databricks tracking URI guardrail: review queues are served by the workspace
+# Reviews backend, not the OSS tracking routes, so every fluent call must fail
+# with a clear, actionable error (not a 500 from the unimplemented OSS route) —
+# matching the sibling label_schemas guardrail.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("fn", "args", "kwargs"),
+    [
+        (create_review_queue, ("alice",), {"queue_type": "user"}),
+        (get_or_create_user_queue, ("alice",), {}),
+        (get_review_queue, ("rq-1",), {}),
+        (list_review_queues, (), {}),
+        (update_review_queue, ("rq-1",), {"name": "Renamed"}),
+        (delete_review_queue, ("rq-1",), {}),
+        (add_items_to_review_queue, ("rq-1",), {"item_ids": ["tr-1"]}),
+        (remove_items_from_review_queue, ("rq-1",), {"item_ids": ["tr-1"]}),
+        (list_review_queue_items, ("rq-1",), {}),
+        (
+            set_review_queue_item_status,
+            ("rq-1",),
+            {"item_id": "tr-1", "status": "complete", "completed_by": "bob"},
+        ),
+    ],
+)
+def test_databricks_tracking_uri_rejected(fn, args, kwargs):
+    with (
+        patch("mlflow.genai.review_queues.get_tracking_uri", return_value="databricks"),
+        patch(f"{_BASE}.__init__") as client_init,
+        pytest.raises(MlflowException, match="not supported on a Databricks tracking URI"),
+    ):
+        fn(*args, **kwargs)
+    # The guardrail fires before any client / network work is attempted.
+    client_init.assert_not_called()
+
+
+# --------------------------------------------------------------------------
 # End-to-end against a real sqlite tracking store (fluent -> client -> store).
 # --------------------------------------------------------------------------
 
