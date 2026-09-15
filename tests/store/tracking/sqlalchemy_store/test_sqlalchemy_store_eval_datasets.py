@@ -5,8 +5,9 @@ from unittest import mock
 import pytest
 
 from mlflow.entities.dataset_record import DatasetRecord
+from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.dbmodels.models import SqlEvaluationDatasetRecord
+from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation, SqlEvaluationDatasetRecord
 from mlflow.utils import mlflow_tags
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
@@ -52,6 +53,13 @@ def test_dataset_crud_operations(store):
         assert retrieved_dataset.experiment_ids == experiment_ids
         assert not retrieved_dataset.has_records()
 
+        with store.ManagedSessionMaker() as session:
+            association_query = session.query(SqlEntityAssociation).filter_by(
+                source_type=EntityAssociationType.EVALUATION_DATASET,
+                source_id=created_dataset.dataset_id,
+            )
+            assert association_query.count() == len(experiment_ids)
+
         with pytest.raises(
             MlflowException, match="Evaluation dataset with id 'd-nonexistent' not found"
         ):
@@ -60,6 +68,17 @@ def test_dataset_crud_operations(store):
         store.delete_dataset(created_dataset.dataset_id)
         with pytest.raises(MlflowException, match="not found"):
             store.get_dataset(dataset_id=created_dataset.dataset_id)
+        with store.ManagedSessionMaker() as session:
+            assert (
+                session
+                .query(SqlEntityAssociation)
+                .filter_by(
+                    source_type=EntityAssociationType.EVALUATION_DATASET,
+                    source_id=created_dataset.dataset_id,
+                )
+                .count()
+                == 0
+            )
 
         # Verify idempotency
         store.delete_dataset("d-nonexistent")
