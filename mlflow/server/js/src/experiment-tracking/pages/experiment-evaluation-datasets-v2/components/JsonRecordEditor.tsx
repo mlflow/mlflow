@@ -11,9 +11,11 @@ import type * as Monaco_ from 'monaco-editor';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 export interface JsonRecordEditorProps {
-  /** JSON string. Callers serialize objects via `JSON.stringify(obj, null, 2)`. */
+  /** Structured text displayed by Monaco. */
   value: string;
   onChange: (value: string) => void;
+  /** Monaco language used for syntax highlighting and validation. */
+  language?: 'json' | 'yaml';
   readOnly?: boolean;
   /** CSS length (e.g. "240px") for the minimum editor height. */
   height?: string;
@@ -79,6 +81,7 @@ const heightToPx = (h: string): number => {
 export const JsonRecordEditor = ({
   value,
   onChange,
+  language = 'json',
   readOnly = false,
   height = '240px',
   maxHeight,
@@ -138,7 +141,7 @@ export const JsonRecordEditor = ({
         }}
       >
         <Editor
-          language="json"
+          language={language}
           value={value}
           onChange={(next) => onChange(next ?? '')}
           theme={
