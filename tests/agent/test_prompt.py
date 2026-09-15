@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import mlflow.agent.setup.prompt
 from mlflow.agent.agents import AGENTS
 from mlflow.agent.setup.prompt import _render, build_prompt
 
@@ -46,6 +47,40 @@ def test_build_prompt_with_local_server_port_bakes_url(tmp_path: Path):
     assert "Start a local MLflow tracking server" in out
     assert "mlflow server --host 127.0.0.1 --port 5050" in out
     assert "http://127.0.0.1:5050" in out
+
+
+def test_build_prompt_invokes_pretty_synthetic_trace_fallback(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(mlflow.agent.setup.prompt.sys, "executable", "/setup env/python")
+    out = build_prompt(tmp_path, AGENTS["claude"], "http://remote:5000")
+    normalized = " ".join(out.split())
+
+    assert out.index("First, verify the real application") < out.index("If missing credentials")
+    assert "exactly one synthetic verification trace" in normalized
+    assert "does not call a real service" in normalized
+    assert "Do not add a setup-only file to the repository" in normalized
+    assert (
+        "'/setup env/python' -m mlflow.agent.setup._synthetic_trace "
+        "--tracking-uri http://remote:5000"
+    ) in out
+    assert "renders in Pretty view" in normalized
+    assert "trace rendering, not the application's instrumentation" in normalized
+
+
+def test_build_prompt_synthetic_trace_fallback_includes_databricks_experiment(
+    tmp_path: Path, monkeypatch
+):
+    monkeypatch.setattr(mlflow.agent.setup.prompt.sys, "executable", "/usr/bin/python")
+    out = build_prompt(
+        tmp_path,
+        AGENTS["claude"],
+        "databricks://profile",
+        experiment_id="1234567890",
+    )
+
+    assert (
+        "/usr/bin/python -m mlflow.agent.setup._synthetic_trace "
+        "--tracking-uri databricks://profile --experiment-id 1234567890"
+    ) in out
 
 
 def test_build_prompt_skills_installed_uses_agent_skills_dir(tmp_path: Path):
