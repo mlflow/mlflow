@@ -8,7 +8,7 @@ PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 # The CreateModelVersion API requires a source, but prompt versions never use it. These are the
 # only placeholder values clients send (MlflowClient sends "dummy-source", the registry store and
 # the UI send "prompt-template"/"dummy-source"); the server rejects any other schemeless source.
-PROMPT_SOURCE_PLACEHOLDERS = frozenset({"prompt-template", "dummy-source"})
+_PROMPT_SOURCE_PLACEHOLDERS = frozenset({"prompt-template", "dummy-source"})
 
 # Unity Catalog tags cannot contain dots
 PROMPT_TYPE_TAG_KEY = "_mlflow_prompt_type"

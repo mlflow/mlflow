@@ -102,7 +102,7 @@ from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
 from mlflow.prompt.constants import (
-    PROMPT_SOURCE_PLACEHOLDERS,
+    _PROMPT_SOURCE_PLACEHOLDERS,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_TAG_KEY,
 )
@@ -3048,7 +3048,7 @@ def _validate_prompt_source(source: str) -> None:
     if parsed.scheme and parsed.scheme != "file":
         _validate_non_local_source_contains_relative_paths(source)
         return
-    if source not in PROMPT_SOURCE_PLACEHOLDERS:
+    if source not in _PROMPT_SOURCE_PLACEHOLDERS:
         raise MlflowException(
             f"Invalid prompt source: '{source}'. Local source paths are not allowed for prompts.",
             INVALID_PARAMETER_VALUE,
