@@ -75,11 +75,16 @@ from mlflow.tracing.constant import (
     TraceMetricDimensionKey,
     TraceMetricKey,
 )
+from mlflow.utils.time import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 
 MS_PER_DAY = 86_400_000
 DAILY_INTERVAL_SECONDS = 86_400
+
+# Source mutations only need to invalidate a partition once it is old enough for maintenance to
+# have published it. Newer partitions are discovered from raw data after this eligibility lag.
+ROLLUP_ELIGIBILITY_LAG_MS = MS_PER_DAY
 
 # Keep every date ``IN`` predicate comfortably below MSSQL's 2,100-parameter statement limit and
 # bound planner memory for caller-controlled timestamp ranges. A larger request remains valid; it
@@ -754,9 +759,9 @@ def _valid_sql_grouped_day_starts(
     return sorted(ms for rollup_day, ms in date_to_ms.items() if rollup_day not in invalid_dates)
 
 
-def _rollup_day_bucket_expression(db_type: str):
+def _rollup_day_bucket_expression(db_type: str, rollup_day: Any | None = None):
     """Convert a SQL DATE rollup key to its UTC-midnight epoch-millisecond bucket."""
-    rollup_day = SqlSpanCostDailyRollup.rollup_day
+    rollup_day = rollup_day if rollup_day is not None else SqlSpanCostDailyRollup.rollup_day
     epoch_day = literal(date(1970, 1, 1))
     match db_type:
         case db_types.POSTGRES:
@@ -1103,6 +1108,19 @@ def order_and_limit_data_points(
     return sorted(data_points, key=_data_point_ordering)[:max_results]
 
 
+def _lock_rebuild_entry_query(session: Session, query):
+    if session.get_bind().dialect.name == db_types.MSSQL:
+        # SQL Server ignores SELECT FOR UPDATE. UPDLOCK serializes readers that intend to mutate
+        # the row, while HOLDLOCK provides serializable key-range locking when the row does not
+        # exist yet. Writers and rebuilders therefore synchronize on the same key.
+        return query.with_hint(
+            SqlTraceRollupRebuild,
+            "WITH (UPDLOCK, HOLDLOCK)",
+            dialect_name=db_types.MSSQL,
+        )
+    return query.with_for_update()
+
+
 def ensure_locked_rebuild_entry(
     session: Session, family: RollupFamily, experiment_id: int, rollup_day: date
 ) -> SqlTraceRollupRebuild:
@@ -1112,7 +1130,8 @@ def ensure_locked_rebuild_entry(
         SqlTraceRollupRebuild.rollup_day == rollup_day,
         SqlTraceRollupRebuild.rollup_family == family.value,
     )
-    if entry := query.with_for_update().one_or_none():
+
+    if entry := _lock_rebuild_entry_query(session, query).one_or_none():
         return entry
 
     savepoint = session.begin_nested()
@@ -1126,7 +1145,7 @@ def ensure_locked_rebuild_entry(
         session.flush()
     except IntegrityError:
         savepoint.rollback()
-        return query.with_for_update().one()
+        return _lock_rebuild_entry_query(session, query).one()
     else:
         savepoint.commit()
         return entry
@@ -1140,12 +1159,17 @@ def enqueue_rollup_rebuilds(
 ) -> None:
     """Invalidate rollup partitions affected by a source mutation.
 
-    Invalidation is deliberately independent of the read feature gate. If rollups are disabled
-    after rows have been built, writes must continue marking those rows stale so they cannot be
-    served after the feature is enabled again.
+    Disabled deployments never pay the database cost of queue maintenance. When enabled, only
+    timestamps old enough to have been materialized need invalidation; newer partitions will be
+    discovered from raw data by maintenance once they become eligible.
     """
-    if experiment_id is None or family not in SERVABLE_FAMILIES:
+    if not rollups_enabled() or experiment_id is None or family not in SERVABLE_FAMILIES:
         return
-    days = {_day_start_ms_to_date(ts) for ts in timestamp_ms_values if ts is not None}
+    cutoff_ms = get_current_time_millis() - ROLLUP_ELIGIBILITY_LAG_MS
+    days = {
+        _day_start_ms_to_date(ts)
+        for ts in timestamp_ms_values
+        if ts is not None and ts <= cutoff_ms
+    }
     for rollup_day in sorted(days):
         ensure_locked_rebuild_entry(session, family, int(experiment_id), rollup_day)

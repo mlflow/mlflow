@@ -110,12 +110,20 @@ def prepopulate_trace_analytics(url, batch_size):
     type=click.IntRange(min=1),
     default=None,
     help=(
-        "Maximum number of daily partitions to rebuild in this run. Deferred partitions do not "
-        "count against this cap. Defaults to MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN, or "
-        "unlimited when unset."
+        "Maximum number of daily family partitions to attempt in this run, including deferred "
+        "partitions. Defaults to MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN."
     ),
 )
-def build_trace_rollups(url, max_partitions):
+@click.option(
+    "--max-workers",
+    type=click.IntRange(min=1),
+    default=None,
+    help=(
+        "Maximum number of partitions to process concurrently. Defaults to "
+        "MLFLOW_TRACE_ROLLUPS_MAX_WORKERS. SQLite always uses one worker."
+    ),
+)
+def build_trace_rollups(url, max_partitions, max_workers):
     """Build SQL daily trace analytics rollups and drain the rebuild queue.
 
     URL may instead be supplied through MLFLOW_TRACKING_URI. This entrypoint is safe for external
@@ -128,6 +136,7 @@ def build_trace_rollups(url, max_partitions):
     from mlflow.environment_variables import (
         MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
         MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN,
+        MLFLOW_TRACE_ROLLUPS_MAX_WORKERS,
     )
     from mlflow.store.db.trace_rollups import run_sql_trace_rollups
 
@@ -140,6 +149,7 @@ def build_trace_rollups(url, max_partitions):
         if max_partitions is not None
         else MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN.get()
     )
+    max_workers = max_workers if max_workers is not None else MLFLOW_TRACE_ROLLUPS_MAX_WORKERS.get()
 
     engine = None
     try:
@@ -155,6 +165,7 @@ def build_trace_rollups(url, max_partitions):
         stats = run_sql_trace_rollups(
             engine,
             max_partitions_per_run=max_partitions_per_run,
+            max_workers=max_workers,
             progress_callback=report_progress,
         )
         for family, family_stats in (
@@ -171,6 +182,48 @@ def build_trace_rollups(url, max_partitions):
         raise click.ClickException(str(e)) from e
     except sqlalchemy.exc.SQLAlchemyError as e:
         # Driver messages can contain the supplied DSN, including credentials.
+        raise click.ClickException(f"Database operation failed ({type(e).__name__}).") from e
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
+@commands.command("delete-trace-rollups")
+@click.argument("url", envvar="MLFLOW_TRACKING_URI")
+@click.option(
+    "--yes",
+    "confirm_delete",
+    is_flag=True,
+    help="Delete without prompting for confirmation.",
+)
+def delete_trace_rollups(url, confirm_delete):
+    """Delete all SQL trace rollups and queued rebuild state.
+
+    This recovery command removes derived rollup data only; authoritative traces, spans, and
+    assessments are preserved. Stop all MLflow servers that use this database before running it.
+    If rollups are enabled again later, maintenance rebuilds them from the authoritative tables.
+    """
+    import sqlalchemy.exc
+
+    import mlflow.store.db.utils
+    from mlflow.store.db.trace_rollups import delete_sql_trace_rollups
+
+    if not confirm_delete:
+        click.confirm(
+            "Delete all SQL trace rollups and queued rebuild state? Raw trace data is preserved.",
+            abort=True,
+        )
+
+    engine = None
+    try:
+        engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
+        stats = delete_sql_trace_rollups(engine)
+        click.echo(
+            "Deleted SQL trace rollups: "
+            f"trace_metric={stats.trace_metric}, span_cost={stats.span_cost}, "
+            f"assessment={stats.assessment}, rebuild_queue={stats.rebuild_queue}."
+        )
+    except sqlalchemy.exc.SQLAlchemyError as e:
         raise click.ClickException(f"Database operation failed ({type(e).__name__}).") from e
     finally:
         if engine is not None:

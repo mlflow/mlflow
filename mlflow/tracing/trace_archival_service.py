@@ -69,7 +69,7 @@ def _resolve_scheduler_trace_archival_config(
     )
 
 
-def run_trace_archival_scheduler() -> int:
+def run_trace_archival_scheduler(tracking_store) -> int:
     """
     Run one scheduler poll for server-owned trace archival.
 
@@ -87,9 +87,6 @@ def run_trace_archival_scheduler() -> int:
     if settings is None or not _should_run_trace_archival_scheduler(settings.interval_seconds):
         return 0
 
-    from mlflow.server.handlers import _get_tracking_store
-
-    tracking_store = _get_tracking_store()
     archived_total = 0
     remaining_traces_per_pass = settings.max_traces_per_pass
     # Count processed scheduler scopes (workspace contexts, or the single default scope).
