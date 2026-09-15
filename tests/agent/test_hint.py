@@ -50,12 +50,7 @@ def bundled_skill(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     (skills / "README.md").write_text("# MLflow skills\n")
 
-    def _mock_bundled_manifest(skill_name: str = hint.TRACING_SKILL) -> Path | None:
-        if skill_name == hint.TRACE_READING_SKILL:
-            return reading_manifest
-        return manifest
-
-    monkeypatch.setattr(hint, "_bundled_skill_manifest", _mock_bundled_manifest)
+    monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda: manifest)
     monkeypatch.setattr(hint.resources, "files", lambda _package: skills)
     return manifest
 
@@ -287,8 +282,7 @@ def test_trace_reading_hint_under_agent(clean_env: Path, monkeypatch: pytest.Mon
     message = trace_reading_hint_message()
     assert message is not None
     assert hint.TRACE_READING_SKILL in message
-    assert "retrieving-mlflow-traces" in message
-    assert "before reading or querying traces" in message
+    assert "Read traces with the `mlflow traces` CLI" in message
     assert len(message.splitlines()) == 1
 
 
@@ -310,11 +304,20 @@ def test_trace_reading_hint_silent_without_agent(clean_env: Path):
     assert trace_reading_hint_message() is None
 
 
+def test_trace_reading_hint_no_agent_cost(clean_env: Path):
+    with mock.patch.object(hint.resources, "files") as files_mock:
+        hint.maybe_hint_trace_reading_skill()
+    files_mock.assert_not_called()
+
+
 def test_trace_reading_hint_silent_when_no_bundled_skill(
-    clean_env: Path, monkeypatch: pytest.MonkeyPatch
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
     monkeypatch.setenv("CLAUDECODE", "1")
-    monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda *args, **kwargs: None)
+    empty_skills = tmp_path / "empty_skills"
+    empty_skills.mkdir()
+    (empty_skills / "README.md").write_text("# MLflow skills\n")
+    monkeypatch.setattr(hint.resources, "files", lambda _package: empty_skills)
     assert trace_reading_hint_message() is None
 
 
@@ -340,23 +343,52 @@ def test_trace_reading_hint_is_emitted_once_across_threads(
 def test_fluent_get_trace_triggers_hint(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CLAUDECODE", "1")
     with (
-        mock.patch("mlflow.tracing.fluent._maybe_hint_trace_reading_skill") as hint_mock,
+        mock.patch.object(hint._logger, "info") as info_mock,
         mock.patch("mlflow.tracing.client.TracingClient.get_trace"),
     ):
         from mlflow.tracing.fluent import get_trace
 
         get_trace("tr-12345", silent=True)
-    hint_mock.assert_called_once()
+    info_mock.assert_called_once()
+    assert hint.TRACE_READING_SKILL in info_mock.call_args[0][0]
 
 
 def test_fluent_search_traces_triggers_hint(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CLAUDECODE", "1")
     with (
-        mock.patch("mlflow.tracing.fluent._maybe_hint_trace_reading_skill") as hint_mock,
+        mock.patch.object(hint._logger, "info") as info_mock,
         mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="0"),
         mock.patch("mlflow.tracing.client.TracingClient.search_traces", return_value=[]),
     ):
         from mlflow.tracing.fluent import search_traces
 
         search_traces(return_type="list")
-    hint_mock.assert_called_once()
+    info_mock.assert_called_once()
+    assert hint.TRACE_READING_SKILL in info_mock.call_args[0][0]
+
+
+def test_fluent_get_and_search_share_trace_reading_hint(
+    clean_env: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("CLAUDECODE", "1")
+    with (
+        mock.patch.object(hint._logger, "info") as info_mock,
+        mock.patch("mlflow.tracing.client.TracingClient.get_trace"),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="0"),
+        mock.patch("mlflow.tracing.client.TracingClient.search_traces", return_value=[]),
+    ):
+        from mlflow.tracing.fluent import get_trace, search_traces
+
+        get_trace("tr-12345", silent=True)
+        search_traces(return_type="list")
+    info_mock.assert_called_once()
+    assert hint.TRACE_READING_SKILL in info_mock.call_args[0][0]
+
+
+def test_fluent_hint_skipped_when_sdk_only(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr("mlflow.tracing.fluent.IS_TRACING_SDK_ONLY", True)
+    with mock.patch("mlflow.agent.hint.maybe_hint_trace_reading_skill") as hint_mock:
+        from mlflow.tracing.fluent import _maybe_hint_trace_reading_skill
+
+        _maybe_hint_trace_reading_skill()
+    hint_mock.assert_not_called()

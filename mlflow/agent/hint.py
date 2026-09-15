@@ -1,10 +1,11 @@
 """Agent-directed pointers to the bundled MLflow skills.
 
-Emitted on ``import mlflow`` when a coding agent is driving. Whether the skill
-is already installed is deliberately not probed: skills end up in too many
-places for the check to be accurate, and the pointer stays useful either way.
-Without it, agents design tracing from scratch and produce traces with blank
-tool inputs and outputs.
+Emitted on ``import mlflow`` when a coding agent is driving. The trace-reading
+hint fires on the first fluent ``get_trace`` or ``search_traces`` call instead.
+Whether the skill is already installed is deliberately not probed: skills end
+up in too many places for the check to be accurate, and the pointer stays useful
+either way. Without it, agents design tracing from scratch and produce traces
+with blank tool inputs and outputs.
 
 Fires once per process; ``MLFLOW_DISABLE_AGENT_HINT=1`` silences it for good.
 """
@@ -83,12 +84,13 @@ _HINT = (
     "MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
 )
 _TRACE_READING_HINT = (
-    "Load the `{skill}` skill at {path} before reading or querying traces; it ships with this "
-    "MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
+    "Read traces with the `mlflow traces` CLI described in the `{skill}` skill at {path} "
+    "rather than hand-written `mlflow.search_traces()`/`mlflow.get_trace()` calls; it ships "
+    "with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
 )
 
 
-def _bundled_skill_manifest(skill_name: str = TRACING_SKILL) -> Path | None:
+def _bundled_skill_manifest() -> Path | None:
     """Path to the skill shipped with this install, or ``None`` when absent.
 
     Released packages bundle it; a source checkout without the
@@ -101,7 +103,7 @@ def _bundled_skill_manifest(skill_name: str = TRACING_SKILL) -> Path | None:
     try:
         # Chained joinpath: importlib's MultiplexedPath takes a single segment.
         manifest = (
-            resources.files(SKILLS_PACKAGE).joinpath(skill_name).joinpath(SKILL_MANIFEST_FILE)
+            resources.files(SKILLS_PACKAGE).joinpath(TRACING_SKILL).joinpath(SKILL_MANIFEST_FILE)
         )
         return Path(str(manifest)) if manifest.is_file() else None
     except (ModuleNotFoundError, OSError):
@@ -136,10 +138,13 @@ def maybe_hint_tracing_skill() -> None:
 def maybe_hint_trace_reading_skill() -> None:
     """Log the trace-reading skill hint when a coding agent is driving."""
     try:
-        if (path := _bundled_skill_manifest(TRACE_READING_SKILL)) is None:
+        if (skills_path := _claim_agent_hint(TRACE_READING_SKILL)) is None:
             return
-        if _claim_agent_hint(TRACE_READING_SKILL):
-            _logger.info(_TRACE_READING_HINT.format(skill=TRACE_READING_SKILL, path=path))
+        from mlflow.assistant.skill_installer import SKILL_MANIFEST_FILE
+
+        manifest = skills_path / TRACE_READING_SKILL / SKILL_MANIFEST_FILE
+        if manifest.is_file():
+            _logger.info(_TRACE_READING_HINT.format(skill=TRACE_READING_SKILL, path=manifest))
     except Exception:
         # User-configurable logging handlers must not affect MLflow behavior.
         return

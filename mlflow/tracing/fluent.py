@@ -59,6 +59,7 @@ from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import is_databricks_uri
 from mlflow.utils.validation import _validate_list_param
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
 
@@ -881,12 +882,12 @@ def _resolve_uc_trace_id(trace_id: str) -> str:
 
 
 def _maybe_hint_trace_reading_skill() -> None:
-    try:
-        from mlflow.agent.hint import maybe_hint_trace_reading_skill
+    # `mlflow.agent` does not ship in the mlflow-tracing package.
+    if IS_TRACING_SDK_ONLY:
+        return
+    from mlflow.agent.hint import maybe_hint_trace_reading_skill
 
-        maybe_hint_trace_reading_skill()
-    except Exception:
-        pass
+    maybe_hint_trace_reading_skill()
 
 
 @deprecated_parameter("request_id", "trace_id")
