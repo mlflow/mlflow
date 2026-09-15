@@ -20,6 +20,8 @@ from mlflow.protos.databricks_pb2 import UNAUTHENTICATED, ErrorCode
         ("user:tok@github.com:acme/skills.git", "***@github.com:acme/skills.git"),
         ("Authorization: Bearer abcdefghij0123456789", "Authorization: Bearer ***"),
         ("header Basic dXNlcjpwYXNzd29yZA==", "header Basic ***"),
+        ("Bearer abc", "Bearer ***"),
+        ("basic dTpw", "basic ***"),
         ("nothing secret here", "nothing secret here"),
         ("git@github.com:acme/skills.git", "git@github.com:acme/skills.git"),
     ],

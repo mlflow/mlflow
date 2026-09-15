@@ -15,8 +15,9 @@ from mlflow.protos.databricks_pb2 import (
 _USERINFO_PATTERN = re.compile(r"(?<=://)[^/@\s]+@")
 # The user part of an scp-style git URL such as ``user:token@host:org/repo.git``.
 _SCP_USERINFO_PATTERN = re.compile(r"(?<![\w/])[^\s/:@]+:[^\s/@]+@(?=[\w.-]+:)")
-# Bearer / Basic tokens that transport libraries sometimes echo into messages.
-_AUTH_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
+# Bearer / Basic tokens that transport libraries sometimes echo into messages. Neither scheme
+# imposes a minimum length, so any token after the scheme word is redacted.
+_AUTH_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+")
 # The query string of any URL: presigned links carry their signature or token there. Schemes
 # are case-insensitive, so ``HTTPS://`` must be caught as well.
 _URL_QUERY_PATTERN = re.compile(r"(?i)(https?://[^\s'\"?#<>]+)\?[^\s'\"#<>]*")
