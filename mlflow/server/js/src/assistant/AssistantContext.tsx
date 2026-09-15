@@ -580,13 +580,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const selectProvider = useCallback(
     (selection: AssistantProviderSelection) => {
-      if (!isLocalServer) {
+      // Any client permitted to use the Assistant may switch providers: a permitted remote client
+      // persists the pick through the same config write the server accepts for it. A client that
+      // cannot use the Assistant has no picker, so this only guards stray programmatic calls.
+      if (!canUseAssistant) {
         return;
       }
       pendingProviderSelectionRef.current = selection;
       setActiveProvider(activeProviderFromSelection(selection, providers));
     },
-    [isLocalServer, providers],
+    [canUseAssistant, providers],
   );
 
   // Persist a pending optimistic provider pick to config before a turn streams,
