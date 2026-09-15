@@ -1978,8 +1978,9 @@ def validate_can_create_gateway_model_definition():
     Validate that the user can create a gateway model definition.
     This requires USE permission on the referenced secret.
     """
-    body = request.json or {}
-    secret_id = body.get("secret_id")
+    # Parse through the proto so the camelCase `secretId` alias resolves to the same
+    # secret the handler will use; a raw-key read would miss it.
+    secret_id = _get_request_message(CreateGatewayModelDefinition()).secret_id
     if not secret_id:
         # If no secret is provided, allow creation (will fail in handler)
         return True
@@ -2008,9 +2009,9 @@ def validate_can_update_gateway_model_definition():
     if not _get_permission_from_gateway_model_definition_id().can_update:
         return False
 
-    # If updating the secret, check USE permission on the new secret
-    body = request.json or {}
-    secret_id = body.get("secret_id")
+    # If updating the secret, check USE permission on the new secret. Parse through the
+    # proto so the camelCase `secretId` alias is covered.
+    secret_id = _get_request_message(UpdateGatewayModelDefinition()).secret_id
     if not secret_id:
         # No secret being changed, just return True
         return True
@@ -2082,6 +2083,13 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
     return True
 
 
+def _model_configs_from_request(request_message) -> list[dict[str, Any]]:
+    # Parse through the proto so the camelCase `modelConfigs` / `modelDefinitionId`
+    # aliases resolve to the same model definitions the handler will link.
+    msg = _get_request_message(request_message)
+    return [{"model_definition_id": mc.model_definition_id} for mc in msg.model_configs]
+
+
 def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str, Any]]) -> bool:
     """
     Create-only helper that enforces workspace USE permission when no model definitions
@@ -2115,9 +2123,9 @@ def validate_can_create_gateway_endpoint():
     Validate that the user can create a gateway endpoint.
     This requires USE permission on all referenced model definitions.
     """
-    body = request.json or {}
-    model_configs = body.get("model_configs", [])
-    return _validate_can_use_model_definitions_for_create(model_configs)
+    return _validate_can_use_model_definitions_for_create(
+        _model_configs_from_request(CreateGatewayEndpoint())
+    )
 
 
 def validate_can_update_gateway_endpoint():
@@ -2129,9 +2137,7 @@ def validate_can_update_gateway_endpoint():
     if not _get_permission_from_gateway_endpoint_id().can_update:
         return False
 
-    body = request.json or {}
-    model_configs = body.get("model_configs", [])
-    return _validate_can_use_model_definitions(model_configs)
+    return _validate_can_use_model_definitions(_model_configs_from_request(UpdateGatewayEndpoint()))
 
 
 def _get_permission_from_run_id_or_uuid() -> Permission:
