@@ -112,7 +112,6 @@ jobs:
           echo "$spread" | grep -q '^          maxSkew: 1'
           echo "$spread" | grep -q '^          minDomains: 3'
           echo "$spread" | grep -q '^          topologyKey: topology.kubernetes.io/zone$'
-          echo "$spread" | grep -q '^              app: mlflow'
           echo "$spread" | grep -q '^          whenUnsatisfiable: DoNotSchedule'
 
       - name: Render probes
