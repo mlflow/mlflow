@@ -193,6 +193,7 @@ describe('TracesTable', () => {
     const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', expect.stringContaining('/sessions/my-session'));
     expect(within(link).getByText('my-session')).toBeInTheDocument();
+    expect(link.querySelector('.session-jump')).not.toBeNull();
   });
 
   test('session cell renders plain text (no link) when getSessionHref is absent', async () => {
@@ -222,7 +223,10 @@ describe('TracesTable', () => {
     expect(screen.getByRole('columnheader', { name: 'Input' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Output' })).toBeInTheDocument();
     expect(screen.getByText('s1')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 's1' })).toHaveAttribute('href', expect.stringContaining('/sessions/s1'));
+    const sessionLink = screen.getByRole('link', { name: 's1' });
+    expect(sessionLink).toHaveAttribute('href', expect.stringContaining('/sessions/s1'));
+    // Group summaries reuse the same linked-text treatment as flat trace rows.
+    expect(sessionLink.querySelector('.session-jump')).not.toBeNull();
     // The session header previews the first turn's input and the last turn's output; collapsed, the
     // individual turn rows aren't rendered. The standalone trace stays its own row.
     expect(screen.getByText('request for s1-turn-1')).toBeInTheDocument();
@@ -251,6 +255,28 @@ describe('TracesTable', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand session s1' }));
     expect(screen.getAllByText('15')).toHaveLength(2);
+  });
+
+  test('keeps the configured column order when traces are grouped by session', async () => {
+    await renderWithProviders(
+      <TracesTable
+        {...baseProps({
+          traces: [makeSessionTrace('s1-turn-1', 's1')],
+          visibleColumns: ['start_time', 'input', 'output', 'session'],
+          columnOrder: ['start_time', 'input', 'output', 'session'],
+          isGroupedBySession: true,
+          getSessionHref: ({ sessionId }) => `/sessions/${sessionId}`,
+          onReorderColumn: jest.fn(),
+        })}
+      />,
+    );
+
+    const headers = screen.getAllByRole('columnheader').map((header) => header.textContent);
+    const orderOf = (label: string) => headers.findIndex((text) => text?.includes(label));
+    expect(orderOf('Time')).toBeLessThan(orderOf('Input'));
+    expect(orderOf('Input')).toBeLessThan(orderOf('Output'));
+    expect(orderOf('Output')).toBeLessThan(orderOf('Session'));
+    expect(screen.getByRole('link', { name: 's1' }).querySelector('.session-jump')).not.toBeNull();
   });
 
   test('passes all child traces to an extra column session renderer', async () => {

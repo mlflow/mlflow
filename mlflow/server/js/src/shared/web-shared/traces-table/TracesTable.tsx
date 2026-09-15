@@ -3,7 +3,6 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   DragIcon,
-  SpeechBubbleIcon,
   Table,
   TableCell,
   TableHeader,
@@ -31,7 +30,6 @@ import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types'
 import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 import { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 import { getTraceInfoInputs, getTraceInfoOutputs } from '../genai-traces-table/utils/TraceUtils';
-import { Link } from '../genai-traces-table/utils/RoutingUtils';
 import { type ColumnSizingState, flexRender, getCoreRowModel, type Row } from '@tanstack/react-table';
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPath } from 'react-router';
@@ -372,26 +370,17 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
 
     // Canonical-order visible column defs + any product columns. `extraColumns` is guarded to a stable
     // reference so a stable/undefined value doesn't defeat the deep memo (see `getVisibleColumnDefs`).
-    // When grouped, session + input/output are pinned left. When column reordering is enabled, columnOrder
-    // overrides the canonical order.
+    // Grouped mode force-shows session + input/output, but preserves the configured column order so
+    // switching modes does not move columns unexpectedly.
     const columns = useMemo(() => {
-      // Grouped mode always shows session + the input/output previews and pins them left, so a session
-      // header reads left-to-right as "which session → first input → last output" regardless of the
-      // user's own column visibility/order.
-      const groupedLeadingColumns: TraceColumnId[] = ['session', 'input', 'output'];
+      const groupedRequiredColumns: TraceColumnId[] = ['session', 'input', 'output'];
       const groupedVisibleColumns = isGroupedBySession
-        ? [...new Set([...visibleColumns, ...groupedLeadingColumns])]
+        ? [...new Set([...visibleColumns, ...groupedRequiredColumns])]
         : visibleColumns;
       const visibleColumnDefs = getVisibleColumnDefs(groupedVisibleColumns, extraColumns, columnOrder);
-      const groupedColumnRank = new Map<string, number>(groupedLeadingColumns.map((id, index) => [id, index]));
-      const getGroupedColumnRank = (id: string | undefined) =>
-        id === undefined ? Infinity : (groupedColumnRank.get(id) ?? Infinity);
-      const orderedVisibleColumnDefs = isGroupedBySession
-        ? [...visibleColumnDefs].sort((left, right) => getGroupedColumnRank(left.id) - getGroupedColumnRank(right.id))
-        : visibleColumnDefs;
       // Product-specific column ids are intentionally absent and resolve to undefined.
       const contentMaxSizes: Readonly<Record<string, number | undefined>> = getContentColumnMaxSizes(traces, intl);
-      return orderedVisibleColumnDefs.map((column) => {
+      return visibleColumnDefs.map((column) => {
         if (column.id === undefined) {
           return column;
         }
@@ -647,27 +636,6 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
       ) : (
         <Typography.Text color="secondary">-</Typography.Text>
       );
-
-    const renderSessionHeaderCell = (sessionId: string, trace: ModelTraceInfoV3) => {
-      const tag = (
-        <Tag componentId={`${COMPONENT_ID}.session-id`} title={sessionId} css={{ maxWidth: '100%' }}>
-          <SpeechBubbleIcon css={{ fontSize: theme.typography.fontSizeBase, marginRight: theme.spacing.xs }} />
-          <Typography.Text ellipsis>{sessionId}</Typography.Text>
-        </Tag>
-      );
-      const sessionHref = getSessionHref?.({ trace, sessionId });
-      return sessionHref ? (
-        <Link
-          componentId={`${COMPONENT_ID}.session-link`}
-          to={sessionHref}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {tag}
-        </Link>
-      ) : (
-        tag
-      );
-    };
 
     const renderTraceRow = (
       row: Row<ModelTraceInfoV3>,
@@ -929,10 +897,10 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                                   css={{ verticalAlign: 'middle' }}
                                   style={columnStyles.get(header.column.id)}
                                 >
-                                  {/* Session summary per column: the session tag, first-turn input, last-turn
+                                  {/* Session summary per column: the session id, first-turn input, last-turn
                                       output/state, first-turn time, else a product-owned aggregate (or blank). */}
-                                  {header.column.id === 'session'
-                                    ? renderSessionHeaderCell(sessionId, rows[0].original)
+                                  {header.column.id === 'session' && firstCell
+                                    ? flexRender(firstCell.column.columnDef.cell, firstCell.getContext())
                                     : header.column.id === 'input'
                                       ? renderSessionPreview(getTraceInfoInputs(rows[0].original), 'secondary')
                                       : header.column.id === 'output'
@@ -1128,10 +1096,10 @@ export const TracesTable: React.MemoExoticComponent<(props: TracesTableProps) =>
                                 css={{ verticalAlign: 'middle' }}
                                 style={columnStyles.get(header.column.id)}
                               >
-                                {/* Session summary per column: the session tag, first-turn input, last-turn
+                                {/* Session summary per column: the session id, first-turn input, last-turn
                                     output/state, first-turn time, else a product-owned aggregate (or blank). */}
-                                {header.column.id === 'session'
-                                  ? renderSessionHeaderCell(sessionId, rows[0].original)
+                                {header.column.id === 'session' && firstCell
+                                  ? flexRender(firstCell.column.columnDef.cell, firstCell.getContext())
                                   : header.column.id === 'input'
                                     ? renderSessionPreview(getTraceInfoInputs(rows[0].original), 'secondary')
                                     : header.column.id === 'output'
