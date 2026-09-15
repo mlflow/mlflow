@@ -17,6 +17,8 @@ MAX_PATH_SEGMENT_BYTES = 255
 # common PATH_MAX and 128 segments is far beyond any real skill tree.
 MAX_PATH_DEPTH = 128
 MAX_PATH_BYTES = 4096
+# Characters Win32 refuses in file names (``:`` is handled separately with drive letters).
+_WINDOWS_INVALID_CHARS = '<>"|?*'
 # Names Windows refuses to create as regular files, with or without an extension. A tree
 # containing them cannot be materialized on every supported OS, so it is rejected everywhere.
 _WINDOWS_RESERVED_NAMES = frozenset({
@@ -37,6 +39,14 @@ def _validate_segment(segment: str, original: str) -> None:
         # Drive letters (``C:``) and NTFS alternate data streams (``file:stream``) both make a
         # segment escape or alias the tree on Windows.
         raise invalid_content(f"Path '{shown}' must not contain ':' in a segment.")
+    if any(ch in _WINDOWS_INVALID_CHARS for ch in segment):
+        raise invalid_content(
+            f"Path '{shown}' contains a character Windows does not allow in names "
+            f"({_WINDOWS_INVALID_CHARS})."
+        )
+    if segment[-1] in " .":
+        # Win32 strips trailing spaces and periods, so ``a.`` would alias ``a`` on Windows.
+        raise invalid_content(f"Path '{shown}' has a name ending in a space or period.")
     if any(ord(ch) < 32 or ch == "\x7f" for ch in segment):
         raise invalid_content(f"Path '{shown}' must not contain control characters.")
     try:

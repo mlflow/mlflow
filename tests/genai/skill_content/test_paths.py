@@ -55,6 +55,15 @@ def test_normalize_subpath_valid(raw, expected):
         "dir/LPT1.md",
         "a\x00b",
         "a\nb",
+        "a<b",
+        "a>b",
+        'q"z',
+        "a|b",
+        "x?",
+        "y*",
+        "name.",
+        "name /x",
+        "dir/trail.",
     ],
 )
 def test_normalize_subpath_invalid(raw):
@@ -68,8 +77,9 @@ def test_normalize_subpath_rejects_non_string():
 
 
 def test_canonical_relative_path_preserves_exact_names():
-    assert canonical_relative_path(" a.md ") == " a.md "
-    assert canonical_relative_path("dir/ b ") == "dir/ b "
+    # Leading and internal spaces are kept exactly; Windows preserves those.
+    assert canonical_relative_path(" a.md") == " a.md"
+    assert canonical_relative_path("dir/ b c") == "dir/ b c"
     assert canonical_relative_path("dir//x/") == "dir/x"
     assert canonical_relative_path("") is None
     with pytest.raises(MlflowException, match="forward slashes"):

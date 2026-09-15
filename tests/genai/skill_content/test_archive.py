@@ -79,17 +79,19 @@ def test_package_roundtrip_preserves_digest_and_is_reproducible(tmp_path):
 
 
 def test_package_roundtrip_keeps_exact_names_with_whitespace(tmp_path):
+    # Leading and internal spaces survive exactly (Windows keeps those); trailing spaces and
+    # periods are rejected outright since Win32 strips them.
     source = tmp_path / "src"
     source.mkdir()
-    _write_tree(source, {"a.md ": b"1", " lead.md": b"2", "d/ x ": b"3"})
+    _write_tree(source, {"a b.md": b"1", " lead.md": b"2", "d/ x": b"3"})
     archive = package_skill_tree(source, tmp_path / "ws.tar.gz")
     extracted = extract_skill_archive(archive, tmp_path / "out")
     assert sorted(
         p.relative_to(extracted).as_posix() for p in extracted.rglob("*") if p.is_file()
     ) == [
         " lead.md",
-        "a.md ",
-        "d/ x ",
+        "a b.md",
+        "d/ x",
     ]
     assert compute_tree_digest(extracted) == compute_tree_digest(source)
 
@@ -106,6 +108,10 @@ def test_package_roundtrip_keeps_exact_names_with_whitespace(tmp_path):
         ([("C:", tarfile.DIRTYPE, b"")], "unsafe path"),
         ([("CON", tarfile.REGTYPE, b"x")], "unsafe path"),
         ([("docs/nul.md", tarfile.REGTYPE, b"x")], "unsafe path"),
+        ([("a>b.md", tarfile.REGTYPE, b"x")], "unsafe path"),
+        ([("what?.md", tarfile.REGTYPE, b"x")], "unsafe path"),
+        ([("file.", tarfile.REGTYPE, b"x")], "unsafe path"),
+        ([("dir /file", tarfile.REGTYPE, b"x")], "unsafe path"),
         ([("link", tarfile.SYMTYPE, b"SKILL.md")], "not a regular file or directory"),
         ([("hard", tarfile.LNKTYPE, b"SKILL.md")], "not a regular file or directory"),
         ([("fifo", tarfile.FIFOTYPE, b"")], "not a regular file or directory"),
@@ -311,6 +317,8 @@ def test_zip_windows_style_directory_entry(tmp_path):
         ([("/abs.txt", b"x", None)], "unsafe path"),
         ([("a\\b.txt", b"x", None)], "unsafe path"),
         ([("C:evil.txt", b"x", None)], "unsafe path"),
+        ([("a|b.txt", b"x", None)], "unsafe path"),
+        ([("trail. ", b"x", None)], "unsafe path"),
         ([("link", b"SKILL.md", (stat.S_IFLNK | 0o777) << 16)], "not a regular file or directory"),
         ([("fifo", b"", (stat.S_IFIFO | 0o644) << 16)], "not a regular file or directory"),
         ([("a.md", b"1", None), ("a.md", b"2", None)], "more than once"),
