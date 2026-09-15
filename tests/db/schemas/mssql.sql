@@ -1,4 +1,18 @@
 
+CREATE TABLE agent_plugins (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	description VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	icons NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	creation_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	CONSTRAINT agent_plugins_pk PRIMARY KEY (workspace, organization, name)
+)
+
+
 CREATE TABLE alembic_version (
 	version_num VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
@@ -142,6 +156,22 @@ CREATE TABLE secrets (
 )
 
 
+CREATE TABLE skills (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	description VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	icons NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	search_text VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	imported_keywords_json VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	creation_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	CONSTRAINT skills_pk PRIMARY KEY (workspace, organization, name)
+)
+
+
 CREATE TABLE webhooks (
 	webhook_id VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
@@ -164,6 +194,53 @@ CREATE TABLE workspaces (
 	trace_archival_location VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	trace_archival_retention VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT workspaces_pk PRIMARY KEY (name)
+)
+
+
+CREATE TABLE agent_plugin_aliases (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	CONSTRAINT agent_plugin_aliases_pk PRIMARY KEY (workspace, organization, name, alias),
+	CONSTRAINT agent_plugin_aliases_plugin_fkey FOREIGN KEY(workspace, organization, name) REFERENCES agent_plugins (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE agent_plugin_tags (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT agent_plugin_tags_pk PRIMARY KEY (workspace, organization, name, key),
+	CONSTRAINT agent_plugin_tags_plugin_fkey FOREIGN KEY(workspace, organization, name) REFERENCES agent_plugins (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE agent_plugin_versions (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version_major INTEGER NOT NULL,
+	version_minor INTEGER NOT NULL,
+	version_patch INTEGER NOT NULL,
+	version_prerelease_sort_key VARCHAR(512) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	plugin_json NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	search_text VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	source_type VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	source VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	ref VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	subpath VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('active') NOT NULL,
+	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	creation_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	CONSTRAINT agent_plugin_versions_pk PRIMARY KEY (workspace, organization, name, version),
+	CONSTRAINT agent_plugin_versions_plugin_fkey FOREIGN KEY(workspace, organization, name) REFERENCES agent_plugins (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -233,7 +310,7 @@ CREATE TABLE experiment_tags (
 	value NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
-	CONSTRAINT "FK__experimen__exper__628FA481" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT "FK__experimen__exper__4F7CD00D" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -418,7 +495,7 @@ CREATE TABLE runs (
 	experiment_id INTEGER,
 	deleted_time BIGINT,
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid),
-	CONSTRAINT "FK__runs__experiment__5165187F" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+	CONSTRAINT "FK__runs__experiment__3E52440B" FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -428,6 +505,48 @@ CREATE TABLE scorers (
 	scorer_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT scorer_pk PRIMARY KEY (scorer_id),
 	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE skill_aliases (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version INTEGER NOT NULL,
+	CONSTRAINT skill_aliases_pk PRIMARY KEY (workspace, organization, name, alias),
+	CONSTRAINT skill_aliases_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE skill_tags (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT skill_tags_pk PRIMARY KEY (workspace, organization, name, key),
+	CONSTRAINT skill_tags_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
+CREATE TABLE skill_versions (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version INTEGER NOT NULL,
+	source_type VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	source VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	ref VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	subpath VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	digest VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('active') NOT NULL,
+	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	creation_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	CONSTRAINT skill_versions_pk PRIMARY KEY (workspace, organization, name, version),
+	CONSTRAINT skill_versions_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -451,7 +570,33 @@ CREATE TABLE webhook_events (
 	entity VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	action VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, entity, action),
-	CONSTRAINT "FK__webhook_e__webho__2645B050" FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
+	CONSTRAINT "FK__webhook_e__webho__1332DBDC" FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE agent_plugin_version_members (
+	plugin_workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	plugin_organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	plugin_name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	plugin_version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	member_name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	member_organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	member_version INTEGER NOT NULL,
+	CONSTRAINT agent_plugin_version_members_pk PRIMARY KEY (plugin_workspace, plugin_organization, plugin_name, plugin_version, member_name),
+	CONSTRAINT agent_plugin_version_members_plugin_fkey FOREIGN KEY(plugin_workspace, plugin_organization, plugin_name, plugin_version) REFERENCES agent_plugin_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE,
+	CONSTRAINT agent_plugin_version_members_skill_fkey FOREIGN KEY(plugin_workspace, member_organization, member_name, member_version) REFERENCES skill_versions (workspace, organization, name, version)
+)
+
+
+CREATE TABLE agent_plugin_version_tags (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT agent_plugin_version_tags_pk PRIMARY KEY (workspace, organization, name, version, key),
+	CONSTRAINT agent_plugin_version_tags_version_fkey FOREIGN KEY(workspace, organization, name, version) REFERENCES agent_plugin_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
@@ -542,7 +687,7 @@ CREATE TABLE latest_metrics (
 	is_nan BIT NOT NULL,
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT latest_metric_pk PRIMARY KEY (key, run_uuid),
-	CONSTRAINT "FK__latest_me__run_u__656C112C" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+	CONSTRAINT "FK__latest_me__run_u__52593CB8" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 
@@ -605,7 +750,7 @@ CREATE TABLE metrics (
 	step BIGINT DEFAULT ('0') NOT NULL,
 	is_nan BIT DEFAULT ('0') NOT NULL,
 	CONSTRAINT metric_pk PRIMARY KEY (key, timestamp, step, run_uuid, value, is_nan),
-	CONSTRAINT "FK__metrics__run_uui__571DF1D5" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+	CONSTRAINT "FK__metrics__run_uui__440B1D61" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 
@@ -637,7 +782,7 @@ CREATE TABLE params (
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid),
-	CONSTRAINT "FK__params__run_uuid__59FA5E80" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+	CONSTRAINT "FK__params__run_uuid__46E78A0C" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 
@@ -681,6 +826,18 @@ CREATE TABLE scorer_versions (
 )
 
 
+CREATE TABLE skill_version_tags (
+	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
+	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version INTEGER NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT skill_version_tags_pk PRIMARY KEY (workspace, organization, name, version, key),
+	CONSTRAINT skill_version_tags_version_fkey FOREIGN KEY(workspace, organization, name, version) REFERENCES skill_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+
 CREATE TABLE spans (
 	trace_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -705,7 +862,7 @@ CREATE TABLE tags (
 	value VARCHAR(8000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	run_uuid VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
-	CONSTRAINT "FK__tags__run_uuid__5441852A" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
+	CONSTRAINT "FK__tags__run_uuid__412EB0B6" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 

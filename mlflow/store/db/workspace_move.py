@@ -16,12 +16,14 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlWebhook,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
     SqlEvaluationDataset,
     SqlExperiment,
     SqlExperimentTag,
     SqlJob,
     SqlMCPServer,
     SqlMCPServerTag,
+    SqlSkill,
 )
 from mlflow.store.workspace.abstract_store import AbstractStore
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
@@ -61,6 +63,23 @@ class _ResourceSpec:
     @property
     def tag_table(self) -> sa.Table | None:
         return self.tag_model.__table__ if self.tag_model else None
+
+
+# Skills and agent plugins are linked by agent_plugin_version_members and must be
+# moved as a bundle (a plugin travels with its skills), so they use a dedicated
+# path (_move_skill_registry_resources) rather than the generic single-root mover
+# below. They still get specs here so the resource types are advertised and the
+# _WORKSPACE_ROOT_MODELS coverage test passes.
+_REGISTRY_BUNDLE_TYPES = ("skills", "agent_plugins")
+_SKILL_CHILD_TABLES = ("skill_versions", "skill_tags", "skill_version_tags", "skill_aliases")
+_PLUGIN_CHILD_TABLES = (
+    "agent_plugin_versions",
+    "agent_plugin_tags",
+    "agent_plugin_version_tags",
+    "agent_plugin_aliases",
+)
+_AGENT_PLUGIN_MEMBERS_TABLE = "agent_plugin_version_members"
+_DELETED_STATUS = "deleted"
 
 
 # Per-model spec.  Keyed by ORM model class; the CLI resource type is derived
@@ -111,6 +130,17 @@ _SPEC_BY_MODEL: dict[type, _ResourceSpec] = {
             "mcp_server_aliases",
             ("mcp_access_endpoints", "server_name"),
         ),
+    ),
+    # Bundle-moved via _move_skill_registry_resources (see _REGISTRY_BUNDLE_TYPES).
+    SqlSkill: _ResourceSpec(
+        model=SqlSkill,
+        name_column=SqlSkill.name.key,
+        child_tables=_SKILL_CHILD_TABLES,
+    ),
+    SqlAgentPlugin: _ResourceSpec(
+        model=SqlAgentPlugin,
+        name_column=SqlAgentPlugin.name.key,
+        child_tables=_PLUGIN_CHILD_TABLES,
     ),
 }
 
@@ -290,6 +320,24 @@ def move_resources(
     if names and tags:
         raise RuntimeError("--name and --tag are mutually exclusive.")
 
+    if resource_type in _REGISTRY_BUNDLE_TYPES:
+        if tags:
+            raise RuntimeError(f"Tag filtering is not supported for {resource_type!r}.")
+        if artifact_policy != "preserve":
+            raise RuntimeError(
+                "--artifact-policy retarget is only supported for --resource-type experiments."
+            )
+        return _move_skill_registry_resources(
+            engine,
+            workspace_store,
+            source_workspace,
+            target_workspace,
+            resource_type,
+            names,
+            dry_run=dry_run,
+            verbose=verbose,
+        )
+
     if tags and spec.tag_table is None:
         raise RuntimeError(f"Resource type {resource_type!r} does not support tag filtering.")
 
@@ -424,3 +472,335 @@ def move_resources(
                 )
 
     return MoveResult(names=sorted(matched), row_count=row_count, retarget_root=retarget_root)
+
+
+# ---------------------------------------------------------------------------
+# Skill registry (skills / agent_plugins): bundle-aware moves
+# ---------------------------------------------------------------------------
+#
+# skills and agent plugins are linked by agent_plugin_version_members, and a
+# plugin version and its member skill versions must live in the same workspace.
+# So a move operates on a bundle and follows the rule the RFC already defines for
+# cascade delete: it is refused (atomically, listing the blockers) if it would
+# leave a live plugin version outside the move pointing at a moving skill. Only
+# live references block; soft-deleted-version rows are purged, both because they
+# must not block and because they would otherwise dangle once a skill relocates.
+# See skills-registry-research/workspace-actions.md.
+
+
+def _parse_bundle_name(raw: str) -> tuple[str, str]:
+    """Parse a skill/plugin identity from a --name value.
+
+    Accepts ``@org/name`` (returns ``(org, name)``) or bare ``name``
+    (returns ``("", name)``), matching the RFC's @org/name URI convention.
+    """
+    if raw.startswith("@"):
+        match raw[1:].split("/", 1):
+            case [org, name] if org and name:
+                return org, name
+            case _:
+                raise RuntimeError(
+                    f"Invalid name {raw!r}: expected @org/name with non-empty org and name."
+                )
+    if not raw:
+        raise RuntimeError("Resource name must not be empty.")
+    return "", raw
+
+
+def _reflect(conn, table_name: str) -> sa.Table:
+    return sa.Table(table_name, sa.MetaData(), autoload_with=conn)
+
+
+def _identity_filter(table, ids, org_col="organization", name_col="name"):
+    """WHERE clause matching any ``(organization, name)`` in *ids* (false if empty)."""
+    if not ids:
+        return sa.false()
+    return sa.or_(*[
+        sa.and_(table.c[org_col] == org, table.c[name_col] == name) for org, name in ids
+    ])
+
+
+def _resolve_bundle_identities(conn, table, workspace, org_names):
+    """``{(organization, name)}`` of *table* rows in *workspace*, optionally filtered."""
+    stmt = sa.select(table.c.organization, table.c.name).where(table.c.workspace == workspace)
+    if org_names is not None:
+        stmt = stmt.where(_identity_filter(table, org_names))
+    return {(row[0], row[1]) for row in conn.execute(stmt)}
+
+
+def _live_member_skills(conn, members, plugin_versions, workspace, plugin_ids):
+    """Skills ``{(organization, name)}`` pinned by a live version of a plugin in *plugin_ids*."""
+    join = members.join(
+        plugin_versions,
+        sa.and_(
+            members.c.plugin_workspace == plugin_versions.c.workspace,
+            members.c.plugin_organization == plugin_versions.c.organization,
+            members.c.plugin_name == plugin_versions.c.name,
+            members.c.plugin_version == plugin_versions.c.version,
+        ),
+    )
+    stmt = (
+        sa
+        .select(members.c.member_organization, members.c.member_name)
+        .select_from(join)
+        .where(members.c.plugin_workspace == workspace)
+        .where(plugin_versions.c.status != _DELETED_STATUS)
+        .where(_identity_filter(members, plugin_ids, "plugin_organization", "plugin_name"))
+        .distinct()
+    )
+    return {(row[0], row[1]) for row in conn.execute(stmt)}
+
+
+def _live_external_plugin_refs(
+    conn, members, plugin_versions, workspace, skill_ids, exclude_plugins
+):
+    """Live plugin versions (outside *exclude_plugins*) that pin any skill in *skill_ids*.
+
+    Returns a sorted list of
+    ``(plugin_org, plugin_name, plugin_version, member_org, member_name)`` -- the blockers.
+    """
+    if not skill_ids:
+        return []
+    join = members.join(
+        plugin_versions,
+        sa.and_(
+            members.c.plugin_workspace == plugin_versions.c.workspace,
+            members.c.plugin_organization == plugin_versions.c.organization,
+            members.c.plugin_name == plugin_versions.c.name,
+            members.c.plugin_version == plugin_versions.c.version,
+        ),
+    )
+    stmt = (
+        sa
+        .select(
+            members.c.plugin_organization,
+            members.c.plugin_name,
+            members.c.plugin_version,
+            members.c.member_organization,
+            members.c.member_name,
+        )
+        .select_from(join)
+        .where(members.c.plugin_workspace == workspace)
+        .where(plugin_versions.c.status != _DELETED_STATUS)
+        .where(_identity_filter(members, skill_ids, "member_organization", "member_name"))
+    )
+    if exclude_plugins:
+        stmt = stmt.where(
+            sa.not_(
+                _identity_filter(members, exclude_plugins, "plugin_organization", "plugin_name")
+            )
+        )
+    return sorted(tuple(row) for row in conn.execute(stmt))
+
+
+def _qualified(org: str, name: str) -> str:
+    return f"{org}/{name}" if org else name
+
+
+def _format_blockers(blockers, *, verbose: bool) -> str:
+    items = [
+        f"agent plugin '{_qualified(p_org, p_name)}' version {p_ver} "
+        f"pins skill '{_qualified(m_org, m_name)}'"
+        for (p_org, p_name, p_ver, m_org, m_name) in blockers
+    ]
+    return format_truncated_list(items, max_rows=None if verbose else 10)
+
+
+def _reassign_family(conn, tables, source, target, org, name, root_table, child_tables):
+    """Rewrite the workspace of one parent (root + child tables) from source to target."""
+    for table_name in (root_table, *child_tables):
+        table = tables[table_name]
+        conn.execute(
+            table
+            .update()
+            .where(
+                table.c.workspace == source,
+                table.c.organization == org,
+                table.c.name == name,
+            )
+            .values(workspace=target)
+        )
+
+
+def _move_skill_registry_resources(
+    engine,
+    workspace_store,
+    source_workspace,
+    target_workspace,
+    resource_type,
+    names,
+    *,
+    dry_run,
+    verbose,
+) -> MoveResult:
+    workspace_store.get_workspace(source_workspace)
+    workspace_store.get_workspace(target_workspace)
+    org_names = [_parse_bundle_name(n) for n in names] if names else None
+
+    with engine.begin() as conn:
+        # Not-enabled / not-migrated guard.
+        get_workspace_table(conn, "skills")
+        table_names = (
+            "skills",
+            "agent_plugins",
+            _AGENT_PLUGIN_MEMBERS_TABLE,
+            *_SKILL_CHILD_TABLES,
+            *_PLUGIN_CHILD_TABLES,
+        )
+        tables = {name: _reflect(conn, name) for name in table_names}
+        skills_tbl = tables["skills"]
+        plugins_tbl = tables["agent_plugins"]
+        plugin_versions = tables["agent_plugin_versions"]
+        members = tables[_AGENT_PLUGIN_MEMBERS_TABLE]
+
+        if resource_type == "agent_plugins":
+            plugins_to_move = _resolve_bundle_identities(
+                conn, plugins_tbl, source_workspace, org_names
+            )
+            if not plugins_to_move:
+                return MoveResult(names=[], row_count=0)
+            skills_to_move = _live_member_skills(
+                conn, members, plugin_versions, source_workspace, plugins_to_move
+            )
+            blockers = _live_external_plugin_refs(
+                conn, members, plugin_versions, source_workspace, skills_to_move, plugins_to_move
+            )
+            if blockers:
+                raise RuntimeError(
+                    "Move aborted: these agent plugins pull in skills still pinned by live "
+                    "plugin versions that are not part of the move: "
+                    f"{_format_blockers(blockers, verbose=verbose)}\n"
+                    "Include those plugins in the move (--name), or delete/re-version them, "
+                    "then retry."
+                )
+        else:  # skills
+            skills_to_move = _resolve_bundle_identities(
+                conn, skills_tbl, source_workspace, org_names
+            )
+            if not skills_to_move:
+                return MoveResult(names=[], row_count=0)
+            plugins_to_move = set()
+            blockers = _live_external_plugin_refs(
+                conn, members, plugin_versions, source_workspace, skills_to_move, plugins_to_move
+            )
+            if blockers:
+                raise RuntimeError(
+                    "Move aborted: these skills are members of live agent plugin versions and "
+                    "cannot be moved on their own (moving would fork the skill identity): "
+                    f"{_format_blockers(blockers, verbose=verbose)}\n"
+                    "Move the containing agent plugin(s) instead."
+                )
+
+        # Conflict check at the target for the whole bundle.
+        conflicts = sorted(
+            {
+                _qualified(org, name)
+                for org, name in _resolve_bundle_identities(
+                    conn, skills_tbl, target_workspace, list(skills_to_move)
+                )
+            }
+            | {
+                _qualified(org, name)
+                for org, name in _resolve_bundle_identities(
+                    conn, plugins_tbl, target_workspace, list(plugins_to_move)
+                )
+            }
+        )
+        if conflicts:
+            formatted = format_truncated_list(
+                [repr(c) for c in conflicts], max_rows=None if verbose else 10
+            )
+            raise RuntimeError(
+                f"Move aborted: the following already exist in workspace "
+                f"{target_workspace!r}: {formatted}\n"
+                "Rename or remove the conflicting resources in the target workspace, then retry."
+            )
+
+        moved_names = sorted({
+            _qualified(org, name) for org, name in skills_to_move | plugins_to_move
+        })
+        row_count = len(skills_to_move) + len(plugins_to_move)
+        if dry_run:
+            return MoveResult(names=moved_names, row_count=row_count)
+
+        # 1. Purge stale (soft-deleted-version) membership rows that belong to a moving
+        #    plugin or point at a moving skill, so they neither block nor dangle.
+        stale_version = sa.exists().where(
+            sa.and_(
+                plugin_versions.c.workspace == members.c.plugin_workspace,
+                plugin_versions.c.organization == members.c.plugin_organization,
+                plugin_versions.c.name == members.c.plugin_name,
+                plugin_versions.c.version == members.c.plugin_version,
+                plugin_versions.c.status == _DELETED_STATUS,
+            )
+        )
+        conn.execute(
+            sa
+            .delete(members)
+            .where(members.c.plugin_workspace == source_workspace)
+            .where(stale_version)
+            .where(
+                sa.or_(
+                    _identity_filter(
+                        members, plugins_to_move, "plugin_organization", "plugin_name"
+                    ),
+                    _identity_filter(members, skills_to_move, "member_organization", "member_name"),
+                )
+            )
+        )
+
+        # 2. Pluck the (now all-live) membership rows of the moving plugins, to re-insert
+        #    at the target once both parents have moved.
+        plucked = []
+        if plugins_to_move:
+            member_filter = _identity_filter(
+                members, plugins_to_move, "plugin_organization", "plugin_name"
+            )
+            plucked = [
+                dict(row)
+                for row in conn.execute(
+                    sa
+                    .select(members)
+                    .where(members.c.plugin_workspace == source_workspace)
+                    .where(member_filter)
+                ).mappings()
+            ]
+            conn.execute(
+                sa
+                .delete(members)
+                .where(members.c.plugin_workspace == source_workspace)
+                .where(member_filter)
+            )
+
+        # 3. Relocate the skill and plugin families (root + child tables).
+        for org, name in skills_to_move:
+            _reassign_family(
+                conn,
+                tables,
+                source_workspace,
+                target_workspace,
+                org,
+                name,
+                "skills",
+                _SKILL_CHILD_TABLES,
+            )
+        for org, name in plugins_to_move:
+            _reassign_family(
+                conn,
+                tables,
+                source_workspace,
+                target_workspace,
+                org,
+                name,
+                "agent_plugins",
+                _PLUGIN_CHILD_TABLES,
+            )
+
+        # 4. Re-insert the plucked members at the target; both parents now live there.
+        if plucked:
+            conn.execute(
+                sa.insert(members),
+                [{**row, "plugin_workspace": target_workspace} for row in plucked],
+            )
+
+    return MoveResult(names=moved_names, row_count=row_count)

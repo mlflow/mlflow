@@ -21,6 +21,13 @@ from mlflow.store.db.base_sql_model import Base
 from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.workspace_migration import migrate_to_default_workspace
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
+    SqlAgentPluginVersion,
+    SqlAgentPluginVersionMember,
+    SqlSkill,
+    SqlSkillVersion,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -234,6 +241,49 @@ def test_index_for_dataset_tables(tmp_path, db_url):
             "index_inputs_destination_type_destination_id_source_type",
         }
         assert new_index_names.issubset(all_index_names)
+
+
+def test_skill_registry_indexes(tmp_path, db_url):
+    # SqlAlchemyStore() on the empty db_url runs all migrations to build the schema
+    # from scratch; then assert the resulting indexes match `expected` (names + exact
+    # column order -- column order is what makes an index useful). `expected` is
+    # hardcoded on purpose: it's an independent statement catch a bad change. The
+    # golden schema dumps carry no index DDL, so nothing else guards these.
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    expected = {
+        "ix_skill_versions_latest_lookup": [
+            "workspace",
+            "organization",
+            "name",
+            "status",
+            "version",
+        ],
+        "ix_skill_versions_digest": ["workspace", "organization", "name", "digest"],
+        "ix_agent_plugin_versions_latest_lookup": [
+            "workspace",
+            "organization",
+            "name",
+            "status",
+            "version_major",
+            "version_minor",
+            "version_patch",
+            "creation_timestamp",
+        ],
+        "ix_agent_plugin_version_members_skill_fkey": [
+            "plugin_workspace",
+            "member_organization",
+            "member_name",
+            "member_version",
+        ],
+    }
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = {r[0] for r in cursor.fetchall()}
+        assert set(expected).issubset(all_index_names)
+        for index_name, columns in expected.items():
+            cursor.execute(f"PRAGMA index_info('{index_name}')")
+            assert [row[2] for row in cursor.fetchall()] == columns
 
 
 def test_secrets_and_endpoints_tables(tmp_path, db_url):
@@ -469,6 +519,83 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "created_at": seed,
             "last_updated_at": seed,
         },
+        "skills": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "creation_timestamp": seed,
+            "last_updated_timestamp": seed,
+        },
+        "skill_versions": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "version": seed,
+            "status": "active",
+            "creation_timestamp": seed,
+            "last_updated_timestamp": seed,
+        },
+        "skill_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "key": f"tag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "skill_version_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "version": seed,
+            "key": f"vtag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "skill_aliases": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"skill_{seed}",
+            "alias": f"alias_{seed}",
+            "version": seed,
+        },
+        "agent_plugins": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "creation_timestamp": seed,
+            "last_updated_timestamp": seed,
+        },
+        "agent_plugin_versions": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "version": f"{seed}.0.0",
+            "plugin_json": "{}",
+            "status": "active",
+            "creation_timestamp": seed,
+            "last_updated_timestamp": seed,
+        },
+        "agent_plugin_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "key": f"tag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "agent_plugin_version_tags": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "version": f"{seed}.0.0",
+            "key": f"vtag_{seed}",
+            "value": f"value_{seed}",
+        },
+        "agent_plugin_aliases": {
+            "workspace": workspace,
+            "organization": f"org_{seed}",
+            "name": f"plugin_{seed}",
+            "alias": f"alias_{seed}",
+            "version": f"{seed}.0.0",
+        },
     }
     if table_name not in base_values:
         raise AssertionError(f"Unexpected table: {table_name}")
@@ -476,7 +603,7 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
     overrides = overrides or {}
     unknown = set(overrides) - set(table.c.keys())
     assert not unknown, f"Unknown columns for {table_name}: {unknown}"
-    if table_name == "mcp_server_versions":
+    if table_name in ("mcp_server_versions", "agent_plugin_versions"):
         parsed = parse_semver(values["version"])
         if "version_major" in table.c:
             values["version_major"] = parsed.major
@@ -520,6 +647,14 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
         ("endpoints", ("name",), "endpoints with the same name"),
         ("model_definitions", ("name",), "model definitions with the same name"),
         ("mcp_servers", ("name",), "MCP servers with the same name"),
+        # Skill registry roots key their conflict on (organization, name), not name
+        # alone, so exercise that two-column shape explicitly.
+        ("skills", ("organization", "name"), "skills with the same organization and name"),
+        (
+            "agent_plugins",
+            ("organization", "name"),
+            "agent plugins with the same organization and name",
+        ),
     ],
 )
 def test_migrate_to_default_workspace_conflict(tmp_path, table_name, conflict_columns, description):
@@ -569,8 +704,12 @@ def test_migrate_to_default_workspace_moves_rows(tmp_path):
             _insert_row(conn, table_name, "team-a", seed=seed)
 
     counts = migrate_to_default_workspace(engine, dry_run=True)
-    assert set(counts.keys()) == set(workspace_migration._WORKSPACE_TABLES)
-    assert all(count == 1 for count in counts.values())
+    assert set(counts.keys()) == set(workspace_migration._WORKSPACE_TABLES) | {
+        workspace_migration.AGENT_PLUGIN_MEMBERS_TABLE
+    }
+    # The link table is reassigned separately; no member rows were seeded here.
+    assert counts[workspace_migration.AGENT_PLUGIN_MEMBERS_TABLE] == 0
+    assert all(counts[table] == 1 for table in workspace_migration._WORKSPACE_TABLES)
 
     migrate_to_default_workspace(engine, dry_run=False)
 
@@ -582,3 +721,101 @@ def test_migrate_to_default_workspace_moves_rows(tmp_path):
             )
             assert conn.execute(stmt).scalar_one() == 0
     engine.dispose()
+
+
+def _seed_skill_plugin_graph(session, workspace: str):
+    """Seed a skill + an agent-plugin whose version pins that skill as a member.
+
+    The member row is the cross-root link (agent_plugin_version_members ->
+    skill_versions) whose single ``plugin_workspace`` column anchors both FKs and
+    breaks a naive workspace reassignment.
+    """
+    session.add(SqlSkill(workspace=workspace, organization="", name="code-review"))
+    session.add(SqlAgentPlugin(workspace=workspace, organization="", name="pr-workflow"))
+    session.flush()
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="",
+            name="code-review",
+            version=1,
+            source_type="git",
+            source="https://github.com/acme/skills.git",
+            status="active",
+        )
+    )
+    session.add(
+        SqlAgentPluginVersion(
+            workspace=workspace,
+            organization="",
+            name="pr-workflow",
+            version="1.0.0",
+            plugin_json={"name": "pr-workflow", "version": "1.0.0"},
+            source_type="assembled",
+            status="active",
+        )
+    )
+    session.flush()
+    session.add(
+        SqlAgentPluginVersionMember(
+            plugin_workspace=workspace,
+            plugin_organization="",
+            plugin_name="pr-workflow",
+            plugin_version="1.0.0",
+            member_name="code-review",
+            member_organization="",
+            member_version=1,
+        )
+    )
+    session.flush()
+
+
+def test_migrate_to_default_workspace_reassigns_agent_plugin_members(tmp_path):
+    db_path = tmp_path / "migrate-members.db"
+    db_url = f"sqlite:///{db_path}"
+    artifacts = tmp_path / "artifacts-members"
+    artifacts.mkdir()
+    store = SqlAlchemyStore(db_url, artifacts.as_uri())
+    with store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_plugin_graph(session, "team-a")
+
+    # SQLite leaves foreign keys off on a bare engine; turn them on so the migrate
+    # runs under enforcement, reproducing the MySQL/Postgres path where the
+    # non-cascading members -> skill_versions FK would otherwise break a reassignment.
+    engine = sqlalchemy.create_engine(db_url)
+
+    @sqlalchemy.event.listens_for(engine, "connect")
+    def _enable_foreign_keys(dbapi_conn, _):
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
+
+    dry = migrate_to_default_workspace(engine, dry_run=True)
+    assert dry[workspace_migration.AGENT_PLUGIN_MEMBERS_TABLE] == 1
+    with engine.begin() as conn:
+        still_in_team_a = conn.execute(
+            sqlalchemy.text(
+                "SELECT count(*) FROM agent_plugin_version_members WHERE plugin_workspace != :ws"
+            ),
+            {"ws": DEFAULT_WORKSPACE_NAME},
+        ).scalar_one()
+    assert still_in_team_a == 1
+
+    counts = migrate_to_default_workspace(engine, dry_run=False)
+    assert counts[workspace_migration.AGENT_PLUGIN_MEMBERS_TABLE] == 1
+
+    with engine.begin() as conn:
+        for table in ("skills", "skill_versions", "agent_plugins", "agent_plugin_versions"):
+            remaining = conn.execute(
+                sqlalchemy.text(f"SELECT count(*) FROM {table} WHERE workspace != :ws"),
+                {"ws": DEFAULT_WORKSPACE_NAME},
+            ).scalar_one()
+            assert remaining == 0
+        member = conn.execute(
+            sqlalchemy.text(
+                "SELECT plugin_workspace, member_name, member_version "
+                "FROM agent_plugin_version_members"
+            )
+        ).fetchone()
+        assert member == (DEFAULT_WORKSPACE_NAME, "code-review", 1)
+
+    engine.dispose()
+    store._dispose_engine()
