@@ -5230,7 +5230,7 @@ def _invoke_issue_detection_handler():
     request_json = _get_validated_flask_request_json(
         schema={
             "experiment_id": [_assert_required, _assert_string],
-            "trace_ids": [_assert_required, _assert_array],
+            "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "categories": [_assert_required, _assert_array],
             "provider": [_assert_required, _assert_string],
             "model": [_assert_string],
@@ -5337,7 +5337,7 @@ def _invoke_genai_evaluate_handler():
     request_json = _get_validated_flask_request_json(
         schema={
             "experiment_id": [_assert_required, _assert_string],
-            "trace_ids": [_assert_required, _assert_array],
+            "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "serialized_scorers": [_assert_required, _assert_array],
             "scorer_versions": [_assert_array],
         }
