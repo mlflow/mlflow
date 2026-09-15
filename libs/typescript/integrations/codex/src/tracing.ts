@@ -34,15 +34,21 @@ import type {
   NotifyPayload,
   RolloutLine,
   ResponseItemPayload,
+  TokenUsage,
+  ToolCall,
 } from './types.js';
 import {
   parseTimestampToNs,
   extractTextFromContent,
+  getToolCallArguments,
+  getToolCallOutput,
   getTokenUsage,
   getModel,
   buildToolResultMap,
   findTranscriptForThread,
   getLastTurnRecords,
+  isToolCallOutputPayload,
+  isToolCallPayload,
   readTranscript,
 } from './transcript.js';
 
@@ -104,11 +110,7 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
 
     const tokenUsage = getTokenUsage(turnRecords);
     if (tokenUsage) {
-      rootSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
-        [TokenUsageKey.INPUT_TOKENS]: tokenUsage.input_tokens,
-        [TokenUsageKey.OUTPUT_TOKENS]: tokenUsage.output_tokens,
-        [TokenUsageKey.TOTAL_TOKENS]: tokenUsage.total_tokens,
-      });
+      rootSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, buildUsageDict(tokenUsage));
     }
   } else {
     // Fallback: create a simple LLM span from the notify data using the same
@@ -162,8 +164,8 @@ export async function processNotify(payload: NotifyPayload): Promise<void> {
  *
  * Maps Codex's Responses-API-style records to standard chat messages:
  * - `message` (user/assistant/system) → `{role, content}`
- * - `function_call` → assistant message with `tool_calls: [{id, type, function}]`
- * - `function_call_output` → `{role: 'tool', tool_call_id, content}`
+ * - function/custom tool calls → assistant message with `tool_calls`
+ * - function/custom tool outputs → `{role: 'tool', tool_call_id, content}`
  */
 export function reconstructMessages(
   responseItems: RolloutLine[],
@@ -184,7 +186,7 @@ export function reconstructMessages(
         // Codex uses "developer" for system-style instructions; render as system
         messages.push({ role: 'system', content: text });
       }
-    } else if (payload.type === 'function_call') {
+    } else if (isToolCallPayload(payload)) {
       messages.push({
         role: 'assistant',
         content: null,
@@ -194,16 +196,16 @@ export function reconstructMessages(
             type: 'function',
             function: {
               name: payload.name ?? 'unknown',
-              arguments: payload.arguments ?? '{}',
+              arguments: getToolCallArguments(payload),
             },
           },
         ],
       });
-    } else if (payload.type === 'function_call_output') {
+    } else if (isToolCallOutputPayload(payload)) {
       messages.push({
         role: 'tool',
         tool_call_id: payload.call_id ?? '',
-        content: payload.output ?? '',
+        content: getToolCallOutput(payload),
       });
     }
   }
@@ -214,8 +216,9 @@ export function reconstructMessages(
  * Create LLM and TOOL child spans from transcript turn records.
  *
  * Timing model:
- * - LLM span covers "LLM thinking": from the last boundary (turn start or
- *   the previous `function_call_output`) to the `message/assistant` record.
+ * - LLM span covers one model response, including responses that contain only
+ *   tool calls. It starts at the last boundary (turn start or the previous
+ *   tool output) and ends at the response's last assistant message/tool call.
  * - TOOL span covers the actual tool call: from the `function_call` record
  *   to the matching `function_call_output` record (matched by call_id).
  *
@@ -233,12 +236,11 @@ export function createChildSpans(
   const toolResults = buildToolResultMap(turnRecords);
   const toolEndTimes = buildToolEndTimes(turnRecords);
   const toolStatuses = buildToolStatuses(turnRecords);
-
-  // Initial boundary for the first LLM span: the turn's task_started event,
-  // if present. Falls back to null so the LLM span omits startTimeNs.
-  let prevBoundaryNs: number | null = findTaskStartedNs(turnRecords);
-
   const responseItems = turnRecords.filter((record) => record.type === 'response_item');
+  const llmInvocations = buildLlmInvocations(turnRecords);
+  const llmInvocationsByFirstItem = new Map(
+    llmInvocations.map((invocation) => [invocation.firstResponseItemIndex, invocation]),
+  );
 
   for (let i = 0; i < responseItems.length; i++) {
     const record = responseItems[i];
@@ -248,35 +250,29 @@ export function createChildSpans(
       continue;
     }
 
-    if (payload.type === 'message' && payload.role === 'assistant') {
-      const text = extractTextFromContent(payload.content);
-      if (text.trim()) {
-        const messages = reconstructMessages(responseItems, i);
-        const llmSpan = startSpan({
-          name: 'llm_call',
-          parent: parentSpan,
-          spanType: SpanType.LLM,
-          startTimeNs: prevBoundaryNs ?? timestampNs,
-          inputs: { model, messages },
-          attributes: { model },
-        });
-        llmSpan.end({
-          outputs: {
-            choices: [{ message: { role: 'assistant', content: text } }],
-          },
-          endTimeNs: timestampNs,
-        });
-        prevBoundaryNs = timestampNs;
+    const invocation = llmInvocationsByFirstItem.get(i);
+    if (invocation) {
+      const llmSpan = startSpan({
+        name: 'llm_call',
+        parent: parentSpan,
+        spanType: SpanType.LLM,
+        startTimeNs: invocation.startTimeNs ?? timestampNs,
+        inputs: { model, messages: reconstructMessages(responseItems, i) },
+        attributes: { model },
+      });
+      if (invocation.usage) {
+        llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, buildUsageDict(invocation.usage));
       }
-    } else if (payload.type === 'function_call') {
+      llmSpan.end({
+        outputs: { choices: [{ message: buildAssistantOutput(invocation.records) }] },
+        endTimeNs: invocation.endTimeNs,
+      });
+    }
+
+    if (isToolCallPayload(payload)) {
       const callId = payload.call_id ?? '';
       const funcName = payload.name ?? 'unknown';
-      let args: Record<string, unknown> = {};
-      try {
-        args = JSON.parse(payload.arguments ?? '{}');
-      } catch {
-        // keep empty
-      }
+      const args = parseToolInputs(payload);
 
       const toolSpan = startSpan({
         name: `tool_${funcName}`,
@@ -302,11 +298,145 @@ export function createChildSpans(
         outputs: { result: toolResults[callId] ?? '' },
         endTimeNs: toolEndTimes[callId] ?? timestampNs,
       });
-    } else if (payload.type === 'function_call_output') {
-      // Tool result logged; the next LLM span should start from here, since
-      // the LLM is waiting on tool output until this point.
-      prevBoundaryNs = timestampNs;
     }
+  }
+}
+
+interface LlmInvocation {
+  firstResponseItemIndex: number;
+  records: RolloutLine[];
+  startTimeNs: number | null;
+  endTimeNs: number;
+  usage?: TokenUsage;
+}
+
+function buildLlmInvocations(turnRecords: RolloutLine[]): LlmInvocation[] {
+  const invocations: LlmInvocation[] = [];
+  let pending: LlmInvocation | null = null;
+  let responseItemIndex = -1;
+  let nextBoundaryNs = findTaskStartedNs(turnRecords);
+  let sawToolOutput = false;
+
+  const finishPending = (usage?: TokenUsage): void => {
+    if (!pending) {
+      return;
+    }
+    pending.usage = usage;
+    invocations.push(pending);
+    pending = null;
+    sawToolOutput = false;
+  };
+
+  for (const record of turnRecords) {
+    if (record.type === 'response_item') {
+      responseItemIndex += 1;
+      const payload = record.payload as ResponseItemPayload;
+      const timestampNs = parseTimestampToNs(record.timestamp);
+      if (timestampNs == null) {
+        continue;
+      }
+
+      if (isToolCallOutputPayload(payload)) {
+        nextBoundaryNs = timestampNs;
+        sawToolOutput = pending != null;
+        continue;
+      }
+
+      if (!isModelOutputPayload(payload)) {
+        continue;
+      }
+
+      // A tool output separates model responses even when the transcript does
+      // not contain the normally-following token_count event.
+      if (sawToolOutput) {
+        finishPending();
+      }
+      pending ??= {
+        firstResponseItemIndex: responseItemIndex,
+        records: [],
+        startTimeNs: nextBoundaryNs,
+        endTimeNs: timestampNs,
+      };
+      pending.records.push(record);
+      pending.endTimeNs = timestampNs;
+      continue;
+    }
+
+    if (record.type === 'event_msg') {
+      const payload = record.payload as EventMsgPayload;
+      if (payload.type === 'token_count' && pending) {
+        finishPending(payload.info?.last_token_usage);
+      }
+    }
+  }
+
+  finishPending();
+  return invocations;
+}
+
+function isModelOutputPayload(payload: ResponseItemPayload): boolean {
+  return (
+    isToolCallPayload(payload) ||
+    (payload.type === 'message' &&
+      payload.role === 'assistant' &&
+      Boolean(extractTextFromContent(payload.content).trim()))
+  );
+}
+
+function buildAssistantOutput(records: RolloutLine[]): ChatMessage {
+  const content = records
+    .map((record) => record.payload as ResponseItemPayload)
+    .filter((payload) => payload.type === 'message' && payload.role === 'assistant')
+    .map((payload) => extractTextFromContent(payload.content))
+    .filter((text) => text.trim())
+    .join('\n');
+  const toolCalls = records
+    .map((record) => record.payload as ResponseItemPayload)
+    .filter(isToolCallPayload)
+    .map(toToolCall);
+
+  return {
+    role: 'assistant',
+    content: content || null,
+    ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+  };
+}
+
+function toToolCall(payload: ResponseItemPayload): ToolCall {
+  return {
+    id: payload.call_id ?? '',
+    type: 'function',
+    function: {
+      name: payload.name ?? 'unknown',
+      arguments: getToolCallArguments(payload),
+    },
+  };
+}
+
+function buildUsageDict(usage: TokenUsage): Record<string, number> {
+  const result: Record<string, number> = {
+    [TokenUsageKey.INPUT_TOKENS]: usage.input_tokens,
+    [TokenUsageKey.OUTPUT_TOKENS]: usage.output_tokens,
+    [TokenUsageKey.TOTAL_TOKENS]: usage.total_tokens,
+  };
+  if (usage.cached_input_tokens != null) {
+    result[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = usage.cached_input_tokens;
+  }
+  if (usage.cache_write_input_tokens != null) {
+    result[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = usage.cache_write_input_tokens;
+  }
+  return result;
+}
+
+function parseToolInputs(payload: ResponseItemPayload): Record<string, unknown> {
+  const rawInput = getToolCallArguments(payload);
+  if (payload.type === 'custom_tool_call') {
+    return { input: rawInput };
+  }
+  try {
+    return JSON.parse(rawInput) as Record<string, unknown>;
+  } catch {
+    return { arguments: rawInput };
   }
 }
 
@@ -356,7 +486,7 @@ function buildToolEndTimes(turnRecords: RolloutLine[]): Record<string, number> {
       continue;
     }
     const payload = record.payload as ResponseItemPayload;
-    if (payload.type === 'function_call_output' && payload.call_id) {
+    if (isToolCallOutputPayload(payload) && payload.call_id) {
       const ts = parseTimestampToNs(record.timestamp);
       if (ts != null) {
         endTimes[payload.call_id] = ts;
