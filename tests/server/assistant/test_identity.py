@@ -161,3 +161,33 @@ def test_route_threads_none_when_auth_disabled(probe_client, auth_disabled):
 def test_route_threads_username_when_auth_enabled(probe_client, auth_enabled):
     response = probe_client.get("/_probe", headers={"Authorization": _basic_header("alice", "pw")})
     assert response.json() == {"username": "alice"}
+    # Without the permission middleware to populate request.state.username, the route authenticates
+    # the request itself -- exactly once.
+    auth_enabled.authenticate_fastapi_request_user.assert_called_once()
+
+
+def test_route_reuses_middleware_username_without_reauthenticating(auth_enabled):
+    # On an authenticated server the FastAPI permission middleware authenticates the request and
+    # stores the user on request.state.username before the route handler runs. The Assistant route
+    # must reuse that identity, not authenticate a second time (a custom authorization_function
+    # would otherwise run twice).
+    router = APIRouter(route_class=_AssistantAPIRoute)
+
+    @router.get("/_probe")
+    @_remote_access_policy(_RemoteAccessPolicy.NONE)
+    async def _probe(request: Request):
+        return {"username": request.state.assistant_username}
+
+    app = FastAPI()
+    app.include_router(router)
+
+    @app.middleware("http")
+    async def _populate_username(request: Request, call_next):
+        request.state.username = "alice"
+        return await call_next(request)
+
+    with mock.patch("mlflow.server.assistant.api._is_localhost", return_value=True):
+        response = TestClient(app).get("/_probe")
+
+    assert response.json() == {"username": "alice"}
+    auth_enabled.authenticate_fastapi_request_user.assert_not_called()

@@ -161,15 +161,22 @@ class _AssistantAPIRoute(APIRoute):
                 if not ("provider" in request.path_params and provider is None):
                     _enforce_remote_access(request, provider)
             # Establish the caller's authenticated identity (None on a no-auth server) so per-user
-            # features can key on it. On an authenticated server this also stops the Assistant from
-            # being driven anonymously, since the FastAPI routes are not covered by the auth
-            # plugin's Flask before-request handlers.
-            try:
-                request.state.assistant_username = resolve_authenticated_username(request)
-            except AssistantAuthError as e:
-                raise HTTPException(
-                    status_code=401, detail=str(e), headers=BASIC_AUTH_CHALLENGE_HEADERS
-                ) from e
+            # features can key on it. When the auth plugin's FastAPI permission middleware is
+            # active it has already authenticated this request (the Assistant routes resolve an
+            # authorization validator) and stored the user on request.state.username, so reuse
+            # that rather than authenticating a second time -- re-authenticating would re-run a
+            # custom authorization_function. Fall back to resolving it here for an app that mounts
+            # the router without that middleware, and for the no-auth case (returns None).
+            middleware_username = getattr(request.state, "username", None)
+            if middleware_username is not None:
+                request.state.assistant_username = middleware_username
+            else:
+                try:
+                    request.state.assistant_username = resolve_authenticated_username(request)
+                except AssistantAuthError as e:
+                    raise HTTPException(
+                        status_code=401, detail=str(e), headers=BASIC_AUTH_CHALLENGE_HEADERS
+                    ) from e
             return await original_route_handler(request)
 
         return route_handler
