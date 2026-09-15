@@ -62,13 +62,15 @@ def test_invalid_content_redacts():
 
 
 @pytest.mark.parametrize("error_path", ["source_failure", "size_failure"])
-def test_query_credentials_are_absent_from_errors(error_path):
-    # Presigned URLs carry their credential in the query string, which fetch errors echo.
+@pytest.mark.parametrize("scheme", ["https", "HTTPS", "Http"])
+def test_query_credentials_are_absent_from_errors(error_path, scheme):
+    # Presigned URLs carry their credential in the query string, which fetch errors echo;
+    # URL schemes are case-insensitive so the spelling must not matter.
     secret = "invented-review-secret"
-    url = f"https://example.invalid/skill.zip?X-Amz-Signature={secret}"
+    url = f"{scheme}://example.invalid/skill.zip?X-Amz-Signature={secret}"
     if error_path == "source_failure":
         error = source_unavailable(url, "HTTP 403 Forbidden")
     else:
         error = invalid_content(f"Download from '{url}' exceeds the size limit")
     assert secret not in str(error)
-    assert "https://example.invalid/skill.zip?***" in str(error)
+    assert f"{scheme}://example.invalid/skill.zip?***" in str(error)

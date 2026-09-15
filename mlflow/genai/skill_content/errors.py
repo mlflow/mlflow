@@ -17,8 +17,9 @@ _USERINFO_PATTERN = re.compile(r"(?<=://)[^/@\s]+@")
 _SCP_USERINFO_PATTERN = re.compile(r"(?<![\w/])[^\s/:@]+:[^\s/@]+@(?=[\w.-]+:)")
 # Bearer / Basic tokens that transport libraries sometimes echo into messages.
 _AUTH_TOKEN_PATTERN = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
-# The query string of any URL: presigned links carry their signature or token there.
-_URL_QUERY_PATTERN = re.compile(r"(https?://[^\s'\"?#<>]+)\?[^\s'\"#<>]*")
+# The query string of any URL: presigned links carry their signature or token there. Schemes
+# are case-insensitive, so ``HTTPS://`` must be caught as well.
+_URL_QUERY_PATTERN = re.compile(r"(?i)(https?://[^\s'\"?#<>]+)\?[^\s'\"#<>]*")
 
 
 def redact_credentials(text: str) -> str:
