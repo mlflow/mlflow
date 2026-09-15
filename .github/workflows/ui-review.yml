@@ -101,6 +101,8 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-contents: read
           permission-pull-requests: read
       - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -109,6 +111,8 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-pull-requests: write
 
       - name: Resolve job URL

@@ -87,6 +87,18 @@ def _strip_function_call_ids(gemini_payload: dict[str, Any]) -> dict[str, Any]:
     return gemini_payload
 
 
+def _filter_anthropic_betas(headers: dict[str, str], allowed: list[str]) -> dict[str, str]:
+    """Keep only ``allowed`` values in the ``anthropic-beta`` header, dropping it if none remain."""
+    filtered = {}
+    for name, value in headers.items():
+        if name.lower() != "anthropic-beta":
+            filtered[name] = value
+            continue
+        if kept := [beta for beta in map(str.strip, value.split(",")) if beta in allowed]:
+            filtered[name] = ",".join(kept)
+    return filtered
+
+
 class _VertexGeminiAdapter(GeminiAdapter):
     """GeminiAdapter for Gemini models on Vertex AI, which strips the Vertex-illegal
     ``functionCall``/``functionResponse`` ``id`` from the translated request.
@@ -176,6 +188,11 @@ class _VertexAIClaudeProvider(AnthropicProvider):
         # rejects a request carrying two Authorization headers, so always drop it.
         if headers:
             headers = _drop_client_auth_headers(headers)
+        # Vertex validates `anthropic-beta` against the betas it supports and rejects the
+        # whole request on a value it does not know, where the Anthropic API ignores it.
+        # The endpoint config decides which client betas get through.
+        if headers and (allowed := self.vertex_config.vertex_anthropic_betas) is not None:
+            headers = _filter_anthropic_betas(headers, allowed)
         return super()._get_headers(payload, headers)
 
     def get_endpoint_url(self, route_type: str) -> str:
@@ -306,6 +323,29 @@ class _VertexAIMaaSProvider(OpenAICompatibleProvider):
         location = self.vertex_config.vertex_location or "us-central1"
         host = _get_vertex_ai_host(location)
         return f"{host}/v1/projects/{project}/locations/{location}/endpoints/openapi"
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # OpenAICompatibleProvider._proxy strips the last segment of _api_base to undo a
+        # "/v1" suffix. Here that segment is "/openapi", which is part of the Vertex API
+        # root, so post to _api_base as is and drop the "v1/" prefix that OpenAI SDK
+        # clients put on the path instead.
+        gen = send_proxy_request(
+            self._get_headers(headers),
+            self._api_base,
+            path.lstrip("/").removeprefix("v1/"),
+            payload,
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
 
 class VertexAIProvider(GeminiProvider):
