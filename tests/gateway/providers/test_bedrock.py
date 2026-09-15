@@ -8,6 +8,7 @@ from unittest import mock
 
 import pytest
 from aiohttp import ClientTimeout
+from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
@@ -1007,9 +1008,11 @@ def _bedrock_chunk(event: dict[str, Any]) -> bytes:
 async def test_bedrock_anthropic_passthrough_posts_to_invoke(model_name, model_path):
     provider = _make_api_key_provider(model_name)
     payload = {
+        "model": "claude",
         "messages": [{"role": "user", "content": "Hello"}],
         "max_tokens": 2048,
-        "thinking": {"type": "enabled", "budget_tokens": 1024},
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": "high"},
     }
     captured_session_headers = {}
     mock_client = mock_http_client(MockAsyncResponse(_anthropic_messages_response()))
@@ -1034,10 +1037,18 @@ async def test_bedrock_anthropic_passthrough_posts_to_invoke(model_name, model_p
     assert response == _anthropic_messages_response()
     mock_client.post.assert_called_once_with(
         f"https://bedrock-runtime.eu-west-1.amazonaws.com/model/{model_path}/invoke",
-        json={**payload, "anthropic_version": "bedrock-2023-05-31"},
+        json={
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 2048,
+            "thinking": {"type": "adaptive"},
+            "output_config": {"effort": "high"},
+            "anthropic_version": "bedrock-2023-05-31",
+        },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         allow_redirects=False,
     )
+    # FallbackProvider passes the same payload to the next provider if this one fails.
+    assert payload["model"] == "claude"
     # A credential agent's own key is dropped too; Bedrock only accepts the endpoint's key.
     assert captured_session_headers["Authorization"] == "Bearer bedrock-api-key"
     assert "authorization" not in captured_session_headers
@@ -1054,7 +1065,12 @@ async def test_bedrock_anthropic_passthrough_stream_converts_event_stream_to_sse
     # Frames arrive split at arbitrary byte offsets, not one frame per read.
     chunks = [data[i : i + 37] for i in range(0, len(data), 37)]
     mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
-    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, "stream": True}
+    payload = {
+        "model": "claude",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 64,
+        "stream": True,
+    }
 
     with (
         mock.patch("aiohttp.ClientSession", return_value=mock_client),
@@ -1077,7 +1093,12 @@ async def test_bedrock_anthropic_passthrough_stream_converts_event_stream_to_sse
         "anthropic_version": "bedrock-2023-05-31",
     }
     # FallbackProvider passes the same payload to the next provider if this one fails.
-    assert payload["stream"] is True
+    assert payload == {
+        "model": "claude",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 64,
+        "stream": True,
+    }
     mock_set_span_token_usage.assert_called_once_with({
         "input_tokens": 12,
         "output_tokens": 30,
@@ -1085,26 +1106,56 @@ async def test_bedrock_anthropic_passthrough_stream_converts_event_stream_to_sse
     })
 
 
+@pytest.mark.parametrize(
+    ("exception_type", "status_code"),
+    [
+        ("throttlingException", 429),
+        ("serviceUnavailableException", 503),
+        ("modelTimeoutException", 408),
+        ("internalServerException", 502),
+    ],
+)
 @pytest.mark.asyncio
-async def test_bedrock_anthropic_passthrough_stream_raises_bedrock_exception():
+async def test_bedrock_anthropic_passthrough_stream_raises_bedrock_exception(
+    exception_type, status_code
+):
     provider = _make_api_key_provider()
     data = _bedrock_chunk(_anthropic_stream_events()[0]) + _event_stream_message(
         {
-            ":exception-type": "throttlingException",
+            ":exception-type": exception_type,
             ":content-type": "application/json",
             ":message-type": "exception",
         },
-        b'{"message": "Too many requests, please wait before trying again."}',
+        b'{"message": "The request could not be completed."}',
     )
     mock_client = mock_http_client(MockAsyncStreamingResponse([data]))
     payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, "stream": True}
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
-        with pytest.raises(AIGatewayException, match="throttlingException while streaming"):
+        with pytest.raises(HTTPException, match=f"{exception_type} while streaming") as exc_info:
             [chunk async for chunk in stream]
 
+    assert exc_info.value.status_code == status_code
     mock_client.post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_stream_requires_botocore():
+    provider = _make_api_key_provider()
+    mock_client = mock_http_client(MockAsyncStreamingResponse([]))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, "stream": True}
+
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client),
+        mock.patch.dict("sys.modules", {"botocore.eventstream": None}),
+    ):
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        with pytest.raises(ImportError, match="requires boto3"):
+            [chunk async for chunk in stream]
+
+    # The import fails before the request is sent, so nothing reaches Bedrock.
+    mock_client.post.assert_not_called()
 
 
 def test_bedrock_anthropic_passthrough_token_usage():

@@ -18,7 +18,11 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
 from mlflow.gateway.exceptions import AIGatewayConfigException, AIGatewayException
-from mlflow.gateway.providers.anthropic import AnthropicAdapter, AnthropicProvider
+from mlflow.gateway.providers.anthropic import (
+    AnthropicAdapter,
+    _extract_anthropic_passthrough_token_usage,
+    _extract_anthropic_streaming_token_usage,
+)
 from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
@@ -31,6 +35,14 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
+# HTTP status for the retryable exception frames InvokeModelWithResponseStream can send after
+# the stream has started. Other exception frames map to 502.
+_BEDROCK_STREAM_EXCEPTION_STATUS = {
+    "throttlingException": 429,
+    "serviceUnavailableException": 503,
+    "modelTimeoutException": 408,
+}
+
 
 async def _event_stream_to_anthropic_sse(stream: AsyncIterable[bytes]) -> AsyncIterable[bytes]:
     """Re-emit a Bedrock InvokeModelWithResponseStream body as Anthropic server-sent events.
@@ -39,7 +51,15 @@ async def _event_stream_to_anthropic_sse(stream: AsyncIterable[bytes]) -> AsyncI
     base64-encoded in a ``chunk`` frame. Anthropic clients, and the gateway's usage and trace
     parsing, expect SSE.
     """
-    from botocore.eventstream import EventStreamBuffer
+    from fastapi import HTTPException
+
+    try:
+        from botocore.eventstream import EventStreamBuffer
+    except ImportError:
+        raise ImportError(
+            "Streaming the Anthropic Messages passthrough on Amazon Bedrock requires boto3. "
+            "Install it with: pip install boto3"
+        )
 
     buffer = EventStreamBuffer()
     async for data in stream:
@@ -52,8 +72,10 @@ async def _event_stream_to_anthropic_sse(stream: AsyncIterable[bytes]) -> AsyncI
                 detail = message.payload.decode("utf-8", errors="replace") or message.headers.get(
                     ":error-message", ""
                 )
-                raise AIGatewayException(
-                    status_code=502,
+                # HTTPException, like `send_stream_request` raises for an error before the first
+                # frame, so the status also reaches the SSE error chunk the client receives.
+                raise HTTPException(
+                    status_code=_BEDROCK_STREAM_EXCEPTION_STATUS.get(error_type, 502),
                     detail=f"Amazon Bedrock returned {error_type} while streaming: {detail}",
                 )
             if message.headers.get(":event-type") != "chunk":
@@ -822,10 +844,10 @@ class AmazonBedrockProvider(BaseProvider):
     def _extract_passthrough_token_usage(
         self, action: PassthroughAction, result: dict[str, Any]
     ) -> dict[str, int] | None:
-        return AnthropicProvider._extract_passthrough_token_usage(self, action, result)
+        return _extract_anthropic_passthrough_token_usage(result)
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
-        return AnthropicProvider._extract_streaming_token_usage(self, chunk)
+        return _extract_anthropic_streaming_token_usage(chunk)
 
     async def _passthrough(
         self,
@@ -861,19 +883,20 @@ class AmazonBedrockProvider(BaseProvider):
         } | self._get_token_auth_headers()
         base_url = self._get_token_auth_base_url()
         # Inference profile ARNs contain "/", which has to be escaped in the path.
-        model_id = quote(self.config.model.name, safe=":")
+        path = provider_path.format(model=quote(self.config.model.name, safe=":"))
 
         if payload.get("stream"):
             stream = send_stream_request(
                 headers=request_headers,
                 base_url=base_url,
-                path=f"model/{model_id}/invoke-with-response-stream",
+                # InvokeModelWithResponseStream is served at the InvokeModel path plus this suffix.
+                path=f"{path}-with-response-stream",
                 payload=body,
             )
             return self._stream_passthrough_with_usage(_event_stream_to_anthropic_sse(stream))
         return await send_request(
             headers=request_headers,
             base_url=base_url,
-            path=provider_path.format(model=model_id),
+            path=path,
             payload=body,
         )
