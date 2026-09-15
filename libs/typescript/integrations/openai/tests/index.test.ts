@@ -407,6 +407,233 @@ describe('tracedOpenAI', () => {
       });
       expect(span.outputs).toEqual(response);
     });
+
+    it('should keep spans open while streaming responses', async () => {
+      const openai = new OpenAI({ apiKey: 'test-key' });
+      const wrappedOpenAI = tracedOpenAI(openai);
+
+      const stream = await wrappedOpenAI.responses.create({
+        model: 'gpt-4o',
+        input: 'Hello!',
+        stream: true,
+      });
+
+      const events = [];
+      for await (const event of stream) {
+        events.push(event);
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(events.length).toBeGreaterThan(0);
+      expect(span.name).toBe('Responses');
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(span.outputs).toEqual({
+        id: 'responses-stream',
+        object: 'response',
+        model: 'gpt-4o',
+        status: 'completed',
+        output: [
+          {
+            id: 'msg_123',
+            type: 'message',
+            status: 'completed',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: 'Test response', annotations: [] }],
+          },
+          {
+            id: 'fc_123',
+            type: 'function_call',
+            status: 'completed',
+            call_id: 'call_123',
+            name: 'get_weather',
+            arguments: '{"city":"Paris"}',
+          },
+        ],
+        usage: {
+          input_tokens: 10,
+          output_tokens: 20,
+          total_tokens: 30,
+          input_tokens_details: { cached_tokens: 0 },
+          output_tokens_details: { reasoning_tokens: 0 },
+        },
+        output_text: 'Test response',
+      });
+      expect(span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE]).toEqual({
+        [mlflow.TokenUsageKey.INPUT_TOKENS]: 10,
+        [mlflow.TokenUsageKey.OUTPUT_TOKENS]: 20,
+        [mlflow.TokenUsageKey.TOTAL_TOKENS]: 30,
+      });
+    });
+
+    it('should end spans when streaming responses are terminated early', async () => {
+      const openai = new OpenAI({ apiKey: 'test-key' });
+      const wrappedOpenAI = tracedOpenAI(openai);
+
+      const stream = await wrappedOpenAI.responses.create({
+        model: 'gpt-4o',
+        input: 'Hello!',
+        stream: true,
+      });
+
+      for await (const event of stream) {
+        if (event.type === 'response.output_text.delta') {
+          break;
+        }
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(span.outputs).toEqual({
+        output_text: 'Test ',
+        output: [
+          {
+            id: 'msg_123',
+            type: 'message',
+            status: 'in_progress',
+            role: 'assistant',
+            content: [{ type: 'output_text', text: 'Test ' }],
+          },
+        ],
+      });
+      expect(span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE]).toBeUndefined();
+    });
+
+    it('should end spans when a responses stream is consumed through tee()', async () => {
+      const wrappedOpenAI = tracedOpenAI(new OpenAI({ apiKey: 'test-key' }));
+
+      const stream = await wrappedOpenAI.responses.create({
+        model: 'gpt-4o',
+        input: 'Hello tee!',
+        stream: true,
+      });
+
+      const [left] = stream.tee();
+      const events = [];
+      for await (const event of left) {
+        events.push(event);
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.inputs.input).toBe('Hello tee!');
+      expect(events.length).toBeGreaterThan(0);
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(span.outputs).toBeDefined();
+      expect(span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE]).toEqual({
+        [mlflow.TokenUsageKey.INPUT_TOKENS]: 10,
+        [mlflow.TokenUsageKey.OUTPUT_TOKENS]: 20,
+        [mlflow.TokenUsageKey.TOTAL_TOKENS]: 30,
+      });
+    });
+
+    it('should end spans when a responses stream is consumed through toReadableStream()', async () => {
+      const wrappedOpenAI = tracedOpenAI(new OpenAI({ apiKey: 'test-key' }));
+
+      const stream = await wrappedOpenAI.responses.create({
+        model: 'gpt-4o',
+        input: 'Hello readable!',
+        stream: true,
+      });
+
+      const reader = stream.toReadableStream().getReader();
+      while (!(await reader.read()).done) {
+        // Drain the stream
+      }
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.inputs.input).toBe('Hello readable!');
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(span.outputs).toBeDefined();
+    });
+
+    it('should end spans when a responses stream is abandoned without being consumed', async () => {
+      const wrappedOpenAI = tracedOpenAI(new OpenAI({ apiKey: 'test-key' }));
+
+      const stream = await wrappedOpenAI.responses.create({
+        model: 'gpt-4o',
+        input: 'Hello abandoned!',
+        stream: true,
+      });
+
+      stream.controller.abort();
+
+      const trace = await getLastActiveTrace();
+      const span = trace.data.spans[0];
+      expect(span.inputs.input).toBe('Hello abandoned!');
+      expect(span.endTime).toBeDefined();
+      expect(span.outputs).toEqual({ output: [] });
+    });
+
+    it('should preserve the identity of the returned responses stream', async () => {
+      const wrappedOpenAI = tracedOpenAI(new OpenAI({ apiKey: 'test-key' }));
+
+      const stream = await wrappedOpenAI.responses.create({
+        model: 'gpt-4o',
+        input: 'Hello!',
+        stream: true,
+      });
+
+      expect(stream).toBeInstanceOf(Stream);
+      expect(stream.constructor).toBe(Stream);
+
+      stream.controller.abort();
+    });
+
+    it('should mark spans as errors when streaming responses fail', async () => {
+      class Responses {
+        create(_params: unknown) {
+          return Promise.resolve({
+            async *[Symbol.asyncIterator]() {
+              yield await Promise.resolve({
+                type: 'response.output_text.delta',
+                delta: 'Test ',
+                output_index: 0,
+                content_index: 0,
+                item_id: 'msg_1',
+                sequence_number: 1,
+              });
+              throw new Error('Stream failed');
+            },
+          });
+        }
+      }
+
+      const wrappedOpenAI = tracedOpenAI({ responses: new Responses() });
+      const stream = await wrappedOpenAI.responses.create({ stream: true });
+
+      await expect(
+        (async () => {
+          for await (const _event of stream) {
+            expect(_event).toBeDefined();
+          }
+        })(),
+      ).rejects.toThrow('Stream failed');
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('ERROR');
+      expect(trace.data.spans[0].status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
+    });
+
+    it('should mark spans as errors when creating a responses stream throws synchronously', async () => {
+      class Responses {
+        create(_params: unknown) {
+          throw new Error('Stream creation failed');
+        }
+      }
+
+      const wrappedOpenAI = tracedOpenAI({ responses: new Responses() });
+
+      await expect(wrappedOpenAI.responses.create({ stream: true })).rejects.toThrow(
+        'Stream creation failed',
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('ERROR');
+      expect(trace.data.spans[0].status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
+    });
   });
 
   describe('Embeddings API', () => {
