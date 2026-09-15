@@ -1243,8 +1243,9 @@ def test_logged_model_operations_are_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-model-b"):
         workspace_tracking_store.create_experiment("exp-model-b")
 
-        with pytest.raises(MlflowException, match="not found"):
+        with pytest.raises(MlflowException, match="not found") as excinfo:
             workspace_tracking_store.get_logged_model(model_a.model_id)
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
         with pytest.raises(MlflowException, match="not found"):
             workspace_tracking_store.delete_logged_model(model_a.model_id)

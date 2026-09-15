@@ -516,10 +516,14 @@ service MlflowService {
 
   // Generate a presigned URL for uploading an artifact directly to cloud storage.
   // The server uses its own credentials to sign the URL, enabling clients to upload
-  // artifacts without needing direct cloud storage write permissions.
+  // artifacts without needing direct cloud storage write permissions. Supports both
+  // run artifacts (run_id) and logged model artifacts (model_id).
   //
   // Consumed by external artifact repository plugins
   // (e.g. https://github.com/aws/sagemaker-mlflow).
+  //
+  // Logged-model uploads require a client that sends model_id and a server that
+  // supports it. Upgrading only one side does not enable this flow.
   rpc createPresignedUploadUrl(CreatePresignedUploadUrl) returns (CreatePresignedUploadUrl.Response) {
     option (rpc) = {
       endpoints: [
@@ -3704,15 +3708,23 @@ message ListArtifacts {
 message CreatePresignedUploadUrl {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Run ID that owns the artifact. Must be provided.
+  // ID of the run that owns the artifact. Exactly one of run_id and model_id
+  // must be provided.
   optional string run_id = 1;
 
-  // Relative path within the run's artifact directory (e.g. "models/model.pkl").
-  // Must be provided.
+  // Relative path within the owning resource's artifact directory
+  // (e.g. "models/model.pkl"). Must be provided.
   optional string path = 2;
 
   // URL expiration time in seconds (default: 900).
   optional int64 expiration = 3;
+
+  // ID of the logged model that owns the artifact, for artifacts stored under a
+  // logged model's artifact location (e.g. "<experiment>/models/<model_id>/artifacts")
+  // rather than a run's. Exactly one of run_id and model_id must be provided.
+  // Clients must populate model_id for logged-model artifacts; sending a logged
+  // model ID through run_id is not supported.
+  optional string model_id = 4;
 
   message Response {
     // Presigned URL for direct artifact upload.
