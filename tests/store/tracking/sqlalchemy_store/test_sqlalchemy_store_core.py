@@ -354,3 +354,47 @@ def test_get_orderby_clauses(tmp_sqlite_uri):
         assert "value IS NULL" in select_clause[0]
         # test that clause name is in parsed
         assert "clause_1" in parsed[0]
+
+
+def test_set_logged_model_tags_bulk_upsert(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_logged_model_exp")
+    run = store.create_run(exp_id, "user", 0, [], None)
+    model = store.create_logged_model(exp_id, "test_model", source_run_id=run.info.run_id)
+
+    # 1. Clean multi-tag insertion
+    tags = [entities.LoggedModelTag(f"k_{i}", f"v_{i}") for i in range(5)]
+    store.set_logged_model_tags(model.model_id, tags)
+    fetched = store.get_logged_model(model.model_id)
+    assert fetched.tags == {f"k_{i}": f"v_{i}" for i in range(5)}
+
+    # 2. Upsert (update existing tags + insert new tags)
+    update_tags = [
+        entities.LoggedModelTag("k_0", "v_0_updated"),
+        entities.LoggedModelTag("k_new", "v_new"),
+    ]
+    store.set_logged_model_tags(model.model_id, update_tags)
+    fetched = store.get_logged_model(model.model_id)
+    expected = {f"k_{i}": f"v_{i}" for i in range(5)}
+    expected["k_0"] = "v_0_updated"
+    expected["k_new"] = "v_new"
+    assert fetched.tags == expected
+
+    # 3. Empty list should be a safe no-op
+    store.set_logged_model_tags(model.model_id, [])
+    assert store.get_logged_model(model.model_id).tags == expected
+
+    # 4. Large batch crossing batch boundary (>100 tags)
+    batch_tags = [entities.LoggedModelTag(f"batch_{i}", f"val_{i}") for i in range(150)]
+    store.set_logged_model_tags(model.model_id, batch_tags)
+    fetched_large = store.get_logged_model(model.model_id)
+    # 6 pre-existing keys ('k_0'..'k_4', 'k_new') + 150 batch keys = 156 total tags
+    assert len(fetched_large.tags) == 156
+    # Verify boundaries across both batch_size=100 chunks:
+    # Chunk 1 (indices 0..99)
+    assert fetched_large.tags["batch_0"] == "val_0"
+    assert fetched_large.tags["batch_99"] == "val_99"
+    # Chunk 2 (indices 100..149)
+    assert fetched_large.tags["batch_100"] == "val_100"
+    assert fetched_large.tags["batch_149"] == "val_149"
+
+
