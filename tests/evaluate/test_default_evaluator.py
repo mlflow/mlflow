@@ -2052,6 +2052,60 @@ def validate_question_answering_logged_data(
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
 
 
+@pytest.mark.parametrize("multi_output", [False, True])
+def test_evaluation_table_preserves_row_alignment(multi_output):
+    data = pd.DataFrame({"feature": [1, 2], "target": [101, 202]}, index=[10, 20])
+
+    if multi_output:
+
+        def model(_data):
+            return pd.DataFrame({
+                "prediction": [101.0, 202.0],
+                "auxiliary": [0.1, 0.2],
+            })
+
+        def row_metric(predictions, auxiliary):
+            return MetricValue(scores=auxiliary.tolist())
+
+        model_type = None
+        predictions = "prediction"
+        expected_metric_scores = [0.1, 0.2]
+    else:
+
+        def model(_data):
+            return pd.Series([101.0, 202.0])
+
+        def row_metric(predictions, targets=None):
+            return MetricValue(scores=predictions.tolist())
+
+        model_type = "regressor"
+        predictions = None
+        expected_metric_scores = [101.0, 202.0]
+
+    with mlflow.start_run():
+        result = mlflow.models.evaluate(
+            model,
+            data,
+            targets="target",
+            model_type=model_type,
+            predictions=predictions,
+            evaluators="default",
+            evaluator_config={"log_model_explainability": False},
+            extra_metrics=[
+                make_metric(eval_fn=row_metric, greater_is_better=True, name="row_metric")
+            ],
+        )
+
+    eval_table = pd.DataFrame(**result.artifacts["eval_results_table"].content)
+    prediction_column = "prediction" if multi_output else "outputs"
+    assert eval_table["feature"].tolist() == [1, 2]
+    assert eval_table["target"].tolist() == [101, 202]
+    assert eval_table[prediction_column].tolist() == [101.0, 202.0]
+    assert eval_table["row_metric/score"].tolist() == expected_metric_scores
+    if multi_output:
+        assert eval_table["auxiliary"].tolist() == [0.1, 0.2]
+
+
 def test_missing_args_raises_exception():
     def dummy_fn1(param_1, param_2, targets, metrics):
         pass
