@@ -40,6 +40,7 @@ import type {
 } from './ModelTrace.types';
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
+import { tryDeserializeAttribute } from '../ModelTraceExplorer.utils';
 import { parseJSONSafe } from '../TagUtils';
 import { normalizeAnthropicChatInput, normalizeAnthropicChatOutput } from '../chat-utils/anthropic';
 import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from '../chat-utils/autogen';
@@ -89,6 +90,8 @@ import {
   SPAN_ATTRIBUTE_TIME_TO_FIRST_TOKEN_MS_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from '../constants';
+
+export { tryDeserializeAttribute };
 export {
   isV4TraceId,
   createTraceV4SerializedLocation,
@@ -167,14 +170,6 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
       return 'Unknown';
     default:
       return spanType;
-  }
-}
-
-export function tryDeserializeAttribute(value: string): any {
-  try {
-    return JSON.parse(value);
-  } catch (e) {
-    return value;
   }
 }
 
