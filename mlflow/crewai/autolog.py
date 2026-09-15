@@ -18,11 +18,11 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
 
-# Matches credential-like keys such as `api_key`, `client_secret`, `auth_token`, or
-# `accessToken`. Credential keys end with `token`, so `max_tokens`, `tokenizer`, and
-# `token_usage` (legitimate LLM configuration and usage fields) are kept.
+# Matches credential-like keys such as `api_key`, `client_secret`, `Authorization`,
+# `auth_token`, or `accessToken`. Credential keys end with `token`, so `max_tokens`,
+# `tokenizer`, and `token_usage` (legitimate LLM configuration and usage fields) are kept.
 _SENSITIVE_KEY_PATTERN = re.compile(
-    r"(?i:api_?key|secret|password)"  # anywhere in the key
+    r"(?i:api_?key|secret|password|authorization|credential)"  # anywhere in the key
     r"|(?<![A-Za-z])(?i:token)$"  # snake_case / standalone `token`
     r"|(?<=[a-z])Token$"  # camelCase `accessToken`
 )
@@ -488,7 +488,7 @@ def _get_llm_summary(llm) -> str:
     return type(llm).__name__
 
 
-def _sanitize_value(val, _ancestors: set[int] | None = None):
+def _sanitize_value(val):
     """
     Recursively strip credentials from a value before it is attached to a span.
 
@@ -496,11 +496,21 @@ def _sanitize_value(val, _ancestors: set[int] | None = None):
     name, since both ``str(llm)`` and ``model_dump()`` expose ``api_key``. Other pydantic models
     (Agent, Task, Crew, agent executors, ...) are expanded field by field so that LLMs nested
     inside them, e.g. via ``Task.agent`` or ``Crew.agents``, are sanitized as well.
+
+    Fails closed: if sanitization itself raises, the value is replaced with a placeholder
+    rather than logged unsanitized or allowed to break the traced call.
     """
+    try:
+        return _sanitize_value_impl(val, set())
+    except Exception as e:
+        _logger.debug("Failed to sanitize %s for span logging: %s", type(val).__name__, e)
+        return f"<{type(val).__name__}: omitted, sanitization failed>"
+
+
+def _sanitize_value_impl(val, ancestors: set[int]):
     if val is None or isinstance(val, (str, int, float, bool)):
         return val
 
-    ancestors = set() if _ancestors is None else _ancestors
     if id(val) in ancestors:
         # Reference cycle, e.g. Agent.crew -> Crew.agents -> Agent
         return type(val).__name__
@@ -508,18 +518,18 @@ def _sanitize_value(val, _ancestors: set[int] | None = None):
     try:
         if isinstance(val, dict):
             return {
-                k: _sanitize_value(v, ancestors)
+                k: _sanitize_value_impl(v, ancestors)
                 for k, v in val.items()
                 if not (isinstance(k, str) and _SENSITIVE_KEY_PATTERN.search(k))
             }
         if isinstance(val, (list, tuple, set)):
-            sanitized = [_sanitize_value(item, ancestors) for item in val]
+            sanitized = [_sanitize_value_impl(item, ancestors) for item in val]
             # Sets become lists: sanitized items (e.g. expanded models) may be unhashable
             return tuple(sanitized) if isinstance(val, tuple) else sanitized
         if _is_crewai_llm(val):
             return _get_llm_summary(val)
         if isinstance(val, pydantic.BaseModel):
-            return _sanitize_value(val.__dict__, ancestors)
+            return _sanitize_value_impl(val.__dict__, ancestors)
         return val
     finally:
         ancestors.discard(id(val))

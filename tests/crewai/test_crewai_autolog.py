@@ -802,16 +802,31 @@ def test_sanitize_value_drops_credential_keys_but_keeps_llm_config():
         "auth_token": "e",
         "accessToken": "g",
         "refreshToken": "h",
+        "headers": {"Authorization": "Bearer x", "Content-Type": "json"},
         "max_tokens": 10,
         "tokenizer": "tiktoken",
         "nested": [{"apiKey": "f", "model": "gpt"}],
     }
 
     assert _sanitize_value(value) == {
+        "headers": {"Content-Type": "json"},
         "max_tokens": 10,
         "tokenizer": "tiktoken",
         "nested": [{"model": "gpt"}],
     }
+
+
+def test_sanitize_value_fails_closed_when_sanitization_raises():
+    class Exploding(dict):
+        def items(self):
+            raise RuntimeError("boom")
+
+    value = {"outer": Exploding(api_key=_FAKE_API_KEY)}
+
+    sanitized = _sanitize_value(value)
+
+    assert _FAKE_API_KEY not in json.dumps(sanitized)
+    assert sanitized == "<dict: omitted, sanitization failed>"
 
 
 @pytest.mark.parametrize(
@@ -822,6 +837,8 @@ def test_sanitize_value_drops_credential_keys_but_keeps_llm_config():
         ("BearerToken", 0),
         ("TOKEN", 0),
         ("client_secret", 0),
+        ("Authorization", 0),
+        ("aws_credentials", 0),
         ("api_key", 0),
         ("apiKey", 0),
         ("max_tokens", 1),
