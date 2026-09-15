@@ -442,6 +442,48 @@ describe('Span', () => {
       }
     });
 
+    it('should warn and skip V4 trace IDs in addLink()', () => {
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test');
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+
+        mlflowSpan.addLink(
+          new SpanLink({
+            traceId: 'trace:/catalog.schema/0123456789abcdef0123456789abcdef',
+            spanId: '0123456789abcdef',
+            attributes: { type: 'causality' },
+          }),
+        );
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining(
+            'Span links are not currently supported for Unity Catalog traces. ' +
+              "The link to trace 'trace:/catalog.schema/0123456789abcdef0123456789abcdef' will be skipped.",
+          ),
+        );
+        expect(mlflowSpan.links).toHaveLength(0);
+        expect(mlflowSpan._span.links).toHaveLength(0);
+
+        mlflowSpan.addLink(
+          new SpanLink({
+            traceId: 'tr-0123456789abcdef0123456789abcdef',
+            spanId: 'fedcba9876543210',
+          }),
+        );
+
+        expect(mlflowSpan.links).toHaveLength(1);
+        expect(mlflowSpan.links[0].traceId).toBe('tr-0123456789abcdef0123456789abcdef');
+        expect(mlflowSpan._span.links).toHaveLength(1);
+        expect(warnSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        warnSpy.mockRestore();
+        span.end();
+      }
+    });
+
     it('should add multiple links to a span', () => {
       const traceId = 'tr-12345';
       const span = tracer.startSpan('test');
