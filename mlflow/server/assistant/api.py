@@ -194,21 +194,15 @@ class _AssistantAPIRoute(APIRoute):
             )
 
         async def route_handler(request: Request) -> Response:
-            if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
-                if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
-                    raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
-                provider = _get_route_provider(request)
-                # A {provider} path param that doesn't resolve to a known provider is a
-                # 404, not a remote-access decision; let the endpoint handle it.
-                if not ("provider" in request.path_params and provider is None):
-                    _enforce_remote_access(request, provider)
-            # Establish the caller's authenticated identity (None on a no-auth server) so per-user
-            # features can key on it. When the auth plugin's FastAPI permission middleware is
-            # active it has already authenticated this request (the Assistant routes resolve an
-            # authorization validator) and stored the user on request.state.username, so reuse
-            # that rather than authenticating a second time -- re-authenticating would re-run a
-            # custom authorization_function. Fall back to resolving it here for an app that mounts
-            # the router without that middleware, and for the no-auth case (returns None).
+            # Establish the caller's authenticated identity (None on a no-auth server) and bind it
+            # BEFORE the remote-access check below: that check resolves the caller's selected
+            # provider, which is now per-user, so the caller's config must be in scope first.
+            # When the auth plugin's FastAPI permission middleware is active it has already
+            # authenticated this request (the Assistant routes resolve an authorization validator)
+            # and stored the user on request.state.username, so reuse that rather than
+            # authenticating a second time -- re-authenticating would re-run a custom
+            # authorization_function. Fall back to resolving it here for an app that mounts the
+            # router without that middleware, and for the no-auth case (returns None).
             middleware_username = getattr(request.state, "username", None)
             if middleware_username is not None:
                 request.state.assistant_username = middleware_username
@@ -223,6 +217,14 @@ class _AssistantAPIRoute(APIRoute):
             # asyncio context, so it also applies while the streaming response body runs; each
             # request runs in its own context, so this does not leak across requests.
             set_config_user(request.state.assistant_username)
+            if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
+                if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
+                    raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
+                provider = _get_route_provider(request)
+                # A {provider} path param that doesn't resolve to a known provider is a
+                # 404, not a remote-access decision; let the endpoint handle it.
+                if not ("provider" in request.path_params and provider is None):
+                    _enforce_remote_access(request, provider)
             return await original_route_handler(request)
 
         return route_handler
