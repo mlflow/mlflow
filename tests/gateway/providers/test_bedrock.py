@@ -1,9 +1,16 @@
+import base64
 import io
+import json
+import struct
+import zlib
+from typing import Any
 from unittest import mock
 
 import pytest
+from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
     AWSBaseConfig,
@@ -12,6 +19,7 @@ from mlflow.gateway.config import (
     EndpointConfig,
 )
 from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -22,6 +30,7 @@ from tests.gateway.providers.test_anthropic import (
     parsed_completions_response as anthropic_parsed_completions_response,
 )
 from tests.gateway.providers.test_cohere import completions_response as cohere_completions_response
+from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
 
 
 def ai21_completion_response():
@@ -891,3 +900,251 @@ async def test_bedrock_converse_rejects_assistant_tool_call_with_missing_name():
     assert exc_info.value.status_code == 422
     assert "tool_call_id=tool_missing_name" in exc_info.value.detail
     mock_client.converse.assert_not_called()
+
+
+# ---- Anthropic Messages passthrough tests ----
+
+_CLAUDE_MODEL_ID = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+
+def _make_api_key_provider(model_name: str = _CLAUDE_MODEL_ID) -> AmazonBedrockProvider:
+    config = {
+        "name": "claude",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": model_name,
+            "config": {
+                "aws_config": {"aws_bearer_token": "bedrock-api-key", "aws_region": "eu-west-1"}
+            },
+        },
+    }
+    return AmazonBedrockProvider(EndpointConfig(**config))
+
+
+def _anthropic_messages_response():
+    return {
+        "id": "msg_bdrk_01",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-4-5-20250929",
+        "content": [
+            {"type": "thinking", "thinking": "The user said hello.", "signature": "sig"},
+            {"type": "text", "text": "Hello!"},
+        ],
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 20},
+    }
+
+
+def _anthropic_stream_events():
+    return [
+        {
+            "type": "message_start",
+            "message": {
+                "id": "msg_bdrk_01",
+                "type": "message",
+                "role": "assistant",
+                "content": [],
+                "model": "claude-sonnet-4-5-20250929",
+                "usage": {"input_tokens": 12, "output_tokens": 1},
+            },
+        },
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "thinking", "thinking": ""},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "thinking_delta", "thinking": "The user said hello."},
+        },
+        {"type": "content_block_stop", "index": 0},
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "end_turn"},
+            "usage": {"output_tokens": 30},
+        },
+        {"type": "message_stop"},
+    ]
+
+
+def _event_stream_message(headers: dict[str, str], payload: bytes) -> bytes:
+    # AWS event stream framing: a prelude (total length, headers length, prelude CRC),
+    # string-valued headers, the payload, then a CRC over the whole message.
+    encoded_headers = b"".join(
+        bytes([len(name)])
+        + name.encode()
+        + b"\x07"
+        + struct.pack(">H", len(value))
+        + value.encode()
+        for name, value in headers.items()
+    )
+    prelude = struct.pack(">II", 16 + len(encoded_headers) + len(payload), len(encoded_headers))
+    message = prelude + struct.pack(">I", zlib.crc32(prelude)) + encoded_headers + payload
+    return message + struct.pack(">I", zlib.crc32(message))
+
+
+def _bedrock_chunk(event: dict[str, Any]) -> bytes:
+    return _event_stream_message(
+        {":event-type": "chunk", ":content-type": "application/json", ":message-type": "event"},
+        json.dumps({"bytes": base64.b64encode(json.dumps(event).encode()).decode()}).encode(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_path"),
+    [
+        (_CLAUDE_MODEL_ID, _CLAUDE_MODEL_ID),
+        (
+            f"arn:aws:bedrock:eu-west-1:123456789012:inference-profile/{_CLAUDE_MODEL_ID}",
+            f"arn:aws:bedrock:eu-west-1:123456789012:inference-profile%2F{_CLAUDE_MODEL_ID}",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_posts_to_invoke(model_name, model_path):
+    provider = _make_api_key_provider(model_name)
+    payload = {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 2048,
+        "thinking": {"type": "enabled", "budget_tokens": 1024},
+    }
+    captured_session_headers = {}
+    mock_client = mock_http_client(MockAsyncResponse(_anthropic_messages_response()))
+
+    def mock_client_session(headers=None, **kwargs):
+        captured_session_headers.update(headers or {})
+        return mock_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        response = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            payload,
+            headers={
+                "authorization": "Bearer client-token",
+                "x-api-key": "client-key",
+                "user-agent": "claude-cli/2.0.37 (external, cli)",
+                "x-request-id": "req-1",
+                "host": "gateway.example.com",
+            },
+        )
+
+    assert response == _anthropic_messages_response()
+    mock_client.post.assert_called_once_with(
+        f"https://bedrock-runtime.eu-west-1.amazonaws.com/model/{model_path}/invoke",
+        json={**payload, "anthropic_version": "bedrock-2023-05-31"},
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
+    )
+    # A credential agent's own key is dropped too; Bedrock only accepts the endpoint's key.
+    assert captured_session_headers["Authorization"] == "Bearer bedrock-api-key"
+    assert "authorization" not in captured_session_headers
+    assert "x-api-key" not in captured_session_headers
+    assert "host" not in captured_session_headers
+    assert captured_session_headers["x-request-id"] == "req-1"
+
+
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_stream_converts_event_stream_to_sse():
+    provider = _make_api_key_provider()
+    events = _anthropic_stream_events()
+    data = b"".join(map(_bedrock_chunk, events))
+    # Frames arrive split at arbitrary byte offsets, not one frame per read.
+    chunks = [data[i : i + 37] for i in range(0, len(data), 37)]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, "stream": True}
+
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client),
+        mock.patch.object(provider, "_set_span_token_usage") as mock_set_span_token_usage,
+    ):
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        output = b"".join([chunk async for chunk in stream])
+
+    assert output == b"".join(
+        f"event: {event['type']}\ndata: {json.dumps(event)}\n\n".encode() for event in events
+    )
+    mock_client.post.assert_called_once()
+    assert mock_client.post.call_args[0][0] == (
+        f"https://bedrock-runtime.eu-west-1.amazonaws.com/model/{_CLAUDE_MODEL_ID}"
+        "/invoke-with-response-stream"
+    )
+    assert mock_client.post.call_args[1]["json"] == {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "max_tokens": 64,
+        "anthropic_version": "bedrock-2023-05-31",
+    }
+    # FallbackProvider passes the same payload to the next provider if this one fails.
+    assert payload["stream"] is True
+    mock_set_span_token_usage.assert_called_once_with({
+        "input_tokens": 12,
+        "output_tokens": 30,
+        "total_tokens": 42,
+    })
+
+
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_stream_raises_bedrock_exception():
+    provider = _make_api_key_provider()
+    data = _bedrock_chunk(_anthropic_stream_events()[0]) + _event_stream_message(
+        {
+            ":exception-type": "throttlingException",
+            ":content-type": "application/json",
+            ":message-type": "exception",
+        },
+        b'{"message": "Too many requests, please wait before trying again."}',
+    )
+    mock_client = mock_http_client(MockAsyncStreamingResponse([data]))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, "stream": True}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        with pytest.raises(AIGatewayException, match="throttlingException while streaming"):
+            [chunk async for chunk in stream]
+
+    mock_client.post.assert_called_once()
+
+
+def test_bedrock_anthropic_passthrough_token_usage():
+    provider = _make_api_key_provider()
+    usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, _anthropic_messages_response()
+    )
+    assert usage == {"input_tokens": 10, "output_tokens": 20, "total_tokens": 30}
+
+
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_rejects_non_anthropic_model():
+    provider = _make_api_key_provider("amazon.nova-pro-v1:0")
+    with pytest.raises(AIGatewayException, match="only supports Anthropic models") as exc_info:
+        await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES, {"messages": [], "max_tokens": 64}
+        )
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.parametrize("aws_config", [c for c, _ in bedrock_aws_configs])
+@pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_requires_api_key_auth(aws_config):
+    config = {
+        "name": "claude",
+        "endpoint_type": "llm/v1/chat",
+        "model": {"provider": "bedrock", "name": _CLAUDE_MODEL_ID, "config": {}},
+    }
+    provider = AmazonBedrockProvider(
+        EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
+    )
+    with pytest.raises(AIGatewayException, match="API key") as exc_info:
+        await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES, {"messages": [], "max_tokens": 64}
+        )
+    assert exc_info.value.status_code == 501
+
+
+@pytest.mark.asyncio
+async def test_bedrock_passthrough_rejects_unsupported_action():
+    provider = _make_api_key_provider()
+    with pytest.raises(AIGatewayException, match="Unsupported passthrough endpoint"):
+        await provider.passthrough(PassthroughAction.OPENAI_CHAT, {"messages": []})
