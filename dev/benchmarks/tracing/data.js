@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789467532991,
+  "lastUpdate": 1789476534421,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60318530+SahilKumar75@users.noreply.github.com",
-            "name": "Sahil Kumar Singh",
-            "username": "SahilKumar75"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "744ea6a95e97008383cbf1f978a269d6cbe88534",
-          "message": "Fix ended `LiveSpan` state mutation (#23152)\n\nSigned-off-by: Sahil Kumar Singh <sahilkumargreat12@gmail.com>",
-          "timestamp": "2026-05-13T01:38:23Z",
-          "tree_id": "fd221c0db6af89314a3d3ca08db6d6610b33398c",
-          "url": "https://github.com/mlflow/mlflow/commit/744ea6a95e97008383cbf1f978a269d6cbe88534"
-        },
-        "date": 1778636532200,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 39.90910050000025,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 24.756521411760826,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 23.661810680002873,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 23.620312094339653,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 22.582412859654802,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.125598600019202,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 28.79193980000423,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "63851589+aytero@users.noreply.github.com",
+            "name": "Asiet Dzharimova",
+            "username": "aytero"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6fd7a5057af837f1d45deeb13cd7624a8e2b59e7",
+          "message": "Fix Gemini `thoughtSignature` placement in AI Gateway adapter (#25865)\n\nSigned-off-by: Asiet Dzharimova <asidzharimova@gmail.com>\nCo-authored-by: Haoji Tang <haoji.tang@databricks.com>",
+          "timestamp": "2026-09-15T12:45:01Z",
+          "tree_id": "4700548c9d199cafff90433b93892b30a1ba89b9",
+          "url": "https://github.com/mlflow/mlflow/commit/6fd7a5057af837f1d45deeb13cd7624a8e2b59e7"
+        },
+        "date": 1789476532107,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 66.28036954999956,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.844615986111794,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.907726322404468,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.0517957786880645,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.338469638554529,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 13.715121333333968,
             "unit": "ms"
           }
         ]
