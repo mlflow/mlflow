@@ -40,6 +40,35 @@ def _provider(model: str) -> ProviderConfig:
     return ProviderConfig(model=model, selected=True, permissions=PermissionsConfig())
 
 
+def test_provider_only_save_does_not_rewrite_the_shared_file():
+    # Seed the shared global file with a project (a localhost/operator write).
+    set_config_user(None)
+    AssistantConfig(projects={"e1": ProjectConfig(location="/srv/p")}).save()
+
+    # A user saving only their providers must not rewrite the shared file (projects unchanged), so
+    # concurrent remote provider saves never race it. Verify the shared file is not written, and
+    # that the shared projects and the user's providers both persist.
+    set_config_user("alice")
+    cfg = AssistantConfig.load()
+    cfg.providers = {"gw": _provider("m1")}
+
+    saved_paths = []
+    original_save_file = AssistantConfig._save_file
+
+    def _spy(path, config):
+        saved_paths.append(path)
+        return original_save_file(path, config)
+
+    with mock.patch.object(AssistantConfig, "_save_file", staticmethod(_spy)):
+        cfg.save()
+    assert config_module.CONFIG_PATH not in saved_paths
+
+    set_config_user(None)
+    assert AssistantConfig.load().projects == {"e1": ProjectConfig(location="/srv/p")}
+    set_config_user("alice")
+    assert AssistantConfig.load().providers["gw"].model == "m1"
+
+
 def test_no_user_reads_and_writes_the_global_file():
     set_config_user(None)
     AssistantConfig(providers={"gw": _provider("m1")}).save()
