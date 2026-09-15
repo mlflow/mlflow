@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from mlflow.entities import (
     Assessment,
     Issue,
+    IssueDetectionJob,
     IssueSeverity,
     IssueStatus,
     Span,
@@ -1251,6 +1252,19 @@ class DatabricksTracingRestStore(RestStore):
         Returns:
             A PagedList of Issue entities.
         """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def submit_issue_detection(
+        self,
+        experiment_id: str,
+        trace_ids: list[str],
+        categories: list[str],
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        secret_id: str | None = None,
+        endpoint_name: str | None = None,
+    ) -> IssueDetectionJob:
         raise MlflowNotImplementedException("Issue management is not supported in Databricks")
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:

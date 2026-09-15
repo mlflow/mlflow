@@ -28,7 +28,7 @@ from mlflow.entities import (
 )
 
 if TYPE_CHECKING:
-    from mlflow.entities import EvaluationDataset
+    from mlflow.entities import EvaluationDataset, Issue, IssueDetectionJob
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
 from mlflow.exceptions import MlflowException
@@ -1134,3 +1134,40 @@ class TrackingServiceClient:
             raise MlflowException.invalid_parameter_value("run_id cannot be empty")
 
         return self.store.unlink_traces_from_run(trace_ids, run_id)
+
+    def submit_issue_detection(
+        self,
+        experiment_id: str,
+        trace_ids: list[str],
+        categories: list[str],
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        secret_id: str | None = None,
+        endpoint_name: str | None = None,
+    ) -> "IssueDetectionJob":
+        return self.store.submit_issue_detection(
+            experiment_id=experiment_id,
+            trace_ids=trace_ids,
+            categories=categories,
+            provider=provider,
+            model=model,
+            secret_id=secret_id,
+            endpoint_name=endpoint_name,
+        )
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+        include_trace_count: bool = False,
+    ) -> PagedList["Issue"]:
+        return self.store.search_issues(
+            experiment_id=experiment_id,
+            filter_string=filter_string,
+            max_results=max_results,
+            page_token=page_token,
+            include_trace_count=include_trace_count,
+        )

@@ -8,7 +8,7 @@ import flask
 import mlflow.server.auth as a
 
 
-def _run(monkeypatch, validator, body, *, can_update=False, can_read=False):
+def _run(monkeypatch, validator, body, *, method="POST", can_update=False, can_read=False):
     monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(
         a,
@@ -16,7 +16,7 @@ def _run(monkeypatch, validator, body, *, can_update=False, can_read=False):
         lambda eid, user: SimpleNamespace(can_update=can_update, can_read=can_read),
     )
     app = flask.Flask(__name__)
-    with app.test_request_context(data=body, content_type="application/json"):
+    with app.test_request_context(data=body, content_type="application/json", method=method):
         return validator()
 
 
@@ -38,3 +38,9 @@ def test_issue_validators_deny_empty_body(monkeypatch):
     # No experiment_id to scope against -> fail closed rather than crash.
     assert _run(monkeypatch, a.validate_can_create_issue, "", can_update=True) is False
     assert _run(monkeypatch, a.validate_can_search_issues, "", can_read=True) is False
+
+
+def test_submit_issue_detection_authorization(monkeypatch):
+    body = json.dumps({"experiment_id": "e1", "trace_ids": ["t1"], "categories": ["cat1"]})
+    assert _run(monkeypatch, a.validate_can_update_experiment, body, can_update=True) is True
+    assert _run(monkeypatch, a.validate_can_update_experiment, body, can_update=False) is False

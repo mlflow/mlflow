@@ -8357,6 +8357,58 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch):
         assert call_kwargs["params"]["model"] == "gateway:/my-endpoint"
 
 
+def test_invoke_issue_detection_handler_rest_api(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_job = JobEntity(
+        job_id="job-789",
+        creation_time=1234567890000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        status_details=None,
+    )
+
+    mock_run_info = mock.MagicMock()
+    mock_run_info.run_id = "run-789"
+    mock_run = mock.MagicMock()
+    mock_run.info = mock_run_info
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "categories": ["hallucination"],
+        "provider": "openai",
+        "model": "gpt-4o",
+        "secret_id": "secret-123",
+    }
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store"),
+        mock.patch(
+            "mlflow.genai.discovery.job._fetch_provider_credentials",
+            return_value={"OPENAI_API_KEY": "test-key"},
+        ),
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job),
+        mock.patch("mlflow.start_run", return_value=mock_run),
+        mock.patch("mlflow.set_tag"),
+        mock.patch("mlflow.end_run"),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/invoke",
+            json=request_json,
+        )
+        assert resp.status_code == 200
+        json_response = resp.get_json()
+        assert json_response["job_id"] == "job-789"
+        assert json_response["run_id"] == "run-789"
+
+
 def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 

@@ -113,3 +113,28 @@ class SearchIssues(_message.Message):
     page_token: str
     include_trace_count: bool
     def __init__(self, experiment_id: _Optional[str] = ..., filter_string: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ..., include_trace_count: bool = ...) -> None: ...
+
+class SubmitIssueDetection(_message.Message):
+    __slots__ = ("experiment_id", "trace_ids", "categories", "provider", "model", "secret_id", "endpoint_name")
+    class Response(_message.Message):
+        __slots__ = ("job_id", "run_id")
+        JOB_ID_FIELD_NUMBER: _ClassVar[int]
+        RUN_ID_FIELD_NUMBER: _ClassVar[int]
+        job_id: str
+        run_id: str
+        def __init__(self, job_id: _Optional[str] = ..., run_id: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    CATEGORIES_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    MODEL_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    ENDPOINT_NAME_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    categories: _containers.RepeatedScalarFieldContainer[str]
+    provider: str
+    model: str
+    secret_id: str
+    endpoint_name: str
+    def __init__(self, experiment_id: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., categories: _Optional[_Iterable[str]] = ..., provider: _Optional[str] = ..., model: _Optional[str] = ..., secret_id: _Optional[str] = ..., endpoint_name: _Optional[str] = ...) -> None: ...

@@ -9,6 +9,7 @@ from mlflow.entities import (
     DatasetInput,
     DatasetRecord,
     Issue,
+    IssueDetectionJob,
     IssueSeverity,
     IssueStatus,
     LifecycleStage,
@@ -781,6 +782,34 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
 
         Returns:
             A PagedList of Issue entities.
+        """
+        raise MlflowNotImplementedException()
+
+    def submit_issue_detection(
+        self,
+        experiment_id: str,
+        trace_ids: list[str],
+        categories: list[str],
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        secret_id: str | None = None,
+        endpoint_name: str | None = None,
+    ) -> IssueDetectionJob:
+        """
+        Submit an issue detection job on traces asynchronously.
+
+        Args:
+            experiment_id: The ID of the experiment.
+            trace_ids: The list of trace IDs to run issue detection on.
+            categories: The list of issue categories to evaluate.
+            provider: Optional provider name (e.g. 'openai', 'anthropic').
+            model: Optional model name (e.g. 'gpt-4o').
+            secret_id: Optional secret ID for credentials stored on the server.
+            endpoint_name: Optional gateway endpoint name.
+
+        Returns:
+            An IssueDetectionJob entity containing job_id and run_id.
         """
         raise MlflowNotImplementedException()
 

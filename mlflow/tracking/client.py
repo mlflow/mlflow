@@ -30,6 +30,8 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     FileInfo,
+    Issue,
+    IssueDetectionJob,
     Link,
     LoggedModel,
     LoggedModelInput,
@@ -1196,6 +1198,111 @@ class MlflowClient:
                 )
         """
         return self._tracking_client.unlink_traces_from_run(trace_ids, run_id)
+
+    def submit_issue_detection(
+        self,
+        experiment_id: str,
+        trace_ids: list[str],
+        categories: list[str],
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        secret_id: str | None = None,
+        endpoint_name: str | None = None,
+    ) -> IssueDetectionJob:
+        """
+        Submit an issue detection job on traces asynchronously.
+
+        Args:
+            experiment_id: The ID of the experiment to run issue detection on.
+            trace_ids: The list of trace IDs to analyze for issues.
+            categories: The list of issue categories to evaluate.
+            provider: Optional provider name (e.g. 'openai', 'anthropic').
+            model: Optional model name (e.g. 'gpt-4o').
+            secret_id: Optional secret ID for credentials stored on the server.
+            endpoint_name: Optional gateway endpoint name.
+
+        Returns:
+            An :py:class:`mlflow.entities.IssueDetectionJob` containing ``job_id`` and ``run_id``.
+
+        Example:
+            .. code-block:: python
+
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+                job = client.submit_issue_detection(
+                    experiment_id="1",
+                    trace_ids=["tr-123", "tr-456"],
+                    categories=["hallucination", "refusal"],
+                    provider="openai",
+                    model="gpt-4o",
+                )
+                print(f"Submitted job {job.job_id} with run {job.run_id}")
+        """
+        return self._tracking_client.submit_issue_detection(
+            experiment_id=experiment_id,
+            trace_ids=trace_ids,
+            categories=categories,
+            provider=provider,
+            model=model,
+            secret_id=secret_id,
+            endpoint_name=endpoint_name,
+        )
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+        source_run_id: str | None = None,
+        include_trace_count: bool = False,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering
+                (e.g. "status = 'pending'").
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+            source_run_id: Optional source run ID to filter issues generated
+                by a specific detection run.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.PagedList` of
+            :py:class:`mlflow.entities.Issue` entities.
+
+        Example:
+            .. code-block:: python
+
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+                issues = client.search_issues(
+                    experiment_id="1",
+                    source_run_id="run_123",
+                )
+                for issue in issues:
+                    print(issue.name, issue.severity)
+        """
+        if source_run_id:
+            source_run_id_filter = f"source_run_id = '{source_run_id}'"
+            if filter_string:
+                filter_string = f"({filter_string}) AND {source_run_id_filter}"
+            else:
+                filter_string = source_run_id_filter
+
+        return self._tracking_client.search_issues(
+            experiment_id=experiment_id,
+            filter_string=filter_string,
+            max_results=max_results,
+            page_token=page_token,
+            include_trace_count=include_trace_count,
+        )
 
     # TODO: Use model_id in MLflow 3.0
     @require_prompt_registry
