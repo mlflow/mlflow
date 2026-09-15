@@ -488,9 +488,6 @@ class ConversationSimulator:
                 f"user_agent_class must be a subclass of BaseSimulatedUserAgent, "
                 f"got {user_agent_class.__name__}"
             )
-        # Store original dataset reference if test_cases is an EvaluationDataset, so we can
-        # preserve the dataset name when creating the evaluation dataset.
-        self._source_dataset = test_cases if isinstance(test_cases, EvaluationDataset) else None
         self.test_cases = test_cases
         self.max_turns = max_turns
         self.user_model = user_model or get_default_simulation_model()
@@ -499,8 +496,10 @@ class ConversationSimulator:
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name == "test_cases":
+            source_dataset = value if isinstance(value, EvaluationDataset) else None
             value = self._normalize_test_cases(value)
             self._validate_test_cases(value)
+            super().__setattr__("_source_dataset", source_dataset)
         super().__setattr__(name, value)
 
     def _normalize_test_cases(
