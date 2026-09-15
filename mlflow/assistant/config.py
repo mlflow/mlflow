@@ -146,13 +146,17 @@ class AssistantConfig(BaseModel):
             return
         # Read the shared file FIRST and strictly: a present-but-unreadable global file aborts the
         # save here, before any write, instead of being silently rewritten empty (which would
-        # destroy other users' / no-auth providers). Config writes are localhost-only, so this
-        # read-modify-write of the shared file is not additionally locked against concurrent
-        # writers.
+        # destroy other users' / no-auth providers).
         global_config = self._read_file(CONFIG_PATH)
         self._save_file(_user_config_path(username), AssistantConfig(providers=self.providers))
-        global_config.projects = self.projects
-        self._save_file(CONFIG_PATH, global_config)
+        # Only rewrite the shared global file when projects actually changed. A remote caller can
+        # change only its own providers (projects stay localhost-only), so a remote provider save
+        # skips the shared write entirely and never races another writer for it. That keeps the
+        # shared file written only by localhost callers -- the reason its unlocked read-modify-write
+        # is safe -- and avoids a redundant rewrite on every provider-only save.
+        if self.projects != global_config.projects:
+            global_config.projects = self.projects
+            self._save_file(CONFIG_PATH, global_config)
 
     def get_project_path(self, experiment_id: str) -> str | None:
         """Get the project path for a given experiment ID.
