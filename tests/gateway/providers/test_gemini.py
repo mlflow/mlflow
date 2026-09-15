@@ -898,8 +898,8 @@ async def test_gemini_chat_function_calling_thought_signature():
                                 "name": "get_weather",
                                 "args": {"location": "Kuala Lumpur"},
                                 "id": "call_002",
-                                "thoughtSignature": "new_thought_sig_token",
                             },
+                            "thoughtSignature": "new_thought_sig_token",
                         },
                     ],
                     "role": "model",
@@ -931,8 +931,8 @@ async def test_gemini_chat_function_calling_thought_signature():
                             "id": "call_001",
                             "name": "get_weather",
                             "args": {"location": "Singapore"},
-                            "thoughtSignature": "opaque_thought_sig_token",
-                        }
+                        },
+                        "thoughtSignature": "opaque_thought_sig_token",
                     }
                 ],
             },
@@ -975,6 +975,46 @@ async def test_gemini_chat_function_calling_thought_signature():
         timeout=mock.ANY,
         allow_redirects=False,
     )
+
+
+@pytest.mark.parametrize(
+    "part",
+    [
+        pytest.param(
+            {
+                "functionCall": {
+                    "name": "get_weather",
+                    "args": {"location": "Paris"},
+                    "id": "call_001",
+                },
+                "thoughtSignature": "sig_token",
+            },
+            id="sibling-of-functionCall",
+        ),
+        pytest.param(
+            {
+                "functionCall": {
+                    "name": "get_weather",
+                    "args": {"location": "Paris"},
+                    "id": "call_001",
+                    "thoughtSignature": "sig_token",
+                },
+            },
+            id="nested-in-functionCall",
+        ),
+    ],
+)
+def test_gemini_function_call_thought_signature_response(part):
+    # thoughtSignature is documented as a sibling of functionCall on the Part, but some
+    # responses have been observed with it nested inside functionCall instead. The adapter
+    # must not silently drop the signature in either case.
+    choice = GeminiAdapter._convert_function_call_to_openai_choice(
+        content_parts=[part],
+        finish_reason="stop",
+        choice_idx=0,
+        stream=False,
+    )
+    assert choice.message.tool_calls[0].thought_signature == "sig_token"
 
 
 def chat_stream_response():
