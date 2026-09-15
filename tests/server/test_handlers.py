@@ -1125,6 +1125,92 @@ def test_create_model_version_rejects_traversal_source_for_prompts(
     assert "Invalid model version source" in resp.get_json()["message"]
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        "../../etc/passwd",
+        "../../../../../../../../etc",
+        "..",
+        ".",
+        "etc/passwd",
+        "..%2F..%2Fetc%2Fpasswd",
+        "%2e%2e/%2e%2e/etc/passwd",
+        "%2Fetc%2Fpasswd",
+        "%252Fetc%252Fpasswd",
+        "..\\..\\etc\\passwd",
+        "prompt-template\x00",
+        "mlflow",
+        "etc",
+        "prompt%2Dtemplate",
+        "Prompt-Template",
+        "prompt-template/",
+    ],
+)
+def test_create_model_version_rejects_schemeless_path_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid prompt source" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "prompt-template",
+        "dummy-source",
+        "mlflow-artifacts:/prompts/1",
+        "s3://bucket/prompts/1",
+    ],
+)
+def test_create_model_version_accepts_placeholder_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    mock_model_registry_store.create_model_version.return_value = ModelVersion(
+        name="model_1", version="1", creation_timestamp=123
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 200
+    _, args = mock_model_registry_store.create_model_version.call_args
+    assert args["source"] == source
+
+
+@pytest.mark.parametrize(
+    "tag_values",
+    [
+        ["false"],
+        ["False"],
+        ["0"],
+        [""],
+        # Duplicate keys collapse with the last value winning, as in ModelVersion._is_prompt
+        ["true", "false"],
+    ],
+)
+def test_create_model_version_non_true_prompt_tag_uses_model_source_validation(
+    mock_get_request_message, mock_model_registry_store, tag_values
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source="../../etc/passwd",
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value=v).to_proto() for v in tag_values],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid model version source" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
 def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
     name = "model1"
     tag = RegisteredModelTag(key="some weird key", value="some value")
@@ -2289,7 +2375,7 @@ def test_create_prompt_as_model_version(mock_get_request_message, mock_model_reg
     mock_get_request_message.return_value = CreateModelVersion(
         name="model_1",
         tags=[tag.to_proto() for tag in tags],
-        source=None,
+        source="dummy-source",
         run_id=None,
         run_link=None,
     )
@@ -2300,7 +2386,7 @@ def test_create_prompt_as_model_version(mock_get_request_message, mock_model_reg
     resp = _create_model_version()
     _, args = mock_model_registry_store.create_model_version.call_args
     assert args["name"] == "model_1"
-    assert args["source"] == ""
+    assert args["source"] == "dummy-source"
     assert args["run_id"] == ""
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == ""

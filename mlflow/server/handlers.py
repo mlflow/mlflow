@@ -101,7 +101,11 @@ from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewSt
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
-from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
+from mlflow.prompt.constants import (
+    _PROMPT_SOURCE_PLACEHOLDERS,
+    PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_TAG_KEY,
+)
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -3032,6 +3036,25 @@ def _validate_non_local_source_contains_relative_paths(source: str):
         raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
 
 
+def _validate_prompt_source(source: str) -> None:
+    """
+    Prompt versions never legitimately reference the tracking server's filesystem. A schemeless
+    source selects ``LocalArtifactRepository`` and becomes the directory that ``get-artifact``
+    later serves from, so any schemeless value other than the known client placeholders is
+    rejected outright; a separator-free name such as "mlflow" would still expose a directory
+    under the server's working directory.
+    """
+    parsed = urllib.parse.urlparse(source)
+    if parsed.scheme and parsed.scheme != "file":
+        _validate_non_local_source_contains_relative_paths(source)
+        return
+    if source not in _PROMPT_SOURCE_PLACEHOLDERS:
+        raise MlflowException(
+            f"Invalid prompt source: '{source}'. Local source paths are not allowed for prompts.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_source_run(source: str, run_id: str) -> None:
     if is_local_uri(source):
         if run_id:
@@ -3109,21 +3132,7 @@ def _create_model_version():
 
     is_prompt = _is_prompt_request(request_message)
     if is_prompt:
-        # Prompt sources must not point to local filesystem paths.
-        # Block file:// URIs and absolute paths (e.g. /etc/passwd) but allow
-        # the legitimate schemeless placeholder sources used internally
-        # (e.g. "prompt-template", "dummy-source").
-        source = request_message.source
-        parsed = urllib.parse.urlparse(source)
-        if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
-            raise MlflowException(
-                f"Invalid prompt source: '{source}'. "
-                "Local source paths are not allowed for prompts.",
-                INVALID_PARAMETER_VALUE,
-            )
-        # Only validate traversal for sources with a URL scheme (http, https, etc.)
-        if parsed.scheme:
-            _validate_non_local_source_contains_relative_paths(source)
+        _validate_prompt_source(request_message.source)
     else:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
@@ -3188,7 +3197,10 @@ def _create_model_version():
 
 
 def _is_prompt_request(request_message):
-    return any(tag.key == IS_PROMPT_TAG_KEY for tag in request_message.tags)
+    # Mirror ModelVersion._is_prompt: tags collapse by key with the last value winning, and only a
+    # true-valued tag selects the prompt code path.
+    tags = {tag.key: tag.value for tag in request_message.tags}
+    return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
 
 
 def _is_prompt(name: str) -> bool:
