@@ -6,11 +6,13 @@ import threading
 import zipfile
 from functools import partial
 from pathlib import Path
+from unittest import mock
 
 import pytest
 import requests
 
 import mlflow
+from mlflow.entities.file_info import FileInfo
 from mlflow.entities.skill_source import GitSource, OCISource, SkillSourceType, ZipSource
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.digest import compute_tree_digest
@@ -296,6 +298,30 @@ def test_fetch_mlflow_artifacts_subpath_downloads_only_subtree(skill_tree):
     with fetch_source(uri, subpath="skills/demo", max_bytes=2000) as fetched:
         assert (fetched.root / "SKILL.md").exists()
         assert not (fetched.root.parent.parent / "big.bin").exists()
+
+
+def test_fetch_mlflow_artifacts_rejects_oversized_tree_before_downloading(skill_tree):
+    with mlflow.start_run() as run:
+        mlflow.log_artifacts(str(skill_tree), artifact_path="pkg")
+    uri = f"runs:/{run.info.run_id}/pkg"
+    with mock.patch("mlflow.genai.skill_content.fetchers.artifacts.download_artifacts") as download:
+        with pytest.raises(MlflowException, match="at least [0-9]+ bytes, which exceeds"):
+            fetch_source(uri, max_bytes=2000)
+        download.assert_not_called()
+
+
+def test_fetch_mlflow_artifacts_rejects_too_many_entries():
+    listing = [FileInfo(path=f"skill/{i}.txt", is_dir=False, file_size=1) for i in range(10_001)]
+    with (
+        mock.patch(
+            "mlflow.genai.skill_content.fetchers.artifacts.list_artifacts", return_value=listing
+        ) as listed,
+        mock.patch("mlflow.genai.skill_content.fetchers.artifacts.download_artifacts") as download,
+    ):
+        with pytest.raises(MlflowException, match="more than 10000 entries"):
+            fetch_source("runs:/run/skill")
+        listed.assert_called_once_with(artifact_uri="runs:/run/skill")
+        download.assert_not_called()
 
 
 def test_fetch_mlflow_artifacts_missing():
