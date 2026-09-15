@@ -2739,16 +2739,20 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = self._get_logged_model_record(session, model_id)
-            # TODO: Consider upserting tags in a single transaction for performance
-            for tag in tags:
-                session.merge(
-                    SqlLoggedModelTag(
-                        model_id=model_id,
-                        experiment_id=logged_model.experiment_id,
-                        tag_key=tag.key,
-                        tag_value=tag.value,
-                    )
-                )
+            # Dedupe by key so a repeated key in one call keeps the last value (matching the
+            # previous ``session.merge`` behavior); PostgreSQL's ``ON CONFLICT DO UPDATE``
+            # rejects statements that touch the same row twice.
+            deduped = {tag.key: tag.value for tag in tags}
+            rows = [
+                {
+                    "model_id": model_id,
+                    "experiment_id": logged_model.experiment_id,
+                    "tag_key": key,
+                    "tag_value": value,
+                }
+                for key, value in deduped.items()
+            ]
+            _bulk_upsert(session, SqlLoggedModelTag, rows)
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
