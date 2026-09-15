@@ -21,6 +21,10 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from mlflow.exceptions import MlflowException
+from mlflow.server.artifact_transfer import (
+    reject_legacy_artifact_download,
+    reject_legacy_artifact_upload,
+)
 from mlflow.store.artifact.artifact_repo import ARTIFACT_STREAM_CHUNK_SIZE, StreamUploadMixin
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.uri import validate_path_is_safe
@@ -70,6 +74,7 @@ async def download_artifact(artifact_path: str):
         )
 
     try:
+        reject_legacy_artifact_download()
         artifact_path = validate_path_is_safe(artifact_path)
         artifact_path = _get_workspace_scoped_path(artifact_path)
         artifact_repo = _get_artifact_repo()
@@ -145,6 +150,7 @@ async def upload_artifact(artifact_path: str, request: Request):
         )
 
     try:
+        reject_legacy_artifact_upload()
         artifact_path = validate_path_is_safe(artifact_path)
         artifact_path = _get_workspace_scoped_path(artifact_path)
         head, tail = posixpath.split(artifact_path)
