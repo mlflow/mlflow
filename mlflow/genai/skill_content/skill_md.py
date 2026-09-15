@@ -7,26 +7,36 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from yaml.events import AliasEvent
+from yaml.events import AliasEvent, ScalarEvent
 
 from mlflow.genai.skill_content.errors import content_unreadable, invalid_content
 from mlflow.utils.validation import _validate_skill_name
 
 SKILL_MANIFEST_FILE = "SKILL.md"
+_MERGE_TAG = "tag:yaml.org,2002:merge"
 
 _FRONTMATTER_PATTERN = re.compile(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n|\Z)(.*)\Z", re.DOTALL)
 
 
-def _reject_yaml_aliases(text: str) -> None:
+def _reject_yaml_references(text: str) -> None:
     """
     Refuse frontmatter that uses YAML aliases or merge keys.
 
     ``safe_load`` still expands aliases, and nested merges double the intermediate mapping at
     every level, so a few hundred bytes of frontmatter can take minutes to load. Walking the
-    parser events constructs nothing, and skill frontmatter never needs references.
+    parser events constructs nothing, and skill frontmatter never needs references. A merge
+    key is rejected whether it refers to an alias or to an inline mapping, since either lets
+    a manifest field come from somewhere other than where it appears to be declared.
     """
     for event in yaml.parse(text, Loader=yaml.SafeLoader):
         if isinstance(event, AliasEvent):
+            raise yaml.YAMLError("YAML aliases and merge keys are not allowed in frontmatter")
+        if (
+            isinstance(event, ScalarEvent)
+            and event.value == "<<"
+            and event.style is None
+            and event.tag in (None, _MERGE_TAG)
+        ):
             raise yaml.YAMLError("YAML aliases and merge keys are not allowed in frontmatter")
 
 
@@ -54,7 +64,7 @@ def parse_skill_md(content: str) -> tuple[dict[str, Any], str]:
     if match is None:
         raise invalid_content(f"{SKILL_MANIFEST_FILE} frontmatter is not closed with '---'.")
     try:
-        _reject_yaml_aliases(match.group(1))
+        _reject_yaml_references(match.group(1))
         metadata = yaml.safe_load(match.group(1))
     except yaml.YAMLError as e:
         raise invalid_content(f"{SKILL_MANIFEST_FILE} frontmatter is not valid YAML: {e}")
@@ -79,9 +89,9 @@ def _extract_keywords(metadata: dict[str, Any]) -> tuple[str, ...]:
         )
     keywords = []
     for item in raw:
-        if not isinstance(item, (str, int, float)):
+        if not isinstance(item, str):
             raise invalid_content(f"{SKILL_MANIFEST_FILE} keywords must be strings, got {item!r}.")
-        if value := str(item).strip():
+        if value := item.strip():
             keywords.append(value)
     return tuple(keywords)
 

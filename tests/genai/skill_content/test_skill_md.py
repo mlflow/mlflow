@@ -162,3 +162,18 @@ def test_inspect_skill_dir_unreadable_manifest(tmp_path):
 def test_parse_skill_md_rejects_yaml_aliases(content):
     with pytest.raises(MlflowException, match="aliases and merge keys are not allowed"):
         parse_skill_md(content)
+
+
+def test_parse_skill_md_rejects_inline_merge_keys():
+    # A merge key can pull fields from an inline mapping without any alias event.
+    with pytest.raises(MlflowException, match="aliases and merge keys are not allowed"):
+        parse_skill_md("---\nname: demo\n<<: {description: merged}\n---\n")
+    # A quoted "<<" is an ordinary key, not a merge.
+    metadata, _ = parse_skill_md('---\nname: demo\n"<<": literal\n---\n')
+    assert metadata == {"name": "demo", "<<": "literal"}
+
+
+def test_inspect_skill_dir_rejects_non_string_keywords(tmp_path):
+    root = _skill_dir(tmp_path, "demo", "---\nname: demo\nkeywords: [review, 2]\n---\n")
+    with pytest.raises(MlflowException, match="keywords must be strings, got 2"):
+        inspect_skill_dir(root)
