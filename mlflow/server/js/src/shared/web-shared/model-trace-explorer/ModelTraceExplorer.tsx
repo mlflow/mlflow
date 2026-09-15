@@ -13,6 +13,7 @@ import { ModelTraceExplorerViewStateProvider } from './ModelTraceExplorerViewSta
 import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
 import { useGetModelTraceInfo } from './hooks/useGetModelTraceInfo';
 import { useTraceCachedActions } from './hooks/useTraceCachedActions';
+import { TraceArtifactLocationContextProvider } from './contexts/TraceArtifactLocationContext';
 
 const ContextProviders = ({ children }: { traceId: string; children: React.ReactNode }) => {
   return <ErrorBoundary fallbackRender={ModelTraceExplorerErrorState}>{children}</ErrorBoundary>;
@@ -89,28 +90,30 @@ export const ModelTraceExplorerImpl = ({
 
   return (
     <ContextProviders traceId={traceId}>
-      <ModelTraceExplorerViewStateProvider
-        modelTrace={modelTrace}
-        initialActiveView={initialActiveView}
-        selectedSpanIdOnRender={selectedSpanId}
-        assessmentsPaneEnabled={assessmentsPaneEnabled}
-        initialAssessmentsPaneCollapsed={collapseAssessmentPane}
-        isTraceInitialLoading={isTraceInitialLoading}
-      >
-        {showLoadingState ? (
-          <ModelTraceExplorerSkeleton />
-        ) : (
-          <>
-            <ModelTraceHeaderDetails modelTraceInfo={modelTrace.info} />
-            <ModelTraceExplorerContent
-              modelTraceInfo={modelTrace.info}
-              className={className}
-              selectedSpanId={selectedSpanId}
-              onSelectSpan={onSelectSpan}
-            />
-          </>
-        )}
-      </ModelTraceExplorerViewStateProvider>
+      <TraceArtifactLocationContextProvider modelTrace={modelTrace}>
+        <ModelTraceExplorerViewStateProvider
+          modelTrace={modelTrace}
+          initialActiveView={initialActiveView}
+          selectedSpanIdOnRender={selectedSpanId}
+          assessmentsPaneEnabled={assessmentsPaneEnabled}
+          initialAssessmentsPaneCollapsed={collapseAssessmentPane}
+          isTraceInitialLoading={isTraceInitialLoading}
+        >
+          {showLoadingState ? (
+            <ModelTraceExplorerSkeleton />
+          ) : (
+            <>
+              <ModelTraceHeaderDetails modelTraceInfo={modelTrace.info} />
+              <ModelTraceExplorerContent
+                modelTraceInfo={modelTrace.info}
+                className={className}
+                selectedSpanId={selectedSpanId}
+                onSelectSpan={onSelectSpan}
+              />
+            </>
+          )}
+        </ModelTraceExplorerViewStateProvider>
+      </TraceArtifactLocationContextProvider>
     </ContextProviders>
   );
 };
