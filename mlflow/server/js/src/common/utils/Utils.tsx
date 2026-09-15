@@ -321,7 +321,7 @@ class Utils {
         url += `/tree/${branchName}/${fileDir}`;
       }
     }
-    return url;
+    return Utils.isValidHttpUrl(url) ? url : null;
   }
 
   static getGitCommitUrl(sourceName: any, sourceVersion: any) {
@@ -346,7 +346,7 @@ class Utils {
       const [, baseUrl, repoDir, fileDir] = gitMatch;
       url = `${baseUrl.replace(/git@/, 'https://')}/${repoDir.replace(/.git/, '')}/tree/${sourceVersion}/${fileDir}`;
     }
-    return url;
+    return Utils.isValidHttpUrl(url) ? url : null;
   }
 
   static getQueryParams = () => {
