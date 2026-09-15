@@ -12,6 +12,7 @@ from mlflow.server.jobs.utils import (
     HUEY_PERIODIC_TASKS_INSTANCE_KEY,
     _exit_when_orphaned,
     _get_or_init_huey_instance,
+    initialize_periodic_tasks_tracking_store,
     register_periodic_tasks,
 )
 
@@ -27,6 +28,7 @@ threading.Thread(
 ).start()
 
 huey_instance = _get_or_init_huey_instance(HUEY_PERIODIC_TASKS_INSTANCE_KEY).instance
+tracking_store = initialize_periodic_tasks_tracking_store()
 
 # Register periodic tasks with this dedicated instance
-register_periodic_tasks(huey_instance)
+register_periodic_tasks(huey_instance, tracking_store)

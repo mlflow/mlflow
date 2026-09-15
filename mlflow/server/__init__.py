@@ -23,6 +23,7 @@ from mlflow.environment_variables import (
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
+    MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -452,6 +453,11 @@ def _run_server(
         # This shouldn't happen given the logic in CLI, but handle it just in case
         raise MlflowException("No server configuration specified.")
 
+    if not artifacts_only:
+        from mlflow.tracing.trace_rollup_service import validate_sql_trace_rollup_startup
+
+        validate_sql_trace_rollup_startup(file_store_path)
+
     # Check if job execution can be enabled (requirements met)
     job_execution_enabled = False
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
@@ -461,11 +467,22 @@ def _run_server(
             _check_requirements(file_store_path)
             job_execution_enabled = True
         except Exception as e:
+            if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+                raise MlflowException(
+                    "SQL trace rollups require an available SQL job-execution backend."
+                ) from e
             _logger.warning(
                 f"MLflow job execution requirements not met ({e!s}). "
                 "Server will start without job execution support. "
                 "Errors will be surfaced at job invocation time."
             )
+
+    if job_execution_enabled and MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+        from mlflow.tracing.trace_rollup_service import (
+            validate_and_resolve_sql_trace_rollup_schedule,
+        )
+
+        validate_and_resolve_sql_trace_rollup_schedule()
 
     if app_name == "basic-auth" and job_execution_enabled:
         # Generate the token here (before forking uvicorn workers) so that all
@@ -507,10 +524,16 @@ def _run_server(
         server_uri = f"http://{host}:{port}"
         job_env = {
             **env_map,
+            # Periodic services initialize the primary store once from the supported public
+            # server configuration instead of resolving it indirectly through MLFLOW_TRACKING_URI
+            # (which intentionally points back to this HTTP server for normal job code).
+            "MLFLOW_BACKEND_STORE_URI": file_store_path,
             # Set tracking URI environment variable for job runner
             # so that all job processes inherit it.
             MLFLOW_TRACKING_URI.name: server_uri,
         }
+        if default_artifact_root:
+            job_env["MLFLOW_DEFAULT_ARTIFACT_ROOT"] = default_artifact_root
         # Set gateway URI for job workers if not already set. Jobs may call
         # _get_tracking_store() which overwrites MLFLOW_TRACKING_URI with the backend
         # store URI (e.g., sqlite://). MLFLOW_GATEWAY_URI preserves the HTTP URI for

@@ -187,7 +187,7 @@ def test_trace_archival_scheduler_runs_per_workspace(monkeypatch, tmp_path):
         ) as shuffle_mock,
     ):
         mock_tracking_store.archive_traces.side_effect = archive_traces
-        archived = run_trace_archival_scheduler()
+        archived = run_trace_archival_scheduler(mock_tracking_store)
 
     assert archived == 2
     shuffle_mock.assert_called_once()
@@ -240,7 +240,7 @@ def test_trace_archival_scheduler_skips_unsupported_workspace_and_continues(monk
         ) as shuffle_mock,
     ):
         mock_tracking_store.archive_traces.return_value = 2
-        archived = run_trace_archival_scheduler()
+        archived = run_trace_archival_scheduler(mock_tracking_store)
 
     assert archived == 2
     shuffle_mock.assert_called_once()
@@ -275,8 +275,8 @@ def test_trace_archival_scheduler_respects_interval(monkeypatch, tmp_path):
         ),
     ):
         mock_tracking_store.archive_traces.return_value = 3
-        first = run_trace_archival_scheduler()
-        second = run_trace_archival_scheduler()
+        first = run_trace_archival_scheduler(mock_tracking_store)
+        second = run_trace_archival_scheduler(mock_tracking_store)
 
     assert first == 3
     assert second == 0
@@ -292,7 +292,7 @@ def test_trace_archival_scheduler_returns_zero_when_disabled(monkeypatch, tmp_pa
     )
 
     with patch("mlflow.server.handlers._get_tracking_store") as mock_get_tracking_store:
-        archived = run_trace_archival_scheduler()
+        archived = run_trace_archival_scheduler(object())
 
     assert archived == 0
     mock_get_tracking_store.assert_not_called()
@@ -313,7 +313,7 @@ def test_trace_archival_scheduler_passes_max_traces_per_pass(monkeypatch, tmp_pa
     )
     with patch("mlflow.server.handlers._get_tracking_store", return_value=mock_tracking_store):
         mock_tracking_store.archive_traces.return_value = 3
-        archived = run_trace_archival_scheduler()
+        archived = run_trace_archival_scheduler(mock_tracking_store)
 
     assert archived == 3
     mock_tracking_store.archive_traces.assert_called_once_with(
@@ -356,7 +356,7 @@ def test_trace_archival_scheduler_shares_pass_budget_across_workspaces(monkeypat
         ) as shuffle_mock,
     ):
         mock_tracking_store.archive_traces.return_value = 1
-        archived = run_trace_archival_scheduler()
+        archived = run_trace_archival_scheduler(mock_tracking_store)
 
     assert archived == 1
     shuffle_mock.assert_called_once()
@@ -426,7 +426,7 @@ def test_trace_archival_scheduler_archives_real_store_traces(monkeypatch, tmp_pa
             patch("mlflow.server.handlers._get_tracking_store", return_value=store),
             patch.object(store, "_get_archive_traces_now_millis", return_value=now_millis),
         ):
-            archived = run_trace_archival_scheduler()
+            archived = run_trace_archival_scheduler(store)
 
         assert archived == 1
 
@@ -512,7 +512,7 @@ def test_trace_archival_scheduler_honors_workspace_archive_location(monkeypatch,
             ),
             patch.object(store, "_get_archive_traces_now_millis", return_value=now_millis),
         ):
-            archived = run_trace_archival_scheduler()
+            archived = run_trace_archival_scheduler(store)
 
         assert archived == 1
 
@@ -595,7 +595,7 @@ def test_trace_archival_scheduler_processes_archive_now_with_real_store(monkeypa
             patch("mlflow.server.handlers._get_tracking_store", return_value=store),
             patch.object(store, "_get_archive_traces_now_millis", return_value=now_millis),
         ):
-            archived = run_trace_archival_scheduler()
+            archived = run_trace_archival_scheduler(store)
 
         assert archived == 1
 
@@ -638,7 +638,7 @@ def test_register_periodic_tasks_includes_trace_archival_when_unconfigured(monke
 
     huey = _RecordingHuey()
 
-    register_periodic_tasks(huey)
+    register_periodic_tasks(huey, object())
 
     assert "online_scoring_scheduler" in huey.periodic_task_names
     assert "trace_archival_scheduler" in huey.periodic_task_names
@@ -651,7 +651,7 @@ def test_register_periodic_tasks_includes_trace_archival_when_config_invalid(mon
 
     huey = _RecordingHuey()
 
-    register_periodic_tasks(huey)
+    register_periodic_tasks(huey, object())
 
     assert "online_scoring_scheduler" in huey.periodic_task_names
     assert "trace_archival_scheduler" in huey.periodic_task_names
@@ -664,7 +664,7 @@ def test_trace_archival_scheduler_logs_warning_when_config_invalid(monkeypatch, 
     monkeypatch.setattr(trace_archival_config_module, "_TRACE_ARCHIVAL_SERVER_CONFIG_CACHE", None)
 
     with patch.object(trace_archival_service_module, "_logger") as mock_logger:
-        archived = run_trace_archival_scheduler()
+        archived = run_trace_archival_scheduler(object())
 
     assert archived == 0
     mock_logger.warning.assert_called_once_with(
@@ -678,7 +678,7 @@ def test_register_periodic_tasks_includes_trace_archival_when_configured(monkeyp
 
     huey = _RecordingHuey()
 
-    register_periodic_tasks(huey)
+    register_periodic_tasks(huey, object())
 
     assert "online_scoring_scheduler" in huey.periodic_task_names
     assert "trace_archival_scheduler" in huey.periodic_task_names
