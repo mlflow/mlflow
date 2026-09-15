@@ -20,6 +20,7 @@ from mlflow.config import enable_async_logging
 from mlflow.entities import (
     EvaluationDataset,
     ExperimentTag,
+    IssueDetectionJob,
     IssueSeverity,
     IssueStatus,
     LoggedModel,
@@ -4161,3 +4162,87 @@ def test_register_prompt_ui_link_logs_debug_on_error(tracking_uri):
         client._log_prompt_ui_link("catalog.schema.my_prompt", 1)
 
     log_debug.assert_called_once_with("Failed to log prompt UI link", exc_info=True)
+
+
+def test_client_submit_issue_detection(mock_store):
+    expected_job = IssueDetectionJob(job_id="job-123", run_id="run-456")
+    mock_store.submit_issue_detection.return_value = expected_job
+
+    client = MlflowClient()
+    job = client.submit_issue_detection(
+        experiment_id="exp-1",
+        trace_ids=["tr-1", "tr-2"],
+        categories=["hallucination"],
+        provider="openai",
+        model="gpt-4o",
+        secret_id="sec-1",
+        endpoint_name="ep-1",
+    )
+
+    mock_store.submit_issue_detection.assert_called_once_with(
+        experiment_id="exp-1",
+        trace_ids=["tr-1", "tr-2"],
+        categories=["hallucination"],
+        provider="openai",
+        model="gpt-4o",
+        secret_id="sec-1",
+        endpoint_name="ep-1",
+    )
+    assert job == expected_job
+
+
+def test_client_search_issues(mock_store):
+    expected_issues = PagedList([], token=None)
+    mock_store.search_issues.return_value = expected_issues
+
+    client = MlflowClient()
+    issues = client.search_issues(
+        experiment_id="exp-1",
+        filter_string="status = 'pending'",
+        max_results=50,
+        page_token="tok-1",
+        include_trace_count=True,
+    )
+
+    mock_store.search_issues.assert_called_once_with(
+        experiment_id="exp-1",
+        filter_string="status = 'pending'",
+        max_results=50,
+        page_token="tok-1",
+        include_trace_count=True,
+    )
+    assert issues == expected_issues
+
+
+def test_client_search_issues_with_source_run_id(mock_store):
+    expected_issues = PagedList([], token=None)
+    mock_store.search_issues.return_value = expected_issues
+
+    client = MlflowClient()
+
+    # Only source_run_id
+    client.search_issues(
+        experiment_id="exp-1",
+        source_run_id="run-123",
+    )
+    mock_store.search_issues.assert_called_with(
+        experiment_id="exp-1",
+        filter_string="source_run_id = 'run-123'",
+        max_results=None,
+        page_token=None,
+        include_trace_count=False,
+    )
+
+    # Both filter_string and source_run_id
+    client.search_issues(
+        experiment_id="exp-1",
+        filter_string="status = 'pending'",
+        source_run_id="run-123",
+    )
+    mock_store.search_issues.assert_called_with(
+        experiment_id="exp-1",
+        filter_string="(status = 'pending') AND source_run_id = 'run-123'",
+        max_results=None,
+        page_token=None,
+        include_trace_count=False,
+    )

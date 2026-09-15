@@ -1470,6 +1470,24 @@ service MlflowService {
     };
   }
 
+  // Submit issue detection for traces.
+  rpc submitIssueDetection(mlflow.issues.SubmitIssueDetection) returns (mlflow.issues.SubmitIssueDetection.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/issues/invoke"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Submit issue detection for traces"
+    };
+  }
+
   // =============================================================================
   // Label Schema RPCs
   // =============================================================================

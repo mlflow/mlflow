@@ -39,6 +39,7 @@ from mlflow.entities import (
     Experiment,
     Feedback,
     Issue,
+    IssueDetectionJob,
     IssueSeverity,
     IssueStatus,
     Run,
@@ -8363,6 +8364,22 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 issues = [sql_issue.to_mlflow_entity() for sql_issue in results[:max_results]]
 
             return PagedList(issues, token=next_token)
+
+    def submit_issue_detection(
+        self,
+        experiment_id: str,
+        trace_ids: list[str],
+        categories: list[str],
+        *,
+        provider: str | None = None,
+        model: str | None = None,
+        secret_id: str | None = None,
+        endpoint_name: str | None = None,
+    ) -> IssueDetectionJob:
+        raise MlflowException(
+            "Submitting issue detection is only supported against a remote MLflow tracking server "
+            "or when running the MLflow server."
+        )
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints
