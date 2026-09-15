@@ -612,6 +612,9 @@ def test_get_config_remote_access_allowed(
     client, monkeypatch, enabled, allows_remote_access, expected
 ):
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", str(enabled))
+    # Hold the sandbox enabled so remote_access_allowed reflects the enabled/provider inputs and
+    # does not depend on a docker executable being present on the test worker.
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: True)
     with patch("mlflow.server.assistant.api._get_selected_provider") as mock_get_selected_provider:
         mock_get_selected_provider.return_value.allows_remote_access = allows_remote_access
         response = client.get("/ajax-api/3.0/mlflow/assistant/config")
@@ -853,6 +856,9 @@ def test_is_localhost_blocks_when_no_client():
 )
 def test_provider_allows_remote_access(enabled, allows_remote_access, expected, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", str(enabled))
+    # The sandbox requirement is covered separately (test_provider_remote_access_requires_sandbox);
+    # hold it enabled here so this case does not depend on a docker executable being present.
+    monkeypatch.setattr("mlflow.server.assistant.api.assistant_sandbox_enabled", lambda: True)
     provider = MagicMock()
     provider.allows_remote_access = allows_remote_access
     assert _provider_allows_remote_access(provider) is expected
