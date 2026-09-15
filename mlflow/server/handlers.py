@@ -3032,6 +3032,33 @@ def _validate_non_local_source_contains_relative_paths(source: str):
         raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
 
 
+def _validate_prompt_source(source: str) -> None:
+    """
+    Prompt versions never legitimately reference the tracking server's filesystem: the only
+    schemeless sources MLflow itself sends are opaque placeholders such as "prompt-template" and
+    "dummy-source". Anything that a local artifact repository could resolve to a filesystem
+    location (absolute paths, relative traversal, "." and percent-encoded spellings of those) is
+    rejected so that the stored source cannot later be served by ``get-artifact``.
+    """
+    invalid_prompt_source_error_message = (
+        f"Invalid prompt source: '{source}'. Local source paths are not allowed for prompts."
+    )
+    parsed = urllib.parse.urlparse(source)
+    if parsed.scheme == "file":
+        raise MlflowException(invalid_prompt_source_error_message, INVALID_PARAMETER_VALUE)
+    if parsed.scheme:
+        _validate_non_local_source_contains_relative_paths(source)
+        return
+
+    # LocalArtifactRepository percent-decodes the stored source, so decode fully before
+    # inspecting it; otherwise "%2Fetc%2Fpasswd" or "..%2F.." would slip past a textual check.
+    decoded = source
+    while (unquoted := urllib.parse.unquote_plus(decoded)) != decoded:
+        decoded = unquoted
+    if decoded in (".", "..") or any(sep in decoded for sep in ("/", "\\", "\x00")):
+        raise MlflowException(invalid_prompt_source_error_message, INVALID_PARAMETER_VALUE)
+
+
 def _validate_source_run(source: str, run_id: str) -> None:
     if is_local_uri(source):
         if run_id:
@@ -3109,21 +3136,7 @@ def _create_model_version():
 
     is_prompt = _is_prompt_request(request_message)
     if is_prompt:
-        # Prompt sources must not point to local filesystem paths.
-        # Block file:// URIs and absolute paths (e.g. /etc/passwd) but allow
-        # the legitimate schemeless placeholder sources used internally
-        # (e.g. "prompt-template", "dummy-source").
-        source = request_message.source
-        parsed = urllib.parse.urlparse(source)
-        if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
-            raise MlflowException(
-                f"Invalid prompt source: '{source}'. "
-                "Local source paths are not allowed for prompts.",
-                INVALID_PARAMETER_VALUE,
-            )
-        # Only validate traversal for sources with a URL scheme (http, https, etc.)
-        if parsed.scheme:
-            _validate_non_local_source_contains_relative_paths(source)
+        _validate_prompt_source(request_message.source)
     else:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
@@ -3188,7 +3201,10 @@ def _create_model_version():
 
 
 def _is_prompt_request(request_message):
-    return any(tag.key == IS_PROMPT_TAG_KEY for tag in request_message.tags)
+    # Mirror ModelVersion._is_prompt: only a true-valued tag selects the prompt code path.
+    return any(
+        tag.key == IS_PROMPT_TAG_KEY and tag.value.lower() == "true" for tag in request_message.tags
+    )
 
 
 def _is_prompt(name: str) -> bool:
