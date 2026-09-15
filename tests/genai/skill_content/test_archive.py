@@ -494,3 +494,13 @@ def test_tar_negative_member_size_is_rejected(tmp_path, operation):
     }[operation]
     with pytest.raises(MlflowException, match="negative size|not a readable tar archive"):
         run()
+
+
+def test_bounded_stream_never_reads_past_the_allowance():
+    # The tar parser asks for its full declared header payload at once; the wrapper must not
+    # let the inner stream materialize more than the remaining allowance plus one byte.
+    inner = io.BytesIO(b"x" * 100_000)
+    stream = archive_module._BoundedStream(inner, 10)
+    with pytest.raises(MlflowException, match="allowance for tar headers"):
+        stream.read(100_000)
+    assert inner.tell() == 11

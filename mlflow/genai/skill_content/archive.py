@@ -86,6 +86,11 @@ class _BoundedStream:
         self._read = 0
 
     def read(self, size: int = -1) -> bytes:
+        # Never let the inner stream decompress more than the remaining allowance plus one
+        # byte, so an oversized header cannot be materialized in memory before the check.
+        remaining = self._limit - self._read + 1
+        if size < 0 or size > remaining:
+            size = remaining
         chunk = self._inner.read(size)
         self._read += len(chunk)
         if self._read > self._limit:
