@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789477303920,
+  "lastUpdate": 1789498559784,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "tomu.hirata@gmail.com",
-            "name": "Tomu Hirata",
-            "username": "TomeHirata"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "132b8da083d3761409aede9b1d55c576de965fba",
-          "message": "Fix llama_index cross-version test failures for 0.12.x and 0.14.x (#23173)\n\nSigned-off-by: Claude <noreply@anthropic.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-05-13T14:15:40Z",
-          "tree_id": "c18bb55bf5c92061c084cd257a962f4c795ed2c9",
-          "url": "https://github.com/mlflow/mlflow/commit/132b8da083d3761409aede9b1d55c576de965fba"
-        },
-        "date": 1778681989958,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 32.359714649998494,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 20.076228659091363,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 17.103723402439364,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 18.586823534246946,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 18.089659586664954,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 13.778979599999275,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 29.11998779999294,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "henishbrb@gmail.com",
+            "name": "Henish Borad",
+            "username": "henishborad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c4809553a5aba5cab5585b3dc0a7af69586aed1f",
+          "message": "Support logged model artifacts in the `createPresignedUploadUrl` endpoint (#24765)\n\nSigned-off-by: Henish Borad <henishb@amazon.com>\nSigned-off-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Henish Borad <henishb@amazon.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>",
+          "timestamp": "2026-09-15T18:51:17Z",
+          "tree_id": "a86e381839b14ec7fe4722216e98b8b77a83da39",
+          "url": "https://github.com/mlflow/mlflow/commit/c4809553a5aba5cab5585b3dc0a7af69586aed1f"
+        },
+        "date": 1789498555913,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 49.547957249993146,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.267355803575673,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 6.4125894246585595,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.259252286955693,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.75233499224641,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.620267800005422,
             "unit": "ms"
           }
         ]
