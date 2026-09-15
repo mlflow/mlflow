@@ -101,7 +101,11 @@ from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewSt
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
-from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
+from mlflow.prompt.constants import (
+    PROMPT_SOURCE_PLACEHOLDERS,
+    PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_TAG_KEY,
+)
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -3034,29 +3038,21 @@ def _validate_non_local_source_contains_relative_paths(source: str):
 
 def _validate_prompt_source(source: str) -> None:
     """
-    Prompt versions never legitimately reference the tracking server's filesystem: the only
-    schemeless sources MLflow itself sends are opaque placeholders such as "prompt-template" and
-    "dummy-source". Anything that a local artifact repository could resolve to a filesystem
-    location (absolute paths, relative traversal, "." and percent-encoded spellings of those) is
-    rejected so that the stored source cannot later be served by ``get-artifact``.
+    Prompt versions never legitimately reference the tracking server's filesystem. A schemeless
+    source selects ``LocalArtifactRepository`` and becomes the directory that ``get-artifact``
+    later serves from, so any schemeless value other than the known client placeholders is
+    rejected outright; a separator-free name such as "mlflow" would still expose a directory
+    under the server's working directory.
     """
-    invalid_prompt_source_error_message = (
-        f"Invalid prompt source: '{source}'. Local source paths are not allowed for prompts."
-    )
     parsed = urllib.parse.urlparse(source)
-    if parsed.scheme == "file":
-        raise MlflowException(invalid_prompt_source_error_message, INVALID_PARAMETER_VALUE)
-    if parsed.scheme:
+    if parsed.scheme and parsed.scheme != "file":
         _validate_non_local_source_contains_relative_paths(source)
         return
-
-    # LocalArtifactRepository percent-decodes the stored source, so decode fully before
-    # inspecting it; otherwise "%2Fetc%2Fpasswd" or "..%2F.." would slip past a textual check.
-    decoded = source
-    while (unquoted := urllib.parse.unquote_plus(decoded)) != decoded:
-        decoded = unquoted
-    if decoded in (".", "..") or any(sep in decoded for sep in ("/", "\\", "\x00")):
-        raise MlflowException(invalid_prompt_source_error_message, INVALID_PARAMETER_VALUE)
+    if source not in PROMPT_SOURCE_PLACEHOLDERS:
+        raise MlflowException(
+            f"Invalid prompt source: '{source}'. Local source paths are not allowed for prompts.",
+            INVALID_PARAMETER_VALUE,
+        )
 
 
 def _validate_source_run(source: str, run_id: str) -> None:
@@ -3201,10 +3197,10 @@ def _create_model_version():
 
 
 def _is_prompt_request(request_message):
-    # Mirror ModelVersion._is_prompt: only a true-valued tag selects the prompt code path.
-    return any(
-        tag.key == IS_PROMPT_TAG_KEY and tag.value.lower() == "true" for tag in request_message.tags
-    )
+    # Mirror ModelVersion._is_prompt: tags collapse by key with the last value winning, and only a
+    # true-valued tag selects the prompt code path.
+    tags = {tag.key: tag.value for tag in request_message.tags}
+    return tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
 
 
 def _is_prompt(name: str) -> bool:
