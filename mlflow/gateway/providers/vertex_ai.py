@@ -87,6 +87,18 @@ def _strip_function_call_ids(gemini_payload: dict[str, Any]) -> dict[str, Any]:
     return gemini_payload
 
 
+def _filter_anthropic_betas(headers: dict[str, str], allowed: list[str]) -> dict[str, str]:
+    """Keep only ``allowed`` values in the ``anthropic-beta`` header, dropping it if none remain."""
+    filtered = {}
+    for name, value in headers.items():
+        if name.lower() != "anthropic-beta":
+            filtered[name] = value
+            continue
+        if kept := [beta for beta in map(str.strip, value.split(",")) if beta in allowed]:
+            filtered[name] = ",".join(kept)
+    return filtered
+
+
 class _VertexGeminiAdapter(GeminiAdapter):
     """GeminiAdapter for Gemini models on Vertex AI, which strips the Vertex-illegal
     ``functionCall``/``functionResponse`` ``id`` from the translated request.
@@ -176,6 +188,11 @@ class _VertexAIClaudeProvider(AnthropicProvider):
         # rejects a request carrying two Authorization headers, so always drop it.
         if headers:
             headers = _drop_client_auth_headers(headers)
+        # Vertex validates `anthropic-beta` against the betas it supports and rejects the
+        # whole request on a value it does not know, where the Anthropic API ignores it.
+        # The endpoint config decides which client betas get through.
+        if headers and (allowed := self.vertex_config.vertex_anthropic_betas) is not None:
+            headers = _filter_anthropic_betas(headers, allowed)
         return super()._get_headers(payload, headers)
 
     def get_endpoint_url(self, route_type: str) -> str:
