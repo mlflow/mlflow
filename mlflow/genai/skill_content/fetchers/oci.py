@@ -10,6 +10,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import requests
 
@@ -19,8 +20,10 @@ from mlflow.genai.skill_content.errors import (
     invalid_content,
     source_unavailable,
 )
+from mlflow.genai.skill_content.fetchers.zip import _discard_redirect_body
 from mlflow.genai.skill_content.paths import (
     canonical_relative_path,
+    collect_tree,
     ensure_within,
     is_under_subpath,
     normalize_subpath,
@@ -48,6 +51,9 @@ _REQUEST_TIMEOUT_SECONDS = 60
 _CREDENTIAL_HELPER_TIMEOUT_SECONDS = 30
 _DOWNLOAD_CHUNK_SIZE = 1024 * 1024
 _MAX_MANIFEST_BYTES = 4 * 1024 * 1024
+# Docker's own layer limit is 127; anything near this is not a skill image.
+_MAX_LAYERS = 256
+_LOOPBACK_HOSTS = ("localhost", "127.0.0.1", "::1")
 _CHALLENGE_PARAM_PATTERN = re.compile(r'(\w+)="([^"]*)"')
 _SHA256_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -111,8 +117,14 @@ def parse_image_reference(image: str) -> ImageReference:
 
 
 def _docker_config_path() -> Path:
-    config_dir = os.environ.get("DOCKER_CONFIG") or os.path.join(os.path.expanduser("~"), ".docker")
-    return Path(config_dir) / "config.json"
+    if config_dir := os.environ.get("DOCKER_CONFIG"):
+        return Path(config_dir) / "config.json"
+    return Path.home() / ".docker" / "config.json"
+
+
+def _is_loopback(netloc: str) -> bool:
+    """Whether ``host`` or ``host:port`` (IPv6 in brackets) names the local machine."""
+    return (urlsplit(f"//{netloc}").hostname or "") in _LOOPBACK_HOSTS
 
 
 def _credentials_from_auths(auths: dict[str, Any], keys: list[str]) -> tuple[str, str] | None:
@@ -241,10 +253,13 @@ class RegistryClient:
 
     def __init__(self, registry: str, *, session: requests.Session | None = None):
         self.registry = registry
-        host = registry.rsplit(":", 1)[0] if re.search(r":\d+$", registry) else registry
-        insecure = host in ("localhost", "127.0.0.1", "::1")
-        self.base_url = f"{'http' if insecure else 'https'}://{registry}"
+        # Plain http is only ever used for a registry on the local machine.
+        self.base_url = f"{'http' if _is_loopback(registry) else 'https'}://{registry}"
         self._session = session or requests.Session()
+        # Blob downloads are commonly redirected to a CDN; `requests` would otherwise buffer
+        # every redirect body in full before following it.
+        if _discard_redirect_body not in self._session.hooks["response"]:
+            self._session.hooks["response"].append(_discard_redirect_body)
         self._credentials = _load_docker_credentials(registry)
         self._token: str | None = None
 
@@ -257,6 +272,15 @@ class RegistryClient:
         return headers
 
     def _request_token(self, realm: str, params: dict[str, str]) -> str | None:
+        # The realm is chosen by the registry; credentials only ever travel to it over TLS,
+        # except for a token endpoint on the local machine.
+        parts = urlsplit(realm)
+        if parts.scheme != "https" and not (parts.scheme == "http" and _is_loopback(parts.netloc)):
+            raise source_unavailable(
+                realm,
+                "the registry's token endpoint must use https",
+                error_code=UNAUTHENTICATED,
+            )
         query = {k: v for k, v in params.items() if k in ("service", "scope")}
         if self._credentials and self._credentials[0] == _IDENTITY_TOKEN_USERNAME:
             form = {
@@ -265,10 +289,16 @@ class RegistryClient:
                 "client_id": "mlflow",
                 **query,
             }
-            response = self._session.post(realm, data=form, timeout=_REQUEST_TIMEOUT_SECONDS)
+            response = self._session.post(
+                realm, data=form, stream=True, timeout=_REQUEST_TIMEOUT_SECONDS
+            )
         else:
             response = self._session.get(
-                realm, params=query, auth=self._credentials, timeout=_REQUEST_TIMEOUT_SECONDS
+                realm,
+                params=query,
+                auth=self._credentials,
+                stream=True,
+                timeout=_REQUEST_TIMEOUT_SECONDS,
             )
         with response:
             if response.status_code >= 400:
@@ -359,8 +389,11 @@ def _select_manifest(client: RegistryClient, ref: ImageReference) -> dict[str, A
     """
     manifest, media_type = _fetch_manifest(client, ref)
     if media_type in _INDEX_MEDIA_TYPES or "manifests" in manifest:
+        entries = manifest.get("manifests")
+        if not isinstance(entries, list):
+            raise invalid_content(f"OCI index for '{ref.display}' has a malformed manifest list.")
         chosen = None
-        for candidate in manifest.get("manifests", []):
+        for candidate in entries:
             if not isinstance(candidate, dict):
                 continue
             platform = candidate.get("platform") or {}
@@ -383,8 +416,14 @@ def _select_manifest(client: RegistryClient, ref: ImageReference) -> dict[str, A
                 f"OCI index for '{ref.display}' nests another index; not supported."
             )
         manifest = child
-    if not isinstance(manifest.get("layers"), list):
+    layers = manifest.get("layers")
+    if not isinstance(layers, list):
         raise invalid_content(f"OCI manifest for '{ref.display}' contains no layers.")
+    if len(layers) > _MAX_LAYERS:
+        raise invalid_content(
+            f"OCI manifest for '{ref.display}' has {len(layers)} layers; the maximum is "
+            f"{_MAX_LAYERS}."
+        )
     return manifest
 
 
@@ -481,7 +520,7 @@ def fetch_oci(
     Multi-platform indexes resolve to ``linux/amd64``. Credentials come from the Docker config
     file: ``auths`` entries, then ``credHelpers`` or ``credsStore`` helpers. The decompressed
     limit applies to the content at ``subpath``; each layer download is also bounded by the
-    limit on the wire.
+    limit on the wire, and only one layer at a time occupies ``scratch``.
     """
     ref = parse_image_reference(image)
     client = RegistryClient(ref.registry)
@@ -517,6 +556,9 @@ def fetch_oci(
             )
             remaining -= tree_size(extracted)
             _merge_tree(extracted, dest)
+            # Scratch space is bounded by one layer at a time, not by the whole image.
+            blob.unlink()
+            shutil.rmtree(extracted)
         else:
             remaining -= _place_file_layer(blob, layer, dest, prefix)
         if remaining < 0:
@@ -524,4 +566,7 @@ def fetch_oci(
                 f"OCI image '{ref.display}' exceeds the skill content size limit of "
                 f"{max_bytes} bytes."
             )
+    # Each layer was validated on its own; the merged tree is checked again so that paths
+    # from different layers cannot collide by case or Unicode normalization.
+    collect_tree(dest)
     return dest

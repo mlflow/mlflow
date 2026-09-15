@@ -4,7 +4,9 @@ import http.server
 import json
 import os
 import stat
+import sys
 import threading
+from unittest import mock
 
 import pytest
 
@@ -14,9 +16,11 @@ from mlflow.genai.skill_content.archive import package_skill_tree
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.fetchers import fetch_source
 from mlflow.genai.skill_content.fetchers.oci import (
+    RegistryClient,
     _load_docker_credentials,
     parse_image_reference,
 )
+from mlflow.genai.skill_content.fetchers.zip import _discard_redirect_body
 
 from tests.genai.skill_content.conftest import SKILL_MD
 
@@ -36,6 +40,8 @@ class _RegistryHandler(http.server.BaseHTTPRequestHandler):
     basic_credentials = None
     token = "test-token"
     token_requests = []
+    redirect_blobs = False
+    redirect_hits = []
 
     def log_message(self, *args):
         pass
@@ -82,7 +88,21 @@ class _RegistryHandler(http.server.BaseHTTPRequestHandler):
             if blob is None:
                 self._send(404, b"{}")
                 return
+            if self.redirect_blobs:
+                # Registries commonly redirect blob pulls to a CDN; the redirect body is large
+                # on purpose so buffering it would be observable.
+                self.redirect_hits.append(parts[-1])
+                self._send(
+                    307,
+                    b"x" * (64 * 1024),
+                    content_type="text/plain",
+                    headers={"Location": f"/cdn/{parts[-1]}"},
+                )
+                return
             self._send(200, blob, content_type="application/octet-stream")
+            return
+        if len(parts) == 3 and parts[1] == "cdn":
+            self._send(200, self.blobs[parts[2]], content_type="application/octet-stream")
             return
         self._send(404, b"{}")
 
@@ -126,6 +146,14 @@ def oci_registry(tmp_path, skill_tree):
     dir_clash.mkdir()
     (dir_clash / "skills").write_bytes(b"i am a file")
     clash_tar = package_skill_tree(dir_clash, tmp_path / "clash.tar.gz").read_bytes()
+    upper_dir = tmp_path / "upper"
+    (upper_dir / "docs").mkdir(parents=True)
+    (upper_dir / "docs" / "Notes.txt").write_bytes(b"upper")
+    upper_tar = package_skill_tree(upper_dir, tmp_path / "upper.tar.gz").read_bytes()
+    lower_dir = tmp_path / "lower"
+    (lower_dir / "docs").mkdir(parents=True)
+    (lower_dir / "docs" / "notes.txt").write_bytes(b"lower")
+    lower_tar = package_skill_tree(lower_dir, tmp_path / "lower.tar.gz").read_bytes()
 
     main = json.dumps(
         _manifest([_tar_layer(tar_layer), _file_layer(file_layer, "docs/README.md")])
@@ -182,6 +210,14 @@ def oci_registry(tmp_path, skill_tree):
             json.dumps(_manifest([_tar_layer(tar_layer), _tar_layer(clash_tar)])).encode(),
             _MANIFEST_TYPE,
         ),
+        "too-many-layers": (
+            json.dumps(_manifest([_tar_layer(small_tar)] * 257)).encode(),
+            _MANIFEST_TYPE,
+        ),
+        "case-collision": (
+            json.dumps(_manifest([_tar_layer(upper_tar), _tar_layer(lower_tar)])).encode(),
+            _MANIFEST_TYPE,
+        ),
     }
     handler = type(
         "Handler",
@@ -192,11 +228,14 @@ def oci_registry(tmp_path, skill_tree):
                 _sha256(file_layer): file_layer,
                 _sha256(small_tar): small_tar,
                 _sha256(clash_tar): clash_tar,
+                _sha256(upper_tar): upper_tar,
+                _sha256(lower_tar): lower_tar,
                 "sha256:" + "1" * 64: tar_layer,
             },
             "manifests": manifests,
             "challenge": 'Bearer realm="{realm}",service="test",scope="repository:demo:pull"',
             "token_requests": [],
+            "redirect_hits": [],
         },
     )
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -299,6 +338,7 @@ def test_fetch_oci_subpath_limits_budget(oci_registry):
         ("lying-size", {"max_bytes": 100}, "exceeds the skill content size limit"),
         ("no-size", {"max_bytes": 100}, "exceeds the skill content size limit"),
         ("file-over-dir", {}, "OCI layers disagree"),
+        ("too-many-layers", {}, "has 257 layers; the maximum is 256"),
     ],
 )
 def test_fetch_oci_errors(oci_registry, reference, kwargs, message):
@@ -313,6 +353,56 @@ def test_fetch_oci_two_layers_within_budget(oci_registry):
     host, _ = oci_registry
     with fetch_source(f"oci://{host}/skills/demo:two-layers", max_bytes=200) as fetched:
         assert (fetched.root / "docs" / "a.txt").stat().st_size == 60
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="needs a case-sensitive filesystem")
+def test_fetch_oci_rejects_cross_layer_case_collision(oci_registry):
+    # Each layer is validated on its own, so a collision that spans two layers is only
+    # visible once they are merged.
+    host, _ = oci_registry
+    with pytest.raises(MlflowException, match="differ only by letter case"):
+        with fetch_source(f"oci://{host}/skills/demo:case-collision"):
+            pass
+
+
+def test_fetch_oci_follows_blob_redirects_without_buffering(oci_registry, skill_tree):
+    host, handler = oci_registry
+    handler.redirect_blobs = True
+    with fetch_source(f"oci://{host}/skills/demo:v1", subpath="skills/demo") as fetched:
+        assert compute_tree_digest(fetched.root) == compute_tree_digest(
+            skill_tree / "skills" / "demo"
+        )
+    assert len(handler.redirect_hits) == 2
+    assert _discard_redirect_body in RegistryClient(host)._session.hooks["response"]
+
+
+@pytest.mark.parametrize(
+    ("registry", "expected"),
+    [
+        ("127.0.0.1:5000", "http://127.0.0.1:5000"),
+        ("[::1]:5000", "http://[::1]:5000"),
+        ("localhost", "http://localhost"),
+        ("LOCALHOST:5000", "http://LOCALHOST:5000"),
+        ("registry.example.com:5000", "https://registry.example.com:5000"),
+        ("localhost.example.com", "https://localhost.example.com"),
+    ],
+)
+def test_registry_client_uses_plain_http_only_for_loopback(registry, expected):
+    assert RegistryClient(registry).base_url == expected
+
+
+@pytest.mark.parametrize(
+    "realm",
+    ["http://auth.example.com/token", "ftp://auth.example.com/token", "http://[::2]/token"],
+)
+def test_registry_client_refuses_insecure_token_realm(realm):
+    session = mock.Mock(spec=["get", "post", "hooks", "auth"], hooks={"response": []})
+    client = RegistryClient("registry.example.com", session=session)
+    with pytest.raises(MlflowException, match="token endpoint must use https") as exc:
+        client._acquire_token(f'Bearer realm="{realm}",service="test"')
+    assert exc.value.error_code == "UNAUTHENTICATED"
+    session.get.assert_not_called()
+    session.post.assert_not_called()
 
 
 def test_fetch_oci_unreachable(closed_port):
