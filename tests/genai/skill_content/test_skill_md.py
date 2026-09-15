@@ -164,10 +164,20 @@ def test_parse_skill_md_rejects_yaml_aliases(content):
         parse_skill_md(content)
 
 
-def test_parse_skill_md_rejects_inline_merge_keys():
-    # A merge key can pull fields from an inline mapping without any alias event.
+@pytest.mark.parametrize(
+    "frontmatter",
+    [
+        # A merge key can pull fields from an inline mapping without any alias event.
+        "<<: {description: merged}",
+        # An explicit merge tag is applied by SafeLoader whatever the key's value or style.
+        '!!merge "x": {description: merged}',
+        "!!merge x: {description: merged}",
+        "!<tag:yaml.org,2002:merge> x: {description: merged}",
+    ],
+)
+def test_parse_skill_md_rejects_inline_merge_keys(frontmatter):
     with pytest.raises(MlflowException, match="aliases and merge keys are not allowed"):
-        parse_skill_md("---\nname: demo\n<<: {description: merged}\n---\n")
+        parse_skill_md(f"---\nname: demo\n{frontmatter}\n---\n")
     # A quoted "<<" is an ordinary key, not a merge.
     metadata, _ = parse_skill_md('---\nname: demo\n"<<": literal\n---\n')
     assert metadata == {"name": "demo", "<<": "literal"}

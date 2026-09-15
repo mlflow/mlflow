@@ -31,11 +31,11 @@ def _reject_yaml_references(text: str) -> None:
     for event in yaml.parse(text, Loader=yaml.SafeLoader):
         if isinstance(event, AliasEvent):
             raise yaml.YAMLError("YAML aliases and merge keys are not allowed in frontmatter")
-        if (
-            isinstance(event, ScalarEvent)
-            and event.value == "<<"
-            and event.style is None
-            and event.tag in (None, _MERGE_TAG)
+        # A merge is either a plain, untagged ``<<`` or any scalar explicitly tagged ``!!merge``;
+        # a quoted ``"<<"`` is an ordinary key.
+        if isinstance(event, ScalarEvent) and (
+            event.tag == _MERGE_TAG
+            or (event.value == "<<" and event.style is None and event.tag is None)
         ):
             raise yaml.YAMLError("YAML aliases and merge keys are not allowed in frontmatter")
 
