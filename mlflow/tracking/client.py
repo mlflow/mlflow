@@ -920,6 +920,7 @@ class MlflowClient:
         self,
         filter_string: str | None = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
         page_token: str | None = None,
     ) -> PagedList[Prompt]:
         """
@@ -937,6 +938,9 @@ class MlflowClient:
             max_results (int):
                 The maximum number of prompts to return in one page.  Defaults
                 to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
+            order_by (Optional[list[str]]):
+                List of column names with ASC|DESC annotation to order the results by.
+                Not honored by Unity Catalog registries. Defaults to `None`.
             page_token (Optional[str]):
                 A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
@@ -979,6 +983,7 @@ class MlflowClient:
         return registry_client.search_prompts(
             filter_string=filter_string,
             max_results=max_results,
+            order_by=order_by,
             page_token=page_token,
         )
 

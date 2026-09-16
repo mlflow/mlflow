@@ -707,6 +707,7 @@ def register_prompt(
 def search_prompts(
     filter_string: str | None = None,
     max_results: int | None = None,
+    order_by: list[str] | None = None,
 ) -> list[Prompt]:
     """
     Search for prompts in the MLflow Prompt Registry.
@@ -722,6 +723,9 @@ def search_prompts(
             catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
         max_results (Optional[int]):
             The maximum number of prompts to return.
+        order_by (Optional[list[str]]):
+            List of column names with ASC|DESC annotation to order the results by.
+            Not honored by Unity Catalog registries.
 
     Returns:
         A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects representing prompt metadata:
@@ -756,7 +760,10 @@ def search_prompts(
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_prompts(
-            filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
+            filter_string=filter_string,
+            max_results=number_to_get,
+            order_by=order_by,
+            page_token=next_page_token,
         )
 
     return get_results_from_paginated_fn(

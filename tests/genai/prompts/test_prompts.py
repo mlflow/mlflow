@@ -1803,6 +1803,25 @@ def test_search_prompts_with_combined_filters():
     assert prompts[0].name == "gamma_prompt"
 
 
+def test_search_prompts_order_by():
+    mlflow.genai.register_prompt(name="alpha_prompt", template="Alpha: {{x}}")
+    mlflow.genai.register_prompt(name="beta_prompt", template="Beta: {{y}}")
+    mlflow.genai.register_prompt(name="gamma_prompt", template="Gamma: {{z}}")
+
+    # order_by must reach the store through mlflow.genai.search_prompts ->
+    # _model_registry.fluent.search_prompts -> MlflowClient.search_prompts,
+    # not just MlflowClient directly.
+    prompts = mlflow.genai.search_prompts(
+        filter_string="name LIKE '%_prompt'", order_by=["name DESC"]
+    )
+    assert [p.name for p in prompts] == ["gamma_prompt", "beta_prompt", "alpha_prompt"]
+
+    prompts = mlflow.genai.search_prompts(
+        filter_string="name LIKE '%_prompt'", order_by=["name ASC"]
+    )
+    assert [p.name for p in prompts] == ["alpha_prompt", "beta_prompt", "gamma_prompt"]
+
+
 def test_load_prompt_sets_span_attributes():
     mlflow.genai.register_prompt(name="span_test_prompt", template="Hello, {{name}}!")
 
