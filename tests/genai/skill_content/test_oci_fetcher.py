@@ -6,6 +6,7 @@ import json
 import os
 import stat
 import sys
+import tarfile
 import threading
 from unittest import mock
 
@@ -19,6 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.archive import package_skill_tree
 from mlflow.genai.skill_content.digest import compute_tree_digest
 from mlflow.genai.skill_content.fetchers import fetch_source
+from mlflow.genai.skill_content.fetchers import oci as oci_module
 from mlflow.genai.skill_content.fetchers.oci import (
     RegistryClient,
     _load_docker_credentials,
@@ -520,6 +522,116 @@ def test_registry_client_does_not_follow_token_redirects(credentials):
         client._request_token("https://auth.example/token", {})
     assert exc.value.error_code == "UNAUTHENTICATED"
     assert [url for url, _ in adapter.sent] == ["https://auth.example/token"]
+
+
+def _raw_tar_gz(files):
+    """Build a gzip tar directly so whiteout markers can be included as plain entries."""
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w:gz") as tar:
+        for name, data in files.items():
+            entry = tarfile.TarInfo(name)
+            if data is None:
+                entry.type = tarfile.DIRTYPE
+                entry.mode = 0o755
+                tar.addfile(entry)
+                continue
+            entry.size = len(data)
+            entry.mode = 0o644
+            tar.addfile(entry, io.BytesIO(data))
+    return out.getvalue()
+
+
+def _fetch_layers(tmp_path, layers, subpath=None):
+    """Run ``fetch_oci`` over in-memory tar layers with the registry I/O mocked out."""
+    manifest = {"layers": [{"mediaType": _TAR_GZ_TYPE, "payload": blob} for blob in layers]}
+
+    def download(client, ref, layer, target, *, max_bytes):
+        target.write_bytes(layer["payload"])
+
+    dest = tmp_path / "content"
+    with (
+        mock.patch.object(oci_module, "RegistryClient"),
+        mock.patch.object(oci_module, "_select_manifest", return_value=manifest),
+        mock.patch.object(oci_module, "_download_blob", side_effect=download),
+    ):
+        oci_module.fetch_oci(
+            "example.com/skill:v1", dest, scratch=tmp_path, max_bytes=1024 * 1024, subpath=subpath
+        )
+    return dest
+
+
+def _listing(root):
+    return sorted(str(p.relative_to(root)) for p in root.rglob("*"))
+
+
+def test_fetch_oci_whiteout_removes_lower_file(tmp_path):
+    dest = _fetch_layers(
+        tmp_path,
+        [
+            _raw_tar_gz({"SKILL.md": b"current", "old.sh": b"obsolete"}),
+            _raw_tar_gz({".wh.old.sh": b""}),
+        ],
+    )
+    assert _listing(dest) == ["SKILL.md"]
+
+
+def test_fetch_oci_whiteout_removes_lower_directory_tree(tmp_path):
+    dest = _fetch_layers(
+        tmp_path,
+        [
+            _raw_tar_gz({"skills/": None, "skills/a/": None, "skills/a/SKILL.md": b"a"}),
+            # Deleting the directory and re-adding a file of the same name in one layer.
+            _raw_tar_gz({".wh.skills": b"", "skills": b"now a file"}),
+        ],
+    )
+    assert _listing(dest) == ["skills"]
+    assert (dest / "skills").read_text() == "now a file"
+
+
+def test_fetch_oci_opaque_whiteout_clears_lower_directory(tmp_path):
+    dest = _fetch_layers(
+        tmp_path,
+        [
+            _raw_tar_gz({"docs/": None, "docs/old.md": b"old", "docs/keep.md": b"lower"}),
+            _raw_tar_gz({"docs/": None, "docs/.wh..wh..opq": b"", "docs/new.md": b"new"}),
+        ],
+    )
+    assert _listing(dest) == ["docs", "docs/new.md"]
+
+
+@pytest.mark.parametrize(
+    "deleting_layer",
+    [
+        {".wh.skills": b""},
+        {"skills/": None, "skills/.wh.demo": b""},
+        {"skills/": None, "skills/demo/": None, "skills/demo/.wh..wh..opq": b""},
+        {".wh..wh..opq": b""},
+    ],
+)
+def test_fetch_oci_whiteout_of_subpath_ancestor_clears_selected_tree(tmp_path, deleting_layer):
+    # Entries outside the subpath are never extracted, so their deletions are applied by name.
+    base = {
+        "skills/": None,
+        "skills/demo/": None,
+        "skills/demo/SKILL.md": b"lower",
+        "README.md": b"outside",
+    }
+    dest = _fetch_layers(
+        tmp_path, [_raw_tar_gz(base), _raw_tar_gz(deleting_layer)], subpath="skills/demo"
+    )
+    assert _listing(dest) == ["skills", "skills/demo"]
+
+
+def test_fetch_oci_whiteout_outside_subpath_is_ignored(tmp_path):
+    dest = _fetch_layers(
+        tmp_path,
+        [
+            _raw_tar_gz({"skills/": None, "skills/demo/": None, "skills/demo/SKILL.md": b"x"}),
+            _raw_tar_gz({".wh.README.md": b"", "skills/": None, "skills/.wh.other": b""}),
+        ],
+        subpath="skills/demo",
+    )
+    assert _listing(dest) == ["skills", "skills/demo", "skills/demo/SKILL.md"]
 
 
 def test_fetch_oci_unreachable(closed_port):

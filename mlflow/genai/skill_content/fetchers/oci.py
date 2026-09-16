@@ -14,7 +14,12 @@ from urllib.parse import urlsplit
 
 import requests
 
-from mlflow.genai.skill_content.archive import extract_skill_archive
+from mlflow.genai.skill_content.archive import (
+    _iter_tar_members,
+    _member_relative_path,
+    _open_tar,
+    extract_skill_archive,
+)
 from mlflow.genai.skill_content.errors import (
     error_code_for_http_status,
     invalid_content,
@@ -54,6 +59,11 @@ _MAX_MANIFEST_BYTES = 4 * 1024 * 1024
 # Docker's own layer limit is 127; anything near this is not a skill image.
 _MAX_LAYERS = 256
 _LOOPBACK_HOSTS = ("localhost", "127.0.0.1", "::1")
+# OCI layers mark deletions of lower-layer content with these entries (the "whiteout" rules
+# of the image spec): ``.wh.<name>`` removes ``<name>``; ``.wh..wh..opq`` inside a directory
+# removes everything the lower layers put there.
+_WHITEOUT_PREFIX = ".wh."
+_OPAQUE_WHITEOUT = ".wh..wh..opq"
 _CHALLENGE_PARAM_PATTERN = re.compile(r'(\w+)="([^"]*)"')
 _SHA256_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -492,9 +502,77 @@ def _download_blob(
         raise invalid_content(f"OCI layer {digest} did not match its digest after download.")
 
 
+def _clear_directory(path: Path) -> None:
+    if not path.is_dir():
+        return
+    for child in path.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+
+
+def _remove_path(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    elif path.exists():
+        path.unlink()
+
+
+def _layer_whiteouts(blob: Path, *, compressed: bool) -> list[str]:
+    """Canonical paths of every whiteout entry in a tar layer, inside the subpath or not."""
+    whiteouts = []
+    with _open_tar(blob, compressed=compressed) as (tar, bounded):
+        for member in _iter_tar_members(tar, bounded):
+            relative = _member_relative_path(member.name)
+            if relative is not None and relative.rsplit("/", 1)[-1].startswith(_WHITEOUT_PREFIX):
+                whiteouts.append(relative)
+    return whiteouts
+
+
+def _apply_whiteouts(whiteouts: list[str], dest: Path, prefix: str | None) -> None:
+    """
+    Delete lower-layer content named by ``whiteouts`` from ``dest``.
+
+    The subpath filter only extracts entries beneath ``prefix``, so a deletion of the
+    subpath itself or of one of its ancestors is applied by clearing the whole selected tree;
+    deletions inside the subpath remove just that path. Whiteouts elsewhere are irrelevant.
+    """
+    content_root = dest if prefix is None else dest.joinpath(*prefix.split("/"))
+    for entry in whiteouts:
+        directory, _, name = entry.rpartition("/")
+        if name == _OPAQUE_WHITEOUT:
+            # Applies to ``directory`` (the layer root when empty).
+            covers_root = prefix is not None and (
+                not directory or is_under_subpath(prefix, directory)
+            )
+            if covers_root or (prefix is None and not directory):
+                _clear_directory(content_root)
+            elif is_under_subpath(directory, prefix):
+                _clear_directory(dest.joinpath(*directory.split("/")))
+            continue
+        deleted = (
+            f"{directory}/{name[len(_WHITEOUT_PREFIX) :]}"
+            if directory
+            else name[len(_WHITEOUT_PREFIX) :]
+        )
+        if prefix is not None and is_under_subpath(prefix, deleted):
+            _clear_directory(content_root)
+        elif is_under_subpath(deleted, prefix):
+            target = dest.joinpath(*deleted.split("/"))
+            ensure_within(dest, target)
+            _remove_path(target)
+
+
 def _merge_tree(source: Path, dest: Path) -> None:
-    """Move an extracted layer into ``dest``; later layers replace files but never change kinds."""
+    """
+    Move an extracted layer into ``dest``; later layers replace files but never change kinds.
+
+    Whiteout markers were applied before the merge and are never copied.
+    """
     for item in source.iterdir():
+        if item.name.startswith(_WHITEOUT_PREFIX):
+            continue
         target = dest / item.name
         if item.is_dir():
             if target.exists() and not target.is_dir():
@@ -543,7 +621,8 @@ def fetch_oci(
     Pull the layers of ``image`` into ``dest``.
 
     Layers whose media type is a tar (optionally gzip-compressed) are extracted with the skill
-    archive rules; any other layer is written as a single file named by its
+    archive rules and merged in order, applying the image spec's whiteout deletions to the
+    lower layers first; any other layer is written as a single file named by its
     ``org.opencontainers.image.title`` annotation, which is how ORAS publishes plain files.
     Multi-platform indexes resolve to ``linux/amd64``. Credentials come from the Docker config
     file: ``auths`` entries, then ``credHelpers`` or ``credsStore`` helpers. The decompressed
@@ -574,15 +653,13 @@ def fetch_oci(
                     f"OCI image '{ref.display}' exceeds the skill content size limit of "
                     f"{max_bytes} bytes."
                 )
+            compressed = "gzip" in media_type
             extracted = tmp_path / f"extracted-{index}"
             extract_skill_archive(
-                blob,
-                extracted,
-                max_bytes=remaining,
-                compressed="gzip" in media_type,
-                subpath=prefix,
+                blob, extracted, max_bytes=remaining, compressed=compressed, subpath=prefix
             )
             remaining -= tree_size(extracted)
+            _apply_whiteouts(_layer_whiteouts(blob, compressed=compressed), dest, prefix)
             _merge_tree(extracted, dest)
             # Scratch space is bounded by one layer at a time, not by the whole image.
             blob.unlink()
