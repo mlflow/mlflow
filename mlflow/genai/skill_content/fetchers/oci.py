@@ -263,6 +263,11 @@ class RegistryClient:
         self._credentials = _load_docker_credentials(registry)
         self._token: str | None = None
 
+    def _from_registry(self, response: requests.Response) -> bool:
+        """Whether ``response`` came from the registry itself rather than a redirect target."""
+        parts = urlsplit(response.url or "")
+        return f"{parts.scheme}://{parts.netloc}".lower() == self.base_url.lower()
+
     def _headers(self, accept: str | None) -> dict[str, str]:
         headers = {}
         if accept:
@@ -339,6 +344,15 @@ class RegistryClient:
                 challenge := response.headers.get("WWW-Authenticate")
             ):
                 response.close()
+                # Blob pulls are redirected to content servers that must never get to choose
+                # where the registry credentials are sent; only the registry's own challenge
+                # is honored.
+                if not self._from_registry(response):
+                    raise source_unavailable(
+                        url,
+                        f"a redirect target ('{response.url}') requested authentication",
+                        error_code=UNAUTHENTICATED,
+                    )
                 if not self._acquire_token(challenge):
                     raise source_unavailable(
                         url,

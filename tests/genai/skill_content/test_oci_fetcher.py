@@ -9,6 +9,7 @@ import threading
 from unittest import mock
 
 import pytest
+import requests
 
 from mlflow.entities.skill_source import OCISource
 from mlflow.exceptions import MlflowException
@@ -403,6 +404,74 @@ def test_registry_client_refuses_insecure_token_realm(realm):
     assert exc.value.error_code == "UNAUTHENTICATED"
     session.get.assert_not_called()
     session.post.assert_not_called()
+
+
+def _canned_response(status, url, *, headers=None, payload=None):
+    response = requests.Response()
+    response.status_code = status
+    response.url = url
+    response.headers.update(headers or {})
+    response._content = json.dumps(payload or {}).encode()
+    response._content_consumed = True
+    return response
+
+
+def test_registry_client_ignores_challenge_from_redirect_target():
+    session = mock.Mock(hooks={"response": []})
+    session.get.return_value = _canned_response(
+        401,
+        "https://cdn.example/blob",
+        headers={"WWW-Authenticate": 'Bearer realm="https://cdn.example/token"'},
+    )
+    with mock.patch(
+        "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials",
+        return_value=("user", "dummy-password"),
+    ):
+        client = RegistryClient("registry.example", session=session)
+    with mock.patch.object(client, "_request_token", return_value=None) as request_token:
+        with pytest.raises(MlflowException, match="redirect target .* requested auth") as exc:
+            client.get("/v2/acme/skill/blobs/sha256:" + "a" * 64)
+        request_token.assert_not_called()
+    assert exc.value.error_code == "UNAUTHENTICATED"
+    assert session.get.call_count == 1
+
+
+def test_registry_client_allows_separate_token_service_named_by_registry():
+    registry_url = "https://registry.example/v2/acme/skill/manifests/v1"
+    token_url = "https://auth.example/token"
+    session = mock.Mock(hooks={"response": []})
+    session.get.side_effect = [
+        _canned_response(
+            401,
+            registry_url,
+            headers={
+                "WWW-Authenticate": (
+                    f'Bearer realm="{token_url}",service="registry.example",'
+                    'scope="repository:acme/skill:pull"'
+                )
+            },
+        ),
+        _canned_response(200, token_url, payload={"token": "dummy-token"}),
+        _canned_response(200, registry_url, payload={"layers": []}),
+    ]
+    with mock.patch(
+        "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials",
+        return_value=("user", "dummy-password"),
+    ):
+        client = RegistryClient("registry.example", session=session)
+    with client.get("/v2/acme/skill/manifests/v1") as response:
+        assert response.status_code == 200
+    calls = session.get.call_args_list
+    assert len(calls) == 3
+    # The registry's own challenge may point at a token service on another host.
+    assert calls[1].args[0] == token_url
+    assert calls[1].kwargs["auth"] == ("user", "dummy-password")
+    assert calls[1].kwargs["params"] == {
+        "service": "registry.example",
+        "scope": "repository:acme/skill:pull",
+    }
+    assert calls[2].args[0] == registry_url
+    assert calls[2].kwargs["headers"]["Authorization"] == "Bearer dummy-token"
 
 
 def test_fetch_oci_unreachable(closed_port):
