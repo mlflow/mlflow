@@ -57,6 +57,7 @@ from mlflow.server.mcp_server_api import (
     search_mcp_server_versions,
     search_mcp_servers,
 )
+from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.utils import workspace_context
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -1774,8 +1775,9 @@ def test_create_model_version_from_own_source_succeeds(
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+@pytest.mark.parametrize("source_id_key", ["run_id", "runId", "model_id", "modelId"])
 def test_create_model_version_empty_source_id_does_not_bypass(
-    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_id_key: str
 ):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -1788,16 +1790,93 @@ def test_create_model_version_empty_source_id_does_not_bypass(
     with User(username2, password2, monkeypatch):
         rm = client.create_registered_model("empty-id-authz-model")
 
-    # An explicitly-supplied empty run_id must not skip the source-read guard: the request
-    # is denied rather than slipping past as if run_id were absent.
+    # An explicitly-supplied empty source id must not skip the source-read guard: the
+    # request is denied rather than slipping past as if the id were absent.
     response = _send_rest_tracking_post_request(
         client.tracking_uri,
         "/api/2.0/mlflow/model-versions/create",
-        json_payload={"name": rm.name, "source": source, "run_id": ""},
+        json_payload={"name": rm.name, "source": source, source_id_key: ""},
         auth=(username2, password2),
     )
     assert response.status_code == 403
     assert "Permission denied" in response.text
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("source_id_key", ["run_id", "runId", "model_id", "modelId"])
+def test_create_model_version_nonexistent_source_id_is_denied(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_id_key: str
+):
+    username, password = create_user(client.tracking_uri)
+
+    with User(username, password, monkeypatch):
+        rm = client.create_registered_model("missing-source-authz-model")
+
+    # A nonexistent source id is denied with 403 rather than surfacing the store's 404, so
+    # the response cannot be used to probe which run/model ids exist.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": rm.name, "source": "s3://bucket/x", source_id_key: "missing"},
+        auth=(username, password),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("source_kind", ["run", "model"])
+def test_create_model_version_camelcase_alias_requires_read_on_source(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_kind: str
+):
+    # The handler parses the body through the proto, which also accepts the camelCase
+    # `runId` / `modelId` aliases. The validator must authorize those aliases against the
+    # same source the handler anchors the version to; otherwise a caller without READ on
+    # the source could bind a version to it and read its artifacts via their own model.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment(f"alias-{source_kind}-authz-exp")
+        if source_kind == "run":
+            run = client.create_run(exp_id)
+            source = run.info.artifact_uri
+            alias_field = {"runId": run.info.run_id}
+        else:
+            model = client.create_logged_model(experiment_id=exp_id)
+            source = model.artifact_location
+            alias_field = {"modelId": model.model_id}
+
+    with User(username2, password2, monkeypatch):
+        rm = client.create_registered_model(f"alias-{source_kind}-authz-model")
+
+    payload = {"name": rm.name, "source": source, **alias_field}
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload=payload,
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    grant_role_permission(client.tracking_uri, username2, "experiment", exp_id, "READ")
+
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload=payload,
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
 
 
 @pytest.fixture
@@ -4453,6 +4532,43 @@ def test_job_api_unauthenticated_access_denied(fastapi_client, monkeypatch):
     assert response.status_code == 401
 
 
+def test_job_search_only_returns_callers_jobs(fastapi_client, tmp_path):
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+
+    # Seed jobs straight into the server's SQLite backend (same file the fixture points the
+    # server at). Submitting over HTTP would need job execution enabled plus an allowlisted job
+    # function, and could never produce the creator-less legacy row this test covers. Each
+    # create_job commits on session exit, and the job system already relies on the server and
+    # the huey worker subprocess sharing this file, so committed rows are visible server-side.
+    db_path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + db_path[len("file://") :]
+    job_store = SqlAlchemyJobStore(backend_uri)
+    job1 = job_store.create_job("fn", json.dumps({"owner": user1}), creator=user1)
+    job2 = job_store.create_job("fn", json.dumps({"owner": user2}), creator=user2)
+    legacy_job = job_store.create_job("fn", json.dumps({"owner": "legacy"}), creator=None)
+
+    def search(auth):
+        response = requests.post(
+            url=fastapi_client.tracking_uri + "/ajax-api/3.0/jobs/search",
+            json={},
+            auth=auth,
+        )
+        response.raise_for_status()
+        return {job["job_id"]: job for job in response.json()["jobs"]}
+
+    user1_jobs = search((user1, password1))
+    assert set(user1_jobs) == {job1.job_id}
+    assert user1_jobs[job1.job_id]["params"] == {"owner": user1}
+    assert user1_jobs[job1.job_id]["creator"] == user1
+
+    assert set(search((user2, password2))) == {job2.job_id}
+
+    # Admins keep the unfiltered listing, including jobs with no recorded creator.
+    admin_jobs = search((ADMIN_USERNAME, ADMIN_PASSWORD))
+    assert {job1.job_id, job2.job_id, legacy_job.job_id} <= set(admin_jobs)
+
+
 def test_assistant_unauthenticated_access_denied(fastapi_client, monkeypatch):
     monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
     monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
@@ -6124,12 +6240,12 @@ def test_read_predicate_honors_grant_default_workspace_access(
 )
 def test_response_filter_matches_endpoint_functions(endpoint_fn):
     request = SimpleNamespace(scope={"endpoint": endpoint_fn})
-    assert _find_fastapi_response_filter(request, "GET") is not None
+    assert _find_fastapi_response_filter(request) is not None
 
 
 def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch):
     request = SimpleNamespace(scope={"endpoint": get_mcp_server})
-    handler = _find_fastapi_response_filter(request, "GET")
+    handler = _find_fastapi_response_filter(request)
     assert handler is not None
     monkeypatch.setattr(
         auth_module,
@@ -6146,7 +6262,7 @@ def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch
 def test_response_filter_skips_sub_resource_endpoints():
     for endpoint_fn in (get_mcp_server_version, search_mcp_server_versions):
         request = SimpleNamespace(scope={"endpoint": endpoint_fn})
-        assert _find_fastapi_response_filter(request, "GET") is None
+        assert _find_fastapi_response_filter(request) is None
 
 
 def test_apply_fastapi_response_filter_fails_closed():

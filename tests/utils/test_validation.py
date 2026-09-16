@@ -12,6 +12,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
     MAX_TAG_VAL_LENGTH,
+    _find_destination_keys,
     _is_numeric,
     _parse_trace_archival_duration_config,
     _validate_batch_log_data,
@@ -34,6 +35,7 @@ from mlflow.utils.validation import (
     _validate_public_https_url,
     _validate_run_id,
     _validate_tag_name,
+    _validate_third_party_scorer_data,
     _validate_webhook_url,
     path_not_unique,
 )
@@ -975,6 +977,147 @@ def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases
 def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
     with pytest.raises(MlflowException, match=f"secret_value must not contain '{key}'"):
         _validate_gateway_secret_value({"api_key": "x", key: "http://169.254.169.254/"})
+
+
+def _trulens_scorer(kwargs):
+    return {
+        "name": "poc",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Coherence",
+            "metric_name": "Coherence",
+            "model": "openai:/gpt-4o",
+            "kwargs": kwargs,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+        {"base_url": "http://169.254.169.254/"},
+        {"custom_llm_provider": "openai"},
+        # trulens' LiteLLM provider forwards `completion_kwargs` into every litellm call.
+        {"completion_kwargs": {"api_base": "http://169.254.169.254/"}},
+        # deepeval wrappers forward `model_kwargs` to the underlying model.
+        {"threshold": 0.5, "model_kwargs": {"base_url": "http://10.0.0.1/"}},
+        {"model_list": [{"litellm_params": {"api_base": "http://10.0.0.1/"}}]},
+    ],
+)
+def test_validate_third_party_scorer_data_rejects_destination_kwargs(kwargs):
+    with pytest.raises(
+        MlflowException, match="third_party_scorer_data.kwargs must not contain"
+    ) as exc:
+        _validate_third_party_scorer_data(_trulens_scorer(kwargs))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        {
+            "name": "ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {"name": "builtin", "builtin_scorer_class": "Safety"},
+                    _trulens_scorer({"api_base": "http://169.254.169.254/"}),
+                ],
+            },
+        },
+        {
+            "name": "nested-ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {
+                        "name": "inner",
+                        "ensemble_scorer_data": {
+                            "ensemble_fn": "majority_vote",
+                            "scorers": [_trulens_scorer({"base_url": "http://10.0.0.1/"})],
+                        },
+                    }
+                ],
+            },
+        },
+        {
+            "name": "memalign",
+            "memory_augmented_judge_data": {
+                "base_judge": _trulens_scorer({"api_base": "http://169.254.169.254/"}),
+                "memories": [],
+            },
+        },
+    ],
+)
+def test_validate_third_party_scorer_data_rejects_wrapped_scorers(serialized_scorer):
+    with pytest.raises(MlflowException, match="third_party_scorer_data.kwargs must not contain"):
+        _validate_third_party_scorer_data(serialized_scorer)
+
+
+def test_validate_third_party_scorer_data_rejects_non_object_kwargs():
+    # `dict([["api_base", url]])` yields the same mapping as a JSON object, so the list shape
+    # must not slip past the key search.
+    with pytest.raises(MlflowException, match="kwargs must be a JSON object, got list") as exc:
+        _validate_third_party_scorer_data(
+            _trulens_scorer([["api_base", "http://169.254.169.254/"]])
+        )
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ([["api_base", "http://169.254.169.254/"]], {"api_base"}),
+        ([["base_url", "http://a/"], ["fallbacks", []]], {"base_url", "fallbacks"}),
+        ([["api_base", {"custom_llm_provider": "x"}]], {"api_base", "custom_llm_provider"}),
+        ([[1, 2], ["api_base"], ["api_base", "u", "extra"], "api_base"], set()),
+    ],
+)
+def test_find_destination_keys_handles_pair_lists_at_root(value, expected):
+    assert _find_destination_keys(value) == expected
+
+
+def test_validate_third_party_scorer_data_rejects_pair_list_in_nested_options():
+    with pytest.raises(MlflowException, match="must not contain 'api_base'"):
+        _validate_third_party_scorer_data(
+            _trulens_scorer({"completion_kwargs": [["api_base", "http://169.254.169.254/"]]})
+        )
+
+
+def test_validate_third_party_scorer_data_names_every_offending_key():
+    with pytest.raises(MlflowException, match="'api_base', 'base_url'"):
+        _validate_third_party_scorer_data(
+            _trulens_scorer({
+                "api_base": "http://a/",
+                "completion_kwargs": {"base_url": "http://b/"},
+            })
+        )
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        _trulens_scorer({}),
+        _trulens_scorer(None),
+        _trulens_scorer({"threshold": 0.7, "temperature": 0.0}),
+        {"name": "builtin", "builtin_scorer_class": "Safety"},
+        {"name": "not-a-dict", "third_party_scorer_data": "x"},
+        {
+            "name": "ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {"name": "builtin", "builtin_scorer_class": "Safety"},
+                    _trulens_scorer({"threshold": 0.7}),
+                ],
+            },
+        },
+        {"name": "pairs-of-numbers", "third_party_scorer_data": {"kwargs": {"x": [[1, 2]]}}},
+    ],
+)
+def test_validate_third_party_scorer_data_accepts_benign_payloads(serialized_scorer):
+    _validate_third_party_scorer_data(serialized_scorer)
 
 
 def test_validate_gateway_secret_auth_config_rejects_private_api_base():
