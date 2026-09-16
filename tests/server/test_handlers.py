@@ -1144,6 +1144,10 @@ def test_create_model_version_rejects_traversal_source_for_prompts(
         "prompt%2Dtemplate",
         "Prompt-Template",
         "prompt-template/",
+        # Windows drive letters parse as a single-letter URL scheme but resolve as local paths
+        "C:/Windows",
+        "d:/data",
+        "C:\\Windows\\System32",
     ],
 )
 def test_create_model_version_rejects_schemeless_path_source_for_prompts(

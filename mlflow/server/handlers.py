@@ -405,7 +405,12 @@ from mlflow.utils.server_info import (
 )
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
+from mlflow.utils.uri import (
+    get_uri_scheme,
+    is_local_uri,
+    validate_path_is_safe,
+    validate_query_string,
+)
 from mlflow.utils.validation import (
     MAX_CUSTOM_VIEWS_PER_EXPERIMENT,
     _validate_batch_log_api_req,
@@ -3042,10 +3047,11 @@ def _validate_prompt_source(source: str) -> None:
     source selects ``LocalArtifactRepository`` and becomes the directory that ``get-artifact``
     later serves from, so any schemeless value other than the known client placeholders is
     rejected outright; a separator-free name such as "mlflow" would still expose a directory
-    under the server's working directory.
+    under the server's working directory. ``get_uri_scheme`` is used rather than ``urlparse`` so
+    that Windows drive letters ("C:/...") classify as local, exactly as the artifact layer does.
     """
-    parsed = urllib.parse.urlparse(source)
-    if parsed.scheme and parsed.scheme != "file":
+    scheme = get_uri_scheme(source)
+    if scheme and scheme != "file":
         _validate_non_local_source_contains_relative_paths(source)
         return
     if source not in _PROMPT_SOURCE_PLACEHOLDERS:
