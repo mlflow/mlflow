@@ -249,8 +249,10 @@ def test_mlflow_artifacts_example(tmp_path):
     # On GitHub Actions, remove generated images to save disk space
     rmi_option = "--rmi all" if is_github_actions() else ""
     cmd = f"""
+set -e
 trap '
     status=$?
+    docker compose logs || status=1
     docker compose down {rmi_option} --volumes --remove-orphans || status=1
     exit "$status"
 ' EXIT
@@ -266,12 +268,8 @@ for attempt in 1 2 3; do
     echo "Docker image pull failed; retrying in $((attempt * 5)) seconds."
     sleep $((attempt * 5))
 done
-err=0
-trap 'err=1' ERR
 ./build.sh
 docker compose run -v ${{PWD}}/example.py:/app/example.py client python example.py
-docker compose logs
-test $err = 0
 """
     script_path = tmp_path.joinpath("test.sh")
     script_path.write_text(cmd)
