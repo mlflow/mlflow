@@ -8651,6 +8651,10 @@ def test_artifact_proxy_child_from_path_dispatches_by_layout():
     )
     # Experiment-level path has no child.
     assert auth_module._artifact_proxy_child_from_path("42/artifacts/plot.png") is None
+    # A child folder root (no concrete id) resolves on the wildcard child key so a
+    # child DENY is still honored when listing the folder.
+    assert auth_module._artifact_proxy_child_from_path("42/traces") == ("trace", "*")
+    assert auth_module._artifact_proxy_child_from_path("42/models") == ("logged_model", "*")
 
 
 @pytest.mark.parametrize(
@@ -8804,3 +8808,32 @@ def test_list_scorers_gated_on_scorer_version_tier(monkeypatch):
     out = pb.ListScorers.Response()
     auth_module.parse_dict(json.loads(resp.data), out)
     assert [s.scorer_name for s in out.scorers] == ["keep"]
+
+
+def test_assessment_lookup_keys_requires_trace_id():
+    assert auth_module._assessment_lookup_keys("tr-1/a-1") == ("tr-1", "a-1")
+    with pytest.raises(MlflowException, match="Expected '<trace_id>/<assessment_id>'"):
+        auth_module._assessment_lookup_keys("a-1")
+
+
+def test_resource_dispatch_assessment_resolves_experiment_via_trace(monkeypatch):
+    # The convenience API must resolve the assessment's experiment through its trace,
+    # not by passing the assessment id to get_trace_info.
+    trace = SimpleNamespace(experiment_id="9")
+    calls = {}
+
+    def fake_get_trace_info(trace_id):
+        calls["trace_id"] = trace_id
+        return trace
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_trace_info=fake_get_trace_info, get_experiment=lambda _e: None),
+    )
+    dispatch = auth_module._resource_dispatch_keys("assessment", "tr-1/a-1")
+    assert calls["trace_id"] == "tr-1"
+    assert dispatch.resource_key == "a-1"
+    assert dispatch.workspace_lookup_id == "9"
+    assert dispatch.parent_type == "experiment"
+    assert dispatch.parent_id == "9"

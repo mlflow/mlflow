@@ -927,10 +927,11 @@ def _artifact_proxy_child_from_path(artifact_path: str) -> tuple[str, str] | Non
     if second == "artifacts":
         return None
     if child_type := _ARTIFACT_PROXY_CHILD_FOLDERS.get(second):
-        # ``traces``/``models`` are folder names; the child id is the next segment.
-        if third is None:
-            return None
-        return child_type, third
+        # ``traces``/``models`` are folder names; the next segment is the concrete child
+        # id, or absent when listing the folder root. Child grants are wildcard-only, so a
+        # missing id resolves on the wildcard key ``*`` — the folder listing is still gated
+        # by the child tier (honoring DENY) with experiment fallback.
+        return child_type, (third if third is not None else "*")
     # Any other second segment is a run id: ``<experiment_id>/<run_id>/artifacts/...``.
     return "run", second
 
@@ -1924,6 +1925,22 @@ def _scorer_lookup_keys(resource_id: str) -> tuple[str, str]:
     return experiment_id, resource_id
 
 
+def _assessment_lookup_keys(resource_id: str) -> tuple[str, str]:
+    """Split an assessment ``resource_id`` into (trace_id, assessment_id).
+
+    Assessments are wildcard-grain children of an experiment reached through a trace,
+    so the convenience API needs the trace id to resolve the experiment (the assessment
+    id alone cannot). The key is ``<trace_id>/<assessment_id>``.
+    """
+    trace_id, sep, assessment_id = resource_id.partition("/")
+    if not sep:
+        raise MlflowException(
+            "Invalid assessment resource_id. Expected '<trace_id>/<assessment_id>'.",
+            INVALID_PARAMETER_VALUE,
+        )
+    return trace_id, assessment_id
+
+
 def _reject_workspace_resource_type(resource_type: str) -> None:
     # Workspace-tier grants have their own surface (set_workspace_permission /
     # delete_workspace_permission); rejecting here gives every code path the
@@ -2031,9 +2048,10 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
             parent_id=trace.experiment_id,
         )
     if resource_type == RESOURCE_TYPE_ASSESSMENT:
-        trace = _get_tracking_store().get_trace_info(resource_id)
+        trace_id, assessment_id = _assessment_lookup_keys(resource_id)
+        trace = _get_tracking_store().get_trace_info(trace_id)
         return _ResourceDispatch(
-            resource_key=resource_id,
+            resource_key=assessment_id,
             workspace_lookup_id=trace.experiment_id,
             workspace_fetcher=_get_tracking_store().get_experiment,
             workspace_label="experiment",
