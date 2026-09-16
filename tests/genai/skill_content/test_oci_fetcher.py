@@ -680,27 +680,79 @@ def test_fetch_oci_opaque_whiteout_clears_lower_directory(tmp_path):
     assert _listing(dest) == ["docs", "docs/new.md"]
 
 
+_SUBPATH_BASE_LAYER = {
+    "skills/": None,
+    "skills/demo/": None,
+    "skills/demo/SKILL.md": b"lower",
+    "README.md": b"outside",
+}
+
+
 @pytest.mark.parametrize(
     "deleting_layer",
     [
         {".wh.skills": b""},
         {"skills/": None, "skills/.wh.demo": b""},
-        {"skills/": None, "skills/demo/": None, "skills/demo/.wh..wh..opq": b""},
         {".wh..wh..opq": b""},
+        {"skills/": None, "skills/.wh..wh..opq": b""},
     ],
 )
-def test_fetch_oci_whiteout_of_subpath_ancestor_clears_selected_tree(tmp_path, deleting_layer):
-    # Entries outside the subpath are never extracted, so their deletions are applied by name.
-    base = {
-        "skills/": None,
-        "skills/demo/": None,
-        "skills/demo/SKILL.md": b"lower",
-        "README.md": b"outside",
-    }
+def test_fetch_oci_whiteout_of_subpath_or_ancestor_removes_selected_tree(tmp_path, deleting_layer):
+    # Entries outside the subpath are never extracted, so their deletions are applied by
+    # name, and the selected directory itself is gone afterwards rather than left empty.
     dest = _fetch_layers(
-        tmp_path, [_raw_tar_gz(base), _raw_tar_gz(deleting_layer)], subpath="skills/demo"
+        tmp_path,
+        [_raw_tar_gz(_SUBPATH_BASE_LAYER), _raw_tar_gz(deleting_layer)],
+        subpath="skills/demo",
+    )
+    assert "skills/demo" not in _listing(dest)
+
+
+def test_fetch_oci_opaque_marker_inside_subpath_empties_it(tmp_path):
+    # The layer still carries the selected directory, so it stays, emptied.
+    deleting_layer = {"skills/": None, "skills/demo/": None, "skills/demo/.wh..wh..opq": b""}
+    dest = _fetch_layers(
+        tmp_path,
+        [_raw_tar_gz(_SUBPATH_BASE_LAYER), _raw_tar_gz(deleting_layer)],
+        subpath="skills/demo",
     )
     assert _listing(dest) == ["skills", "skills/demo"]
+
+
+def test_fetch_oci_deleted_subpath_is_reported_missing(tmp_path):
+    layers = [_raw_tar_gz(_SUBPATH_BASE_LAYER), _raw_tar_gz({".wh.skills": b""})]
+    manifest = {"layers": [{"mediaType": _TAR_GZ_TYPE, "payload": blob} for blob in layers]}
+
+    def download(client, ref, layer, target, *, max_bytes):
+        target.write_bytes(layer["payload"])
+
+    with (
+        mock.patch.object(oci_module, "RegistryClient") as client,
+        mock.patch.object(oci_module, "_select_manifest", return_value=manifest) as select,
+        mock.patch.object(oci_module, "_download_blob", side_effect=download) as downloads,
+    ):
+        with pytest.raises(MlflowException, match="Subpath 'skills/demo' does not exist") as exc:
+            with fetch_source("oci://example.com/skill:v1", subpath="skills/demo"):
+                pass
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    client.assert_called_once_with("example.com")
+    select.assert_called_once()
+    assert downloads.call_count == 2
+
+
+def test_fetch_oci_later_layer_recreates_deleted_subpath(tmp_path):
+    recreated = {"skills/": None, "skills/demo/": None, "skills/demo/SKILL.md": b"new"}
+    dest = _fetch_layers(
+        tmp_path,
+        [
+            _raw_tar_gz(_SUBPATH_BASE_LAYER),
+            _raw_tar_gz({".wh.skills": b""}),
+            _raw_tar_gz(recreated),
+        ],
+        subpath="skills/demo",
+    )
+    assert _listing(dest) == ["skills", "skills/demo", "skills/demo/SKILL.md"]
+    assert (dest / "skills" / "demo" / "SKILL.md").read_text() == "new"
 
 
 def test_fetch_oci_bare_whiteout_marker_is_rejected(tmp_path):

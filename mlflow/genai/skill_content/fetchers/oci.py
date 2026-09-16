@@ -733,21 +733,31 @@ def _apply_whiteouts(
     """
     Delete lower-layer content named by ``whiteouts`` from ``dest`` and from ``merged``.
 
-    The subpath filter only extracts entries beneath ``prefix``, so a deletion of the
-    subpath itself or of one of its ancestors is applied by clearing the whole selected tree;
-    deletions inside the subpath remove just that path. Whiteouts elsewhere are irrelevant.
+    The subpath filter only extracts entries beneath ``prefix``, so deletions are applied by
+    name: a whiteout of the subpath itself or of one of its ancestors removes the selected
+    tree outright (a later layer may recreate it; otherwise the subpath is reported missing),
+    an opaque marker exactly inside the selected directory empties it, and deletions beneath
+    the subpath remove just that path. Whiteouts elsewhere are irrelevant.
     """
     content_root = dest if prefix is None else dest.joinpath(*prefix.split("/"))
+
+    def remove_selected_tree() -> None:
+        if prefix is None:
+            _clear_directory(content_root)
+            merged.clear_children("")
+        else:
+            _remove_path(content_root)
+            merged.remove(prefix)
+
     for entry in whiteouts:
         directory, _, name = entry.rpartition("/")
         if name == _OPAQUE_WHITEOUT:
             # Applies to ``directory`` (the layer root when empty).
-            covers_root = prefix is not None and (
-                not directory or is_under_subpath(prefix, directory)
-            )
-            if covers_root or (prefix is None and not directory):
+            if directory == (prefix or ""):
                 _clear_directory(content_root)
                 merged.clear_children(prefix or "")
+            elif prefix is not None and (not directory or is_under_subpath(prefix, directory)):
+                remove_selected_tree()
             elif is_under_subpath(directory, prefix):
                 _clear_directory(dest.joinpath(*directory.split("/")))
                 merged.clear_children(directory)
@@ -759,8 +769,7 @@ def _apply_whiteouts(
             raise invalid_content(f"OCI layer whiteout '{entry}' names nothing to delete.")
         deleted = f"{directory}/{target_name}" if directory else target_name
         if prefix is not None and is_under_subpath(prefix, deleted):
-            _clear_directory(content_root)
-            merged.clear_children(prefix)
+            remove_selected_tree()
         elif is_under_subpath(deleted, prefix):
             target = dest.joinpath(*deleted.split("/"))
             ensure_within(dest, target)
