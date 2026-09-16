@@ -19,6 +19,12 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
+    SqlAgentPluginAlias,
+    SqlAgentPluginTag,
+    SqlAgentPluginVersion,
+    SqlAgentPluginVersionMember,
+    SqlAgentPluginVersionTag,
     SqlAssessmentDailyRollup,
     SqlAssessments,
     SqlEvaluationDataset,
@@ -47,6 +53,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
+    SqlSkill,
+    SqlSkillAlias,
+    SqlSkillTag,
+    SqlSkillVersion,
+    SqlSkillVersionTag,
     SqlSpanCostDailyRollup,
     SqlTraceInfo,
     SqlTraceMetricDailyRollup,
@@ -181,6 +192,27 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             SqlMCPAccessEndpoint,
         ):
             return query.filter(model.workspace == workspace)
+
+        if model in (
+            SqlSkill,
+            SqlSkillVersion,
+            SqlSkillTag,
+            SqlSkillVersionTag,
+            SqlSkillAlias,
+            SqlAgentPlugin,
+            SqlAgentPluginVersion,
+            SqlAgentPluginTag,
+            SqlAgentPluginVersionTag,
+            SqlAgentPluginAlias,
+        ):
+            return query.filter(model.workspace == workspace)
+
+        if model is SqlAgentPluginVersionMember:
+            # Members carry their workspace as ``plugin_workspace`` (shared with the
+            # skill_versions FK), not ``workspace``. Pre-wired so the store layer's
+            # future direct membership queries are workspace-scoped; not exercised yet
+            # (members are otherwise reached through their scoped parent version).
+            return query.filter(SqlAgentPluginVersionMember.plugin_workspace == workspace)
 
         return query
 

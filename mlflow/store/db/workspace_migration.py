@@ -39,6 +39,9 @@ _CONFLICT_SPECS = [
     ("endpoints", ("name",), "endpoints with the same name"),
     ("model_definitions", ("name",), "model definitions with the same name"),
     ("mcp_servers", ("name",), "MCP servers with the same name"),
+    ("skills", ("organization", "name"), "skills with the same organization and name"),
+    # No agent_plugins entry here. We raise in advance if there's any plugin outside the
+    # default workspace, so this guard isn't even reached.
 ]
 
 
@@ -94,6 +97,28 @@ def _assert_no_workspace_conflicts(
         )
 
 
+_AGENT_PLUGIN_TABLE = "agent_plugins"
+
+
+def _assert_no_agent_plugins_outside_default(conn) -> None:
+    try:
+        table = sa.Table(_AGENT_PLUGIN_TABLE, sa.MetaData(), autoload_with=conn)
+    except sa.exc.NoSuchTableError:
+        return
+    count = conn.execute(
+        sa
+        .select(sa.func.count())
+        .select_from(table)
+        .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
+    ).scalar_one()
+    if count:
+        raise RuntimeError(
+            f"Move aborted: found {count} agent plugin(s) outside the "
+            f"'{DEFAULT_WORKSPACE_NAME}' workspace. Moving agent plugins to the default "
+            "workspace is not yet supported. Delete them first, then retry."
+        )
+
+
 def migrate_to_default_workspace(
     engine: sa.Engine,
     dry_run: bool = False,
@@ -106,6 +131,8 @@ def migrate_to_default_workspace(
     When verbose is True, conflict lists are not truncated.
     """
     with engine.begin() as conn:
+        _assert_no_agent_plugins_outside_default(conn)
+
         for table_name, columns, description in _CONFLICT_SPECS:
             _assert_no_workspace_conflicts(
                 conn,

@@ -27,6 +27,17 @@ OTHER_WORKSPACE_CHILD_TABLES = [
     "mcp_server_version_tags",
     "mcp_server_aliases",
     "mcp_access_endpoints",
+    "skill_versions",
+    "skill_tags",
+    "skill_version_tags",
+    "skill_aliases",
+    "agent_plugin_versions",
+    "agent_plugin_tags",
+    "agent_plugin_version_tags",
+    "agent_plugin_aliases",
+    # agent_plugin_version_members is intentionally omitted: it keys on
+    # `plugin_workspace`, and moving agent plugins is not supported yet
+    # (see workspace_migration._assert_no_agent_plugins_outside_default).
 ]
 
 
