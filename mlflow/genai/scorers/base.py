@@ -589,6 +589,14 @@ class Scorer(BaseModel):
                     f"Third-party scorer '{serialized.name}': missing required fields in "
                     f"third_party_scorer_data (class, metric_name)."
                 )
+            # The wrappers resolve unknown metric names by splicing them into an import
+            # path (`ragas.metrics.collections.<metric_name>`, `deepeval.metrics.<metric_name>`),
+            # so a dotted name would reach a caller-placed module the same way.
+            if not metric_name.isidentifier():
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': metric_name '{metric_name}' "
+                    "must be a plain identifier."
+                )
             try:
                 module = importlib.import_module(module_path)
             except ImportError as e:

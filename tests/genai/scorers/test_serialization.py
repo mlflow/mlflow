@@ -723,6 +723,30 @@ def test_builtin_scorer_instructions_preserved_through_serialization():
         ),
         pytest.param(
             {
+                # RagasScorer/DeepEvalScorer splice unknown metric names into an import
+                # path, so a dotted name is another route to a caller-placed module.
+                "module": "mlflow.genai.scorers.ragas",
+                "class": "RagasScorer",
+                "metric_name": "9a2d665eb38940b68983f0586f623115.artifacts.payload.Payload",
+                "model": None,
+                "kwargs": {},
+            },
+            "must be a plain identifier",
+            id="dotted_metric_name",
+        ),
+        pytest.param(
+            {
+                "module": "mlflow.genai.scorers.deepeval",
+                "class": "DeepEvalScorer",
+                "metric_name": "Faithfulness; import os",
+                "model": None,
+                "kwargs": {},
+            },
+            "must be a plain identifier",
+            id="non_identifier_metric_name",
+        ),
+        pytest.param(
+            {
                 "module": "mlflow.genai.scorers.ragas",
                 "class": "",
                 "metric_name": "Faithfulness",
@@ -850,6 +874,23 @@ def test_third_party_scorer_descendant_module_rejected_before_import():
     )
     with patch("mlflow.genai.scorers.base.importlib.import_module") as mock_import:
         with pytest.raises(MlflowException, match="not in the allow-list"):
+            Scorer.model_validate(payload)
+    mock_import.assert_not_called()
+
+
+def test_third_party_scorer_dotted_metric_name_rejected_before_import():
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "RagasScorer",
+            "metric_name": "9a2d665eb38940b68983f0586f623115.artifacts.payload.Payload",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch("mlflow.genai.scorers.base.importlib.import_module") as mock_import:
+        with pytest.raises(MlflowException, match="must be a plain identifier"):
             Scorer.model_validate(payload)
     mock_import.assert_not_called()
 
