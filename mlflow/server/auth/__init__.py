@@ -1403,14 +1403,19 @@ def validate_can_create_model_version():
     # on the source run/model to keep create-time access consistent with artifact-read gating.
     if not _validate_can_update_registered_model_or_prompt():
         return False
-    body = request.get_json(force=True, silent=True)
-    body = body if isinstance(body, dict) else {}
+    # Parse through the proto, exactly as the handler does, so the camelCase `runId` /
+    # `modelId` aliases the handler accepts are authorized against the same IDs it will
+    # anchor the version to. A raw-body key check would miss the aliases and skip the READ
+    # check while the handler still binds the source run/model from them.
+    msg = _get_request_message(CreateModelVersion())
     # Presence of run_id/model_id means the version is anchored to that source, so require
     # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
     # denied here rather than being allowed to slip past the guard as if it were absent.
-    if "run_id" in body and not (body["run_id"] and _get_permission_from_run_id().can_read):
+    if msg.HasField("run_id") and not (msg.run_id and _get_run_permission(msg.run_id).can_read):
         return False
-    if "model_id" in body and not (body["model_id"] and _get_permission_from_model_id().can_read):
+    if msg.HasField("model_id") and not (
+        msg.model_id and _get_model_permission(msg.model_id).can_read
+    ):
         return False
     return True
 

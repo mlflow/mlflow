@@ -1072,6 +1072,21 @@ def test_create_model_version_source_read_blocks_cross_workspace(
     ):
         assert not auth_module.validate_can_create_model_version()
 
+    # The camelCase proto aliases the handler accepts must be blocked the same way.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "runId": "run-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "modelId": "model-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
     # Same-workspace source (team-a) is allowed.
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/model-versions/create",
