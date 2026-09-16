@@ -39,6 +39,7 @@ const resolvedProvider = (overrides: Partial<ResolvedProviderInfo> = {}): Resolv
   requires_api_key: false,
   has_api_key: false,
   client_tool_delivery: 'unsupported',
+  client_carries_history: false,
   ...overrides,
 });
 
@@ -51,6 +52,7 @@ const providerInfo = (overrides: Partial<ProviderInfo> & { name: string }): Prov
   has_api_key: false,
   allows_remote_access: false,
   client_tool_delivery: 'unsupported',
+  client_carries_history: false,
   model_options: [],
   ...overrides,
 });
@@ -58,6 +60,8 @@ const providerInfo = (overrides: Partial<ProviderInfo> & { name: string }): Prov
 jest.mock('./AssistantService', () => ({
   __esModule: true,
   sendMessageStream: jest.fn(),
+  streamChatViaFetch: jest.fn(),
+  resumeStream: jest.fn(),
   getConfig: jest.fn(),
   getProviders: jest.fn(),
   updateConfig: jest.fn(() => Promise.resolve({})),
@@ -71,6 +75,7 @@ jest.mock('./AssistantPageContext', () => ({
 }));
 
 const mockSendMessageStream = jest.mocked(AssistantService.sendMessageStream);
+const mockStreamChatViaFetch = jest.mocked(AssistantService.streamChatViaFetch);
 const mockGetConfig = jest.mocked(AssistantService.getConfig);
 const mockGetProviders = jest.mocked(AssistantService.getProviders);
 const mockUpdateConfig = jest.mocked(AssistantService.updateConfig);
@@ -101,11 +106,15 @@ beforeEach(() => {
   mockGetProviders.mockResolvedValue({ providers: [], resolved: null });
   mockSendMessageStream.mockImplementation(async (_req, callbacks) => {
     capturedCallbacks = callbacks;
-    return { eventSource: fakeEventSource as unknown as EventSource };
+    return { cancel: fakeEventSource.close, eventSource: fakeEventSource as unknown as EventSource };
+  });
+  mockStreamChatViaFetch.mockImplementation(async (_req, callbacks) => {
+    capturedCallbacks = callbacks;
+    return { cancel: fakeEventSource.close };
   });
   mockSubmitClientToolResult.mockImplementation(async (_sessionId, _requestId, _content, _isError, callbacks) => {
     capturedCallbacks = callbacks;
-    return { eventSource: fakeEventSource as unknown as EventSource };
+    return { cancel: fakeEventSource.close, eventSource: fakeEventSource as unknown as EventSource };
   });
   // Control rAF so a scheduled flush stays pending until we assert on it.
   jest.spyOn(window, 'requestAnimationFrame').mockReturnValue(777 as unknown as number);
@@ -209,14 +218,17 @@ describe('AssistantContext — reset() during the in-flight send window', () => 
   // Drive sendMessageStream with a deferred promise so reset() can run while the POST is still
   // pending — the exact window where the captured token is invalidated before the stream attaches.
   const deferSend = () => {
-    let resolveSend!: (result: { eventSource: EventSource | null }) => void;
+    let resolveSend!: (result: AssistantService.SendMessageStreamResult) => void;
     mockSendMessageStream.mockImplementation((_req, callbacks) => {
       capturedCallbacks = callbacks;
       return new Promise((resolve) => {
         resolveSend = resolve;
       });
     });
-    return { resolve: () => resolveSend({ eventSource: fakeEventSource as unknown as EventSource }) };
+    return {
+      resolve: () =>
+        resolveSend({ cancel: fakeEventSource.close, eventSource: fakeEventSource as unknown as EventSource }),
+    };
   };
 
   it('ignores a stale onSessionId fired after reset() (no session revival)', async () => {
@@ -687,7 +699,7 @@ describe('AssistantProvider setup state from provider discovery', () => {
     });
   });
 
-  test('ignores provider selection on remote clients because config updates are local-only', async () => {
+  test('allows provider selection on permitted remote clients', async () => {
     Object.defineProperty(window, 'location', {
       value: { ...originalLocation, hostname: 'remote.example.com' },
       writable: true,
@@ -714,7 +726,10 @@ describe('AssistantProvider setup state from provider discovery', () => {
     });
 
     expect(result.current.isLocalServer).toBe(false);
-    expect(result.current.activeProvider?.name).toBe('claude_code');
+    expect(result.current.canUseAssistant).toBe(true);
+    expect(result.current.activeProvider?.name).toBe('mlflow_gateway');
+    expect(result.current.activeProvider?.model).toBe('mlflow-assistant-openai');
+    expect(result.current.activeProvider?.provider_model).toBe('gpt-5.5');
     expect(mockUpdateConfig).not.toHaveBeenCalled();
   });
 
@@ -1195,6 +1210,33 @@ describe('trimForStorage', () => {
     const trimmed = trimForStorage(messages, budgetForLastTwo);
     expect(trimmed.map((m) => m.id)).toEqual(['m2', 'm3']);
   });
+
+  it('counts opaque conversation history against the same storage budget', () => {
+    const messages = [makeMessage({ id: 'old' }), makeMessage({ id: 'new' })];
+    const messagesOnlyBudget = messages.reduce((sum, message) => sum + JSON.stringify(message).length, 0);
+
+    expect(trimForStorage(messages, messagesOnlyBudget, 'x'.repeat(200)).map((message) => message.id)).toEqual(['new']);
+  });
+
+  it('does not let an oversized opaque history exceed the localStorage budget', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('large turn'));
+
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('x'.repeat(1_600_000));
+      capturedCallbacks?.onDone();
+    });
+
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
+      expect(stored.conversationHistory).toBeNull();
+      expect(stored.messages.some((message: ChatMessage) => message.content === 'large turn')).toBe(true);
+    });
+  });
 });
 
 describe('AssistantContext — localStorage chat persistence', () => {
@@ -1213,6 +1255,27 @@ describe('AssistantContext — localStorage chat persistence', () => {
     expect(result.current.messages[0]).toMatchObject({ id: 'restored', content: 'from storage' });
     // timestamp must be revived to a Date, not left as a string.
     expect(result.current.messages[0].timestamp).toBeInstanceOf(Date);
+  });
+
+  it('restores opaque history and sends it on the next stateless turn', async () => {
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({ messages: [], tokenUsage: EMPTY_TOKEN_USAGE, conversationHistory: '[RESTORED]' }),
+    );
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('continue');
+    });
+
+    expect(mockStreamChatViaFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'continue', conversation_history: '[RESTORED]' }),
+      expect.any(Object),
+    );
   });
 
   it('persists a sent message to localStorage once streaming settles', async () => {
@@ -1238,6 +1301,7 @@ describe('AssistantContext — localStorage chat persistence', () => {
       JSON.stringify({
         messages: [makeMessage({ id: 'restored' })],
         tokenUsage: { ...EMPTY_TOKEN_USAGE, promptTokens: 40, completionTokens: 60, totalTokens: 100 },
+        conversationHistory: '[OPAQUE]',
       }),
     );
 
@@ -1253,6 +1317,28 @@ describe('AssistantContext — localStorage chat persistence', () => {
     const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
     expect(stored.messages).toEqual([]);
     expect(stored.tokenUsage).toEqual(EMPTY_TOKEN_USAGE);
+    expect(stored.conversationHistory).toBeNull();
+  });
+
+  it('persists history carried by a terminal error before settling the failed turn', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('run side effect');
+    });
+
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('[AFTER_SIDE_EFFECT]');
+      capturedCallbacks?.onError('provider failed');
+    });
+
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
+      expect(stored.conversationHistory).toBe('[AFTER_SIDE_EFFECT]');
+    });
   });
 
   it('accumulates per-turn usage deltas, tracking cached tokens separately', async () => {
@@ -1377,5 +1463,301 @@ describe('AssistantContext — buffered text survives a tool call', () => {
       { type: 'text', text: 'Looking into it. ' },
       expect.objectContaining({ type: 'toolCall', toolUseId: 'tool-1', name: 'Bash' }),
     ]);
+  });
+});
+
+describe('AssistantContext — respondToPermission on the stateless gateway path', () => {
+  beforeEach(() => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true, client_tool_delivery: 'tool' })],
+      resolved: resolvedProvider({
+        name: 'mlflow_gateway',
+        model: 'chat-endpoint',
+        client_carries_history: true,
+        client_tool_delivery: 'tool',
+      }),
+    });
+  });
+
+  // Drive a gateway turn to a paused permission prompt: surface the request, then deliver the
+  // paused history blob the way the transport does on the done-after-pause.
+  const pauseGatewayTurn = async (result: any) => {
+    await act(async () => {
+      result.current.sendMessage('run the tool');
+    });
+    act(() => {
+      capturedCallbacks?.onPermissionRequest?.({
+        requestId: 'call-1',
+        toolName: 'bash',
+        toolInput: { command: 'ls' },
+      });
+      capturedCallbacks?.onConversationHistory?.('[{"role":"assistant","tool_calls":[]}]');
+    });
+  };
+
+  it('replays an allow decision via /chat with tool_decisions and the carried history (no new message)', async () => {
+    const { result } = await renderAssistant();
+    await pauseGatewayTurn(result);
+    expect(result.current.pendingPermission).not.toBeNull();
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => {
+      result.current.respondToPermission(true);
+    });
+
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(mockStreamChatViaFetch).toHaveBeenCalledTimes(1);
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        message: '',
+        tool_decisions: { 'call-1': 'allow' },
+        conversation_history: '[{"role":"assistant","tool_calls":[]}]',
+      }),
+      expect.any(Object),
+    );
+    expect(result.current.pendingPermission).toBeNull();
+  });
+
+  it('replays a deny decision via /chat with tool_decisions = deny', async () => {
+    const { result } = await renderAssistant();
+    await pauseGatewayTurn(result);
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => {
+      result.current.respondToPermission(false);
+    });
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tool_decisions: { 'call-1': 'deny' } }),
+      expect.any(Object),
+    );
+  });
+
+  it('resumes with the originating turn context after navigation', async () => {
+    mockPageContext = { experimentId: 'experiment-a', traceId: 'trace-a' };
+    const { result } = await renderAssistant();
+    await pauseGatewayTurn(result);
+    mockPageContext = { experimentId: 'experiment-b', traceId: 'trace-b' };
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => result.current.respondToPermission(true));
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        experiment_id: 'experiment-a',
+        context: { experimentId: 'experiment-a', traceId: 'trace-a' },
+      }),
+      expect.any(Object),
+    );
+  });
+});
+
+describe('AssistantContext — provider-selected transport', () => {
+  it('starts a requested new session without replaying stale stateless history', async () => {
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({ messages: [], tokenUsage: EMPTY_TOKEN_USAGE, conversationHistory: '[OLD]' }),
+    );
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+
+    await act(async () => result.current.sendMessage('fresh', { newSession: true }));
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ conversation_history: '[OLD]' }),
+      expect.any(Object),
+    );
+  });
+
+  it('regenerates a stateless turn from its pre-turn history checkpoint', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('turn one'));
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('[AFTER_ONE]');
+      capturedCallbacks?.onDone();
+    });
+    await act(async () => result.current.sendMessage('turn two'));
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('[AFTER_TWO]');
+      capturedCallbacks?.onDone();
+    });
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => result.current.regenerateLastMessage());
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ message: 'turn two', conversation_history: '[AFTER_ONE]' }),
+      expect.any(Object),
+    );
+  });
+
+  it('does not regenerate restored stateless history when no pre-turn checkpoint exists', async () => {
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({
+        messages: [
+          makeMessage({ id: 'question', content: 'restored question' }),
+          makeMessage({ id: 'answer', role: 'assistant', content: 'restored answer' }),
+        ],
+        tokenUsage: EMPTY_TOKEN_USAGE,
+        conversationHistory: '[RESTORED_WITHOUT_CHECKPOINT]',
+      }),
+    );
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+
+    await act(async () => result.current.regenerateLastMessage());
+
+    expect(mockStreamChatViaFetch).not.toHaveBeenCalled();
+    expect(result.current.messages.map((message) => message.content)).toEqual(['restored question', 'restored answer']);
+  });
+
+  it('clears provider-owned conversation state when switching providers', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', model: 'endpoint-a', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('endpoint a'));
+    act(() => {
+      capturedCallbacks?.onConversationHistory?.('[ENDPOINT_A]');
+      capturedCallbacks?.onDone();
+    });
+
+    act(() => result.current.selectProvider({ kind: 'gateway', endpointName: 'endpoint-b' }));
+    expect(result.current.messages).toEqual([]);
+    mockStreamChatViaFetch.mockClear();
+    await act(async () => result.current.sendMessage('endpoint b'));
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ conversation_history: '[ENDPOINT_A]' }),
+      expect.any(Object),
+    );
+  });
+
+  it('ignores provider switches while a turn is streaming', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', model: 'endpoint-a', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('still running'));
+
+    act(() => result.current.selectProvider({ kind: 'gateway', endpointName: 'endpoint-b' }));
+
+    expect(result.current.activeProvider?.model).toBe('endpoint-a');
+  });
+
+  it('uses fetch POST for stateless providers and the legacy stream for CLI providers', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [
+        providerInfo({ name: 'claude_code', client_carries_history: false }),
+        providerInfo({ name: 'mlflow_gateway', client_carries_history: true }),
+      ],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('gateway turn');
+    });
+    expect(mockStreamChatViaFetch).toHaveBeenCalledTimes(1);
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+
+    act(() => result.current.reset());
+    act(() => result.current.selectProvider({ kind: 'provider', name: 'claude_code' }));
+    await act(async () => {
+      result.current.sendMessage('cli turn');
+    });
+    expect(mockSendMessageStream).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a stateless fetch without patching a backend session', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const cancelFetch = jest.fn();
+    mockStreamChatViaFetch.mockImplementation(async (_request, callbacks) => {
+      capturedCallbacks = callbacks;
+      return { cancel: cancelFetch };
+    });
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('long turn');
+    });
+
+    act(() => result.current.cancelSession());
+
+    expect(cancelFetch).toHaveBeenCalledTimes(1);
+    expect(AssistantService.cancelSession).not.toHaveBeenCalled();
+  });
+
+  it('replays client tool results through stateless /chat', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const unregister = registerClientToolHandler('browser_tool', async () => ({ content: 'browser result' }));
+    const { result } = await renderAssistant();
+    await act(async () => {
+      result.current.sendMessage('use browser');
+    });
+    act(() => capturedCallbacks?.onConversationHistory?.('[PAUSED_TOOL]'));
+    await act(async () => {
+      capturedCallbacks?.onClientToolCall?.({
+        requestId: 'tool-1',
+        toolName: 'browser_tool',
+        toolInput: {},
+      });
+    });
+
+    await waitFor(() => expect(mockStreamChatViaFetch).toHaveBeenCalledTimes(2));
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        message: '',
+        conversation_history: '[PAUSED_TOOL]',
+        client_tool_results: { 'tool-1': { content: 'browser result', is_error: false } },
+      }),
+      expect.any(Object),
+    );
+    expect(mockSubmitClientToolResult).not.toHaveBeenCalled();
+    unregister();
+  });
+
+  it('replays client tool results with the originating experiment context', async () => {
+    mockGetProviders.mockResolvedValue({
+      providers: [providerInfo({ name: 'mlflow_gateway', client_carries_history: true })],
+      resolved: resolvedProvider({ name: 'mlflow_gateway', client_carries_history: true }),
+    });
+    const unregister = registerClientToolHandler('browser_tool', async () => ({ content: 'browser result' }));
+    mockPageContext = { experimentId: 'experiment-a', traceId: 'trace-a' };
+    const { result } = await renderAssistant();
+    await act(async () => result.current.sendMessage('use browser'));
+    act(() => capturedCallbacks?.onConversationHistory?.('[PAUSED_TOOL]'));
+    mockPageContext = { experimentId: 'experiment-b', traceId: 'trace-b' };
+    await act(async () => {
+      capturedCallbacks?.onClientToolCall?.({ requestId: 'tool-1', toolName: 'browser_tool', toolInput: {} });
+    });
+
+    await waitFor(() => expect(mockStreamChatViaFetch).toHaveBeenCalledTimes(2));
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        experiment_id: 'experiment-a',
+        context: { experimentId: 'experiment-a', traceId: 'trace-a' },
+      }),
+      expect.any(Object),
+    );
+    unregister();
   });
 });

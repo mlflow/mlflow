@@ -25,6 +25,7 @@ import {
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
+  streamChatViaFetch,
   getConfig,
   getProviders,
   resumeStream,
@@ -75,6 +76,13 @@ const EMPTY_TOKEN_USAGE: TokenUsage = {
 interface PersistedChat {
   messages: ChatMessage[];
   tokenUsage: TokenUsage;
+  conversationHistory?: string | null;
+  conversationHistoryBeforeLastTurn?: string | null;
+}
+
+interface StatelessTurnContext {
+  context: Record<string, unknown>;
+  experimentId?: string;
 }
 
 const normalizeTokenUsage = (usage?: Partial<TokenUsage> | null): TokenUsage => ({
@@ -90,10 +98,14 @@ export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
   messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
 
 /** Shrink a transcript to fit storage by dropping the oldest messages under a string-length budget. */
-export const trimForStorage = (messages: ChatMessage[], maxChars: number = MAX_PERSISTED_CHARS): ChatMessage[] => {
+export const trimForStorage = (
+  messages: ChatMessage[],
+  maxChars: number = MAX_PERSISTED_CHARS,
+  conversationHistory?: string | null,
+): ChatMessage[] => {
   // Drop the oldest message until under budget, but never drop the last one.
   const lengths = messages.map((msg) => JSON.stringify(msg).length);
-  let size = lengths.reduce((acc, len) => acc + len, 0); // best-effort; ignores separators
+  let size = lengths.reduce((acc, len) => acc + len, 0) + JSON.stringify(conversationHistory ?? null).length;
   let start = 0;
   while (start < messages.length - 1 && size > maxChars) {
     size -= lengths[start];
@@ -171,6 +183,7 @@ const activeProviderFromSelection = (
       has_api_key: selection.hasApiKey ?? true,
       // The gateway is always backed by OpenAICompatibleProvider server-side.
       client_tool_delivery: 'tool',
+      client_carries_history: true,
       model_provider: selection.gatewayVendor,
       provider_model: selection.providerModel ?? null,
       model_options: selection.modelOptions ?? [],
@@ -185,6 +198,7 @@ const activeProviderFromSelection = (
     requires_api_key: provider?.requires_api_key ?? false,
     has_api_key: provider?.has_api_key ?? false,
     client_tool_delivery: provider?.client_tool_delivery ?? 'unsupported',
+    client_carries_history: provider?.client_carries_history ?? false,
     model_options: provider?.model_options ?? [],
   };
 };
@@ -295,6 +309,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Chat state - messages/tokenUsage seeded once from the persisted conversation on first mount.
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<string | null>(
+    persistedChat.conversationHistory ?? null,
+  );
+  const conversationHistoryRef = useRef<string | null>(persistedChat.conversationHistory ?? null);
+  // `undefined` means a restored legacy payload has no safe regenerate checkpoint. `null` is a
+  // valid checkpoint for the first turn of a new conversation.
+  const conversationHistoryBeforeLastTurnRef = useRef<string | null | undefined>(
+    persistedChat.conversationHistoryBeforeLastTurn,
+  );
   const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -315,6 +338,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
+  const [clientCarriesHistory, setClientCarriesHistory] = useState(false);
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
 
   // Whether the (possibly optimistically-picked) provider still needs an API key
@@ -344,8 +368,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // NB: Using the actions hook to avoid re-rendering the component when the context changes.
   const { getContext: getPageContext } = useAssistantPageContextActions();
 
-  // Use ref to track active EventSource for cancellation
-  const eventSourceRef = useRef<EventSource | null>(null);
+  // One cancellation boundary for both streaming transports.
+  const streamCancelRef = useRef<(() => void) | null>(null);
 
   // Token identifying the in-flight send; reset/cancel invalidates it so a late POST's
   // guarded callbacks no-op and its stream is closed instead of leaking into new state.
@@ -358,6 +382,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Keep every automatic repair bound to the authoring context and apply target
   // captured for the original user turn, even if the live selection changes.
   const structuredRepairContextRef = useRef<Record<string, unknown> | null>(null);
+
+  // A paused stateless turn must resume against the same project and page context that produced
+  // its tool call. Reading live page context on resume could execute an approved relative-path
+  // tool in a different project after the user navigates.
+  const statelessTurnContextRef = useRef<StatelessTurnContext | null>(null);
 
   // Automatic repair reuses the ordinary callback set, but its tool handler is
   // itself one of those callbacks. A ref breaks that dependency cycle.
@@ -374,10 +403,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Store the resolved stream if its send is still current, otherwise close the orphan.
   const attachStreamIfCurrent = useCallback((isCurrent: () => boolean, result: SendMessageStreamResult): boolean => {
     if (!isCurrent()) {
-      result.eventSource?.close();
+      result.cancel();
       return false;
     }
-    eventSourceRef.current = result.eventSource;
+    streamCancelRef.current = result.cancel;
     return true;
   }, []);
 
@@ -462,7 +491,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       rafPendingRef.current = null;
     }
     closeStreamingMessage({ reason: TurnEndReason.Completed });
-    eventSourceRef.current = null;
+    streamCancelRef.current = null;
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
@@ -478,6 +507,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const handleSessionId = useCallback((newSessionId: string) => {
     setSessionId(newSessionId);
+  }, []);
+
+  const handleConversationHistory = useCallback((history: string) => {
+    conversationHistoryRef.current = history;
+    setConversationHistory(history);
   }, []);
 
   const addToolCalls = useCallback(
@@ -560,6 +594,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // the send that persists it will refresh again and clear the ref.
       if (!pendingProviderSelectionRef.current) {
         setActiveProvider(resolved.activeProvider);
+        setClientCarriesHistory(resolved.activeProvider?.client_carries_history ?? false);
       }
     } catch {
       // On error, assume setup is not complete
@@ -569,6 +604,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setGatewayVendorOptions({});
       if (!pendingProviderSelectionRef.current) {
         setActiveProvider(null);
+        setClientCarriesHistory(false);
       }
     } finally {
       hasLoadedConfigRef.current = true;
@@ -577,17 +613,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       }
     }
   }, []);
-
-  const selectProvider = useCallback(
-    (selection: AssistantProviderSelection) => {
-      if (!isLocalServer) {
-        return;
-      }
-      pendingProviderSelectionRef.current = selection;
-      setActiveProvider(activeProviderFromSelection(selection, providers));
-    },
-    [isLocalServer, providers],
-  );
 
   // Persist a pending optimistic provider pick to config before a turn streams,
   // so the backend resolves the provider the user chose. No-op when nothing is
@@ -641,10 +666,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         cancelAnimationFrame(rafPendingRef.current);
         rafPendingRef.current = null;
       }
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
+      streamCancelRef.current?.();
+      streamCancelRef.current = null;
     };
   }, []);
 
@@ -655,8 +678,26 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     if (isStreaming) {
       return;
     }
-    setPersistedChat({ messages: trimForStorage(messages), tokenUsage });
-  }, [isStreaming, messages, tokenUsage, setPersistedChat]);
+    let persistedHistory = conversationHistory;
+    let persistedCheckpoint = conversationHistoryBeforeLastTurnRef.current;
+    const currentHistoryChars = JSON.stringify(persistedHistory ?? null).length;
+    if (currentHistoryChars > MAX_PERSISTED_CHARS) {
+      // Opaque history cannot be truncated safely. Keep it in memory for this tab, but omit it
+      // from storage so one malformed/oversized payload cannot make every localStorage write fail.
+      persistedHistory = null;
+      persistedCheckpoint = null;
+    } else if (currentHistoryChars + JSON.stringify(persistedCheckpoint ?? null).length > MAX_PERSISTED_CHARS) {
+      // Current continuity is more important than the optional regenerate checkpoint.
+      persistedCheckpoint = null;
+    }
+    const checkpointChars = JSON.stringify(persistedCheckpoint ?? null).length;
+    setPersistedChat({
+      messages: trimForStorage(messages, MAX_PERSISTED_CHARS - checkpointChars, persistedHistory),
+      tokenUsage,
+      conversationHistory: persistedHistory,
+      conversationHistoryBeforeLastTurn: persistedCheckpoint,
+    });
+  }, [isStreaming, messages, tokenUsage, conversationHistory, setPersistedChat]);
 
   const failStreamingTurn = useCallback(
     (errorMsg: string, code?: string) => {
@@ -664,7 +705,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setErrorCode(code ?? null);
       setIsStreaming(false);
       setCurrentStatus(null);
-      eventSourceRef.current = null;
+      streamCancelRef.current = null;
       setActiveTools([]);
       setPendingPermission(null);
       setPendingClientToolCall(null);
@@ -683,7 +724,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setPendingClientToolCall(null);
     structuredRepairAttemptsRef.current = 0;
     structuredRepairContextRef.current = null;
-    eventSourceRef.current = null;
+    streamCancelRef.current = null;
     if (rafPendingRef.current !== null) {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
@@ -752,15 +793,26 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setCurrentStatus(`Repairing custom view (${attempt}/${MAX_STRUCTURED_CUSTOM_VIEW_REPAIRS})`);
       const isCurrent = beginRequest();
       try {
-        const repairResult = await sendMessageStream(
-          {
-            session_id: request.sessionId,
-            message: buildCustomViewRepairPrompt(result.content, attempt),
-            experiment_id: pageContext['experimentId'] as string | undefined,
-            context: pageContext,
-          },
-          withGuard(isCurrent, callbacks),
-        );
+        const guarded = withGuard(isCurrent, callbacks);
+        const repairResult = clientCarriesHistory
+          ? await streamChatViaFetch(
+              {
+                message: buildCustomViewRepairPrompt(result.content, attempt),
+                experiment_id: pageContext['experimentId'] as string | undefined,
+                context: pageContext,
+                conversation_history: conversationHistoryRef.current ?? undefined,
+              },
+              guarded,
+            )
+          : await sendMessageStream(
+              {
+                session_id: request.sessionId,
+                message: buildCustomViewRepairPrompt(result.content, attempt),
+                experiment_id: pageContext['experimentId'] as string | undefined,
+                context: pageContext,
+              },
+              guarded,
+            );
         attachStreamIfCurrent(isCurrent, repairResult);
       } catch (err) {
         if (isCurrent()) {
@@ -768,7 +820,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     },
-    [attachStreamIfCurrent, beginRequest, failStreamingTurn, resolveToolCall],
+    [attachStreamIfCurrent, beginRequest, failStreamingTurn, resolveToolCall, clientCarriesHistory],
   );
 
   // Shared SSE callback wiring for startChat, handleSendMessage, respondToPermission and
@@ -784,6 +836,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       onToolUse: addToolCalls,
       onToolResult: resolveToolCall,
       onInterrupted: interruptStreamingTurn,
+      onConversationHistory: handleConversationHistory,
       onUsage: handleUsage,
       onPermissionRequest: handlePermissionRequest,
       onClientToolCall: handleClientToolCall,
@@ -797,6 +850,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       addToolCalls,
       resolveToolCall,
       interruptStreamingTurn,
+      handleConversationHistory,
       handleUsage,
       handlePermissionRequest,
       handleClientToolCall,
@@ -835,15 +889,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // so its guarded callbacks no-op and its EventSource is closed when the await resolves.
     activeRequestRef.current = null;
     // Tear down any active stream so its callbacks can't leak into the reset state
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+    streamCancelRef.current?.();
+    streamCancelRef.current = null;
     if (rafPendingRef.current !== null) {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
     setSessionId(null);
+    conversationHistoryRef.current = null;
+    conversationHistoryBeforeLastTurnRef.current = undefined;
+    statelessTurnContextRef.current = null;
+    setConversationHistory(null);
     setMessages([]);
     setIsStreaming(false);
     setError(null);
@@ -851,7 +907,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setTokenUsage(EMPTY_TOKEN_USAGE);
-    setPersistedChat({ messages: [], tokenUsage: EMPTY_TOKEN_USAGE });
+    setPersistedChat({
+      messages: [],
+      tokenUsage: EMPTY_TOKEN_USAGE,
+      conversationHistory: null,
+      conversationHistoryBeforeLastTurn: undefined,
+    });
     openTextBufferRef.current = '';
     setPendingPermission(null);
     setPendingClientToolCall(null);
@@ -861,6 +922,22 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     structuredRepairAttemptsRef.current = 0;
     structuredRepairContextRef.current = null;
   }, [setPersistedChat]);
+
+  const selectProvider = useCallback(
+    (selection: AssistantProviderSelection) => {
+      if (!canUseAssistant || isStreaming) {
+        return;
+      }
+      // Provider session handles and opaque histories are provider/model-specific. Start a clean
+      // transcript so neither kind can be replayed to a newly selected provider or endpoint.
+      reset();
+      pendingProviderSelectionRef.current = selection;
+      const nextProvider = activeProviderFromSelection(selection, providers);
+      setActiveProvider(nextProvider);
+      setClientCarriesHistory(nextProvider.client_carries_history);
+    },
+    [canUseAssistant, isStreaming, providers, reset],
+  );
 
   const startChat = useCallback(
     async (prompt?: string) => {
@@ -911,15 +988,24 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           await flushPendingProvider();
         }
         const pageContext = getPageContext();
+        const turnContext = { ...pageContext };
+        if (clientCarriesHistory) {
+          conversationHistoryBeforeLastTurnRef.current = conversationHistoryRef.current;
+          statelessTurnContextRef.current = {
+            context: turnContext,
+            experimentId: turnContext['experimentId'] as string | undefined,
+          };
+        }
         structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
-        const result = await sendMessageStream(
-          {
-            message: prompt || '',
-            experiment_id: pageContext['experimentId'] as string | undefined,
-            context: pageContext,
-          },
-          withGuard(isCurrent, streamCallbacks),
-        );
+        const request = {
+          message: prompt || '',
+          experiment_id: turnContext['experimentId'] as string | undefined,
+          context: turnContext,
+          ...(clientCarriesHistory ? { conversation_history: conversationHistoryRef.current ?? undefined } : {}),
+        };
+        const result = clientCarriesHistory
+          ? await streamChatViaFetch(request, withGuard(isCurrent, streamCallbacks))
+          : await sendMessageStream(request, withGuard(isCurrent, streamCallbacks));
         if (!attachStreamIfCurrent(isCurrent, result)) {
           return;
         }
@@ -930,7 +1016,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         failStreamingTurn(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [beginRequest, attachStreamIfCurrent, flushPendingProvider, getPageContext, streamCallbacks, failStreamingTurn],
+    [
+      beginRequest,
+      attachStreamIfCurrent,
+      flushPendingProvider,
+      getPageContext,
+      streamCallbacks,
+      failStreamingTurn,
+      clientCarriesHistory,
+    ],
   );
 
   const respondToPermission = useCallback(
@@ -947,9 +1041,28 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setIsStreaming(true);
 
       // The paused assistant placeholder keeps streaming — no new message; the
-      // resume stream continues accumulating into it until done.
+      // resume continues accumulating into it until done.
       const isCurrent = beginRequest();
-      resumeStream(requestSessionId, requestId, allow ? 'allow' : 'deny', withGuard(isCurrent, streamCallbacks))
+      const decision = allow ? 'allow' : 'deny';
+      const guarded = withGuard(isCurrent, streamCallbacks);
+      // Stateless (client-carried-history) providers have no server session to resume against:
+      // replay the decision with the carried history — which already holds the unresolved
+      // tool_call — via a fresh /chat POST (no new user message). Legacy providers resume their
+      // server session via POST /sessions/{id}/permission.
+      const turnContext = statelessTurnContextRef.current;
+      const resumed = clientCarriesHistory
+        ? streamChatViaFetch(
+            {
+              message: '',
+              experiment_id: turnContext?.experimentId,
+              context: turnContext?.context,
+              conversation_history: conversationHistoryRef.current ?? undefined,
+              tool_decisions: { [requestId]: decision },
+            },
+            guarded,
+          )
+        : resumeStream(requestSessionId ?? '', requestId, decision, guarded);
+      resumed
         .then((result) => {
           attachStreamIfCurrent(isCurrent, result);
         })
@@ -959,7 +1072,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           }
         });
     },
-    [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
+    [pendingPermission, clientCarriesHistory, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
   );
 
   const submitClientToolResult = useCallback(
@@ -978,7 +1091,21 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // The paused assistant placeholder keeps streaming — no new message; the
       // resume stream continues accumulating into it until done.
       const isCurrent = beginRequest();
-      submitClientToolResultApi(requestSessionId, requestId, content, isError, withGuard(isCurrent, streamCallbacks))
+      const guarded = withGuard(isCurrent, streamCallbacks);
+      const turnContext = statelessTurnContextRef.current;
+      const resumed = clientCarriesHistory
+        ? streamChatViaFetch(
+            {
+              message: '',
+              experiment_id: turnContext?.experimentId,
+              context: turnContext?.context,
+              conversation_history: conversationHistoryRef.current ?? undefined,
+              client_tool_results: { [requestId]: { content, is_error: isError } },
+            },
+            guarded,
+          )
+        : submitClientToolResultApi(requestSessionId ?? '', requestId, content, isError, guarded);
+      resumed
         .then((result) => {
           attachStreamIfCurrent(isCurrent, result);
         })
@@ -988,7 +1115,14 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           }
         });
     },
-    [pendingClientToolCall, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
+    [
+      pendingClientToolCall,
+      beginRequest,
+      attachStreamIfCurrent,
+      streamCallbacks,
+      failStreamingTurn,
+      clientCarriesHistory,
+    ],
   );
 
   // A paused client_tool_call needs no user interaction (unlike a permission prompt):
@@ -1085,16 +1219,35 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
         // Send message and stream response
         const pageContext = getPageContext();
+        const turnContext = { ...pageContext };
+        if (clientCarriesHistory) {
+          conversationHistoryBeforeLastTurnRef.current = conversationHistoryRef.current;
+          statelessTurnContextRef.current = {
+            context: turnContext,
+            experimentId: turnContext['experimentId'] as string | undefined,
+          };
+        }
         structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
-        const result = await sendMessageStream(
-          {
-            session_id: sessionId,
-            message,
-            experiment_id: pageContext['experimentId'] as string | undefined,
-            context: pageContext,
-          },
-          withGuard(isCurrent, streamCallbacks),
-        );
+        const callbacks = withGuard(isCurrent, streamCallbacks);
+        const result = clientCarriesHistory
+          ? await streamChatViaFetch(
+              {
+                message,
+                experiment_id: turnContext['experimentId'] as string | undefined,
+                context: turnContext,
+                conversation_history: conversationHistoryRef.current ?? undefined,
+              },
+              callbacks,
+            )
+          : await sendMessageStream(
+              {
+                session_id: sessionId,
+                message,
+                experiment_id: pageContext['experimentId'] as string | undefined,
+                context: pageContext,
+              },
+              callbacks,
+            );
         attachStreamIfCurrent(isCurrent, result);
       } catch (err) {
         if (!isCurrent()) {
@@ -1113,6 +1266,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       getPageContext,
       streamCallbacks,
       failStreamingTurn,
+      clientCarriesHistory,
     ],
   );
 
@@ -1154,23 +1308,20 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   ]);
 
   const handleCancelSession = useCallback(() => {
-    if (!sessionId || !isStreaming) return;
+    if (!isStreaming || (!clientCarriesHistory && !sessionId)) return;
 
     // Invalidate any in-flight send so a late POST can't reopen a stream after cancel
     activeRequestRef.current = null;
 
-    // Close EventSource immediately to stop receiving data
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+    // Stop the active transport immediately.
+    streamCancelRef.current?.();
+    streamCancelRef.current = null;
 
-    // Send cancel request to backend
-    cancelSessionApi(sessionId).catch((err) => {
-      if (err) {
-        // fail silently
-      }
-    });
+    // Only legacy providers own a backend session/process to cancel. Stateless
+    // fetch streams are cancelled entirely by aborting their request above.
+    if (!clientCarriesHistory && sessionId) {
+      cancelSessionApi(sessionId).catch(() => {});
+    }
 
     // Flush any buffered text and mark the turn interrupted through the shared terminal,
     // matching the server-driven interrupt path (interruptStreamingTurn) so a user cancel
@@ -1188,7 +1339,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setPendingClientToolCall(null);
     structuredRepairAttemptsRef.current = 0;
     structuredRepairContextRef.current = null;
-  }, [sessionId, isStreaming, closeStreamingMessage]);
+  }, [sessionId, isStreaming, clientCarriesHistory, closeStreamingMessage]);
 
   const regenerateLastMessage = useCallback(async () => {
     // Prevent regeneration while already streaming
@@ -1200,6 +1351,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     const lastUserMessageIndex = messages.findLastIndex((msg) => msg.role === 'user');
     if (lastUserMessageIndex === -1) {
       return; // No user message to regenerate from
+    }
+    const historyBeforeTurn = conversationHistoryBeforeLastTurnRef.current;
+    if (clientCarriesHistory && historyBeforeTurn === undefined) {
+      // Older persisted chats have current history but no pre-turn checkpoint. Replaying from an
+      // empty history would silently fork the model context from the restored transcript.
+      return;
     }
 
     structuredRepairAttemptsRef.current = 0;
@@ -1246,16 +1403,36 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       // Re-send the last user message
       const pageContext = getPageContext();
+      const turnContext = { ...pageContext };
       structuredRepairContextRef.current = pageContext['customTraceView'] ? pageContext : null;
-      const result = await sendMessageStream(
-        {
-          session_id: sessionId ?? undefined,
-          message: userMessageContent,
-          experiment_id: pageContext['experimentId'] as string | undefined,
-          context: pageContext,
-        },
-        withGuard(isCurrent, streamCallbacks),
-      );
+      const callbacks = withGuard(isCurrent, streamCallbacks);
+      if (clientCarriesHistory) {
+        conversationHistoryRef.current = historyBeforeTurn ?? null;
+        setConversationHistory(historyBeforeTurn ?? null);
+        statelessTurnContextRef.current = {
+          context: turnContext,
+          experimentId: turnContext['experimentId'] as string | undefined,
+        };
+      }
+      const result = clientCarriesHistory
+        ? await streamChatViaFetch(
+            {
+              message: userMessageContent,
+              experiment_id: turnContext['experimentId'] as string | undefined,
+              context: turnContext,
+              conversation_history: historyBeforeTurn ?? undefined,
+            },
+            callbacks,
+          )
+        : await sendMessageStream(
+            {
+              session_id: sessionId ?? undefined,
+              message: userMessageContent,
+              experiment_id: pageContext['experimentId'] as string | undefined,
+              context: pageContext,
+            },
+            callbacks,
+          );
       attachStreamIfCurrent(isCurrent, result);
     } catch (err) {
       if (!isCurrent()) {
@@ -1273,6 +1450,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     getPageContext,
     streamCallbacks,
     failStreamingTurn,
+    clientCarriesHistory,
   ]);
 
   const value: AssistantAgentContextType = {

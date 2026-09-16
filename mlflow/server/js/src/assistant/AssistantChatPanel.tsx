@@ -437,7 +437,7 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
     providers,
     gatewayVendorOptions,
     selectProvider,
-    isLocalServer,
+    canUseAssistant,
     needsApiKey,
     refreshConfig,
     pendingPrompt,
@@ -696,7 +696,7 @@ const ChatPanelContent = ({ onOpenSettings }: { onOpenSettings: () => void }) =>
                 provider={activeProvider}
                 providers={providers}
                 gatewayVendorOptions={gatewayVendorOptions}
-                disabled={!isLocalServer}
+                disabled={!canUseAssistant || isStreaming}
                 onSelect={selectProvider}
               />
             )}
@@ -1033,7 +1033,7 @@ export const AssistantChatPanel = () => {
               <Tooltip
                 componentId="mlflow.assistant.chat_panel.settings.tooltip"
                 content={
-                  isLocalServer
+                  canUseAssistant
                     ? intl.formatMessage({
                         defaultMessage: 'Settings',
                         description: 'Tooltip for the Assistant settings button',
@@ -1053,7 +1053,7 @@ export const AssistantChatPanel = () => {
                   icon={<GearIcon />}
                   onClick={handleOpenSettings}
                   aria-label="Settings"
-                  disabled={!isLocalServer}
+                  disabled={!canUseAssistant}
                 />
               </Tooltip>
             </>

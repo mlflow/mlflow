@@ -30,6 +30,7 @@ from mlflow.assistant.providers.base import (
     assistant_sandbox_enabled,
     load_config_or_default,
 )
+from mlflow.assistant.providers.tool_executor import restrict_permissions_for_remote
 from mlflow.assistant.types import (
     ContentBlock,
     Event,
@@ -543,8 +544,9 @@ class ClaudeCodeProvider(AssistantProvider):
         if structured_custom_view:
             cmd.extend(["--json-schema", json.dumps(CUSTOM_VIEW_RESPONSE_SCHEMA)])
 
-        # Handle permission mode
-        if config.permissions.full_access:
+        # Handle permission mode. A remote caller is capped at the restricted profile, so its
+        # configured full_access does not unlock the CLI's bypass-permissions mode.
+        if restrict_permissions_for_remote(config.permissions).full_access:
             # Full access mode - bypass all permission checks
             cmd.extend(["--permission-mode", "bypassPermissions"])
         else:
@@ -723,7 +725,9 @@ class ClaudeCodeProvider(AssistantProvider):
         ]
         if structured_custom_view:
             cmd.extend(["--json-schema", json.dumps(CUSTOM_VIEW_RESPONSE_SCHEMA)])
-        if config.permissions.full_access:
+        # A remote caller is capped at the restricted profile even inside the sandbox container, so
+        # its configured full_access does not unlock the CLI's bypass-permissions mode.
+        if restrict_permissions_for_remote(config.permissions).full_access:
             cmd.extend(["--permission-mode", "bypassPermissions"])
         else:
             allowed_tools = list(BASE_ALLOWED_TOOLS)

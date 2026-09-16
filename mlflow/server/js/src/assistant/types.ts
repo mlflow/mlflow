@@ -69,8 +69,12 @@ export interface ToolUseInfo {
  * decision when the session is not in full-access mode.
  */
 export interface PermissionRequest {
-  /** The session that produced this request, so a decision targets the right session */
-  sessionId: string;
+  /**
+   * The session that produced this request, so a decision targets the right session. Set on the
+   * legacy EventSource path; omitted on the stateless /chat path, where the decision is replayed
+   * with the client-carried history instead of a server session.
+   */
+  sessionId?: string;
   requestId: string;
   toolName: string;
   toolInput: Record<string, any>;
@@ -83,7 +87,7 @@ export interface PermissionRequest {
  */
 export interface PendingClientToolCall {
   /** The session that produced this call, so the result targets the right session */
-  sessionId: string;
+  sessionId?: string;
   requestId: string;
   toolName: string;
   toolInput: Record<string, any>;
@@ -154,6 +158,8 @@ export interface ProviderInfo {
   has_api_key: boolean;
   allows_remote_access: boolean;
   client_tool_delivery: ClientToolDelivery;
+  /** Whether turns use stateless POST /chat with opaque history carried by the browser. */
+  client_carries_history: boolean;
   /** Curated model options for simple assistant controls; empty when provider decides. */
   model_options: string[];
 }
@@ -167,6 +173,8 @@ export interface ResolvedProviderInfo {
   has_api_key: boolean;
   /** See `ProviderInfo.client_tool_delivery`. */
   client_tool_delivery: ClientToolDelivery;
+  /** Whether turns use stateless POST /chat with opaque history carried by the browser. */
+  client_carries_history: boolean;
   /** LLM provider behind a gateway endpoint (e.g. 'openai'); null/absent otherwise. */
   model_provider?: string | null;
   /** Curated vendor model choices when resolved to an assistant-managed Gateway endpoint. */
@@ -331,6 +339,26 @@ export interface MessageRequest {
 }
 
 /**
+ * Request body for the stateless POST /chat endpoint (client-carried history).
+ * The full conversation history travels with the client and is resent each turn,
+ * so the server holds no per-session state.
+ */
+export interface ChatRequest {
+  message: string;
+  experiment_id?: string;
+  context?: KnownAssistantContext & Record<string, unknown>;
+  /** JSON-encoded conversation history carried by the client; omitted on the first turn. */
+  conversation_history?: string;
+  /**
+   * tool_call_id -> decision, sent when resuming a turn paused at a permission prompt. The
+   * provider applies it to the matching pending tool_call in the carried history.
+   */
+  tool_decisions?: Record<string, 'allow' | 'deny'>;
+  /** Results from client-executed tools when resuming a stateless turn. */
+  client_tool_results?: Record<string, { content: string; is_error: boolean }>;
+}
+
+/**
  * Result from the /health endpoint.
  * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
  */
@@ -355,6 +383,8 @@ export interface ProviderConfig {
   base_url?: string;
   api_key?: string;
   gateway_vendor?: string;
+  /** Whether this provider carries conversation history client-side and streams statelessly via POST /chat. */
+  client_carries_history?: boolean;
 }
 
 /**
