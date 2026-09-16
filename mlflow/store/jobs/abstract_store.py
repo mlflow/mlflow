@@ -44,6 +44,7 @@ class AbstractJobStore(ABC):
         params: str,
         timeout: float | None = None,
         creator: str | None = None,
+        executor_backend: str | None = None,
     ) -> Job:
         """
         Create a new job with the specified function and parameters.
@@ -53,6 +54,8 @@ class AbstractJobStore(ABC):
             params: The job parameters that are serialized as a JSON string
             timeout: The job execution timeout in seconds
             creator: Username of the authenticated user creating the job, or ``None``
+            executor_backend: Name of the executor backend selected for this job, or ``None``
+                when no backend was selected (e.g. the default engine)
 
         Returns:
             Job entity instance
