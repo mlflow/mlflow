@@ -4,9 +4,10 @@ import logging
 from threading import Lock
 from typing import Iterable
 
+import sqlalchemy as sa
 from cachetools import TTLCache
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import aliased, sessionmaker
 
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace, WorkspaceDeletionMode
 from mlflow.environment_variables import (
@@ -21,6 +22,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
     SqlEvaluationDataset,
     SqlExperiment,
     SqlGatewayBudgetPolicy,
@@ -30,6 +32,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewaySecret,
     SqlJob,
     SqlMCPServer,
+    SqlSkill,
 )
 from mlflow.store.workspace.abstract_store import (
     AbstractStore,
@@ -64,6 +67,12 @@ _WORKSPACE_ROOT_MODELS = [
     SqlGatewayGuardrail,
     SqlJob,
     SqlMCPServer,
+    # AgentPlugin is listed before Skill so that, on a cascade workspace delete,
+    # a plugin version's member rows are removed before the skill versions they
+    # reference, keeping the agent_plugin_version_members -> skill_versions
+    # RESTRICT foreign key from blocking the delete.
+    SqlAgentPlugin,
+    SqlSkill,
 ]
 
 
@@ -229,6 +238,22 @@ class SqlAlchemyStore(AbstractStore):
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
                     self._check_set_default_conflicts(session, workspace_name)
+                    # Moving agent plugins between workspaces is not implemented yet, so
+                    # refuse rather than move part of one.
+                    blocking_plugins = (
+                        session
+                        .query(SqlAgentPlugin)
+                        .filter(SqlAgentPlugin.workspace == workspace_name)
+                        .count()
+                    )
+                    if blocking_plugins:
+                        raise MlflowException(
+                            f"Cannot reassign workspace '{workspace_name}' to "
+                            f"'{DEFAULT_WORKSPACE_NAME}': it contains {blocking_plugins} agent "
+                            "plugin(s), whose reassignment is not yet supported. Delete them "
+                            "first, then retry.",
+                            INVALID_STATE,
+                        )
                     for model in _WORKSPACE_ROOT_MODELS:
                         session.query(model).filter(model.workspace == workspace_name).update(
                             {model.workspace: DEFAULT_WORKSPACE_NAME},
@@ -241,19 +266,16 @@ class SqlAlchemyStore(AbstractStore):
                     )
                 session.delete(entity)
             except IntegrityError as exc:
-                if mode == WorkspaceDeletionMode.SET_DEFAULT:
-                    message = (
-                        f"Cannot delete workspace '{workspace_name}': resources in this workspace "
-                        f"conflict with existing resources in the '{DEFAULT_WORKSPACE_NAME}' "
-                        f"workspace. Resolve naming conflicts before deleting. Error: {exc}"
-                    )
-                else:
-                    message = (
-                        f"Cannot delete workspace '{workspace_name}': deletion failed due to "
-                        f"database integrity constraints while operating in '{mode.value}' mode. "
-                        "This often indicates that related resources still reference this "
-                        f"workspace. Error: {exc}"
-                    )
+                # A naming conflict in SET_DEFAULT mode is already surfaced by
+                # _check_set_default_conflicts before the UPDATE runs, so an
+                # IntegrityError reaching here is a genuine referential-integrity
+                # failure (not a name collision) regardless of mode.
+                message = (
+                    f"Cannot delete workspace '{workspace_name}': deletion failed due to "
+                    f"database integrity constraints while operating in '{mode.value}' mode. "
+                    "This often indicates that related resources still reference this "
+                    f"workspace. Error: {exc}"
+                )
                 raise MlflowException(message, INVALID_STATE) from exc
             _logger.info("Deleted workspace '%s' (mode=%s)", workspace_name, mode.value)
             if mode == WorkspaceDeletionMode.CASCADE:
@@ -332,12 +354,53 @@ class SqlAlchemyStore(AbstractStore):
 
     @staticmethod
     def _check_set_default_conflicts(session, workspace_name: str) -> None:
-        """Preflight check: report all name conflicts that would arise from reassigning
+        """Preflight check: report all identity conflicts that would arise from reassigning
         resources in *workspace_name* to the default workspace.
         """
         conflicts: list[str] = []
         for model in _WORKSPACE_ROOT_MODELS:
+            if model is SqlGatewaySecret:
+                # `secrets` has no `name` column. Unique on (workspace, secret_name).
+                overlapping = (
+                    session
+                    .query(model.secret_name)
+                    .filter(model.workspace == workspace_name)
+                    .filter(
+                        model.secret_name.in_(
+                            session.query(model.secret_name).filter(
+                                model.workspace == DEFAULT_WORKSPACE_NAME
+                            )
+                        )
+                    )
+                    .all()
+                )
+                for (secret_name,) in overlapping:
+                    conflicts.append(f"  - {model.__tablename__}: {secret_name!r}")
+                continue
             if not hasattr(model, "name"):
+                continue
+            if hasattr(model, "organization"):
+                # Skills and agent plugins are identified by (organization, name).
+                # EXISTS compares the columns one at a time, which works on every engine;
+                # SQL Server cannot compare two columns at once with IN.
+                in_default = aliased(model)
+                overlapping = (
+                    session
+                    .query(model.organization, model.name)
+                    .filter(model.workspace == workspace_name)
+                    .filter(
+                        sa
+                        .exists()
+                        .where(in_default.workspace == DEFAULT_WORKSPACE_NAME)
+                        .where(in_default.organization == model.organization)
+                        .where(in_default.name == model.name)
+                    )
+                    .all()
+                )
+                for organization, name in overlapping:
+                    conflicts.append(
+                        f"  - {model.__tablename__}: organization={organization!r}, name={name!r}"
+                    )
                 continue
             overlapping = (
                 session
@@ -356,7 +419,7 @@ class SqlAlchemyStore(AbstractStore):
             details = "\n".join(conflicts)
             raise MlflowException(
                 f"Cannot reassign resources from workspace '{workspace_name}' to "
-                f"'{DEFAULT_WORKSPACE_NAME}': the following names already exist in the "
+                f"'{DEFAULT_WORKSPACE_NAME}': the following resources already exist in the "
                 f"default workspace and would cause conflicts:\n{details}\n"
                 "Rename or remove the conflicting resources before retrying.",
                 INVALID_STATE,
