@@ -1657,8 +1657,9 @@ def test_create_model_version_from_own_source_succeeds(
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+@pytest.mark.parametrize("source_id_key", ["run_id", "runId", "model_id", "modelId"])
 def test_create_model_version_empty_source_id_does_not_bypass(
-    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_id_key: str
 ):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -1671,16 +1672,93 @@ def test_create_model_version_empty_source_id_does_not_bypass(
     with User(username2, password2, monkeypatch):
         rm = client.create_registered_model("empty-id-authz-model")
 
-    # An explicitly-supplied empty run_id must not skip the source-read guard: the request
-    # is denied rather than slipping past as if run_id were absent.
+    # An explicitly-supplied empty source id must not skip the source-read guard: the
+    # request is denied rather than slipping past as if the id were absent.
     response = _send_rest_tracking_post_request(
         client.tracking_uri,
         "/api/2.0/mlflow/model-versions/create",
-        json_payload={"name": rm.name, "source": source, "run_id": ""},
+        json_payload={"name": rm.name, "source": source, source_id_key: ""},
         auth=(username2, password2),
     )
     assert response.status_code == 403
     assert "Permission denied" in response.text
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("source_id_key", ["run_id", "runId", "model_id", "modelId"])
+def test_create_model_version_nonexistent_source_id_is_denied(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_id_key: str
+):
+    username, password = create_user(client.tracking_uri)
+
+    with User(username, password, monkeypatch):
+        rm = client.create_registered_model("missing-source-authz-model")
+
+    # A nonexistent source id is denied with 403 rather than surfacing the store's 404, so
+    # the response cannot be used to probe which run/model ids exist.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": rm.name, "source": "s3://bucket/x", source_id_key: "missing"},
+        auth=(username, password),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("source_kind", ["run", "model"])
+def test_create_model_version_camelcase_alias_requires_read_on_source(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_kind: str
+):
+    # The handler parses the body through the proto, which also accepts the camelCase
+    # `runId` / `modelId` aliases. The validator must authorize those aliases against the
+    # same source the handler anchors the version to; otherwise a caller without READ on
+    # the source could bind a version to it and read its artifacts via their own model.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment(f"alias-{source_kind}-authz-exp")
+        if source_kind == "run":
+            run = client.create_run(exp_id)
+            source = run.info.artifact_uri
+            alias_field = {"runId": run.info.run_id}
+        else:
+            model = client.create_logged_model(experiment_id=exp_id)
+            source = model.artifact_location
+            alias_field = {"modelId": model.model_id}
+
+    with User(username2, password2, monkeypatch):
+        rm = client.create_registered_model(f"alias-{source_kind}-authz-model")
+
+    payload = {"name": rm.name, "source": source, **alias_field}
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload=payload,
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    grant_role_permission(client.tracking_uri, username2, "experiment", exp_id, "READ")
+
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload=payload,
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
 
 
 @pytest.fixture
