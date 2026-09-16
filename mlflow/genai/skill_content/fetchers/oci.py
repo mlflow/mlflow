@@ -15,9 +15,11 @@ from urllib.parse import urlsplit
 import requests
 
 from mlflow.genai.skill_content.archive import (
+    DecompressionBudget,
     _iter_tar_members,
     _member_relative_path,
     _open_tar,
+    default_decompression_budget,
     extract_skill_archive,
 )
 from mlflow.genai.skill_content.errors import (
@@ -528,10 +530,10 @@ def _remove_path(path: Path) -> None:
         path.unlink()
 
 
-def _layer_whiteouts(blob: Path, *, compressed: bool) -> list[str]:
+def _layer_whiteouts(blob: Path, *, compressed: bool, work: DecompressionBudget) -> list[str]:
     """Canonical paths of every whiteout entry in a tar layer, inside the subpath or not."""
     whiteouts = []
-    with _open_tar(blob, compressed=compressed) as (tar, bounded):
+    with _open_tar(blob, compressed=compressed, work=work) as (tar, bounded):
         for member in _iter_tar_members(tar, bounded):
             relative = _member_relative_path(member.name)
             if relative is not None and relative.rsplit("/", 1)[-1].startswith(_WHITEOUT_PREFIX):
@@ -636,7 +638,8 @@ def fetch_oci(
     Multi-platform indexes resolve to ``linux/amd64``. Credentials come from the Docker config
     file: ``auths`` entries, then ``credHelpers`` or ``credsStore`` helpers. The decompressed
     limit applies to the content at ``subpath``; each layer download is also bounded by the
-    limit on the wire, and only one layer at a time occupies ``scratch``.
+    limit on the wire, the decompression work across all layers by a multiple of it, and only
+    one layer at a time occupies ``scratch``.
     """
     ref = parse_image_reference(image)
     client = RegistryClient(ref.registry)
@@ -644,6 +647,8 @@ def fetch_oci(
     prefix = normalize_subpath(subpath)
     dest.mkdir(parents=True, exist_ok=True)
     remaining = max_bytes
+    # One decompression budget for the whole image: every pass over every layer draws on it.
+    work = default_decompression_budget(max_bytes)
     tmp_path = scratch / "oci-layers"
     tmp_path.mkdir(parents=True, exist_ok=True)
     for index, layer in enumerate(manifest["layers"]):
@@ -665,10 +670,15 @@ def fetch_oci(
             compressed = "gzip" in media_type
             extracted = tmp_path / f"extracted-{index}"
             extract_skill_archive(
-                blob, extracted, max_bytes=remaining, compressed=compressed, subpath=prefix
+                blob,
+                extracted,
+                max_bytes=remaining,
+                compressed=compressed,
+                subpath=prefix,
+                decompression_budget=work,
             )
             remaining -= tree_size(extracted)
-            _apply_whiteouts(_layer_whiteouts(blob, compressed=compressed), dest, prefix)
+            _apply_whiteouts(_layer_whiteouts(blob, compressed=compressed, work=work), dest, prefix)
             _merge_tree(extracted, dest)
             # Scratch space is bounded by one layer at a time, not by the whole image.
             blob.unlink()

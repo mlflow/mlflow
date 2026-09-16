@@ -650,6 +650,31 @@ def test_fetch_oci_tag_and_digest_reference(oci_registry, skill_tree):
         )
 
 
+def test_fetch_oci_decompression_work_is_bounded_across_layers(tmp_path):
+    # Each layer is 20 MiB of skipped padding read three times (validate, extract, whiteout
+    # scan); with a 1 MiB limit the image-wide work budget of 64 MiB runs out on layer two.
+    padded = _raw_tar_gz({"other/padding": b"\0" * (20 * 1024 * 1024), "skill/SKILL.md": b"x"})
+    assert len(padded) < 1024 * 1024
+    manifest = {"layers": [{"mediaType": _TAR_GZ_TYPE, "payload": padded}] * 2}
+
+    def download(client, ref, layer, target, *, max_bytes):
+        target.write_bytes(layer["payload"])
+
+    with (
+        mock.patch.object(oci_module, "RegistryClient"),
+        mock.patch.object(oci_module, "_select_manifest", return_value=manifest),
+        mock.patch.object(oci_module, "_download_blob", side_effect=download),
+    ):
+        with pytest.raises(MlflowException, match="decompressed more than 67108864 bytes"):
+            oci_module.fetch_oci(
+                "example.com/skill:v1",
+                tmp_path / "content",
+                scratch=tmp_path,
+                max_bytes=1024 * 1024,
+                subpath="skill",
+            )
+
+
 def test_fetch_oci_unreachable(closed_port):
     with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
         with fetch_source(f"oci://127.0.0.1:{closed_port}/skills/demo:v1"):

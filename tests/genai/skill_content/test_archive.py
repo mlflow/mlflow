@@ -504,3 +504,37 @@ def test_bounded_stream_never_reads_past_the_allowance():
     with pytest.raises(MlflowException, match="allowance for tar headers"):
         stream.read(100_000)
     assert inner.tell() == 11
+
+
+def _tar_gz_with_padding(path, padding_bytes):
+    with tarfile.open(path, "w:gz") as tar:
+        for name, data in [("other/padding", b"\0" * padding_bytes), ("skill/SKILL.md", b"x")]:
+            entry = tarfile.TarInfo(name)
+            entry.size = len(data)
+            tar.addfile(entry, io.BytesIO(data))
+    return path
+
+
+def test_tar_decompression_work_outside_subpath_is_bounded(tmp_path):
+    # Skipped entries still have to be decompressed to reach the selected ones. With a 1 MiB
+    # content limit the work budget is 64 MiB shared by validation and extraction, so 40 MiB
+    # of padding passes validation and is cut off during extraction.
+    archive = _tar_gz_with_padding(tmp_path / "padded.tar.gz", 40 * 1024 * 1024)
+    assert archive.stat().st_size < 1024 * 1024
+    with pytest.raises(MlflowException, match="decompressed more than 67108864 bytes"):
+        extract_skill_archive(archive, tmp_path / "out", max_bytes=1024 * 1024, subpath="skill")
+    out = extract_skill_archive(
+        archive, tmp_path / "out2", max_bytes=2 * 1024 * 1024, subpath="skill"
+    )
+    assert (out / "skill" / "SKILL.md").read_text() == "x"
+
+
+def test_decompression_budget_is_shared_across_calls(tmp_path):
+    archive = _tar_gz_with_padding(tmp_path / "padded.tar.gz", 40 * 1024 * 1024)
+    shared = archive_module.DecompressionBudget(100 * 1024 * 1024)
+    kwargs = {"max_bytes": 1024 * 1024, "subpath": "skill", "decompression_budget": shared}
+    validate_skill_archive(archive, **kwargs)
+    validate_skill_archive(archive, **kwargs)
+    assert shared.used > 80 * 1024 * 1024
+    with pytest.raises(MlflowException, match="decompressed more than"):
+        validate_skill_archive(archive, **kwargs)
