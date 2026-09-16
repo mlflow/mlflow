@@ -851,6 +851,7 @@ def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monk
     with workspace_context.WorkspaceContext("team-a"):
         assert auth_module.validate_can_create_experiment()
         assert auth_module.validate_can_create_registered_model()
+        assert auth_module.validate_can_create_gateway_secret()
 
 
 def test_role_grant_resource_type_use_does_not_allow_create(
@@ -871,6 +872,7 @@ def test_role_grant_resource_type_use_does_not_allow_create(
     with workspace_context.WorkspaceContext("team-a"):
         assert not auth_module.validate_can_create_experiment()
         assert not auth_module.validate_can_create_registered_model()
+        assert not auth_module.validate_can_create_gateway_secret()
 
 
 def test_experiment_artifact_proxy_validators_respect_permissions(workspace_permission_setup):
