@@ -176,6 +176,13 @@ class LocalJobExecutor(AbstractJobExecutor):
         self._state_lock = threading.RLock()
         self._stopped = False
 
+    @property
+    def supports_direct_provider_models(self) -> bool:
+        # Local jobs run as subprocesses on the server host and inherit its environment, so they
+        # can reach direct-provider (non-Gateway) model URIs. This is only consulted for a remote
+        # executor (a local executor is not remote), but set it accurately for semantic clarity.
+        return True
+
     def _effective_timeout(self, timeout: float | None) -> float:
         return timeout if timeout is not None else self.config.default_timeout
 
