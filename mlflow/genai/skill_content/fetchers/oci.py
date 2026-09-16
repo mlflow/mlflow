@@ -423,7 +423,9 @@ class RegistryClient:
     def _acquire_token(self, challenge: str) -> bool:
         scheme, params = _parse_challenge(challenge)
         if scheme == "basic":
-            if self._credentials is None:
+            # An identity token is only good for the refresh-token grant; sending it as a
+            # Basic password would disclose it to a registry that cannot use it.
+            if self._credentials is None or self._credentials[0] == _IDENTITY_TOKEN_USERNAME:
                 return False
             self._token = None
             self._session.auth = self._credentials

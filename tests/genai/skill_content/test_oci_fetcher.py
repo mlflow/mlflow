@@ -767,6 +767,25 @@ def test_registry_client_preserves_token_endpoint_error_codes(status, expected):
     assert exc.value.error_code == expected
 
 
+def test_registry_client_never_sends_identity_token_as_basic_password():
+    registry_url = "https://registry.example/v2/acme/skill/manifests/v1"
+    session = mock.Mock(hooks={"response": []}, auth=None)
+    session.get.return_value = _canned_response(
+        401, registry_url, headers={"WWW-Authenticate": 'Basic realm="registry"'}
+    )
+    with mock.patch(
+        "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials",
+        return_value=("<token>", "refresh-secret"),
+    ) as load:
+        client = RegistryClient("registry.example", session=session)
+    load.assert_called_once_with("registry.example")
+    with pytest.raises(MlflowException, match="no usable credentials") as exc:
+        client.get("/v2/acme/skill/manifests/v1")
+    assert exc.value.error_code == "UNAUTHENTICATED"
+    assert session.auth is None
+    assert session.get.call_count == 1
+
+
 def test_fetch_oci_unreachable(closed_port):
     with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
         with fetch_source(f"oci://127.0.0.1:{closed_port}/skills/demo:v1"):
