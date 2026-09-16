@@ -378,7 +378,7 @@ def to_sse_error_chunk(error: Exception) -> str:
 async def safe_stream(
     stream: AsyncGenerator[str | bytes, None],
     as_bytes: bool = False,
-    message_format: str = None,
+    message_format: str | None = None,
 ) -> AsyncGenerator[bytes | str, None]:
     """
     Wrap a streaming generator with exception handling.
