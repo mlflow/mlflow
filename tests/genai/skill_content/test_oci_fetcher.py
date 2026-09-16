@@ -506,8 +506,9 @@ def test_registry_client_ignores_challenge_from_redirect_target():
     with mock.patch(
         "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials",
         return_value=("user", "dummy-password"),
-    ):
+    ) as load:
         client = RegistryClient("registry.example", session=session)
+    load.assert_called_once_with("registry.example")
     with mock.patch.object(client, "_request_token", return_value=None) as request_token:
         with pytest.raises(MlflowException, match="redirect target .* requested auth") as exc:
             client.get("/v2/acme/skill/blobs/sha256:" + "a" * 64)
@@ -537,8 +538,9 @@ def test_registry_client_allows_separate_token_service_named_by_registry():
     with mock.patch(
         "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials",
         return_value=("user", "dummy-password"),
-    ):
+    ) as load:
         client = RegistryClient("registry.example", session=session)
+    load.assert_called_once_with("registry.example")
     with client.get("/v2/acme/skill/manifests/v1") as response:
         assert response.status_code == 200
     calls = session.get.call_args_list
@@ -591,8 +593,9 @@ def test_registry_client_does_not_follow_token_redirects(credentials):
     with mock.patch(
         "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials",
         return_value=credentials,
-    ):
+    ) as load:
         client = RegistryClient("registry.example", session=session)
+    load.assert_called_once_with("registry.example")
     with pytest.raises(MlflowException, match="token endpoint redirected") as exc:
         client._request_token("https://auth.example/token", {})
     assert exc.value.error_code == "UNAUTHENTICATED"
@@ -625,13 +628,16 @@ def _fetch_layers(tmp_path, layers, subpath=None):
 
     dest = tmp_path / "content"
     with (
-        mock.patch.object(oci_module, "RegistryClient"),
-        mock.patch.object(oci_module, "_select_manifest", return_value=manifest),
-        mock.patch.object(oci_module, "_download_blob", side_effect=download),
+        mock.patch.object(oci_module, "RegistryClient") as client,
+        mock.patch.object(oci_module, "_select_manifest", return_value=manifest) as select,
+        mock.patch.object(oci_module, "_download_blob", side_effect=download) as downloads,
     ):
         oci_module.fetch_oci(
             "example.com/skill:v1", dest, scratch=tmp_path, max_bytes=1024 * 1024, subpath=subpath
         )
+    client.assert_called_once_with("example.com")
+    select.assert_called_once()
+    assert downloads.call_count == len(layers)
     return dest
 
 
@@ -771,9 +777,9 @@ def test_fetch_oci_decompression_work_is_bounded_across_layers(tmp_path):
         target.write_bytes(layer["payload"])
 
     with (
-        mock.patch.object(oci_module, "RegistryClient"),
-        mock.patch.object(oci_module, "_select_manifest", return_value=manifest),
-        mock.patch.object(oci_module, "_download_blob", side_effect=download),
+        mock.patch.object(oci_module, "RegistryClient") as client,
+        mock.patch.object(oci_module, "_select_manifest", return_value=manifest) as select,
+        mock.patch.object(oci_module, "_download_blob", side_effect=download) as downloads,
     ):
         with pytest.raises(MlflowException, match="decompressed more than 67108864 bytes"):
             oci_module.fetch_oci(
@@ -783,6 +789,10 @@ def test_fetch_oci_decompression_work_is_bounded_across_layers(tmp_path):
                 max_bytes=1024 * 1024,
                 subpath="skill",
             )
+    client.assert_called_once_with("example.com")
+    select.assert_called_once()
+    # The budget runs out while processing the second layer, after both were downloaded.
+    assert downloads.call_count == 2
 
 
 @pytest.mark.parametrize("challenge", [None, "bearer"])
@@ -823,8 +833,9 @@ def test_registry_client_preserves_token_endpoint_error_codes(status, expected):
     ]
     with mock.patch(
         "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials", return_value=None
-    ):
+    ) as load:
         client = RegistryClient("registry.example", session=session)
+    load.assert_called_once_with("registry.example")
     with pytest.raises(MlflowException, match=f"HTTP {status}.*no credentials were found") as exc:
         client.get("/v2/acme/skill/manifests/v1")
     assert exc.value.error_code == expected
