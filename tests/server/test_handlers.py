@@ -123,6 +123,7 @@ from mlflow.protos.service_pb2 import (
     CalculateTraceFilterCorrelation,
     CreateExperiment,
     CreateGatewaySecret,
+    CreatePresignedUploadUrl,
     DeleteScorer,
     DeleteTraceTag,
     DeleteTraceTagV3,
@@ -225,6 +226,7 @@ from mlflow.server.handlers import (
     _list_workspaces_handler,
     _log_batch,
     _query_trace_metrics,
+    _raw_request_has_field,
     _register_scorer,
     _rename_registered_model,
     _response_with_file_attachment_headers,
@@ -267,7 +269,10 @@ from mlflow.server.handlers import (
     upload_artifact_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.artifact_repo import (
+    ArtifactRepository,
+    PresignedUploadMixin,
+)
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -285,9 +290,12 @@ from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIEW_TAG_PREFIX
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.server_info import (
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
+    SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
     SERVER_INFO_STORE_TYPE,
     SERVER_INFO_TRACE_ARCHIVAL_ENABLED,
     SERVER_INFO_WORKSPACES_ENABLED,
@@ -452,6 +460,8 @@ def test_server_info():
         assert data[SERVER_INFO_STORE_TYPE] == "SqlStore"
         assert data[SERVER_INFO_WORKSPACES_ENABLED] is False
         assert data[SERVER_INFO_TRACE_ARCHIVAL_ENABLED] is False
+        assert data[SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED] is True
+        assert data[SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED] is True
 
 
 def test_server_info_trace_archival_enabled(monkeypatch):
@@ -1125,6 +1135,96 @@ def test_create_model_version_rejects_traversal_source_for_prompts(
     assert "Invalid model version source" in resp.get_json()["message"]
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        "../../etc/passwd",
+        "../../../../../../../../etc",
+        "..",
+        ".",
+        "etc/passwd",
+        "..%2F..%2Fetc%2Fpasswd",
+        "%2e%2e/%2e%2e/etc/passwd",
+        "%2Fetc%2Fpasswd",
+        "%252Fetc%252Fpasswd",
+        "..\\..\\etc\\passwd",
+        "prompt-template\x00",
+        "mlflow",
+        "etc",
+        "prompt%2Dtemplate",
+        "Prompt-Template",
+        "prompt-template/",
+        # Windows drive letters parse as a single-letter URL scheme but resolve as local paths
+        "C:/Windows",
+        "d:/data",
+        "C:\\Windows\\System32",
+    ],
+)
+def test_create_model_version_rejects_schemeless_path_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid prompt source" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "prompt-template",
+        "dummy-source",
+        "mlflow-artifacts:/prompts/1",
+        "s3://bucket/prompts/1",
+    ],
+)
+def test_create_model_version_accepts_placeholder_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=source,
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    mock_model_registry_store.create_model_version.return_value = ModelVersion(
+        name="model_1", version="1", creation_timestamp=123
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 200
+    _, args = mock_model_registry_store.create_model_version.call_args
+    assert args["source"] == source
+
+
+@pytest.mark.parametrize(
+    "tag_values",
+    [
+        ["false"],
+        ["False"],
+        ["0"],
+        [""],
+        # Duplicate keys collapse with the last value winning, as in ModelVersion._is_prompt
+        ["true", "false"],
+    ],
+)
+def test_create_model_version_non_true_prompt_tag_uses_model_source_validation(
+    mock_get_request_message, mock_model_registry_store, tag_values
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source="../../etc/passwd",
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value=v).to_proto() for v in tag_values],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "Invalid model version source" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
 def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
     name = "model1"
     tag = RegisteredModelTag(key="some weird key", value="some value")
@@ -1532,8 +1632,6 @@ def test_get_presigned_download_url_unsupported_repo(enable_serve_artifacts, tmp
 
 
 def test_create_presigned_upload_url_success():
-    from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
-
     class MockPresignedUploadRepo(PresignedUploadMixin):
         def create_presigned_upload_url(self, artifact_path, expiration=900):
             return CreatePresignedUploadResponse(
@@ -1543,8 +1641,6 @@ def test_create_presigned_upload_url_success():
 
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
@@ -1577,8 +1673,6 @@ def test_create_presigned_upload_url_success():
 def test_create_presigned_upload_url_unsupported_repo():
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "file:///tmp/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
@@ -1619,8 +1713,6 @@ def test_create_presigned_upload_url_rejects_proxy_artifact_uri(artifact_uri):
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = artifact_uri
 
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
     request_proto.path = "model.pkl"
@@ -1645,8 +1737,6 @@ def test_create_presigned_upload_url_rejects_proxy_artifact_uri(artifact_uri):
 
 
 def test_create_presigned_upload_url_invalid_run_id():
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "nonexistent_run"
     request_proto.path = "model.pkl"
@@ -1683,8 +1773,6 @@ def test_create_presigned_upload_url_invalid_run_id():
     ],
 )
 def test_create_presigned_upload_url_rejects_path_traversal(path):
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
-
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
     request_proto.path = path
@@ -1704,8 +1792,6 @@ def test_create_presigned_upload_url_rejects_path_traversal(path):
 
 
 def test_create_presigned_upload_url_with_custom_expiration():
-    from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
-
     captured_expiration = {}
 
     class MockPresignedUploadRepo(PresignedUploadMixin):
@@ -1718,8 +1804,6 @@ def test_create_presigned_upload_url_with_custom_expiration():
 
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     request_proto = CreatePresignedUploadUrl()
     request_proto.run_id = "abc123"
@@ -1748,8 +1832,6 @@ def test_create_presigned_upload_url_with_custom_expiration():
 
 
 def test_create_presigned_upload_url_default_expiration():
-    from mlflow.store.artifact.artifact_repo import PresignedUploadMixin
-
     captured_expiration = {}
 
     class MockPresignedUploadRepo(PresignedUploadMixin):
@@ -1762,8 +1844,6 @@ def test_create_presigned_upload_url_default_expiration():
 
     mock_run = mock.MagicMock()
     mock_run.info.artifact_uri = "s3://bucket/0/abc123/artifacts"
-
-    from mlflow.protos.service_pb2 import CreatePresignedUploadUrl
 
     # Don't set expiration - should default to 900
     request_proto = CreatePresignedUploadUrl()
@@ -1801,6 +1881,255 @@ def test_create_presigned_upload_url_blocked_in_artifacts_only_mode(monkeypatch)
 
     assert response.status_code == 503
     assert "artifacts-only" in response.get_data(as_text=True).lower()
+
+
+def test_create_presigned_upload_url_logged_model_success():
+    class MockPresignedUploadRepo(PresignedUploadMixin):
+        def create_presigned_upload_url(self, artifact_path, expiration=900):
+            return CreatePresignedUploadResponse(
+                presigned_url="https://s3.amazonaws.com/bucket/models/m-123/artifacts/model.pkl?X-Amz-Signature=abc",
+                headers={"Content-Type": "application/octet-stream"},
+            )
+
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.artifact_location = "s3://bucket/0/models/m-123abc/artifacts"
+
+    request_proto = CreatePresignedUploadUrl()
+    request_proto.model_id = "m-123abc"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers.get_artifact_repository",
+            return_value=MockPresignedUploadRepo(),
+        ) as mock_get_repo,
+    ):
+        mock_store.return_value.get_logged_model.return_value = mock_logged_model
+        response = _create_presigned_upload_url()
+
+    assert response.status_code == 200
+    data = json.loads(response.get_data())
+    assert "presigned_url" in data
+    assert "X-Amz-Signature" in data["presigned_url"]
+    assert data["headers"] == {"Content-Type": "application/octet-stream"}
+    mock_store.return_value.get_logged_model.assert_called_once_with("m-123abc")
+    mock_get_repo.assert_called_once_with("s3://bucket/0/models/m-123abc/artifacts")
+
+
+def test_create_presigned_upload_url_logged_model_unsupported_repo():
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.artifact_location = "file:///tmp/models/m-123abc/artifacts"
+
+    request_proto = CreatePresignedUploadUrl()
+    request_proto.model_id = "m-123abc"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers.get_artifact_repository",
+            return_value=LocalArtifactRepository("/tmp/models/m-123abc/artifacts"),
+        ),
+    ):
+        mock_store.return_value.get_logged_model.return_value = mock_logged_model
+        response = _create_presigned_upload_url()
+
+    assert response.status_code == 501
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
+    assert "presigned upload" in json_response["message"].lower()
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    [
+        "mlflow-artifacts:/0/models/m-123abc/artifacts",
+        "http://mlflow-server:5000/api/2.0/mlflow-artifacts/artifacts",
+        "https://mlflow-server/api/2.0/mlflow-artifacts/artifacts",
+    ],
+)
+def test_create_presigned_upload_url_logged_model_rejects_proxy_artifact_location(
+    artifact_location,
+):
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.artifact_location = artifact_location
+
+    request_proto = CreatePresignedUploadUrl()
+    request_proto.model_id = "m-123abc"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+    ):
+        mock_store.return_value.get_logged_model.return_value = mock_logged_model
+        response = _create_presigned_upload_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "proxied" in json_response["message"].lower()
+
+
+def test_create_presigned_upload_url_invalid_model_id():
+    request_proto = CreatePresignedUploadUrl()
+    request_proto.model_id = "m-nonexistent"
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+    ):
+        mock_store.return_value.get_logged_model.side_effect = MlflowException(
+            "Logged model with ID 'm-nonexistent' not found.",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+        response = _create_presigned_upload_url()
+
+    assert response.status_code == 404
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "../../../etc/passwd",
+        "path/../to/file",
+        "/etc/passwd",
+    ],
+)
+def test_create_presigned_upload_url_logged_model_rejects_path_traversal(path):
+    request_proto = CreatePresignedUploadUrl()
+    request_proto.model_id = "m-123abc"
+    request_proto.path = path
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+    ):
+        response = _create_presigned_upload_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("run_id", "model_id"),
+    [
+        ("", ""),
+        ("abc123", "m-123abc"),
+    ],
+)
+def test_create_presigned_upload_url_requires_exactly_one_of_run_id_and_model_id(run_id, model_id):
+    request_proto = CreatePresignedUploadUrl()
+    if run_id:
+        request_proto.run_id = run_id
+    if model_id:
+        request_proto.model_id = model_id
+    request_proto.path = "model.pkl"
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+    ):
+        response = _create_presigned_upload_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "exactly one of run_id and model_id" in json_response["message"].lower()
+
+
+def test_create_presigned_upload_url_requires_exactly_one_via_request_parsing():
+    # Exercise the real ``_get_request_message`` path (no mocking) to confirm the
+    # schema accepts an absent run_id and the handler rejects the request with a
+    # clear error rather than a schema-level assertion failure.
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        json={"path": "model.pkl"},
+    ):
+        response = _create_presigned_upload_url()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "exactly one of run_id and model_id" in json_response["message"].lower()
+
+
+def test_create_presigned_upload_url_logged_model_with_custom_expiration():
+    captured_expiration = {}
+
+    class MockPresignedUploadRepo(PresignedUploadMixin):
+        def create_presigned_upload_url(self, artifact_path, expiration=900):
+            captured_expiration["value"] = expiration
+            return CreatePresignedUploadResponse(
+                presigned_url="https://example.com/presigned",
+                headers={},
+            )
+
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.artifact_location = "s3://bucket/0/models/m-123abc/artifacts"
+
+    request_proto = CreatePresignedUploadUrl()
+    request_proto.model_id = "m-123abc"
+    request_proto.path = "model.pkl"
+    request_proto.expiration = 60
+
+    with (
+        app.test_request_context(method="POST", content_type="application/json"),
+        mock.patch(
+            "mlflow.server.handlers._get_request_message",
+            return_value=request_proto,
+        ),
+        mock.patch(
+            "mlflow.server.handlers._get_tracking_store",
+        ) as mock_store,
+        mock.patch(
+            "mlflow.server.handlers.get_artifact_repository",
+            return_value=MockPresignedUploadRepo(),
+        ),
+    ):
+        mock_store.return_value.get_logged_model.return_value = mock_logged_model
+        response = _create_presigned_upload_url()
+
+    assert response.status_code == 200
+    assert captured_expiration["value"] == 60
 
 
 # --- Presigned download URL handler tests ---
@@ -2289,7 +2618,7 @@ def test_create_prompt_as_model_version(mock_get_request_message, mock_model_reg
     mock_get_request_message.return_value = CreateModelVersion(
         name="model_1",
         tags=[tag.to_proto() for tag in tags],
-        source=None,
+        source="dummy-source",
         run_id=None,
         run_link=None,
     )
@@ -2300,7 +2629,7 @@ def test_create_prompt_as_model_version(mock_get_request_message, mock_model_reg
     resp = _create_model_version()
     _, args = mock_model_registry_store.create_model_version.call_args
     assert args["name"] == "model_1"
-    assert args["source"] == ""
+    assert args["source"] == "dummy-source"
     assert args["run_id"] == ""
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == ""
@@ -2670,6 +2999,30 @@ def test_register_scorer_rejects_decorator_scorer(mock_get_request_message, mock
     mock_tracking_store.register_scorer.assert_not_called()
 
 
+def test_register_scorer_rejects_third_party_destination_kwargs(
+    mock_get_request_message, mock_tracking_store
+):
+    serialized_scorer = json.dumps({
+        "name": "poc",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Coherence",
+            "metric_name": "Coherence",
+            "model": "openai:/gpt-4o",
+            "kwargs": {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+        },
+    })
+    mock_get_request_message.return_value = RegisterScorer(
+        experiment_id="123", name="poc", serialized_scorer=serialized_scorer
+    )
+    resp = _register_scorer()
+    assert resp.status_code == 400
+    assert (
+        "third_party_scorer_data.kwargs must not contain 'api_base'" in resp.get_json()["message"]
+    )
+    mock_tracking_store.register_scorer.assert_not_called()
+
+
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
     experiment_id = "123"
 
@@ -2763,6 +3116,115 @@ def test_list_scorers_cross_experiment(mock_get_request_message, mock_tracking_s
     # Collected experiment ids: union of every page's items, in order.
     call_args = mock_tracking_store.list_scorers_across_experiments.call_args
     assert call_args.args[0] == ["1", "2", "3"]
+
+
+def test_list_scorers_rejects_both_experiment_id_and_experiment_ids(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = ListScorers(
+        experiment_id="123", experiment_ids=["123", "456"]
+    )
+
+    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+        resp = _list_scorers()
+
+    assert resp.status_code == 400
+    body = json.loads(resp.get_data())
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "experiment_id" in body["message"]
+    assert "experiment_ids" in body["message"]
+    mock_tracking_store.get_experiment.assert_not_called()
+    mock_tracking_store.list_scorers.assert_not_called()
+    mock_tracking_store.list_scorers_across_experiments.assert_not_called()
+
+
+@pytest.mark.parametrize("experiment_ids", [[], ["123"]])
+def test_list_scorers_with_experiment_ids_against_databricks_backend_not_supported(
+    mock_get_request_message, experiment_ids
+):
+    mock_get_request_message.return_value = ListScorers(experiment_ids=experiment_ids)
+    creds = MlflowHostCreds("https://hello")
+    databricks_store = DatabricksTracingRestStore(lambda: creds)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store),
+        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
+    ):
+        resp = _list_scorers()
+
+    assert resp.status_code == 400
+    body = json.loads(resp.get_data())
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "experiment_ids" in body["message"]
+
+
+def test_list_scorers_with_empty_experiment_ids(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = ListScorers(experiment_ids=[])
+    mock_tracking_store.filter_active_experiment_ids.return_value = []
+    mock_tracking_store.list_scorers_across_experiments.return_value = []
+
+    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+        resp = _list_scorers()
+
+    mock_tracking_store.get_experiment.assert_not_called()
+    mock_tracking_store.search_experiments.assert_not_called()
+    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with([])
+    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with([])
+    mock_tracking_store.list_scorers.assert_not_called()
+    assert resp.status_code == 200
+
+
+def test_list_scorers_with_experiment_ids_batches_validation(
+    mock_get_request_message, mock_tracking_store
+):
+    # experiment_ids should be validated via a single batched
+    # filter_active_experiment_ids call rather than one get_experiment call per
+    # id, and must not go through the general-purpose search_experiments API
+    # (which risks the SQLite bound-parameter limit for large id lists).
+    mock_get_request_message.return_value = ListScorers(experiment_ids=["123"])
+    mock_tracking_store.filter_active_experiment_ids.return_value = ["123"]
+    mock_tracking_store.list_scorers_across_experiments.return_value = []
+
+    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+        resp = _list_scorers()
+
+    mock_tracking_store.get_experiment.assert_not_called()
+    mock_tracking_store.search_experiments.assert_not_called()
+    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with(["123"])
+    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(["123"])
+    assert resp.status_code == 200
+
+
+def test_list_scorers_with_invalid_experiment_id(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = ListScorers(experiment_ids=["123", "invalid id"])
+
+    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+        resp = _list_scorers()
+
+    assert resp.status_code == 400
+    body = json.loads(resp.get_data())
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "invalid id" in body["message"]
+    mock_tracking_store.search_experiments.assert_not_called()
+    mock_tracking_store.list_scorers_across_experiments.assert_not_called()
+
+
+def test_list_scorers_with_experiment_ids_drops_inactive_or_missing(
+    mock_get_request_message, mock_tracking_store
+):
+    # Simulates "456" being inactive or nonexistent: filter_active_experiment_ids
+    # only resolves "123", and the handler passes along just the surviving id
+    # instead of failing the whole request (best-effort scoping).
+    mock_get_request_message.return_value = ListScorers(experiment_ids=["123", "456"])
+    mock_tracking_store.filter_active_experiment_ids.return_value = ["123"]
+    mock_tracking_store.list_scorers_across_experiments.return_value = []
+
+    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+        _list_scorers()
+
+    mock_tracking_store.get_experiment.assert_not_called()
+    mock_tracking_store.filter_active_experiment_ids.assert_called_once_with(["123", "456"])
+    mock_tracking_store.list_scorers_across_experiments.assert_called_once_with(["123"])
 
 
 def test_list_scorer_versions(mock_get_request_message, mock_tracking_store):
@@ -3350,6 +3812,70 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
     assert response.status_code == 200
 
 
+def test_batch_get_traces_handler_omits_scope_keyword_for_legacy_store(mock_get_request_message):
+    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"])
+
+    class LegacyStore:
+        def batch_get_traces(self, trace_ids, location=None):
+            assert trace_ids == ["t1"]
+            assert location is None
+            return []
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=LegacyStore()):
+        response = _batch_get_traces()
+
+    assert response.status_code == 200
+
+
+def test_batch_get_traces_handler_with_experiment_ids(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = BatchGetTraces(
+        trace_ids=["t1", "t2"], experiment_ids=["exp-1", "exp-2"]
+    )
+    mock_tracking_store.batch_get_traces.return_value = []
+
+    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+        response = _batch_get_traces()
+
+    mock_tracking_store.batch_get_traces.assert_called_once_with(
+        ["t1", "t2"], None, experiment_ids=["exp-1", "exp-2"]
+    )
+    assert response.status_code == 200
+
+
+def test_batch_get_traces_handler_with_empty_experiment_ids(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"], experiment_ids=[])
+    mock_tracking_store.batch_get_traces.return_value = []
+
+    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+        response = _batch_get_traces()
+
+    mock_tracking_store.batch_get_traces.assert_called_once_with(["t1"], None, experiment_ids=[])
+    assert response.status_code == 200
+
+
+def test_batch_get_traces_with_experiment_ids_against_databricks_backend_not_supported(
+    mock_get_request_message,
+):
+    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"], experiment_ids=["123"])
+    creds = MlflowHostCreds("https://hello")
+    databricks_store = DatabricksTracingRestStore(lambda: creds)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store),
+        mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True),
+    ):
+        resp = _batch_get_traces()
+
+    assert resp.status_code == 400
+    body = json.loads(resp.get_data())
+    assert body["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "experiment_ids" in body["message"]
+
+
 def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_store):
     trace_id_1 = "test-trace-123"
     trace_id_2 = "test-trace-456"
@@ -3386,6 +3912,152 @@ def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_s
     assert len(trace_infos) == 2
     assert trace_infos[0]["trace_id"] == trace_id_1
     assert trace_infos[1]["trace_id"] == trace_id_2
+
+
+def test_batch_get_trace_infos_handler_omits_scope_keyword_for_legacy_store(
+    mock_get_request_message,
+):
+    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=["t1"])
+
+    class LegacyStore:
+        def batch_get_trace_infos(self, trace_ids, location=None):
+            assert trace_ids == ["t1"]
+            assert location is None
+            return []
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=LegacyStore()):
+        response = _batch_get_trace_infos()
+
+    assert response.status_code == 200
+
+
+def test_batch_get_trace_infos_handler_with_experiment_ids(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = BatchGetTraceInfos(
+        trace_ids=["t1", "t2"], experiment_ids=["exp-1", "exp-2"]
+    )
+    mock_tracking_store.batch_get_trace_infos.return_value = []
+
+    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+        response = _batch_get_trace_infos()
+
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(
+        ["t1", "t2"], experiment_ids=["exp-1", "exp-2"]
+    )
+    assert response.status_code == 200
+
+
+def test_batch_get_trace_infos_handler_with_empty_experiment_ids(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=["t1"], experiment_ids=[])
+    mock_tracking_store.batch_get_trace_infos.return_value = []
+
+    with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
+        response = _batch_get_trace_infos()
+
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["t1"], experiment_ids=[])
+    assert response.status_code == 200
+
+
+def test_batch_get_trace_infos_handler_with_camel_case_empty_experiment_ids(mock_tracking_store):
+    mock_tracking_store.batch_get_trace_infos.return_value = []
+
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"trace_ids": ["t1"], "experimentIds": []}),
+    ):
+        response = _batch_get_trace_infos()
+
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["t1"], experiment_ids=[])
+    assert response.status_code == 200
+
+
+def test_batch_get_trace_infos_against_databricks_backend_not_implemented(
+    mock_get_request_message,
+):
+    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=["t1"])
+    creds = MlflowHostCreds("https://hello")
+    databricks_store = DatabricksTracingRestStore(lambda: creds)
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store", return_value=databricks_store):
+        resp = _batch_get_trace_infos()
+
+    assert resp.status_code == 501
+    body = json.loads(resp.get_data())
+    assert body["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
+
+
+def test_raw_request_has_field_get_query_string():
+    experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
+
+    with app.test_request_context(method="GET", query_string={"experiment_ids": "1"}):
+        assert _raw_request_has_field(experiment_ids_field) is True
+
+    with app.test_request_context(method="GET"):
+        assert _raw_request_has_field(experiment_ids_field) is False
+
+
+def test_raw_request_has_field_post_json_body():
+    experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
+
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"experiment_ids": ["1", "2"]}),
+    ):
+        assert _raw_request_has_field(experiment_ids_field) is True
+
+    # An explicit empty list is still a present field.
+    with app.test_request_context(
+        method="POST", content_type="application/json", data=json.dumps({"experiment_ids": []})
+    ):
+        assert _raw_request_has_field(experiment_ids_field) is True
+
+    with app.test_request_context(
+        method="POST", content_type="application/json", data=json.dumps({"experimentIds": []})
+    ):
+        assert _raw_request_has_field(experiment_ids_field) is True
+
+    with app.test_request_context(
+        method="POST", content_type="application/json", data=json.dumps({"trace_ids": ["1"]})
+    ):
+        assert _raw_request_has_field(experiment_ids_field) is False
+
+
+def test_raw_request_has_field_outside_request_context():
+    experiment_ids_field = BatchGetTraceInfos.DESCRIPTOR.fields_by_name["experiment_ids"]
+    assert _raw_request_has_field(experiment_ids_field) is False
+
+
+def test_batch_get_traces_handler_experiment_ids_field_detection_not_mocked(
+    mock_get_request_message, mock_tracking_store
+):
+    # Unlike the other batch_get_traces experiment_ids tests, this one leaves
+    # `_raw_request_has_field` unmocked to verify the omitted-vs-empty-list
+    # distinction holds through the real Flask request, not just when stubbed.
+    mock_tracking_store.batch_get_traces.return_value = []
+
+    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"], experiment_ids=[])
+    with app.test_request_context(
+        method="POST",
+        content_type="application/json",
+        data=json.dumps({"trace_ids": ["t1"], "experiment_ids": []}),
+    ):
+        response = _batch_get_traces()
+    mock_tracking_store.batch_get_traces.assert_called_once_with(["t1"], None, experiment_ids=[])
+    assert response.status_code == 200
+
+    mock_tracking_store.batch_get_traces.reset_mock()
+    mock_get_request_message.return_value = BatchGetTraces(trace_ids=["t1"])
+    with app.test_request_context(
+        method="POST", content_type="application/json", data=json.dumps({"trace_ids": ["t1"]})
+    ):
+        response = _batch_get_traces()
+    mock_tracking_store.batch_get_traces.assert_called_once_with(["t1"], None)
+    assert response.status_code == 200
 
 
 def test_get_trace_handler(mock_get_request_message, mock_tracking_store):
@@ -4811,6 +5483,122 @@ def test_invoke_scorer_rejects_decorator_scorer():
             )
         assert response.status_code == 400
         assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in response.get_json()["message"]
+        mock_submit.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+        {"completion_kwargs": {"base_url": "http://169.254.169.254/"}},
+    ],
+)
+def test_invoke_scorer_rejects_third_party_destination_kwargs(kwargs):
+    # A reflected trulens scorer forwards its kwargs into litellm, so a caller-chosen
+    # `api_base` would make the server connect to an arbitrary host (SSRF).
+    serialized_scorer = json.dumps({
+        "name": "poc",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Coherence",
+            "metric_name": "Coherence",
+            "model": "openai:/gpt-4o",
+            "kwargs": kwargs,
+        },
+    })
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert "third_party_scorer_data.kwargs must not contain" in response.get_json()["message"]
+        mock_validate.assert_not_called()
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_third_party_destination_kwargs_inside_ensemble():
+    serialized_scorer = json.dumps({
+        "name": "wrapper",
+        "ensemble_scorer_data": {
+            "ensemble_fn": "majority_vote",
+            "scorers": [
+                {
+                    "name": "poc",
+                    "third_party_scorer_data": {
+                        "module": "mlflow.genai.scorers.trulens",
+                        "class": "Coherence",
+                        "metric_name": "Coherence",
+                        "model": "openai:/gpt-4o",
+                        "kwargs": {"api_base": "http://169.254.169.254/"},
+                    },
+                }
+            ],
+        },
+    })
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert "third_party_scorer_data.kwargs must not contain" in response.get_json()["message"]
+        mock_validate.assert_not_called()
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_stored_third_party_destination_kwargs(mock_tracking_store):
+    # A scorer registered before this validation existed must not run either.
+    mock_tracking_store.get_scorer.return_value = mock.MagicMock(
+        serialized_scorer=json.dumps({
+            "name": "poc",
+            "third_party_scorer_data": {
+                "module": "mlflow.genai.scorers.trulens",
+                "class": "Coherence",
+                "metric_name": "Coherence",
+                "model": "openai:/gpt-4o",
+                "kwargs": {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+            },
+        })
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": json.dumps({"name": "poc"}),
+                    "scorer_name": "poc",
+                    "scorer_version": 1,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert "third_party_scorer_data.kwargs must not contain" in response.get_json()["message"]
+        mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "poc", 1)
+        mock_validate.assert_not_called()
         mock_submit.assert_not_called()
 
 
@@ -8078,6 +8866,86 @@ def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
     mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "registered-judge", 3)
     assert mock_submit_job.call_args.kwargs["params"]["serialized_scorers"] == [canonical_scorer]
     assert mock_submit_job.call_args.kwargs["params"]["scorer_versions"] == [4]
+
+
+def test_invoke_genai_evaluate_handler_rejects_decorator_scorer(monkeypatch):
+    from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_client = mock.MagicMock()
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": [
+            json.dumps({
+                "name": "pwned",
+                "call_source": "    import os; os.system('touch /tmp/pwned')\n",
+                "call_signature": "(inputs, outputs)",
+                "original_func_name": "pwned",
+            })
+        ],
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+    assert resp.status_code == 400
+    assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in resp.get_json()["message"]
+    mock_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
+@pytest.mark.parametrize("stored", [False, True])
+def test_invoke_genai_evaluate_handler_rejects_third_party_destination_kwargs(
+    monkeypatch, mock_tracking_store, stored
+):
+    # The evaluate job deserializes and runs every scorer it receives, so destination kwargs are
+    # rejected whether they arrive inline or from a scorer registered before this validation.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    poc_scorer = json.dumps({
+        "name": "poc",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Coherence",
+            "metric_name": "Coherence",
+            "model": "openai:/gpt-4o",
+            "kwargs": {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+        },
+    })
+    if stored:
+        mock_tracking_store.get_scorer.return_value = mock.MagicMock(
+            serialized_scorer=poc_scorer, scorer_version=1
+        )
+        request_json = {
+            "experiment_id": "exp-123",
+            "trace_ids": ["trace-1"],
+            "serialized_scorers": [json.dumps({"name": "poc"})],
+            "scorer_versions": [1],
+        }
+    else:
+        request_json = {
+            "experiment_id": "exp-123",
+            "trace_ids": ["trace-1"],
+            "serialized_scorers": [poc_scorer],
+        }
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+    assert resp.status_code == 400
+    assert "third_party_scorer_data.kwargs must not contain" in resp.get_json()["message"]
+    mock_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
 
 
 def test_invoke_genai_evaluate_handler_rejects_empty_trace_ids(monkeypatch):

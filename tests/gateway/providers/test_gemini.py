@@ -856,6 +856,59 @@ async def test_gemini_chat_function_calling_second_turn():
     )
 
 
+@pytest.mark.parametrize(
+    ("content", "expected_response"),
+    [
+        (
+            "Status: 200 OK\nThe page loaded fine.",
+            {"result": "Status: 200 OK\nThe page loaded fine."},
+        ),
+        ("", {"result": ""}),
+        ('{"temperature": 31.2}', {"temperature": 31.2}),
+        ("42", {"result": 42}),
+        ('["sunny", "windy"]', {"result": ["sunny", "windy"]}),
+        ([{"type": "text", "text": "sunny"}], {"result": [{"type": "text", "text": "sunny"}]}),
+    ],
+)
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_tool_result_content(content, expected_response):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    payload = chat_function_calling_payload()
+    payload["messages"].extend([
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_001",
+                    "function": {"arguments": '{"location": "Singapore"}', "name": "get_weather"},
+                    "type": "function",
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call_001", "content": content},
+    ])
+    resp = {"candidates": [{"content": {"parts": [{"text": "Sunny."}]}, "finishReason": "stop"}]}
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
+
+    mock_post.assert_called_once()
+    assert mock_post.call_args.kwargs["json"]["contents"][-1] == {
+        "role": "user",
+        "parts": [
+            {
+                "functionResponse": {
+                    "id": "call_001",
+                    "name": "get_weather",
+                    "response": expected_response,
+                }
+            }
+        ],
+    }
+
+
 @pytest.mark.asyncio
 async def test_gemini_chat_function_calling_thought_signature():
     config = chat_config()
