@@ -63,6 +63,12 @@ runs:
     - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       with:
         version-file: ${{ github.action_path }}/../../../pyproject.toml
+        # [tool.uv] required-version in pyproject.toml is a range (e.g.
+        # ">=0.11.14"). `resolution-strategy: lowest` pins CI to the floor
+        # of that range (minSatisfying) instead of the newest release
+        # satisfying it, so upgrades to the required-version floor are the
+        # only thing that bumps the installed uv version -- CI doesn't
+        # silently drift to whatever uv released most recently.
         resolution-strategy: lowest
         # Caching disabled to avoid cache-poisoning exposure across CI workflows.
         enable-cache: false
