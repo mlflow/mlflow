@@ -5431,6 +5431,11 @@ def _invoke_genai_evaluate_handler():
         serialized_scorers[index] = registered_scorer.serialized_scorer
         scorer_versions[index] = registered_scorer.scorer_version
 
+    # The job deserializes and runs these scorers, so validate the final payloads (inline and
+    # resolved from the store) before a run is created.
+    for serialized_scorer in serialized_scorers:
+        _validate_serialized_scorer_egress(serialized_scorer)
+
     # Create the run upfront so we can return run_id immediately, so the run
     # shows up on /evaluation-runs even before the job has produced artifacts.
     tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_GENAI_EVALUATE}
@@ -5832,6 +5837,19 @@ def _list_logged_model_artifacts_impl(
 # =============================================================================
 # Scorer Management Handlers
 # =============================================================================
+
+
+def _validate_serialized_scorer_egress(serialized_scorer: str) -> None:
+    """Reject a serialized scorer whose third-party kwargs would steer the judge's egress.
+
+    Applied to caller payloads and to registered scorers fetched from the store, since rows
+    written before this validation existed can carry the same keys.
+    """
+    try:
+        serialized_data = json.loads(serialized_scorer)
+    except json.JSONDecodeError as e:
+        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
+    _validate_third_party_scorer_data(serialized_data)
 
 
 @catch_mlflow_exception
@@ -7331,6 +7349,7 @@ def _invoke_scorer_handler():
     if scorer_name is not None:
         registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
         serialized_scorer = registered_scorer.serialized_scorer
+        _validate_serialized_scorer_egress(serialized_scorer)
 
     scorer = Scorer.model_validate_json(serialized_scorer)
 
