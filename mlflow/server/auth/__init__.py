@@ -1411,13 +1411,28 @@ def validate_can_create_model_version():
     # Presence of run_id/model_id means the version is anchored to that source, so require
     # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
     # denied here rather than being allowed to slip past the guard as if it were absent.
-    if msg.HasField("run_id") and not (msg.run_id and _get_run_permission(msg.run_id).can_read):
+    if msg.HasField("run_id") and not (
+        msg.run_id and _can_read_model_version_source(_get_run_permission, msg.run_id)
+    ):
         return False
     if msg.HasField("model_id") and not (
-        msg.model_id and _get_model_permission(msg.model_id).can_read
+        msg.model_id and _can_read_model_version_source(_get_model_permission, msg.model_id)
     ):
         return False
     return True
+
+
+def _can_read_model_version_source(
+    get_permission: Callable[[str], Permission], source_id: str
+) -> bool:
+    # Deny a nonexistent source id uniformly (403 rather than 404) so the response cannot
+    # be used as an oracle for which run/model ids exist.
+    try:
+        return get_permission(source_id).can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
 
 
 def validate_can_create_experiment() -> bool:
