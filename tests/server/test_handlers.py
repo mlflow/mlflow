@@ -55,7 +55,10 @@ from mlflow.entities.trace_metrics import (
     MetricDataPoint,
     MetricViewType,
 )
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.environment_variables import (
+    MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES,
+    MLFLOW_ENABLE_WORKSPACES,
+)
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
@@ -2515,6 +2518,111 @@ def test_create_presigned_download_url_rejects_out_of_range_default_expiration(m
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert "expiration must be between 1 and 604800 seconds" in json_response["message"]
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    [
+        "ftp://internal-host:21/pub",
+        "sftp://user:pass@10.0.0.5:22/data",
+        "hdfs://namenode:8020/mlflow",
+        "viewfs://cluster/mlflow",
+        "FTP://internal-host/pub",
+    ],
+)
+def test_create_experiment_rejects_host_addressed_artifact_location(
+    mock_get_request_message, mock_tracking_store, artifact_location
+):
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location=artifact_location
+    )
+    response = _create_experiment()
+    assert response.status_code == 400
+    message = json.loads(response.get_data())["message"]
+    assert "'artifact_location' cannot use the" in message
+    assert MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name in message
+    mock_tracking_store.create_experiment.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "artifact_location",
+    [
+        "s3://bucket/prefix",
+        "mlflow-artifacts:/experiments",
+        "file:///tmp/mlruns",
+        "/tmp/mlruns",
+        "http://artifacts-server:5000/api/2.0/mlflow-artifacts/artifacts",
+    ],
+)
+def test_create_experiment_accepts_non_host_addressed_artifact_location(
+    mock_get_request_message, mock_tracking_store, artifact_location
+):
+    mock_tracking_store.create_experiment.return_value = "1"
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location=artifact_location
+    )
+    response = _create_experiment()
+    assert response.status_code == 200
+    mock_tracking_store.create_experiment.assert_called_once_with("exp", artifact_location, [])
+
+
+def test_create_experiment_allows_host_addressed_artifact_location_when_opted_in(
+    mock_get_request_message, mock_tracking_store, monkeypatch
+):
+    monkeypatch.setenv(MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name, "hdfs, SFTP")
+    mock_tracking_store.create_experiment.return_value = "1"
+
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location="hdfs://namenode:8020/mlflow"
+    )
+    assert _create_experiment().status_code == 200
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location="sftp://user@sftp-host/data"
+    )
+    assert _create_experiment().status_code == 200
+    assert mock_tracking_store.create_experiment.call_count == 2
+
+    # Schemes left out of the opt-in list stay blocked.
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location="ftp://internal-host/pub"
+    )
+    assert _create_experiment().status_code == 400
+    assert mock_tracking_store.create_experiment.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "ftp://internal-host:21/models/m1",
+        "sftp://10.0.0.5/models/m1",
+        "hdfs://namenode:8020/models/m1",
+        "viewfs://cluster/models/m1",
+    ],
+)
+def test_create_model_version_rejects_host_addressed_source(
+    mock_get_request_message, mock_model_registry_store, source
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1", source=source, run_id=uuid.uuid4().hex
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "'source' cannot use the" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
+
+
+def test_create_model_version_rejects_host_addressed_source_for_prompts(
+    mock_get_request_message, mock_model_registry_store
+):
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="prompt_1",
+        source="ftp://internal-host/prompts/p1",
+        tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true").to_proto()],
+    )
+    resp = _create_model_version()
+    assert resp.status_code == 400
+    assert "'source' cannot use the 'ftp' scheme" in resp.get_json()["message"]
+    mock_model_registry_store.create_model_version.assert_not_called()
 
 
 @pytest.mark.parametrize(

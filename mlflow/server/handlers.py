@@ -76,6 +76,7 @@ from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
+    MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES,
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_AI_GATEWAY,
@@ -1419,6 +1420,28 @@ def _workspace_not_supported(message: str) -> MlflowException:
     return MlflowException(message, FEATURE_DISABLED)
 
 
+# Artifact repositories for these schemes connect to the host and port named in the URI itself,
+# and nothing at fetch time re-checks that destination. A client-supplied location with one of
+# these schemes would therefore turn `get-artifact` and the model version download path into a
+# server-side connection to any host the client names (GHSA-mr9f-g8qf-4w4j).
+_HOST_ADDRESSED_ARTIFACT_SCHEMES = frozenset({"ftp", "sftp", "hdfs", "viewfs"})
+
+
+def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
+    scheme = get_uri_scheme(uri)
+    if scheme not in _HOST_ADDRESSED_ARTIFACT_SCHEMES:
+        return
+    allowed = {s.lower() for s in MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.get()}
+    if scheme in allowed:
+        return
+    raise MlflowException.invalid_parameter_value(
+        f"'{field_name}' cannot use the '{scheme}' scheme because the tracking server would "
+        "connect to the host named in the URI. Set the "
+        f"{MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} environment variable on the "
+        "server to allow it."
+    )
+
+
 def _validate_storage_location_uri(value: str, field_name: str) -> str:
     """Validate a storage URI shared by experiment and workspace settings."""
     parsed = urllib.parse.urlparse(value)
@@ -1428,6 +1451,7 @@ def _validate_storage_location_uri(value: str, field_name: str) -> str:
         )
 
     validate_query_string(parsed.query)
+    _validate_artifact_uri_scheme(value, field_name)
     _validate_experiment_artifact_location(value)
     _validate_experiment_artifact_location_length(value)
     return value
@@ -3161,6 +3185,7 @@ def _create_model_version():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    _validate_artifact_uri_scheme(request_message.source, "source")
     is_prompt = _is_prompt_request(request_message)
     if is_prompt:
         _validate_prompt_source(request_message.source)
