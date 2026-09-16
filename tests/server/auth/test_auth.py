@@ -1752,14 +1752,13 @@ def test_create_model_version_camelcase_alias_requires_read_on_source(
 
     grant_role_permission(client.tracking_uri, username2, "experiment", exp_id, "READ")
 
-    with User(username2, password2, monkeypatch):
-        response = _send_rest_tracking_post_request(
-            client.tracking_uri,
-            "/api/2.0/mlflow/model-versions/create",
-            json_payload=payload,
-            auth=(username2, password2),
-        )
-        assert response.status_code == 200
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload=payload,
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
 
 
 @pytest.fixture
