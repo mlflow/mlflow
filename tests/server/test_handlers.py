@@ -5526,6 +5526,45 @@ def test_invoke_scorer_rejects_third_party_destination_kwargs(kwargs):
         mock_submit.assert_not_called()
 
 
+def test_invoke_scorer_rejects_third_party_destination_kwargs_inside_ensemble():
+    serialized_scorer = json.dumps({
+        "name": "wrapper",
+        "ensemble_scorer_data": {
+            "ensemble_fn": "majority_vote",
+            "scorers": [
+                {
+                    "name": "poc",
+                    "third_party_scorer_data": {
+                        "module": "mlflow.genai.scorers.trulens",
+                        "class": "Coherence",
+                        "metric_name": "Coherence",
+                        "model": "openai:/gpt-4o",
+                        "kwargs": {"api_base": "http://169.254.169.254/"},
+                    },
+                }
+            ],
+        },
+    })
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert "third_party_scorer_data.kwargs must not contain" in response.get_json()["message"]
+        mock_validate.assert_not_called()
+        mock_submit.assert_not_called()
+
+
 def test_invoke_scorer_rejects_stored_third_party_destination_kwargs(mock_tracking_store):
     # A scorer registered before this validation existed must not run either.
     mock_tracking_store.get_scorer.return_value = mock.MagicMock(
