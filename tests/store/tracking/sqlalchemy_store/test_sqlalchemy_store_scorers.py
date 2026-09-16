@@ -543,7 +543,7 @@ def test_list_scorers_across_experiments(store: SqlAlchemyStore, monkeypatch):
 
     # Force a tiny chunk size to exercise the IN-list chunking loop end-to-end.
     # Ordering must remain globally deterministic across chunks.
-    monkeypatch.setattr(SqlAlchemyStore, "_LIST_SCORERS_CHUNK_SIZE", 1)
+    monkeypatch.setattr(SqlAlchemyStore, "_ID_CHUNK_SIZE", 1)
     chunked = store.list_scorers_across_experiments([exp_a, exp_b, exp_c])
     assert [(s.experiment_id, s.scorer_name, s.scorer_version) for s in chunked] == expected
 

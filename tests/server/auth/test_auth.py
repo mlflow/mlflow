@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import re
 import subprocess
 import sys
@@ -21,6 +22,7 @@ from mlflow.entities import Dataset, DatasetInput, InputTag, LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+    MLFLOW_AUTH_ADMIN_PASSWORD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
@@ -94,6 +96,10 @@ def _isolate_auth_config(extra_env: dict[str, str], tmp_path: Path) -> dict[str,
 
     Relative ``MLFLOW_AUTH_CONFIG_PATH`` values are anchored to this test
     file's directory so the helper works regardless of pytest's CWD.
+
+    Neither the packaged config nor the fixtures carry an admin password (MLflow
+    ships none), so the bootstrap password is supplied through
+    ``MLFLOW_AUTH_ADMIN_PASSWORD`` unless ``extra_env`` already sets it.
     """
     if raw := extra_env.get("MLFLOW_AUTH_CONFIG_PATH"):
         src_path = Path(raw)
@@ -110,7 +116,11 @@ def _isolate_auth_config(extra_env: dict[str, str], tmp_path: Path) -> dict[str,
     )
     dst_path = tmp_path / src_path.name
     dst_path.write_text(isolated_text)
-    return {**extra_env, "MLFLOW_AUTH_CONFIG_PATH": str(dst_path)}
+    return {
+        MLFLOW_AUTH_ADMIN_PASSWORD.name: ADMIN_PASSWORD,
+        **extra_env,
+        "MLFLOW_AUTH_CONFIG_PATH": str(dst_path),
+    }
 
 
 @pytest.fixture
@@ -772,6 +782,131 @@ def test_presigned_download_url_authorization_required(client, monkeypatch):
         auth=(username1, password1),
     )
     assert response.status_code == 501
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_presigned_upload_url_logged_model_authorization_required(client, monkeypatch):
+    # Logged-model-scoped mints dispatch on model_id; permission is inherited from
+    # the owning experiment, so a user without experiment permission must get 403.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("presigned-upload-model-authz-test")
+        logged_model = client.create_logged_model(experiment_id)
+        model_id = logged_model.model_id
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"model_id": model_id, "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+    # The owner passes the auth layer and reaches the handler, which rejects the
+    # local (file://) logged-model artifact location with 501.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"model_id": model_id, "path": "model.pkl"},
+        auth=(username1, password1),
+    )
+    assert response.status_code == 501
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("scope", ["run", "model"])
+def test_presigned_upload_url_authorizes_camel_case_field_aliases(client, monkeypatch, scope):
+    # The handler parses the body through the proto, which accepts the canonical
+    # camelCase aliases `runId` / `modelId`. The validator must resolve permissions
+    # from the same parsed IDs — reading only the raw snake_case keys would let a
+    # camelCase request slip past the exactly-one check (400) or the permission
+    # lookup instead of being denied with 403.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment(f"presigned-upload-camel-{scope}-authz-test")
+        if scope == "run":
+            body = {"runId": client.create_run(experiment_id).info.run_id, "path": "model.pkl"}
+        else:
+            body = {"modelId": client.create_logged_model(experiment_id).model_id, "path": "a.pkl"}
+    # user2 has no permission on user1's experiment: camelCase must still be denied.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json=body,
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    # The owner passes auth and reaches the handler (local file:// store -> 501).
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json=body,
+        auth=(username1, password1),
+    )
+    assert response.status_code == 501
+    # Mixed-case both-IDs request must still hit the exactly-one 400, not 403/404.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={**body, ("modelId" if scope == "run" else "runId"): "other"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 400
+    assert "Exactly one of run_id and model_id" in response.text
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_presigned_upload_url_exactly_one_scope_enforced_before_authorization(client, monkeypatch):
+    # The auth validator runs before the handler, so it must enforce the
+    # exactly-one-of run_id / model_id contract itself: a malformed request
+    # carrying both IDs (or neither) must get the documented 400 even from a
+    # user without any permission — not a 403/404 leaked by resolving either
+    # resource's permission first.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("presigned-upload-xor-authz-test")
+        run = client.create_run(experiment_id)
+        run_id = run.info.run_id
+        logged_model = client.create_logged_model(experiment_id)
+        model_id = logged_model.model_id
+
+    # user2 has no permission on user1's experiment; both IDs → 400, not 403.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "model_id": model_id, "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 400
+    assert "Exactly one of run_id and model_id" in response.text
+
+    # A nonexistent model id must not leak existence via 404 either.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"run_id": run_id, "model_id": "m-nonexistent", "path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 400
+
+    # Neither ID → 400 with the same message.
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        json={"path": "model.pkl"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 400
+    assert "Exactly one of run_id and model_id" in response.text
 
 
 @pytest.mark.parametrize(
@@ -1522,8 +1657,9 @@ def test_create_model_version_from_own_source_succeeds(
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+@pytest.mark.parametrize("source_id_key", ["run_id", "runId", "model_id", "modelId"])
 def test_create_model_version_empty_source_id_does_not_bypass(
-    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_id_key: str
 ):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -1536,16 +1672,93 @@ def test_create_model_version_empty_source_id_does_not_bypass(
     with User(username2, password2, monkeypatch):
         rm = client.create_registered_model("empty-id-authz-model")
 
-    # An explicitly-supplied empty run_id must not skip the source-read guard: the request
-    # is denied rather than slipping past as if run_id were absent.
+    # An explicitly-supplied empty source id must not skip the source-read guard: the
+    # request is denied rather than slipping past as if the id were absent.
     response = _send_rest_tracking_post_request(
         client.tracking_uri,
         "/api/2.0/mlflow/model-versions/create",
-        json_payload={"name": rm.name, "source": source, "run_id": ""},
+        json_payload={"name": rm.name, "source": source, source_id_key: ""},
         auth=(username2, password2),
     )
     assert response.status_code == 403
     assert "Permission denied" in response.text
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("source_id_key", ["run_id", "runId", "model_id", "modelId"])
+def test_create_model_version_nonexistent_source_id_is_denied(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_id_key: str
+):
+    username, password = create_user(client.tracking_uri)
+
+    with User(username, password, monkeypatch):
+        rm = client.create_registered_model("missing-source-authz-model")
+
+    # A nonexistent source id is denied with 403 rather than surfacing the store's 404, so
+    # the response cannot be used to probe which run/model ids exist.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": rm.name, "source": "s3://bucket/x", source_id_key: "missing"},
+        auth=(username, password),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("source_kind", ["run", "model"])
+def test_create_model_version_camelcase_alias_requires_read_on_source(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_kind: str
+):
+    # The handler parses the body through the proto, which also accepts the camelCase
+    # `runId` / `modelId` aliases. The validator must authorize those aliases against the
+    # same source the handler anchors the version to; otherwise a caller without READ on
+    # the source could bind a version to it and read its artifacts via their own model.
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment(f"alias-{source_kind}-authz-exp")
+        if source_kind == "run":
+            run = client.create_run(exp_id)
+            source = run.info.artifact_uri
+            alias_field = {"runId": run.info.run_id}
+        else:
+            model = client.create_logged_model(experiment_id=exp_id)
+            source = model.artifact_location
+            alias_field = {"modelId": model.model_id}
+
+    with User(username2, password2, monkeypatch):
+        rm = client.create_registered_model(f"alias-{source_kind}-authz-model")
+
+    payload = {"name": rm.name, "source": source, **alias_field}
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload=payload,
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    grant_role_permission(client.tracking_uri, username2, "experiment", exp_id, "READ")
+
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload=payload,
+        auth=(username2, password2),
+    )
+    assert response.status_code == 200
 
 
 @pytest.fixture
@@ -4952,6 +5165,62 @@ def test_flask_basic_auth_skips_get_user_when_cache_disabled(
     mock_auth_store.get_user.assert_not_called()
 
 
+@pytest.mark.parametrize("is_admin", [True, False])
+def test_flask_basic_auth_rejects_legacy_default_password_for_admins(
+    mock_auth_store, mock_auth_config, monkeypatch, caplog, is_admin
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    mock_auth_store.get_user.side_effect = lambda username: mock.Mock(
+        username=username, is_admin=is_admin
+    )
+    fake_flask_request = mock.Mock()
+    fake_flask_request.authorization.username = "admin"
+    fake_flask_request.authorization.password = "password1234"
+    challenge = object()
+
+    with (
+        mock.patch("mlflow.server.auth._USER_AUTH_CACHE", None),
+        mock.patch("mlflow.server.auth.request", fake_flask_request),
+        mock.patch("mlflow.server.auth.make_basic_auth_response", return_value=challenge),
+        caplog.at_level(logging.WARNING, logger=auth_module.__name__),
+    ):
+        result = auth_module.authenticate_request_basic_auth()
+
+    mock_auth_store.authenticate_user.assert_called_once_with("admin", "password1234")
+    mock_auth_store.get_user.assert_called_once_with("admin")
+    rejected = [r for r in caplog.records if "Rejected a login by admin user 'admin'" in r.message]
+    if is_admin:
+        assert result is challenge
+        assert len(rejected) == 1
+    else:
+        assert result is fake_flask_request.authorization
+        assert not rejected
+
+
+@pytest.mark.parametrize("cache_enabled", [True, False])
+def test_fastapi_basic_auth_rejects_legacy_default_password_for_admins(
+    mock_auth_store, mock_auth_config, monkeypatch, caplog, cache_enabled
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    mock_auth_store.get_user.side_effect = lambda username: mock.Mock(
+        username=username, is_admin=True
+    )
+    credentials = base64.b64encode(b"admin:password1234").decode("ascii")
+    cache = TTLCache(maxsize=10, ttl=60) if cache_enabled else None
+
+    with (
+        mock.patch("mlflow.server.auth._USER_AUTH_CACHE", cache),
+        caplog.at_level(logging.WARNING, logger=auth_module.__name__),
+    ):
+        assert _authenticate_fastapi_request(_make_request("/x", f"Basic {credentials}")) is None
+
+    mock_auth_store.authenticate_user.assert_called_once_with("admin", "password1234")
+    assert any("Rejected a login by admin user 'admin'" in r.message for r in caplog.records)
+    if cache_enabled:
+        # The rejected credential must not be cached as valid.
+        assert auth_module._auth_cache_key("admin", "password1234") not in cache
+
+
 def test_flask_basic_auth_shares_cache_with_fastapi_path(
     enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
 ):
@@ -6671,6 +6940,80 @@ def test_invoke_endpoints_require_experiment_update_permission(client):
             auth=(owner, owner_pw),
         )
         assert resp.status_code != 403, f"{path} -> {resp.status_code}"
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_issue_detection_invoke_requires_use_permission_on_secret(client):
+    # issues/invoke decrypts the referenced gateway secret into the job environment, so
+    # UPDATE on the caller's own experiment must not be enough to consume someone else's
+    # secret (GHSA-2m86-c5q7-rxgr).
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    resp = requests.post(
+        f"{base}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "owner-openai-key",
+            "secret_value": {"api_key": "sk-owner"},
+            "provider": "openai",
+        },
+        auth=(owner, owner_pw),
+    )
+    resp.raise_for_status()
+    secret_id = resp.json()["secret"]["secret_id"]
+
+    attacker_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "attacker-exp"},
+        auth=(attacker, attacker_pw),
+    ).json()["experiment_id"]
+
+    payload = {
+        "experiment_id": attacker_exp_id,
+        "trace_ids": ["tr-1"],
+        "categories": ["x"],
+        "provider": "openai",
+        "model": "gpt-4o",
+        "secret_id": secret_id,
+    }
+    url = f"{base}/ajax-api/3.0/mlflow/issues/invoke"
+
+    # UPDATE on the experiment alone: denied at the secret boundary.
+    resp = requests.post(url, json=payload, auth=(attacker, attacker_pw))
+    assert resp.status_code == 403
+
+    # READ on the secret only exposes masked metadata; consuming it still requires USE.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "READ")
+    resp = requests.post(url, json=payload, auth=(attacker, attacker_pw))
+    assert resp.status_code == 403
+
+    # Unknown secret id: fail closed rather than surface a permission oracle.
+    resp = requests.post(
+        url, json={**payload, "secret_id": "s-does-not-exist"}, auth=(attacker, attacker_pw)
+    )
+    assert resp.status_code == 403
+
+    # With USE the auth gate passes. The handler may still fail later (e.g. the job
+    # backend isn't wired in this test env), so only assert it is no longer a 403.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "USE")
+    resp = requests.post(url, json=payload, auth=(attacker, attacker_pw))
+    assert resp.status_code != 403
+
+    # The secret owner (MANAGE) passes the gate against their own experiment.
+    owner_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "owner-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    resp = requests.post(
+        url, json={**payload, "experiment_id": owner_exp_id}, auth=(owner, owner_pw)
+    )
+    assert resp.status_code != 403
 
 
 @pytest.mark.parametrize(

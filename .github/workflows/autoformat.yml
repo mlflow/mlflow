@@ -14,6 +14,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   check-comment:
@@ -228,6 +229,8 @@ jobs:
           # See https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps
           # for how to rotate the private key
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-contents: write
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

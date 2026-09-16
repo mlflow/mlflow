@@ -298,6 +298,7 @@ async def test_proxy_non_streaming():
         "https://api.test-provider.com/v1/chat/completions",
         json={"messages": [{"role": "user", "content": "Hello"}]},
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 

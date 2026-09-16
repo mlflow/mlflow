@@ -26,6 +26,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
@@ -50,7 +51,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
 )
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_store import (
+    _RUN_DELETE_CASCADE_MODELS,
+    SqlAlchemyStore,
+)
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
@@ -356,6 +360,16 @@ def test_delete_run(store: SqlAlchemyStore):
         assert actual.run_uuid == deleted_run.info.run_id
 
 
+def test_run_delete_cascade_models_match_orm_relationships():
+    orm_delete_cascade_models = {
+        relationship.mapper.class_
+        for relationship in sqlalchemy.inspect(models.SqlRun).relationships
+        if "delete" in relationship.cascade
+    }
+
+    assert set(_RUN_DELETE_CASCADE_MODELS) == orm_delete_cascade_models
+
+
 def test_hard_delete_run(store: SqlAlchemyStore):
     run = _run_factory(store)
     metric = entities.Metric("blahmetric", 100.0, get_current_time_millis(), 0)
@@ -376,6 +390,38 @@ def test_hard_delete_run(store: SqlAlchemyStore):
         assert actual_param is None
         actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
         assert actual_tag is None
+        actual_latest_metric = (
+            session.query(models.SqlLatestMetric).filter_by(run_uuid=run.info.run_id).first()
+        )
+        assert actual_latest_metric is None
+
+
+def test_hard_delete_run_does_not_load_child_rows(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    store.log_metric(
+        run.info.run_id,
+        entities.Metric("metric", 1.0, get_current_time_millis(), 0),
+    )
+    store.log_param(run.info.run_id, entities.Param("param", "value"))
+    store.set_tag(run.info.run_id, entities.RunTag("tag", "value"))
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        store._hard_delete_run(run.info.run_id)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    child_tables = ("metrics", "latest_metrics", "params", "tags")
+    assert not any(
+        statement.lstrip().startswith("select") and f"from {table}" in statement
+        for statement in statements
+        for table in child_tables
+    )
 
 
 def test_get_deleted_runs(store: SqlAlchemyStore):
@@ -4286,3 +4332,56 @@ def test_log_metric_redrives_on_deadlock_and_persists(store: SqlAlchemyStore, mo
     run_metrics = store.get_run(run.info.run_id).data.metrics
     assert state["n"] == 2  # first attempt deadlocked, second succeeded
     assert run_metrics["acc"] == 0.9
+
+
+def test_set_logged_model_tags_bulk_upsert(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_logged_model_exp")
+    run = store.create_run(exp_id, "user", 0, [], None)
+    model = store.create_logged_model(exp_id, "test_model", source_run_id=run.info.run_id)
+
+    # 1. Clean multi-tag insertion
+    tags = [LoggedModelTag(f"k_{i}", f"v_{i}") for i in range(5)]
+    store.set_logged_model_tags(model.model_id, tags)
+    fetched = store.get_logged_model(model.model_id)
+    assert fetched.tags == {f"k_{i}": f"v_{i}" for i in range(5)}
+
+    # 2. Upsert (update existing tags + insert new tags)
+    update_tags = [
+        LoggedModelTag("k_0", "v_0_updated"),
+        LoggedModelTag("k_new", "v_new"),
+    ]
+    store.set_logged_model_tags(model.model_id, update_tags)
+    fetched = store.get_logged_model(model.model_id)
+    expected = {f"k_{i}": f"v_{i}" for i in range(5)}
+    expected["k_0"] = "v_0_updated"
+    expected["k_new"] = "v_new"
+    assert fetched.tags == expected
+
+    # 3. Empty list should be a safe no-op
+    store.set_logged_model_tags(model.model_id, [])
+    assert store.get_logged_model(model.model_id).tags == expected
+
+    # 4. Large batch crossing batch boundary (>100 tags)
+    batch_tags = [LoggedModelTag(f"batch_{i}", f"val_{i}") for i in range(150)]
+    store.set_logged_model_tags(model.model_id, batch_tags)
+    fetched_large = store.get_logged_model(model.model_id)
+    # 6 pre-existing keys ('k_0'..'k_4', 'k_new') + 150 batch keys = 156 total tags
+    assert len(fetched_large.tags) == 156
+    # Verify boundaries across both batch_size=100 chunks:
+    # Chunk 1 (indices 0..99)
+    assert fetched_large.tags["batch_0"] == "val_0"
+    assert fetched_large.tags["batch_99"] == "val_99"
+    # Chunk 2 (indices 100..149)
+    assert fetched_large.tags["batch_100"] == "val_100"
+    assert fetched_large.tags["batch_149"] == "val_149"
+
+    # 5. Repeated key within a single call: last value wins, no error on any dialect
+    store.set_logged_model_tags(
+        model.model_id,
+        [
+            LoggedModelTag("dup", "first"),
+            LoggedModelTag("dup", "second"),
+            LoggedModelTag("dup", "third"),
+        ],
+    )
+    assert store.get_logged_model(model.model_id).tags["dup"] == "third"

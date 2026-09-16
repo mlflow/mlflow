@@ -29,6 +29,7 @@ concurrency:
 
 # Deny all permissions by default; each job grants only what it needs.
 permissions: {}
+cache-mode: none
 
 defaults:
   run:
@@ -51,6 +52,8 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-contents: write
           permission-pull-requests: write
 

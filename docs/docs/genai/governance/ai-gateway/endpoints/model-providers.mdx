@@ -16,14 +16,14 @@ The AI Gateway supports providers across these categories:
 
 ### Major Cloud Providers
 
-| Provider          | Chat | Embeddings | Passthrough API              |
-| ----------------- | ---- | ---------- | ---------------------------- |
-| **OpenAI**        | Yes  | Yes        | `/gateway/openai/v1/...`     |
-| **Anthropic**     | Yes  | No         | `/gateway/anthropic/v1/...`  |
-| **Google Gemini** | Yes  | Yes        | `/gateway/gemini/v1beta/...` |
-| **Azure OpenAI**  | Yes  | Yes        | Via OpenAI passthrough       |
-| **AWS Bedrock**   | Yes  | Yes        | -                            |
-| **Vertex AI**     | Yes  | Yes        | -                            |
+| Provider          | Chat | Embeddings | Passthrough API                                    |
+| ----------------- | ---- | ---------- | -------------------------------------------------- |
+| **OpenAI**        | Yes  | Yes        | `/gateway/openai/v1/...`                           |
+| **Anthropic**     | Yes  | No         | `/gateway/anthropic/v1/...`                        |
+| **Google Gemini** | Yes  | Yes        | `/gateway/gemini/v1beta/...`                       |
+| **Azure OpenAI**  | Yes  | Yes        | Via OpenAI passthrough                             |
+| **AWS Bedrock**   | Yes  | Yes        | Anthropic passthrough (Claude, API key auth)       |
+| **Vertex AI**     | Yes  | Yes        | Anthropic, Gemini, or OpenAI passthrough, by model |
 
 ### Additional Providers
 
@@ -201,6 +201,18 @@ curl -X POST http://localhost:5000/gateway/gemini/v1beta/models/my-endpoint:gene
 </Tabs>
 
 See [Google Gemini API Reference](https://ai.google.dev/gemini-api/docs) for complete documentation.
+
+### Vertex AI
+
+Vertex AI endpoints use the passthrough API of the model family they serve: Claude models take the [Anthropic](#anthropic) routes, Gemini models take the [Google Gemini](#google-gemini) routes, and partner MaaS models (Llama, Mistral, DeepSeek, and others) take the [OpenAI](#openai) routes. Requests are authenticated server-side with the endpoint's Google Cloud credentials.
+
+Vertex AI validates the `anthropic-beta` header against the betas it supports, which lag behind the Anthropic API, and rejects the whole request when it sees a value it does not know. The `vertex_anthropic_betas` option on a Claude endpoint controls which client-supplied beta values are forwarded:
+
+- Unset (default): the header is forwarded unchanged.
+- An empty list: the header is dropped.
+- A list of values, for example `["web-search-2025-03-05"]`: only those values are kept, and the header is dropped if none remain.
+
+The option is part of the model's Vertex AI configuration, alongside `vertex_project` and `vertex_location`. Through the API, `auth_config` values are strings, so pass the betas as a comma-separated string such as `"web-search-2025-03-05,interleaved-thinking-2025-05-14"`; an empty string drops the header.
 
 ### Azure OpenAI
 

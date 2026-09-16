@@ -2384,11 +2384,35 @@ def create_experiment(
                 trace_location=trace_location,
             )
         except MlflowException as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Experiment '{name}' (ID: {experiment_id}) was created "
-                f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
-                f"{e.message} Please delete the experiment and retry."
-            ) from e
+            # Attempt to soft-delete the experiment we just created so a failed
+            # trace-location link does not leave an active experiment behind.
+            # Note: delete_experiment is a soft delete; the experiment name
+            # remains reserved until permanently removed via `mlflow gc`.
+            cleanup_succeeded = False
+            try:
+                client.delete_experiment(experiment_id)
+                cleanup_succeeded = True
+            except Exception:
+                _logger.warning(
+                    "Failed to soft-delete experiment '%s' (ID: %s) after linking it to "
+                    "trace location '%s' failed. The experiment may remain active.",
+                    name,
+                    experiment_id,
+                    trace_location.full_table_prefix,
+                    exc_info=True,
+                )
+            if cleanup_succeeded:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed, so the "
+                    f"experiment was soft-deleted (its name remains reserved): {e.message}"
+                ) from e
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed; the "
+                    f"experiment could not be cleaned up and may remain active: {e.message}"
+                ) from e
 
     return experiment_id
 
@@ -2426,6 +2450,55 @@ def delete_experiment(experiment_id: str) -> None:
 
     """
     MlflowClient().delete_experiment(experiment_id)
+
+
+def restore_experiment(experiment_id: str) -> None:
+    """
+    Restore a deleted experiment unless permanently deleted.
+
+    Args:
+        experiment_id: The string-ified experiment ID returned from ``create_experiment``.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        experiment_id = mlflow.create_experiment("New Experiment")
+        mlflow.delete_experiment(experiment_id)
+
+        # Examine the deleted experiment details.
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
+        print("--")
+
+        # Restore the experiment and examine the details.
+        mlflow.restore_experiment(experiment_id)
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
+
+    .. code-block:: text
+        :caption: Output
+
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: deleted
+        Last Updated timestamp: 1662004217511
+        --
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: active
+        Last Updated timestamp: 1662004217512
+
+    """
+    MlflowClient().restore_experiment(experiment_id)
 
 
 def initialize_logged_model(
@@ -3090,6 +3163,41 @@ def delete_run(run_id: str) -> None:
 
     """
     MlflowClient().delete_run(run_id)
+
+
+def restore_run(run_id: str) -> None:
+    """
+    Restores a deleted run with the given ID.
+
+    Args:
+        run_id: Unique identifier for the run to restore.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
+
+        run_id = run.info.run_id
+        mlflow.delete_run(run_id)
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
+
+        mlflow.restore_run(run_id)
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: active
+
+    """
+    MlflowClient().restore_run(run_id)
 
 
 def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:

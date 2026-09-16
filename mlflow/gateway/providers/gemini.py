@@ -82,6 +82,19 @@ def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
     return parts
 
 
+def _tool_result_to_response(content: Any) -> dict[str, Any]:
+    """Coerce OpenAI tool message content into a Gemini ``functionResponse.response``.
+
+    OpenAI tool content is free-form and usually plain text, but Gemini requires an object,
+    so a JSON object passes through and anything else is wrapped as ``{"result": ...}``.
+    """
+    try:
+        parsed = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return {"result": content}
+    return parsed if isinstance(parsed, dict) else {"result": parsed}
+
+
 class GeminiAdapter(ProviderAdapter):
     @classmethod
     def _normalize_finish_reason(cls, finish_reason):
@@ -166,12 +179,13 @@ class GeminiAdapter(ProviderAdapter):
                                 "name": tool_call["function"]["name"],
                                 "args": json.loads(tool_call["function"]["arguments"]),
                             }
+                            part = {"functionCall": fc}
                             if tool_call["id"] in call_id_to_thought_signature_map:
-                                fc["thoughtSignature"] = call_id_to_thought_signature_map[
+                                part["thoughtSignature"] = call_id_to_thought_signature_map[
                                     tool_call["id"]
                                 ]
 
-                            gemini_function_calls.append({"functionCall": fc})
+                            gemini_function_calls.append(part)
                 if gemini_function_calls:
                     contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
@@ -192,7 +206,7 @@ class GeminiAdapter(ProviderAdapter):
                                 "id": call_id,
                                 # the function name field is required by Gemini request format
                                 "name": call_id_to_function_name_map[call_id],
-                                "response": json.loads(message["content"]),
+                                "response": _tool_result_to_response(message["content"]),
                             }
                         }
                     ],
@@ -261,8 +275,14 @@ class GeminiAdapter(ProviderAdapter):
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
-            thought_sig = function_call.get("thoughtSignature") or function_call.get(
-                "thought_signature"
+            # Gemini 3.x places thoughtSignature at the Part level, next to functionCall.
+            # Some older responses nested it inside functionCall instead, so fall back to
+            # that location too.
+            thought_sig = (
+                part.get("thoughtSignature")
+                or part.get("thought_signature")
+                or function_call.get("thoughtSignature")
+                or function_call.get("thought_signature")
             )
             if call_id is None:
                 # Gemini model response might not contain function call id,
