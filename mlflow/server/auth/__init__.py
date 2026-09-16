@@ -5205,6 +5205,8 @@ class GraphQLAuthorizationMiddleware:
         """Apply post-resolution filtering on GraphQL results."""
         if field_name == "mlflowSearchModelVersions":
             return self._filter_model_versions_result(result, username)
+        # A bare field-name match is enough here: ``resolve`` only lets ``modelVersions``
+        # through when its parent type is listed in ``PROTECTED_NESTED_FIELDS``.
         if field_name == "modelVersions":
             can_read = self._model_version_read_predicate(username)
             return [mv for mv in result if can_read(mv)]
