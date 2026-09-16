@@ -1550,13 +1550,15 @@ MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES = _EnvironmentVariable(
     "MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES", _split_strip, ["https"]
 )
 
-#: Host-addressed artifact URI schemes (``ftp``, ``sftp``, ``hdfs``, ``viewfs``) that the
-#: tracking server accepts in client-supplied storage locations: an experiment's
-#: ``artifact_location``, a model version's ``source`` and workspace storage settings. The
-#: artifact repositories for these schemes connect to the host named in the URI, so they are
-#: rejected by default to keep clients from pointing the server at arbitrary hosts. Set to
-#: e.g. ``hdfs`` or ``ftp,sftp`` when clients legitimately store artifacts there.
-#: (default: none)
+#: Host-addressed artifact URI schemes (``ftp``, ``sftp``, ``hdfs``, ``viewfs``, ``http``,
+#: ``https``, ``mlflow-artifacts``) that the tracking server accepts in stored locations even
+#: when they point at a host other than the server's ``--default-artifact-root``: an
+#: experiment's ``artifact_location``, a model version's ``source``, workspace storage settings
+#: and the run, model and trace locations served by the artifact endpoints. The artifact
+#: repositories for these schemes connect to the host named in the URI, so foreign hosts are
+#: rejected by default to keep clients from pointing the server at arbitrary hosts. Locations
+#: on the default artifact root's host are always accepted. Set to e.g. ``hdfs`` or
+#: ``http,https`` when clients legitimately store artifacts on another host. (default: none)
 MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES = _EnvironmentVariable(
     "MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", _split_strip, []
 )

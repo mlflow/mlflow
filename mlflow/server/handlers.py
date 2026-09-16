@@ -333,6 +333,7 @@ from mlflow.server.workspace_helpers import (
 )
 from mlflow.store.artifact.artifact_repo import (
     ARTIFACT_STREAM_CHUNK_SIZE,
+    ArtifactRepository,
     MultipartDownloadMixin,
     MultipartUploadMixin,
     PresignedUploadMixin,
@@ -635,7 +636,7 @@ def _get_trace_repo_from_uri(artifact_uri: str):
         # e.g. s3://<experiment_id>/traces/<request_id>
         artifact_repo = get_artifact_repository(artifact_uri)
     else:
-        artifact_repo = get_artifact_repository(artifact_uri)
+        artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
     return artifact_repo
 
 
@@ -1422,24 +1423,91 @@ def _workspace_not_supported(message: str) -> MlflowException:
 
 # Artifact repositories for these schemes connect to the host and port named in the URI itself,
 # and nothing at fetch time re-checks that destination. A client-supplied location with one of
-# these schemes would therefore turn `get-artifact` and the model version download path into a
-# server-side connection to any host the client names (GHSA-mr9f-g8qf-4w4j).
-_HOST_ADDRESSED_ARTIFACT_SCHEMES = frozenset({"ftp", "sftp", "hdfs", "viewfs"})
+# these schemes would therefore let a client make the server connect to any host it names
+# (GHSA-mr9f-g8qf-4w4j). `http`, `https` and host-bearing `mlflow-artifacts` URIs are included
+# because the artifact repository connects to that host whenever the URI is not proxied: under
+# `--no-serve-artifacts`, and always for the in-process client used by server-side jobs.
+_HOST_ADDRESSED_ARTIFACT_SCHEMES = frozenset({
+    "ftp",
+    "sftp",
+    "hdfs",
+    "viewfs",
+    "http",
+    "https",
+    "mlflow-artifacts",
+})
+# Schemes that reach the same service on a given host and port are compared as one family, so a
+# default artifact root of `mlflow-artifacts://host:5000` trusts `http://host:5000/...`.
+_HOST_ADDRESSED_SCHEME_FAMILIES = {"viewfs": "hdfs", "https": "http", "mlflow-artifacts": "http"}
+
+
+def _host_addressed_uri_target(uri: str) -> tuple[str, str, int | None] | None:
+    """Return ``(scheme family, hostname, port)`` when ``uri`` names the host to connect to."""
+    scheme = get_uri_scheme(uri)
+    if scheme not in _HOST_ADDRESSED_ARTIFACT_SCHEMES:
+        return None
+    parsed = urllib.parse.urlparse(uri)
+    if not parsed.hostname:
+        # e.g. `mlflow-artifacts:/path`, which resolves against the server itself.
+        return None
+    try:
+        port = parsed.port
+    except ValueError:
+        port = -1
+    return (_HOST_ADDRESSED_SCHEME_FAMILIES.get(scheme, scheme), parsed.hostname.lower(), port)
+
+
+def _rejected_host_addressed_scheme(uri: str) -> str | None:
+    """
+    Return the scheme of ``uri`` when the tracking server must not connect to the host it names.
+
+    The host of the server's own ``--default-artifact-root`` is trusted, since experiments and
+    model versions created under it legitimately carry that host. Any other host is rejected
+    unless the operator allowed the scheme via
+    ``MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES``.
+    """
+    from mlflow.server import ARTIFACT_ROOT_ENV_VAR
+
+    target = _host_addressed_uri_target(uri)
+    if target is None:
+        return None
+    scheme = get_uri_scheme(uri)
+    if scheme in {s.lower() for s in MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.get()}:
+        return None
+    default_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR)
+    if default_root and target == _host_addressed_uri_target(default_root):
+        return None
+    return scheme
 
 
 def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
-    scheme = get_uri_scheme(uri)
-    if scheme not in _HOST_ADDRESSED_ARTIFACT_SCHEMES:
-        return
-    allowed = {s.lower() for s in MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.get()}
-    if scheme in allowed:
+    scheme = _rejected_host_addressed_scheme(uri)
+    if scheme is None:
         return
     raise MlflowException.invalid_parameter_value(
-        f"'{field_name}' cannot use the '{scheme}' scheme because the tracking server would "
-        "connect to the host named in the URI. Set the "
-        f"{MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} environment variable on the "
-        "server to allow it."
+        f"'{field_name}' cannot use the '{scheme}' scheme to address a host other than the "
+        "tracking server's default artifact root, because the server would connect to the host "
+        f"named in the URI. Set the {MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} "
+        "environment variable on the server to allow it."
     )
+
+
+def _get_artifact_repository_for_uri(artifact_uri: str) -> ArtifactRepository:
+    """
+    Build the artifact repository for a stored URI the server did not configure itself, refusing
+    to connect to hosts outside its default artifact root. This also covers locations stored
+    before the acceptance-time check existed.
+    """
+    scheme = _rejected_host_addressed_scheme(artifact_uri)
+    if scheme is not None:
+        raise MlflowException(
+            f"The tracking server does not serve artifacts from '{artifact_uri}': the '{scheme}' "
+            "scheme addresses a host other than the server's default artifact root. Set the "
+            f"{MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} environment variable on the "
+            "server to allow it.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    return get_artifact_repository(artifact_uri)
 
 
 def _validate_storage_location_uri(value: str, field_name: str) -> str:
@@ -2673,7 +2741,7 @@ def upload_artifact_handler():
             )
             path_to_log = _get_workspace_scoped_repo_path_if_enabled(path_to_log)
         else:
-            artifact_repo = get_artifact_repository(artifact_dir)
+            artifact_repo = _get_artifact_repository_for_uri(artifact_dir)
             path_to_log = dirname
 
         artifact_repo.log_artifact(file, path_to_log)
@@ -2722,9 +2790,8 @@ def _search_experiments():
     return response
 
 
-@catch_mlflow_exception
 def _get_artifact_repo(run):
-    return get_artifact_repository(run.info.artifact_uri)
+    return _get_artifact_repository_for_uri(run.info.artifact_uri)
 
 
 _HANDLER_BLOCKED_TRACE_TAGS = frozenset({
@@ -3185,7 +3252,6 @@ def _create_model_version():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    _validate_artifact_uri_scheme(request_message.source, "source")
     is_prompt = _is_prompt_request(request_message)
     if is_prompt:
         _validate_prompt_source(request_message.source)
@@ -3194,6 +3260,7 @@ def _create_model_version():
             _validate_source_model(request_message.source, request_message.model_id)
         else:
             _validate_source_run(request_message.source, request_message.run_id)
+    _validate_artifact_uri_scheme(request_message.source, "source")
 
     store = _get_model_registry_store()
     model_version = store.create_model_version(
@@ -3280,7 +3347,7 @@ def get_model_version_artifact_handler():
         )
         artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     else:
-        artifact_repo = get_artifact_repository(artifact_uri)
+        artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
         artifact_path = path
 
     return _send_artifact(artifact_repo, artifact_path)
@@ -3982,7 +4049,9 @@ def _create_presigned_upload_url():
             "This endpoint requires a direct cloud storage artifact URI.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    artifact_repo = _get_artifact_repo(run) if run_id else get_artifact_repository(artifact_uri)
+    artifact_repo = (
+        _get_artifact_repo(run) if run_id else _get_artifact_repository_for_uri(artifact_uri)
+    )
     _validate_support_presigned_upload(artifact_repo)
 
     response = artifact_repo.create_presigned_upload_url(path, expiration=expiration)
@@ -5649,7 +5718,7 @@ def get_logged_model_artifact_handler(model_id: str):
         )
         artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
     else:
-        artifact_repo = get_artifact_repository(logged_model.artifact_location)
+        artifact_repo = _get_artifact_repository_for_uri(logged_model.artifact_location)
         artifact_path = artifact_file_path
 
     return _send_artifact(artifact_repo, artifact_path)
@@ -5844,7 +5913,7 @@ def _list_logged_model_artifacts_impl(
             relative_path=artifact_directory_path,
         )
     else:
-        artifacts = get_artifact_repository(logged_model.artifact_location).list_artifacts(
+        artifacts = _get_artifact_repository_for_uri(logged_model.artifact_location).list_artifacts(
             artifact_directory_path
         )
 
