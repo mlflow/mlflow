@@ -79,7 +79,24 @@ def test_mlflow_artifact_uri_raises_with_invalid_tracking_uri():
         )
 
 
-def test_mlflow_artifact_uri_error_redacts_tracking_uri_credentials():
+@pytest.mark.parametrize(
+    ("tracking_uri", "redacted_uri"),
+    [
+        (
+            "postgresql://mlflow:hunter2@db.example.com:5432/mlflow",
+            "postgresql://db.example.com:5432/mlflow",
+        ),
+        (
+            "postgresql://mlflow@db.example.com/mlflow?password=hunter2&sslmode=require",
+            "postgresql://db.example.com/mlflow",
+        ),
+        (
+            "mssql+pyodbc:///?odbc_connect=DRIVER%3DODBC%3BSERVER%3Ddb%3BUID%3Dmlflow%3BPWD%3Dhunter2",
+            "mssql+pyodbc:/",
+        ),
+    ],
+)
+def test_mlflow_artifact_uri_error_redacts_tracking_uri_credentials(tracking_uri, redacted_uri):
     # The tracking server resolves its own backend store URI as the tracking URI, and the
     # tracing exporter logs this error verbatim, so the password must never appear in it.
     with pytest.raises(
@@ -88,12 +105,11 @@ def test_mlflow_artifact_uri_error_redacts_tracking_uri_credentials():
     ) as exc_info:
         MlflowArtifactsRepository.resolve_uri(
             artifact_uri="mlflow-artifacts:/1/traces/tr-123/artifacts",
-            tracking_uri="postgresql://mlflow:hunter2@db.example.com:5432/mlflow",
+            tracking_uri=tracking_uri,
         )
     message = str(exc_info.value)
     assert "hunter2" not in message
-    assert "mlflow:hunter2@" not in message
-    assert "postgresql://db.example.com:5432/mlflow" in message
+    assert f"currently set to {redacted_uri}." in message
 
 
 def test_mlflow_artifact_uri_raises_with_invalid_artifact_uri():

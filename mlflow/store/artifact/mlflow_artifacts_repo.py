@@ -58,9 +58,13 @@ def _validate_uri_scheme(parsed_uri):
     allowable_schemes = {"http", "https"}
     if parsed_uri.scheme not in allowable_schemes:
         # The offending tracking URI may be a credentialed database URI (e.g. the tracking
-        # server's own backend store URI), and callers log this message, so strip the userinfo.
+        # server's own backend store URI), and callers log this message. Credentials can live
+        # in the userinfo or in the query string (e.g. `?odbc_connect=...PWD=...`), so keep
+        # only the scheme, host, and path.
         _, _, host_port = parsed_uri.netloc.rpartition("@")
-        redacted_uri = parsed_uri._replace(netloc=host_port).geturl()
+        redacted_uri = parsed_uri._replace(
+            netloc=host_port, params="", query="", fragment=""
+        ).geturl()
         raise MlflowException(
             "When an mlflow-artifacts URI was supplied, the tracking URI must be a valid "
             f"http or https URI, but it was currently set to {redacted_uri}. "
