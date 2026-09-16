@@ -249,6 +249,16 @@ def test_mlflow_artifacts_example(tmp_path):
     # On GitHub Actions, remove generated images to save disk space
     rmi_option = "--rmi all" if is_github_actions() else ""
     cmd = f"""
+# Retry registry failures before running the example so application errors are not retried.
+for attempt in 1 2 3; do
+    if docker compose pull --ignore-buildable; then
+        break
+    fi
+    if [ "$attempt" -eq 3 ]; then
+        exit 1
+    fi
+    sleep $((attempt * 5))
+done
 err=0
 trap 'err=1' ERR
 ./build.sh
