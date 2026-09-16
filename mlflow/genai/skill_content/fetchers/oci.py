@@ -295,7 +295,11 @@ class RegistryClient:
                 **query,
             }
             response = self._session.post(
-                realm, data=form, stream=True, timeout=_REQUEST_TIMEOUT_SECONDS
+                realm,
+                data=form,
+                stream=True,
+                allow_redirects=False,
+                timeout=_REQUEST_TIMEOUT_SECONDS,
             )
         else:
             response = self._session.get(
@@ -303,9 +307,19 @@ class RegistryClient:
                 params=query,
                 auth=self._credentials,
                 stream=True,
+                allow_redirects=False,
                 timeout=_REQUEST_TIMEOUT_SECONDS,
             )
         with response:
+            if response.is_redirect:
+                # Following it would resend the credentials to a URL the https check above
+                # never saw.
+                raise source_unavailable(
+                    realm,
+                    "the registry's token endpoint redirected; credentials are only sent to "
+                    "the realm the registry named",
+                    error_code=UNAUTHENTICATED,
+                )
             if response.status_code >= 400:
                 return None
             body = _parse_json(

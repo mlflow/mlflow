@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import http.server
+import io
 import json
 import os
 import stat
@@ -10,6 +11,8 @@ from unittest import mock
 
 import pytest
 import requests
+from requests.adapters import BaseAdapter
+from urllib3.response import HTTPResponse
 
 from mlflow.entities.skill_source import OCISource
 from mlflow.exceptions import MlflowException
@@ -472,6 +475,51 @@ def test_registry_client_allows_separate_token_service_named_by_registry():
     }
     assert calls[2].args[0] == registry_url
     assert calls[2].kwargs["headers"]["Authorization"] == "Bearer dummy-token"
+
+
+class _RedirectingTokenAdapter(BaseAdapter):
+    """Fake transport: the first token URL redirects to plain http, everything else is 200."""
+
+    def __init__(self):
+        super().__init__()
+        self.sent = []
+
+    def send(self, request, **kwargs):
+        self.sent.append((request.url, request.body))
+        response = requests.Response()
+        response.request = request
+        response.url = request.url
+        if request.url == "https://auth.example/token":
+            response.status_code = 307
+            response.headers["Location"] = "http://other.example/token"
+        else:
+            response.status_code = 200
+        # A urllib3 body behaves like a live connection: once closed it yields nothing.
+        response.raw = HTTPResponse(
+            body=io.BytesIO(b'{"token":"ok"}'), status=response.status_code, preload_content=False
+        )
+        return response
+
+    def close(self):
+        pass
+
+
+@pytest.mark.parametrize("credentials", [("<token>", "refresh-secret"), ("user", "pw")])
+def test_registry_client_does_not_follow_token_redirects(credentials):
+    session = requests.Session()
+    session.trust_env = False
+    adapter = _RedirectingTokenAdapter()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    with mock.patch(
+        "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials",
+        return_value=credentials,
+    ):
+        client = RegistryClient("registry.example", session=session)
+    with pytest.raises(MlflowException, match="token endpoint redirected") as exc:
+        client._request_token("https://auth.example/token", {})
+    assert exc.value.error_code == "UNAUTHENTICATED"
+    assert [url for url, _ in adapter.sent] == ["https://auth.example/token"]
 
 
 def test_fetch_oci_unreachable(closed_port):
