@@ -895,15 +895,54 @@ def test_load_docker_credentials_configured_helper_wins(tmp_path, monkeypatch, h
     helper.assert_called_once_with("example", "registry.example")
 
 
-def test_load_docker_credentials_falls_back_to_auths_when_helper_has_nothing(tmp_path, monkeypatch):
+def test_load_docker_credentials_helper_answer_is_final(tmp_path, monkeypatch):
+    # A helper that reports no credentials means an anonymous pull, as with the Docker CLI;
+    # the inline entry the user replaced with a helper is not consulted.
     config = {
         "auths": {"registry.example": {"auth": base64.b64encode(b"user:pw").decode()}},
         "credsStore": "example",
     }
     _docker_config(tmp_path, monkeypatch, config)
     with mock.patch.object(oci_module, "_run_credential_helper", return_value=None) as helper:
+        assert _load_docker_credentials("registry.example") is None
+    helper.assert_called_once_with("example", "registry.example")
+
+
+def test_load_docker_credentials_falls_back_to_auths_when_helper_cannot_run(tmp_path, monkeypatch):
+    config = {
+        "auths": {"registry.example": {"auth": base64.b64encode(b"user:pw").decode()}},
+        "credsStore": "example",
+    }
+    _docker_config(tmp_path, monkeypatch, config)
+    with mock.patch.object(
+        oci_module, "_run_credential_helper", side_effect=oci_module._CredentialHelperError("x")
+    ) as helper:
         assert _load_docker_credentials("registry.example") == ("user", "pw")
-    helper.assert_called_once()
+    helper.assert_called_once_with("example", "registry.example")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="uses a shell script as a credential helper")
+@pytest.mark.parametrize(
+    ("script", "expected"),
+    [
+        ("echo 'credentials not found in native keychain'; exit 1", "not-found"),
+        ("echo 'keychain is locked' >&2; exit 1", "exit status 1"),
+        ("echo 'not json'; exit 0", "not JSON"),
+        ('echo \'{"Username": "u", "Secret": ""}\'; exit 0', "not-found"),
+    ],
+)
+def test_run_credential_helper_distinguishes_not_found_from_failure(
+    tmp_path, monkeypatch, script, expected
+):
+    helper = tmp_path / "docker-credential-fake"
+    helper.write_text(f"#!/bin/sh\n{script}\n")
+    helper.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    if expected == "not-found":
+        assert oci_module._run_credential_helper("fake", "registry.example") is None
+    else:
+        with pytest.raises(oci_module._CredentialHelperError, match=expected):
+            oci_module._run_credential_helper("fake", "registry.example")
 
 
 def _auth_file(path, user, secret):

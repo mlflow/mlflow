@@ -54,6 +54,7 @@ _DOCKER_HUB_HOSTS = ("docker.io", "index.docker.io")
 _DOCKER_HUB_REGISTRY = "registry-1.docker.io"
 _DOCKER_HUB_AUTH_KEY = "https://index.docker.io/v1/"
 _IDENTITY_TOKEN_USERNAME = "<token>"
+_HELPER_NOT_FOUND_MARKER = "credentials not found"
 _REQUEST_TIMEOUT_SECONDS = 60
 _CREDENTIAL_HELPER_TIMEOUT_SECONDS = 30
 _DOWNLOAD_CHUNK_SIZE = 1024 * 1024
@@ -206,16 +207,23 @@ def _credentials_from_auths(auths: dict[str, Any], keys: list[str]) -> tuple[str
     return None
 
 
+class _CredentialHelperError(Exception):
+    """The helper could not be run or gave an unusable answer (as opposed to "not found")."""
+
+
 def _run_credential_helper(helper: str, server: str) -> tuple[str, str] | None:
     """
-    Ask ``docker-credential-<helper> get`` for ``server``; any failure means no credentials.
+    Ask ``docker-credential-<helper> get`` for ``server``.
 
-    A ``Username`` of ``<token>`` marks an identity token, which is exchanged for a registry
+    ``None`` means the helper answered that it holds no credentials for ``server``, which is
+    final. A helper that is not installed, fails to run, or prints something unusable raises
+    ``_CredentialHelperError`` so the caller can fall back the way the Docker CLI does. A
+    ``Username`` of ``<token>`` marks an identity token, which is exchanged for a registry
     token through the OAuth2 refresh-token grant instead of Basic authentication.
     """
     executable = shutil.which(f"docker-credential-{helper}")
     if executable is None:
-        return None
+        raise _CredentialHelperError(f"docker-credential-{helper} is not on PATH")
     try:
         completed = subprocess.run(
             [executable, "get"],
@@ -225,16 +233,20 @@ def _run_credential_helper(helper: str, server: str) -> tuple[str, str] | None:
             timeout=_CREDENTIAL_HELPER_TIMEOUT_SECONDS,
             check=False,
         )
-    except (OSError, subprocess.SubprocessError):
-        return None
+    except (OSError, subprocess.SubprocessError) as e:
+        raise _CredentialHelperError(str(e))
     if completed.returncode != 0:
-        return None
+        # The helpers print this exact phrase when the store has no entry; anything else is
+        # a failure of the helper itself.
+        if _HELPER_NOT_FOUND_MARKER in (completed.stdout + completed.stderr).lower():
+            return None
+        raise _CredentialHelperError(f"exit status {completed.returncode}")
     try:
         payload = json.loads(completed.stdout)
     except ValueError:
-        return None
+        raise _CredentialHelperError("output is not JSON")
     if not isinstance(payload, dict):
-        return None
+        raise _CredentialHelperError("output is not a JSON object")
     username = payload.get("Username")
     secret = payload.get("Secret")
     if not isinstance(secret, str) or not secret:
@@ -248,9 +260,9 @@ def _load_docker_credentials(registry: str) -> tuple[str, str] | None:
 
     Files are consulted in ``_credential_files`` order and the first one that yields
     credentials wins. Within a file the Docker CLI's rules apply: a configured helper (the
-    registry-specific ``credHelpers`` entry, else the global ``credsStore``) is asked first,
-    and an inline ``auths`` entry applies only when no helper is configured or the helper has
-    nothing. Missing or unreadable files are skipped.
+    registry-specific ``credHelpers`` entry, else the global ``credsStore``) decides, and an
+    inline ``auths`` entry applies only when no helper is configured or the helper cannot be
+    run. Missing or unreadable files are skipped.
     """
     for path in _credential_files():
         if (config := _read_config_file(path)) is None:
@@ -272,8 +284,14 @@ def _config_credentials(config: dict[str, Any], registry: str) -> tuple[str, str
         helper = next((helpers[k] for k in keys if isinstance(helpers.get(k), str)), None)
     if helper is None and isinstance(config.get("credsStore"), str):
         helper = config["credsStore"]
-    if helper and (found := _run_credential_helper(helper, server)):
-        return found
+    if helper:
+        # A working helper is authoritative, even when it has nothing: Docker pulls
+        # anonymously rather than using an inline entry the user replaced with a helper. Only
+        # a helper that cannot be run at all leaves the inline entry in play.
+        try:
+            return _run_credential_helper(helper, server)
+        except _CredentialHelperError:
+            pass
     auths = config.get("auths")
     if isinstance(auths, dict):
         return _credentials_from_auths(auths, keys)
@@ -718,7 +736,8 @@ def fetch_oci(
     lower layers first; any other layer is written as a single file named by its
     ``org.opencontainers.image.title`` annotation, which is how ORAS publishes plain files.
     Multi-platform indexes resolve to ``linux/amd64``. Credentials come from the Docker config
-    file: ``auths`` entries, then ``credHelpers`` or ``credsStore`` helpers. The decompressed
+    or container runtime auth files: a configured ``credHelpers`` or ``credsStore`` helper
+    first, inline ``auths`` entries only without a working helper. The decompressed
     limit applies to the content at ``subpath``; each layer download is also bounded by the
     limit on the wire, the decompression work across all layers by a multiple of it, and only
     one layer at a time occupies ``scratch``.
