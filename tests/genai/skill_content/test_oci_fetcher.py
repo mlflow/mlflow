@@ -81,7 +81,13 @@ class _RegistryHandler(http.server.BaseHTTPRequestHandler):
             self._send(401, headers={"WWW-Authenticate": self.challenge.format(realm=realm)})
             return
         parts = self.path.split("/")
-        if len(parts) >= 5 and parts[-2] == "manifests":
+        if len(parts) == 3 and parts[1] == "cdn":
+            self._send(200, self.blobs[parts[2]], content_type="application/octet-stream")
+            return
+        if len(parts) < 5 or parts[1] != "v2" or "/".join(parts[2:-2]) != "skills/demo":
+            self._send(404, b"{}")
+            return
+        if parts[-2] == "manifests":
             entry = self.manifests.get(parts[-1])
             if entry is None:
                 self._send(404, b"{}")
@@ -89,7 +95,7 @@ class _RegistryHandler(http.server.BaseHTTPRequestHandler):
             body, content_type = entry
             self._send(200, body, content_type=content_type)
             return
-        if len(parts) >= 5 and parts[-2] == "blobs":
+        if parts[-2] == "blobs":
             blob = self.blobs.get(parts[-1])
             if blob is None:
                 self._send(404, b"{}")
@@ -106,9 +112,6 @@ class _RegistryHandler(http.server.BaseHTTPRequestHandler):
                 )
                 return
             self._send(200, blob, content_type="application/octet-stream")
-            return
-        if len(parts) == 3 and parts[1] == "cdn":
-            self._send(200, self.blobs[parts[2]], content_type="application/octet-stream")
             return
         self._send(404, b"{}")
 
@@ -634,6 +637,19 @@ def test_fetch_oci_whiteout_outside_subpath_is_ignored(tmp_path):
     assert _listing(dest) == ["skills", "skills/demo", "skills/demo/SKILL.md"]
 
 
+def test_fetch_oci_tag_and_digest_reference(oci_registry, skill_tree):
+    host, handler = oci_registry
+    digest = next(
+        k
+        for k, (body, _) in handler.manifests.items()
+        if k.startswith("sha256:") and handler.manifests["v1"][0] == body
+    )
+    with fetch_source(f"oci://{host}/skills/demo:v1@{digest}", subpath="skills/demo") as fetched:
+        assert compute_tree_digest(fetched.root) == compute_tree_digest(
+            skill_tree / "skills" / "demo"
+        )
+
+
 def test_fetch_oci_unreachable(closed_port):
     with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
         with fetch_source(f"oci://127.0.0.1:{closed_port}/skills/demo:v1"):
@@ -653,6 +669,24 @@ def test_fetch_oci_unreachable(closed_port):
             "localhost:5000",
             "skills",
             "sha256:" + "b" * 64,
+        ),
+        (
+            "localhost:5000/acme/skills:v1@sha256:" + "a" * 64,
+            "localhost:5000",
+            "acme/skills",
+            "sha256:" + "a" * 64,
+        ),
+        (
+            "ghcr.io/acme/skills:v1@sha256:" + "a" * 64,
+            "ghcr.io",
+            "acme/skills",
+            "sha256:" + "a" * 64,
+        ),
+        (
+            "alpine:3@sha256:" + "a" * 64,
+            "registry-1.docker.io",
+            "library/alpine",
+            "sha256:" + "a" * 64,
         ),
     ],
 )

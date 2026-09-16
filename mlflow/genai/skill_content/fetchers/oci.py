@@ -101,6 +101,10 @@ def parse_image_reference(image: str) -> ImageReference:
     if "@" in value:
         name, reference = value.split("@", 1)
         _validate_digest(reference, f"OCI image digest in '{image}'")
+        # ``repo:tag@digest`` is valid; the digest wins and the tag is informational.
+        head, _, tail = name.rpartition("/")
+        tail = tail.split(":", 1)[0]
+        name = f"{head}/{tail}" if head else tail
     else:
         head, _, tail = value.rpartition("/")
         if ":" in tail:
