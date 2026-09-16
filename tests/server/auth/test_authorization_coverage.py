@@ -184,7 +184,9 @@ def test_create_gateway_secret_requires_workspace_create_validator():
 
 def test_every_ownership_grant_route_has_a_before_request_validator():
     # An after-request MANAGE grant only records ownership; the create itself must be
-    # authorized up front, or the grant would mask the missing check.
+    # authorized up front, or the grant would mask the missing check. Scanning
+    # AFTER_REQUEST_HANDLERS alone is sufficient because
+    # WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS is derived from it.
     grants = {
         h
         for h in a.AFTER_REQUEST_PATH_HANDLERS.values()
