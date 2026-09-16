@@ -18,6 +18,10 @@ from mlflow.store.artifact.host_policy import (
         ("file:///tmp/mlruns", None),
         ("/tmp/mlruns", None),
         ("mlflow-artifacts:/experiments/1", None),
+        # An empty authority resolves against the tracking server itself, like the form above.
+        ("mlflow-artifacts:///experiments/1", None),
+        # A port with no host is an authority, so it is a (never trusted) target, not "self".
+        ("mlflow-artifacts://:5000/experiments/1", {("http", "", 5000)}),
         ("ftp://host/pub", {("ftp", "host", 21)}),
         ("ftp://user:pw@HOST:2121/pub", {("ftp", "host", 2121)}),
         ("sftp://host/data", {("sftp", "host", 22)}),
