@@ -514,19 +514,23 @@ def _select_manifest(client: RegistryClient, ref: ImageReference) -> dict[str, A
         entries = manifest.get("manifests")
         if not isinstance(entries, list):
             raise invalid_content(f"OCI index for '{ref.display}' has a malformed manifest list.")
+        # The exact platform wins wherever it appears; a platform-independent entry is only
+        # a fallback for indexes that have no linux/amd64 manifest at all.
         chosen = None
+        fallback = None
         for candidate in entries:
             if not isinstance(candidate, dict):
                 continue
             platform = _optional_object(
                 candidate, "platform", f"OCI index entry in '{ref.display}'"
             )
-            if (
-                not platform
-                or (platform.get("os"), platform.get("architecture")) == _DEFAULT_PLATFORM
-            ):
+            if (platform.get("os"), platform.get("architecture")) == _DEFAULT_PLATFORM:
                 chosen = candidate
                 break
+            if not platform and fallback is None:
+                fallback = candidate
+        if chosen is None:
+            chosen = fallback
         if chosen is None:
             raise invalid_content(
                 f"OCI index for '{ref.display}' has no manifest for "

@@ -222,6 +222,16 @@ def oci_registry(tmp_path, skill_tree):
     bad_annotations["layers"][1]["annotations"] = ["not", "an", "object"]
     bad_platform = json.loads(json.dumps(index))
     bad_platform["manifests"][0]["platform"] = "linux/amd64"
+    # A platform-independent descriptor listed before the exact match must not win.
+    platformless_first = json.loads(json.dumps(index))
+    platformless_first["manifests"].insert(
+        0, {"mediaType": _MANIFEST_TYPE, "digest": _sha256(json.dumps(lying).encode())}
+    )
+    platformless_only = json.loads(json.dumps(index))
+    platformless_only["manifests"] = [
+        platformless_only["manifests"][0],
+        {"mediaType": _MANIFEST_TYPE, "digest": _sha256(main)},
+    ]
     nosize = json.loads(main)
     del nosize["layers"][0]["size"]
 
@@ -254,6 +264,9 @@ def oci_registry(tmp_path, skill_tree):
         ),
         "bad-annotations": (json.dumps(bad_annotations).encode(), _MANIFEST_TYPE),
         "bad-platform": (json.dumps(bad_platform).encode(), _INDEX_TYPE),
+        "platformless-first": (json.dumps(platformless_first).encode(), _INDEX_TYPE),
+        "platformless-only": (json.dumps(platformless_only).encode(), _INDEX_TYPE),
+        _sha256(json.dumps(lying).encode()): (json.dumps(lying).encode(), _MANIFEST_TYPE),
     }
     handler = type(
         "Handler",
@@ -347,9 +360,13 @@ def test_fetch_oci_uses_credential_helper(oci_registry, tmp_path, monkeypatch):
     assert handler.token_requests[0]["authorization"] == _basic("helper-user", "helper-secret")
 
 
-def test_fetch_oci_index_resolves_platform(oci_registry):
+@pytest.mark.parametrize("reference", ["multi", "platformless-first", "platformless-only"])
+def test_fetch_oci_index_resolves_platform(oci_registry, reference):
+    # ``platformless-first`` lists a platform-independent manifest (with a lying layer size)
+    # ahead of the linux/amd64 one; the exact match must still win. With no exact match the
+    # platform-independent entry is the fallback.
     host, _ = oci_registry
-    with fetch_source(f"oci://{host}/skills/demo:multi", subpath="skills/demo") as fetched:
+    with fetch_source(f"oci://{host}/skills/demo:{reference}", subpath="skills/demo") as fetched:
         assert (fetched.root / "SKILL.md").exists()
 
 
