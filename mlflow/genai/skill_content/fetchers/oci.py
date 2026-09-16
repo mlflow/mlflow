@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -636,20 +637,79 @@ def _remove_path(path: Path) -> None:
         path.unlink()
 
 
-def _layer_whiteouts(blob: Path, *, compressed: bool, work: DecompressionBudget) -> list[str]:
-    """Canonical paths of every whiteout entry in a tar layer, inside the subpath or not."""
-    whiteouts = []
+@dataclass
+class _LayerEntries:
+    """Canonical paths of a tar layer's entries: content paths and whiteout markers."""
+
+    paths: list[str]
+    whiteouts: list[str]
+
+
+def _scan_layer(blob: Path, *, compressed: bool, work: DecompressionBudget) -> _LayerEntries:
+    entries = _LayerEntries(paths=[], whiteouts=[])
     with _open_tar(blob, compressed=compressed, work=work) as (tar, bounded):
         for member in _iter_tar_members(tar, bounded):
             relative = _member_relative_path(member.name)
-            if relative is not None and relative.rsplit("/", 1)[-1].startswith(_WHITEOUT_PREFIX):
-                whiteouts.append(relative)
-    return whiteouts
+            if relative is None:
+                continue
+            if relative.rsplit("/", 1)[-1].startswith(_WHITEOUT_PREFIX):
+                entries.whiteouts.append(relative)
+            else:
+                entries.paths.append(relative)
+    return entries
 
 
-def _apply_whiteouts(whiteouts: list[str], dest: Path, prefix: str | None) -> None:
+class _MergedPaths:
     """
-    Delete lower-layer content named by ``whiteouts`` from ``dest``.
+    Canonical paths merged into the destination so far, checked for collisions across layers.
+
+    Each layer is validated on its own by the archive rules, but two layers can still carry
+    paths that differ only by letter case. On a case-insensitive filesystem the merge would
+    silently overwrite one with the other, so the check happens here, before the filesystem
+    is touched, and the same image is accepted or rejected on every platform.
+    """
+
+    def __init__(self):
+        self._by_key: dict[str, str] = {}
+
+    @staticmethod
+    def _key(path: str) -> str:
+        return unicodedata.normalize("NFC", path).casefold()
+
+    def add(self, path: str) -> None:
+        parts = path.split("/")
+        for depth in range(1, len(parts) + 1):
+            candidate = unicodedata.normalize("NFC", "/".join(parts[:depth]))
+            key = candidate.casefold()
+            previous = self._by_key.get(key)
+            if previous is not None and previous != candidate:
+                raise invalid_content(
+                    f"OCI layers carry paths '{previous}' and '{candidate}' that differ only "
+                    "by letter case; the skill tree is ambiguous on case-insensitive "
+                    "filesystems."
+                )
+            self._by_key[key] = candidate
+
+    def remove(self, path: str) -> None:
+        """Forget ``path`` and everything beneath it."""
+        key = self._key(path)
+        for existing in list(self._by_key):
+            if existing == key or existing.startswith(key + "/"):
+                del self._by_key[existing]
+
+    def clear_children(self, directory: str) -> None:
+        """Forget everything beneath ``directory`` (the whole tree when empty)."""
+        marker = self._key(directory) + "/" if directory else ""
+        for existing in list(self._by_key):
+            if existing.startswith(marker) and existing != self._key(directory):
+                del self._by_key[existing]
+
+
+def _apply_whiteouts(
+    whiteouts: list[str], dest: Path, prefix: str | None, merged: _MergedPaths
+) -> None:
+    """
+    Delete lower-layer content named by ``whiteouts`` from ``dest`` and from ``merged``.
 
     The subpath filter only extracts entries beneath ``prefix``, so a deletion of the
     subpath itself or of one of its ancestors is applied by clearing the whole selected tree;
@@ -665,8 +725,10 @@ def _apply_whiteouts(whiteouts: list[str], dest: Path, prefix: str | None) -> No
             )
             if covers_root or (prefix is None and not directory):
                 _clear_directory(content_root)
+                merged.clear_children(prefix or "")
             elif is_under_subpath(directory, prefix):
                 _clear_directory(dest.joinpath(*directory.split("/")))
+                merged.clear_children(directory)
             continue
         target_name = name[len(_WHITEOUT_PREFIX) :]
         if not target_name:
@@ -676,10 +738,12 @@ def _apply_whiteouts(whiteouts: list[str], dest: Path, prefix: str | None) -> No
         deleted = f"{directory}/{target_name}" if directory else target_name
         if prefix is not None and is_under_subpath(prefix, deleted):
             _clear_directory(content_root)
+            merged.clear_children(prefix)
         elif is_under_subpath(deleted, prefix):
             target = dest.joinpath(*deleted.split("/"))
             ensure_within(dest, target)
             _remove_path(target)
+            merged.remove(deleted)
 
 
 def _merge_tree(source: Path, dest: Path) -> None:
@@ -707,7 +771,9 @@ def _merge_tree(source: Path, dest: Path) -> None:
             os.replace(item, target)
 
 
-def _place_file_layer(blob: Path, layer: dict[str, Any], dest: Path, prefix: str | None) -> int:
+def _place_file_layer(
+    blob: Path, layer: dict[str, Any], dest: Path, prefix: str | None, merged: _MergedPaths
+) -> int:
     """Write a non-tar layer as the file named by its title annotation; returns bytes placed."""
     media_type = layer.get("mediaType")
     annotations = _optional_object(layer, "annotations", f"OCI layer {layer.get('digest')}")
@@ -723,6 +789,7 @@ def _place_file_layer(blob: Path, layer: dict[str, Any], dest: Path, prefix: str
     if not is_under_subpath(relative, prefix):
         blob.unlink()
         return 0
+    merged.add(relative)
     target = dest.joinpath(*relative.split("/"))
     ensure_within(dest, target)
     if target.is_dir():
@@ -767,6 +834,7 @@ def fetch_oci(
     remaining = max_bytes
     # One decompression budget for the whole image: every pass over every layer draws on it.
     work = default_decompression_budget(max_bytes)
+    merged = _MergedPaths()
     tmp_path = scratch / "oci-layers"
     tmp_path.mkdir(parents=True, exist_ok=True)
     for index, layer in enumerate(manifest["layers"]):
@@ -796,19 +864,23 @@ def fetch_oci(
                 decompression_budget=work,
             )
             remaining -= tree_size(extracted)
-            _apply_whiteouts(_layer_whiteouts(blob, compressed=compressed, work=work), dest, prefix)
+            entries = _scan_layer(blob, compressed=compressed, work=work)
+            _apply_whiteouts(entries.whiteouts, dest, prefix, merged)
+            for path in entries.paths:
+                if is_under_subpath(path, prefix):
+                    merged.add(path)
             _merge_tree(extracted, dest)
             # Scratch space is bounded by one layer at a time, not by the whole image.
             blob.unlink()
             shutil.rmtree(extracted)
         else:
-            remaining -= _place_file_layer(blob, layer, dest, prefix)
+            remaining -= _place_file_layer(blob, layer, dest, prefix, merged)
         if remaining < 0:
             raise invalid_content(
                 f"OCI image '{ref.display}' exceeds the skill content size limit of "
                 f"{max_bytes} bytes."
             )
-    # Each layer was validated on its own; the merged tree is checked again so that paths
-    # from different layers cannot collide by case or Unicode normalization.
+    # Cross-layer case collisions were rejected before the merge; this re-walk is a final
+    # consistency check of the assembled tree under the shared path rules.
     collect_tree(dest)
     return dest

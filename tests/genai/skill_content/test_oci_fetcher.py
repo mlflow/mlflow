@@ -5,7 +5,6 @@ import io
 import json
 import os
 import stat
-import sys
 import tarfile
 import threading
 from unittest import mock
@@ -274,6 +273,12 @@ def oci_registry(tmp_path, skill_tree):
             _MANIFEST_TYPE,
         ),
         "bad-annotations": (json.dumps(bad_annotations).encode(), _MANIFEST_TYPE),
+        "file-layer-case-collision": (
+            json.dumps(
+                _manifest([_tar_layer(tar_layer), _file_layer(file_layer, "Skills/notes.md")])
+            ).encode(),
+            _MANIFEST_TYPE,
+        ),
         "file-under-file": (
             json.dumps(
                 _manifest([_tar_layer(clash_tar), _file_layer(file_layer, "skills/README.md")])
@@ -413,6 +418,7 @@ def test_fetch_oci_subpath_limits_budget(oci_registry):
         ("too-many-layers", {}, "has 257 layers; the maximum is 256"),
         ("bad-annotations", {}, "malformed 'annotations' field"),
         ("file-under-file", {}, "OCI layers disagree about 'skills'"),
+        ("file-layer-case-collision", {}, "differ only by letter case"),
         ("bad-platform", {}, "malformed 'platform' field"),
     ],
 )
@@ -430,10 +436,10 @@ def test_fetch_oci_two_layers_within_budget(oci_registry):
         assert (fetched.root / "docs" / "a.txt").stat().st_size == 60
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="needs a case-sensitive filesystem")
 def test_fetch_oci_rejects_cross_layer_case_collision(oci_registry):
     # Each layer is validated on its own, so a collision that spans two layers is only
-    # visible once they are merged.
+    # visible when they are merged; it is rejected before the filesystem is touched so the
+    # outcome is the same on case-sensitive and case-insensitive filesystems.
     host, _ = oci_registry
     with pytest.raises(MlflowException, match="differ only by letter case"):
         with fetch_source(f"oci://{host}/skills/demo:case-collision"):
@@ -697,8 +703,36 @@ def test_fetch_oci_bare_whiteout_marker_is_rejected(tmp_path):
     with pytest.raises(MlflowException, match="ending in a space or period"):
         _fetch_layers(tmp_path, [_raw_tar_gz({"SKILL.md": b"x"}), _raw_tar_gz({".wh.": b""})])
     with pytest.raises(MlflowException, match="names nothing to delete"):
-        oci_module._apply_whiteouts([".wh."], tmp_path, None)
+        oci_module._apply_whiteouts([".wh."], tmp_path, None, oci_module._MergedPaths())
     assert tmp_path.exists()
+
+
+@pytest.mark.parametrize(
+    "second_layer",
+    [
+        {".wh.docs": b"", "docs/": None, "docs/notes.txt": b"replaced"},
+        {"docs/": None, "docs/.wh..wh..opq": b"", "docs/notes.txt": b"replaced"},
+        {"docs/": None, "docs/.wh.Notes.txt": b"", "docs/notes.txt": b"replaced"},
+    ],
+)
+def test_fetch_oci_whiteout_then_readd_with_different_case_is_allowed(tmp_path, second_layer):
+    # A deletion in the same layer makes room for the differently cased path.
+    dest = _fetch_layers(
+        tmp_path,
+        [_raw_tar_gz({"docs/": None, "docs/Notes.txt": b"lower"}), _raw_tar_gz(second_layer)],
+    )
+    assert _listing(dest) == ["docs", "docs/notes.txt"]
+
+
+def test_fetch_oci_case_collision_across_layers_is_rejected_before_writing(tmp_path):
+    with pytest.raises(MlflowException, match="'docs/Notes.txt' and 'docs/notes.txt'"):
+        _fetch_layers(
+            tmp_path,
+            [
+                _raw_tar_gz({"docs/": None, "docs/Notes.txt": b"a"}),
+                _raw_tar_gz({"docs/": None, "docs/notes.txt": b"b"}),
+            ],
+        )
 
 
 def test_fetch_oci_whiteout_outside_subpath_is_ignored(tmp_path):
