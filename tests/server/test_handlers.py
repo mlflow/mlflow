@@ -8302,7 +8302,114 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
         assert call_kwargs["extra_envs"] == {"OPENAI_API_KEY": "test-key"}
 
 
-def test_invoke_issue_detection_handler_with_endpoint(monkeypatch):
+def test_invoke_issue_detection_handler_rejects_cross_experiment_traces(
+    monkeypatch, mock_tracking_store
+):
+    """Regression test for GHSA-v7w2-x9m4-3743: a caller authorized on experiment A must not
+    be able to run issue detection on traces that belong to experiment B.
+    """
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        TraceInfo(
+            trace_id="victim-trace-1",
+            trace_location=EntityTraceLocation.from_experiment_id("exp-999"),
+            request_time=1234567890,
+            state=TraceState.OK,
+        )
+    ]
+
+    with (
+        mock.patch("mlflow.genai.discovery.job._fetch_provider_credentials") as mock_fetch_creds,
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.start_run") as mock_start_run,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "trace_ids": ["victim-trace-1"],
+                "categories": ["correctness"],
+                "provider": "openai",
+                "model": "gpt-4o",
+                "secret_id": "secret-123",
+            },
+        )
+        assert resp.status_code == 403
+        assert resp.get_json()["error_code"] == "PERMISSION_DENIED"
+        assert resp.get_json()["message"] == "Not all requested traces could be accessed."
+        mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["victim-trace-1"])
+        mock_fetch_creds.assert_not_called()
+        mock_start_run.assert_not_called()
+        mock_submit_job.assert_not_called()
+
+
+def test_invoke_issue_detection_handler_rejects_foreign_trace_fallback_path(
+    monkeypatch, mock_tracking_store
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.batch_get_trace_infos.side_effect = MlflowNotImplementedException(
+        "Not implemented"
+    )
+    mock_tracking_store.get_trace_info.return_value = TraceInfo(
+        trace_id="foreign-trace",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-999"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.start_run") as mock_start_run,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "trace_ids": ["foreign-trace"],
+                "categories": ["correctness"],
+                "provider": "openai",
+                "model": "gpt-4o",
+                "endpoint_name": "my-endpoint",
+            },
+        )
+        assert resp.status_code == 403
+        assert resp.get_json()["error_code"] == "PERMISSION_DENIED"
+        mock_tracking_store.get_trace_info.assert_called_once_with("foreign-trace")
+        mock_start_run.assert_not_called()
+        mock_submit_job.assert_not_called()
+
+
+def test_invoke_issue_detection_handler_rejects_non_string_trace_ids(
+    monkeypatch, mock_tracking_store
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.start_run") as mock_start_run,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "trace_ids": [{"trace_id": "victim-trace-1"}],
+                "categories": ["correctness"],
+                "provider": "openai",
+                "model": "gpt-4o",
+                "endpoint_name": "my-endpoint",
+            },
+        )
+        assert resp.status_code == 400
+        assert resp.get_json()["error_code"] == "INVALID_PARAMETER_VALUE"
+        mock_tracking_store.batch_get_trace_infos.assert_not_called()
+        mock_start_run.assert_not_called()
+        mock_submit_job.assert_not_called()
+
+
+def test_invoke_issue_detection_handler_with_endpoint(monkeypatch, mock_tracking_store):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
     mock_job = JobEntity(
@@ -8416,7 +8523,7 @@ def test_invoke_issue_detection_handler_no_api_key_fails_fast(monkeypatch):
         mock_submit_job.assert_not_called()
 
 
-def test_invoke_issue_detection_handler_uses_server_env_key(monkeypatch):
+def test_invoke_issue_detection_handler_uses_server_env_key(monkeypatch, mock_tracking_store):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     monkeypatch.setenv("OPENAI_API_KEY", "server-env-key")
 
@@ -8462,7 +8569,9 @@ def test_invoke_issue_detection_handler_uses_server_env_key(monkeypatch):
         assert mock_submit_job.call_args.kwargs["params"]["model"] == "openai:/gpt-4o"
 
 
-def test_invoke_issue_detection_handler_bedrock_uses_server_env_credentials(monkeypatch):
+def test_invoke_issue_detection_handler_bedrock_uses_server_env_credentials(
+    monkeypatch, mock_tracking_store
+):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test-access-key")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret-key")
@@ -8551,7 +8660,7 @@ def _make_genai_evaluate_job(job_id: str = "job-genai-1") -> JobEntity:
     )
 
 
-def test_invoke_genai_evaluate_handler_success(monkeypatch):
+def test_invoke_genai_evaluate_handler_success(monkeypatch, mock_tracking_store):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
     mock_job = _make_genai_evaluate_job()
@@ -8600,6 +8709,147 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch):
             "run-genai-1", "mlflow.genaiEvaluate.jobId", "job-genai-1"
         )
         mock_client.set_terminated.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_rejects_cross_experiment_traces(
+    monkeypatch, mock_tracking_store
+):
+    """Regression test for GHSA-v7w2-x9m4-3743: a caller authorized on experiment A must not
+    be able to evaluate traces that belong to experiment B.
+    """
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        TraceInfo(
+            trace_id="own-trace",
+            trace_location=EntityTraceLocation.from_experiment_id("exp-123"),
+            request_time=1234567890,
+            state=TraceState.OK,
+        ),
+        TraceInfo(
+            trace_id="victim-trace-1",
+            trace_location=EntityTraceLocation.from_experiment_id("exp-999"),
+            request_time=1234567890,
+            state=TraceState.OK,
+        ),
+    ]
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "trace_ids": ["own-trace", "victim-trace-1"],
+                "serialized_scorers": ['{"name":"my-judge"}'],
+            },
+        )
+        assert resp.status_code == 403
+        assert resp.get_json()["error_code"] == "PERMISSION_DENIED"
+        assert resp.get_json()["message"] == "Not all requested traces could be accessed."
+        mock_tracking_store.batch_get_trace_infos.assert_called_once_with([
+            "own-trace",
+            "victim-trace-1",
+        ])
+        mock_client.create_run.assert_not_called()
+        mock_submit_job.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_rejects_foreign_trace_fallback_path(
+    monkeypatch, mock_tracking_store
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.batch_get_trace_infos.side_effect = MlflowNotImplementedException(
+        "Not implemented"
+    )
+    mock_tracking_store.get_trace_info.return_value = TraceInfo(
+        trace_id="foreign-trace",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-999"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "trace_ids": ["foreign-trace"],
+                "serialized_scorers": ['{"name":"my-judge"}'],
+            },
+        )
+        assert resp.status_code == 403
+        assert resp.get_json()["error_code"] == "PERMISSION_DENIED"
+        mock_tracking_store.get_trace_info.assert_called_once_with("foreign-trace")
+        mock_client.create_run.assert_not_called()
+        mock_submit_job.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_rejects_foreign_trace_bare_not_implemented_fallback(
+    monkeypatch, mock_tracking_store
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.batch_get_trace_infos.side_effect = NotImplementedError
+    mock_tracking_store.get_trace_info.return_value = TraceInfo(
+        trace_id="foreign-trace",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-999"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "trace_ids": ["foreign-trace"],
+                "serialized_scorers": ['{"name":"my-judge"}'],
+            },
+        )
+        assert resp.status_code == 403
+        assert resp.get_json()["error_code"] == "PERMISSION_DENIED"
+        mock_tracking_store.get_trace_info.assert_called_once_with("foreign-trace")
+        mock_client.create_run.assert_not_called()
+        mock_submit_job.assert_not_called()
+
+
+def test_invoke_genai_evaluate_handler_rejects_non_string_trace_ids(
+    monkeypatch, mock_tracking_store
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "trace_ids": [["victim-trace-1"]],
+                "serialized_scorers": ['{"name":"my-judge"}'],
+            },
+        )
+        assert resp.status_code == 400
+        assert resp.get_json()["error_code"] == "INVALID_PARAMETER_VALUE"
+        mock_tracking_store.batch_get_trace_infos.assert_not_called()
+        mock_client.create_run.assert_not_called()
+        mock_submit_job.assert_not_called()
 
 
 def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
@@ -8709,7 +8959,9 @@ def test_invoke_genai_evaluate_handler_missing_required_fields(monkeypatch):
             mock_submit_job.assert_not_called()
 
 
-def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(monkeypatch):
+def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(
+    monkeypatch, mock_tracking_store
+):
     """Username comes from HTTP Basic auth and feeds the job's gateway-auth
     path so judge LLM calls are made *as* the user.
     """
@@ -8742,7 +8994,9 @@ def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(monkeypatc
         assert mock_submit_job.call_args.kwargs["params"]["username"] == "alice"
 
 
-def test_invoke_genai_evaluate_handler_marks_run_failed_when_submit_job_raises(monkeypatch):
+def test_invoke_genai_evaluate_handler_marks_run_failed_when_submit_job_raises(
+    monkeypatch, mock_tracking_store
+):
     """If submit_job raises after the run is created, the handler must flip the
     run to FAILED itself — otherwise it'd be stuck in RUNNING forever because the
     worker that would normally do that transition was never enqueued.
@@ -8782,7 +9036,9 @@ def test_invoke_genai_evaluate_handler_marks_run_failed_when_submit_job_raises(m
         mock_client.set_tag.assert_not_called()
 
 
-def test_invoke_genai_evaluate_handler_marks_run_failed_when_set_tag_raises(monkeypatch):
+def test_invoke_genai_evaluate_handler_marks_run_failed_when_set_tag_raises(
+    monkeypatch, mock_tracking_store
+):
     """The same try/except must also cover the post-submit set_tag call. If the
     tag write fails (e.g. transient store error) we'd otherwise leave the run in
     RUNNING because nothing else writes a terminal status from the handler.

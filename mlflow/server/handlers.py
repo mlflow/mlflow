@@ -5245,6 +5245,39 @@ def _set_review_queue_item_status():
     return _wrap_response(SetReviewQueueItemStatus.Response(item=item.to_proto()))
 
 
+def _validate_trace_ids_in_experiment(
+    tracking_store: AbstractTrackingStore, trace_ids: list[str], experiment_id: str
+) -> None:
+    """
+    Reject the request if any requested trace that exists belongs to an experiment other
+    than ``experiment_id``. The route validators only check the caller's permission on the
+    request's ``experiment_id``, so this binds the caller-supplied ``trace_ids`` to that
+    authorized experiment. Missing traces are not rejected here; they are left to fail
+    downstream in the job, which preserves the existing contract for missing traces.
+    """
+    try:
+        trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
+    except (MlflowNotImplementedException, NotImplementedError):
+        # Fallback to per-trace fetches for stores that don't implement batch_get_trace_infos.
+        # A missing trace is simply absent, matching the partial list the batch path returns.
+        # A store that implements neither lookup cannot prove ownership, so its error is
+        # left to propagate rather than letting the request through unchecked.
+        trace_infos = []
+        for trace_id in trace_ids:
+            try:
+                trace_infos.append(tracking_store.get_trace_info(trace_id))
+            except MlflowException as e:
+                if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+
+    for trace_info in trace_infos:
+        if str(trace_info.experiment_id) != str(experiment_id):
+            raise MlflowException(
+                "Not all requested traces could be accessed.",
+                error_code=PERMISSION_DENIED,
+            )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _invoke_issue_detection_handler():
@@ -5261,7 +5294,7 @@ def _invoke_issue_detection_handler():
     request_json = _get_validated_flask_request_json(
         schema={
             "experiment_id": [_assert_required, _assert_string],
-            "trace_ids": [_assert_required, _assert_array],
+            "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "categories": [_assert_required, _assert_array],
             "provider": [_assert_required, _assert_string],
             "model": [_assert_string],
@@ -5307,9 +5340,11 @@ def _invoke_issue_detection_handler():
                 f"AI Gateway, or set {env_var_hint} on the MLflow server."
             )
 
+    store = _get_tracking_store()
+    _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
+
     # Fetch credentials required for executing the job
     if secret_id:
-        store = _get_tracking_store()
         credentials = _fetch_provider_credentials(store, provider_name, secret_id)
     else:
         credentials = None
@@ -5366,7 +5401,7 @@ def _invoke_genai_evaluate_handler():
     request_json = _get_validated_flask_request_json(
         schema={
             "experiment_id": [_assert_required, _assert_string],
-            "trace_ids": [_assert_required, _assert_array],
+            "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "serialized_scorers": [_assert_required, _assert_array],
             "scorer_versions": [_assert_array],
         }
@@ -5393,6 +5428,7 @@ def _invoke_genai_evaluate_handler():
         )
 
     tracking_store = _get_tracking_store()
+    _validate_trace_ids_in_experiment(tracking_store, trace_ids, experiment_id)
     for index, (serialized_scorer, scorer_version) in enumerate(
         zip(serialized_scorers, scorer_versions, strict=True)
     ):
@@ -7313,36 +7349,7 @@ def _invoke_scorer_handler():
 
     scorer = Scorer.model_validate_json(serialized_scorer)
 
-    # Verify that any requested trace that exists belongs to the authorized experiment.
-    # This prevents users from scoring or writing assessments to traces in other experiments.
-    # Traces that do not exist are left to fail downstream in the scorer job (reported as
-    # "Traces not found"); only traces that resolve to a *different* experiment are rejected here.
-    try:
-        trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
-    except MlflowNotImplementedException:
-        # Fallback to per-trace fetches for stores that don't implement batch_get_trace_infos.
-        # Drop RESOURCE_DOES_NOT_EXIST (missing trace) so the fallback returns the same partial
-        # list the batch path would: a missing trace is simply absent and flows through to the
-        # job, rather than raising a 404 here.
-        trace_infos = []
-        for trace_id in trace_ids:
-            try:
-                trace_infos.append(tracking_store.get_trace_info(trace_id))
-            except MlflowException as e:
-                if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                    # Trace not found; treat as missing (do not re-raise)
-                    pass
-                else:
-                    # Re-raise any other exception (connection errors, permission errors, etc.)
-                    raise
-
-    for trace_info in trace_infos:
-        if str(trace_info.experiment_id) != str(experiment_id):
-            # Trace belongs to a different experiment than the one being scored
-            raise MlflowException(
-                "Not all requested traces could be accessed.",
-                error_code=PERMISSION_DENIED,
-            )
+    _validate_trace_ids_in_experiment(tracking_store, trace_ids, experiment_id)
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
     # Extract the authenticated username so that job subprocesses can make
