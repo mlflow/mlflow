@@ -473,6 +473,9 @@ class RegistryClient:
         if (token := self._request_token(params["realm"], params)) is None:
             return False
         self._token = token
+        # Tuple auth on the session is applied after headers and would overwrite the Bearer
+        # header, so Basic credentials from an earlier challenge must not linger.
+        self._session.auth = None
         return True
 
     def get(

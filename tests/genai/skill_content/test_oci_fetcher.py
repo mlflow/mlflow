@@ -869,6 +869,40 @@ def test_fetch_oci_manifest_stream_failure_is_reported(oci_registry):
     assert exc.value.error_code == "TEMPORARILY_UNAVAILABLE"
 
 
+def test_registry_client_drops_basic_auth_when_switching_to_bearer():
+    registry_url = "https://registry.example/v2/acme/skill"
+    token_url = "https://auth.example/token"
+    session = mock.Mock(hooks={"response": []}, auth=None)
+    session.get.side_effect = [
+        _canned_response(
+            401, f"{registry_url}/manifests/v1", headers={"WWW-Authenticate": "Basic"}
+        ),
+        _canned_response(200, f"{registry_url}/manifests/v1", payload={"layers": []}),
+        _canned_response(
+            401,
+            f"{registry_url}/blobs/x",
+            headers={"WWW-Authenticate": f'Bearer realm="{token_url}"'},
+        ),
+        _canned_response(200, token_url, payload={"token": "dummy-token"}),
+        _canned_response(200, f"{registry_url}/blobs/x"),
+    ]
+    with mock.patch(
+        "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials",
+        return_value=("user", "dummy-password"),
+    ) as load:
+        client = RegistryClient("registry.example", session=session)
+    load.assert_called_once_with("registry.example")
+    with client.get("/v2/acme/skill/manifests/v1"):
+        pass
+    assert session.auth == ("user", "dummy-password")
+    with client.get("/v2/acme/skill/blobs/x"):
+        pass
+    assert session.auth is None
+    retry = session.get.call_args_list[-1]
+    assert retry.kwargs["headers"]["Authorization"] == "Bearer dummy-token"
+    assert retry.kwargs["auth"] is oci_module._no_auth
+
+
 def test_fetch_oci_unreachable(closed_port):
     with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
         with fetch_source(f"oci://127.0.0.1:{closed_port}/skills/demo:v1"):
