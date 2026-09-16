@@ -432,14 +432,9 @@ def test_all_workspace_root_models_have_spec():
     # Gateway resources are intentionally excluded due to inter-table FK
     # dependencies that make moving them independently unsafe.
     #
-    # Skill registry roots are handled for workspace CASCADE/RESTRICT delete, but
-    # move and set-default/migrate-to-default reassignment are deferred to
-    # https://github.com/mlflow/mlflow/pull/25777 (WIP).
-    # agent_plugin_version_members carries its workspace as ``plugin_workspace``
-    # (shared with its skill_versions FK), which the generic mover/reassigner (keyed
-    # on a ``workspace`` column) cannot retarget without dependency-aware handling.
-    # Those reassignment paths therefore fail loudly rather than orphan member rows
-    # (see delete_workspace SET_DEFAULT and migrate_to_default_workspace).
+    # Skills and agent plugins are handled for workspace CASCADE/RESTRICT delete.
+    # Skills can also move to the `default` workspace with delete(mode=set-default) and
+    # the migrate-to-default api, but moving agent plugins there isn't implemented yet.
     _INTENTIONALLY_OMITTED = {
         SqlGatewaySecret,
         SqlGatewayEndpoint,

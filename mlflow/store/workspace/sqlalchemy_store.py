@@ -23,7 +23,6 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
-    SqlAgentPluginVersionMember,
     SqlEvaluationDataset,
     SqlExperiment,
     SqlGatewayBudgetPolicy,
@@ -239,26 +238,20 @@ class SqlAlchemyStore(AbstractStore):
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
                     self._check_set_default_conflicts(session, workspace_name)
-                    # The loop below rewrites each root table's `workspace` to 'default',
-                    # and child rows follow via FK ON UPDATE CASCADE. That cannot move
-                    # agent_plugin_version_members, which stores its workspace as
-                    # `plugin_workspace` (shared with the skill_versions FK): the cascaded
-                    # rewrite collides with that skill FK, so letting this proceed fails
-                    # with a confusing foreign-key error. Reassigning plugin members is
-                    # deferred to https://github.com/mlflow/mlflow/pull/25777 (WIP), so fail
-                    # loudly here.
-                    blocking_members = (
+                    # Moving agent plugins between workspaces is not implemented yet, so
+                    # refuse rather than move part of one.
+                    blocking_plugins = (
                         session
-                        .query(SqlAgentPluginVersionMember)
-                        .filter(SqlAgentPluginVersionMember.plugin_workspace == workspace_name)
+                        .query(SqlAgentPlugin)
+                        .filter(SqlAgentPlugin.workspace == workspace_name)
                         .count()
                     )
-                    if blocking_members:
+                    if blocking_plugins:
                         raise MlflowException(
                             f"Cannot reassign workspace '{workspace_name}' to "
-                            f"'{DEFAULT_WORKSPACE_NAME}': it contains {blocking_members} agent "
-                            "plugin member row(s), whose reassignment is not yet supported. "
-                            "Delete the affected agent plugins first, then retry.",
+                            f"'{DEFAULT_WORKSPACE_NAME}': it contains {blocking_plugins} agent "
+                            "plugin(s), whose reassignment is not yet supported. Delete them "
+                            "first, then retry.",
                             INVALID_STATE,
                         )
                     for model in _WORKSPACE_ROOT_MODELS:

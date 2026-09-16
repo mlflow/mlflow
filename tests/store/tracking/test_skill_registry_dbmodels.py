@@ -605,15 +605,14 @@ def test_member_name_over_validator_limit_reads_back(store):
     assert ent.skills == [f"skills:/@acme/{long_name}/1"]
 
 
-def test_search_text_and_imported_keywords_round_trip(store):
-    # Ensure these fields persist and read back through the ORM.
+def test_search_text_round_trip(store):
+    # Ensure search_text persists and reads back through the ORM.
     with session_scope(store) as session:
         session.add(
             SqlSkill(
                 organization="acme",
                 name="code-review",
                 search_text="code review lint",
-                imported_keywords_json='["lint", "review"]',
             )
         )
         session.add(SqlAgentPlugin(organization="acme", name="pr"))
@@ -631,7 +630,6 @@ def test_search_text_and_imported_keywords_round_trip(store):
     with session_scope(store, commit=False) as session:
         skill = session.get(SqlSkill, ("default", "acme", "code-review"))
         assert skill.search_text == "code review lint"
-        assert skill.imported_keywords_json == '["lint", "review"]'
         plugin_version = session.query(SqlAgentPluginVersion).one()
         assert plugin_version.search_text == "pr workflow assemble"
 

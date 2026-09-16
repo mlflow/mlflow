@@ -4348,15 +4348,6 @@ AGENT_PLUGIN_VERSION_STRING = (
 
 # ---------------------------------------------------------------------------
 # Skill Registry (RFC-0008) ORM models
-#
-# Column widths diverge from the RFC's String(256) to fit MySQL/InnoDB's
-# 3072-byte utf8mb4 index-key limit: organization is String(64), name and agent
-# plugin version are String(128) (all within the RFC-0008 registration-time
-# validators). ``agent_plugin_version_members`` uses the member-name uniqueness
-# tuple as its primary key so member_organization/member_version stay off the
-# widest index. ``agent_plugin_versions`` materializes the SemVer sort columns
-# (version_major/minor/patch + version_prerelease_sort_key) so latest resolution
-# and version ordering run in pure SQL, mirroring the MCP registry.
 # ---------------------------------------------------------------------------
 
 
@@ -4371,14 +4362,13 @@ class SqlSkill(Base):
     )
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
-    description = Column(String(5000), nullable=True)
+    description = Column(Text, nullable=True)
     icons = Column(JSON, nullable=True)
     search_text = Column(Text, nullable=True)
-    imported_keywords_json = Column(Text, nullable=True)
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
-    creation_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
-    last_updated_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
 
     resolved_latest_version = query_expression()
     resolved_status = query_expression()
@@ -4482,8 +4472,8 @@ class SqlSkill(Base):
             latest_version=resolved_latest_version,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
-            creation_timestamp=self.creation_timestamp,
-            last_updated_timestamp=self.last_updated_timestamp,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
         )
 
 
@@ -4512,8 +4502,8 @@ class SqlSkillVersion(Base):
     )
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
-    creation_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
-    last_updated_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
 
     skill = relationship(
         "SqlSkill",
@@ -4570,8 +4560,8 @@ class SqlSkillVersion(Base):
             workspace=self.workspace,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
-            creation_timestamp=self.creation_timestamp,
-            last_updated_timestamp=self.last_updated_timestamp,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
         )
 
 
@@ -4732,12 +4722,12 @@ class SqlAgentPlugin(Base):
     )
     organization = Column(String(64), nullable=False, default="", server_default=sa.text("''"))
     name = Column(String(128), nullable=False)
-    description = Column(String(5000), nullable=True)
+    description = Column(Text, nullable=True)
     icons = Column(JSON, nullable=True)
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
-    creation_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
-    last_updated_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
 
     resolved_latest_version = query_expression()
     resolved_status = query_expression()
@@ -4759,7 +4749,7 @@ class SqlAgentPlugin(Base):
             SqlAgentPluginVersion.version_minor.desc(),
             SqlAgentPluginVersion.version_patch.desc(),
             SqlAgentPluginVersion.version_prerelease_sort_key.desc(),
-            SqlAgentPluginVersion.creation_timestamp.desc(),
+            SqlAgentPluginVersion.created_at.desc(),
             SqlAgentPluginVersion.version.desc(),
         )
 
@@ -4857,8 +4847,8 @@ class SqlAgentPlugin(Base):
             latest_version=resolved_latest_version,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
-            creation_timestamp=self.creation_timestamp,
-            last_updated_timestamp=self.last_updated_timestamp,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
         )
 
 
@@ -4892,8 +4882,8 @@ class SqlAgentPluginVersion(Base):
     )
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
-    creation_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
-    last_updated_timestamp = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
 
     plugin = relationship(
         "SqlAgentPlugin",
@@ -4924,7 +4914,7 @@ class SqlAgentPluginVersion(Base):
             "version_major",
             "version_minor",
             "version_patch",
-            "creation_timestamp",
+            "created_at",
         ),
     )
 
@@ -4971,8 +4961,8 @@ class SqlAgentPluginVersion(Base):
             workspace=self.workspace,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
-            creation_timestamp=self.creation_timestamp,
-            last_updated_timestamp=self.last_updated_timestamp,
+            creation_timestamp=self.created_at,
+            last_updated_timestamp=self.last_updated_at,
         )
 
 
@@ -5186,6 +5176,14 @@ class SqlAgentPluginVersionMember(Base):
             "member_organization",
             "member_name",
             "member_version",
+        ),
+        # Backs "which plugins bundle this skill".
+        Index(
+            "ix_agent_plugin_version_members_member_name",
+            "plugin_workspace",
+            "member_name",
+            "plugin_organization",
+            "plugin_name",
         ),
     )
 

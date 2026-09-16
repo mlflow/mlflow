@@ -113,7 +113,8 @@ def test_db_backend_set_default_merges_two_unnamed_gateway_endpoints(workspace_s
 
 
 def test_db_backend_set_default_still_blocks_a_real_name_clash(workspace_store, dialect):
-    # A genuine duplicate name must still be refused on
+    # A genuine duplicate name is a conflict on every
+    # engine, so the preflight must refuse it on all four and leave both rows in place.
     suffix = uuid.uuid4().hex[:8]
     team = f"team-{suffix}"
     shared_name = f"gpt-{suffix}"

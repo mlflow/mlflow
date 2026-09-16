@@ -35,8 +35,9 @@ OTHER_WORKSPACE_CHILD_TABLES = [
     "agent_plugin_tags",
     "agent_plugin_version_tags",
     "agent_plugin_aliases",
-    # agent_plugin_version_members is intentionally omitted
-    # (see workspace_migration._assert_no_plugin_members_outside_default).
+    # agent_plugin_version_members is intentionally omitted: it keys on
+    # `plugin_workspace`, and moving agent plugins is not supported yet
+    # (see workspace_migration._assert_no_agent_plugins_outside_default).
 ]
 
 

@@ -55,14 +55,13 @@ def upgrade():
             server_default=sa.text("''"),
         ),
         sa.Column("name", sa.String(length=128), nullable=False),
-        sa.Column("description", sa.String(length=5000), nullable=True),
+        sa.Column("description", sa.Text(), nullable=True),
         sa.Column("icons", json_type, nullable=True),
         sa.Column("search_text", sa.Text(), nullable=True),
-        sa.Column("imported_keywords_json", sa.Text(), nullable=True),
         sa.Column("created_by", sa.String(length=256), nullable=True),
         sa.Column("last_updated_by", sa.String(length=256), nullable=True),
-        sa.Column("creation_timestamp", sa.BigInteger(), nullable=False),
-        sa.Column("last_updated_timestamp", sa.BigInteger(), nullable=False),
+        sa.Column("created_at", sa.BigInteger(), nullable=False),
+        sa.Column("last_updated_at", sa.BigInteger(), nullable=False),
         sa.PrimaryKeyConstraint("workspace", "organization", "name", name="skills_pk"),
     )
 
@@ -95,8 +94,8 @@ def upgrade():
         ),
         sa.Column("created_by", sa.String(length=256), nullable=True),
         sa.Column("last_updated_by", sa.String(length=256), nullable=True),
-        sa.Column("creation_timestamp", sa.BigInteger(), nullable=False),
-        sa.Column("last_updated_timestamp", sa.BigInteger(), nullable=False),
+        sa.Column("created_at", sa.BigInteger(), nullable=False),
+        sa.Column("last_updated_at", sa.BigInteger(), nullable=False),
         sa.ForeignKeyConstraint(
             ["workspace", "organization", "name"],
             ["skills.workspace", "skills.organization", "skills.name"],
@@ -220,12 +219,12 @@ def upgrade():
             server_default=sa.text("''"),
         ),
         sa.Column("name", sa.String(length=128), nullable=False),
-        sa.Column("description", sa.String(length=5000), nullable=True),
+        sa.Column("description", sa.Text(), nullable=True),
         sa.Column("icons", json_type, nullable=True),
         sa.Column("created_by", sa.String(length=256), nullable=True),
         sa.Column("last_updated_by", sa.String(length=256), nullable=True),
-        sa.Column("creation_timestamp", sa.BigInteger(), nullable=False),
-        sa.Column("last_updated_timestamp", sa.BigInteger(), nullable=False),
+        sa.Column("created_at", sa.BigInteger(), nullable=False),
+        sa.Column("last_updated_at", sa.BigInteger(), nullable=False),
         sa.PrimaryKeyConstraint("workspace", "organization", "name", name="agent_plugins_pk"),
     )
 
@@ -263,8 +262,8 @@ def upgrade():
         ),
         sa.Column("created_by", sa.String(length=256), nullable=True),
         sa.Column("last_updated_by", sa.String(length=256), nullable=True),
-        sa.Column("creation_timestamp", sa.BigInteger(), nullable=False),
-        sa.Column("last_updated_timestamp", sa.BigInteger(), nullable=False),
+        sa.Column("created_at", sa.BigInteger(), nullable=False),
+        sa.Column("last_updated_at", sa.BigInteger(), nullable=False),
         sa.ForeignKeyConstraint(
             ["workspace", "organization", "name"],
             ["agent_plugins.workspace", "agent_plugins.organization", "agent_plugins.name"],
@@ -460,13 +459,18 @@ def upgrade():
             "version_major",
             "version_minor",
             "version_patch",
-            "creation_timestamp",
+            "created_at",
         ],
     )
     op.create_index(
         "ix_agent_plugin_version_members_skill_fkey",
         "agent_plugin_version_members",
         ["plugin_workspace", "member_organization", "member_name", "member_version"],
+    )
+    op.create_index(
+        "ix_agent_plugin_version_members_member_name",
+        "agent_plugin_version_members",
+        ["plugin_workspace", "member_name", "plugin_organization", "plugin_name"],
     )
 
 

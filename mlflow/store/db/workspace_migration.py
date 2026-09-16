@@ -40,11 +40,8 @@ _CONFLICT_SPECS = [
     ("model_definitions", ("name",), "model definitions with the same name"),
     ("mcp_servers", ("name",), "MCP servers with the same name"),
     ("skills", ("organization", "name"), "skills with the same organization and name"),
-    (
-        "agent_plugins",
-        ("organization", "name"),
-        "agent plugins with the same organization and name",
-    ),
+    # No agent_plugins entry here. We raise in advance if there's any plugin outside the
+    # default workspace, so this guard isn't even reached.
 ]
 
 
@@ -100,33 +97,25 @@ def _assert_no_workspace_conflicts(
         )
 
 
-# agent_plugin_version_members carries its workspace as ``plugin_workspace`` (shared
-# with its skill_versions FK), not ``workspace``, so it is deliberately absent from
-# _WORKSPACE_TABLES and the generic per-table loop below (which moves rows into the
-# default workspace) cannot move it. Moving its parent plugins would leave every member
-# row pointing at its old workspace (orphaned, or an FK failure), so migrate-to-default
-# of plugin members is deferred to https://github.com/mlflow/mlflow/pull/25777 (WIP);
-# until then, fail loudly instead of corrupting rows.
-_PLUGIN_MEMBER_TABLE = "agent_plugin_version_members"
+_AGENT_PLUGIN_TABLE = "agent_plugins"
 
 
-def _assert_no_plugin_members_outside_default(conn) -> None:
+def _assert_no_agent_plugins_outside_default(conn) -> None:
     try:
-        table = sa.Table(_PLUGIN_MEMBER_TABLE, sa.MetaData(), autoload_with=conn)
+        table = sa.Table(_AGENT_PLUGIN_TABLE, sa.MetaData(), autoload_with=conn)
     except sa.exc.NoSuchTableError:
         return
     count = conn.execute(
         sa
         .select(sa.func.count())
         .select_from(table)
-        .where(table.c.plugin_workspace != DEFAULT_WORKSPACE_NAME)
+        .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
     ).scalar_one()
     if count:
         raise RuntimeError(
-            "Move aborted: migrating agent plugin members to the default workspace is not "
-            f"yet supported. {count} row(s) in {_PLUGIN_MEMBER_TABLE!r} live outside the "
-            f"'{DEFAULT_WORKSPACE_NAME}' workspace; moving their parent plugins would orphan "
-            "them. Remove or re-home the affected agent plugin versions first, then retry."
+            f"Move aborted: found {count} agent plugin(s) outside the "
+            f"'{DEFAULT_WORKSPACE_NAME}' workspace. Moving agent plugins to the default "
+            "workspace is not yet supported. Delete them first, then retry."
         )
 
 
@@ -142,11 +131,7 @@ def migrate_to_default_workspace(
     When verbose is True, conflict lists are not truncated.
     """
     with engine.begin() as conn:
-        # The loop below moves the parent skill and agent-plugin rows into the default
-        # workspace cleanly, but it never touches agent_plugin_version_members, so those
-        # member rows would be left silently pointing at their old workspace. Stop up
-        # front instead of corrupting them.
-        _assert_no_plugin_members_outside_default(conn)
+        _assert_no_agent_plugins_outside_default(conn)
 
         for table_name, columns, description in _CONFLICT_SPECS:
             _assert_no_workspace_conflicts(

@@ -3,12 +3,12 @@ CREATE TABLE agent_plugins (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
 	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	description VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	icons NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	creation_timestamp BIGINT NOT NULL,
-	last_updated_timestamp BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT agent_plugins_pk PRIMARY KEY (workspace, organization, name)
 )
 
@@ -160,14 +160,13 @@ CREATE TABLE skills (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	organization VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('') NOT NULL,
 	name VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	description VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	icons NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	search_text VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	imported_keywords_json VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	creation_timestamp BIGINT NOT NULL,
-	last_updated_timestamp BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT skills_pk PRIMARY KEY (workspace, organization, name)
 )
 
@@ -237,8 +236,8 @@ CREATE TABLE agent_plugin_versions (
 	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('active') NOT NULL,
 	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	creation_timestamp BIGINT NOT NULL,
-	last_updated_timestamp BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT agent_plugin_versions_pk PRIMARY KEY (workspace, organization, name, version),
 	CONSTRAINT agent_plugin_versions_plugin_fkey FOREIGN KEY(workspace, organization, name) REFERENCES agent_plugins (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
@@ -543,8 +542,8 @@ CREATE TABLE skill_versions (
 	status VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('active') NOT NULL,
 	created_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_by VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	creation_timestamp BIGINT NOT NULL,
-	last_updated_timestamp BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT skill_versions_pk PRIMARY KEY (workspace, organization, name, version),
 	CONSTRAINT skill_versions_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
 )

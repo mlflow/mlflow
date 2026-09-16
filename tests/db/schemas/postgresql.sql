@@ -3,12 +3,12 @@ CREATE TABLE agent_plugins (
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
 	name VARCHAR(128) NOT NULL,
-	description VARCHAR(5000),
+	description TEXT,
 	icons JSON,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
-	creation_timestamp BIGINT NOT NULL,
-	last_updated_timestamp BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT agent_plugins_pk PRIMARY KEY (workspace, organization, name)
 )
 
@@ -161,14 +161,13 @@ CREATE TABLE skills (
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
 	organization VARCHAR(64) DEFAULT ''::character varying NOT NULL,
 	name VARCHAR(128) NOT NULL,
-	description VARCHAR(5000),
+	description TEXT,
 	icons JSON,
 	search_text TEXT,
-	imported_keywords_json TEXT,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
-	creation_timestamp BIGINT NOT NULL,
-	last_updated_timestamp BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT skills_pk PRIMARY KEY (workspace, organization, name)
 )
 
@@ -238,8 +237,8 @@ CREATE TABLE agent_plugin_versions (
 	status VARCHAR(20) DEFAULT 'active'::character varying NOT NULL,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
-	creation_timestamp BIGINT NOT NULL,
-	last_updated_timestamp BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT agent_plugin_versions_pk PRIMARY KEY (workspace, organization, name, version),
 	CONSTRAINT agent_plugin_versions_plugin_fkey FOREIGN KEY(workspace, organization, name) REFERENCES agent_plugins (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
@@ -551,8 +550,8 @@ CREATE TABLE skill_versions (
 	status VARCHAR(20) DEFAULT 'active'::character varying NOT NULL,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
-	creation_timestamp BIGINT NOT NULL,
-	last_updated_timestamp BIGINT NOT NULL,
+	created_at BIGINT NOT NULL,
+	last_updated_at BIGINT NOT NULL,
 	CONSTRAINT skill_versions_pk PRIMARY KEY (workspace, organization, name, version),
 	CONSTRAINT skill_versions_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
 )

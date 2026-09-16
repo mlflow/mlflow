@@ -553,8 +553,8 @@ def test_delete_workspace_fails_on_naming_conflict(workspace_store):
 def _insert_skill(session, *, workspace, organization, name):
     session.execute(
         sa.text(
-            "INSERT INTO skills (workspace, organization, name, creation_timestamp, "
-            "last_updated_timestamp) VALUES (:ws, :org, :name, 0, 0)"
+            "INSERT INTO skills (workspace, organization, name, created_at, "
+            "last_updated_at) VALUES (:ws, :org, :name, 0, 0)"
         ),
         {"ws": workspace, "org": organization, "name": name},
     )
@@ -701,25 +701,20 @@ def _seed_plugin_with_member(session, workspace):
     )
 
 
-def test_delete_workspace_set_default_refuses_to_move_plugin_members(workspace_store):
-    # SET_DEFAULT rewrites each root table's `workspace` and lets the children follow via
-    # ON UPDATE CASCADE. Members are reached by the plugin FK's cascade but not by the
-    # skill FK, which has no ON UPDATE, so the rewrite would orphan them. Moving them is
-    # handled in https://github.com/mlflow/mlflow/pull/25777; until then this must
-    # refuse by name rather than surface a foreign-key error.
+def test_delete_workspace_set_default_refuses_to_move_agent_plugins(workspace_store):
+    # Moving agent plugins between workspaces is not implemented yet, so SET_DEFAULT must
+    # refuse
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
     with workspace_store.ManagedSessionMaker(read_only=False) as session:
-        _seed_plugin_with_member(session, "team-a")
+        session.add(SqlAgentPlugin(workspace="team-a", organization="acme", name="pr"))
 
-    with pytest.raises(MlflowException, match="agent plugin member row") as exc:
+    with pytest.raises(MlflowException, match="agent plugin") as exc:
         workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
     assert exc.value.error_code == "INVALID_STATE"
 
     # Refused before anything moved: the workspace and its rows are untouched.
     assert workspace_store.get_workspace("team-a").name == "team-a"
     with workspace_store.ManagedSessionMaker() as session:
-        member = session.query(SqlAgentPluginVersionMember).one()
-        assert member.plugin_workspace == "team-a"
         assert session.query(SqlAgentPlugin).one().workspace == "team-a"
 
 
