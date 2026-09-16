@@ -33,6 +33,7 @@ from mlflow.entities.trace_location import (
     UnityCatalog,
 )
 from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT,
     MLFLOW_TRACE_SAMPLING_RATIO,
@@ -784,7 +785,9 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
         return None
 
     try:
-        experiment_id = _get_experiment_id()
+        # In serving, read the id from the env var: `_get_experiment_id()` would validate it against
+        # the local store (where it does not exist) and raise.
+        experiment_id = MLFLOW_EXPERIMENT_ID.get() if in_serving else _get_experiment_id()
         if not experiment_id:
             return None
 
