@@ -341,6 +341,7 @@ from mlflow.store.artifact.artifact_repo import (
     _validate_attachment_path,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.host_policy import rejected_host_addressed_scheme
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
@@ -1421,90 +1422,32 @@ def _workspace_not_supported(message: str) -> MlflowException:
     return MlflowException(message, FEATURE_DISABLED)
 
 
-# Artifact repositories for these schemes connect to the host and port named in the URI itself,
-# and nothing at fetch time re-checks that destination. A client-supplied location with one of
-# these schemes would therefore let a client make the server connect to any host it names
-# (GHSA-mr9f-g8qf-4w4j). `http`, `https` and host-bearing `mlflow-artifacts` URIs are included
-# because the artifact repository connects to that host whenever the URI is not proxied: under
-# `--no-serve-artifacts`, and always for the in-process client used by server-side jobs.
-_HOST_ADDRESSED_ARTIFACT_SCHEMES = frozenset({
-    "ftp",
-    "sftp",
-    "hdfs",
-    "viewfs",
-    "http",
-    "https",
-    "mlflow-artifacts",
-})
-# Schemes that reach the same service on a given host and port are compared as one family, so a
-# default artifact root of `mlflow-artifacts://host:5000` trusts `http://host:5000/...`.
-_HOST_ADDRESSED_SCHEME_FAMILIES = {"viewfs": "hdfs", "https": "http", "mlflow-artifacts": "http"}
-
-
-def _host_addressed_uri_target(uri: str) -> tuple[str, str, int | None] | None:
-    """Return ``(scheme family, hostname, port)`` when ``uri`` names the host to connect to."""
-    scheme = get_uri_scheme(uri)
-    if scheme not in _HOST_ADDRESSED_ARTIFACT_SCHEMES:
-        return None
-    parsed = urllib.parse.urlparse(uri)
-    if not parsed.hostname:
-        # e.g. `mlflow-artifacts:/path`, which resolves against the server itself.
-        return None
-    try:
-        port = parsed.port
-    except ValueError:
-        port = -1
-    return (_HOST_ADDRESSED_SCHEME_FAMILIES.get(scheme, scheme), parsed.hostname.lower(), port)
-
-
-def _rejected_host_addressed_scheme(uri: str) -> str | None:
-    """
-    Return the scheme of ``uri`` when the tracking server must not connect to the host it names.
-
-    The host of the server's own ``--default-artifact-root`` is trusted, since experiments and
-    model versions created under it legitimately carry that host. Any other host is rejected
-    unless the operator allowed the scheme via
-    ``MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES``.
-    """
-    from mlflow.server import ARTIFACT_ROOT_ENV_VAR
-
-    target = _host_addressed_uri_target(uri)
-    if target is None:
-        return None
-    scheme = get_uri_scheme(uri)
-    if scheme in {s.lower() for s in MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.get()}:
-        return None
-    default_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR)
-    if default_root and target == _host_addressed_uri_target(default_root):
-        return None
-    return scheme
-
-
 def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
-    scheme = _rejected_host_addressed_scheme(uri)
+    scheme = rejected_host_addressed_scheme(uri)
     if scheme is None:
         return
     raise MlflowException.invalid_parameter_value(
         f"'{field_name}' cannot use the '{scheme}' scheme to address a host other than the "
-        "tracking server's default artifact root, because the server would connect to the host "
-        f"named in the URI. Set the {MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} "
+        "tracking server's configured artifact storage, because the server would connect to "
+        f"the host named in the URI. Set the {MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} "
         "environment variable on the server to allow it."
     )
 
 
 def _get_artifact_repository_for_uri(artifact_uri: str) -> ArtifactRepository:
     """
-    Build the artifact repository for a stored URI the server did not configure itself, refusing
-    to connect to hosts outside its default artifact root. This also covers locations stored
-    before the acceptance-time check existed.
+    Build the artifact repository for a stored location the server did not configure itself,
+    refusing to connect to hosts outside its configured artifact storage. The registry applies the
+    same policy to every repository built in a server process; this explicit check keeps the
+    handlers covered when the server is run without the `mlflow server` CLI environment.
     """
-    scheme = _rejected_host_addressed_scheme(artifact_uri)
+    scheme = rejected_host_addressed_scheme(artifact_uri)
     if scheme is not None:
         raise MlflowException(
             f"The tracking server does not serve artifacts from '{artifact_uri}': the '{scheme}' "
-            "scheme addresses a host other than the server's default artifact root. Set the "
-            f"{MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} environment variable on the "
-            "server to allow it.",
+            "scheme addresses a host other than the server's configured artifact storage. Set "
+            f"the {MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} environment variable on "
+            "the server to allow it.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     return get_artifact_repository(artifact_uri)

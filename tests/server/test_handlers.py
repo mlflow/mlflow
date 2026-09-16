@@ -2604,6 +2604,8 @@ def test_create_experiment_allows_host_addressed_artifact_location_when_opted_in
             "mlflow-artifacts://artifacts-server:5000",
             "http://artifacts-server:5000/api/2.0/mlflow-artifacts/artifacts/team-a",
         ),
+        ("http://artifacts-server/root", "http://artifacts-server:80/root/team-a"),
+        ("hdfs:///mlflow", "hdfs:///mlflow/team-a"),
     ],
 )
 def test_create_experiment_accepts_artifact_location_on_default_artifact_root_host(
@@ -2623,18 +2625,25 @@ def test_create_experiment_accepts_artifact_location_on_default_artifact_root_ho
 
 
 @pytest.mark.parametrize(
-    "artifact_location",
+    ("default_artifact_root", "artifact_location"),
     [
-        "hdfs://other-namenode:8020/mlflow",
-        "hdfs://namenode:9000/mlflow",
-        "hdfs://namenode/mlflow",
-        "ftp://namenode:8020/mlflow",
+        ("hdfs://namenode:8020/mlflow", "hdfs://other-namenode:8020/mlflow"),
+        ("hdfs://namenode:8020/mlflow", "hdfs://namenode:9000/mlflow"),
+        ("hdfs://namenode:8020/mlflow", "hdfs://namenode/mlflow"),
+        ("hdfs://namenode:8020/mlflow", "ftp://namenode:8020/mlflow"),
+        ("hdfs://namenode:8020/mlflow", "ftp:///pub"),
+        ("https://artifacts-server/root", "http://artifacts-server/root/team-a"),
+        ("http://artifacts-server:5000/root", "http://evil.example\\@artifacts-server:5000/x"),
     ],
 )
 def test_create_experiment_rejects_artifact_location_near_default_artifact_root_host(
-    mock_get_request_message, mock_tracking_store, monkeypatch, artifact_location
+    mock_get_request_message,
+    mock_tracking_store,
+    monkeypatch,
+    default_artifact_root,
+    artifact_location,
 ):
-    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "hdfs://namenode:8020/mlflow")
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, default_artifact_root)
     mock_get_request_message.return_value = CreateExperiment(
         name="exp", artifact_location=artifact_location
     )
