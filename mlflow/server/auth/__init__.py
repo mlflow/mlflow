@@ -5894,6 +5894,30 @@ def _scope_matches_native_route(native_routes: list[BaseRoute], scope) -> bool:
     return any(route.matches(scope)[0] == Match.FULL for route in native_routes)
 
 
+def authenticate_fastapi_request_user(
+    request: StarletteRequest,
+) -> User | StarletteResponse | None:
+    """Resolve the authenticated user for a native FastAPI request.
+
+    Public entry point that mirrors the authentication step of the FastAPI permission middleware,
+    so callers outside this module (e.g. the MLflow Assistant, whose routes are native FastAPI
+    routes the middleware's validators do not cover) resolve identity the same way instead of
+    reaching into the private auth paths. Uses the configured ``authorization_function`` when it
+    has been customized, otherwise native basic auth.
+
+    Returns:
+        - A ``User`` when authentication succeeds.
+        - A Starlette ``Response`` when a custom auth function returned one (an error response).
+        - ``None`` when the request carries no valid credentials.
+
+    Raises:
+        MlflowException: If a custom auth function returns an unsupported type.
+    """
+    if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
+        return _authenticate_custom_for_fastapi(request)
+    return _authenticate_fastapi_request(request)
+
+
 def add_fastapi_permission_middleware(app: FastAPI) -> None:
     """
     Add permission middleware to FastAPI app for routes not handled by Flask.
@@ -5946,13 +5970,10 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         # Authenticate using either the custom authorization_function (via Flask
         # request context bridge) or the native FastAPI Basic Auth path.
         try:
-            if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
-                auth_result = _authenticate_custom_for_fastapi(request)
-                if isinstance(auth_result, StarletteResponse):
-                    return auth_result
-                user = auth_result
-            else:
-                user = _authenticate_fastapi_request(request)
+            auth_result = authenticate_fastapi_request_user(request)
+            if isinstance(auth_result, StarletteResponse):
+                return auth_result
+            user = auth_result
         except MlflowException as e:
             # Preserve Flask semantics for misconfigured custom auth plugins
             # (e.g. unsupported return types) instead of collapsing to 401.
