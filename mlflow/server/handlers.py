@@ -5434,7 +5434,7 @@ def _invoke_genai_evaluate_handler():
     # The job deserializes and runs these scorers, so validate the final payloads (inline and
     # resolved from the store) before a run is created.
     for serialized_scorer in serialized_scorers:
-        _validate_serialized_scorer_egress(serialized_scorer)
+        _validate_serialized_scorer_payload(serialized_scorer)
 
     # Create the run upfront so we can return run_id immediately, so the run
     # shows up on /evaluation-runs even before the job has produced artifacts.
@@ -5839,16 +5839,25 @@ def _list_logged_model_artifacts_impl(
 # =============================================================================
 
 
-def _validate_serialized_scorer_egress(serialized_scorer: str) -> None:
-    """Reject a serialized scorer whose third-party kwargs would steer the judge's egress.
+def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
+    """Reject serialized scorers the server must never reconstruct.
 
-    Applied to caller payloads and to registered scorers fetched from the store, since rows
-    written before this validation existed can carry the same keys.
+    Decorator scorers carry a `call_source` field that is executed via exec() when the scorer
+    is deserialized. The Python client blocks registering them via `_check_can_be_registered()`,
+    but that check is client-side only, so it is enforced here regardless of how the request
+    arrives or what the server's tracking URI is. Third-party scorer kwargs that would steer the
+    judge's outbound requests are rejected for the same reason. Applied to caller payloads and
+    to registered scorers fetched from the store, since rows written before these checks
+    existed can carry the same fields.
     """
     try:
         serialized_data = json.loads(serialized_scorer)
     except json.JSONDecodeError as e:
         raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
+    if serialized_data.get("call_source") is not None:
+        raise MlflowException.invalid_parameter_value(
+            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+        )
     _validate_third_party_scorer_data(serialized_data)
 
 
@@ -5863,20 +5872,7 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
-    # Decorator scorers contain a `call_source` field that is executed via exec() during
-    # deserialization. The Python client blocks this via `_check_can_be_registered()`, but
-    # that check is client-side only and can be bypassed by calling the REST API directly.
-    # Enforce the same restriction here in the server handler so it applies regardless of
-    # how the request arrives.
-    try:
-        serialized_data = json.loads(request_message.serialized_scorer)
-    except json.JSONDecodeError as e:
-        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
-        raise MlflowException.invalid_parameter_value(
-            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
-        )
-    _validate_third_party_scorer_data(serialized_data)
+    _validate_serialized_scorer_payload(request_message.serialized_scorer)
     scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
@@ -7327,19 +7323,7 @@ def _invoke_scorer_handler():
             "scorer_name must be a string and scorer_version must be an integer"
         )
 
-    # Decorator scorers carry a `call_source` field that is executed via exec() when the
-    # scorer is deserialized. Reject such payloads before deserialization so this endpoint
-    # never reconstructs attacker-supplied source code, regardless of the server's tracking
-    # URI. This mirrors the server-side guard in `_register_scorer`.
-    try:
-        serialized_data = json.loads(serialized_scorer)
-    except json.JSONDecodeError as e:
-        raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
-        raise MlflowException.invalid_parameter_value(
-            DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
-        )
-    _validate_third_party_scorer_data(serialized_data)
+    _validate_serialized_scorer_payload(serialized_scorer)
 
     from mlflow.genai.scorers.base import Scorer
     from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
@@ -7349,7 +7333,7 @@ def _invoke_scorer_handler():
     if scorer_name is not None:
         registered_scorer = tracking_store.get_scorer(experiment_id, scorer_name, scorer_version)
         serialized_scorer = registered_scorer.serialized_scorer
-        _validate_serialized_scorer_egress(serialized_scorer)
+        _validate_serialized_scorer_payload(serialized_scorer)
 
     scorer = Scorer.model_validate_json(serialized_scorer)
 

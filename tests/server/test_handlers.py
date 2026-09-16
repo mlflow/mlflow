@@ -8868,6 +8868,37 @@ def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
     assert mock_submit_job.call_args.kwargs["params"]["scorer_versions"] == [4]
 
 
+def test_invoke_genai_evaluate_handler_rejects_decorator_scorer(monkeypatch):
+    from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_client = mock.MagicMock()
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": [
+            json.dumps({
+                "name": "pwned",
+                "call_source": "    import os; os.system('touch /tmp/pwned')\n",
+                "call_signature": "(inputs, outputs)",
+                "original_func_name": "pwned",
+            })
+        ],
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+    assert resp.status_code == 400
+    assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in resp.get_json()["message"]
+    mock_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
 @pytest.mark.parametrize("stored", [False, True])
 def test_invoke_genai_evaluate_handler_rejects_third_party_destination_kwargs(
     monkeypatch, mock_tracking_store, stored
