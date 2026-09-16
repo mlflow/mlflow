@@ -142,6 +142,11 @@ def _credentials_from_auths(auths: dict[str, Any], keys: list[str]) -> tuple[str
         entry = auths.get(key)
         if not isinstance(entry, dict):
             continue
+        # `docker login` with an identity token stores the refresh token here, next to an
+        # `auth` entry that carries only the username; the token is what authenticates.
+        identity_token = entry.get("identitytoken")
+        if isinstance(identity_token, str) and identity_token:
+            return _IDENTITY_TOKEN_USERNAME, identity_token
         username = entry.get("username")
         password = entry.get("password")
         if isinstance(username, str) and username and isinstance(password, str):

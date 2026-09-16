@@ -691,6 +691,25 @@ def test_load_docker_credentials(tmp_path, monkeypatch):
     assert _load_docker_credentials("quay.io") is None
 
 
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"auth": base64.b64encode(b"user:").decode(), "identitytoken": "refresh-secret"},
+        {"identitytoken": "refresh-secret"},
+        {"username": "user", "password": "pw", "identitytoken": "refresh-secret"},
+    ],
+)
+def test_load_docker_credentials_prefers_identity_token(tmp_path, monkeypatch, entry):
+    _docker_config(tmp_path, monkeypatch, {"auths": {"registry.example": entry}})
+    assert _load_docker_credentials("registry.example") == ("<token>", "refresh-secret")
+
+
+def test_load_docker_credentials_ignores_empty_identity_token(tmp_path, monkeypatch):
+    entry = {"auth": base64.b64encode(b"user:pw").decode(), "identitytoken": ""}
+    _docker_config(tmp_path, monkeypatch, {"auths": {"registry.example": entry}})
+    assert _load_docker_credentials("registry.example") == ("user", "pw")
+
+
 def test_load_docker_credentials_helper_missing(tmp_path, monkeypatch):
     monkeypatch.setenv("DOCKER_CONFIG", str(tmp_path))
     (tmp_path / "config.json").write_text(
