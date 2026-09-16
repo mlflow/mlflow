@@ -207,10 +207,11 @@ def _run_credential_helper(helper: str, server: str) -> tuple[str, str] | None:
 
 def _load_docker_credentials(registry: str) -> tuple[str, str] | None:
     """
-    Resolve credentials for ``registry`` the way the Docker CLI does.
+    Resolve credentials for ``registry`` from the Docker config file the way the CLI does.
 
-    Order: a matching ``auths`` entry, then the registry-specific ``credHelpers`` entry, then
-    the global ``credsStore`` helper. Missing or unreadable config means no credentials.
+    A configured helper wins: the registry-specific ``credHelpers`` entry, else the global
+    ``credsStore``. Only when no helper is configured, or the helper has nothing, does an
+    inline ``auths`` entry apply. Missing or unreadable config means no credentials.
     """
     config_path = _docker_config_path()
     if not config_path.is_file():
@@ -226,17 +227,17 @@ def _load_docker_credentials(registry: str) -> tuple[str, str] | None:
     if registry == _DOCKER_HUB_REGISTRY:
         keys.append(_DOCKER_HUB_AUTH_KEY)
         server = _DOCKER_HUB_AUTH_KEY
-    auths = config.get("auths")
-    if isinstance(auths, dict) and (found := _credentials_from_auths(auths, keys)):
-        return found
     helpers = config.get("credHelpers")
     helper = None
     if isinstance(helpers, dict):
         helper = next((helpers[k] for k in keys if isinstance(helpers.get(k), str)), None)
     if helper is None and isinstance(config.get("credsStore"), str):
         helper = config["credsStore"]
-    if helper:
-        return _run_credential_helper(helper, server)
+    if helper and (found := _run_credential_helper(helper, server)):
+        return found
+    auths = config.get("auths")
+    if isinstance(auths, dict):
+        return _credentials_from_auths(auths, keys)
     return None
 
 

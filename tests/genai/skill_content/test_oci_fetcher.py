@@ -769,6 +769,32 @@ def test_load_docker_credentials_ignores_empty_identity_token(tmp_path, monkeypa
     assert _load_docker_credentials("registry.example") == ("user", "pw")
 
 
+@pytest.mark.parametrize("helper_key", ["credHelpers", "credsStore"])
+def test_load_docker_credentials_configured_helper_wins(tmp_path, monkeypatch, helper_key):
+    # Docker consults a configured helper first; a stale inline entry must not shadow it.
+    config = {"auths": {"registry.example": {"auth": base64.b64encode(b"old:expired").decode()}}}
+    config[helper_key] = (
+        {"registry.example": "example"} if helper_key == "credHelpers" else "example"
+    )
+    _docker_config(tmp_path, monkeypatch, config)
+    with mock.patch.object(
+        oci_module, "_run_credential_helper", return_value=("current", "valid")
+    ) as helper:
+        assert _load_docker_credentials("registry.example") == ("current", "valid")
+    helper.assert_called_once_with("example", "registry.example")
+
+
+def test_load_docker_credentials_falls_back_to_auths_when_helper_has_nothing(tmp_path, monkeypatch):
+    config = {
+        "auths": {"registry.example": {"auth": base64.b64encode(b"user:pw").decode()}},
+        "credsStore": "example",
+    }
+    _docker_config(tmp_path, monkeypatch, config)
+    with mock.patch.object(oci_module, "_run_credential_helper", return_value=None) as helper:
+        assert _load_docker_credentials("registry.example") == ("user", "pw")
+    helper.assert_called_once()
+
+
 def test_load_docker_credentials_helper_missing(tmp_path, monkeypatch):
     monkeypatch.setenv("DOCKER_CONFIG", str(tmp_path))
     (tmp_path / "config.json").write_text(
