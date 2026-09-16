@@ -394,6 +394,7 @@ from mlflow.server.handlers import (
 from mlflow.server.handlers import (
     _disable_if_workspaces_disabled as _disable_if_workspaces_disabled,
 )
+from mlflow.server.job_api import search_jobs as _search_jobs_endpoint
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
     MCPAccessEndpointResponse,
@@ -5682,8 +5683,8 @@ def _job_id_from_path(unprefixed_path: str) -> str | None:
 def _get_job_route_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
-    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth.
-    # NB: /jobs/search still returns all jobs — filtering to the caller is a tracked follow-up.
+    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth
+    # here. /jobs/search is narrowed to the caller's own jobs by ``_filter_search_jobs``.
     job_id = _job_id_from_path(path)
 
     async def validator(username: str, request: StarletteRequest) -> bool:
@@ -5874,6 +5875,14 @@ def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest
     return json.dumps(data).encode()
 
 
+def _filter_search_jobs(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    # Jobs have no experiment scope, so ownership is the boundary (as on the per-id routes):
+    # non-admins only see jobs they created, and jobs with no recorded creator stay hidden.
+    data = json.loads(body)
+    data["jobs"] = [job for job in data.get("jobs", []) if job.get("creator") == username]
+    return json.dumps(data).encode()
+
+
 FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     Callable[..., Any],
     Callable[[str, bytes, StarletteRequest], bytes],
@@ -5881,14 +5890,15 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
+    _search_jobs_endpoint: _filter_search_jobs,
 }
 
 
 def _find_fastapi_response_filter(
-    request: StarletteRequest, method: str
+    request: StarletteRequest,
 ) -> Callable[[str, bytes, StarletteRequest], bytes] | None:
-    if method != "GET":
-        return None
+    # Keyed on the resolved endpoint function, so only the registered collection routes
+    # (GET or POST) are filtered.
     endpoint = request.scope.get("endpoint")
     if endpoint is None:
         return None
@@ -6086,7 +6096,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
 
         # Response filters are RBAC-based; admins retain unfiltered full access.
         if not user.is_admin:
-            response_filter = _find_fastapi_response_filter(request, request.method)
+            response_filter = _find_fastapi_response_filter(request)
             if response_filter is not None and response.status_code < 400:
                 body = bytearray()
                 async for chunk in response.body_iterator:
