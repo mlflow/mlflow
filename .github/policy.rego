@@ -534,7 +534,7 @@ deny_mutable_install contains msg if {
 	some line in split(step.run, "\n")
 	regex.match(`\bnpm install\b`, line)
 	not regex.match(`--package-lock-only\b`, line)
-	not regex.match(`\s(-g|--global)(\s|$)`, line)
+	not regex.match(`^\s*npm install\s+(-g|--global)(\s+[@A-Za-z0-9._/-]+)+\s*$`, line)
 	msg := sprintf(
 		"'npm install' at %s modifies the lockfile. Use 'npm ci' for reproducible builds.",
 		[entry.location],
