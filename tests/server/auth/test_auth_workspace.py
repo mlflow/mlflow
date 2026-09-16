@@ -1987,6 +1987,25 @@ def test_cross_workspace_access_denied(workspace_permission_setup, monkeypatch):
         assert not auth_module.validate_can_update_run()
 
 
+def test_presigned_upload_logged_model_cross_workspace_access_denied(
+    workspace_permission_setup, monkeypatch
+):
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-other-ws": "team-b"},
+        run_experiments={},
+        trace_experiments={},
+        logged_model_experiments={"m-other-ws": "exp-other-ws"},
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/artifacts/presigned-upload-url",
+        method="POST",
+        json={"model_id": "m-other-ws", "path": "model.pkl"},
+    ):
+        assert not auth_module.validate_can_update_run_or_logged_model()
+
+
 def test_cross_workspace_registered_model_access_denied(workspace_permission_setup, monkeypatch):
     registry_store = _RegistryStore({"model-other-ws": "team-b"})
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
