@@ -19,11 +19,11 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        # Pin to pyenv v2.6.25 by tag + SHA verification for reproducible builds
+        # Pin to pyenv v2.8.5 by tag + SHA verification for reproducible builds
         # Retry the clone to tolerate transient network/DNS failures on the runner
         for attempt in 1 2 3; do
           rm -rf "$HOME/.pyenv"
-          if git clone --branch v2.6.25 --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"; then
+          if git clone --branch v2.8.5 --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"; then
             break
           fi
           if [ "$attempt" = 3 ]; then
@@ -33,7 +33,7 @@ runs:
           sleep $((attempt * 10))
         done
         actual_sha=$(git -C "$HOME/.pyenv" rev-parse HEAD)
-        expected_sha="aa2e8b82605b8ba085dd15f7a31fe1990fabdcfa"
+        expected_sha="c293de3650a2d08ea36c5f6f0d55c5a3841b0c72"
         if [ "$actual_sha" != "$expected_sha" ]; then
           echo "::error::pyenv SHA mismatch: expected $expected_sha, got $actual_sha"
           exit 1
