@@ -597,6 +597,13 @@ class Scorer(BaseModel):
                     f"Third-party scorer '{serialized.name}': metric_name '{metric_name}' "
                     "must be a plain identifier."
                 )
+            # Concrete subclasses pin `metric_name` via ClassVar and inherit the wrapper's
+            # `__init__`, so a `metric_name` kwarg would override the validated value above.
+            if "metric_name" in (data.get("kwargs") or {}):
+                raise MlflowException.invalid_parameter_value(
+                    f"Third-party scorer '{serialized.name}': kwargs must not contain "
+                    "'metric_name'; set it at the top level of third_party_scorer_data."
+                )
             try:
                 module = importlib.import_module(module_path)
             except ImportError as e:

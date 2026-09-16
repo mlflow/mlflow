@@ -895,6 +895,58 @@ def test_third_party_scorer_dotted_metric_name_rejected_before_import():
     mock_import.assert_not_called()
 
 
+@pytest.mark.parametrize("class_name", ["ConcreteScorer", "BaseWrapper"])
+def test_third_party_scorer_kwargs_cannot_override_metric_name(class_name):
+    """Concrete subclasses pin `metric_name` as a ClassVar and inherit the wrapper's
+    `__init__`, so a `metric_name` kwarg would reach the registry lookup in place of the
+    validated top-level value.
+    """
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": class_name,
+            "metric_name": "ExactMatch",
+            "model": None,
+            "kwargs": {"metric_name": "9a2d665eb38940b68983f0586f623115.artifacts.payload.Payload"},
+        },
+    )
+    with patch("mlflow.genai.scorers.base.importlib.import_module") as mock_import:
+        with pytest.raises(MlflowException, match="kwargs must not contain 'metric_name'"):
+            Scorer.model_validate(payload)
+    mock_import.assert_not_called()
+
+
+def test_third_party_scorer_concrete_subclass_round_trip_keeps_kwargs():
+    class ConcreteScorer(Scorer):
+        metric_name: ClassVar[str] = "ExactMatch"
+        threshold: float = 0.5
+
+        def __init__(self, threshold: float = 0.5, **kwargs):
+            super().__init__(name=self.metric_name, threshold=threshold, **kwargs)
+
+    fake_module = Mock(ConcreteScorer=ConcreteScorer)
+    payload = SerializedScorer(
+        name="exact",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "ConcreteScorer",
+            "metric_name": "ExactMatch",
+            "model": None,
+            "kwargs": {"threshold": 0.9},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        return_value=fake_module,
+    ):
+        restored = Scorer.model_validate(payload)
+
+    assert isinstance(restored, ConcreteScorer)
+    assert restored.name == "exact"
+    assert restored.threshold == 0.9
+
+
 def test_third_party_scorer_non_scorer_class_rejected_before_instantiation():
     class NotAScorer:
         def __init__(self, **kwargs):
