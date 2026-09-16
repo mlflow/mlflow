@@ -122,6 +122,7 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateExperiment,
+    CreateGatewayEndpoint,
     CreateGatewaySecret,
     CreatePresignedUploadUrl,
     DeleteScorer,
@@ -638,6 +639,50 @@ def test_can_parse_post_json_with_unknown_fields():
     request.get_json.return_value = {"name": "hello", "WHAT IS THIS FIELD EVEN": "DOING"}
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"secret_id": "attacker", "secretId": "victim"},
+        {"secretId": "victim", "secret_id": "attacker"},
+    ],
+)
+def test_get_request_message_rejects_conflicting_field_aliases(body):
+    request = mock.MagicMock()
+    request.method = "POST"
+    request.content_type = "application/json"
+    request.get_json = mock.MagicMock()
+    request.get_json.return_value = body
+    with pytest.raises(MlflowException, match="both 'secret_id' and 'secretId'") as exc:
+        _get_request_message(UpdateGatewaySecret(), flask_request=request)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_get_request_message_rejects_conflicting_field_aliases_in_nested_messages():
+    request = mock.MagicMock()
+    request.method = "POST"
+    request.content_type = "application/json"
+    request.get_json = mock.MagicMock()
+    request.get_json.return_value = {
+        "name": "endpoint",
+        "model_configs": [
+            {"model_definition_id": "attacker", "modelDefinitionId": "victim"},
+        ],
+    }
+    with pytest.raises(MlflowException, match="both 'model_definition_id' and 'modelDefinitionId'"):
+        _get_request_message(CreateGatewayEndpoint(), flask_request=request)
+
+
+def test_get_request_message_accepts_a_single_json_name_spelling():
+    request = mock.MagicMock()
+    request.method = "POST"
+    request.content_type = "application/json"
+    request.get_json = mock.MagicMock()
+    request.get_json.return_value = {"secretId": "victim", "authConfig": {"api_base": "x"}}
+    msg = _get_request_message(UpdateGatewaySecret(), flask_request=request)
+    assert msg.secret_id == "victim"
+    assert dict(msg.auth_config) == {"api_base": "x"}
 
 
 def test_can_parse_post_json_with_content_type_params():
