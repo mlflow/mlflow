@@ -16,6 +16,7 @@ Features:
 
 Bug fixes:
 
+- [Tracing] Resolve Unity Catalog trace locations in Databricks Model Serving without local-store validation (#25884, @james-fletcher-db)
 - [Model Registry] Fix S3 multipart upload encryption arguments (#25772, @james-fletcher-db)
 - [Tracking / UI] basic-auth: serve the web UI to non-admins under fail-closed authorization (#25672, @mkBGD)
 
