@@ -8314,3 +8314,104 @@ def test_proxy_artifact_permission_experiment_level_uses_experiment_tier(monkeyp
         "/api/2.0/mlflow-artifacts/artifacts/42/artifacts/plot.png", "erin"
     )
     assert perm.can_read is True
+
+
+def _fake_resp(response_message):
+    from mlflow.utils.proto_json_utils import message_to_json
+
+    return SimpleNamespace(json=json.loads(message_to_json(response_message)), data=None)
+
+
+def test_redact_get_trace_info_v3_assessments_hides_denied(monkeypatch):
+    from mlflow.protos import service_pb2 as pb
+
+    resp_msg = pb.GetTraceInfoV3.Response()
+    ti = resp_msg.trace.trace_info
+    ti.trace_id = "tr-1"
+    ti.trace_location.mlflow_experiment.experiment_id = "9"
+    ti.assessments.add().assessment_id = "a-1"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_experiment_child_permission", lambda *a, **k: SimpleNamespace(can_read=False)
+    )
+    resp = _fake_resp(resp_msg)
+    auth_module.redact_get_trace_info_v3_assessments(resp)
+
+    out = pb.GetTraceInfoV3.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert list(out.trace.trace_info.assessments) == []
+
+
+def test_redact_trace_assessments_kept_when_readable(monkeypatch):
+    from mlflow.protos import service_pb2 as pb
+
+    resp_msg = pb.SearchTracesV3.Response()
+    ti = resp_msg.traces.add()
+    ti.trace_id = "tr-1"
+    ti.trace_location.mlflow_experiment.experiment_id = "9"
+    ti.assessments.add().assessment_id = "a-1"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_experiment_child_permission", lambda *a, **k: SimpleNamespace(can_read=True)
+    )
+    resp = _fake_resp(resp_msg)
+    auth_module.redact_search_traces_v3_assessments(resp)
+
+    out = pb.SearchTracesV3.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert [a.assessment_id for a in out.traces[0].assessments] == ["a-1"]
+
+
+def test_redact_get_registered_model_versions_hides_denied(monkeypatch):
+    from mlflow.protos import model_registry_pb2 as pb
+
+    resp_msg = pb.GetRegisteredModel.Response()
+    rm = resp_msg.registered_model
+    rm.name = "m1"
+    rm.latest_versions.add().name = "m1"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_rm_or_prompt_version_read_predicate", lambda _u: lambda _mv: False
+    )
+    resp = _fake_resp(resp_msg)
+    auth_module.redact_get_registered_model_versions(resp)
+
+    out = pb.GetRegisteredModel.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert list(out.registered_model.latest_versions) == []
+
+
+def test_list_scorers_gated_on_scorer_version_tier(monkeypatch):
+    from mlflow.protos import service_pb2 as pb
+
+    resp_msg = pb.ListScorers.Response()
+    s1 = resp_msg.scorers.add()
+    s1.experiment_id = 9
+    s1.scorer_name = "keep"
+    s2 = resp_msg.scorers.add()
+    s2.experiment_id = 9
+    s2.scorer_name = "denied"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module.store, "_scorer_pattern", lambda e, n: f"{e}/{n}")
+
+    def fake_predicate(_username, resource_type, parent_type=None):
+        if resource_type == "experiment":
+            return lambda _e: True
+        # scorer_version tier: deny "denied"
+        return lambda pattern: not pattern.endswith("/denied")
+
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+    resp = _fake_resp(resp_msg)
+    auth_module.filter_list_scorers(resp)
+
+    out = pb.ListScorers.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert [s.scorer_name for s in out.scorers] == ["keep"]

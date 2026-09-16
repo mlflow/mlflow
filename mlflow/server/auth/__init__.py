@@ -920,7 +920,8 @@ def _artifact_proxy_child_from_path(artifact_path: str) -> tuple[str, str] | Non
     m = _ARTIFACT_PROXY_LAYOUT_PATTERN.match(artifact_path)
     if not m:
         return None
-    second, third = m.group(1), m.group(2)
+    second = m.group(1)
+    third = m.group(2)
     # ``<experiment_id>/artifacts/...`` targets the experiment itself.
     if second == "artifacts":
         return None
@@ -3189,6 +3190,63 @@ def filter_list_review_queues(resp: Response) -> None:
     resp.data = message_to_json(response_message)
 
 
+def _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable_cache) -> None:
+    """Clear a ``TraceInfoV3``'s assessments when the caller can't read them.
+
+    Assessments are wildcard-grain children of the trace's experiment, so a single
+    per-experiment check gates every assessment on the trace. ``assessment_readable_cache``
+    memoizes that decision per experiment for a batch response.
+    """
+    exp_id = trace_info_v3.trace_location.mlflow_experiment.experiment_id
+    if exp_id not in assessment_readable_cache:
+        assessment_readable_cache[exp_id] = _experiment_child_permission(
+            "assessment", "*", exp_id
+        ).can_read
+    if not assessment_readable_cache[exp_id]:
+        del trace_info_v3.assessments[:]
+
+
+def _redact_trace_assessments_response(
+    resp: Response, response_cls, trace_info_v3_selector
+) -> None:
+    """Shared after-request redactor for V3 trace responses embedding assessments.
+
+    ``trace_info_v3_selector`` yields each ``TraceInfoV3`` in the parsed response; the
+    row itself is already gated by the trace read validator, so this only drops embedded
+    assessment content a ``assessment`` DENY should hide.
+    """
+    if sender_is_admin():
+        return
+    response_message = response_cls.Response()
+    parse_dict(resp.json, response_message)
+    cache: dict[str, bool] = {}
+    for trace_info_v3 in trace_info_v3_selector(response_message):
+        _redact_trace_info_v3_assessments(trace_info_v3, cache)
+    resp.data = message_to_json(response_message)
+
+
+def redact_get_trace_assessments(resp: Response):
+    _redact_trace_assessments_response(resp, GetTrace, lambda m: [m.trace.trace_info])
+
+
+def redact_get_trace_info_v3_assessments(resp: Response):
+    _redact_trace_assessments_response(resp, GetTraceInfoV3, lambda m: [m.trace.trace_info])
+
+
+def redact_search_traces_v3_assessments(resp: Response):
+    _redact_trace_assessments_response(resp, SearchTracesV3, lambda m: list(m.traces))
+
+
+def redact_batch_get_traces_assessments(resp: Response):
+    _redact_trace_assessments_response(
+        resp, BatchGetTraces, lambda m: [t.trace_info for t in m.traces]
+    )
+
+
+def redact_batch_get_trace_infos_assessments(resp: Response):
+    _redact_trace_assessments_response(resp, BatchGetTraceInfos, lambda m: list(m.trace_infos))
+
+
 BEFORE_REQUEST_HANDLERS = {
     # Routes for experiments
     CreateExperiment: validate_can_create_experiment,
@@ -4531,6 +4589,20 @@ def filter_search_logged_models(resp: Response) -> None:
     resp.data = message_to_json(response_proto)
 
 
+def _redact_latest_versions(registered_model, can_read_version) -> None:
+    """Drop ``latest_versions`` entries the caller can't read on the version child tier.
+
+    ``GetRegisteredModel`` and ``SearchRegisteredModels`` are gated on the parent
+    registered model but embed ``latest_versions``, so a ``registered_model_version``
+    DENY would otherwise leak version metadata through the parent response.
+    ``can_read_version`` is a ``_rm_or_prompt_version_read_predicate`` that accepts a
+    version proto and classifies prompt vs model versions.
+    """
+    kept = [mv for mv in registered_model.latest_versions if can_read_version(mv)]
+    del registered_model.latest_versions[:]
+    registered_model.latest_versions.extend(kept)
+
+
 def filter_search_registered_models(resp: Response):
     if sender_is_admin():
         return
@@ -4584,6 +4656,24 @@ def filter_search_registered_models(resp: Response):
         final_offset = start_offset + len(refetched)
         response_message.next_page_token = SearchUtils.create_page_token(final_offset)
 
+    can_read_version = _rm_or_prompt_version_read_predicate(username)
+    for rm in response_message.registered_models:
+        _redact_latest_versions(rm, can_read_version)
+    resp.data = message_to_json(response_message)
+
+
+def redact_get_registered_model_versions(resp: Response):
+    """Redact ``latest_versions`` in a ``GetRegisteredModel`` response the caller can't
+    read on the version child tier. The row itself is already gated by
+    ``_validate_can_read_registered_model_or_prompt``; this drops embedded version
+    metadata a ``registered_model_version`` DENY should hide.
+    """
+    if sender_is_admin():
+        return
+    response_message = GetRegisteredModel.Response()
+    parse_dict(resp.json, response_message)
+    can_read_version = _rm_or_prompt_version_read_predicate(authenticate_request().username)
+    _redact_latest_versions(response_message.registered_model, can_read_version)
     resp.data = message_to_json(response_message)
 
 
@@ -4707,8 +4797,10 @@ def filter_list_scorers(resp: Response) -> None:
     Single-experiment requests are already gated by ``validate_can_read_scorer_list``
     (which delegates to ``validate_can_read_experiment``); cross-experiment requests
     (empty ``experiment_id``) skip that gate so the response can carry scorers from
-    multiple experiments. This filter applies the experiment + scorer read
-    predicates per row so the picker doesn't leak names the caller has no grant on.
+    multiple experiments. Each row embeds the scorer's latest ``ScorerVersion``
+    (``serialized_scorer``), so rows are gated on the ``scorer_version`` child tier
+    (which falls back to the parent scorer): a ``scorer_version`` DENY drops the row
+    and a child-only grant keeps it, matching the per-version RPCs.
     """
     if sender_is_admin():
         return
@@ -4718,13 +4810,15 @@ def filter_list_scorers(resp: Response) -> None:
 
     username = authenticate_request().username
     can_read_experiment = _role_based_read_predicate(username, "experiment")
-    can_read_scorer = _role_based_read_predicate(username, "scorer")
+    can_read_scorer_version = _role_based_read_predicate(
+        username, "scorer_version", parent_type="scorer"
+    )
     for scorer in list(response_message.scorers):
         exp_id = str(scorer.experiment_id)
         if not can_read_experiment(exp_id):
             response_message.scorers.remove(scorer)
             continue
-        if not can_read_scorer(store._scorer_pattern(exp_id, scorer.scorer_name)):
+        if not can_read_scorer_version(store._scorer_pattern(exp_id, scorer.scorer_name)):
             response_message.scorers.remove(scorer)
     resp.data = message_to_json(response_message)
 
@@ -4795,11 +4889,17 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchLoggedModels: filter_search_logged_models,
     SearchModelVersions: filter_search_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
+    GetRegisteredModel: redact_get_registered_model_versions,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
     ListScorers: filter_list_scorers,
     DeleteScorer: delete_scorer_permissions_cascade,
     ListReviewQueues: filter_list_review_queues,
+    GetTrace: redact_get_trace_assessments,
+    GetTraceInfoV3: redact_get_trace_info_v3_assessments,
+    SearchTracesV3: redact_search_traces_v3_assessments,
+    BatchGetTraces: redact_batch_get_traces_assessments,
+    BatchGetTraceInfos: redact_batch_get_trace_infos_assessments,
     CreateGatewaySecret: set_can_manage_gateway_secret_permission,
     DeleteGatewaySecret: delete_gateway_secret_permissions_cascade,
     CreateGatewayEndpoint: set_can_manage_gateway_endpoint_permission,
