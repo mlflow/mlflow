@@ -1,8 +1,9 @@
 import type { GridApi, RowSelectedEvent, SelectionChangedEvent } from '@ag-grid-community/core';
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import type { ExperimentPageViewState } from '../models/ExperimentPageViewState';
 import type { RunRowType } from '../utils/experimentPage.row-types';
 import { uniqBy } from 'lodash';
+import { mapSelectedRunUuids } from '../utils/experimentPage.view-state-utils';
 
 /**
  * Helper function that select particular run rows in the ag-grid.
@@ -67,8 +68,11 @@ export const useExperimentTableSelectRowHandler = (
         // Filter out "load more" and group rows
         .filter((row) => row.runInfo)
         .map(({ runInfo }) => runInfo.runUuid);
+      const selectedRunsMap = mapSelectedRunUuids(selectedUUIDs);
+
       updateViewState({
-        runsSelected: selectedUUIDs.reduce((aggregate, curr) => ({ ...aggregate, [curr]: true }), {}),
+        runsSelected: selectedRunsMap,
+        ...(selectedUUIDs.length ? { columnSelectorVisible: false } : {}),
       });
     },
     [updateViewState],
