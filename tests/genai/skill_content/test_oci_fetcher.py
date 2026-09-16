@@ -48,6 +48,7 @@ class _RegistryHandler(http.server.BaseHTTPRequestHandler):
     token_requests = []
     redirect_blobs = False
     redirect_hits = []
+    authorizations = []
 
     def log_message(self, *args):
         pass
@@ -76,6 +77,7 @@ class _RegistryHandler(http.server.BaseHTTPRequestHandler):
             })
             self._send(200, json.dumps({"token": self.token}).encode())
             return
+        self.authorizations.append(self.headers.get("Authorization"))
         if self.challenge and not self._authorized():
             realm = f"http://{self.headers['Host']}/token"
             self._send(401, headers={"WWW-Authenticate": self.challenge.format(realm=realm)})
@@ -264,6 +266,7 @@ def oci_registry(tmp_path, skill_tree):
             "challenge": 'Bearer realm="{realm}",service="test",scope="repository:demo:pull"',
             "token_requests": [],
             "redirect_hits": [],
+            "authorizations": [],
         },
     )
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -692,6 +695,28 @@ def test_fetch_oci_decompression_work_is_bounded_across_layers(tmp_path):
                 max_bytes=1024 * 1024,
                 subpath="skill",
             )
+
+
+@pytest.mark.parametrize("challenge", [None, "bearer"])
+def test_fetch_oci_never_sends_netrc_credentials(oci_registry, tmp_path, monkeypatch, challenge):
+    # A netrc entry for the registry host must not be attached to anonymous requests, to
+    # Bearer requests, to the token request, or to a redirect target.
+    host, handler = oci_registry
+    netrc = tmp_path / "netrc"
+    netrc.write_text("machine 127.0.0.1 login netrc-user password netrc-secret\n")
+    netrc.chmod(0o600)
+    monkeypatch.setenv("NETRC", str(netrc))
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
+    handler.redirect_blobs = True
+    if challenge is None:
+        handler.challenge = None
+    with fetch_source(f"oci://{host}/skills/demo:v1", subpath="skills/demo") as fetched:
+        assert (fetched.root / "SKILL.md").exists()
+    assert handler.authorizations
+    for value in handler.authorizations:
+        assert value is None or value == f"Bearer {handler.token}"
+    for token_request in handler.token_requests:
+        assert token_request["authorization"] is None
 
 
 def test_fetch_oci_unreachable(closed_port):

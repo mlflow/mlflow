@@ -27,7 +27,7 @@ from mlflow.genai.skill_content.errors import (
     invalid_content,
     source_unavailable,
 )
-from mlflow.genai.skill_content.fetchers.zip import _discard_redirect_body
+from mlflow.genai.skill_content.fetchers.zip import _discard_redirect_body, _no_auth
 from mlflow.genai.skill_content.paths import (
     canonical_relative_path,
     collect_tree,
@@ -299,6 +299,23 @@ def _parse_json(body: bytes, what: str) -> dict[str, Any]:
     return parsed
 
 
+class _RegistrySession(requests.Session):
+    """
+    A session whose credentials come only from the registry client.
+
+    ``requests`` attaches a matching ``~/.netrc`` entry to any request made without explicit
+    auth and again to every redirect target. Registry credentials are resolved from the
+    container tooling's config instead, so ambient netrc entries must never be sent; proxy
+    and CA handling from the environment is kept.
+    """
+
+    def rebuild_auth(self, prepared_request, response):
+        # Same as the base implementation minus the netrc lookup: the Authorization header is
+        # dropped when a redirect leaves the registry host and never replaced.
+        if self.should_strip_auth(response.request.url, prepared_request.url):
+            prepared_request.headers.pop("Authorization", None)
+
+
 class RegistryClient:
     """Minimal OCI Distribution v2 client with Bearer and Basic authentication."""
 
@@ -306,7 +323,7 @@ class RegistryClient:
         self.registry = registry
         # Plain http is only ever used for a registry on the local machine.
         self.base_url = f"{'http' if _is_loopback(registry) else 'https'}://{registry}"
-        self._session = session or requests.Session()
+        self._session = session or _RegistrySession()
         # Blob downloads are commonly redirected to a CDN; `requests` would otherwise buffer
         # every redirect body in full before following it.
         if _discard_redirect_body not in self._session.hooks["response"]:
@@ -318,6 +335,12 @@ class RegistryClient:
         """Whether ``response`` came from the registry itself rather than a redirect target."""
         parts = urlsplit(response.url or "")
         return f"{parts.scheme}://{parts.netloc}".lower() == self.base_url.lower()
+
+    def _auth(self):
+        # Basic credentials are set on the session once the registry asks for them; until
+        # then, and for Bearer requests, an explicit no-op handler keeps `requests` from
+        # falling back to netrc.
+        return self._session.auth or _no_auth
 
     def _headers(self, accept: str | None) -> dict[str, str]:
         headers = {}
@@ -348,6 +371,7 @@ class RegistryClient:
             response = self._session.post(
                 realm,
                 data=form,
+                auth=_no_auth,
                 stream=True,
                 allow_redirects=False,
                 timeout=_REQUEST_TIMEOUT_SECONDS,
@@ -356,7 +380,7 @@ class RegistryClient:
             response = self._session.get(
                 realm,
                 params=query,
-                auth=self._credentials,
+                auth=self._credentials or _no_auth,
                 stream=True,
                 allow_redirects=False,
                 timeout=_REQUEST_TIMEOUT_SECONDS,
@@ -402,6 +426,7 @@ class RegistryClient:
             response = self._session.get(
                 url,
                 headers=self._headers(accept),
+                auth=self._auth(),
                 stream=stream,
                 timeout=_REQUEST_TIMEOUT_SECONDS,
             )
@@ -427,6 +452,7 @@ class RegistryClient:
                 response = self._session.get(
                     url,
                     headers=self._headers(accept),
+                    auth=self._auth(),
                     stream=stream,
                     timeout=_REQUEST_TIMEOUT_SECONDS,
                 )
