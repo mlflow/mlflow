@@ -4342,7 +4342,10 @@ def test_job_search_only_returns_callers_jobs(fastapi_client, tmp_path):
     user2, password2 = create_user(fastapi_client.tracking_uri)
 
     # Seed jobs straight into the server's SQLite backend (same file the fixture points the
-    # server at) so no job runner or allowlisted job function is needed.
+    # server at). Submitting over HTTP would need job execution enabled plus an allowlisted job
+    # function, and could never produce the creator-less legacy row this test covers. Each
+    # create_job commits on session exit, and the job system already relies on the server and
+    # the huey worker subprocess sharing this file, so committed rows are visible server-side.
     db_path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + db_path[len("file://") :]
     job_store = SqlAlchemyJobStore(backend_uri)
