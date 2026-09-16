@@ -938,10 +938,9 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _get_permission_from_run_id() -> Permission:
+def _get_run_permission(run_id: str) -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
-    run_id = _get_request_param("run_id")
     run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     username = authenticate_request().username
@@ -955,6 +954,10 @@ def _get_permission_from_run_id() -> Permission:
             workspace_label="experiment",
         ),
     )
+
+
+def _get_permission_from_run_id() -> Permission:
+    return _get_run_permission(_get_request_param("run_id"))
 
 
 def _get_model_permission(model_id: str) -> Permission:
@@ -1174,6 +1177,14 @@ def validate_can_read_scorer_list():
     # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
     # per-row RBAC filtering, so the route itself is open to any authenticated
     # caller.
+    #
+    # NB: this validator does not look at the newer, plural ``experiment_ids``
+    # field (added for pre-request auth scoping, see #24964). A caller that
+    # sets only ``experiment_ids`` still falls through to the ``not
+    # args.get("experiment_id")`` branch below and relies on the
+    # post-response filtering in ``filter_list_scorers`` -- basic auth does
+    # not yet use ``experiment_ids`` to scope the query before it reaches
+    # the store.
     args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
     if not args.get("experiment_id"):
         return True
@@ -1291,6 +1302,25 @@ def validate_can_delete_logged_model():
 
 def validate_can_manage_logged_model():
     return _get_permission_from_model_id().can_manage
+
+
+def validate_can_update_run_or_logged_model():
+    # The presigned upload endpoint accepts exactly one of run_id / model_id. The
+    # handler enforces this with a 400, but this validator runs first — without the
+    # same check here, a malformed request carrying both IDs would resolve the
+    # model's permission and could surface 403/404 instead of the documented 400.
+    # Mirror the check before looking up either resource. Parse through the proto,
+    # exactly as the handler does, so the camelCase `runId` / `modelId` aliases the
+    # handler accepts are authorized against the same IDs it will act on.
+    msg = _get_request_message(CreatePresignedUploadUrl())
+    if bool(msg.run_id) == bool(msg.model_id):
+        raise MlflowException(
+            "Exactly one of run_id and model_id must be provided.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if msg.model_id:
+        return _get_model_permission(msg.model_id).can_update
+    return _get_run_permission(msg.run_id).can_update
 
 
 # Registered models
@@ -2285,6 +2315,13 @@ def validate_can_search_traces_v3():
 
 
 def validate_can_batch_get_traces():
+    # Derives experiment ownership by reverse-looking-up each trace_id's
+    # experiment_id and requires read permission on all of them (all-or-
+    # nothing). This predates and is independent of the request's own
+    # ``experiment_ids`` field (added for pre-request auth scoping, see
+    # #24964): that field is currently wired through only as far as the
+    # store layer (proto -> handlers -> SqlAlchemyStore / RestStore), and
+    # this validator neither reads nor benefits from it yet.
     if request.method == "GET":
         trace_ids = request.args.to_dict(flat=False).get("trace_ids", [])
     else:
@@ -2787,8 +2824,10 @@ BEFORE_REQUEST_HANDLERS = {
     # artifacts, so it requires the same per-run READ permission as the
     # proxied artifact download paths.
     CreatePresignedDownloadUrl: validate_can_read_run,
-    # Presigned upload URL grants direct artifact write -> same per-run UPDATE as upload.
-    CreatePresignedUploadUrl: validate_can_update_run,
+    # Minting a presigned upload URL grants direct WRITE access to the owning
+    # resource's artifacts (a run's or a logged model's), so it requires the
+    # corresponding UPDATE permission.
+    CreatePresignedUploadUrl: validate_can_update_run_or_logged_model,
     # Routes for model registry (shared with prompts — dispatch via
     # `_get_permission_from_registered_model_or_prompt_name`).
     CreateRegisteredModel: validate_can_create_registered_model,
