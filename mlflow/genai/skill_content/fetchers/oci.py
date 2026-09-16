@@ -507,9 +507,16 @@ class RegistryClient:
 
 def _fetch_manifest(client: RegistryClient, ref: ImageReference) -> tuple[dict[str, Any], str]:
     path = f"/v2/{ref.repository}/manifests/{ref.reference}"
-    with client.get(path, accept=", ".join(_MANIFEST_MEDIA_TYPES), stream=True) as response:
-        body = _read_bounded(response, _MAX_MANIFEST_BYTES, f"OCI manifest for '{ref.display}'")
-        content_type = response.headers.get("Content-Type", "")
+    try:
+        with client.get(path, accept=", ".join(_MANIFEST_MEDIA_TYPES), stream=True) as response:
+            body = _read_bounded(response, _MAX_MANIFEST_BYTES, f"OCI manifest for '{ref.display}'")
+            content_type = response.headers.get("Content-Type", "")
+    except requests.RequestException as e:
+        # The body streams after the request itself succeeded, so a drop here is not caught
+        # by the client.
+        raise source_unavailable(
+            f"{client.base_url}{path}", str(e), error_code=TEMPORARILY_UNAVAILABLE
+        )
     if ref.reference.startswith("sha256:"):
         actual = f"sha256:{hashlib.sha256(body).hexdigest()}"
         if actual != ref.reference:

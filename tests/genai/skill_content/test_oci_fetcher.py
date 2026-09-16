@@ -49,6 +49,7 @@ class _RegistryHandler(http.server.BaseHTTPRequestHandler):
     redirect_blobs = False
     redirect_hits = []
     authorizations = []
+    truncate_manifests = False
 
     def log_message(self, *args):
         pass
@@ -95,6 +96,16 @@ class _RegistryHandler(http.server.BaseHTTPRequestHandler):
                 self._send(404, b"{}")
                 return
             body, content_type = entry
+            if self.truncate_manifests:
+                # Declare the full length but drop the connection after the first bytes.
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Length", str(len(body) + 10))
+                self.end_headers()
+                self.wfile.write(body[:10])
+                self.wfile.flush()
+                self.connection.close()
+                return
             self._send(200, body, content_type=content_type)
             return
         if parts[-2] == "blobs":
@@ -286,6 +297,7 @@ def oci_registry(tmp_path, skill_tree):
             "token_requests": [],
             "redirect_hits": [],
             "authorizations": [],
+            "truncate_manifests": False,
         },
     )
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -784,6 +796,15 @@ def test_registry_client_never_sends_identity_token_as_basic_password():
     assert exc.value.error_code == "UNAUTHENTICATED"
     assert session.auth is None
     assert session.get.call_count == 1
+
+
+def test_fetch_oci_manifest_stream_failure_is_reported(oci_registry):
+    host, handler = oci_registry
+    handler.truncate_manifests = True
+    with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
+        with fetch_source(f"oci://{host}/skills/demo:v1"):
+            pass
+    assert exc.value.error_code == "TEMPORARILY_UNAVAILABLE"
 
 
 def test_fetch_oci_unreachable(closed_port):
