@@ -2999,6 +2999,30 @@ def test_register_scorer_rejects_decorator_scorer(mock_get_request_message, mock
     mock_tracking_store.register_scorer.assert_not_called()
 
 
+def test_register_scorer_rejects_third_party_destination_kwargs(
+    mock_get_request_message, mock_tracking_store
+):
+    serialized_scorer = json.dumps({
+        "name": "poc",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Coherence",
+            "metric_name": "Coherence",
+            "model": "openai:/gpt-4o",
+            "kwargs": {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+        },
+    })
+    mock_get_request_message.return_value = RegisterScorer(
+        experiment_id="123", name="poc", serialized_scorer=serialized_scorer
+    )
+    resp = _register_scorer()
+    assert resp.status_code == 400
+    assert (
+        "third_party_scorer_data.kwargs must not contain 'api_base'" in resp.get_json()["message"]
+    )
+    mock_tracking_store.register_scorer.assert_not_called()
+
+
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
     experiment_id = "123"
 
@@ -5459,6 +5483,122 @@ def test_invoke_scorer_rejects_decorator_scorer():
             )
         assert response.status_code == 400
         assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in response.get_json()["message"]
+        mock_submit.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+        {"completion_kwargs": {"base_url": "http://169.254.169.254/"}},
+    ],
+)
+def test_invoke_scorer_rejects_third_party_destination_kwargs(kwargs):
+    # A reflected trulens scorer forwards its kwargs into litellm, so a caller-chosen
+    # `api_base` would make the server connect to an arbitrary host (SSRF).
+    serialized_scorer = json.dumps({
+        "name": "poc",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Coherence",
+            "metric_name": "Coherence",
+            "model": "openai:/gpt-4o",
+            "kwargs": kwargs,
+        },
+    })
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert "third_party_scorer_data.kwargs must not contain" in response.get_json()["message"]
+        mock_validate.assert_not_called()
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_third_party_destination_kwargs_inside_ensemble():
+    serialized_scorer = json.dumps({
+        "name": "wrapper",
+        "ensemble_scorer_data": {
+            "ensemble_fn": "majority_vote",
+            "scorers": [
+                {
+                    "name": "poc",
+                    "third_party_scorer_data": {
+                        "module": "mlflow.genai.scorers.trulens",
+                        "class": "Coherence",
+                        "metric_name": "Coherence",
+                        "model": "openai:/gpt-4o",
+                        "kwargs": {"api_base": "http://169.254.169.254/"},
+                    },
+                }
+            ],
+        },
+    })
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": serialized_scorer,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert "third_party_scorer_data.kwargs must not contain" in response.get_json()["message"]
+        mock_validate.assert_not_called()
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_stored_third_party_destination_kwargs(mock_tracking_store):
+    # A scorer registered before this validation existed must not run either.
+    mock_tracking_store.get_scorer.return_value = mock.MagicMock(
+        serialized_scorer=json.dumps({
+            "name": "poc",
+            "third_party_scorer_data": {
+                "module": "mlflow.genai.scorers.trulens",
+                "class": "Coherence",
+                "metric_name": "Coherence",
+                "model": "openai:/gpt-4o",
+                "kwargs": {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+            },
+        })
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": json.dumps({"name": "poc"}),
+                    "scorer_name": "poc",
+                    "scorer_version": 1,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert "third_party_scorer_data.kwargs must not contain" in response.get_json()["message"]
+        mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "poc", 1)
+        mock_validate.assert_not_called()
         mock_submit.assert_not_called()
 
 
@@ -8726,6 +8866,86 @@ def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
     mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "registered-judge", 3)
     assert mock_submit_job.call_args.kwargs["params"]["serialized_scorers"] == [canonical_scorer]
     assert mock_submit_job.call_args.kwargs["params"]["scorer_versions"] == [4]
+
+
+def test_invoke_genai_evaluate_handler_rejects_decorator_scorer(monkeypatch):
+    from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_client = mock.MagicMock()
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "serialized_scorers": [
+            json.dumps({
+                "name": "pwned",
+                "call_source": "    import os; os.system('touch /tmp/pwned')\n",
+                "call_signature": "(inputs, outputs)",
+                "original_func_name": "pwned",
+            })
+        ],
+    }
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+    assert resp.status_code == 400
+    assert DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR in resp.get_json()["message"]
+    mock_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
+@pytest.mark.parametrize("stored", [False, True])
+def test_invoke_genai_evaluate_handler_rejects_third_party_destination_kwargs(
+    monkeypatch, mock_tracking_store, stored
+):
+    # The evaluate job deserializes and runs every scorer it receives, so destination kwargs are
+    # rejected whether they arrive inline or from a scorer registered before this validation.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    poc_scorer = json.dumps({
+        "name": "poc",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Coherence",
+            "metric_name": "Coherence",
+            "model": "openai:/gpt-4o",
+            "kwargs": {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+        },
+    })
+    if stored:
+        mock_tracking_store.get_scorer.return_value = mock.MagicMock(
+            serialized_scorer=poc_scorer, scorer_version=1
+        )
+        request_json = {
+            "experiment_id": "exp-123",
+            "trace_ids": ["trace-1"],
+            "serialized_scorers": [json.dumps({"name": "poc"})],
+            "scorer_versions": [1],
+        }
+    else:
+        request_json = {
+            "experiment_id": "exp-123",
+            "trace_ids": ["trace-1"],
+            "serialized_scorers": [poc_scorer],
+        }
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+    assert resp.status_code == 400
+    assert "third_party_scorer_data.kwargs must not contain" in resp.get_json()["message"]
+    mock_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
 
 
 def test_invoke_genai_evaluate_handler_rejects_empty_trace_ids(monkeypatch):
