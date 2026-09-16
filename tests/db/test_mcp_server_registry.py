@@ -158,3 +158,22 @@ def test_db_backend_mcp_status_filter_uses_resolved_latest_status(store):
     draft_results = store.search_mcp_servers(filter_string="status = 'draft'")
     draft_names = {server.name for server in draft_results}
     assert "io.github.test/backend-status-draft" in draft_names
+
+
+def test_db_backend_mcp_version_identity_is_case_sensitive(store):
+    # SemVer (https://semver.org/#spec-item-11) compares prerelease and build
+    # metadata identifiers as ASCII, so "1.0.0-A" and "1.0.0-a" are distinct
+    # versions. MySQL and SQL Server default string columns to a
+    # case-insensitive collation; the mcp_server_versions.version column (and
+    # the mirrored columns on mcp_server_version_tags, mcp_server_aliases,
+    # and mcp_access_endpoints) must pin a case-sensitive collation so both
+    # versions are stored and looked up distinctly on every backend.
+    name = "io.github.test/case-sensitive-version"
+    _create_mcp_server_version(store, name, "1.0.0-A", MCPStatus.ACTIVE)
+    _create_mcp_server_version(store, name, "1.0.0-a", MCPStatus.ACTIVE)
+
+    assert store.get_mcp_server_version(name=name, version="1.0.0-A").version == "1.0.0-A"
+    assert store.get_mcp_server_version(name=name, version="1.0.0-a").version == "1.0.0-a"
+
+    stored = sorted(v.version for v in store.search_mcp_server_versions(name=name))
+    assert stored == ["1.0.0-A", "1.0.0-a"]
