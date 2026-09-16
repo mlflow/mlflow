@@ -255,8 +255,10 @@ for attempt in 1 2 3; do
         break
     fi
     if [ "$attempt" -eq 3 ]; then
+        echo "Docker image pull failed after 3 attempts."
         exit 1
     fi
+    echo "Docker image pull failed; retrying in $((attempt * 5)) seconds."
     sleep $((attempt * 5))
 done
 err=0
