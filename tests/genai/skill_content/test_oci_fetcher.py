@@ -907,6 +907,8 @@ def test_fetch_oci_unreachable(closed_port):
             "library/alpine",
             "sha256:" + "a" * 64,
         ),
+        ("[::1]:5000/acme/skills:v1", "[::1]:5000", "acme/skills", "v1"),
+        ("ghcr.io/acme/my__skill.set-2:1.0_rc-1", "ghcr.io", "acme/my__skill.set-2", "1.0_rc-1"),
     ],
 )
 def test_parse_image_reference(image, registry, repository, reference):
@@ -920,7 +922,27 @@ def test_parse_image_reference(image, registry, repository, reference):
 
 @pytest.mark.parametrize(
     "image",
-    ["", "ghcr.io/acme/skills@md5:abc", "ghcr.io/acme/skills@sha256:abc", "ghcr.io/", "ghcr.io//x"],
+    [
+        "",
+        "ghcr.io/acme/skills@md5:abc",
+        "ghcr.io/acme/skills@sha256:abc",
+        "ghcr.io/",
+        "ghcr.io//x",
+        # Outside the reference grammar: these would be sent as, or normalized into, a
+        # different request than the one displayed.
+        "ghcr.io/acme/skills:v1#other",
+        "ghcr.io/acme/skills:v1?x=1",
+        "ghcr.io/acme/../skills:v1",
+        "ghcr.io/acme/./skills:v1",
+        "ghcr.io/Acme/skills:v1",
+        "ghcr.io/acme/skills:-v1",
+        "ghcr.io/acme/skills:" + "v" * 129,
+        "ghcr.io/acme/skills%2f:v1",
+        "ghcr.io/acme/sk ills:v1",
+        "bad_host.example/acme/skills:v1",
+        "ghcr.io:99999999/acme/skills:v1",
+        "-ghcr.io/acme/skills:v1",
+    ],
 )
 def test_parse_image_reference_invalid(image):
     with pytest.raises(MlflowException, match="OCI image"):

@@ -70,6 +70,14 @@ _WHITEOUT_PREFIX = ".wh."
 _OPAQUE_WHITEOUT = ".wh..wh..opq"
 _CHALLENGE_PARAM_PATTERN = re.compile(r'(\w+)="([^"]*)"')
 _SHA256_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
+# The Docker/OCI reference grammar. Every part is interpolated into a request URL, so anything
+# outside it (``#``, ``?``, ``..``, spaces) must be refused rather than sent.
+_DOMAIN_COMPONENT = r"(?:[A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9])"
+_REGISTRY_PATTERN = re.compile(
+    rf"^(?:{_DOMAIN_COMPONENT}(?:\.{_DOMAIN_COMPONENT})*|\[[0-9A-Fa-f:.]+\])(?::[0-9]{{1,5}})?$"
+)
+_REPOSITORY_COMPONENT_PATTERN = re.compile(r"^[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*$")
+_TAG_PATTERN = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
 
 
 @dataclass(frozen=True)
@@ -141,6 +149,17 @@ def parse_image_reference(image: str) -> ImageReference:
             repository = f"library/{repository}"
     if not repository or not reference or "" in repository.split("/"):
         raise invalid_content(f"OCI image reference '{image}' is malformed.")
+    if _REGISTRY_PATTERN.match(registry) is None:
+        raise invalid_content(f"OCI image reference '{image}' has an invalid registry host.")
+    for component in repository.split("/"):
+        if _REPOSITORY_COMPONENT_PATTERN.match(component) is None:
+            raise invalid_content(
+                f"OCI image reference '{image}' has an invalid repository component "
+                f"'{component}'; components are lowercase alphanumerics separated by "
+                "'.', '_', or '-'."
+            )
+    if not reference.startswith("sha256:") and _TAG_PATTERN.match(reference) is None:
+        raise invalid_content(f"OCI image reference '{image}' has an invalid tag '{reference}'.")
     return ImageReference(registry=registry, repository=repository, reference=reference)
 
 
