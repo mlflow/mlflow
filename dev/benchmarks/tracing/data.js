@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789524262595,
+  "lastUpdate": 1789528959924,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "james.fletcher@databricks.com",
-            "name": "james-fletcher-db",
-            "username": "james-fletcher-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a92ede784a6c91b59a42c1e9bbfc1217c5699f7e",
-          "message": "Add warning when search_traces called on UC location without time constraint (#22832)\n\nSigned-off-by: James Fletcher <james.fletcher@databricks.com>\nCo-authored-by: Kris Concepcion <84737625+kriscon-db@users.noreply.github.com>",
-          "timestamp": "2026-05-15T02:02:02Z",
-          "tree_id": "8202cbc87e8b677414cfda90a8c0727b56bb4817",
-          "url": "https://github.com/mlflow/mlflow/commit/a92ede784a6c91b59a42c1e9bbfc1217c5699f7e"
-        },
-        "date": 1778810745978,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.5124314500049,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 21.757563857132872,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 20.983178999992802,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 20.45819917240437,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 15.366523399984544,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.84653100003925,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.149856428569625,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "haoji.tang@databricks.com",
+            "name": "Haoji Tang",
+            "username": "tanghaoji"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81730a2ce4ebcd60d5d18f68c96f422ad7e30772",
+          "message": "Reject schemeless path sources for prompt model versions in `_create_model_version` (#25870)\n\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-09-16T03:18:10Z",
+          "tree_id": "a51137f4752d3c612f6d07fa40b1b9631a19bb34",
+          "url": "https://github.com/mlflow/mlflow/commit/81730a2ce4ebcd60d5d18f68c96f422ad7e30772"
+        },
+        "date": 1789528957944,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 59.80851269999903,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 3.487117655914952,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 2.9708342723571923,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.42069055555621,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 3.1221114604653226,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.3228677142873755,
             "unit": "ms"
           }
         ]
