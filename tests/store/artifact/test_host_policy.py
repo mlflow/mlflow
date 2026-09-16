@@ -6,7 +6,7 @@ from mlflow.store.artifact.host_policy import (
     _SERVER_ARTIFACT_ROOT_ENV_VAR,
     _SERVER_ARTIFACTS_DESTINATION_ENV_VAR,
     enforce_server_artifact_uri_host_policy,
-    host_addressed_uri_target,
+    host_addressed_uri_targets,
     rejected_host_addressed_scheme,
 )
 
@@ -18,22 +18,23 @@ from mlflow.store.artifact.host_policy import (
         ("file:///tmp/mlruns", None),
         ("/tmp/mlruns", None),
         ("mlflow-artifacts:/experiments/1", None),
-        ("ftp://host/pub", ("ftp", "host", 21)),
-        ("ftp://user:pw@HOST:2121/pub", ("ftp", "host", 2121)),
-        ("sftp://host/data", ("sftp", "host", 22)),
-        ("hdfs://namenode:8020/mlflow", ("hdfs", "namenode", 8020)),
-        ("hdfs://namenode/mlflow", ("hdfs", "namenode", None)),
-        ("viewfs://namenode:8020/mlflow", ("hdfs", "namenode", 8020)),
-        ("http://host/api", ("http", "host", 80)),
-        ("http://host:80/api", ("http", "host", 80)),
-        ("https://host/api", ("http", "host", 443)),
-        ("mlflow-artifacts://host:5000/exp", ("http", "host", 5000)),
-        ("ftp:///pub", ("ftp", "", 21)),
-        ("hdfs:///mlflow", ("hdfs", "", None)),
+        ("ftp://host/pub", {("ftp", "host", 21)}),
+        ("ftp://user:pw@HOST:2121/pub", {("ftp", "host", 2121)}),
+        ("sftp://host/data", {("sftp", "host", 22)}),
+        ("hdfs://namenode:8020/mlflow", {("hdfs", "namenode", 8020)}),
+        ("hdfs://namenode/mlflow", {("hdfs", "namenode", None)}),
+        ("viewfs://namenode:8020/mlflow", {("hdfs", "namenode", 8020)}),
+        ("http://host/api", {("http", "host", 80)}),
+        ("http://host:80/api", {("http", "host", 80)}),
+        ("https://host/api", {("http", "host", 443)}),
+        ("mlflow-artifacts://host:5000/exp", {("http", "host", 5000)}),
+        ("mlflow-artifacts://host/exp", {("http", "host", 80), ("http", "host", 443)}),
+        ("ftp:///pub", {("ftp", "", 21)}),
+        ("hdfs:///mlflow", {("hdfs", "", None)}),
     ],
 )
-def test_host_addressed_uri_target(uri, expected):
-    assert host_addressed_uri_target(uri) == expected
+def test_host_addressed_uri_targets(uri, expected):
+    assert host_addressed_uri_targets(uri) == expected
 
 
 @pytest.mark.parametrize(
@@ -46,7 +47,7 @@ def test_host_addressed_uri_target(uri, expected):
 )
 def test_malformed_authority_is_never_trusted(monkeypatch, uri):
     monkeypatch.setenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, "http://trusted.example:5000/root")
-    assert host_addressed_uri_target(uri)[0] == "malformed"
+    assert {t[0] for t in host_addressed_uri_targets(uri)} == {"malformed"}
     assert rejected_host_addressed_scheme(uri) == "http"
 
 
@@ -63,6 +64,13 @@ def test_malformed_authority_is_never_trusted(monkeypatch, uri):
             "http://artifacts:5000/api/2.0/mlflow-artifacts/artifacts/x",
         ),
         ("sftp://svc@sftp-host/data", "sftp://other@sftp-host:22/data/x"),
+        # A portless `mlflow-artifacts://host` resolves to the tracking transport's port, so it
+        # matches the configured root on either well-known HTTP port and vice versa.
+        ("http://artifacts/root", "mlflow-artifacts://artifacts/root/x"),
+        ("https://artifacts/root", "mlflow-artifacts://artifacts/root/x"),
+        ("mlflow-artifacts://artifacts", "http://artifacts/api/2.0/mlflow-artifacts/artifacts/x"),
+        ("mlflow-artifacts://artifacts", "https://artifacts/api/2.0/mlflow-artifacts/artifacts/x"),
+        ("mlflow-artifacts://artifacts", "mlflow-artifacts://ARTIFACTS/x"),
     ],
 )
 def test_locations_on_trusted_hosts_are_accepted(monkeypatch, trusted, uri):
@@ -81,6 +89,9 @@ def test_locations_on_trusted_hosts_are_accepted(monkeypatch, trusted, uri):
         ("https://artifacts/root", "http://artifacts/root/x", "http"),
         ("http://artifacts/root", "http://artifacts:8080/root/x", "http"),
         ("mlflow-artifacts:/", "mlflow-artifacts://other:5000/x", "mlflow-artifacts"),
+        ("mlflow-artifacts://artifacts:5000", "mlflow-artifacts://artifacts/x", "mlflow-artifacts"),
+        ("mlflow-artifacts://artifacts", "http://artifacts:5000/x", "http"),
+        ("http://artifacts/root", "mlflow-artifacts://other/root/x", "mlflow-artifacts"),
     ],
 )
 def test_locations_on_other_hosts_are_rejected(monkeypatch, trusted, uri, scheme):

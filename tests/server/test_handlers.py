@@ -2605,6 +2605,7 @@ def test_create_experiment_allows_host_addressed_artifact_location_when_opted_in
             "http://artifacts-server:5000/api/2.0/mlflow-artifacts/artifacts/team-a",
         ),
         ("http://artifacts-server/root", "http://artifacts-server:80/root/team-a"),
+        ("https://artifacts-server/root", "mlflow-artifacts://artifacts-server/root/team-a"),
         ("hdfs:///mlflow", "hdfs:///mlflow/team-a"),
     ],
 )

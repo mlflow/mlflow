@@ -36,15 +36,26 @@ HOST_ADDRESSED_ARTIFACT_SCHEMES = frozenset({
 # to an `http(s)://host:port` request, so these schemes are compared as one family.
 _SCHEME_FAMILIES = {"viewfs": "hdfs", "https": "http", "mlflow-artifacts": "http"}
 # An omitted port connects to the scheme's well-known port, so `https://host` and `http://host`
-# are different targets while `http://host` and `http://host:80` are the same one.
-_DEFAULT_PORTS = {"ftp": 21, "sftp": 22, "http": 80, "https": 443}
+# are different targets while `http://host` and `http://host:80` are the same one. A portless
+# `mlflow-artifacts://host` resolves to whichever of `http` or `https` the tracking transport
+# uses, so it stands for both well-known ports.
+_DEFAULT_PORTS: dict[str, tuple[int, ...]] = {
+    "ftp": (21,),
+    "sftp": (22,),
+    "http": (80,),
+    "https": (443,),
+    "mlflow-artifacts": (80, 443),
+}
 _MALFORMED = "malformed"
 
+Target = tuple[str, str, int | None]
 
-def host_addressed_uri_target(uri: str) -> tuple[str, str, int | None] | None:
+
+def host_addressed_uri_targets(uri: str) -> frozenset[Target] | None:
     """
-    Return ``(scheme family, hostname, port)`` for the host that ``uri`` would make MLflow
-    connect to, or None when the URI does not select a host.
+    Return the ``(scheme family, hostname, port)`` targets that ``uri`` may make MLflow connect
+    to, or None when the URI does not select a host. A URI yields more than one target only when
+    its effective port cannot be known from the URI alone.
     """
     scheme = get_uri_scheme(uri)
     if scheme not in HOST_ADDRESSED_ARTIFACT_SCHEMES:
@@ -56,23 +67,23 @@ def host_addressed_uri_target(uri: str) -> tuple[str, str, int | None] | None:
     if "\\" in parsed.netloc or any(c.isspace() for c in parsed.netloc):
         # HTTP clients end the authority at a backslash where `urlparse` does not, so the
         # hostname reported here would not be the one contacted. Never treat it as trusted.
-        return (_MALFORMED, parsed.netloc, None)
+        return frozenset({(_MALFORMED, parsed.netloc, None)})
     try:
         port = parsed.port
     except ValueError:
-        return (_MALFORMED, parsed.netloc, None)
-    if port is None:
-        port = _DEFAULT_PORTS.get(scheme)
+        return frozenset({(_MALFORMED, parsed.netloc, None)})
+    family = _SCHEME_FAMILIES.get(scheme, scheme)
     # A missing host is kept as "" rather than None: `ftp:///path` still connects, to localhost.
-    return (_SCHEME_FAMILIES.get(scheme, scheme), (parsed.hostname or "").lower(), port)
+    hostname = (parsed.hostname or "").lower()
+    ports = (port,) if port is not None else _DEFAULT_PORTS.get(scheme, (None,))
+    return frozenset((family, hostname, p) for p in ports)
 
 
-def _trusted_targets() -> set[tuple[str, str, int | None]]:
+def _trusted_targets() -> set[Target]:
     targets = set()
     for env_var in (_SERVER_ARTIFACT_ROOT_ENV_VAR, _SERVER_ARTIFACTS_DESTINATION_ENV_VAR):
         if uri := os.environ.get(env_var):
-            if (target := host_addressed_uri_target(uri)) is not None:
-                targets.add(target)
+            targets |= host_addressed_uri_targets(uri) or set()
     return targets
 
 
@@ -83,13 +94,13 @@ def rejected_host_addressed_scheme(uri: str) -> str | None:
     ``MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES``, or it targets the host of the server's
     default artifact root or artifacts destination.
     """
-    target = host_addressed_uri_target(uri)
-    if target is None:
+    targets = host_addressed_uri_targets(uri)
+    if targets is None:
         return None
     scheme = get_uri_scheme(uri)
     if scheme in {s.lower() for s in MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.get()}:
         return None
-    if target in _trusted_targets():
+    if targets & _trusted_targets():
         return None
     return scheme
 
