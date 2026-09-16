@@ -143,6 +143,25 @@ def _file_layer(data, title):
     }
 
 
+@pytest.fixture(autouse=True)
+def isolated_credentials(tmp_path, monkeypatch):
+    """
+    Point every credential lookup at empty temp locations.
+
+    The fetcher reads the developer's real Docker config, container auth files, and netrc
+    otherwise, which would make these tests depend on local logins and could print a real
+    secret in an assertion failure.
+    """
+    empty = tmp_path / "no-credentials"
+    empty.mkdir()
+    (empty / "netrc").write_text("")
+    monkeypatch.setenv("DOCKER_CONFIG", str(empty / "docker"))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(empty / "runtime"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(empty / "config"))
+    monkeypatch.setenv("NETRC", str(empty / "netrc"))
+    monkeypatch.delenv("REGISTRY_AUTH_FILE", raising=False)
+
+
 @pytest.fixture
 def oci_registry(tmp_path, skill_tree):
     tar_layer = package_skill_tree(skill_tree, tmp_path / "layer.tar.gz").read_bytes()
