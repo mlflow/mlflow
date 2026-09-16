@@ -23,7 +23,9 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mssql import NVARCHAR
+from sqlalchemy.dialects.mssql import VARCHAR as MSSQL_VARCHAR
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
+from sqlalchemy.dialects.mysql import VARCHAR as MYSQL_VARCHAR
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import (
@@ -4021,6 +4023,16 @@ class SqlMCPServer(Base):
         )
 
 
+# SemVer identity is case-sensitive, while MySQL and SQL Server default to
+# case-insensitive collations. Every MCP version reference uses the same type
+# because MySQL requires matching collations across foreign keys.
+MCP_SERVER_VERSION_STRING = (
+    String(128)
+    .with_variant(MYSQL_VARCHAR(128, collation="utf8mb4_bin"), "mysql")
+    .with_variant(MSSQL_VARCHAR(128, collation="SQL_Latin1_General_CP1_CS_AS"), "mssql")
+)
+
+
 class SqlMCPServerVersion(Base):
     __tablename__ = "mcp_server_versions"
 
@@ -4031,7 +4043,7 @@ class SqlMCPServerVersion(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     name = Column(String(256), nullable=False)
-    version = Column(String(128), nullable=False)
+    version = Column(MCP_SERVER_VERSION_STRING, nullable=False)
     version_major = Column(Integer, nullable=False)
     version_minor = Column(Integer, nullable=False)
     version_patch = Column(Integer, nullable=False)
@@ -4160,7 +4172,7 @@ class SqlMCPServerVersionTag(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     name = Column(String(256), nullable=False)
-    version = Column(String(128), nullable=False)
+    version = Column(MCP_SERVER_VERSION_STRING, nullable=False)
     key = Column(String(250), nullable=False)
     value = Column(String(5000), nullable=True)
 
@@ -4202,7 +4214,7 @@ class SqlMCPServerAlias(Base):
     )
     name = Column(String(256), nullable=False)
     alias = Column(String(256), nullable=False)
-    version = Column(String(128), nullable=False)
+    version = Column(MCP_SERVER_VERSION_STRING, nullable=False)
 
     server = relationship(
         "SqlMCPServer",
@@ -4240,7 +4252,7 @@ class SqlMCPAccessEndpoint(Base):
         server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
     )
     server_name = Column(String(256), nullable=False)
-    server_version = Column(String(128), nullable=True)
+    server_version = Column(MCP_SERVER_VERSION_STRING, nullable=True)
     server_alias = Column(String(256), nullable=True)
     url = Column(String(2048), nullable=False)
     transport_type = Column(
