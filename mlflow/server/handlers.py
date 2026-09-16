@@ -5195,9 +5195,11 @@ def _validate_trace_ids_in_experiment(
     """
     try:
         trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
-    except MlflowNotImplementedException:
+    except (MlflowNotImplementedException, NotImplementedError):
         # Fallback to per-trace fetches for stores that don't implement batch_get_trace_infos.
         # A missing trace is simply absent, matching the partial list the batch path returns.
+        # A store that implements neither lookup cannot prove ownership, so its error is
+        # left to propagate rather than letting the request through unchecked.
         trace_infos = []
         for trace_id in trace_ids:
             try:

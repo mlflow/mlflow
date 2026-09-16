@@ -8235,6 +8235,39 @@ def test_invoke_genai_evaluate_handler_rejects_foreign_trace_fallback_path(
         mock_submit_job.assert_not_called()
 
 
+def test_invoke_genai_evaluate_handler_rejects_foreign_trace_bare_not_implemented_fallback(
+    monkeypatch, mock_tracking_store
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.batch_get_trace_infos.side_effect = NotImplementedError
+    mock_tracking_store.get_trace_info.return_value = TraceInfo(
+        trace_id="foreign-trace",
+        trace_location=EntityTraceLocation.from_experiment_id("exp-999"),
+        request_time=1234567890,
+        state=TraceState.OK,
+    )
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+            json={
+                "experiment_id": "exp-123",
+                "trace_ids": ["foreign-trace"],
+                "serialized_scorers": ['{"name":"my-judge"}'],
+            },
+        )
+        assert resp.status_code == 403
+        assert resp.get_json()["error_code"] == "PERMISSION_DENIED"
+        mock_tracking_store.get_trace_info.assert_called_once_with("foreign-trace")
+        mock_client.create_run.assert_not_called()
+        mock_submit_job.assert_not_called()
+
+
 def test_invoke_genai_evaluate_handler_rejects_non_string_trace_ids(
     monkeypatch, mock_tracking_store
 ):
