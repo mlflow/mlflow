@@ -1623,8 +1623,9 @@ def test_graphql_nested_run_model_versions_filtered_by_model_permission(client, 
         if "mlflowGetRun" in payload["data"]:
             model_versions = payload["data"]["mlflowGetRun"]["run"]["modelVersions"]
         else:
-            (run,) = payload["data"]["mlflowSearchRuns"]["runs"]
-            model_versions = run["modelVersions"]
+            runs = payload["data"]["mlflowSearchRuns"]["runs"]
+            assert len(runs) == 1, runs
+            model_versions = runs[0]["modelVersions"]
         return sorted(mv["name"] for mv in model_versions)
 
     get_run_vars = {"runId": run_id}
