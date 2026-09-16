@@ -25,7 +25,7 @@ from mlflow.gateway.providers.utils import (
     send_stream_request,
 )
 from mlflow.gateway.schemas import chat, completions
-from mlflow.gateway.utils import parse_sse_lines
+from mlflow.gateway.utils import parse_sse_lines, safe_stream
 from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import Function, ToolCallDelta
 
@@ -826,7 +826,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 path=provider_path,
                 payload=payload,
             )
-            return self._stream_passthrough_with_usage(stream)
+            stream_with_usage = self._stream_passthrough_with_usage(stream)
+            # Wrapping it is safe_stream and tell it to use anthropic format
+            return safe_stream(stream_with_usage, as_bytes=True, message_format="anthropic")
         else:
             return await send_request(
                 headers=request_headers,

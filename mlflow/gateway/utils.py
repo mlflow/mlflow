@@ -378,6 +378,7 @@ def to_sse_error_chunk(error: Exception) -> str:
 async def safe_stream(
     stream: AsyncGenerator[str | bytes, None],
     as_bytes: bool = False,
+    message_format: str = None,
 ) -> AsyncGenerator[bytes | str, None]:
     """
     Wrap a streaming generator with exception handling.
@@ -400,7 +401,14 @@ async def safe_stream(
             yield chunk
     except Exception as e:
         _logger.exception("Error during streaming response")
-        error_chunk = to_sse_error_chunk(e)
+
+        # Anthropic SDK requires 'event: error'
+        if message_format == "anthropic":
+            error_data = {"type": "error", "error": {"type": "api_error", "message": str(e)}}
+            error_chunk = f"event: error\ndata: {json.dumps(error_data)}\n\n"
+        else:
+            error_chunk = to_sse_error_chunk(e)
+
         yield error_chunk.encode("utf-8") if as_bytes else error_chunk
 
 
