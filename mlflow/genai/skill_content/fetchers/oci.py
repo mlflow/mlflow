@@ -137,8 +137,8 @@ def parse_image_reference(image: str) -> ImageReference:
     if not name:
         raise invalid_content(f"OCI image reference '{image}' has no repository.")
     first, _, rest = name.partition("/")
-    if rest and ("." in first or ":" in first or first == "localhost"):
-        registry = first
+    if rest and ("." in first or ":" in first or first.lower() == "localhost"):
+        registry = first.lower()
         repository = rest
     else:
         registry = "docker.io"
