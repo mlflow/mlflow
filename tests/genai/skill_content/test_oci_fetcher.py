@@ -447,7 +447,7 @@ def _canned_response(status, url, *, headers=None, payload=None):
 
 
 def test_registry_client_ignores_challenge_from_redirect_target():
-    session = mock.Mock(hooks={"response": []})
+    session = mock.Mock(hooks={"response": []}, auth=None)
     session.get.return_value = _canned_response(
         401,
         "https://cdn.example/blob",
@@ -469,7 +469,7 @@ def test_registry_client_ignores_challenge_from_redirect_target():
 def test_registry_client_allows_separate_token_service_named_by_registry():
     registry_url = "https://registry.example/v2/acme/skill/manifests/v1"
     token_url = "https://auth.example/token"
-    session = mock.Mock(hooks={"response": []})
+    session = mock.Mock(hooks={"response": []}, auth=None)
     session.get.side_effect = [
         _canned_response(
             401,
@@ -717,6 +717,29 @@ def test_fetch_oci_never_sends_netrc_credentials(oci_registry, tmp_path, monkeyp
         assert value is None or value == f"Bearer {handler.token}"
     for token_request in handler.token_requests:
         assert token_request["authorization"] is None
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [(401, "UNAUTHENTICATED"), (403, "PERMISSION_DENIED"), (503, "TEMPORARILY_UNAVAILABLE")],
+)
+def test_registry_client_preserves_token_endpoint_error_codes(status, expected):
+    registry_url = "https://registry.example/v2/acme/skill/manifests/v1"
+    token_url = "https://auth.example/token"
+    session = mock.Mock(hooks={"response": []}, auth=None)
+    session.get.side_effect = [
+        _canned_response(
+            401, registry_url, headers={"WWW-Authenticate": f'Bearer realm="{token_url}"'}
+        ),
+        _canned_response(status, token_url),
+    ]
+    with mock.patch(
+        "mlflow.genai.skill_content.fetchers.oci._load_docker_credentials", return_value=None
+    ):
+        client = RegistryClient("registry.example", session=session)
+    with pytest.raises(MlflowException, match=f"HTTP {status}.*no credentials were found") as exc:
+        client.get("/v2/acme/skill/manifests/v1")
+    assert exc.value.error_code == expected
 
 
 def test_fetch_oci_unreachable(closed_port):

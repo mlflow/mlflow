@@ -396,7 +396,14 @@ class RegistryClient:
                     error_code=UNAUTHENTICATED,
                 )
             if response.status_code >= 400:
-                return None
+                # Keep the distinction between bad credentials, a scope the account lacks,
+                # and an outage of the token service; each maps to its own error code.
+                detail = f"token endpoint returned HTTP {response.status_code} {response.reason}"
+                if self._credentials is None:
+                    detail += "; no credentials were found for this registry"
+                raise source_unavailable(
+                    realm, detail, error_code=error_code_for_http_status(response.status_code)
+                )
             body = _parse_json(
                 _read_bounded(response, _MAX_MANIFEST_BYTES, "Token response"), "Token response"
             )
