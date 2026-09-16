@@ -32,9 +32,12 @@ from mlflow.genai.review_queues.review_queues import (
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.client import TracingClient
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import databricks_api_disabled
 
 if TYPE_CHECKING:
     from mlflow.store.entities.paged_list import PagedList
+
+_REVIEWS_UI_ALTERNATIVE = "Use the workspace Reviews UI."
 
 __all__ = [
     "ReviewItemType",
@@ -64,6 +67,7 @@ def _resolve_experiment_id(experiment_id: str | None) -> str:
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("create_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def create_review_queue(
     name: str,
     *,
@@ -104,6 +108,7 @@ def create_review_queue(
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("get_or_create_user_queue", _REVIEWS_UI_ALTERNATIVE)
 def get_or_create_user_queue(
     user: str,
     *,
@@ -128,6 +133,7 @@ def get_or_create_user_queue(
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("get_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def get_review_queue(
     queue_id: str | None = None,
     *,
@@ -155,6 +161,7 @@ def get_review_queue(
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("list_review_queues", _REVIEWS_UI_ALTERNATIVE)
 def list_review_queues(
     *,
     user: str | None = None,
@@ -183,6 +190,7 @@ def list_review_queues(
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("update_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def update_review_queue(
     queue_id: str,
     *,
@@ -209,6 +217,7 @@ def update_review_queue(
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("delete_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def delete_review_queue(queue_id: str) -> None:
     """
     Delete a queue and its associations. No-op if it doesn't exist.
@@ -219,6 +228,7 @@ def delete_review_queue(queue_id: str) -> None:
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("add_items_to_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def add_items_to_review_queue(queue_id: str, *, item_ids: list[str]) -> list[ReviewQueueItem]:
     """
     Attach items to a queue, returning the resulting queue items.
@@ -230,12 +240,14 @@ def add_items_to_review_queue(queue_id: str, *, item_ids: list[str]) -> list[Rev
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("remove_items_from_review_queue", _REVIEWS_UI_ALTERNATIVE)
 def remove_items_from_review_queue(queue_id: str, *, item_ids: list[str]) -> None:
     """Detach items from a queue. No-op for items not attached."""
     TracingClient()._remove_items_from_review_queue(queue_id, item_ids=item_ids)
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("list_review_queue_items", _REVIEWS_UI_ALTERNATIVE)
 def list_review_queue_items(
     queue_id: str,
     *,
@@ -261,6 +273,7 @@ def list_review_queue_items(
 
 
 @experimental(version="3.14.0")
+@databricks_api_disabled("set_review_queue_item_status", _REVIEWS_UI_ALTERNATIVE)
 def set_review_queue_item_status(
     queue_id: str,
     *,

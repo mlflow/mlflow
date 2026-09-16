@@ -30,6 +30,7 @@ class Job(BaseModel):
     retry_count: int
     last_update_time: int
     status_details: dict[str, Any] | None = None
+    creator: str | None = None
 
     @classmethod
     def from_job_entity(cls, job: JobEntity) -> "Job":
@@ -44,6 +45,7 @@ class Job(BaseModel):
             retry_count=job.retry_count,
             last_update_time=job.last_update_time,
             status_details=job.status_details,
+            creator=job.creator,
         )
 
 

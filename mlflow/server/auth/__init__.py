@@ -394,6 +394,7 @@ from mlflow.server.handlers import (
 from mlflow.server.handlers import (
     _disable_if_workspaces_disabled as _disable_if_workspaces_disabled,
 )
+from mlflow.server.job_api import search_jobs as _search_jobs_endpoint
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
     MCPAccessEndpointResponse,
@@ -1177,6 +1178,14 @@ def validate_can_read_scorer_list():
     # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
     # per-row RBAC filtering, so the route itself is open to any authenticated
     # caller.
+    #
+    # NB: this validator does not look at the newer, plural ``experiment_ids``
+    # field (added for pre-request auth scoping, see #24964). A caller that
+    # sets only ``experiment_ids`` still falls through to the ``not
+    # args.get("experiment_id")`` branch below and relies on the
+    # post-response filtering in ``filter_list_scorers`` -- basic auth does
+    # not yet use ``experiment_ids`` to scope the query before it reaches
+    # the store.
     args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
     if not args.get("experiment_id"):
         return True
@@ -1395,16 +1404,36 @@ def validate_can_create_model_version():
     # on the source run/model to keep create-time access consistent with artifact-read gating.
     if not _validate_can_update_registered_model_or_prompt():
         return False
-    body = request.get_json(force=True, silent=True)
-    body = body if isinstance(body, dict) else {}
+    # Parse through the proto, exactly as the handler does, so the camelCase `runId` /
+    # `modelId` aliases the handler accepts are authorized against the same IDs it will
+    # anchor the version to. A raw-body key check would miss the aliases and skip the READ
+    # check while the handler still binds the source run/model from them.
+    msg = _get_request_message(CreateModelVersion())
     # Presence of run_id/model_id means the version is anchored to that source, so require
     # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
     # denied here rather than being allowed to slip past the guard as if it were absent.
-    if "run_id" in body and not (body["run_id"] and _get_permission_from_run_id().can_read):
+    if msg.HasField("run_id") and not (
+        msg.run_id and _can_read_model_version_source(_get_run_permission, msg.run_id)
+    ):
         return False
-    if "model_id" in body and not (body["model_id"] and _get_permission_from_model_id().can_read):
+    if msg.HasField("model_id") and not (
+        msg.model_id and _can_read_model_version_source(_get_model_permission, msg.model_id)
+    ):
         return False
     return True
+
+
+def _can_read_model_version_source(
+    get_permission: Callable[[str], Permission], source_id: str
+) -> bool:
+    # Deny a nonexistent source id uniformly (403 rather than 404) so the response cannot
+    # be used as an oracle for which run/model ids exist.
+    try:
+        return get_permission(source_id).can_read
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
 
 
 def validate_can_create_experiment() -> bool:
@@ -1971,6 +2000,12 @@ def validate_can_manage_gateway_secret():
     return _get_permission_from_gateway_secret_id().can_manage
 
 
+def validate_can_create_gateway_secret():
+    # Persisting a provider credential is a workspace-scoped create, like experiments and
+    # registered models. The after-request MANAGE grant only records ownership.
+    return _user_can_create_in_workspace()
+
+
 def validate_can_read_gateway_endpoint():
     return _get_permission_from_gateway_endpoint_id().can_read
 
@@ -2286,6 +2321,13 @@ def validate_can_search_traces_v3():
 
 
 def validate_can_batch_get_traces():
+    # Derives experiment ownership by reverse-looking-up each trace_id's
+    # experiment_id and requires read permission on all of them (all-or-
+    # nothing). This predates and is independent of the request's own
+    # ``experiment_ids`` field (added for pre-request auth scoping, see
+    # #24964): that field is currently wired through only as far as the
+    # store layer (proto -> handlers -> SqlAlchemyStore / RestStore), and
+    # this validator neither reads nor benefits from it yet.
     if request.method == "GET":
         trace_ids = request.args.to_dict(flat=False).get("trace_ids", [])
     else:
@@ -2820,6 +2862,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
     # Routes for gateway secrets
+    CreateGatewaySecret: validate_can_create_gateway_secret,
     GetGatewaySecretInfo: validate_can_read_gateway_secret,
     UpdateGatewaySecret: validate_can_update_gateway_secret,
     DeleteGatewaySecret: validate_can_delete_gateway_secret,
@@ -3590,11 +3633,14 @@ def _authorized_outside_before_request(req) -> bool:
         return True
     if _matches_route_suffix(unprefixed, _HANDLER_INTERNAL_AUTHZ_SUFFIXES):
         return True
-    if (path, method) in AFTER_REQUEST_HANDLERS:
+    # Only response filters authorize a route on their own. Ownership grants and
+    # permission cleanups run after an already-authorized write, so their presence must
+    # not exempt a route that lacks a before-request validator from the fail-closed net.
+    if AFTER_REQUEST_HANDLERS.get((path, method)) in _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS:
         return True
     return any(
-        pat.fullmatch(path) and m == method
-        for (pat, m) in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS
+        pat.fullmatch(path) and m == method and handler in _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS
+        for (pat, m), handler in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items()
     )
 
 
@@ -4377,6 +4423,23 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteWorkspace: _cleanup_workspace_permissions,
 }
 
+# After-request handlers that make the authorization decision for their route by
+# filtering or redacting the response. Every other after-request handler is a side
+# effect of a write that a before-request validator must have already authorized.
+_SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS = frozenset({
+    filter_search_experiments,
+    filter_search_logged_models,
+    filter_search_model_versions,
+    filter_search_registered_models,
+    filter_list_scorers,
+    filter_list_review_queues,
+    filter_list_gateway_endpoints,
+    filter_list_gateway_model_definitions,
+    filter_list_gateway_secrets,
+    filter_list_workspaces,
+    redact_secrets_config_for_non_admins,
+})
+
 
 def get_after_request_handler(request_class):
     return AFTER_REQUEST_PATH_HANDLERS.get(request_class)
@@ -5039,6 +5102,12 @@ class GraphQLAuthorizationMiddleware:
         "mlflowSearchDatasets",
         "mlflowSearchModelVersions",
     }
+    # Nested fields, keyed by (parent GraphQL type, field name). ``run.modelVersions``
+    # (reachable via mlflowGetRun / mlflowSearchRuns) resolves through the unfiltered search
+    # implementation, so it needs the same per-model filter as the top-level search. Keying
+    # on the parent type keeps the same-named, already-filtered sub-field of
+    # ``MlflowSearchModelVersionsResponse`` out of the middleware.
+    PROTECTED_NESTED_FIELDS = {("MlflowRunExtension", "modelVersions")}
 
     def resolve(self, next, root, info, **args):
         """
@@ -5055,7 +5124,10 @@ class GraphQLAuthorizationMiddleware:
         """
         field_name = info.field_name
 
-        if field_name not in self.PROTECTED_FIELDS:
+        if (
+            field_name not in self.PROTECTED_FIELDS
+            and (info.parent_type.name, field_name) not in self.PROTECTED_NESTED_FIELDS
+        ):
             return next(root, info, **args)
 
         try:
@@ -5133,13 +5205,28 @@ class GraphQLAuthorizationMiddleware:
         """Apply post-resolution filtering on GraphQL results."""
         if field_name == "mlflowSearchModelVersions":
             return self._filter_model_versions_result(result, username)
+        # A bare field-name match is enough here: ``resolve`` only lets ``modelVersions``
+        # through when its parent type is listed in ``PROTECTED_NESTED_FIELDS``.
+        if field_name == "modelVersions":
+            can_read = self._model_version_read_predicate(username)
+            return [mv for mv in result if can_read(mv)]
         return result
+
+    def _model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
+        # mlflowSearchRuns resolves ``modelVersions`` once per run, and building the predicate
+        # costs a user lookup plus a grants query, so memoize it for the current request.
+        # Prompt-aware like the REST ``filter_search_model_versions`` so a prompt version is
+        # judged by prompt grants rather than registered-model grants.
+        predicates = g.setdefault("_graphql_model_version_read_predicates", {})
+        if username not in predicates:
+            predicates[username] = _rm_or_prompt_read_predicate(username)
+        return predicates[username]
 
     def _filter_model_versions_result(self, result, username: str):
         """Filter model versions the user doesn't have read access to."""
-        can_read = _role_based_read_predicate(username, "registered_model")
+        can_read = self._model_version_read_predicate(username)
         if hasattr(result, "model_versions") and result.model_versions is not None:
-            filtered = [mv for mv in result.model_versions if can_read(mv.name)]
+            filtered = [mv for mv in result.model_versions if can_read(mv)]
             del result.model_versions[:]
             result.model_versions.extend(filtered)
         return result
@@ -5620,8 +5707,8 @@ def _job_id_from_path(unprefixed_path: str) -> str | None:
 def _get_job_route_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
-    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth.
-    # NB: /jobs/search still returns all jobs — filtering to the caller is a tracked follow-up.
+    # get/cancel by id are ownership-gated (admins bypass upstream); submit/search need only auth
+    # here. /jobs/search is narrowed to the caller's own jobs by ``_filter_search_jobs``.
     job_id = _job_id_from_path(path)
 
     async def validator(username: str, request: StarletteRequest) -> bool:
@@ -5812,6 +5899,14 @@ def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest
     return json.dumps(data).encode()
 
 
+def _filter_search_jobs(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    # Jobs have no experiment scope, so ownership is the boundary (as on the per-id routes):
+    # non-admins only see jobs they created, and jobs with no recorded creator stay hidden.
+    data = json.loads(body)
+    data["jobs"] = [job for job in data.get("jobs", []) if job.get("creator") == username]
+    return json.dumps(data).encode()
+
+
 FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     Callable[..., Any],
     Callable[[str, bytes, StarletteRequest], bytes],
@@ -5819,14 +5914,15 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
+    _search_jobs_endpoint: _filter_search_jobs,
 }
 
 
 def _find_fastapi_response_filter(
-    request: StarletteRequest, method: str
+    request: StarletteRequest,
 ) -> Callable[[str, bytes, StarletteRequest], bytes] | None:
-    if method != "GET":
-        return None
+    # Keyed on the resolved endpoint function, so only the registered collection routes
+    # (GET or POST) are filtered.
     endpoint = request.scope.get("endpoint")
     if endpoint is None:
         return None
@@ -6024,7 +6120,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
 
         # Response filters are RBAC-based; admins retain unfiltered full access.
         if not user.is_admin:
-            response_filter = _find_fastapi_response_filter(request, request.method)
+            response_filter = _find_fastapi_response_filter(request)
             if response_filter is not None and response.status_code < 400:
                 body = bytearray()
                 async for chunk in response.body_iterator:
