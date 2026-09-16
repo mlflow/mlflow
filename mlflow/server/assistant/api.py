@@ -63,8 +63,6 @@ from mlflow.server.handlers import _add_static_prefix
 
 _logger = logging.getLogger(__name__)
 
-_logger = logging.getLogger(__name__)
-
 
 def _get_provider(name: str):
     for p in list_providers():
