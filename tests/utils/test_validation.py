@@ -12,6 +12,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
     MAX_TAG_VAL_LENGTH,
+    _find_destination_keys,
     _is_numeric,
     _parse_trace_archival_duration_config,
     _validate_batch_log_data,
@@ -1062,6 +1063,19 @@ def test_validate_third_party_scorer_data_rejects_non_object_kwargs():
             _trulens_scorer([["api_base", "http://169.254.169.254/"]])
         )
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ([["api_base", "http://169.254.169.254/"]], {"api_base"}),
+        ([["base_url", "http://a/"], ["fallbacks", []]], {"base_url", "fallbacks"}),
+        ([["api_base", {"custom_llm_provider": "x"}]], {"api_base", "custom_llm_provider"}),
+        ([[1, 2], ["api_base"], ["api_base", "u", "extra"], "api_base"], set()),
+    ],
+)
+def test_find_destination_keys_handles_pair_lists_at_root(value, expected):
+    assert _find_destination_keys(value) == expected
 
 
 def test_validate_third_party_scorer_data_rejects_pair_list_in_nested_options():
