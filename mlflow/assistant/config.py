@@ -149,6 +149,8 @@ class AssistantConfig(BaseModel):
         # destroy other users' / no-auth providers). Config writes are localhost-only, so this
         # read-modify-write of the shared file is not additionally locked against concurrent
         # writers.
+        # TODO: Add file locking or an atomic merge strategy before this path is used for
+        # high-concurrency authenticated config writes.
         global_config = self._read_file(CONFIG_PATH)
         self._save_file(_user_config_path(username), AssistantConfig(providers=self.providers))
         global_config.projects = self.projects

@@ -39,6 +39,8 @@ class ToolResultBlock(BaseModel):
 
 ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock
 
+TURN_CONTROL_CONTEXT_KEYS = frozenset({"tool_decisions", "client_tool_results"})
+
 
 class Message(BaseModel):
     """Structured message representation for assistant conversations.

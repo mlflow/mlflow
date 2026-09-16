@@ -99,9 +99,15 @@ class MockProvider(AssistantProvider):
 class MockGatewayProvider(MockProvider):
     """Mock provider that reports the in-server gateway's name."""
 
+    client_carries_history = True
+
     @property
     def name(self) -> str:
         return MlflowGatewayProvider.GATEWAY_PROVIDER_NAME
+
+
+class StatelessProvider(MockProvider):
+    client_carries_history = True
 
 
 @pytest.fixture(autouse=True)
@@ -145,6 +151,8 @@ def client():
 
 class CapturingProvider(MockProvider):
     """MockProvider that records astream_stateless kwargs and echoes the history blob on DONE."""
+
+    client_carries_history = True
 
     def __init__(self):
         self.calls: list[dict[str, Any]] = []
@@ -387,7 +395,7 @@ def test_stream_uses_selected_provider_without_default_probe(client):
     mock_resolve_default.assert_not_called()
 
 
-def test_stream_authorizes_gateway_endpoint_use_for_gateway_provider():
+def test_chat_authorizes_gateway_endpoint_use_for_gateway_provider():
     app = FastAPI()
     app.include_router(assistant_router)
 
@@ -399,10 +407,10 @@ def test_stream_authorizes_gateway_endpoint_use_for_gateway_provider():
         patch("mlflow.server.assistant.api.ensure_assistant_gateway_use_permission") as ensure,
     ):
         client = TestClient(app)
-        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
-        response = client.get(r.json()["stream_url"])
+        response = client.post("/ajax-api/3.0/mlflow/assistant/chat", json={"message": "Hi"})
 
     assert response.status_code == 200
+    assert "Hello from mock" in response.text
     ensure.assert_called_once()
 
 
@@ -1551,20 +1559,43 @@ def test_stream_persists_history_for_legacy_sessions(client):
     assert session.provider_session_id == "mock-session-123"
 
 
+def test_stream_rejects_client_history_provider_before_streaming(make_client):
+    provider = StatelessProvider()
+    tc = make_client(provider)
+    response = tc.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+    session_id = response.json()["session_id"]
+
+    response = tc.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "This provider requires the stateless /chat endpoint."
+
+
 # ── POST /chat: stateless streaming for client-carried-history providers ──────
 
 
-def test_chat_streams_sse_events(client):
+def test_chat_streams_sse_events(make_client):
+    client = make_client(CapturingProvider())
     response = client.post("/ajax-api/3.0/mlflow/assistant/chat", json={"message": "Hi"})
     assert response.status_code == 200
     assert "text/event-stream" in response.headers["content-type"]
     content = response.text
     assert "event: message" in content
-    assert "Hello from mock" in content
+    assert "reply" in content
     assert "event: done" in content
 
 
-def test_chat_writes_no_session_file(client):
+def test_chat_rejects_stateful_provider_before_streaming(client):
+    response = client.post("/ajax-api/3.0/mlflow/assistant/chat", json={"message": "Hi"})
+
+    assert response.status_code == 400
+    assert (
+        response.json()["detail"] == "This provider does not support the stateless /chat endpoint."
+    )
+
+
+def test_chat_writes_no_session_file(make_client):
+    client = make_client(CapturingProvider())
     with (
         patch("mlflow.server.assistant.api.SessionManager.save") as mock_save,
         patch("mlflow.server.assistant.api.SessionManager.load") as mock_load,

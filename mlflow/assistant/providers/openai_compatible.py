@@ -35,7 +35,14 @@ from mlflow.assistant.providers.tool_executor import (
     restrict_permissions_for_remote,
     static_permission_error,
 )
-from mlflow.assistant.types import Event, EventType, Message, ToolResultBlock, ToolUseBlock
+from mlflow.assistant.types import (
+    TURN_CONTROL_CONTEXT_KEYS,
+    Event,
+    EventType,
+    Message,
+    ToolResultBlock,
+    ToolUseBlock,
+)
 from mlflow.tracing.constant import CostKey, TokenUsageKey
 from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 
@@ -50,7 +57,6 @@ _MAX_SESSION_BYTES = 500 * 1024
 _JSON_LIST_OVERHEAD_BYTES = 2
 _JSON_LIST_SEPARATOR_BYTES = 2
 _GENERIC_PROVIDER_ERROR = "The assistant provider returned an error. Please try again."
-_TURN_CONTROL_CONTEXT_KEYS = {"tool_decisions", "client_tool_results"}
 
 # Callable signature for the per-preset model-listing strategy.
 # Takes (base_url, api_key) and returns a list of model/endpoint names.
@@ -457,7 +463,7 @@ class OpenAICompatibleProvider(AssistantProvider):
             model = available[0]
 
         model_context = {
-            k: v for k, v in (context or {}).items() if k not in _TURN_CONTROL_CONTEXT_KEYS
+            k: v for k, v in (context or {}).items() if k not in TURN_CONTROL_CONTEXT_KEYS
         }
         if model_context:
             user_text = f"<context>\n{json.dumps(model_context)}\n</context>\n\n{prompt}"

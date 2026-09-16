@@ -925,7 +925,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const selectProvider = useCallback(
     (selection: AssistantProviderSelection) => {
-      if (!isLocalServer || isStreaming) {
+      if (!canUseAssistant || isStreaming) {
         return;
       }
       // Provider session handles and opaque histories are provider/model-specific. Start a clean
@@ -936,7 +936,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setActiveProvider(nextProvider);
       setClientCarriesHistory(nextProvider.client_carries_history);
     },
-    [isLocalServer, isStreaming, providers, reset],
+    [canUseAssistant, isStreaming, providers, reset],
   );
 
   const startChat = useCallback(

@@ -43,7 +43,7 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.providers.tool_executor import set_remote_caller
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
-from mlflow.assistant.types import Event, EventType
+from mlflow.assistant.types import TURN_CONTROL_CONTEXT_KEYS, Event, EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.server.asgi_utils import get_server_base_url
 from mlflow.server.assistant.gateway_permissions import ensure_assistant_gateway_use_permission
@@ -257,7 +257,6 @@ assistant_router = APIRouter(
 )
 
 _TURN_SCOPED_CONTEXT_KEYS = {"customTraceView"}
-_TURN_CONTROL_CONTEXT_KEYS = {"tool_decisions", "client_tool_results"}
 
 
 class MessageRequest(BaseModel):
@@ -603,20 +602,20 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
     tracking_uri = get_server_base_url(request)
     is_remote = not _is_localhost(request)
+    provider = await asyncio.to_thread(_resolve_provider, remote=is_remote)
+    if provider is not None and provider.client_carries_history:
+        raise HTTPException(
+            status_code=400,
+            detail="This provider requires the stateless /chat endpoint.",
+        )
+    if provider is not None and provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+        # The in-server gateway enforces a per-endpoint USE permission. The Assistant's
+        # managed endpoints are created outside the HTTP route that would grant it, so
+        # authorize this caller for them before the turn calls the gateway.
+        await asyncio.to_thread(ensure_assistant_gateway_use_permission, username)
 
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
-        provider = await asyncio.to_thread(_resolve_provider, remote=is_remote)
-        if provider is not None and provider.client_carries_history:
-            yield Event.from_error(
-                "This provider requires the stateless /chat endpoint."
-            ).to_sse_event()
-            return
-        if provider is not None and provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
-            # The in-server gateway enforces a per-endpoint USE permission. The Assistant's
-            # managed endpoints are created outside the HTTP route that would grant it, so
-            # authorize this caller for them before the turn calls the gateway.
-            await asyncio.to_thread(ensure_assistant_gateway_use_permission, username)
         start_stream = (
             functools.partial(
                 provider.astream,
@@ -654,6 +653,11 @@ async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
     """Stateless streaming chat for client-carried-history providers."""
     is_remote = not _is_localhost(request)
     provider = await asyncio.to_thread(_resolve_provider, remote=is_remote)
+    if provider is not None and not provider.client_carries_history:
+        raise HTTPException(
+            status_code=400,
+            detail="This provider does not support the stateless /chat endpoint.",
+        )
     username = _current_username(request)
     if provider is not None and provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
         await asyncio.to_thread(ensure_assistant_gateway_use_permission, username)
@@ -666,7 +670,7 @@ async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
     # Turn controls have typed top-level fields. Never accept lookalikes from the arbitrary page
     # context map: doing so would bypass validation and let context metadata drive tool execution.
     context = {
-        key: value for key, value in body.context.items() if key not in _TURN_CONTROL_CONTEXT_KEYS
+        key: value for key, value in body.context.items() if key not in TURN_CONTROL_CONTEXT_KEYS
     }
     if body.tool_decisions:
         context["tool_decisions"] = body.tool_decisions

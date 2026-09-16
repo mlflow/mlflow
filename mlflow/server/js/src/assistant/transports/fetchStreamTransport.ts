@@ -198,7 +198,6 @@ export const streamChatViaFetch = async (
     let sawTerminal = false;
     const turnState: TurnState = { sawPause: false, terminalClientToolCall: null };
     try {
-      armWatchdog();
       for await (const { event, data } of readSseFrames(body)) {
         if (await dispatchSseFrame(event, data, callbacks, turnState)) {
           sawTerminal = true;

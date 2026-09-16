@@ -14,6 +14,11 @@ if (typeof (global as any).TextEncoder === 'undefined') {
 
 const encoder = new NodeTextEncoder();
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+const flushPromises = async () => {
+  for (let i = 0; i < 5; i++) {
+    await Promise.resolve();
+  }
+};
 
 const makeCallbacks = (overrides: Partial<SendMessageStreamCallbacks> = {}): SendMessageStreamCallbacks => ({
   onMessage: jest.fn(),
@@ -50,6 +55,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   jest.restoreAllMocks();
   jest.clearAllMocks();
 });
@@ -151,6 +157,36 @@ describe('streamChatViaFetch', () => {
 
     expect(callbacks.onMessage).toHaveBeenCalledWith('hi');
     expect(callbacks.onError).not.toHaveBeenCalled();
+  });
+
+  it('does not arm the inactivity watchdog while waiting for the first frame', async () => {
+    jest.useFakeTimers();
+    let resolveRead!: (value: { value: Uint8Array | undefined; done: boolean }) => void;
+    const reader = {
+      read: jest.fn(
+        () =>
+          new Promise<{ value: Uint8Array | undefined; done: boolean }>((resolve) => {
+            resolveRead = resolve;
+          }),
+      ),
+    };
+    mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => reader } });
+
+    const callbacks = makeCallbacks();
+    await streamChatViaFetch({ message: 'hi' }, callbacks);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    jest.advanceTimersByTime(60_001);
+
+    expect(callbacks.onError).not.toHaveBeenCalled();
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.signal?.aborted).toBe(false);
+
+    resolveRead({ value: encoder.encode('event: done\ndata: {"conversation_history":"[]"}\n\n'), done: false });
+    await flushPromises();
+
+    expect(callbacks.onDone).toHaveBeenCalledTimes(1);
   });
 
   it('treats a done after a permission_request as a pause: captures history without finalizing', async () => {
