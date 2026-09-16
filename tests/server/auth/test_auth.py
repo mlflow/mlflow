@@ -57,6 +57,7 @@ from mlflow.server.mcp_server_api import (
     search_mcp_server_versions,
     search_mcp_servers,
 )
+from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.utils import workspace_context
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -4336,6 +4337,40 @@ def test_job_api_unauthenticated_access_denied(fastapi_client, monkeypatch):
     assert response.status_code == 401
 
 
+def test_job_search_only_returns_callers_jobs(fastapi_client, tmp_path):
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+
+    # Seed jobs straight into the server's SQLite backend (same file the fixture points the
+    # server at) so no job runner or allowlisted job function is needed.
+    db_path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + db_path[len("file://") :]
+    job_store = SqlAlchemyJobStore(backend_uri)
+    job1 = job_store.create_job("fn", json.dumps({"owner": user1}), creator=user1)
+    job2 = job_store.create_job("fn", json.dumps({"owner": user2}), creator=user2)
+    legacy_job = job_store.create_job("fn", json.dumps({"owner": "legacy"}), creator=None)
+
+    def search(auth):
+        response = requests.post(
+            url=fastapi_client.tracking_uri + "/ajax-api/3.0/jobs/search",
+            json={},
+            auth=auth,
+        )
+        response.raise_for_status()
+        return {job["job_id"]: job for job in response.json()["jobs"]}
+
+    user1_jobs = search((user1, password1))
+    assert set(user1_jobs) == {job1.job_id}
+    assert user1_jobs[job1.job_id]["params"] == {"owner": user1}
+    assert user1_jobs[job1.job_id]["creator"] == user1
+
+    assert set(search((user2, password2))) == {job2.job_id}
+
+    # Admins keep the unfiltered listing, including jobs with no recorded creator.
+    admin_jobs = search((ADMIN_USERNAME, ADMIN_PASSWORD))
+    assert {job1.job_id, job2.job_id, legacy_job.job_id} <= set(admin_jobs)
+
+
 def test_assistant_unauthenticated_access_denied(fastapi_client, monkeypatch):
     monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
     monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
@@ -6007,12 +6042,12 @@ def test_read_predicate_honors_grant_default_workspace_access(
 )
 def test_response_filter_matches_endpoint_functions(endpoint_fn):
     request = SimpleNamespace(scope={"endpoint": endpoint_fn})
-    assert _find_fastapi_response_filter(request, "GET") is not None
+    assert _find_fastapi_response_filter(request) is not None
 
 
 def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch):
     request = SimpleNamespace(scope={"endpoint": get_mcp_server})
-    handler = _find_fastapi_response_filter(request, "GET")
+    handler = _find_fastapi_response_filter(request)
     assert handler is not None
     monkeypatch.setattr(
         auth_module,
@@ -6029,7 +6064,7 @@ def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch
 def test_response_filter_skips_sub_resource_endpoints():
     for endpoint_fn in (get_mcp_server_version, search_mcp_server_versions):
         request = SimpleNamespace(scope={"endpoint": endpoint_fn})
-        assert _find_fastapi_response_filter(request, "GET") is None
+        assert _find_fastapi_response_filter(request) is None
 
 
 def test_apply_fastapi_response_filter_fails_closed():
