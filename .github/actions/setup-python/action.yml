@@ -63,7 +63,6 @@ runs:
     - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       with:
         version-file: ${{ github.action_path }}/../../../pyproject.toml
-        resolution-strategy: lowest
         # Caching disabled to avoid cache-poisoning exposure across CI workflows.
         enable-cache: false
     - run: |
@@ -79,4 +78,13 @@ runs:
         # Disable Hugging Face download progress bars to reduce CI log clutter
         # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
         echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV
+        # Resolve project dependencies to their lowest compatible versions,
+        # to exercise MLflow's stated minimum-supported dependency versions
+        # in CI (moved here from the removed `resolution-strategy: lowest`
+        # on the setup-uv step above, which only controls which *uv tool*
+        # version gets installed when a version range is given to `version:`
+        # -- it has no effect on how `uv pip install` resolves this
+        # project's own dependencies).
+        # https://docs.astral.sh/uv/reference/environment/#uv_resolution
+        echo "UV_RESOLUTION=lowest" >> $GITHUB_ENV
       shell: bash
