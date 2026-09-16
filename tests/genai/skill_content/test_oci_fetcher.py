@@ -691,6 +691,16 @@ def test_fetch_oci_whiteout_of_subpath_ancestor_clears_selected_tree(tmp_path, d
     assert _listing(dest) == ["skills", "skills/demo"]
 
 
+def test_fetch_oci_bare_whiteout_marker_is_rejected(tmp_path):
+    # ``.wh.`` names nothing; it is refused by path validation (trailing period) and, as a
+    # second line of defense, by the whiteout logic itself.
+    with pytest.raises(MlflowException, match="ending in a space or period"):
+        _fetch_layers(tmp_path, [_raw_tar_gz({"SKILL.md": b"x"}), _raw_tar_gz({".wh.": b""})])
+    with pytest.raises(MlflowException, match="names nothing to delete"):
+        oci_module._apply_whiteouts([".wh."], tmp_path, None)
+    assert tmp_path.exists()
+
+
 def test_fetch_oci_whiteout_outside_subpath_is_ignored(tmp_path):
     dest = _fetch_layers(
         tmp_path,

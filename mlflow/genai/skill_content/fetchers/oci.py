@@ -668,11 +668,12 @@ def _apply_whiteouts(whiteouts: list[str], dest: Path, prefix: str | None) -> No
             elif is_under_subpath(directory, prefix):
                 _clear_directory(dest.joinpath(*directory.split("/")))
             continue
-        deleted = (
-            f"{directory}/{name[len(_WHITEOUT_PREFIX) :]}"
-            if directory
-            else name[len(_WHITEOUT_PREFIX) :]
-        )
+        target_name = name[len(_WHITEOUT_PREFIX) :]
+        if not target_name:
+            # Segment validation already refuses names ending in a period, so a bare marker
+            # cannot reach this point; the guard keeps the deletion root safe regardless.
+            raise invalid_content(f"OCI layer whiteout '{entry}' names nothing to delete.")
+        deleted = f"{directory}/{target_name}" if directory else target_name
         if prefix is not None and is_under_subpath(prefix, deleted):
             _clear_directory(content_root)
         elif is_under_subpath(deleted, prefix):
