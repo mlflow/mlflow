@@ -901,27 +901,71 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
 # artifact-proxy validator falls back to the coarser workspace-tier grant.
 _EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
 
-# The segment after the experiment id is the run id: ``<experiment_id>/<run_id>/artifacts/...``.
-# Capturing it lets the proxy authorize on the run child tier (with experiment fallback)
-# rather than the coarser experiment tier, so a ``run`` DENY is honored and a run-only
-# grant can use the proxy.
-_RUN_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?\d+/([^/]+)/")
+# Proxied artifact paths carry the resource layout in the segments after the experiment id:
+#   run:          <experiment_id>/<run_id>/artifacts/...
+#   trace:        <experiment_id>/traces/<trace_id>/artifacts/...
+#   logged model: <experiment_id>/models/<model_id>/artifacts/...
+#   experiment:   <experiment_id>/artifacts/... (experiment-level, no child)
+# ``traces``/``models``/``artifacts`` are the fixed subdirectory names the tracking store
+# uses (``TRACE_FOLDER_NAME``/``MODELS_FOLDER_NAME``/``ARTIFACTS_FOLDER_NAME``). Matching them
+# lets the proxy authorize each artifact on its own child tier (with experiment fallback), so a
+# ``trace``/``logged_model``/``run`` DENY is honored and a child-only grant can use the proxy.
+_ARTIFACT_PROXY_LAYOUT_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?\d+/([^/]+)(?:/([^/]+))?")
+_ARTIFACT_PROXY_CHILD_FOLDERS = {"traces": "trace", "models": "logged_model"}
 
 
-def _get_run_id_from_view_args():
-    if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
-        if m := _RUN_ID_PATTERN.match(artifact_path):
-            return m.group(1)
-    return None
+def _artifact_proxy_child_from_path(artifact_path: str) -> tuple[str, str] | None:
+    """Return ``(child_type, child_key)`` for a proxied artifact path, or ``None`` for an
+    experiment-level path that should resolve on the experiment tier.
+    """
+    m = _ARTIFACT_PROXY_LAYOUT_PATTERN.match(artifact_path)
+    if not m:
+        return None
+    second, third = m.group(1), m.group(2)
+    # ``<experiment_id>/artifacts/...`` targets the experiment itself.
+    if second == "artifacts":
+        return None
+    if child_type := _ARTIFACT_PROXY_CHILD_FOLDERS.get(second):
+        # ``traces``/``models`` are folder names; the child id is the next segment.
+        if third is None:
+            return None
+        return child_type, third
+    # Any other second segment is a run id: ``<experiment_id>/<run_id>/artifacts/...``.
+    return "run", second
+
+
+def _artifact_proxy_path_from_view_args() -> str | None:
+    # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
+    # For the list-artifacts endpoint, the path is a query parameter named "path".
+    return request.view_args.get("artifact_path") or request.args.get("path")
 
 
 def _get_experiment_id_from_view_args():
-    # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
-    # For the list-artifacts endpoint, the path is a query parameter named "path".
-    if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
+    if artifact_path := _artifact_proxy_path_from_view_args():
         if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
             return m.group(1)
     return None
+
+
+def _proxy_artifact_permission_for_layout(
+    experiment_id: str, artifact_path: str, username: str
+) -> Permission:
+    """Resolve a proxied artifact's permission on the correct child tier for its layout,
+    falling back to the experiment tier for experiment-level paths.
+    """
+    if child := _artifact_proxy_child_from_path(artifact_path):
+        child_type, child_key = child
+        return _experiment_child_permission(child_type, child_key, experiment_id, username=username)
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+        ),
+    )
 
 
 def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
@@ -930,20 +974,9 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
     # Flask-served list/delete/presigned/MPU requests.
     username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
 
+    artifact_path = _artifact_proxy_path_from_view_args()
     if experiment_id := _get_experiment_id_from_view_args():
-        run_id = _get_run_id_from_view_args()
-        if run_id and run_id != "artifacts":
-            return _experiment_child_permission("run", run_id, experiment_id, username=username)
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="experiment",
-                resource_key=experiment_id,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
+        return _proxy_artifact_permission_for_layout(experiment_id, artifact_path, username)
 
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():
@@ -6139,56 +6172,35 @@ def _get_otel_validator(
 def _extract_experiment_id_from_artifact_proxy_path(
     path: str, query_path: str | None = None
 ) -> str | None:
-    # Mirror Flask view_args extraction for both simple artifact routes and MPU
-    # control-plane routes (create/complete/abort). FastAPI permission middleware
-    # claims all `_is_proxy_artifact_path` URLs, so experiment ids must be parsed
-    # from /mpu/... as well as /artifacts/....
-    prefixes = (
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-    )
-    prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
-    if prefix is not None:
-        artifact_path = path.removeprefix(prefix)
+    if artifact_path := _artifact_proxy_relative_path(path, query_path):
         if m := _EXPERIMENT_ID_PATTERN.match(f"{artifact_path}/"):
             return m.group(1)
-
-    # List-artifacts uses GET .../artifacts?path=<experiment_id>/... (Flask parity).
-    if query_path and (m := _EXPERIMENT_ID_PATTERN.match(query_path)):
-        return m.group(1)
     return None
 
 
-def _extract_run_id_from_artifact_proxy_path(
-    path: str, query_path: str | None = None
-) -> str | None:
-    # The run id is the segment after the experiment id. Reuse the same prefix set as
-    # the experiment extractor so run-tier authorization applies to /artifacts/ and
-    # /mpu/ control-plane routes alike.
-    prefixes = (
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-    )
-    prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
-    if prefix is not None:
-        artifact_path = path.removeprefix(prefix)
-        if m := _RUN_ID_PATTERN.match(f"{artifact_path}/"):
-            return m.group(1)
+_ARTIFACT_PROXY_PREFIXES = (
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+)
 
-    if query_path and (m := _RUN_ID_PATTERN.match(query_path)):
-        return m.group(1)
+
+def _artifact_proxy_relative_path(path: str, query_path: str | None = None) -> str | None:
+    """Return the storage-relative artifact path for a FastAPI proxy request, or ``None``.
+
+    Handles both the simple ``/artifacts/`` and MPU control-plane (create/complete/abort)
+    routes, plus the list-artifacts ``?path=`` query form (Flask parity).
+    """
+    prefix = next((prefix for prefix in _ARTIFACT_PROXY_PREFIXES if path.startswith(prefix)), None)
+    if prefix is not None:
+        return path.removeprefix(prefix)
+    if query_path:
+        return query_path
     return None
 
 
@@ -6196,19 +6208,8 @@ def _get_proxy_artifact_permission(
     path: str, username: str, query_path: str | None = None
 ) -> Permission:
     if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path, query_path):
-        run_id = _extract_run_id_from_artifact_proxy_path(path, query_path)
-        if run_id and run_id != "artifacts":
-            return _experiment_child_permission("run", run_id, experiment_id, username=username)
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="experiment",
-                resource_key=experiment_id,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
+        artifact_path = _artifact_proxy_relative_path(path, query_path) or ""
+        return _proxy_artifact_permission_for_layout(experiment_id, artifact_path, username)
 
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():

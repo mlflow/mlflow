@@ -8632,29 +8632,38 @@ def test_review_queue_item_uses_review_queue_child_tier(monkeypatch):
     assert auth_module.validate_can_review_queue_item() is True
 
 
-def test_extract_run_id_from_artifact_proxy_path():
-    assert (
-        auth_module._extract_run_id_from_artifact_proxy_path(
-            "/api/2.0/mlflow-artifacts/artifacts/42/run-abc/artifacts/model.pkl"
-        )
-        == "run-abc"
+def test_artifact_proxy_child_from_path_dispatches_by_layout():
+    assert auth_module._artifact_proxy_child_from_path("42/run-abc/artifacts/model.pkl") == (
+        "run",
+        "run-abc",
     )
-    assert (
-        auth_module._extract_run_id_from_artifact_proxy_path(
-            "/ajax-api/2.0/mlflow-artifacts/artifacts/workspaces/team-a/7/run-xyz/artifacts/f"
-        )
-        == "run-xyz"
+    assert auth_module._artifact_proxy_child_from_path(
+        "workspaces/team-a/7/run-xyz/artifacts/f"
+    ) == ("run", "run-xyz")
+    # ``traces``/``models`` folders dispatch to their own child tiers, not the run tier.
+    assert auth_module._artifact_proxy_child_from_path("42/traces/tr-1/artifacts/data") == (
+        "trace",
+        "tr-1",
     )
-    for action in ("create", "complete", "abort"):
-        assert (
-            auth_module._extract_run_id_from_artifact_proxy_path(
-                f"/api/2.0/mlflow-artifacts/mpu/{action}/99/run-mpu/artifacts/model"
-            )
-            == "run-mpu"
-        )
+    assert auth_module._artifact_proxy_child_from_path("42/models/m-1/artifacts/MLmodel") == (
+        "logged_model",
+        "m-1",
+    )
+    # Experiment-level path has no child.
+    assert auth_module._artifact_proxy_child_from_path("42/artifacts/plot.png") is None
 
 
-def test_proxy_artifact_permission_uses_run_child_tier(monkeypatch):
+@pytest.mark.parametrize(
+    ("artifact_path", "expected_type", "expected_key"),
+    [
+        ("42/run-abc/artifacts/model.pkl", "run", "run-abc"),
+        ("42/traces/tr-1/artifacts/data", "trace", "tr-1"),
+        ("42/models/m-1/artifacts/MLmodel", "logged_model", "m-1"),
+    ],
+)
+def test_proxy_artifact_permission_uses_child_tier_for_layout(
+    monkeypatch, artifact_path, expected_type, expected_key
+):
     captured = {}
 
     def fake_child_permission(child_type, child_key, experiment_id, username=None):
@@ -8668,12 +8677,29 @@ def test_proxy_artifact_permission_uses_run_child_tier(monkeypatch):
 
     monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
     perm = auth_module._get_proxy_artifact_permission(
-        "/api/2.0/mlflow-artifacts/artifacts/42/run-abc/artifacts/model.pkl", "erin"
+        f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", "erin"
     )
     assert perm.can_read is True
     assert captured == {
-        "child_type": "run",
-        "child_key": "run-abc",
+        "child_type": expected_type,
+        "child_key": expected_key,
         "experiment_id": "42",
         "username": "erin",
     }
+
+
+def test_proxy_artifact_permission_experiment_level_uses_experiment_tier(monkeypatch):
+    # An experiment-level path (no run/trace/model segment) must not hit the child tier.
+    monkeypatch.setattr(
+        auth_module,
+        "_experiment_child_permission",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should use experiment tier")),
+    )
+    monkeypatch.setattr(
+        auth_module, "_role_permission_for", lambda **_: SimpleNamespace(can_read=True)
+    )
+    monkeypatch.setattr(auth_module, "_get_role_permission_or_default", lambda perm: perm)
+    perm = auth_module._get_proxy_artifact_permission(
+        "/api/2.0/mlflow-artifacts/artifacts/42/artifacts/plot.png", "erin"
+    )
+    assert perm.can_read is True
