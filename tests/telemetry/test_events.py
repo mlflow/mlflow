@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pandas as pd
@@ -27,6 +28,7 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     DatasetToDataFrameEvent,
     DiscoverIssuesEvent,
+    EnvPackEvent,
     EvaluateEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
@@ -41,6 +43,7 @@ from mlflow.telemetry.events import (
     GatewayUpdateGuardrailEvent,
     GenAIEvaluateEvent,
     LogAssessmentEvent,
+    LogModelEvent,
     MakeJudgeEvent,
     McpRegistryCreateAccessEndpointEvent,
     McpRegistryCreateServerVersionEvent,
@@ -48,6 +51,7 @@ from mlflow.telemetry.events import (
     MergeRecordsEvent,
     OptimizePromptsJobEvent,
     PromptOptimizationEvent,
+    RegisterModelEvent,
     SimulateConversationEvent,
     StartTraceEvent,
     TraceAttachmentsEvent,
@@ -135,12 +139,74 @@ def test_create_model_version_parse_params(arguments, expected_params):
     assert CreateModelVersionEvent.parse(arguments) == expected_params
 
 
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {
+                "flavor": SimpleNamespace(__name__="mlflow.sklearn"),
+                "registered_model_name": None,
+                "kwargs": {},
+            },
+            {"flavor": "sklearn", "registered": False},
+        ),
+        (
+            {
+                "flavor": None,
+                "registered_model_name": "my_model",
+                "kwargs": {"flavor_name": "pyfunc.ChatModel"},
+            },
+            {"flavor": "pyfunc.ChatModel", "registered": True},
+        ),
+        (
+            {"kwargs": {}},
+            {"flavor": None, "registered": False},
+        ),
+    ],
+)
+def test_log_model_parse_params(arguments, expected_params):
+    assert LogModelEvent.name == "log_model"
+    assert LogModelEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {"model_uri": "runs:/abc123/model", "env_pack": None},
+            {"env_pack": None, "source_scheme": "runs"},
+        ),
+        (
+            {"model_uri": "models:/m/1"},
+            {"env_pack": None, "source_scheme": "models"},
+        ),
+        (
+            {"model_uri": "/tmp/model", "env_pack": "databricks_model_serving"},
+            {"env_pack": "databricks_model_serving", "source_scheme": "local"},
+        ),
+        (
+            {
+                "model_uri": "s3://bucket/model",
+                "env_pack": SimpleNamespace(name="databricks_model_serving"),
+            },
+            {"env_pack": "databricks_model_serving", "source_scheme": "s3"},
+        ),
+    ],
+)
+def test_register_model_parse_params(arguments, expected_params):
+    assert RegisterModelEvent.name == "register_model"
+    assert RegisterModelEvent.parse(arguments) == expected_params
+
+
 def test_event_name():
     assert AiCommandRunEvent.name == "ai_command_run"
     assert CreatePromptEvent.name == "create_prompt"
     assert CreateLoggedModelEvent.name == "create_logged_model"
     assert CreateRegisteredModelEvent.name == "create_registered_model"
     assert CreateModelVersionEvent.name == "create_model_version"
+    assert LogModelEvent.name == "log_model"
+    assert RegisterModelEvent.name == "register_model"
+    assert EnvPackEvent.name == "env_pack"
     assert CreateRunEvent.name == "create_run"
     assert CreateExperimentEvent.name == "create_experiment"
     assert LogAssessmentEvent.name == "log_assessment"

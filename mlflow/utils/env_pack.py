@@ -3,6 +3,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -138,6 +139,46 @@ def pack_env_for_databricks_model_serving(
         ...     # Use artifacts_dir here
         ...     pass
     """
+    # Lazy import to avoid a telemetry/model-utils import cycle.
+    from mlflow.telemetry.events import EnvPackEvent
+    from mlflow.telemetry.track import _record_event
+
+    start_time = time.time()
+    event_params = {"install_dependencies": enforce_pip_requirements}
+    packed = False
+    try:
+        with _pack_env_for_databricks_model_serving(
+            model_uri,
+            enforce_pip_requirements=enforce_pip_requirements,
+            local_model_path=local_model_path,
+        ) as packaged_model_dir:
+            # Record success before yielding so a caller error isn't misattributed to env_pack.
+            _record_event(
+                EnvPackEvent,
+                event_params,
+                success=True,
+                duration_ms=int((time.time() - start_time) * 1000),
+            )
+            packed = True
+            yield packaged_model_dir
+    except Exception:
+        if not packed:
+            _record_event(
+                EnvPackEvent,
+                event_params,
+                success=False,
+                duration_ms=int((time.time() - start_time) * 1000),
+            )
+        raise
+
+
+@contextmanager
+def _pack_env_for_databricks_model_serving(
+    model_uri: str,
+    *,
+    enforce_pip_requirements: bool = False,
+    local_model_path: str | None = None,
+) -> Generator[str, None, None]:
     dbr_version = DatabricksRuntimeVersion.parse()
     if not dbr_version.is_client_image:
         raise ValueError(
