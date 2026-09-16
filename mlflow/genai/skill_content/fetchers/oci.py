@@ -726,6 +726,15 @@ def _place_file_layer(blob: Path, layer: dict[str, Any], dest: Path, prefix: str
     ensure_within(dest, target)
     if target.is_dir():
         raise invalid_content(f"OCI layer title '{title}' names an existing directory.")
+    parent = target.parent
+    while not parent.exists():
+        parent = parent.parent
+    if not parent.is_dir():
+        # An earlier layer put a file where this title needs a directory.
+        raise invalid_content(
+            f"OCI layers disagree about '{parent.relative_to(dest).as_posix()}': one has a "
+            f"file, another needs a directory for '{title}'."
+        )
     target.parent.mkdir(parents=True, exist_ok=True)
     size = blob.stat().st_size
     os.replace(blob, target)

@@ -274,6 +274,12 @@ def oci_registry(tmp_path, skill_tree):
             _MANIFEST_TYPE,
         ),
         "bad-annotations": (json.dumps(bad_annotations).encode(), _MANIFEST_TYPE),
+        "file-under-file": (
+            json.dumps(
+                _manifest([_tar_layer(clash_tar), _file_layer(file_layer, "skills/README.md")])
+            ).encode(),
+            _MANIFEST_TYPE,
+        ),
         "bad-platform": (json.dumps(bad_platform).encode(), _INDEX_TYPE),
         "platformless-first": (json.dumps(platformless_first).encode(), _INDEX_TYPE),
         "platformless-only": (json.dumps(platformless_only).encode(), _INDEX_TYPE),
@@ -406,6 +412,7 @@ def test_fetch_oci_subpath_limits_budget(oci_registry):
         ("file-over-dir", {}, "OCI layers disagree"),
         ("too-many-layers", {}, "has 257 layers; the maximum is 256"),
         ("bad-annotations", {}, "malformed 'annotations' field"),
+        ("file-under-file", {}, "OCI layers disagree about 'skills'"),
         ("bad-platform", {}, "malformed 'platform' field"),
     ],
 )
