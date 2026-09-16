@@ -82,6 +82,16 @@ class ImageReference:
         return f"{self.registry}/{self.repository}{separator}{self.reference}"
 
 
+def _optional_object(container: dict[str, Any], key: str, what: str) -> dict[str, Any]:
+    """A nested JSON object from registry-controlled data, or empty when absent."""
+    value = container.get(key)
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise invalid_content(f"{what} has a malformed '{key}' field; expected an object.")
+    return value
+
+
 def _validate_digest(value: Any, what: str) -> str:
     if not isinstance(value, str) or _SHA256_DIGEST_PATTERN.match(value) is None:
         raise invalid_content(
@@ -508,7 +518,9 @@ def _select_manifest(client: RegistryClient, ref: ImageReference) -> dict[str, A
         for candidate in entries:
             if not isinstance(candidate, dict):
                 continue
-            platform = candidate.get("platform") or {}
+            platform = _optional_object(
+                candidate, "platform", f"OCI index entry in '{ref.display}'"
+            )
             if (
                 not platform
                 or (platform.get("os"), platform.get("architecture")) == _DEFAULT_PLATFORM
@@ -665,8 +677,9 @@ def _merge_tree(source: Path, dest: Path) -> None:
 
 def _place_file_layer(blob: Path, layer: dict[str, Any], dest: Path, prefix: str | None) -> int:
     """Write a non-tar layer as the file named by its title annotation; returns bytes placed."""
-    title = (layer.get("annotations") or {}).get(_TITLE_ANNOTATION)
     media_type = layer.get("mediaType")
+    annotations = _optional_object(layer, "annotations", f"OCI layer {layer.get('digest')}")
+    title = annotations.get(_TITLE_ANNOTATION)
     if not isinstance(title, str) or not title:
         raise invalid_content(
             f"OCI layer {layer.get('digest')} with media type '{media_type}' has no "
