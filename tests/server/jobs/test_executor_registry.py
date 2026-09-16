@@ -58,6 +58,14 @@ class FailingRequirementsExecutor(StubExecutor):
         raise MlflowException("Docker daemon is not running")
 
 
+class RemoteExecutor(StubExecutor):
+    """Executor that declares remote execution, which is not supported yet."""
+
+    @property
+    def remote_execution(self) -> bool:
+        return True
+
+
 # ---------------------------------------------------------------------------
 # JobExecutorRegistry unit tests
 # ---------------------------------------------------------------------------
@@ -109,6 +117,14 @@ def test_validate_backends_failing_requirements():
 
     with pytest.raises(MlflowException, match="Docker daemon is not running"):
         registry.validate_backends("docker")
+
+
+def test_validate_backends_rejects_remote_executor():
+    registry = JobExecutorRegistry()
+    registry.register("remote", RemoteExecutor(registry.config))
+
+    with pytest.raises(MlflowException, match="remote_execution=True, which is not supported yet"):
+        registry.validate_backends("remote")
 
 
 def test_validate_backends_unknown_name():
