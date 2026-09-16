@@ -3,6 +3,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.permissions import (
     ALL_PERMISSIONS,
+    DENY,
     EDIT,
     MANAGE,
     NO_PERMISSIONS,
@@ -16,13 +17,14 @@ from mlflow.server.auth.permissions import (
     _validate_permission_for_resource_type,
     _validate_resource_type,
     get_permission,
+    matches,
     max_permission,
 )
 
 # ---- Permission hierarchy ---------------------------------------------------
 
 # The canonical ordering the rest of the auth layer relies on.
-_EXPECTED_ORDER = [NO_PERMISSIONS, READ, USE, EDIT, MANAGE]
+_EXPECTED_ORDER = [DENY, NO_PERMISSIONS, READ, USE, EDIT, MANAGE]
 
 
 def test_permission_priority_is_total_order():
@@ -34,6 +36,7 @@ def test_permission_priority_is_total_order():
 @pytest.mark.parametrize(
     ("permission", "can_read", "can_use", "can_update", "can_delete", "can_manage"),
     [
+        (DENY, False, False, False, False, False),
         (NO_PERMISSIONS, False, False, False, False, False),
         (READ, True, False, False, False, False),
         (USE, True, True, False, False, False),
@@ -131,7 +134,7 @@ def test_validate_resource_type_accepts_known(resource_type):
     _validate_resource_type(resource_type)
 
 
-@pytest.mark.parametrize("bogus", ["", "Experiment", "workspaces", "run", "trace"])
+@pytest.mark.parametrize("bogus", ["", "Experiment", "workspaces", "bogus_type", "runs"])
 def test_validate_resource_type_rejects_unknown(bogus):
     with pytest.raises(MlflowException, match="Invalid resource type"):
         _validate_resource_type(bogus)
@@ -163,12 +166,20 @@ def test_grantable_permission_sets_pin_simplified_model():
     """Pin the two-tier workspace model and the resource-grant set.
 
     Workspace grants accept only USE / MANAGE; resource grants accept any of
-    READ / USE / EDIT / MANAGE (no NO_PERMISSIONS). These sets gate every
+    READ / USE / EDIT / MANAGE plus DENY (the sub-resource RFC's absolute-deny
+    grant level). NO_PERMISSIONS remains ungrantable. These sets gate every
     permission write through the store, so a regression here would silently
-    re-enable the old five-value-anywhere model.
+    re-enable the old five-value-anywhere model or drop DENY.
     """
     assert WORKSPACE_GRANTABLE_PERMISSIONS == {USE.name, MANAGE.name}
-    assert RESOURCE_GRANTABLE_PERMISSIONS == {READ.name, USE.name, EDIT.name, MANAGE.name}
+    assert RESOURCE_GRANTABLE_PERMISSIONS == {
+        READ.name,
+        USE.name,
+        EDIT.name,
+        MANAGE.name,
+        DENY.name,
+    }
+    assert NO_PERMISSIONS.name not in RESOURCE_GRANTABLE_PERMISSIONS
 
 
 @pytest.mark.parametrize(
@@ -201,7 +212,7 @@ def test_validate_workspace_grant_accepts_use_or_manage(permission):
     _validate_permission_for_resource_type(permission, "workspace")
 
 
-@pytest.mark.parametrize("permission", [READ.name, EDIT.name, NO_PERMISSIONS.name])
+@pytest.mark.parametrize("permission", [READ.name, EDIT.name, DENY.name, NO_PERMISSIONS.name])
 def test_validate_workspace_grant_rejects_other_tiers(permission):
     with pytest.raises(MlflowException, match="resource_type='workspace'"):
         _validate_permission_for_resource_type(permission, "workspace")
@@ -220,4 +231,19 @@ def test_validate_permission_for_resource_type_rejects_unknown():
     with pytest.raises(MlflowException, match="Invalid permission"):
         _validate_permission_for_resource_type("ADMIN", "experiment")
     with pytest.raises(MlflowException, match="Invalid resource type"):
-        _validate_permission_for_resource_type(USE.name, "trace")
+        _validate_permission_for_resource_type(USE.name, "bogus_type")
+
+
+@pytest.mark.parametrize(
+    ("resource_pattern", "resource_type", "resource_id", "expected"),
+    [
+        ("*", "experiment", "e1", True),
+        ("e1", "experiment", "e1", True),
+        ("e1", "experiment", "e2", False),
+        ("*", "run", "r1", True),
+        ("r1", "run", "r1", False),
+        ("*", "unknown", "id", False),
+    ],
+)
+def test_matches_honors_declared_grain(resource_pattern, resource_type, resource_id, expected):
+    assert matches(resource_pattern, resource_type, resource_id) is expected

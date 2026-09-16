@@ -723,3 +723,62 @@ def test_removed_workspace_permission_endpoints_return_404(client, path, method)
         f"{method} {path} was removed in the RBAC migration but returned "
         f"{resp.status_code} (expected 404)"
     )
+
+
+@pytest.mark.parametrize(
+    "child_type",
+    [
+        "run",
+        "trace",
+        "assessment",
+        "logged_model",
+        "review_queue",
+        "registered_model_version",
+        "prompt_version",
+        "scorer_version",
+        "mcp_server_version",
+    ],
+)
+def test_direct_child_grants_require_wildcard_pattern(client, monkeypatch, child_type):
+    username, _ = _new_user(client, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.grant_user_permission(username, child_type, "*", "EDIT")
+        with pytest.raises(MlflowException, match="wildcard"):
+            client.grant_user_permission(username, child_type, "child-id", "EDIT")
+        client.revoke_user_permission(username, child_type, "*")
+        with pytest.raises(MlflowException, match="wildcard"):
+            client.revoke_user_permission(username, child_type, "child-id")
+
+
+def test_get_user_permission_resolves_run_child_grant(client, monkeypatch):
+    username, password = _new_user(client, monkeypatch)
+    experiment_id = _create_experiment(client.tracking_uri, monkeypatch, f"run-{random_str()}")
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        run_id = MlflowClient(client.tracking_uri).create_run(experiment_id).info.run_id
+        client.grant_user_permission(username, "run", "*", "EDIT")
+
+    with User(username, password, monkeypatch):
+        result = client.get_user_permission(username, "run", run_id)
+
+    assert result.permission == "EDIT"
+    assert result.allowed is True
+
+
+def test_workspace_manager_can_grant_child_permission(client, monkeypatch):
+    requester, requester_password = _new_user(client, monkeypatch)
+    target, _ = _new_user(client, monkeypatch)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        role = client.create_role("default", f"child-manager-{random_str()}")
+        client.add_role_permission(role.id, "workspace", "*", "MANAGE")
+        client.assign_role(requester, role.id)
+
+    with User(requester, requester_password, monkeypatch):
+        client.grant_user_permission(target, "trace", "*", "EDIT")
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        roles = client.list_user_roles(target)
+    assert any(
+        (grant.resource_type, grant.resource_pattern, grant.permission) == ("trace", "*", "EDIT")
+        for role in roles
+        for grant in role.permissions
+    )

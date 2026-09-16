@@ -1,6 +1,7 @@
 import logging
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from urllib.parse import quote, unquote
 
 from sqlalchemy import and_, or_, select, text
@@ -37,6 +38,7 @@ from mlflow.server.auth.entities import (
     WorkspacePermission,
 )
 from mlflow.server.auth.permissions import (
+    DENY,
     MANAGE,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
@@ -48,8 +50,10 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_WORKSPACE,
     Permission,
     _validate_permission_for_resource_type,
+    _validate_resource_pattern,
     _validate_resource_type,
     get_permission,
+    matches,
     max_permission,
 )
 from mlflow.store.db.utils import (
@@ -94,6 +98,42 @@ _RETAINED_LEGACY_PERMISSION_TABLES: tuple[str, ...] = (
     "gateway_model_definition_permissions",
     "workspace_permissions",
 )
+
+
+@dataclass
+class _ResourceTypeGrants:
+    """Accumulates one resource type's grants for a user during the resolution fold.
+
+    "Resource type" here is the grouping axis — the child type (e.g. ``run``) or its
+    parent type (e.g. ``experiment``) — not a permission level. ``add`` folds each
+    matching grant in: a ``DENY`` grant sets the absolute-deny flag; any other grant
+    (positive levels and the legacy ``NO_PERMISSIONS`` sentinel) folds into ``best``
+    via ``max_permission``. ``resolve`` collapses the accumulated grants to a single
+    ``Permission`` under the RFC precedence — ``DENY`` wins over the ``max`` fold.
+    """
+
+    has_grant: bool = False
+    denied: bool = False
+    best: str | None = None
+
+    def add(self, permission: str) -> None:
+        self.has_grant = True
+        if permission == DENY.name:
+            self.denied = True
+        else:
+            self.best = (
+                max_permission(self.best, permission) if self.best is not None else permission
+            )
+
+    def resolve(self) -> Permission:
+        """The effective permission once this resource type is known to hold a grant.
+
+        ``DENY`` is evaluated ahead of the ``max`` fold; a ``best`` of ``None`` (only
+        a ``DENY`` was present) also resolves to ``DENY``.
+        """
+        if self.denied or self.best is None:
+            return DENY
+        return get_permission(self.best)
 
 
 class SqlAlchemyStore:
@@ -388,7 +428,9 @@ class SqlAlchemyStore:
         Upsert a ``permission`` grant on ``(resource_type, resource_pattern)`` for
         ``username`` via their synthetic role in the active workspace.
         """
+        self._reject_workspace_resource_type(resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        _validate_resource_pattern(resource_pattern, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
@@ -439,6 +481,7 @@ class SqlAlchemyStore:
         """
         self._reject_workspace_resource_type(resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        _validate_resource_pattern(resource_pattern, resource_type)
         duplicate_message = (
             f"Permission for user={username} on "
             f"resource_type={resource_type}, resource_id={resource_pattern} already exists."
@@ -487,6 +530,7 @@ class SqlAlchemyStore:
         """
         self._reject_workspace_resource_type(resource_type)
         _validate_resource_type(resource_type)
+        _validate_resource_pattern(resource_pattern, resource_type)
         not_found_message = (
             f"Permission for user={username} on "
             f"resource_type={resource_type}, resource_id={resource_pattern} not found."
@@ -1884,13 +1928,14 @@ class SqlAlchemyStore:
         permission: str,
     ) -> RolePermission:
         _validate_permission_for_resource_type(permission, resource_type)
-        # Workspace-scope and type-wildcard grants only support the "*" pattern. Any
-        # other pattern would be silently ignored by the resolver, so reject it up front.
+        # Workspace-scope grants only support the "*" pattern. Any other pattern would
+        # be silently ignored by the resolver, so reject it up front.
         if resource_type == RESOURCE_TYPE_WORKSPACE and resource_pattern != "*":
             raise MlflowException.invalid_parameter_value(
                 f"resource_type='{resource_type}' requires resource_pattern='*'. "
                 f"Got resource_pattern='{resource_pattern}'."
             )
+        _validate_resource_pattern(resource_pattern, resource_type)
         with self.ManagedSessionMaker(read_only=False) as session:
             self._get_role(session, role_id)
             try:
@@ -2074,9 +2119,56 @@ class SqlAlchemyStore:
     # ---- Role-based permission resolution ----
 
     def get_role_permission_for_resource(
-        self, user_id: int, resource_type: str, resource_id: str, workspace: str
+        self,
+        user_id: int,
+        resource_type: str,
+        resource_id: str,
+        workspace: str,
+        parent_type: str | None = None,
+        parent_id: str | None = None,
     ) -> Permission | None:
+        """Resolve the effective role-based permission for a resource by tier override.
+
+        Precedence (highest first):
+
+        1. **workspace-admin bypass** — a ``(workspace, *, MANAGE)`` grant allows
+           outright; admins are not restrictable by ``DENY``.
+        2. **child tier** — if the caller holds *any* grant on ``resource_type``:
+           a ``DENY`` grant among them denies (returns ``DENY``); otherwise ``max`` of
+           those grants. The parent is not consulted.
+        3. **parent fallback** — only when the caller has *no* grant on the child type
+           and a parent tier was supplied: resolve the parent the same way (``DENY``
+           denies, else ``max``). This is today's inheritance behavior.
+        4. **default** — nothing at either tier → ``None`` (caller applies the
+           configured ``default_permission``).
+
+        ``DENY`` is an absolute deny *within its tier*, evaluated ahead of the ``max``
+        fold; it never overrides a present child grant downward (a parent ``DENY``
+        reaches a child only via fallback). ``NO_PERMISSIONS`` is unchanged from pre-RFC
+        behavior: it folds through ``max`` at priority 0 (returned only when it is the
+        sole match; always loses to a positive grant). Top-level callers pass no
+        ``parent_*`` and get single-tier behavior identical to before this RFC.
+
+        This resolves the *workspace*-admin bypass internally (step 1). It does NOT know
+        about the *super*-admin (global ``is_admin``) bypass — the store takes a
+        ``user_id``, not the request identity — so that bypass is enforced by callers in
+        the app layer (``sender_is_admin()``) ahead of this call. A ``DENY`` returned
+        here is therefore correct only once super-admin has already been ruled out
+        upstream; see the matching note on ``_role_based_read_predicate``.
+        """
         with self.ManagedSessionMaker() as session:
+            # Loads ALL of the user's grants in the workspace (indexed by role_id via
+            # the user→role join) and filters resource_type in Python below. This is
+            # deliberate: role_permissions has no index on resource_type (only role_id
+            # and the role_id-led unique constraint), so a `WHERE resource_type IN
+            # (child, parent, 'workspace')` narrowing would scan, not seek — and a
+            # user's per-workspace grant set is small, so one indexed round-trip that
+            # over-fetches beats an unindexed narrower query.
+            # todo: (sub-resource-permissions) if this fold shows up hot, add an index
+            # such as role_permissions(role_id, resource_type) (or a
+            # (resource_type, permission) index to also back the EXISTS short-circuits
+            # for workspace-admin / DENY on the bulk read paths) and push the
+            # resource_type filter into SQL.
             roles = (
                 session
                 .query(SqlRole)
@@ -2091,33 +2183,54 @@ class SqlAlchemyStore:
             if not roles:
                 return None
 
-            best_permission_name: str | None = None
+            child_grants = _ResourceTypeGrants()
+            parent_grants = _ResourceTypeGrants()
+            workspace_admin = False
+
             for role in roles:
                 for rp in role.permissions:
-                    # (workspace, *) folds into resource-type queries only for
-                    # MANAGE (workspace admin); USE is the "member can join +
-                    # create" signal and folds only for workspace-tier queries.
-                    if rp.resource_type == RESOURCE_TYPE_WORKSPACE and rp.resource_pattern == "*":
-                        if resource_type == RESOURCE_TYPE_WORKSPACE or rp.permission == MANAGE.name:
-                            best_permission_name = (
-                                max_permission(best_permission_name, rp.permission)
-                                if best_permission_name is not None
-                                else rp.permission
-                            )
-                        continue
-                    # Resource-type-specific permission.
-                    if rp.resource_type != resource_type:
-                        continue
-                    if rp.resource_pattern in ("*", resource_id):
-                        best_permission_name = (
-                            max_permission(best_permission_name, rp.permission)
-                            if best_permission_name is not None
-                            else rp.permission
-                        )
+                    if self._is_workspace_admin_grant(rp):
+                        workspace_admin = True
+                    if self._matches_child_tier(rp, resource_type, resource_id):
+                        child_grants.add(rp.permission)
+                    elif (
+                        parent_type is not None
+                        and rp.resource_type == parent_type
+                        and matches(rp.resource_pattern, parent_type, parent_id)
+                    ):
+                        parent_grants.add(rp.permission)
 
-            if best_permission_name is None:
-                return None
-            return get_permission(best_permission_name)
+            if workspace_admin:
+                return MANAGE
+            if child_grants.has_grant:
+                return child_grants.resolve()
+            if parent_grants.has_grant:
+                return parent_grants.resolve()
+            return None
+
+    @staticmethod
+    def _is_workspace_admin_grant(rp) -> bool:
+        """A ``(workspace, *, MANAGE)`` grant — the workspace-admin bypass shape."""
+        return (
+            rp.resource_type == RESOURCE_TYPE_WORKSPACE
+            and rp.resource_pattern == "*"
+            and rp.permission == MANAGE.name
+        )
+
+    @staticmethod
+    def _matches_child_tier(rp, resource_type: str, resource_id: str) -> bool:
+        """Whether a grant folds into the queried (child) tier.
+
+        Two shapes fold in: a direct grant on ``resource_type`` at the type's declared
+        grain, and a ``(workspace, *)`` grant that applies to the query — the latter
+        only when the query is workspace-tier or the grant is ``MANAGE`` (pre-RFC
+        behavior, where workspace ``USE`` confers membership only, not resource access).
+        """
+        if rp.resource_type == RESOURCE_TYPE_WORKSPACE and rp.resource_pattern == "*":
+            return resource_type == RESOURCE_TYPE_WORKSPACE or rp.permission == MANAGE.name
+        return rp.resource_type == resource_type and matches(
+            rp.resource_pattern, resource_type, resource_id
+        )
 
     @staticmethod
     def _workspace_admin_workspaces(session, user_id: int) -> set[str]:
@@ -2175,34 +2288,50 @@ class SqlAlchemyStore:
             return workspace in self._workspace_admin_workspaces(session, user_id)
 
     def list_role_grants_for_user_in_workspace(
-        self, user_id: int, workspace: str, resource_type: str
-    ) -> list[tuple[str, str]]:
+        self,
+        user_id: int,
+        workspace: str,
+        resource_type: str,
+        parent_type: str | None = None,
+    ) -> list[tuple[str, str, str]]:
         """
         Return the user's **role-based** permission grants in ``workspace`` that apply
-        to resources of ``resource_type``. Direct per-resource grants (e.g. rows in
-        ``experiment_permissions``) are intentionally **not** included — callers that
-        need the full authorization picture fold them in separately (see
-        ``filter_experiment_ids``, which unions the result of this query with
-        ``list_experiment_permissions`` from the legacy table).
+        to ``resource_type`` (and, when ``parent_type`` is given, its parent type too),
+        plus the workspace-wide grants that apply to every type. Fetching both the child
+        and parent types in one query lets the caller resolve the sub-resource
+        tier-override (child authoritative, else parent fallback) without a second
+        round-trip. Direct per-resource grants (e.g. rows in ``experiment_permissions``)
+        are intentionally **not** included — callers that need the full authorization
+        picture fold them in separately (see ``filter_experiment_ids``, which unions the
+        result of this query with ``list_experiment_permissions`` from the legacy table).
 
-        Includes both grants on the specific resource_type and workspace-wide grants
-        (``resource_type='workspace'``, ``resource_pattern='*'``) since those apply to
-        every resource type.
+        Includes workspace-wide grants (``resource_type='workspace'``,
+        ``resource_pattern='*'``) since those apply to every resource type; returning
+        ``resource_type`` on each row lets the caller distinguish the workspace-admin
+        grant from a same-shaped resource grant.
 
-        Returns a list of ``(resource_pattern, permission)`` tuples.
+        Returns a list of ``(resource_type, resource_pattern, permission)`` tuples.
         """
         _validate_resource_type(resource_type)
+        types = {resource_type, RESOURCE_TYPE_WORKSPACE}
+        if parent_type is not None:
+            _validate_resource_type(parent_type)
+            types.add(parent_type)
         with self.ManagedSessionMaker() as session:
             rows = (
                 session
-                .query(SqlRolePermission.resource_pattern, SqlRolePermission.permission)
+                .query(
+                    SqlRolePermission.resource_type,
+                    SqlRolePermission.resource_pattern,
+                    SqlRolePermission.permission,
+                )
                 .join(SqlRole, SqlRole.id == SqlRolePermission.role_id)
                 .join(SqlUserRoleAssignment, SqlRole.id == SqlUserRoleAssignment.role_id)
                 .filter(
                     SqlUserRoleAssignment.user_id == user_id,
                     SqlRole.workspace == workspace,
                     or_(
-                        SqlRolePermission.resource_type == resource_type,
+                        SqlRolePermission.resource_type.in_(types),
                         and_(
                             SqlRolePermission.resource_type == RESOURCE_TYPE_WORKSPACE,
                             SqlRolePermission.resource_pattern == "*",
@@ -2211,7 +2340,7 @@ class SqlAlchemyStore:
                 )
                 .all()
             )
-            return [(pattern, permission) for pattern, permission in rows]
+            return [(rtype, pattern, permission) for rtype, pattern, permission in rows]
 
     def list_workspace_admin_workspaces(self, user_id: int) -> set[str]:
         """
