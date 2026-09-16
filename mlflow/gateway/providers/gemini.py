@@ -82,6 +82,19 @@ def _to_gemini_parts(content: Any) -> list[dict[str, Any]]:
     return parts
 
 
+def _tool_result_to_response(content: Any) -> dict[str, Any]:
+    """Coerce OpenAI tool message content into a Gemini ``functionResponse.response``.
+
+    OpenAI tool content is free-form and usually plain text, but Gemini requires an object,
+    so a JSON object passes through and anything else is wrapped as ``{"result": ...}``.
+    """
+    try:
+        parsed = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return {"result": content}
+    return parsed if isinstance(parsed, dict) else {"result": parsed}
+
+
 class GeminiAdapter(ProviderAdapter):
     @classmethod
     def _normalize_finish_reason(cls, finish_reason):
@@ -193,7 +206,7 @@ class GeminiAdapter(ProviderAdapter):
                                 "id": call_id,
                                 # the function name field is required by Gemini request format
                                 "name": call_id_to_function_name_map[call_id],
-                                "response": json.loads(message["content"]),
+                                "response": _tool_result_to_response(message["content"]),
                             }
                         }
                     ],
