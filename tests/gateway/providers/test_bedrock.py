@@ -1141,6 +1141,34 @@ async def test_bedrock_anthropic_passthrough_stream_raises_bedrock_exception(
 
 
 @pytest.mark.asyncio
+async def test_bedrock_anthropic_passthrough_stream_raises_bedrock_error_frame():
+    # An error frame (":message-type: error") carries ":error-code"/":error-message" headers
+    # with an empty payload, rather than an ":exception-type" and a JSON body, so the status
+    # and detail come from those header fallbacks.
+    provider = _make_api_key_provider()
+    data = _bedrock_chunk(_anthropic_stream_events()[0]) + _event_stream_message(
+        {
+            ":error-code": "throttlingException",
+            ":error-message": "Rate exceeded.",
+            ":message-type": "error",
+        },
+        b"",
+    )
+    mock_client = mock_http_client(MockAsyncStreamingResponse([data]))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, "stream": True}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = await provider.passthrough(PassthroughAction.ANTHROPIC_MESSAGES, payload)
+        with pytest.raises(
+            HTTPException, match="throttlingException while streaming: Rate exceeded."
+        ) as exc_info:
+            [chunk async for chunk in stream]
+
+    assert exc_info.value.status_code == 429
+    mock_client.post.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_bedrock_anthropic_passthrough_stream_requires_botocore():
     provider = _make_api_key_provider()
     mock_client = mock_http_client(MockAsyncStreamingResponse([]))
