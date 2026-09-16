@@ -256,6 +256,7 @@ for attempt in 1 2 3; do
     fi
     if [ "$attempt" -eq 3 ]; then
         echo "Docker image pull failed after 3 attempts."
+        docker compose down {rmi_option} --volumes --remove-orphans
         exit 1
     fi
     echo "Docker image pull failed; retrying in $((attempt * 5)) seconds."
