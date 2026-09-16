@@ -1534,6 +1534,47 @@ def test_graphql_search_model_versions(client, monkeypatch):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_graphql_search_model_versions_judges_prompts_by_prompt_grants(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    prompt_reader, prompt_reader_password = create_user(client.tracking_uri)
+    model_reader, model_reader_password = create_user(client.tracking_uri)
+    prompt_name = f"gql_prompt_{random_str()}"
+
+    with User(owner, owner_password, monkeypatch):
+        client.register_prompt(prompt_name, "Hello, {{name}}!")
+
+    grant_role_permission(client.tracking_uri, prompt_reader, "prompt", prompt_name, "READ")
+    grant_role_permission(client.tracking_uri, model_reader, "registered_model", "*", "READ")
+
+    query = """
+    query SearchModelVersions($input: MlflowSearchModelVersionsInput){
+      mlflowSearchModelVersions(input: $input){
+        modelVersions { name version }
+      }
+    }
+    """
+    variables = {
+        "input": {"filter": f"tags.`mlflow.prompt.is_prompt` = 'true' AND name = '{prompt_name}'"}
+    }
+
+    def visible_names(auth):
+        response = _graphql_query(client.tracking_uri, query, variables=variables, auth=auth)
+        response.raise_for_status()
+        payload = response.json()
+        assert payload.get("errors") in (None, [])
+        return [mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]]
+
+    # A prompt grant is what makes a prompt version readable, as on the REST search path.
+    assert visible_names((prompt_reader, prompt_reader_password)) == [prompt_name]
+    # A registered-model grant, even a wildcard, does not reach into the prompt namespace.
+    assert visible_names((model_reader, model_reader_password)) == []
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_graphql_nested_run_model_versions_filtered_by_model_permission(client, monkeypatch):
     """
     Regression test for GHSA-f253-vggg-rwh8: the nested run.modelVersions field must
