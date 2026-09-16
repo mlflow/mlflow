@@ -42,6 +42,7 @@ from mlflow.server.auth import (
     _find_fastapi_response_filter,
     _find_fastapi_validator,
     _re_compile_path,
+    authenticate_fastapi_request_user,
 )
 from mlflow.server.auth.permissions import NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.routes import (
@@ -4934,6 +4935,24 @@ def test_basic_auth_with_internal_token_returns_user(
     assert user.username == "alice"
     mock_auth_store.get_user.assert_called_once_with("alice")
     mock_auth_store.authenticate_user.assert_not_called()
+
+
+def test_gateway_internal_token_honored_under_custom_authorization(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    # A custom authorization_function does not consult the internal gateway token, so the public
+    # entry point checks the token before dispatching to it -- otherwise a server-internal caller
+    # (e.g. the Assistant's gateway provider) would get 401 on a custom-auth deployment.
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    mock_auth_config.authorization_function = "custom_auth:authorize"
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", mlflow_authorization=f"Basic {credentials}")
+
+    with mock.patch("mlflow.server.auth._authenticate_custom_for_fastapi") as mock_custom:
+        user = authenticate_fastapi_request_user(request)
+
+    assert user.username == "alice"
+    mock_custom.assert_not_called()
 
 
 def test_basic_auth_with_internal_token_deleted_user_returns_none(
