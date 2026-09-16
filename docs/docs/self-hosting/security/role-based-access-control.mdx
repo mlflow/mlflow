@@ -57,6 +57,7 @@ The grantable permission levels for resource-scoped permissions are:
 
 | Permission | Can read | Can use | Can update | Can delete | Can manage |
 | ---------- | -------- | ------- | ---------- | ---------- | ---------- |
+| `DENY`     | No       | No      | No         | No         | No         |
 | `READ`     | Yes      | No      | No         | No         | No         |
 | `USE`      | Yes      | Yes     | No         | No         | No         |
 | `EDIT`     | Yes      | Yes     | Yes        | No         | No         |
@@ -66,20 +67,67 @@ The grantable permission levels for resource-scoped permissions are:
 endpoint, referencing a model definition, creating new experiments /
 registered models within a workspace).
 
-`NO_PERMISSIONS` is the resolver's deny sentinel for workspace-boundary
-cases - e.g., a user with no workspace membership when
+`NO_PERMISSIONS` is the resolver's internal deny sentinel for workspace-boundary
+cases - for example, a user with no workspace membership when
 `grant_default_workspace_access` is off. It is **not grantable** as a role
-permission or a direct grant; the auth server rejects attempts to assign
-it. The effective permission when no role grant matches is the server's
+permission or a direct grant.
+
+`DENY` is the grantable explicit-deny level. A `DENY` grant wins over positive
+grants in the same resource type, including `MANAGE`, and fails every capability
+check. It does not override a Workspace Manager: `(workspace, *, MANAGE)` is
+resolved first and always allows within that workspace.
+
+The effective permission when no role grant matches is the server's
 `default_permission` (`READ` by default; see
 [Permission resolution](#permission-resolution)).
 
-Because grants are folded via a max (see
-[Permission resolution](#permission-resolution)), RBAC has no
-explicit-deny override. To restrict access to a
-specific resource, grant access more narrowly (per-resource or
-resource-type wildcard) rather than holding a broad workspace-level grant
-and trying to except the resource.
+### Sub-resource grants
+
+Most MLflow resources are permissioned directly. The child resource types below can
+also be granted independently. Child grants are workspace-wide and wildcard-only:
+use `(child_type, *, LEVEL)`. Per-id child grants are rejected.
+
+| Parent type        | Child type                 |
+| ------------------ | -------------------------- |
+| `experiment`       | `run`                      |
+| `experiment`       | `trace`                    |
+| `experiment`       | `assessment`               |
+| `experiment`       | `logged_model`             |
+| `experiment`       | `review_queue`             |
+| `registered_model` | `registered_model_version` |
+| `prompt`           | `prompt_version`           |
+| `scorer`           | `scorer_version`           |
+| `mcp_server`       | `mcp_server_version`       |
+
+A child resolves on its own resource type when the user has any grant on that
+child type. Otherwise, it inherits its parent permission exactly as before. This
+keeps existing roles backward compatible: an `(experiment, *, EDIT)` grant still
+allows editing runs, traces, assessments, logged models, and review queues when
+there are no child grants.
+
+Examples:
+
+```python
+# Log runs while keeping the experiment read-only.
+auth_client.grant_user_permission("pipeline", "experiment", "*", "READ")
+auth_client.grant_user_permission("pipeline", "run", "*", "EDIT")
+
+# Keep experiment EDIT but block traces containing sensitive content.
+auth_client.grant_user_permission("restricted", "experiment", "*", "EDIT")
+auth_client.grant_user_permission("restricted", "trace", "*", "DENY")
+```
+
+A positive child grant is authoritative, even when it is lower than the parent
+level. `DENY` is authoritative within its child type; it restricts only that
+child type and does not affect sibling children. Removing a child grant returns
+that child to parent inheritance.
+
+`DENY` is an authorization control for resources that already exist. It is not
+a top-level creation policy: creating an experiment, registered model/prompt,
+or MCP server continues to require workspace `USE` or `MANAGE`, because no
+resource ID exists yet to resolve against a resource grant. Restricting creation
+by a future resource's ID or name requires condition-based creation policy and
+is outside this model.
 
 #### Permission resolution
 
@@ -87,21 +135,20 @@ For each authorization check, MLflow evaluates the user's effective
 permission as follows:
 
 1. **Platform Admin bypass**: `is_admin = true` short-circuits to allow.
-2. **Role-derived grants**: all of the user's roles in the request's workspace
-   contribute. Grants that apply to the resource fold via a max, and the
-   highest-priority permission wins (`MANAGE` > `EDIT` > `USE` > `READ`).
-   `(workspace, *, MANAGE)` folds into every per-resource check - it grants
-   management of every resource in the workspace. `(workspace, *, USE)`
-   does **not** fold into per-resource checks; it confers workspace
-   membership and create rights only (see
-   [Workspace isolation](#workspace-isolation)).
-3. **Server `default_permission`** (defaults to `READ`): a floor max'd
-   into the resolution result. When no role grant matches at all, the
-   floor is the final answer. The floor does **not** lift `NO_PERMISSIONS` -
-   when the resolver returns it for a workspace-boundary reason (no
-   workspace membership, missing workspace, lookup error), that deny
-   stands. See [Workspace isolation](#workspace-isolation) for when the
-   floor applies in multi-workspace mode.
+2. **Workspace Manager bypass**: `(workspace, *, MANAGE)` allows within its
+   workspace, including when a child type has a `DENY` grant.
+3. **Child resource type**, when the request targets a grantable child: if any
+   matching child grant exists, `DENY` denies; otherwise the maximum positive
+   child level wins. The parent is not consulted.
+4. **Parent resource type**: only when no child grant exists, matching parent
+   grants fold via max (`MANAGE` > `EDIT` > `USE` > `READ`).
+5. **Server `default_permission`** (defaults to `READ`): a floor used when no
+   applicable role grant resolves. The floor does not lift `NO_PERMISSIONS`
+   (workspace-boundary deny) or `DENY` (explicit restriction).
+
+`(workspace, *, USE)` does not fold into per-resource checks; it confers
+workspace membership and create rights only (see
+[Workspace isolation](#workspace-isolation)).
 
 ## Workspace isolation
 

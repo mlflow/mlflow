@@ -51,6 +51,7 @@ def _setup(
         lambda p: {"queue_id": "q1", "schema_id": "s1", "experiment_id": "123", "name": "Q"}[p],
     )
     monkeypatch.setattr(auth, "_get_experiment_permission", lambda _exp, _user: perm)
+    monkeypatch.setattr(auth, "_get_review_queue_permission_for_experiment", lambda _exp: perm)
     monkeypatch.setattr(auth, "_get_tracking_store", lambda: store)
     # The owner-reassignment gate parses the live request body; stub it so the
     # real `_update_review_queue_reassigns_owner` detection runs against it.
@@ -94,37 +95,33 @@ def test_label_schema_management_requires_manage(monkeypatch, validator, permiss
     ("permission", "expected"), [("READ", False), ("EDIT", True), ("MANAGE", True)]
 )
 def test_create_add_items_and_user_queue_require_edit(monkeypatch, permission, expected):
-    # Creating (and owning) a queue, flagging items, and routing to a user queue
-    # are all experiment-EDIT operations now.
     _setup(monkeypatch, permission=permission)
     assert auth.validate_can_create_review_queue() is expected
     assert auth.validate_can_add_items_to_review_queue() is expected
     assert auth.validate_can_get_or_create_user_queue() is expected
 
 
-def test_update_and_remove_items_allow_owner_or_manager(monkeypatch):
-    # Manager edits any queue.
+def test_update_and_remove_items_use_their_distinct_gates(monkeypatch):
     _setup(monkeypatch, permission="MANAGE", created_by="bob", username="alice")
     assert auth.validate_can_update_review_queue() is True
     assert auth.validate_can_remove_items_from_review_queue() is True
 
-    # Owning EDIT user edits their own queue.
     _setup(monkeypatch, permission="EDIT", created_by="alice", username="alice")
     assert auth.validate_can_update_review_queue() is True
     assert auth.validate_can_remove_items_from_review_queue() is True
 
-    # EDIT non-owner is denied.
+    # An EDIT non-owner cannot update queue shape, but can remove queue items
+    # through the RFC's review_queue child EDIT gate.
     _setup(monkeypatch, permission="EDIT", created_by="bob", username="alice")
+    assert auth.validate_can_update_review_queue() is False
+    assert auth.validate_can_remove_items_from_review_queue() is True
+
+    _setup(monkeypatch, permission="READ", created_by="alice", username="alice")
     assert auth.validate_can_update_review_queue() is False
     assert auth.validate_can_remove_items_from_review_queue() is False
 
-    # READ owner is denied (ownership amplifies EDIT, never substitutes).
-    _setup(monkeypatch, permission="READ", created_by="alice", username="alice")
-    assert auth.validate_can_update_review_queue() is False
 
-
-def test_remove_items_on_user_queue_is_manage_only(monkeypatch):
-    # A manager may prune (remove items from) a personal USER queue...
+def test_remove_items_on_user_queue_uses_review_queue_edit(monkeypatch):
     _setup(
         monkeypatch,
         permission="MANAGE",
@@ -134,8 +131,6 @@ def test_remove_items_on_user_queue_is_manage_only(monkeypatch):
     )
     assert auth.validate_can_remove_items_from_review_queue() is True
 
-    # ...but an EDIT user can't un-assign work from their own USER queue (its
-    # contents are a manager's call, matching the USER-queue delete rule).
     _setup(
         monkeypatch,
         permission="EDIT",
@@ -143,7 +138,7 @@ def test_remove_items_on_user_queue_is_manage_only(monkeypatch):
         username="alice",
         queue_type=ReviewQueueType.USER,
     )
-    assert auth.validate_can_remove_items_from_review_queue() is False
+    assert auth.validate_can_remove_items_from_review_queue() is True
 
 
 def test_owner_reassignment_requires_manage(monkeypatch):

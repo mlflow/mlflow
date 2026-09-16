@@ -2316,6 +2316,45 @@ def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_create_logged_model_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("logged-model-child-permission-outcomes")
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "logged_model", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "logged_model", "*", "DENY")
+
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.create_logged_model(experiment_id=experiment_id)
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            model = client.create_logged_model(experiment_id=experiment_id)
+
+        assert model.experiment_id == experiment_id
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_logged_model_artifact_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -2420,7 +2459,6 @@ def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPa
         models = client.search_logged_models(experiment_ids=experiment_ids)
         assert len(models) == 10
 
-        # Pagination
         models = client.search_logged_models(experiment_ids=experiment_ids, max_results=2)
         assert len(models) == 2
         assert models.token is not None
@@ -2439,7 +2477,6 @@ def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPa
         models = client.search_logged_models(experiment_ids=experiment_ids)
         assert len(models) == len(readable)
 
-        # Pagination
         models = client.search_logged_models(experiment_ids=experiment_ids, max_results=2)
         assert len(models) == 2
         assert models.token is not None
@@ -2453,6 +2490,48 @@ def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPa
         models = client.search_logged_models(experiment_ids=experiment_ids, page_token=models.token)
         assert len(models) == 2
         assert models.token is None
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_run_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("run-child-permission-outcomes")
+        anchor_run = client.create_run(experiment_id)
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "run", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "run", "*", "DENY")
+
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.create_run(experiment_id)
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.log_metric(anchor_run.info.run_id, "denied_metric", 1.0)
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            run = client.create_run(experiment_id)
+            client.log_metric(anchor_run.info.run_id, f"metric_{username}", 1.0)
+        assert run.info.experiment_id == experiment_id
 
 
 @pytest.mark.parametrize(
@@ -6225,7 +6304,9 @@ def test_read_predicate_honors_grant_default_workspace_access(
         def get_user(self, username):
             return SimpleNamespace(id=42, username=username)
 
-        def list_role_grants_for_user_in_workspace(self, user_id, workspace, resource_type):
+        def list_role_grants_for_user_in_workspace(
+            self, user_id, workspace, resource_type, parent_type=None
+        ):
             return []
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
@@ -6233,6 +6314,100 @@ def test_read_predicate_honors_grant_default_workspace_access(
     with workspace_context.WorkspaceContext(default_workspace):
         predicate = auth_module._role_based_read_predicate("alice", resource_type)
         assert predicate(resource_id) is True
+
+
+def test_child_grant_read_write_agree(monkeypatch, tmp_path):
+    """Child EDIT grants enable matching read/write decisions while a child DENY
+    blocks both paths without changing the parent experiment permission.
+    """
+    from mlflow.server.auth.permissions import DENY, EDIT
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'agree.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    ws = "default"  # DEFAULT_WORKSPACE_NAME when workspaces are disabled
+    user = store.create_user("scientist", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="r", workspace=ws)
+    store.add_role_permission(role.id, "experiment", "*", READ.name)
+    for child_type in ("run", "assessment", "logged_model", "review_queue"):
+        store.add_role_permission(role.id, child_type, "*", EDIT.name)
+    store.add_role_permission(role.id, "trace", "*", DENY.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    def write(child_type, child_id):
+        return store.get_role_permission_for_resource(
+            user.id, child_type, child_id, ws, parent_type="experiment", parent_id="e1"
+        )
+
+    def can_read(child_type, child_id):
+        return auth_module._role_based_read_predicate(
+            "scientist", child_type, parent_type="experiment"
+        )(child_id)
+
+    for child_type, child_id in (
+        ("run", "r1"),
+        ("assessment", "a1"),
+        ("logged_model", "m1"),
+        ("review_queue", "q1"),
+    ):
+        assert write(child_type, child_id).can_update
+        assert write(child_type, child_id).can_read
+        assert can_read(child_type, child_id)
+
+    assert write("trace", "t1").name == DENY.name
+    assert not write("trace", "t1").can_read
+    assert not can_read("trace", "t1")
+    assert not write("run", "r1").can_manage
+    assert can_read("experiment", "e1")
+
+
+def test_version_grant_read_write_agree(monkeypatch, tmp_path):
+    from mlflow.server.auth.permissions import EDIT
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'version-agree.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    user = store.create_user("version-writer", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="versions", workspace="default")
+    grants = (
+        ("registered_model", "model-a", "registered_model_version"),
+        ("prompt", "prompt-a", "prompt_version"),
+        ("mcp_server", "namespace/server-a", "mcp_server_version"),
+    )
+    for parent_type, parent_id, child_type in grants:
+        store.add_role_permission(role.id, parent_type, parent_id, READ.name)
+        store.add_role_permission(role.id, child_type, "*", EDIT.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    for parent_type, parent_id, child_type in grants:
+        write = store.get_role_permission_for_resource(
+            user.id,
+            child_type,
+            "v1",
+            "default",
+            parent_type=parent_type,
+            parent_id=parent_id,
+        )
+        read = auth_module._role_based_read_predicate(
+            "version-writer", child_type, parent_type=parent_type
+        )(parent_id)
+        assert write.can_update
+        assert write.can_read
+        assert read
 
 
 @pytest.mark.parametrize(
@@ -6362,7 +6537,7 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
         )
     )
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
-    monkeypatch.setattr(auth_module, "_get_mcp_server_permission", permission_helper)
+    monkeypatch.setattr(auth_module, "_get_mcp_server_version_permission", permission_helper)
     monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
 
     request = SimpleNamespace(method="POST", state=SimpleNamespace())
@@ -7210,3 +7385,906 @@ def test_presigned_upload_url_requires_run_update_permission(client):
         auth=(owner, owner_pw),
     )
     assert resp.status_code != 403
+
+
+_CHILD_VALIDATOR_OUTCOMES = [
+    ("validate_can_create_run", "_get_permission_from_experiment_id_for_run", "can_update"),
+    ("validate_can_read_run", "_get_permission_from_run_id", "can_read"),
+    ("validate_can_update_run", "_get_permission_from_run_id", "can_update"),
+    ("validate_can_read_run_artifact", "_get_permission_from_run_id_or_uuid", "can_read"),
+    ("validate_can_update_run_artifact", "_get_permission_from_run_id_or_uuid", "can_update"),
+    ("validate_can_start_trace", "_get_trace_permission_for_experiment", "can_update"),
+    ("validate_can_read_trace_by_request_id", "_get_trace_permission", "can_read"),
+    ("validate_can_read_trace_by_trace_id", "_get_trace_permission", "can_read"),
+    ("validate_can_update_trace_by_request_id", "_get_trace_permission", "can_update"),
+    ("validate_can_update_trace_by_trace_id", "_get_trace_permission", "can_update"),
+    ("validate_can_read_assessment", "_get_assessment_permission_from_trace_id", "can_read"),
+    ("validate_can_update_assessment", "_get_assessment_permission_from_trace_id", "can_update"),
+    ("validate_can_read_logged_model", "_get_permission_from_model_id", "can_read"),
+    ("validate_can_update_logged_model", "_get_permission_from_model_id", "can_update"),
+    ("validate_can_delete_logged_model", "_get_permission_from_model_id", "can_delete"),
+    (
+        "validate_can_add_items_to_review_queue",
+        "_get_permission_from_review_queue_id",
+        "can_update",
+    ),
+    (
+        "validate_can_remove_items_from_review_queue",
+        "_get_permission_from_review_queue_id",
+        "can_update",
+    ),
+    (
+        "_validate_can_read_model_version_or_prompt_version",
+        "_get_model_version_permission_from_registered_model_or_prompt_name",
+        "can_read",
+    ),
+    (
+        "_validate_can_update_model_version_or_prompt_version",
+        "_get_model_version_permission_from_registered_model_or_prompt_name",
+        "can_update",
+    ),
+    (
+        "_validate_can_delete_model_version_or_prompt_version",
+        "_get_model_version_permission_from_registered_model_or_prompt_name",
+        "can_delete",
+    ),
+    (
+        "validate_can_read_scorer_version",
+        "_get_permission_from_scorer_version_name",
+        "can_read",
+    ),
+    (
+        "validate_can_update_scorer_version",
+        "_get_permission_from_scorer_version_name",
+        "can_update",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("validator_name", "resolver_name", "capability"), _CHILD_VALIDATOR_OUTCOMES
+)
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("parent_inherited", True),
+        ("no_parent_or_child", False),
+        ("child_override", True),
+        ("child_deny", False),
+    ],
+)
+def test_child_validator_outcomes(
+    monkeypatch, validator_name, resolver_name, capability, case, expected
+):
+    from mlflow.server.auth.permissions import get_permission
+
+    allow_permission = "MANAGE" if capability == "can_delete" else "EDIT"
+    permission = allow_permission if expected else "NO_PERMISSIONS"
+    if case == "child_deny":
+        permission = "DENY"
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _name: "resource-id")
+    monkeypatch.setattr(auth_module, resolver_name, lambda *_args: get_permission(permission))
+
+    assert getattr(auth_module, validator_name)() is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_create_review_queue_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    reject = mock.Mock()
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _name: "experiment-id")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_review_queue_permission_for_experiment",
+        lambda _experiment_id: get_permission(permission),
+    )
+    monkeypatch.setattr(auth_module, "_reject_create_review_queue_shadowing_user", reject)
+
+    assert auth_module.validate_can_create_review_queue() is expected
+    assert reject.called is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_create_model_version_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_version_permission_from_registered_model_or_prompt_name",
+        lambda: get_permission(permission),
+    )
+
+    with auth_module.app.test_request_context("/model-versions/create", method="POST", json={}):
+        assert auth_module.validate_can_create_model_version() is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_start_trace_v3_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_trace_permission_for_experiment",
+        lambda _experiment_id: get_permission(permission),
+    )
+    payload = {
+        "trace": {"trace_info": {"trace_location": {"mlflow_experiment": {"experiment_id": "e1"}}}}
+    }
+    with auth_module.app.test_request_context("/traces/start", method="POST", json=payload):
+        assert auth_module.validate_can_start_trace_v3() is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_register_existing_scorer_version_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_request_param",
+        lambda name: {"experiment_id": "e1", "name": "s"}[name],
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_scorer=lambda _experiment_id, _name: SimpleNamespace()),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_scorer_version_permission",
+        lambda _experiment_id, _name: get_permission(permission),
+    )
+
+    assert auth_module.validate_can_register_scorer() is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_mcp_server_version_create_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_mcp_server=lambda _name: SimpleNamespace()),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda _name, _username: get_permission(permission),
+    )
+    validator = auth_module._get_mcp_server_validator(
+        "/api/3.0/mlflow/mcp-servers/namespace/server/versions"
+    )
+
+    request = SimpleNamespace(method="POST", state=SimpleNamespace())
+    assert asyncio.run(validator("user", request)) is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_create_logged_model_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _name: "experiment-id")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_logged_model_permission_for_experiment",
+        lambda _experiment_id: get_permission(permission),
+    )
+
+    assert auth_module.validate_can_create_logged_model() is expected
+
+
+@pytest.mark.parametrize("grant_topology", ["parent_and_child", "child_only", "parent_only"])
+@pytest.mark.parametrize("workspace_admin", [False, True])
+def test_read_predicate_child_deny_and_workspace_admin_precedence(
+    monkeypatch, tmp_path, grant_topology, workspace_admin
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'read-precedence.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    user = store.create_user("reader", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="role", workspace="default")
+    store.assign_role_to_user(user.id, role.id)
+
+    if grant_topology == "parent_and_child":
+        store.add_role_permission(role.id, "experiment", "e1", "EDIT")
+        store.add_role_permission(role.id, "run", "*", "DENY")
+    elif grant_topology == "child_only":
+        store.add_role_permission(role.id, "run", "*", "DENY")
+    else:
+        store.add_role_permission(role.id, "experiment", "e1", "DENY")
+
+    if workspace_admin:
+        store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+
+    can_read = auth_module._role_based_read_predicate("reader", "run", parent_type="experiment")
+    assert can_read("e1") is workspace_admin
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_start_trace_child_permission_outcomes(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("trace-child-permission-outcomes")
+        anchor_trace_id = _create_trace(client.tracking_uri, experiment_id, (owner, owner_password))
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "trace", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "trace", "*", "DENY")
+
+    payload = {
+        "experiment_id": experiment_id,
+        "timestamp_ms": int(time.time() * 1000),
+        "execution_time_ms": 10,
+        "status": "OK",
+        "request_metadata": [],
+        "tags": [],
+    }
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        response = requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/traces",
+            json=payload,
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+        response = requests.patch(
+            url=client.tracking_uri + f"/api/2.0/mlflow/traces/{anchor_trace_id}/tags",
+            json={"key": "denied", "value": "true"},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        response = requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/traces",
+            json=payload,
+            auth=(username, password),
+        )
+        assert response.status_code == 200
+        response = requests.patch(
+            url=client.tracking_uri + f"/api/2.0/mlflow/traces/{anchor_trace_id}/tags",
+            json={"key": f"tag_{username}", "value": "true"},
+            auth=(username, password),
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_assessment_child_permission_outcomes(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("assessment-child-permission-outcomes")
+        trace_id = _create_trace(client.tracking_uri, experiment_id, (owner, owner_password))
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "assessment", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "assessment", "*", "DENY")
+
+    def create_assessment(auth, name):
+        return requests.post(
+            url=client.tracking_uri + f"/api/3.0/mlflow/traces/{trace_id}/assessments",
+            json={
+                "assessment": {
+                    "assessment_name": name,
+                    "feedback": {"value": {"rating": 4}},
+                    "source": {"source_type": "HUMAN", "source_id": "tester"},
+                }
+            },
+            auth=auth,
+        )
+
+    for auth in ((no_grant, no_grant_password), (denied_writer, denied_writer_password)):
+        assert create_assessment(auth, f"denied_{auth[0]}").status_code == 403
+
+    for auth, name in (
+        ((parent_writer, parent_writer_password), "parent_assessment"),
+        ((child_writer, child_writer_password), "child_assessment"),
+    ):
+        response = create_assessment(auth, name)
+        assert response.status_code == 200
+        assessment_id = response.json()["assessment"]["assessment_id"]
+        response = requests.patch(
+            url=client.tracking_uri
+            + f"/api/3.0/mlflow/traces/{trace_id}/assessments/{assessment_id}",
+            json={
+                "assessment": {
+                    "assessment_id": assessment_id,
+                    "trace_id": trace_id,
+                    "assessment_name": f"updated_{name}",
+                },
+                "update_mask": "assessmentName",
+            },
+            auth=auth,
+        )
+        assert response.status_code == 200
+        response = requests.delete(
+            url=client.tracking_uri
+            + f"/api/3.0/mlflow/traces/{trace_id}/assessments/{assessment_id}",
+            auth=auth,
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_registered_model_version_child_permission_outcomes(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("model-version-child-permission-outcomes")
+        run = client.create_run(experiment_id)
+        model = client.create_registered_model("model-version-child-permission")
+
+    source = f"runs:/{run.info.run_id}/model"
+    for username in (parent_writer, child_writer, denied_writer):
+        grant_role_permission(client.tracking_uri, username, "experiment", experiment_id, "READ")
+    grant_role_permission(
+        client.tracking_uri, parent_writer, "registered_model", model.name, "EDIT"
+    )
+    grant_role_permission(client.tracking_uri, child_writer, "registered_model", model.name, "READ")
+    grant_role_permission(
+        client.tracking_uri, child_writer, "registered_model_version", "*", "EDIT"
+    )
+    grant_role_permission(
+        client.tracking_uri, denied_writer, "registered_model", model.name, "EDIT"
+    )
+    grant_role_permission(
+        client.tracking_uri, denied_writer, "registered_model_version", "*", "DENY"
+    )
+
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.create_model_version(model.name, source, run_id=run.info.run_id)
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            version = client.create_model_version(model.name, source, run_id=run.info.run_id)
+
+        assert version.name == model.name
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_prompt_version_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        prompt = client.create_prompt("prompt-version-child-permission")
+
+    grant_role_permission(client.tracking_uri, parent_writer, "prompt", prompt.name, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "prompt", prompt.name, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "prompt_version", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "prompt", prompt.name, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "prompt_version", "*", "DENY")
+
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.create_prompt_version(prompt.name, "hello")
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            version = client.create_prompt_version(prompt.name, f"hello {username}")
+
+        assert version.name == prompt.name
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("scorer-version-child-permission-outcomes")
+        response = requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/scorers/register",
+            json={
+                "experiment_id": experiment_id,
+                "name": "scorer_child_permission",
+                "serialized_scorer": json.dumps({"v": 1}),
+            },
+            auth=(owner, owner_password),
+        )
+        response.raise_for_status()
+
+    scorer_pattern = f"{experiment_id}/scorer_child_permission"
+    for username in (parent_writer, denied_writer):
+        grant_role_permission(client.tracking_uri, username, "scorer", scorer_pattern, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "scorer", scorer_pattern, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "scorer_version", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "scorer_version", "*", "DENY")
+
+    payload = {
+        "experiment_id": experiment_id,
+        "name": "scorer_child_permission",
+        "serialized_scorer": json.dumps({"v": 2}),
+    }
+    for auth in ((no_grant, no_grant_password), (denied_writer, denied_writer_password)):
+        response = requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/scorers/register",
+            json=payload,
+            auth=auth,
+        )
+        assert response.status_code == 403
+
+    for auth in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        response = requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/scorers/register",
+            json=payload,
+            auth=auth,
+        )
+        assert response.status_code == 200
+
+    from mlflow.server.auth.client import AuthServiceClient
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        permission = AuthServiceClient(client.tracking_uri).get_user_permission(
+            child_writer, "scorer", scorer_pattern
+        )
+    assert permission.permission == "READ"
+    assert permission.allowed is False
+
+
+@pytest.mark.parametrize("prefix", [_MCP_REST_PREFIX])
+def test_mcp_server_version_child_permission_outcomes(fastapi_client, monkeypatch, prefix):
+    owner, owner_password = create_user(fastapi_client.tracking_uri)
+    no_grant, no_grant_password = create_user(fastapi_client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(fastapi_client.tracking_uri)
+    child_writer, child_writer_password = create_user(fastapi_client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/version-child-permission"
+
+    with User(owner, owner_password, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(owner, owner_password),
+        ).raise_for_status()
+
+    grant_role_permission(
+        fastapi_client.tracking_uri, parent_writer, "mcp_server", server_name, "EDIT"
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri, child_writer, "mcp_server", server_name, "READ"
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri, child_writer, "mcp_server_version", "*", "EDIT"
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri, denied_writer, "mcp_server", server_name, "EDIT"
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri, denied_writer, "mcp_server_version", "*", "DENY"
+    )
+
+    def create_version(auth, version):
+        return requests.post(
+            url=fastapi_client.tracking_uri + f"{prefix}/{server_name}/versions",
+            json={
+                "server_json": {"name": server_name, "version": version},
+                "source": "https://example.com/server.py",
+            },
+            auth=auth,
+        )
+
+    assert create_version((no_grant, no_grant_password), "1.0.0").status_code == 403
+    assert create_version((denied_writer, denied_writer_password), "1.0.1").status_code == 403
+    assert create_version((parent_writer, parent_writer_password), "1.0.2").status_code == 200
+    assert create_version((child_writer, child_writer_password), "1.0.3").status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_review_queue_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("review-queue-child-permission-outcomes")
+        trace_id = _create_trace(client.tracking_uri, experiment_id, (owner, owner_password))
+        response = requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/create",
+            json={"experiment_id": experiment_id, "name": "owner_queue", "queue_type": "CUSTOM"},
+            auth=(owner, owner_password),
+        )
+        response.raise_for_status()
+        owner_queue_id = response.json()["review_queue"]["queue_id"]
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "review_queue", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "review_queue", "*", "DENY")
+
+    def create_queue(auth, name):
+        return requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/create",
+            json={"experiment_id": experiment_id, "name": name, "queue_type": "CUSTOM"},
+            auth=auth,
+        )
+
+    def add_item(auth, queue_id):
+        return requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/items/add",
+            json={"queue_id": queue_id, "item_type": "TRACE", "item_ids": [trace_id]},
+            auth=auth,
+        )
+
+    def remove_item(auth, queue_id):
+        return requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/items/remove",
+            json={"queue_id": queue_id, "item_ids": [trace_id]},
+            auth=auth,
+        )
+
+    for auth in ((no_grant, no_grant_password), (denied_writer, denied_writer_password)):
+        assert create_queue(auth, f"denied_{auth[0]}").status_code == 403
+        assert add_item(auth, owner_queue_id).status_code == 403
+        assert remove_item(auth, owner_queue_id).status_code == 403
+
+    for auth, name in (
+        ((parent_writer, parent_writer_password), "parent_queue"),
+        ((child_writer, child_writer_password), "child_queue"),
+    ):
+        response = create_queue(auth, name)
+        assert response.status_code == 200
+        queue_id = response.json()["review_queue"]["queue_id"]
+        assert add_item(auth, queue_id).status_code == 200
+        assert remove_item(auth, queue_id).status_code == 200
+
+
+def test_read_predicate_scopes_parent_deny_to_matching_resource(monkeypatch, tmp_path):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=READ.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'read-pattern-scope.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    user = store.create_user("reader", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="role", workspace="default")
+    store.assign_role_to_user(user.id, role.id)
+    store.add_role_permission(role.id, "experiment", "e1", "DENY")
+
+    can_read = auth_module._role_based_read_predicate("reader", "experiment")
+    assert not can_read("e1")
+    assert can_read("e2")
+
+
+@pytest.mark.parametrize(("permission", "expected"), [("MANAGE", True), ("DENY", False)])
+def test_delete_scorer_version_uses_child_permission(monkeypatch, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_version_name",
+        lambda: get_permission(permission),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_name",
+        lambda: pytest.fail("whole-scorer permission must not resolve for a version delete"),
+    )
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete",
+        method="DELETE",
+        json={"experiment_id": "1", "name": "scorer", "version": 1},
+    ):
+        assert auth_module.validate_can_delete_scorer_version() is expected
+
+
+@pytest.mark.parametrize(("permission", "expected"), [("MANAGE", True), ("DENY", False)])
+def test_delete_scorer_without_version_uses_parent_permission(monkeypatch, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_name",
+        lambda: get_permission(permission),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_version_name",
+        lambda: pytest.fail("version permission must not resolve for whole-scorer delete"),
+    )
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete",
+        method="DELETE",
+        json={"experiment_id": "1", "name": "scorer"},
+    ):
+        assert auth_module.validate_can_delete_scorer_version() is expected
+
+
+def test_delete_scorer_version_does_not_cascade_parent_grants(monkeypatch):
+    auth_store = mock.Mock()
+    auth_store._scorer_pattern.return_value = "1/scorer"
+    monkeypatch.setattr(auth_module, "store", auth_store)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete",
+        method="DELETE",
+        json={"experiment_id": "1", "name": "scorer", "version": 1},
+    ):
+        auth_module.delete_scorer_permissions_cascade(mock.Mock())
+    auth_store.delete_grants_for_resource.assert_not_called()
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete",
+        method="DELETE",
+        json={"experiment_id": "1", "name": "scorer"},
+    ):
+        auth_module.delete_scorer_permissions_cascade(mock.Mock())
+    auth_store.delete_grants_for_resource.assert_called_once_with("scorer", "1/scorer")
+
+
+def test_graphql_run_permission_uses_run_child_tier(monkeypatch):
+    run = SimpleNamespace(info=SimpleNamespace(experiment_id="7"))
+    monkeypatch.setattr(
+        auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_run=lambda _rid: run)
+    )
+    captured = {}
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        captured.update(
+            child_type=child_type,
+            child_key=child_key,
+            experiment_id=experiment_id,
+            username=username,
+        )
+        return SimpleNamespace(can_read=False)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    perm = auth_module._graphql_get_permission_for_run("run-1", "bob")
+    assert perm.can_read is False
+    assert captured == {
+        "child_type": "run",
+        "child_key": "run-1",
+        "experiment_id": "7",
+        "username": "bob",
+    }
+
+
+def test_graphql_search_runs_prefilter_keeps_run_only_grant(monkeypatch):
+    # A run-tier READ grant with no experiment READ must not drop the experiment.
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        assert child_type == "run"
+        return SimpleNamespace(can_read=experiment_id == "keep")
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    mw = auth_module.GraphQLAuthorizationMiddleware()
+    input_obj = SimpleNamespace(experiment_ids=["keep", "drop"])
+    allowed = mw._check_authorization("mlflowSearchRuns", {"input": input_obj}, "bob")
+    assert allowed is True
+    assert input_obj.experiment_ids == ["keep"]
+
+
+def test_otlp_ingestion_validator_uses_trace_child_tier(monkeypatch):
+    captured = {}
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        captured.update(child_type=child_type, experiment_id=experiment_id, username=username)
+        return SimpleNamespace(can_update=False)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    validator = auth_module._get_otel_validator("/otlp/v1/traces")
+    request = SimpleNamespace(headers={"x-mlflow-experiment-id": "9"})
+    allowed = asyncio.run(validator("carol", request))
+    assert allowed is False
+    assert captured == {"child_type": "trace", "experiment_id": "9", "username": "carol"}
+
+
+def test_get_or_create_user_queue_uses_review_queue_child_tier(monkeypatch):
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _p: "9")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_review_queue_permission_for_experiment",
+        lambda eid: SimpleNamespace(can_update=eid == "9"),
+    )
+    # Experiment-tier resolver must not be consulted for this child operation.
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_experiment_id",
+        lambda: (_ for _ in ()).throw(AssertionError("should use review_queue tier")),
+    )
+    assert auth_module.validate_can_get_or_create_user_queue() is True
+
+
+def test_review_queue_item_uses_review_queue_child_tier(monkeypatch):
+    queue = SimpleNamespace(experiment_id="9")
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="dan")
+    )
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _p: "queue-1")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_review_queue=lambda _q: queue),
+    )
+    monkeypatch.setattr(
+        auth_module, "_get_review_queue_permission", lambda q: SimpleNamespace(can_update=True)
+    )
+    monkeypatch.setattr(auth_module, "_review_queue_has_member", lambda q, u: True)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_experiment_permission",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should use review_queue tier")),
+    )
+    assert auth_module.validate_can_review_queue_item() is True
+
+
+def test_extract_run_id_from_artifact_proxy_path():
+    assert (
+        auth_module._extract_run_id_from_artifact_proxy_path(
+            "/api/2.0/mlflow-artifacts/artifacts/42/run-abc/artifacts/model.pkl"
+        )
+        == "run-abc"
+    )
+    assert (
+        auth_module._extract_run_id_from_artifact_proxy_path(
+            "/ajax-api/2.0/mlflow-artifacts/artifacts/workspaces/team-a/7/run-xyz/artifacts/f"
+        )
+        == "run-xyz"
+    )
+    for action in ("create", "complete", "abort"):
+        assert (
+            auth_module._extract_run_id_from_artifact_proxy_path(
+                f"/api/2.0/mlflow-artifacts/mpu/{action}/99/run-mpu/artifacts/model"
+            )
+            == "run-mpu"
+        )
+
+
+def test_proxy_artifact_permission_uses_run_child_tier(monkeypatch):
+    captured = {}
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        captured.update(
+            child_type=child_type,
+            child_key=child_key,
+            experiment_id=experiment_id,
+            username=username,
+        )
+        return SimpleNamespace(can_read=True)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    perm = auth_module._get_proxy_artifact_permission(
+        "/api/2.0/mlflow-artifacts/artifacts/42/run-abc/artifacts/model.pkl", "erin"
+    )
+    assert perm.can_read is True
+    assert captured == {
+        "child_type": "run",
+        "child_key": "run-abc",
+        "experiment_id": "42",
+        "username": "erin",
+    }
