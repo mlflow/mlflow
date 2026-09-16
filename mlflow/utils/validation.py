@@ -1119,6 +1119,42 @@ def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
         )
 
 
+def _find_destination_keys(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        found = GATEWAY_DESTINATION_KEYS & set(value)
+        for nested in value.values():
+            found |= _find_destination_keys(nested)
+        return found
+    if isinstance(value, list):
+        found: set[str] = set()
+        for nested in value:
+            found |= _find_destination_keys(nested)
+        return found
+    return set()
+
+
+def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None:
+    """Reject third-party scorer ``kwargs`` that would steer the judge's outbound requests.
+
+    ``third_party_scorer_data`` is rebuilt by reflective instantiation and its ``kwargs`` reach
+    the wrapped library's LLM client unchanged: the TruLens LiteLLM fallback forwards them into
+    every ``litellm.completion()`` call, so ``api_base`` and its aliases let a caller pick the
+    host the server connects to. The server is the trust boundary for these payloads, so the
+    gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
+    ``model_kwargs``, ...).
+    """
+    data = serialized_scorer.get("third_party_scorer_data")
+    if not isinstance(data, dict):
+        return
+    if found := sorted(_find_destination_keys(data.get("kwargs"))):
+        raise MlflowException.invalid_parameter_value(
+            f"third_party_scorer_data.kwargs must not contain {', '.join(map(repr, found))}: "
+            "these options choose where the scorer's LLM client sends requests. Configure the "
+            "judge endpoint on the server instead, for example through a gateway endpoint "
+            "('gateway:/<name>') or the provider's environment variables."
+        )
+
+
 def _validate_mcp_icon_url(url: str) -> None:
     """Validate an MCP icon URL on write/update requests.
 

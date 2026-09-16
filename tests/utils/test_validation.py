@@ -34,6 +34,7 @@ from mlflow.utils.validation import (
     _validate_public_https_url,
     _validate_run_id,
     _validate_tag_name,
+    _validate_third_party_scorer_data,
     _validate_webhook_url,
     path_not_unique,
 )
@@ -975,6 +976,64 @@ def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases
 def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
     with pytest.raises(MlflowException, match=f"secret_value must not contain '{key}'"):
         _validate_gateway_secret_value({"api_key": "x", key: "http://169.254.169.254/"})
+
+
+def _trulens_scorer(kwargs):
+    return {
+        "name": "poc",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.trulens",
+            "class": "Coherence",
+            "metric_name": "Coherence",
+            "model": "openai:/gpt-4o",
+            "kwargs": kwargs,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"api_base": "http://169.254.169.254/", "api_key": "canary"},
+        {"base_url": "http://169.254.169.254/"},
+        {"custom_llm_provider": "openai"},
+        # trulens' LiteLLM provider forwards `completion_kwargs` into every litellm call.
+        {"completion_kwargs": {"api_base": "http://169.254.169.254/"}},
+        # deepeval wrappers forward `model_kwargs` to the underlying model.
+        {"threshold": 0.5, "model_kwargs": {"base_url": "http://10.0.0.1/"}},
+        {"model_list": [{"litellm_params": {"api_base": "http://10.0.0.1/"}}]},
+    ],
+)
+def test_validate_third_party_scorer_data_rejects_destination_kwargs(kwargs):
+    with pytest.raises(
+        MlflowException, match="third_party_scorer_data.kwargs must not contain"
+    ) as exc:
+        _validate_third_party_scorer_data(_trulens_scorer(kwargs))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_validate_third_party_scorer_data_names_every_offending_key():
+    with pytest.raises(MlflowException, match="'api_base', 'base_url'"):
+        _validate_third_party_scorer_data(
+            _trulens_scorer({
+                "api_base": "http://a/",
+                "completion_kwargs": {"base_url": "http://b/"},
+            })
+        )
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        _trulens_scorer({}),
+        _trulens_scorer(None),
+        _trulens_scorer({"threshold": 0.7, "temperature": 0.0}),
+        {"name": "builtin", "builtin_scorer_class": "Safety"},
+        {"name": "not-a-dict", "third_party_scorer_data": "x"},
+    ],
+)
+def test_validate_third_party_scorer_data_accepts_benign_payloads(serialized_scorer):
+    _validate_third_party_scorer_data(serialized_scorer)
 
 
 def test_validate_gateway_secret_auth_config_rejects_private_api_base():

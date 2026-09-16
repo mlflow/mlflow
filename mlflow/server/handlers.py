@@ -421,6 +421,7 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
+    _validate_third_party_scorer_data,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
     invalid_value,
@@ -5857,6 +5858,7 @@ def _register_scorer():
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )
+    _validate_third_party_scorer_data(serialized_data)
     scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
@@ -7319,6 +7321,7 @@ def _invoke_scorer_handler():
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )
+    _validate_third_party_scorer_data(serialized_data)
 
     from mlflow.genai.scorers.base import Scorer
     from mlflow.genai.scorers.job import get_trace_batches_for_scorer, invoke_scorer_job
