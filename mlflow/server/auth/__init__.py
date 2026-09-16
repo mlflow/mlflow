@@ -5053,6 +5053,10 @@ class GraphQLAuthorizationMiddleware:
         "mlflowSearchRuns",
         "mlflowSearchDatasets",
         "mlflowSearchModelVersions",
+        # Nested ``run.modelVersions`` (reachable via mlflowGetRun / mlflowSearchRuns) resolves
+        # through the unfiltered search implementation, so it needs the same per-model filter
+        # as the top-level search.
+        "modelVersions",
     }
 
     def resolve(self, next, root, info, **args):
@@ -5148,6 +5152,9 @@ class GraphQLAuthorizationMiddleware:
         """Apply post-resolution filtering on GraphQL results."""
         if field_name == "mlflowSearchModelVersions":
             return self._filter_model_versions_result(result, username)
+        if field_name == "modelVersions":
+            can_read = _role_based_read_predicate(username, "registered_model")
+            return [mv for mv in result if can_read(mv.name)]
         return result
 
     def _filter_model_versions_result(self, result, username: str):

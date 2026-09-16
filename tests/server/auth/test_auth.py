@@ -1534,6 +1534,82 @@ def test_graphql_search_model_versions(client, monkeypatch):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_graphql_nested_run_model_versions_filtered_by_model_permission(client, monkeypatch):
+    """
+    Regression test for GHSA-f253-vggg-rwh8: the nested run.modelVersions field must
+    apply the same per-model READ filter as the top-level mlflowSearchModelVersions query.
+    """
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    readable = [0, 2, 4]
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("gql_nested_mv_test_exp")
+        run_id = client.create_run(experiment_id).info.run_id
+        for i in range(5):
+            rm = client.create_registered_model(f"gql_nested_mv_model{i}")
+            client.create_model_version(rm.name, f"runs:/{run_id}/model", run_id=run_id)
+            if i in readable:
+                grant_role_permission(
+                    client.tracking_uri, username2, "registered_model", rm.name, "READ"
+                )
+
+    # user2 can read the experiment (and thus the run) but only some of the models
+    grant_role_permission(client.tracking_uri, username2, "experiment", experiment_id, "READ")
+
+    get_run_query = """
+    query($runId: String!) {
+      mlflowGetRun(input: {runId: $runId}) {
+        run { modelVersions { name version } }
+      }
+    }
+    """
+    search_runs_query = """
+    query($experimentIds: [String]!) {
+      mlflowSearchRuns(input: {experimentIds: $experimentIds}) {
+        runs { modelVersions { name version } }
+      }
+    }
+    """
+
+    def nested_names(query, variables, auth):
+        response = _graphql_query(client.tracking_uri, query, variables=variables, auth=auth)
+        response.raise_for_status()
+        payload = response.json()
+        assert payload.get("errors") in (None, [])
+        if "mlflowGetRun" in payload["data"]:
+            model_versions = payload["data"]["mlflowGetRun"]["run"]["modelVersions"]
+        else:
+            (run,) = payload["data"]["mlflowSearchRuns"]["runs"]
+            model_versions = run["modelVersions"]
+        return sorted(mv["name"] for mv in model_versions)
+
+    get_run_vars = {"runId": run_id}
+    search_runs_vars = {"experimentIds": [experiment_id]}
+
+    # user1 (owner) sees every version through both nested paths
+    assert nested_names(get_run_query, get_run_vars, (username1, password1)) == [
+        f"gql_nested_mv_model{i}" for i in range(5)
+    ]
+    assert nested_names(search_runs_query, search_runs_vars, (username1, password1)) == [
+        f"gql_nested_mv_model{i}" for i in range(5)
+    ]
+
+    # user2 only sees versions of models they can read, matching the top-level search
+    assert nested_names(get_run_query, get_run_vars, (username2, password2)) == [
+        f"gql_nested_mv_model{i}" for i in readable
+    ]
+    assert nested_names(search_runs_query, search_runs_vars, (username2, password2)) == [
+        f"gql_nested_mv_model{i}" for i in readable
+    ]
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_create_model_version_requires_read_on_source_run(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch
 ):
