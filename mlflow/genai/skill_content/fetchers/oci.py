@@ -138,6 +138,33 @@ def _docker_config_path() -> Path:
     return Path.home() / ".docker" / "config.json"
 
 
+def _credential_files() -> list[Path]:
+    """
+    Credential files in lookup order: an explicit ``REGISTRY_AUTH_FILE``, the Docker config,
+    then the default ``containers/auth.json`` locations Podman and other container runtimes
+    write to. All share the Docker config format.
+    """
+    files = []
+    if explicit := os.environ.get("REGISTRY_AUTH_FILE"):
+        files.append(Path(explicit))
+    files.append(_docker_config_path())
+    if runtime_dir := os.environ.get("XDG_RUNTIME_DIR"):
+        files.append(Path(runtime_dir) / "containers" / "auth.json")
+    config_home = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
+    files.append(Path(config_home) / "containers" / "auth.json")
+    return files
+
+
+def _read_config_file(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return config if isinstance(config, dict) else None
+
+
 def _is_loopback(netloc: str) -> bool:
     """Whether ``host`` or ``host:port`` (IPv6 in brackets) names the local machine."""
     return (urlsplit(f"//{netloc}").hostname or "") in _LOOPBACK_HOSTS
@@ -207,21 +234,23 @@ def _run_credential_helper(helper: str, server: str) -> tuple[str, str] | None:
 
 def _load_docker_credentials(registry: str) -> tuple[str, str] | None:
     """
-    Resolve credentials for ``registry`` from the Docker config file the way the CLI does.
+    Resolve credentials for ``registry`` from the container tooling's config files.
 
-    A configured helper wins: the registry-specific ``credHelpers`` entry, else the global
-    ``credsStore``. Only when no helper is configured, or the helper has nothing, does an
-    inline ``auths`` entry apply. Missing or unreadable config means no credentials.
+    Files are consulted in ``_credential_files`` order and the first one that yields
+    credentials wins. Within a file the Docker CLI's rules apply: a configured helper (the
+    registry-specific ``credHelpers`` entry, else the global ``credsStore``) is asked first,
+    and an inline ``auths`` entry applies only when no helper is configured or the helper has
+    nothing. Missing or unreadable files are skipped.
     """
-    config_path = _docker_config_path()
-    if not config_path.is_file():
-        return None
-    try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not isinstance(config, dict):
-        return None
+    for path in _credential_files():
+        if (config := _read_config_file(path)) is None:
+            continue
+        if found := _config_credentials(config, registry):
+            return found
+    return None
+
+
+def _config_credentials(config: dict[str, Any], registry: str) -> tuple[str, str] | None:
     keys = [registry, f"https://{registry}", f"http://{registry}"]
     server = registry
     if registry == _DOCKER_HUB_REGISTRY:

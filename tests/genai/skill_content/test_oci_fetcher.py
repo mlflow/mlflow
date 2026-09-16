@@ -795,6 +795,52 @@ def test_load_docker_credentials_falls_back_to_auths_when_helper_has_nothing(tmp
     helper.assert_called_once()
 
 
+def _auth_file(path, user, secret):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    entry = {"auth": base64.b64encode(f"{user}:{secret}".encode()).decode()}
+    path.write_text(json.dumps({"auths": {"registry.example": entry}}))
+
+
+def test_load_credentials_from_container_runtime_auth_file(tmp_path, monkeypatch):
+    # Podman logins live in containers/auth.json, selected by REGISTRY_AUTH_FILE or found
+    # under XDG_RUNTIME_DIR, with no Docker config present at all.
+    runtime = tmp_path / "runtime"
+    authfile = runtime / "containers" / "auth.json"
+    _auth_file(authfile, "runtime-user", "runtime-secret")
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime))
+    monkeypatch.setenv("REGISTRY_AUTH_FILE", str(authfile))
+    monkeypatch.setenv("DOCKER_CONFIG", str(tmp_path / "missing-docker"))
+    assert _load_docker_credentials("registry.example") == ("runtime-user", "runtime-secret")
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        ({"REGISTRY_AUTH_FILE": "explicit"}, "explicit"),
+        ({}, "docker"),
+        ({"DOCKER_CONFIG": "missing", "XDG_RUNTIME_DIR": "runtime"}, "runtime"),
+        (
+            {"DOCKER_CONFIG": "missing", "XDG_RUNTIME_DIR": "missing", "XDG_CONFIG_HOME": "config"},
+            "config",
+        ),
+    ],
+)
+def test_load_credentials_file_precedence(tmp_path, monkeypatch, env, expected):
+    monkeypatch.setenv("DOCKER_CONFIG", str(tmp_path / "docker"))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "runtime"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.delenv("REGISTRY_AUTH_FILE", raising=False)
+    _auth_file(tmp_path / "explicit.json", "explicit", "x")
+    _auth_file(tmp_path / "docker" / "config.json", "docker", "x")
+    _auth_file(tmp_path / "runtime" / "containers" / "auth.json", "runtime", "x")
+    _auth_file(tmp_path / "config" / "containers" / "auth.json", "config", "x")
+    for key, value in env.items():
+        monkeypatch.setenv(
+            key, str(tmp_path / (value + ".json" if key == "REGISTRY_AUTH_FILE" else value))
+        )
+    assert _load_docker_credentials("registry.example") == (expected, "x")
+
+
 def test_load_docker_credentials_helper_missing(tmp_path, monkeypatch):
     monkeypatch.setenv("DOCKER_CONFIG", str(tmp_path))
     (tmp_path / "config.json").write_text(
