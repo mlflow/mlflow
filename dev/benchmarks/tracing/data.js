@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789546688136,
+  "lastUpdate": 1789550327418,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "147849970+SuperSonnix71@users.noreply.github.com",
-            "name": "Sonny",
-            "username": "SuperSonnix71"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f7b2ddf7b8afb0bd36c7e6d5a8ec80985bd1b699",
-          "message": "Add Ollama as assistant provider (#22098)\n\nSigned-off-by: SuperSonnix71 <sonnym@hotmail.se>\nSigned-off-by: SuperSonnix71 <sonnym@terranex.ai>\nSigned-off-by: Sonny M <sonny@Sonnys-MacBook-Pro-2.local>\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>\nCo-authored-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-05-16T22:02:33Z",
-          "tree_id": "2d2dabf36a86f0fa144a92f6029d471dc5de355c",
-          "url": "https://github.com/mlflow/mlflow/commit/f7b2ddf7b8afb0bd36c7e6d5a8ec80985bd1b699"
-        },
-        "date": 1778969178181,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 44.442580850002145,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 24.744243696971605,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 22.980597714284606,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 23.89933901785771,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 23.8247763636366,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.261022399999774,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.011743166666861,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "haoji.tang@databricks.com",
+            "name": "Haoji Tang",
+            "username": "tanghaoji"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "703265c705721e1c2b2a0176aa5ac9b2db65d966",
+          "message": "Authorize CreateModelVersion camelCase `runId`/`modelId` aliases in basic-auth (GHSA-442c-p479-46xg) (#25892)\n\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-09-16T09:15:27Z",
+          "tree_id": "37dce259c953c793a7ee4953b91788ce0d8424c7",
+          "url": "https://github.com/mlflow/mlflow/commit/703265c705721e1c2b2a0176aa5ac9b2db65d966"
+        },
+        "date": 1789550325547,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 44.146328200000085,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.437069423077501,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.641047390070704,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 6.356322798246052,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.970322631147613,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.948137800000723,
             "unit": "ms"
           }
         ]
