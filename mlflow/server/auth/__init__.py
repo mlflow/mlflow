@@ -5153,9 +5153,19 @@ class GraphQLAuthorizationMiddleware:
         if field_name == "mlflowSearchModelVersions":
             return self._filter_model_versions_result(result, username)
         if field_name == "modelVersions":
-            can_read = _role_based_read_predicate(username, "registered_model")
-            return [mv for mv in result if can_read(mv.name)]
+            can_read = self._nested_model_version_read_predicate(username)
+            return [mv for mv in result if can_read(mv)]
         return result
+
+    def _nested_model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
+        # mlflowSearchRuns resolves ``modelVersions`` once per run, and building the predicate
+        # costs a user lookup plus a grants query, so memoize it for the current request.
+        # Prompt-aware like the REST ``filter_search_model_versions`` so a prompt version is
+        # judged by prompt grants rather than registered-model grants.
+        predicates = g.setdefault("_graphql_model_version_read_predicates", {})
+        if username not in predicates:
+            predicates[username] = _rm_or_prompt_read_predicate(username)
+        return predicates[username]
 
     def _filter_model_versions_result(self, result, username: str):
         """Filter model versions the user doesn't have read access to."""
