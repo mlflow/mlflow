@@ -8,6 +8,7 @@ on:
       - reopened
     paths:
       - .github/workflows/protos.yml
+      - dev/Dockerfile.protos
       - dev/gen_rest_api.py
       - dev/generate_protos.py
       - dev/generate-protos.sh
@@ -19,6 +20,7 @@ on:
       - mlflow/server/js/src/graphql/**
       - requirements/skinny-requirements.yaml
       - requirements/core-requirements.yaml
+      - uv.lock
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
