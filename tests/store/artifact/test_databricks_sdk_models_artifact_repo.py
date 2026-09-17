@@ -1,4 +1,5 @@
 import io
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -7,6 +8,7 @@ from databricks.sdk.errors.platform import NotFound
 from databricks.sdk.service.files import DirectoryEntry, DownloadResponse
 
 from mlflow.entities.file_info import FileInfo
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
     DatabricksSDKModelsArtifactRepository,
     _get_databricks_workspace_client,
@@ -237,4 +239,39 @@ def test_uc_models_repo_uses_scoped_cloud_repo_by_default(monkeypatch):
         ) as mock_factory,
     ):
         assert uc_repo._get_artifact_repo() is sentinel
+        mock_factory.assert_called_once()
+
+
+def test_uc_registry_store_uses_sdk_repo_for_upload_when_env_var_enabled(
+    mock_databricks_workspace_client, monkeypatch, tmp_path
+):
+    monkeypatch.setenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "my-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
+
+    store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
+    model_version = SimpleNamespace(version="1", storage_location="s3://bucket/path")
+    repo = store._get_artifact_repo(model_version, TEST_MODEL_NAME)
+    assert isinstance(repo, DatabricksSDKModelsArtifactRepository)
+
+
+def test_uc_registry_store_uses_scoped_cloud_repo_for_upload_by_default(monkeypatch, tmp_path):
+    monkeypatch.delenv("MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", raising=False)
+    monkeypatch.setenv("DATABRICKS_HOST", "my-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "my-token")
+
+    store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
+    model_version = SimpleNamespace(version="1", storage_location="s3://bucket/path")
+    sentinel = object()
+    with (
+        mock.patch.object(
+            store, "_get_temporary_model_version_write_credentials", return_value=mock.MagicMock()
+        ) as mock_creds,
+        mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.get_artifact_repo_from_storage_info",
+            return_value=sentinel,
+        ) as mock_factory,
+    ):
+        assert store._get_artifact_repo(model_version, TEST_MODEL_NAME) is sentinel
+        mock_creds.assert_called_once()
         mock_factory.assert_called_once()
