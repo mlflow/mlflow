@@ -212,6 +212,8 @@ def client(tmp_path_factory: pytest.TempPathFactory, mock_gateway_server: str) -
             "_MLFLOW_ALLOWED_JOB_NAME_LIST": "invoke_scorer",
             # Point gateway calls to our mock server
             "MLFLOW_GATEWAY_URI": mock_gateway_server,
+            # Disable remote catalog lookups for mock gateway models.
+            "MLFLOW_MODEL_CATALOG_URI": "",
             # Set batch size to 2 for testing job batching behavior
             "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE": "2",
         },
