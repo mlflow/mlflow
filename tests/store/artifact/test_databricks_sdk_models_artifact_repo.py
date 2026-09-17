@@ -165,13 +165,12 @@ def test_log_artifact(mock_databricks_workspace_client, tmp_path):
 
 def test_get_workspace_client_uses_resolved_creds_when_token_present():
     creds = MlflowHostCreds(host="https://my-host", token="my-token")
-    with (
-        mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=creds,
-        ) as mock_get_creds,
-        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
-    ):
+    with mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_host_creds",
+        return_value=creds,
+    ) as mock_get_creds, mock.patch(
+        "databricks.sdk.WorkspaceClient"
+    ) as mock_workspace_client:
         _get_databricks_workspace_client("databricks-uc")
 
     mock_get_creds.assert_called_once_with("databricks-uc")
@@ -186,26 +185,20 @@ def test_get_workspace_client_uses_resolved_creds_when_token_present():
     ],
 )
 def test_get_workspace_client_falls_back_to_default_auth_without_token(creds):
-    with (
-        mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            return_value=creds,
-        ),
-        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
-    ):
+    with mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_host_creds",
+        return_value=creds,
+    ), mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client:
         _get_databricks_workspace_client("databricks-uc")
 
     mock_workspace_client.assert_called_once_with()
 
 
 def test_get_workspace_client_falls_back_when_creds_resolution_raises():
-    with (
-        mock.patch(
-            "mlflow.utils.databricks_utils.get_databricks_host_creds",
-            side_effect=Exception("cannot resolve creds"),
-        ),
-        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
-    ):
+    with mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_host_creds",
+        side_effect=Exception("cannot resolve creds"),
+    ), mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client:
         _get_databricks_workspace_client("databricks-uc")
 
     mock_workspace_client.assert_called_once_with()
@@ -229,15 +222,15 @@ def test_uc_models_repo_uses_scoped_cloud_repo_by_default(monkeypatch):
 
     uc_repo = UnityCatalogModelsArtifactRepository("models:/a.b.c/1", "databricks-uc")
     sentinel = object()
-    with (
-        mock.patch.object(uc_repo, "_get_scoped_token", return_value=mock.MagicMock()),
-        mock.patch.object(uc_repo, "_get_blob_storage_path", return_value="s3://bucket/path"),
-        mock.patch(
-            "mlflow.store.artifact.unity_catalog_models_artifact_repo."
-            "get_artifact_repo_from_storage_info",
-            return_value=sentinel,
-        ) as mock_factory,
-    ):
+    with mock.patch.object(
+        uc_repo, "_get_scoped_token", return_value=mock.MagicMock()
+    ), mock.patch.object(
+        uc_repo, "_get_blob_storage_path", return_value="s3://bucket/path"
+    ), mock.patch(
+        "mlflow.store.artifact.unity_catalog_models_artifact_repo."
+        "get_artifact_repo_from_storage_info",
+        return_value=sentinel,
+    ) as mock_factory:
         assert uc_repo._get_artifact_repo() is sentinel
         mock_factory.assert_called_once()
 
@@ -263,15 +256,12 @@ def test_uc_registry_store_uses_scoped_cloud_repo_for_upload_by_default(monkeypa
     store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
     model_version = SimpleNamespace(version="1", storage_location="s3://bucket/path")
     sentinel = object()
-    with (
-        mock.patch.object(
-            store, "_get_temporary_model_version_write_credentials", return_value=mock.MagicMock()
-        ) as mock_creds,
-        mock.patch(
-            "mlflow.store._unity_catalog.registry.rest_store.get_artifact_repo_from_storage_info",
-            return_value=sentinel,
-        ) as mock_factory,
-    ):
+    with mock.patch.object(
+        store, "_get_temporary_model_version_write_credentials", return_value=mock.MagicMock()
+    ) as mock_creds, mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.get_artifact_repo_from_storage_info",
+        return_value=sentinel,
+    ) as mock_factory:
         assert store._get_artifact_repo(model_version, TEST_MODEL_NAME) is sentinel
         mock_creds.assert_called_once()
         mock_factory.assert_called_once()

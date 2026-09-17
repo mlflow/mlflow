@@ -752,7 +752,9 @@ class UcModelRegistryStore(BaseRestStore):
             ).model_version
             store = self._get_artifact_repo(model_version, full_name)
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
-            finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
+            finalized_mv = self._finalize_model_version(
+                name=full_name, version=model_version.version
+            )
             return model_version_from_uc_proto(finalized_mv)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
