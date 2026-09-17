@@ -31,6 +31,8 @@ from mlflow.assistant.providers.tool_executor import (
     CLIENT_TOOLS,
     build_tools_schema,
     execute_tool,
+    is_remote_caller,
+    restrict_permissions_for_remote,
     static_permission_error,
 )
 from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
@@ -379,6 +381,11 @@ class OpenAICompatibleProvider(AssistantProvider):
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
         config = self._load_config()
+        # Remote callers are capped at the restricted profile: their config full_access is dropped
+        # and they are not offered the interactive full-access grant below (which could only elevate
+        # to a level a remote caller is not allowed to reach). Local callers are unaffected.
+        remote = is_remote_caller()
+        caller_permissions = restrict_permissions_for_remote(config.permissions)
         base_url = (config.base_url or self._default_base_url or "").rstrip("/") or None
         chat_url = self._chat_url_builder(base_url, tracking_uri)
         if not chat_url:
@@ -694,11 +701,12 @@ class OpenAICompatibleProvider(AssistantProvider):
                         # gated (no session, or a statically-allowed call) is left to the static
                         # policy enforced by execute_tool.
                         needs_prompt = (
-                            static_permission_error(tool_name, tool_input, config.permissions, cwd)
+                            static_permission_error(tool_name, tool_input, caller_permissions, cwd)
                             is not None
                         )
                         gated = (
-                            not config.permissions.full_access
+                            not remote
+                            and not caller_permissions.full_access
                             and bool(mlflow_session_id)
                             and needs_prompt
                         )
@@ -746,7 +754,7 @@ class OpenAICompatibleProvider(AssistantProvider):
                             continue
 
                         effective_permissions = (
-                            PermissionsConfig(full_access=True) if gated else config.permissions
+                            PermissionsConfig(full_access=True) if gated else caller_permissions
                         )
                         result_str, is_error = await execute_tool(
                             tool_name,
