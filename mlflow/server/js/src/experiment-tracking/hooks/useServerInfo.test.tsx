@@ -17,7 +17,8 @@ import {
   SERVER_FEATURE_KEYS,
   ServerInfoProvider,
 } from './useServerInfo';
-import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { QueryClient, QueryClientProvider, onlineManager } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { createMlflowQueryClient } from '@mlflow/mlflow/src/common/utils/createMlflowQueryClient';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
@@ -490,5 +491,67 @@ describe('useFeatureEnabled and getFeatureEnabledSync', () => {
     });
     expect(screen.getByTestId('gateway-enabled').textContent).toBe('false');
     expect(getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY, false)).toBe(false);
+  });
+});
+
+describe('useServerInfo when the browser reports being offline', () => {
+  // Regression test: React Query's default networkMode pauses a query before its queryFn runs.
+  // Because MlflowRouter gates router creation on useWorkspacesEnabled().loading, a paused
+  // serverInfo query left the whole UI on a skeleton with no error and no request. These use the
+  // real client from createMlflowQueryClient rather than a bare one, so they cover the wiring the
+  // app actually ships. `onlineManager` is a module-level singleton, but Jest gives each test file
+  // its own module registry, so this does not leak into other suites.
+  setupServer(
+    rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+      return res(
+        ctx.json({
+          store_type: 'SqlStore',
+          workspaces_enabled: true,
+          trace_archival_enabled: false,
+          multipart_uploads_enabled: false,
+          multipart_downloads_enabled: false,
+        }),
+      );
+    }),
+  );
+
+  let queryClient: QueryClient;
+
+  const offlineWrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  beforeEach(() => {
+    queryClient = createMlflowQueryClient();
+    onlineManager.setOnline(false);
+  });
+
+  afterEach(() => {
+    // setOnline(undefined) restores auto-detection but does not notify listeners; flipping to true
+    // first makes the reset resume-safe for anything still subscribed.
+    onlineManager.setOnline(true);
+    onlineManager.setOnline(undefined);
+    queryClient.clear();
+  });
+
+  test('resolves instead of pausing forever', async () => {
+    const { result } = renderHook(() => useServerInfo(), { wrapper: offlineWrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // DEFAULT_RESPONSE.store_type is '', so this proves the request actually fired.
+    expect(result.current.data?.store_type).toBe('SqlStore');
+  });
+
+  test('useWorkspacesEnabled stops loading so the router can be created', async () => {
+    const { result } = renderHook(() => useWorkspacesEnabled(), { wrapper: offlineWrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.workspacesEnabled).toBe(true);
   });
 });
