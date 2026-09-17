@@ -9373,7 +9373,7 @@ def test_invoke_genai_evaluate_handler_resolves_exact_scorer_version(
     assert mock_submit_job.call_args.kwargs["params"]["scorer_versions"] == [4]
 
 
-def test_invoke_genai_evaluate_handler_rejects_decorator_scorer(monkeypatch):
+def test_invoke_genai_evaluate_handler_rejects_decorator_scorer(monkeypatch, mock_tracking_store):
     from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")

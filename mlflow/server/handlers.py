@@ -5291,6 +5291,8 @@ def _validate_trace_ids_in_experiment(
     downstream in the job, which preserves the existing contract for missing traces.
     """
     try:
+        # Deliberately not scoped with `experiment_ids`: scoping would hide foreign traces and
+        # make the ownership check below vacuous.
         trace_infos = tracking_store.batch_get_trace_infos(trace_ids)
     except (MlflowNotImplementedException, NotImplementedError):
         # Fallback to per-trace fetches for stores that don't implement batch_get_trace_infos.
