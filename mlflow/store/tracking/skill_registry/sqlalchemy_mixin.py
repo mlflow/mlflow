@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
@@ -9,6 +12,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -22,10 +26,13 @@ from mlflow.utils.validation import (
     _validate_skill_version,
 )
 
+_logger = logging.getLogger(__name__)
 
 
 class SqlAlchemySkillRegistryMixin:
     """SQLAlchemy implementation of the Skill Registry store interface."""
+
+    CREATE_SKILL_VERSION_RETRIES = 3
 
     def _skill_query(self, session):
         return SqlSkill.with_resolved_latest(self._get_query(session, SqlSkill))
@@ -212,6 +219,64 @@ class SqlAlchemySkillRegistryMixin:
                 error_code=RESOURCE_ALREADY_EXISTS,
             ) from e
         return skill_version.to_mlflow_entity()
+
+    def create_skill_version(
+        self,
+        name: str,
+        organization: str = "",
+        source_type: str | None = None,
+        source: str | None = None,
+        ref: str | None = None,
+        subpath: str | None = None,
+        digest: str | None = None,
+        status: str = SkillStatus.ACTIVE.value,
+    ) -> SkillVersion:
+        self._validate_skill_identity(name, organization)
+        with self.ManagedSessionMaker(read_only=False) as session:
+            for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
+                try:
+                    max_version = (
+                        self
+                        ._get_query(session, SqlSkillVersion)
+                        .with_entities(func.max(SqlSkillVersion.version))
+                        .filter(
+                            SqlSkillVersion.name == name,
+                            SqlSkillVersion.organization == organization,
+                        )
+                        .scalar()
+                    )
+                    version = (max_version or 0) + 1
+                    return self._persist_skill_version(
+                        session=session,
+                        name=name,
+                        organization=organization,
+                        version=version,
+                        source_type=source_type,
+                        source=source,
+                        ref=ref,
+                        subpath=subpath,
+                        digest=digest,
+                        status=status,
+                    )
+                except MlflowException as e:
+                    if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                        raise
+                    session.rollback()
+                    more_retries = self.CREATE_SKILL_VERSION_RETRIES - attempt - 1
+                    _logger.info(
+                        "Skill version creation conflict (name=%s, organization=%s); "
+                        "retrying %s more time%s.",
+                        name,
+                        organization,
+                        more_retries,
+                        "s" if more_retries != 1 else "",
+                    )
+
+        raise MlflowException(
+            f"Skill version creation error (name={name}, organization={organization}). "
+            f"Giving up after {self.CREATE_SKILL_VERSION_RETRIES} attempts.",
+            error_code=RESOURCE_ALREADY_EXISTS,
+        )
 
     def get_skill_version(
         self,

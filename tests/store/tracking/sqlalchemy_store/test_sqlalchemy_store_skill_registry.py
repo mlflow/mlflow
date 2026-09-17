@@ -9,6 +9,7 @@ from mlflow.entities.skill_source import (
     ZipSource,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -191,6 +192,26 @@ def test_skill_version_auto_creates_parent_and_preserves_existing_parent(store):
     assert parent.icons == [{"src": "https://example.com/reviewer.svg"}]
 
 
+def test_skill_version_identity_is_workspace_scoped(store, workspaces_enabled):
+    if not workspaces_enabled:
+        pytest.skip("Workspace isolation is only applicable when workspaces are enabled")
+
+    with WorkspaceContext("team-a"):
+        version_a = store.create_skill_version("reviewer", organization="acme")
+
+    with WorkspaceContext("team-b"):
+        version_b = store.create_skill_version("reviewer", organization="acme")
+
+    assert version_a.version == 1
+    assert version_b.version == 1
+
+    with WorkspaceContext("team-a"):
+        assert store.get_skill_version("reviewer", 1, organization="acme").workspace == "team-a"
+
+    with WorkspaceContext("team-b"):
+        assert store.get_skill_version("reviewer", 1, organization="acme").workspace == "team-b"
+
+
 def test_duplicate_skill_version_raises(store):
     _persist_skill_version(store)
 
@@ -198,6 +219,45 @@ def test_duplicate_skill_version_raises(store):
         _persist_skill_version(store)
 
     assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+
+
+def test_create_skill_version_allocates_monotonically(store):
+    first = store.create_skill_version("reviewer", organization="acme")
+    second = store.create_skill_version("reviewer", organization="acme")
+
+    assert first.version == 1
+    assert second.version == 2
+
+
+def test_create_skill_version_does_not_reuse_deleted_version(store):
+    _persist_skill_version(store, status=SkillStatus.DELETED.value)
+
+    created = store.create_skill_version("reviewer", organization="acme")
+
+    assert created.version == 2
+
+
+def test_create_skill_version_retries_and_rolls_back_after_conflict(store, monkeypatch):
+    original_persist = store._persist_skill_version
+    persist_calls = 0
+
+    def persist_with_conflict_after_insert(*args, **kwargs):
+        nonlocal persist_calls
+        persist_calls += 1
+        created = original_persist(*args, **kwargs)
+        if persist_calls == 1:
+            raise MlflowException(
+                "simulated version conflict",
+                error_code=RESOURCE_ALREADY_EXISTS,
+            )
+        return created
+
+    monkeypatch.setattr(store, "_persist_skill_version", persist_with_conflict_after_insert)
+
+    created = store.create_skill_version("reviewer", organization="acme")
+
+    assert created.version == 1
+    assert persist_calls == 2
 
 
 def test_deleted_skill_version_is_not_retrievable(store):
