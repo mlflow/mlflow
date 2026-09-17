@@ -1671,7 +1671,7 @@ MLFLOW_TRACE_ROLLUPS_SCHEDULE = _EnvironmentVariable(
 #: maintenance pass.
 #: (default: ``100``)
 MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN = _EnvironmentVariable(
-    "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", int, 100
+    "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", int, 1000
 )
 
 #: Maximum number of distinct SQL trace rollup partitions maintained concurrently. SQLite always

@@ -33,7 +33,9 @@ from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAl
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.constant import SpansLocation, TraceExperimentTagKey, TraceTagKey
 from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
-from mlflow.tracing.trace_archival_service import run_trace_archival_scheduler
+from mlflow.tracing.trace_archival_service import (
+    _run_trace_archival_scheduler as run_trace_archival_scheduler,
+)
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.uri import append_to_uri_path
@@ -151,6 +153,24 @@ def _workspace_context(workspaces_enabled: bool):
 
 def _get_archive_payload_path(archive_uri: str) -> Path:
     return Path(local_file_uri_to_path(archive_uri)) / TRACE_ARCHIVAL_FILENAME
+
+
+def test_public_archival_scheduler_noops_without_initializing_store_when_disabled(
+    monkeypatch, tmp_path
+):
+    _configure_trace_archival_scheduler(
+        monkeypatch,
+        tmp_path,
+        workspaces_enabled=False,
+        enabled=False,
+    )
+    initialize = MagicMock()
+    monkeypatch.setattr(
+        "mlflow.server.jobs.utils.initialize_periodic_tasks_tracking_store", initialize
+    )
+
+    assert trace_archival_service_module.run_trace_archival_scheduler() == 0
+    initialize.assert_not_called()
 
 
 def test_trace_archival_scheduler_runs_per_workspace(monkeypatch, tmp_path):

@@ -181,6 +181,7 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
 from mlflow.store.tracking.utils.sql_trace_rollups import (
     RollupFamily,
     configure_rollup_read_snapshot,
+    enqueue_rollup_rebuild_partitions,
     enqueue_rollup_rebuilds,
     merge_unbucketed_data_points,
     order_and_limit_data_points,
@@ -978,8 +979,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             if experiment_id is None:
                 continue
             timestamps_by_experiment[experiment_id].append(trace_timestamp_ms)
-        for experiment_id, timestamps in timestamps_by_experiment.items():
-            enqueue_rollup_rebuilds(session, RollupFamily.ASSESSMENT, experiment_id, timestamps)
+        enqueue_rollup_rebuild_partitions(
+            session,
+            [
+                (RollupFamily.ASSESSMENT, experiment_id, timestamps)
+                for experiment_id, timestamps in timestamps_by_experiment.items()
+            ],
+        )
 
     def _mark_run_active(self, session, run):
         run.lifecycle_stage = LifecycleStage.ACTIVE
@@ -3848,8 +3854,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 sql_assessments.append(sql_assessment)
             sql_trace_info.assessments = sql_assessments
 
-            previous_partition: tuple[int, int] | None = None
-            previous_span_partitions: list[tuple[int, int]] = []
+            new_rollup_partitions = [
+                (
+                    family,
+                    int(trace_info.experiment_id),
+                    [trace_info.request_time],
+                )
+                for family in (RollupFamily.TRACE_METRIC, RollupFamily.ASSESSMENT)
+            ]
+            enqueue_rollup_rebuild_partitions(session, new_rollup_partitions)
             try:
                 # Happy path: attach metadata via cascade for a single flush.
                 # Emit rows in sorted key order so concurrent writers acquire the
@@ -3882,6 +3895,60 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     sql_assessment.trace_timestamp_ms = trace_info.request_time
                     sql_assessments.append(sql_assessment)
                 trace_write_workspace = self._get_active_workspace()
+                # Snapshot the old source partitions without taking source-row locks, then lock
+                # every old and new rebuild key before the read-modify-write lock below. A
+                # concurrent queue-first writer either commits before this lock acquisition or
+                # leaves its own marker behind, so a snapshot race cannot lose invalidation.
+                db_trace_snapshot = (
+                    self
+                    ._trace_query(session, workspace=trace_write_workspace)
+                    .filter(SqlTraceInfo.request_id == trace_id)
+                    .one_or_none()
+                )
+                if db_trace_snapshot is None:
+                    raise MlflowException(
+                        f"Trace with ID '{trace_id}' no longer exists.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
+                previous_partition = (
+                    int(db_trace_snapshot.experiment_id),
+                    db_trace_snapshot.timestamp_ms,
+                )
+                previous_span_partitions = [
+                    (int(experiment_id), int(start_time_unix_nano) // 1_000_000)
+                    for experiment_id, start_time_unix_nano in session.query(
+                        SqlSpan.experiment_id, SqlSpan.start_time_unix_nano
+                    ).filter(
+                        SqlSpan.trace_id == trace_id,
+                        SqlSpan.experiment_id.isnot(None),
+                        SqlSpan.start_time_unix_nano.isnot(None),
+                    )
+                ]
+                enqueue_rollup_rebuild_partitions(
+                    session,
+                    [
+                        *new_rollup_partitions,
+                        *[
+                            (family, previous_partition[0], [previous_partition[1]])
+                            for family in (
+                                RollupFamily.TRACE_METRIC,
+                                RollupFamily.ASSESSMENT,
+                            )
+                        ],
+                        *[
+                            (RollupFamily.SPAN_COST, experiment_id, [timestamp_ms])
+                            for experiment_id, timestamp_ms in previous_span_partitions
+                        ],
+                        *[
+                            (
+                                RollupFamily.SPAN_COST,
+                                int(trace_info.experiment_id),
+                                [timestamp_ms],
+                            )
+                            for _, timestamp_ms in previous_span_partitions
+                        ],
+                    ],
+                )
                 # Lock the reread because this is the read half of a read-modify-write
                 # merge on trace_info, not a passive lookup. The db_payload_generation bump below
                 # coordinates DB-backed payload generation, but this row lock also prevents
@@ -3906,21 +3973,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         f"Cannot update traces that are no longer DB-backed: '{trace_id}'.",
                         error_code=INVALID_STATE,
                     )
-                previous_partition = (
-                    int(db_sql_trace_info.experiment_id),
-                    db_sql_trace_info.timestamp_ms,
-                )
-                if rollups_enabled():
-                    previous_span_partitions = [
-                        (int(experiment_id), int(start_time_unix_nano) // 1_000_000)
-                        for experiment_id, start_time_unix_nano in session.query(
-                            SqlSpan.experiment_id, SqlSpan.start_time_unix_nano
-                        ).filter(
-                            SqlSpan.trace_id == trace_id,
-                            SqlSpan.experiment_id.isnot(None),
-                            SqlSpan.start_time_unix_nano.isnot(None),
-                        )
-                    ]
                 # Advance the payload generation before staging ORM writes so a concurrent archival
                 # finalization cannot be hidden by autoflush re-publishing TRACKING_STORE.
                 self._advance_db_payload_generations_for_db_span_writes(session, [trace_id])
@@ -3967,34 +4019,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     trace_id,
                     workspace=trace_write_workspace,
                 )
-
-            if rollups_enabled():
-                affected_partitions = [(int(trace_info.experiment_id), trace_info.request_time)]
-                if previous_partition is not None:
-                    affected_partitions.append(previous_partition)
-                for experiment_id, timestamp_ms in set(affected_partitions):
-                    enqueue_rollup_rebuilds(
-                        session, RollupFamily.TRACE_METRIC, experiment_id, [timestamp_ms]
-                    )
-                    # start_trace can attach assessments or move existing assessments to a
-                    # different experiment/day, so both the old and new assessment partitions are
-                    # invalidated.
-                    enqueue_rollup_rebuilds(
-                        session, RollupFamily.ASSESSMENT, experiment_id, [timestamp_ms]
-                    )
-                # Existing spans keep their start time when a trace is moved, but their
-                # denormalized experiment changes. Invalidate both sides of that move for
-                # span-cost rollups.
-                for experiment_id, timestamp_ms in set(previous_span_partitions):
-                    enqueue_rollup_rebuilds(
-                        session, RollupFamily.SPAN_COST, experiment_id, [timestamp_ms]
-                    )
-                    enqueue_rollup_rebuilds(
-                        session,
-                        RollupFamily.SPAN_COST,
-                        int(trace_info.experiment_id),
-                        [timestamp_ms],
-                    )
 
             return sql_trace_info.to_mlflow_entity()
 
@@ -4721,6 +4745,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             if not selected_trace_ids:
                 return 0
 
+            self._enqueue_rollup_rebuilds_for_trace_delete(
+                session, int(experiment_id), selected_trace_ids
+            )
+            selected_trace_ids = self._lock_trace_ids_for_delete(session, selected_trace_ids)
+            if not selected_trace_ids:
+                return 0
+
             # Classify selected traces while the trace rows remain locked, then delete the
             # DB-backed subset before any slow object-store cleanup begins.
             selected_archived_traces = self._select_archived_traces_for_delete(
@@ -4734,9 +4765,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 trace_id for trace_id in selected_trace_ids if trace_id not in archived_trace_ids
             ]
             if db_backed_trace_ids:
-                self._enqueue_rollup_rebuilds_for_trace_delete(
-                    session, int(experiment_id), db_backed_trace_ids
-                )
                 deleted_db_backed_count = (
                     session
                     .query(SqlTraceInfo)
@@ -4806,8 +4834,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 SqlTraceInfo.request_id.in_(trace_ids)
             )
         ]
-        enqueue_rollup_rebuilds(session, RollupFamily.TRACE_METRIC, experiment_id, timestamps)
-        enqueue_rollup_rebuilds(session, RollupFamily.ASSESSMENT, experiment_id, timestamps)
         span_days_by_experiment: defaultdict[int, set[int]] = defaultdict(set)
         for span_experiment_id, start_time_unix_nano in session.query(
             SqlSpan.experiment_id, SqlSpan.start_time_unix_nano
@@ -4819,13 +4845,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             span_days_by_experiment[int(span_experiment_id)].add(
                 int(start_time_unix_nano) // 1_000_000
             )
-        for span_experiment_id, span_timestamps in span_days_by_experiment.items():
-            enqueue_rollup_rebuilds(
-                session,
-                RollupFamily.SPAN_COST,
-                span_experiment_id,
-                span_timestamps,
-            )
+        enqueue_rollup_rebuild_partitions(
+            session,
+            [
+                (RollupFamily.TRACE_METRIC, experiment_id, timestamps),
+                (RollupFamily.ASSESSMENT, experiment_id, timestamps),
+                *[
+                    (RollupFamily.SPAN_COST, span_experiment_id, span_timestamps)
+                    for span_experiment_id, span_timestamps in span_days_by_experiment.items()
+                ],
+            ],
+        )
 
     def _select_trace_ids_for_delete(
         self,
@@ -4835,11 +4865,22 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     ) -> list[str]:
         rows = (
             self
-            ._trace_query(session, for_update_or_delete=True)
+            ._trace_query(session)
             .with_entities(SqlTraceInfo.request_id)
             .filter(and_(*filters))
             # Keep row locking deterministic so overlapping delete calls acquire trace_info locks
             # in the same order instead of deadlocking on row-locking backends.
+            .order_by(SqlTraceInfo.timestamp_ms, SqlTraceInfo.request_id)
+            .all()
+        )
+        return [trace_id for (trace_id,) in rows]
+
+    def _lock_trace_ids_for_delete(self, session: Session, trace_ids: list[str]) -> list[str]:
+        rows = (
+            self
+            ._trace_query(session, for_update_or_delete=True)
+            .with_entities(SqlTraceInfo.request_id)
+            .filter(SqlTraceInfo.request_id.in_(trace_ids))
             .order_by(SqlTraceInfo.timestamp_ms, SqlTraceInfo.request_id)
             .all()
         )
@@ -4947,10 +4988,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, assessment.trace_id)
-            sql_trace_info = self._get_sql_trace_info(session, assessment.trace_id, for_update=True)
+            sql_trace_info = self._get_sql_trace_info(session, assessment.trace_id)
             sql_assessment = SqlAssessments.from_mlflow_entity(assessment)
             sql_assessment.experiment_id = sql_trace_info.experiment_id
             sql_assessment.trace_timestamp_ms = sql_trace_info.timestamp_ms
+
+            enqueue_rollup_rebuilds(
+                session,
+                RollupFamily.ASSESSMENT,
+                sql_trace_info.experiment_id,
+                [sql_trace_info.timestamp_ms],
+            )
 
             if sql_assessment.overrides:
                 update_count = (
@@ -4997,12 +5045,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     "due to a constraint violation.",
                     INTERNAL_ERROR,
                 ) from e
-            enqueue_rollup_rebuilds(
-                session,
-                RollupFamily.ASSESSMENT,
-                sql_trace_info.experiment_id,
-                [sql_trace_info.timestamp_ms],
-            )
             return sql_assessment.to_mlflow_entity()
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
@@ -5056,6 +5098,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         with self.ManagedSessionMaker(read_only=False) as session:
             existing_sql = self._get_sql_assessment(session, trace_id, assessment_id)
             existing = existing_sql.to_mlflow_entity()
+
+            enqueue_rollup_rebuilds(
+                session,
+                RollupFamily.ASSESSMENT,
+                existing_sql.experiment_id,
+                [existing_sql.trace_timestamp_ms],
+            )
 
             if expectation is not None and feedback is not None:
                 raise MlflowException.invalid_parameter_value(
@@ -5150,12 +5199,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 "is_numeric_value": is_numeric_value,
             })
 
-            enqueue_rollup_rebuilds(
-                session,
-                RollupFamily.ASSESSMENT,
-                existing_sql.experiment_id,
-                [existing_sql.trace_timestamp_ms],
-            )
             return updated_assessment
 
     def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
@@ -5183,18 +5226,19 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 # Assessment doesn't exist - this is idempotent, so just return
                 return
 
-            # If this assessment was overriding another assessment, restore the original
-            if assessment_to_delete.overrides:
-                session.query(SqlAssessments).filter_by(
-                    assessment_id=assessment_to_delete.overrides
-                ).update({"valid": True})
-
             enqueue_rollup_rebuilds(
                 session,
                 RollupFamily.ASSESSMENT,
                 assessment_to_delete.experiment_id,
                 [assessment_to_delete.trace_timestamp_ms],
             )
+
+            # If this assessment was overriding another assessment, restore the original
+            if assessment_to_delete.overrides:
+                session.query(SqlAssessments).filter_by(
+                    assessment_id=assessment_to_delete.overrides
+                ).update({"valid": True})
+
             session.delete(assessment_to_delete)
             session.commit()
 
@@ -5658,7 +5702,78 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 cost_nodes=cost_nodes,
             )
 
+        batch_span_keys = {(row["trace_id"], row["span_id"]) for row in all_span_rows}
+
+        def enqueue_span_write_rollup_partitions(session: Session) -> None:
+            if not rollups_enabled():
+                return
+            trace_snapshots = {
+                request_id: (int(experiment_id), timestamp_ms)
+                for request_id, experiment_id, timestamp_ms in self
+                ._trace_query(session)
+                .with_entities(
+                    SqlTraceInfo.request_id,
+                    SqlTraceInfo.experiment_id,
+                    SqlTraceInfo.timestamp_ms,
+                )
+                .filter(SqlTraceInfo.request_id.in_(all_trace_ids))
+            }
+            finalized_trace_snapshots = {
+                request_id
+                for (request_id,) in session.query(SqlTraceMetadata.request_id).filter(
+                    SqlTraceMetadata.request_id.in_(all_trace_ids),
+                    SqlTraceMetadata.key == TraceMetadataKey.TRACE_INFO_FINALIZED,
+                )
+            }
+            partitions = []
+            for trace_id in all_trace_ids:
+                agg = trace_aggregates[trace_id]
+                snapshot = trace_snapshots.get(trace_id)
+                experiment_id, old_timestamp_ms = snapshot or (int(location), agg.min_start_ms)
+                timestamps = [old_timestamp_ms]
+                if snapshot is None or trace_id not in finalized_trace_snapshots:
+                    timestamps.append(agg.min_start_ms)
+                partitions.extend(
+                    (family, experiment_id, timestamps)
+                    for family in (RollupFamily.TRACE_METRIC, RollupFamily.ASSESSMENT)
+                )
+
+            if batch_span_keys:
+                batch_span_ids = {span_id for _, span_id in batch_span_keys}
+                previous_span_rows = session.query(
+                    SqlSpan.trace_id,
+                    SqlSpan.span_id,
+                    SqlSpan.experiment_id,
+                    SqlSpan.start_time_unix_nano,
+                ).filter(
+                    SqlSpan.trace_id.in_(all_trace_ids),
+                    SqlSpan.span_id.in_(batch_span_ids),
+                )
+                partitions.extend(
+                    (
+                        RollupFamily.SPAN_COST,
+                        int(row.experiment_id),
+                        [int(row.start_time_unix_nano) // 1_000_000],
+                    )
+                    for row in previous_span_rows
+                    if (
+                        (row.trace_id, row.span_id) in batch_span_keys
+                        and row.experiment_id is not None
+                        and row.start_time_unix_nano is not None
+                    )
+                )
+            for row in all_span_rows:
+                experiment_id = trace_snapshots.get(row["trace_id"], (int(location), None))[0]
+                partitions.append((
+                    RollupFamily.SPAN_COST,
+                    experiment_id,
+                    [int(row["start_time_unix_nano"]) // 1_000_000],
+                ))
+            enqueue_rollup_rebuild_partitions(session, partitions)
+
         with self.ManagedSessionMaker(read_only=False) as session:
+            # The rebuild queue is the first lock domain for both writers and publishers.
+            enqueue_span_write_rollup_partitions(session)
             # --- Phase 1: Lock and batch-fetch all existing trace infos (1 query) ---
             existing_traces = {
                 t.request_id: t
@@ -5706,6 +5821,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                             # the entire transaction (undoing any trace_infos we just
                             # flushed) and re-fetch to rebuild existing_traces.
                             session.rollback()
+                            enqueue_span_write_rollup_partitions(session)
                             conflict = trace_id
                             break
                         existing_traces[trace_id] = sql_trace_info
@@ -5750,37 +5866,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 trace_id for trace_id in all_trace_ids if trace_id not in created_trace_ids
             ]:
                 self._trace_row_lock_query(session, preexisting_trace_ids).all()
-
-            # Capture the old partition for re-sent spans before the upsert can change their
-            # experiment or start time. The trace-row locks above serialize this read with other
-            # span writers for the same trace.
-            batch_span_keys = {(row["trace_id"], row["span_id"]) for row in all_span_rows}
-            previous_span_days_by_experiment: defaultdict[int, set[int]] = defaultdict(set)
-            if rollups_enabled() and batch_span_keys:
-                batch_span_ids = {span_id for _, span_id in batch_span_keys}
-                previous_span_rows = session.query(
-                    SqlSpan.trace_id,
-                    SqlSpan.span_id,
-                    SqlSpan.experiment_id,
-                    SqlSpan.start_time_unix_nano,
-                ).filter(
-                    SqlSpan.trace_id.in_(all_trace_ids),
-                    SqlSpan.span_id.in_(batch_span_ids),
-                )
-                for (
-                    row_trace_id,
-                    row_span_id,
-                    row_experiment_id,
-                    row_start_time_unix_nano,
-                ) in previous_span_rows:
-                    if (
-                        (row_trace_id, row_span_id) in batch_span_keys
-                        and row_experiment_id is not None
-                        and row_start_time_unix_nano is not None
-                    ):
-                        previous_span_days_by_experiment[int(row_experiment_id)].add(
-                            int(row_start_time_unix_nano) // 1_000_000
-                        )
 
             # Fill in experiment_id on span rows now that we have trace infos
             for row in all_span_rows:
@@ -6090,46 +6175,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         session.merge(
                             SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value)
                         )
-
-            if rollups_enabled():
-                # Any span batch can change trace status, latency, token aggregates, or the trace
-                # day. Preserve both the old and new day when an inferred trace timestamp moves
-                # earlier. Assessments inherit the trace timestamp.
-                trace_days_by_experiment: defaultdict[int, set[int]] = defaultdict(set)
-                assessment_days_by_experiment: defaultdict[int, set[int]] = defaultdict(set)
-                span_days_by_experiment = previous_span_days_by_experiment
-                for row in all_span_rows:
-                    if row["experiment_id"] is not None and row["start_time_unix_nano"] is not None:
-                        span_days_by_experiment[int(row["experiment_id"])].add(
-                            int(row["start_time_unix_nano"]) // 1_000_000
-                        )
-                for trace_id in all_trace_ids:
-                    sql_trace_info = existing_traces[trace_id]
-                    agg = trace_aggregates[trace_id]
-                    experiment_id = int(sql_trace_info.experiment_id)
-                    trace_days_by_experiment[experiment_id].add(sql_trace_info.timestamp_ms)
-                    if (
-                        trace_id not in finalized_trace_ids
-                        and sql_trace_info.timestamp_ms > agg.min_start_ms
-                    ):
-                        trace_days_by_experiment[experiment_id].add(agg.min_start_ms)
-                        assessment_days_by_experiment[experiment_id].update((
-                            sql_trace_info.timestamp_ms,
-                            agg.min_start_ms,
-                        ))
-
-                for experiment_id, timestamps in trace_days_by_experiment.items():
-                    enqueue_rollup_rebuilds(
-                        session, RollupFamily.TRACE_METRIC, experiment_id, timestamps
-                    )
-                for experiment_id, timestamps in assessment_days_by_experiment.items():
-                    enqueue_rollup_rebuilds(
-                        session, RollupFamily.ASSESSMENT, experiment_id, timestamps
-                    )
-                for experiment_id, timestamps in span_days_by_experiment.items():
-                    enqueue_rollup_rebuilds(
-                        session, RollupFamily.SPAN_COST, experiment_id, timestamps
-                    )
 
         return spans
 
@@ -8219,13 +8264,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             trace_info.request_metadata = [
                 SqlTraceMetadata(key=k, value=v) for k, v in sorted(request_metadata.items())
             ]
-            session.add(trace_info)
             enqueue_rollup_rebuilds(
                 session,
                 RollupFamily.TRACE_METRIC,
                 int(experiment_id),
                 [timestamp_ms],
             )
+            session.add(trace_info)
 
             return TraceInfoV2.from_v3(trace_info.to_mlflow_entity())
 
@@ -8258,6 +8303,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_trace_info = self._get_sql_trace_info(session, request_id)
             trace_start_time_ms = sql_trace_info.timestamp_ms
+            enqueue_rollup_rebuilds(
+                session,
+                RollupFamily.TRACE_METRIC,
+                int(sql_trace_info.experiment_id),
+                [trace_start_time_ms],
+            )
             execution_time_ms = timestamp_ms - trace_start_time_ms
             sql_trace_info.execution_time_ms = execution_time_ms
             sql_trace_info.status = status
@@ -8279,12 +8330,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 session.merge(SqlTraceMetadata(request_id=request_id, key=k, value=v))
             for k, v in tags.items():
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
-            enqueue_rollup_rebuilds(
-                session,
-                RollupFamily.TRACE_METRIC,
-                int(sql_trace_info.experiment_id),
-                [trace_start_time_ms],
-            )
             return TraceInfoV2.from_v3(sql_trace_info.to_mlflow_entity())
 
     def add_dataset_to_experiments(

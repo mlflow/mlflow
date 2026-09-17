@@ -40,6 +40,7 @@ from mlflow.store.tracking.utils import sql_trace_rollups as sql_trace_rollup_ut
 from mlflow.store.tracking.utils.sql_trace_rollups import (
     RollupFamily,
     _lock_rebuild_entry_query,
+    enqueue_rollup_rebuild_partitions,
     enqueue_rollup_rebuilds,
 )
 from mlflow.tracing.constant import (
@@ -393,14 +394,37 @@ def test_empty_current_day_remains_queued(store: SqlAlchemyStore):
 def test_day_becomes_eligible_exactly_after_lag(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     _new_trace(store, exp_id, DAY_A_MS)
+    day_end_ms = (DAY_A_MS // MS_PER_DAY + 1) * MS_PER_DAY
 
-    # One millisecond before the lag elapses: still ineligible.
-    before = run_sql_trace_rollups(store.engine, now_ms=DAY_A_MS + ROLLUP_ELIGIBILITY_LAG_MS - 1)
+    # The complete UTC day, not merely its first trace, must be beyond the lag.
+    before = run_sql_trace_rollups(store.engine, now_ms=day_end_ms + ROLLUP_ELIGIBILITY_LAG_MS - 1)
     assert before.trace_metric.built == 0
 
-    # Exactly at the lag boundary: eligible.
-    at = run_sql_trace_rollups(store.engine, now_ms=DAY_A_MS + ROLLUP_ELIGIBILITY_LAG_MS)
+    at = run_sql_trace_rollups(store.engine, now_ms=day_end_ms + ROLLUP_ELIGIBILITY_LAG_MS)
     assert at.trace_metric.built == 1
+
+
+def test_backdated_write_after_publication_queues_and_serves_raw(
+    store: SqlAlchemyStore, monkeypatch
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    _new_trace(store, exp_id, DAY_A_MS)
+    day_end_ms = (DAY_A_MS // MS_PER_DAY + 1) * MS_PER_DAY
+    eligible_now_ms = day_end_ms + ROLLUP_ELIGIBILITY_LAG_MS
+    run_sql_trace_rollups(store.engine, now_ms=eligible_now_ms)
+
+    monkeypatch.setattr(sql_trace_rollup_utils, "get_current_time_millis", lambda: eligible_now_ms)
+    _new_trace(store, exp_id, day_end_ms - 1)
+
+    assert (
+        _count(
+            store,
+            SqlTraceRollupRebuild,
+            rollup_family=RollupFamily.TRACE_METRIC.value,
+        )
+        == 1
+    )
+    _assert_rollup_matches_raw(store, monkeypatch, exp_id)
 
 
 def test_open_span_defers_queued_partition(store: SqlAlchemyStore):
@@ -814,14 +838,20 @@ def test_max_partitions_cap_limits_builds_across_runs(store: SqlAlchemyStore):
         run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS, max_partitions_per_run=1)
         for _ in range(4)
     ]
-    assert runs[0].trace_metric.skipped_cap >= 1
+    assert (
+        sum(
+            family.skipped_cap
+            for family in (runs[0].trace_metric, runs[0].span_cost, runs[0].assessment)
+        )
+        >= 1
+    )
     assert sum(stats.trace_metric.built for stats in runs) == 2
     for stats in runs:
-        attempted = sum(
-            family.built + family.emptied + family.deferred
+        published = sum(
+            family.built + family.emptied
             for family in (stats.trace_metric, stats.span_cost, stats.assessment)
         )
-        assert attempted <= 1
+        assert published <= 1
 
     with store.ManagedSessionMaker() as session:
         built_days = (
@@ -832,6 +862,83 @@ def test_max_partitions_cap_limits_builds_across_runs(store: SqlAlchemyStore):
             .count()
         )
     assert built_days == 2
+
+
+def test_new_discovery_builds_oldest_day_first_without_gaps(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlTraceInfo(
+                request_id=f"tr-{uuid.uuid4()}",
+                experiment_id=int(exp_id),
+                timestamp_ms=DAY_A_MS,
+                execution_time_ms=100,
+                status=TraceStatus.OK.value,
+            ),
+            SqlTraceInfo(
+                request_id=f"tr-{uuid.uuid4()}",
+                experiment_id=int(exp_id),
+                timestamp_ms=DAY_B_MS,
+                execution_time_ms=100,
+                status=TraceStatus.OK.value,
+            ),
+        ])
+
+    run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS, max_partitions_per_run=1)
+
+    with store.ManagedSessionMaker() as session:
+        built_days = {
+            rollup_day
+            for (rollup_day,) in session.query(SqlTraceMetricDailyRollup.rollup_day).distinct()
+        }
+    assert built_days == {_day_of(DAY_A_MS)}
+
+
+def test_new_discovery_stops_experiment_after_earlier_day_failure(
+    store: SqlAlchemyStore, monkeypatch
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlTraceInfo(
+                request_id=f"tr-{uuid.uuid4()}",
+                experiment_id=int(exp_id),
+                timestamp_ms=timestamp_ms,
+                execution_time_ms=100,
+                status=TraceStatus.OK.value,
+            )
+            for timestamp_ms in (DAY_A_MS, DAY_B_MS)
+        ])
+    attempted = []
+
+    def fail_first(_session_factory, family, partition, *_args):
+        attempted.append((family, partition))
+        raise RuntimeError("injected failure")
+
+    monkeypatch.setattr(trace_rollups, "_rebuild_partition", fail_first)
+
+    with pytest.raises(RuntimeError, match="injected failure"):
+        run_sql_trace_rollups(
+            store.engine,
+            now_ms=FUTURE_NOW_MS,
+            max_partitions_per_run=2,
+        )
+
+    assert attempted == [(RollupFamily.TRACE_METRIC, (int(exp_id), DAY_A_MS // MS_PER_DAY))]
+
+
+def test_steady_state_does_not_run_per_experiment_day_discovery(
+    store: SqlAlchemyStore, monkeypatch
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    _new_trace(store, exp_id, DAY_A_MS)
+    run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
+    day_discovery = Mock(side_effect=AssertionError("steady state must not scan source days"))
+    monkeypatch.setattr(trace_rollups, "_new_candidates_for_experiment", day_discovery)
+
+    run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
+
+    day_discovery.assert_not_called()
 
 
 def test_queued_rebuild_precedes_new_partition_across_families(store: SqlAlchemyStore):
@@ -878,11 +985,66 @@ def test_full_queue_batch_does_not_scan_for_new_source_candidates(
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     _new_trace(store, exp_id, DAY_A_MS)
     candidate_scan = Mock(side_effect=AssertionError("source candidates must not be scanned"))
-    monkeypatch.setattr(trace_rollups, "_new_candidate_query", candidate_scan)
+    monkeypatch.setattr(trace_rollups, "_candidate_experiment_ids", candidate_scan)
 
     run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS, max_partitions_per_run=1)
 
     candidate_scan.assert_not_called()
+
+
+def test_deferred_queue_entry_does_not_starve_later_eligible_work(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlTraceRollupRebuild).delete(synchronize_session=False)
+        session.add_all([
+            SqlSpan(
+                trace_id=trace_id,
+                experiment_id=int(exp_id),
+                span_id="span-open",
+                status="UNSET",
+                start_time_unix_nano=DAY_A_MS * 1_000_000,
+                end_time_unix_nano=None,
+                content="{}",
+            ),
+            SqlTraceRollupRebuild(
+                experiment_id=int(exp_id),
+                rollup_day=_day_of(DAY_A_MS),
+                rollup_family=RollupFamily.TRACE_METRIC.value,
+            ),
+            SqlTraceInfo(
+                request_id=f"tr-{uuid.uuid4()}",
+                experiment_id=int(exp_id),
+                timestamp_ms=DAY_B_MS,
+                execution_time_ms=100,
+                status=TraceStatus.OK.value,
+            ),
+        ])
+
+    frozen_day_bucket = (FUTURE_NOW_MS - ROLLUP_ELIGIBILITY_LAG_MS) // MS_PER_DAY
+    assert trace_rollups._candidate_experiment_ids(
+        store.ManagedSessionMaker,
+        RollupFamily.TRACE_METRIC,
+        frozen_day_bucket,
+    ) == [int(exp_id)]
+    candidates, _ = trace_rollups._new_candidates_for_experiment(
+        store.ManagedSessionMaker,
+        RollupFamily.TRACE_METRIC,
+        int(exp_id),
+        frozen_day_bucket,
+        1,
+    )
+    assert candidates == [(RollupFamily.TRACE_METRIC, (int(exp_id), DAY_B_MS // MS_PER_DAY))]
+
+    stats = run_sql_trace_rollups(
+        store.engine,
+        now_ms=FUTURE_NOW_MS,
+        max_partitions_per_run=1,
+    )
+
+    assert stats.trace_metric.deferred == 1
+    assert stats.trace_metric.built == 1
+    assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.TRACE_METRIC.value) == 1
 
 
 def test_percentile_columns_are_null_on_sqlite(store: SqlAlchemyStore):
@@ -908,7 +1070,6 @@ def test_percentile_columns_are_null_on_sqlite(store: SqlAlchemyStore):
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"progress_every": 0}, "progress_every must be positive"),
         ({"max_partitions_per_run": 0}, "max_partitions_per_run must be positive"),
         ({"max_workers": 0}, "max_workers must be positive"),
     ],
@@ -997,38 +1158,61 @@ def test_delete_trace_rollups_cli(store: SqlAlchemyStore):
     assert _count(store, SqlTraceMetricDailyRollup) == 0
 
 
-def test_mssql_rebuild_lock_serializes_writer_after_publisher(store: SqlAlchemyStore):
+def test_mssql_rebuild_lock_serializes_writer_after_publisher(store: SqlAlchemyStore, monkeypatch):
     if store.engine.dialect.name != "mssql":
         pytest.skip("requires a real SQL Server backend")
 
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
-    _new_trace(store, exp_id, DAY_A_MS)
+    trace_id = _new_trace(store, exp_id, DAY_A_MS)
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlTraceRollupRebuild).delete(synchronize_session=False)
+        session.add(
+            SqlTraceRollupRebuild(
+                experiment_id=int(exp_id),
+                rollup_day=_day_of(DAY_A_MS),
+                rollup_family=RollupFamily.TRACE_METRIC.value,
+            )
+        )
     builder_locked = Event()
     release_builder = Event()
     writer_finished = Event()
+    original_ensure = trace_rollups.ensure_locked_rebuild_entry
+
+    def pause_after_builder_lock(session, family, experiment_id, rollup_day):
+        entry = original_ensure(session, family, experiment_id, rollup_day)
+        builder_locked.set()
+        assert release_builder.wait(timeout=10)
+        return entry
+
+    monkeypatch.setattr(trace_rollups, "ensure_locked_rebuild_entry", pause_after_builder_lock)
 
     def publish():
-        with store.ManagedSessionMaker(read_only=False) as session:
-            entry = trace_rollups.ensure_locked_rebuild_entry(
-                session, RollupFamily.TRACE_METRIC, int(exp_id), _day_of(DAY_A_MS)
-            )
-            builder_locked.set()
-            assert release_builder.wait(timeout=10)
-            session.delete(entry)
+        run_sql_trace_rollups(
+            store.engine,
+            now_ms=FUTURE_NOW_MS,
+            max_partitions_per_run=1,
+        )
 
-    def invalidate():
+    def write_source():
         assert builder_locked.wait(timeout=10)
-        with store.ManagedSessionMaker(read_only=False) as session:
-            trace_rollups.ensure_locked_rebuild_entry(
-                session, RollupFamily.TRACE_METRIC, int(exp_id), _day_of(DAY_A_MS)
-            )
+        store.deprecated_end_trace_v2(
+            trace_id,
+            DAY_A_MS + 200,
+            TraceStatus.ERROR,
+            {},
+            {},
+        )
         writer_finished.set()
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(
+        max_workers=2, thread_name_prefix="test-mssql-rebuild-lock"
+    ) as executor:
         publisher = executor.submit(publish)
-        writer = executor.submit(invalidate)
+        writer = executor.submit(write_source)
         assert builder_locked.wait(timeout=10)
         assert not writer_finished.wait(timeout=0.5)
+        with store.ManagedSessionMaker() as session:
+            assert session.query(SqlTraceInfo).filter_by(request_id=trace_id).one().status == "OK"
         release_builder.set()
         publisher.result(timeout=10)
         writer.result(timeout=10)
@@ -1047,13 +1231,43 @@ def test_mssql_rebuild_lock_compiles_update_and_key_range_hints():
     assert "WITH (UPDLOCK, HOLDLOCK)" in str(statement)
 
 
+def test_rebuild_keys_are_locked_in_global_order(monkeypatch):
+    locked = []
+    monkeypatch.setattr(
+        sql_trace_rollup_utils,
+        "ensure_locked_rebuild_entry",
+        lambda _session, family, experiment_id, rollup_day: locked.append((
+            experiment_id,
+            rollup_day,
+            family,
+        )),
+    )
+    monkeypatch.setattr(
+        sql_trace_rollup_utils,
+        "get_current_time_millis",
+        lambda: FUTURE_NOW_MS,
+    )
+
+    enqueue_rollup_rebuild_partitions(
+        Mock(),
+        [
+            (RollupFamily.TRACE_METRIC, 2, [DAY_B_MS, DAY_A_MS]),
+            (RollupFamily.SPAN_COST, 1, [DAY_B_MS]),
+            (RollupFamily.ASSESSMENT, 1, [DAY_A_MS]),
+        ],
+    )
+
+    assert locked == sorted(locked, key=lambda key: (key[0], key[1], key[2].value))
+
+
 def test_non_sqlite_maintenance_uses_bounded_worker_pool(store: SqlAlchemyStore, monkeypatch):
     if store.engine.dialect.name == "sqlite":
         pytest.skip("requires a backend that supports concurrent writers")
 
-    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
-    _new_trace(store, exp_id, DAY_A_MS)
-    _new_trace(store, exp_id, DAY_B_MS)
+    exp_a = store.create_experiment(f"exp-{uuid.uuid4()}")
+    exp_b = store.create_experiment(f"exp-{uuid.uuid4()}")
+    _new_trace(store, exp_a, DAY_A_MS)
+    _new_trace(store, exp_b, DAY_B_MS)
     barrier = Barrier(2)
     worker_threads = set()
 

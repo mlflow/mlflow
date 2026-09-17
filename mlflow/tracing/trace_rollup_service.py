@@ -62,7 +62,22 @@ def validate_sql_trace_rollup_startup(backend_store_uri: str | None) -> None:
 
 
 def validate_and_resolve_sql_trace_rollup_schedule() -> SqlTraceRollupSchedule:
-    """Validate and resolve the configured five-field UTC cron expression."""
+    """Validate rollup maintenance settings and resolve the five-field UTC cron expression."""
+    for variable in (
+        MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN,
+        MLFLOW_TRACE_ROLLUPS_MAX_WORKERS,
+    ):
+        try:
+            value = variable.get()
+        except (TypeError, ValueError) as e:
+            raise MlflowException.invalid_parameter_value(
+                f"{variable.name} must be a positive integer."
+            ) from e
+        if value < 1:
+            raise MlflowException.invalid_parameter_value(
+                f"{variable.name} must be a positive integer, got {value!r}."
+            )
+
     schedule = MLFLOW_TRACE_ROLLUPS_SCHEDULE.get().strip()
     fields = schedule.split()
     if len(fields) != 5:
@@ -108,10 +123,14 @@ def run_sql_trace_rollup_scheduler(tracking_store) -> RollupBuildStats | None:
         max_partitions_per_run=MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN.get(),
         max_workers=MLFLOW_TRACE_ROLLUPS_MAX_WORKERS.get(),
     )
-    _logger.info(
-        "SQL trace rollup maintenance completed: trace_metric=%s, span_cost=%s, assessment=%s",
-        stats.trace_metric,
-        stats.span_cost,
-        stats.assessment,
-    )
+    for family in ("trace_metric", "span_cost", "assessment"):
+        family_stats = getattr(stats, family)
+        _logger.info(
+            "SQL trace rollup maintenance %s: built=%d, emptied=%d, deferred=%d, skipped_cap=%d",
+            family,
+            family_stats.built,
+            family_stats.emptied,
+            family_stats.deferred,
+            family_stats.skipped_cap,
+        )
     return stats

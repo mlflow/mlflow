@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -119,7 +120,15 @@ def test_registered_periodic_services_share_injected_tracking_store(monkeypatch)
     tracking_store = object()
     archival = Mock()
     rollup = Mock()
-    monkeypatch.setattr("mlflow.server.jobs.utils.run_trace_archival_scheduler", archival)
+    monkeypatch.setattr("mlflow.server.jobs.utils._run_trace_archival_scheduler", archival)
+    settings = SimpleNamespace(interval_seconds=60)
+    monkeypatch.setattr(
+        "mlflow.server.jobs.utils._get_trace_archival_scheduler_settings",
+        Mock(return_value=settings),
+    )
+    monkeypatch.setattr(
+        "mlflow.server.jobs.utils._should_run_trace_archival_scheduler", Mock(return_value=True)
+    )
     monkeypatch.setattr(trace_rollup_service, "run_sql_trace_rollup_scheduler", rollup)
     huey = _RecordingHuey()
 
@@ -127,8 +136,37 @@ def test_registered_periodic_services_share_injected_tracking_store(monkeypatch)
     huey.tasks["trace_archival_scheduler"][1]()
     huey.tasks["sql_trace_rollup_scheduler"][1]()
 
-    archival.assert_called_once_with(tracking_store)
+    archival.assert_called_once_with(tracking_store, settings=settings)
     rollup.assert_called_once_with(tracking_store)
+
+
+def test_periodic_tasks_initialize_store_lazily_and_retry_after_failure(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
+    store = object()
+    initialize = Mock(side_effect=[RuntimeError("not ready"), store])
+    archival = Mock()
+    rollup = Mock()
+    monkeypatch.setattr(
+        "mlflow.server.jobs.utils.initialize_periodic_tasks_tracking_store", initialize
+    )
+    monkeypatch.setattr("mlflow.server.jobs.utils._run_trace_archival_scheduler", archival)
+    monkeypatch.setattr(trace_rollup_service, "run_sql_trace_rollup_scheduler", rollup)
+    monkeypatch.setattr(
+        "mlflow.server.jobs.utils._get_trace_archival_scheduler_settings", Mock(return_value=None)
+    )
+    huey = _RecordingHuey()
+
+    register_periodic_tasks(huey)
+
+    # Registration and the store-independent scorer do not require a tracking store.
+    huey.tasks["online_scoring_scheduler"][1]()
+    initialize.assert_not_called()
+
+    # A failed first store initialization is not cached; the next poll can recover.
+    huey.tasks["sql_trace_rollup_scheduler"][1]()
+    huey.tasks["sql_trace_rollup_scheduler"][1]()
+    assert initialize.call_count == 2
+    rollup.assert_called_once_with(store)
 
 
 def test_invalid_schedule_is_ignored_when_rollups_are_disabled(monkeypatch):
@@ -149,6 +187,21 @@ def test_invalid_schedule_fails_registration_when_rollups_are_enabled(monkeypatc
 
     with pytest.raises(MlflowException, match="five-field UTC cron"):
         register_periodic_tasks(_RecordingHuey(), object())
+
+
+@pytest.mark.parametrize(
+    "variable",
+    [MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN, MLFLOW_TRACE_ROLLUPS_MAX_WORKERS],
+)
+@pytest.mark.parametrize("value", ["abc", "0", "-1"])
+def test_rollup_positive_integer_settings_are_validated_at_registration(
+    monkeypatch, variable, value
+):
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
+    monkeypatch.setenv(variable.name, value)
+
+    with pytest.raises(MlflowException, match=variable.name):
+        register_periodic_tasks(_RecordingHuey())
 
 
 def test_scheduler_noops_when_rollups_are_disabled(monkeypatch):

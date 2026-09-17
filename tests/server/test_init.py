@@ -222,6 +222,37 @@ def test_run_server_rejects_invalid_enabled_rollup_schedule(mock_exec_cmd, monke
     mock_exec_cmd.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "variable",
+    ["MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", "MLFLOW_TRACE_ROLLUPS_MAX_WORKERS"],
+)
+@pytest.mark.parametrize("value", ["abc", "0", "-1"])
+def test_run_server_rejects_invalid_enabled_rollup_limits(
+    mock_exec_cmd, monkeypatch, variable, value
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "true")
+    monkeypatch.setenv(variable, value)
+
+    with (
+        mock.patch("sys.platform", return_value="linux"),
+        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+        pytest.raises(MlflowException, match=variable),
+    ):
+        server._run_server(
+            file_store_path="sqlite:///primary.db",
+            registry_store_uri="",
+            default_artifact_root="file:///artifacts",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="localhost",
+            port="5000",
+        )
+
+    mock_exec_cmd.assert_not_called()
+
+
 def test_run_server_rejects_missing_job_backend_when_rollups_are_enabled(
     mock_exec_cmd, monkeypatch
 ):

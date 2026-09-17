@@ -17,11 +17,13 @@ the transaction that changes the source rows, so it either waits and re-enqueues
 or blocks the rebuild until it commits; a stale rollup is never left marked valid.
 """
 
+import logging
+import random
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from typing import Callable, Literal
+from typing import Any, Literal
 
 import sqlalchemy as sa
 from sqlalchemy import case, func, or_, true
@@ -32,6 +34,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
     SqlAssessments,
+    SqlExperiment,
     SqlSpan,
     SqlSpanCostDailyRollup,
     SqlTraceInfo,
@@ -62,11 +65,15 @@ _BUILT_FAMILIES: tuple[RollupFamily, ...] = (
     RollupFamily.ASSESSMENT,
 )
 
-DEFAULT_PROGRESS_EVERY_PARTITIONS = 100
-DEFAULT_MAX_PARTITIONS_PER_RUN = 100
+DEFAULT_MAX_PARTITIONS_PER_RUN = 1000
 DEFAULT_MAX_WORKERS = 4
+DEFAULT_PARTITIONS_PER_EXPERIMENT = 10
+QUEUE_EXAMINATION_MULTIPLIER = 10
+MIN_QUEUE_EXAMINATION_LIMIT = 100
 
 _COMPLETE_TRACE_STATUSES = (TraceStatus.OK.value, TraceStatus.ERROR.value)
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -165,9 +172,6 @@ class RollupDeleteStats:
     span_cost: int
     assessment: int
     rebuild_queue: int
-
-
-ProgressCallback = Callable[[str, RollupFamilyBuildStats], None]
 
 
 def sql_trace_rollup_rows_exist(engine: sa.Engine) -> bool:
@@ -341,11 +345,11 @@ def _partition_state(
     experiment_id: int,
     day_bucket: int,
     cutoff_ms: int,
-    current_day_bucket: int,
+    frozen_day_bucket: int,
 ) -> tuple[bool, bool]:
-    # A rollup is valid only for a complete UTC day. Keep current/future partitions queued so
-    # readers continue to use raw rows until a later maintenance run can publish them safely.
-    if day_bucket >= current_day_bucket:
+    # Publish only after the entire UTC day is beyond the inactivity cutoff. Consequently every
+    # later backdated write into a published day also passes the writer-side invalidation cutoff.
+    if day_bucket >= frozen_day_bucket:
         return False, False
     if family == RollupFamily.TRACE_METRIC:
         return _trace_partition_state(session, experiment_id, day_bucket, cutoff_ms)
@@ -563,7 +567,7 @@ def _rebuild_partition(
     family: RollupFamily,
     partition: tuple[int, int],
     cutoff_ms: int,
-    current_day_bucket: int,
+    frozen_day_bucket: int,
 ) -> _PartitionOutcome:
     experiment_id, day_bucket = partition
     day = _bucket_to_date(day_bucket)
@@ -577,7 +581,7 @@ def _rebuild_partition(
             experiment_id,
             day_bucket,
             cutoff_ms,
-            current_day_bucket,
+            frozen_day_bucket,
         )
         if not eligible:
             # The day is incomplete or contributing traces are still active. Leave it queued and
@@ -592,18 +596,18 @@ def _rebuild_partition(
         return "emptied" if not has_rows else "built"
 
 
-def _bounded_query_rows(query, limit: int) -> tuple[list, bool]:
+def _bounded_query_rows(query, limit: int) -> tuple[list[Any], bool]:
     """Fetch at most ``limit`` candidates plus one bounded overflow sentinel."""
     rows = query.limit(limit + 1).all()
     return rows[:limit], len(rows) > limit
 
 
-def _queued_candidates(session_factory, limit: int) -> tuple[list[_Candidate], RollupFamily | None]:
+def _queued_candidates(
+    session_factory,
+    limit: int,
+    cursor: tuple[int, date, str] | None,
+) -> tuple[list[_Candidate], tuple[int, date, str] | None, RollupFamily | None]:
     with session_factory() as session:
-        family_order = case(
-            {family.value: index for index, family in enumerate(_BUILT_FAMILIES)},
-            value=SqlTraceRollupRebuild.rollup_family,
-        )
         query = (
             session
             .query(
@@ -613,31 +617,47 @@ def _queued_candidates(session_factory, limit: int) -> tuple[list[_Candidate], R
             )
             .filter(SqlTraceRollupRebuild.rollup_family.in_([f.value for f in _BUILT_FAMILIES]))
             .order_by(
-                SqlTraceRollupRebuild.rollup_day,
                 SqlTraceRollupRebuild.experiment_id,
-                family_order,
+                SqlTraceRollupRebuild.rollup_day,
+                SqlTraceRollupRebuild.rollup_family,
             )
         )
+        if cursor is not None:
+            cursor_experiment_id, cursor_day, cursor_family = cursor
+            query = query.filter(
+                or_(
+                    SqlTraceRollupRebuild.experiment_id > cursor_experiment_id,
+                    sa.and_(
+                        SqlTraceRollupRebuild.experiment_id == cursor_experiment_id,
+                        SqlTraceRollupRebuild.rollup_day > cursor_day,
+                    ),
+                    sa.and_(
+                        SqlTraceRollupRebuild.experiment_id == cursor_experiment_id,
+                        SqlTraceRollupRebuild.rollup_day == cursor_day,
+                        SqlTraceRollupRebuild.rollup_family > cursor_family,
+                    ),
+                )
+            )
         rows, overflow = _bounded_query_rows(query, limit)
     candidates = [
         (RollupFamily(family), (int(experiment_id), _date_to_bucket(rollup_day)))
         for family, experiment_id, rollup_day in rows
     ]
+    next_cursor = (int(rows[-1][1]), rows[-1][2], str(rows[-1][0])) if rows else cursor
     overflow_family = RollupFamily(rows[-1][0]) if overflow and rows else None
-    return candidates, overflow_family
+    return candidates, next_cursor, overflow_family
 
 
-def _new_candidate_query(session: Session, family: RollupFamily, current_day_bucket: int):
-    db_type = session.get_bind().dialect.name
+def _source_discovery_parts(family: RollupFamily, db_type: str):
     if family == RollupFamily.TRACE_METRIC:
+        source_model = SqlTraceInfo
         experiment_id = SqlTraceInfo.experiment_id
-        day_start_ms = (_day_bucket_expr(SqlTraceInfo.timestamp_ms) * MS_PER_DAY).label(
-            "day_start_ms"
-        )
+        day_start_ms = _day_bucket_expr(SqlTraceInfo.timestamp_ms) * MS_PER_DAY
         source_filters = [SqlTraceInfo.timestamp_ms.isnot(None)]
     elif family == RollupFamily.SPAN_COST:
+        source_model = SqlSpan
         experiment_id = SqlSpan.experiment_id
-        day_start_ms = _span_day_start_expr(db_type).label("day_start_ms")
+        day_start_ms = _span_day_start_expr(db_type)
         source_filters = [
             SqlSpan.experiment_id.isnot(None),
             SqlSpan.start_time_unix_nano.isnot(None),
@@ -648,107 +668,186 @@ def _new_candidate_query(session: Session, family: RollupFamily, current_day_buc
             ),
         ]
     else:
+        source_model = SqlAssessments
         experiment_id = SqlAssessments.experiment_id
-        day_start_ms = (_day_bucket_expr(SqlAssessments.trace_timestamp_ms) * MS_PER_DAY).label(
-            "day_start_ms"
-        )
+        day_start_ms = _day_bucket_expr(SqlAssessments.trace_timestamp_ms) * MS_PER_DAY
         source_filters = [
             SqlAssessments.valid == true(),
             SqlAssessments.experiment_id.isnot(None),
             SqlAssessments.trace_timestamp_ms.isnot(None),
         ]
-
-    rollup_model = FAMILY_MODEL[family]
-    built_day_start_ms = _rollup_day_bucket_expression(db_type, rollup_model.rollup_day)
-    queued_day_start_ms = _rollup_day_bucket_expression(db_type, SqlTraceRollupRebuild.rollup_day)
-    built = sa.exists().where(
-        rollup_model.experiment_id == experiment_id,
-        built_day_start_ms == day_start_ms,
-    )
-    queued = sa.exists().where(
-        SqlTraceRollupRebuild.rollup_family == family.value,
-        SqlTraceRollupRebuild.experiment_id == experiment_id,
-        queued_day_start_ms == day_start_ms,
-    )
-    return (
-        session
-        .query(experiment_id.label("experiment_id"), day_start_ms)
-        .filter(
-            *source_filters,
-            day_start_ms < current_day_bucket * MS_PER_DAY,
-            ~built,
-            ~queued,
-        )
-        .group_by(experiment_id, day_start_ms)
-        .order_by(experiment_id, day_start_ms)
-    )
+    return source_model, experiment_id, day_start_ms, source_filters
 
 
-def _new_candidates(
+def _candidate_experiment_ids(
     session_factory,
     family: RollupFamily,
-    current_day_bucket: int,
+    frozen_day_bucket: int,
+) -> list[int]:
+    """Find experiments with source data newer than their latest persisted rollup."""
+    with session_factory() as session:
+        db_type = session.get_bind().dialect.name
+        _, source_experiment_id, day_start_ms, source_filters = _source_discovery_parts(
+            family, db_type
+        )
+        rollup_model = FAMILY_MODEL[family]
+        latest_day_start_ms = (
+            sa
+            .select(func.max(_rollup_day_bucket_expression(db_type, rollup_model.rollup_day)))
+            .where(rollup_model.experiment_id == SqlExperiment.experiment_id)
+            .correlate(SqlExperiment)
+            .scalar_subquery()
+        )
+        source_probe = (
+            sa
+            .exists()
+            .where(
+                sa.and_(
+                    source_experiment_id == SqlExperiment.experiment_id,
+                    *source_filters,
+                    day_start_ms < frozen_day_bucket * MS_PER_DAY,
+                    or_(
+                        latest_day_start_ms.is_(None),
+                        day_start_ms > latest_day_start_ms,
+                    ),
+                )
+            )
+            .correlate(SqlExperiment)
+        )
+        rows = session.query(SqlExperiment.experiment_id).filter(source_probe).all()
+    return [int(experiment_id) for (experiment_id,) in rows]
+
+
+def _new_candidates_for_experiment(
+    session_factory,
+    family: RollupFamily,
+    experiment_id: int,
+    frozen_day_bucket: int,
     limit: int,
 ) -> tuple[list[_Candidate], bool]:
+    """Discover the next unbuilt days for one experiment using its source-time index."""
     with session_factory() as session:
-        rows, overflow = _bounded_query_rows(
-            _new_candidate_query(session, family, current_day_bucket), limit
+        db_type = session.get_bind().dialect.name
+        source_model, source_experiment_id, day_start_ms, source_filters = _source_discovery_parts(
+            family, db_type
         )
+        rollup_model = FAMILY_MODEL[family]
+        queued_days = (
+            session
+            .query(
+                _rollup_day_bucket_expression(db_type, SqlTraceRollupRebuild.rollup_day).label(
+                    "day_start_ms"
+                )
+            )
+            .filter(
+                SqlTraceRollupRebuild.rollup_family == family.value,
+                SqlTraceRollupRebuild.experiment_id == experiment_id,
+            )
+            .subquery()
+        )
+        latest_day_start_ms = (
+            session
+            .query(func.max(_rollup_day_bucket_expression(db_type, rollup_model.rollup_day)))
+            .filter(rollup_model.experiment_id == experiment_id)
+            .scalar()
+        )
+        query = (
+            session
+            .query(day_start_ms.label("day_start_ms"))
+            .select_from(source_model)
+            .outerjoin(
+                queued_days,
+                queued_days.c.day_start_ms == day_start_ms,
+            )
+            .filter(
+                source_experiment_id == experiment_id,
+                *source_filters,
+                day_start_ms < frozen_day_bucket * MS_PER_DAY,
+                queued_days.c.day_start_ms.is_(None),
+            )
+            .group_by(day_start_ms)
+            .order_by(day_start_ms)
+        )
+        if latest_day_start_ms is not None:
+            query = query.filter(day_start_ms > int(latest_day_start_ms))
+        rows, overflow = _bounded_query_rows(query, limit)
     return (
         [
-            (family, (int(experiment_id), int(day_start_ms) // MS_PER_DAY))
-            for experiment_id, day_start_ms in rows
+            (family, (experiment_id, int(day_start_ms_value) // MS_PER_DAY))
+            for (day_start_ms_value,) in rows
         ],
         overflow,
     )
 
 
-def _process_candidate_batch(
+def _group_candidates_by_experiment(candidates: list[_Candidate]):
+    grouped: dict[int, list[_Candidate]] = {}
+    for candidate in candidates:
+        grouped.setdefault(candidate[1][0], []).append(candidate)
+    return list(grouped.items())
+
+
+def _process_candidate_groups(
     session_factory,
-    candidates: list[_Candidate],
+    candidate_groups: list[tuple[int, list[_Candidate]]],
     cutoff_ms: int,
-    current_day_bucket: int,
-    family_stats: dict[RollupFamily, RollupFamilyBuildStats],
-    progress_callback: ProgressCallback | None,
-    progress_every: int,
+    frozen_day_bucket: int,
     max_workers: int,
     db_type: str,
-) -> None:
-    if not candidates:
-        return
+) -> list[tuple[_Candidate, _PartitionOutcome]]:
+    if not candidate_groups:
+        return []
 
-    def rebuild(candidate: _Candidate) -> _PartitionOutcome:
-        family, partition = candidate
-        return _rebuild_partition(session_factory, family, partition, cutoff_ms, current_day_bucket)
+    def rebuild_experiment(group: tuple[int, list[_Candidate]]):
+        _, candidates = group
+        outcomes = []
+        for candidate in candidates:
+            family, partition = candidate
+            outcome = _rebuild_partition(
+                session_factory,
+                family,
+                partition,
+                cutoff_ms,
+                frozen_day_bucket,
+            )
+            outcomes.append((candidate, outcome))
+        return outcomes
 
-    # SQLite permits only one concurrent writer. Other supported SQL backends process distinct
-    # family/experiment/day keys in a small worker pool; every worker still owns exactly one
-    # transaction and no candidate key appears twice in a batch.
-    worker_count = 1 if db_type == "sqlite" else min(max_workers, len(candidates))
-    executor = None
+    worker_count = 1 if db_type == "sqlite" else min(max_workers, len(candidate_groups))
     if worker_count == 1:
-        outcomes = map(rebuild, candidates)
-    else:
-        executor = ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="trace-rollup")
-        outcomes = executor.map(rebuild, candidates)
+        return [item for group in map(rebuild_experiment, candidate_groups) for item in group]
 
-    processed_by_family = dict.fromkeys(_BUILT_FAMILIES, 0)
-    try:
-        for (family, _), outcome in zip(candidates, outcomes):
-            stats = family_stats[family]
-            processed_by_family[family] += 1
-            match outcome:
-                case "built":
-                    stats.built += 1
-                case "emptied":
-                    stats.emptied += 1
-                case "deferred":
-                    stats.deferred += 1
-            if progress_callback is not None and processed_by_family[family] % progress_every == 0:
-                progress_callback(family.value, stats)
-    finally:
-        if executor is not None:
-            executor.shutdown(wait=True)
+    with ThreadPoolExecutor(
+        max_workers=worker_count,
+        thread_name_prefix="trace-rollup",
+    ) as executor:
+        return [
+            item for group in executor.map(rebuild_experiment, candidate_groups) for item in group
+        ]
+
+
+def _record_outcomes(
+    outcomes: list[tuple[_Candidate, _PartitionOutcome]],
+    family_stats: dict[RollupFamily, RollupFamilyBuildStats],
+) -> tuple[int, list[str]]:
+    successful = 0
+    deferred_samples = []
+    for (family, (experiment_id, day_bucket)), outcome in outcomes:
+        stats = family_stats[family]
+        match outcome:
+            case "built":
+                stats.built += 1
+                successful += 1
+            case "emptied":
+                stats.emptied += 1
+                successful += 1
+            case "deferred":
+                stats.deferred += 1
+                if len(deferred_samples) < 5:
+                    deferred_samples.append(
+                        f"({experiment_id}, {_bucket_to_date(day_bucket)}, {family.value})"
+                    )
+    return successful, deferred_samples
 
 
 def run_sql_trace_rollups(
@@ -757,8 +856,6 @@ def run_sql_trace_rollups(
     now_ms: int | None = None,
     max_partitions_per_run: int = DEFAULT_MAX_PARTITIONS_PER_RUN,
     max_workers: int = DEFAULT_MAX_WORKERS,
-    progress_callback: ProgressCallback | None = None,
-    progress_every: int = DEFAULT_PROGRESS_EVERY_PARTITIONS,
 ) -> RollupBuildStats:
     """Build eligible daily rollups and drain the rebuild queue.
 
@@ -770,19 +867,14 @@ def run_sql_trace_rollups(
         engine: A SQLAlchemy engine bound to a fully migrated tracking database.
         now_ms: Job start time in epoch milliseconds; defaults to the current time. Injectable so
             eligibility (the 24-hour inactivity rule) is deterministic in tests.
-        max_partitions_per_run: Maximum number of distinct partitions attempted across all families
-            in one run. Candidate queries are limited before dispatch, so even deferred partitions
-            count against this bound.
-        max_workers: Maximum number of distinct partitions processed concurrently. SQLite always
-            uses one worker because it permits only one concurrent writer.
-        progress_callback: Optional callback invoked with ``(family, stats)`` during the run.
-        progress_every: Invoke ``progress_callback`` every this many processed partitions.
+        max_partitions_per_run: Maximum number of successfully built or emptied partitions across
+            all families in one run. Deferred queue entries do not consume this publication cap.
+        max_workers: Maximum number of experiments processed concurrently. Days within one
+            experiment are always processed serially. SQLite always uses one worker.
 
     Returns:
         Per-family build statistics.
     """
-    if progress_every < 1:
-        raise ValueError("progress_every must be positive")
     if max_partitions_per_run < 1:
         raise ValueError("max_partitions_per_run must be positive")
     if max_workers < 1:
@@ -790,56 +882,152 @@ def run_sql_trace_rollups(
 
     now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
     cutoff_ms = now_ms - ROLLUP_ELIGIBILITY_LAG_MS
-    current_day_bucket = now_ms // MS_PER_DAY
+    frozen_day_bucket = cutoff_ms // MS_PER_DAY
     session_factory = sessionmaker(bind=engine)
     db_type = engine.dialect.name
-
-    family_stats = {family: RollupFamilyBuildStats() for family in _BUILT_FAMILIES}
-    # Queue-driven rebuilds are selected first across all families. Fetching one extra row detects
-    # truncation without loading the rest of the queue.
-    queued, queue_overflow_family = _queued_candidates(session_factory, max_partitions_per_run)
-    if queue_overflow_family is not None:
-        family_stats[queue_overflow_family].skipped_cap += 1
-    _process_candidate_batch(
-        session_factory,
-        queued,
-        cutoff_ms,
-        current_day_bucket,
-        family_stats,
-        progress_callback,
-        progress_every,
-        max_workers,
-        db_type,
+    examination_limit = max(
+        MIN_QUEUE_EXAMINATION_LIMIT,
+        max_partitions_per_run * QUEUE_EXAMINATION_MULTIPLIER,
     )
 
-    remaining = max_partitions_per_run - len(queued)
-    # Only after the selected rebuild queue is exhausted do we discover previously unbuilt source
-    # partitions (for example rows that predate queue invalidation support). Every discovery query
-    # is itself limited by the remaining run budget.
-    for family in _BUILT_FAMILIES:
-        if remaining <= 0:
-            break
-        new_candidates, overflow = _new_candidates(
-            session_factory, family, current_day_bucket, remaining
+    family_stats = {family: RollupFamilyBuildStats() for family in _BUILT_FAMILIES}
+    published = 0
+    examined = 0
+    deferred_samples: list[str] = []
+    overflow_families_seen: set[RollupFamily] = set()
+    examined_candidates: set[_Candidate] = set()
+
+    # Drain the durable queue first. A keyset cursor skips deferred rows within this run, while
+    # the separate examination bound prevents permanently active traces from causing an
+    # unbounded scan. Only built/emptied outcomes consume the publication cap.
+    queue_cursor = None
+    queue_exhausted = False
+    while published < max_partitions_per_run and examined < examination_limit:
+        page_limit = min(
+            max_partitions_per_run - published,
+            examination_limit - examined,
         )
-        if overflow:
-            family_stats[family].skipped_cap += 1
-        _process_candidate_batch(
+        queued, queue_cursor, overflow_family = _queued_candidates(
             session_factory,
-            new_candidates,
+            page_limit,
+            queue_cursor,
+        )
+        if not queued:
+            queue_exhausted = True
+            break
+        outcomes = _process_candidate_groups(
+            session_factory,
+            _group_candidates_by_experiment(queued),
             cutoff_ms,
-            current_day_bucket,
-            family_stats,
-            progress_callback,
-            progress_every,
+            frozen_day_bucket,
             max_workers,
             db_type,
         )
-        remaining -= len(new_candidates)
+        successful, samples = _record_outcomes(outcomes, family_stats)
+        examined_candidates.update(candidate for candidate, _ in outcomes)
+        published += successful
+        examined += len(outcomes)
+        deferred_samples.extend(samples[: 5 - len(deferred_samples)])
+        if overflow_family is None:
+            queue_exhausted = True
+            break
+        if published >= max_partitions_per_run:
+            overflow_families_seen.add(overflow_family)
 
-    if progress_callback is not None:
+    # New coverage is discovered only after the queue scan is exhausted. Discovery starts from
+    # each experiment's latest persisted day and uses indexed source probes instead of grouping
+    # complete source history. Experiments are shuffled once per pass, then processed in small
+    # serial quotas so a large experiment cannot starve the rest.
+    if queue_exhausted and published < max_partitions_per_run and examined < examination_limit:
+        candidate_families: dict[int, list[RollupFamily]] = {}
         for family in _BUILT_FAMILIES:
-            progress_callback(family.value, family_stats[family])
+            for experiment_id in _candidate_experiment_ids(
+                session_factory,
+                family,
+                frozen_day_bucket,
+            ):
+                candidate_families.setdefault(experiment_id, []).append(family)
+        experiment_ids = list(candidate_families)
+        random.shuffle(experiment_ids)
+
+        while (
+            experiment_ids and published < max_partitions_per_run and examined < examination_limit
+        ):
+            slots = min(
+                max_partitions_per_run - published,
+                examination_limit - examined,
+            )
+            candidate_groups = []
+            for experiment_id in experiment_ids:
+                if slots <= 0:
+                    break
+                quota = min(DEFAULT_PARTITIONS_PER_EXPERIMENT, slots)
+                candidates = []
+                overflow_families = []
+                for family in candidate_families[experiment_id]:
+                    family_candidates, overflow = _new_candidates_for_experiment(
+                        session_factory,
+                        family,
+                        experiment_id,
+                        frozen_day_bucket,
+                        quota,
+                    )
+                    candidates.extend(
+                        candidate
+                        for candidate in family_candidates
+                        if candidate not in examined_candidates
+                    )
+                    if overflow:
+                        overflow_families.append(family)
+                candidates.sort(
+                    key=lambda item: (
+                        item[1][1],
+                        _BUILT_FAMILIES.index(item[0]),
+                    )
+                )
+                if selected := candidates[:quota]:
+                    candidate_groups.append((experiment_id, selected))
+                    slots -= len(selected)
+                overflow_families_seen.update(overflow_families)
+
+            if not candidate_groups:
+                break
+            outcomes = _process_candidate_groups(
+                session_factory,
+                candidate_groups,
+                cutoff_ms,
+                frozen_day_bucket,
+                max_workers,
+                db_type,
+            )
+            successful, samples = _record_outcomes(outcomes, family_stats)
+            examined_candidates.update(candidate for candidate, _ in outcomes)
+            published += successful
+            examined += len(outcomes)
+            deferred_samples.extend(samples[: 5 - len(deferred_samples)])
+
+    if deferred_samples and (published < max_partitions_per_run or examined >= examination_limit):
+        _logger.warning(
+            "SQL trace rollup maintenance deferred %d partition(s); sample keys: %s",
+            sum(stats.deferred for stats in family_stats.values()),
+            ", ".join(deferred_samples),
+        )
+    if published >= max_partitions_per_run:
+        for family in overflow_families_seen:
+            family_stats[family].skipped_cap += 1
+        _logger.warning(
+            "SQL trace rollup maintenance reached the %d-partition publication cap; "
+            "additional work may remain.",
+            max_partitions_per_run,
+        )
+    elif examined >= examination_limit:
+        for family in overflow_families_seen:
+            family_stats[family].skipped_cap += 1
+        _logger.warning(
+            "SQL trace rollup maintenance reached the %d-partition examination limit; "
+            "deferred or additional work remains.",
+            examination_limit,
+        )
 
     return RollupBuildStats(
         trace_metric=family_stats[RollupFamily.TRACE_METRIC],

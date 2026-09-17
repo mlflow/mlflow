@@ -1163,13 +1163,33 @@ def enqueue_rollup_rebuilds(
     timestamps old enough to have been materialized need invalidation; newer partitions will be
     discovered from raw data by maintenance once they become eligible.
     """
-    if not rollups_enabled() or experiment_id is None or family not in SERVABLE_FAMILIES:
+    enqueue_rollup_rebuild_partitions(
+        session,
+        [(family, experiment_id, timestamp_ms_values)],
+    )
+
+
+def enqueue_rollup_rebuild_partitions(
+    session: Session,
+    partitions: Iterable[tuple[RollupFamily, int | None, Iterable[int | None]]],
+) -> None:
+    """Lock all affected rebuild keys in one deterministic global order.
+
+    Writers call this before locking or mutating source rows. The publisher locks the same queue
+    key before reading source rows, so queue-first ordering both prevents lost invalidations and
+    avoids a queue-row/source-row deadlock cycle.
+    """
+    if not rollups_enabled():
         return
     cutoff_ms = get_current_time_millis() - ROLLUP_ELIGIBILITY_LAG_MS
-    days = {
-        _day_start_ms_to_date(ts)
-        for ts in timestamp_ms_values
-        if ts is not None and ts <= cutoff_ms
+    keys = {
+        (int(experiment_id), _day_start_ms_to_date(timestamp_ms), family)
+        for family, experiment_id, timestamp_ms_values in partitions
+        if experiment_id is not None and family in SERVABLE_FAMILIES
+        for timestamp_ms in timestamp_ms_values
+        if timestamp_ms is not None and timestamp_ms <= cutoff_ms
     }
-    for rollup_day in sorted(days):
-        ensure_locked_rebuild_entry(session, family, int(experiment_id), rollup_day)
+    for experiment_id, rollup_day, family in sorted(
+        keys, key=lambda key: (key[0], key[1], key[2].value)
+    ):
+        ensure_locked_rebuild_entry(session, family, experiment_id, rollup_day)

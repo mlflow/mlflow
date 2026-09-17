@@ -31,7 +31,11 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR, MLFLOW_SERVER_UP_TIME
-from mlflow.tracing.trace_archival_service import run_trace_archival_scheduler
+from mlflow.tracing.trace_archival_service import (
+    _get_trace_archival_scheduler_settings,
+    _run_trace_archival_scheduler,
+    _should_run_trace_archival_scheduler,
+)
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd
@@ -826,15 +830,24 @@ def initialize_periodic_tasks_tracking_store():
     return tracking_store
 
 
-def register_periodic_tasks(huey_instance, tracking_store) -> None:
+def register_periodic_tasks(huey_instance, tracking_store=None) -> None:
     """
     Register all periodic tasks with the given huey instance.
 
     Args:
         huey_instance: The huey instance to register tasks with.
-        tracking_store: The primary tracking store initialized once by the worker bootstrap.
+        tracking_store: Optional pre-initialized store, primarily for tests. Production workers
+            initialize it lazily on the first store-dependent task poll.
     """
     from huey import crontab
+
+    cached_tracking_store = tracking_store
+
+    def get_tracking_store():
+        nonlocal cached_tracking_store
+        if cached_tracking_store is None:
+            cached_tracking_store = initialize_periodic_tasks_tracking_store()
+        return cached_tracking_store
 
     @huey_instance.periodic_task(crontab(minute="*/1"))
     # Prevent concurrent execution if scheduler takes longer than 1 minute.
@@ -856,7 +869,12 @@ def register_periodic_tasks(huey_instance, tracking_store) -> None:
     def trace_archival_scheduler():
         """Runs every minute and delegates scheduling cadence to the archival service."""
         try:
-            run_trace_archival_scheduler(tracking_store)
+            settings = _get_trace_archival_scheduler_settings()
+            if settings is None or not _should_run_trace_archival_scheduler(
+                settings.interval_seconds
+            ):
+                return
+            _run_trace_archival_scheduler(get_tracking_store(), settings=settings)
         except Exception as e:
             _logger.exception(f"Trace archival scheduler failed: {e!r}")
 
@@ -893,7 +911,7 @@ def register_periodic_tasks(huey_instance, tracking_store) -> None:
     def sql_trace_rollup_scheduler():
         """Run SQL trace rollup maintenance on the configured UTC cron schedule."""
         try:
-            run_sql_trace_rollup_scheduler(tracking_store)
+            run_sql_trace_rollup_scheduler(get_tracking_store())
         except Exception as e:
             _logger.exception(f"SQL trace rollup scheduler failed: {e!r}")
 
