@@ -168,6 +168,11 @@ def parse_skill_registry_order_by(
 
     ``default_tiebreakers`` are appended when their keys have not been
     explicitly requested, ensuring deterministic pagination order.
+
+    The keys in ``valid_keys`` and ``column_map`` must use the same names
+    as the underlying ORM column attributes (e.g. ``created_at``, not
+    ``creation_timestamp``) so that tiebreaker deduplication can compare
+    them against the column key introspected from each clause.
     """
     clauses: list[ClauseElement] = []
     observed: set[str] = set()
