@@ -6,6 +6,7 @@ from mlflow.models.resources import (
     DatabricksFunction,
     DatabricksGenieSpace,
     DatabricksLakebase,
+    DatabricksMcpService,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
     DatabricksTable,
@@ -155,6 +156,38 @@ def test_lakebase(on_behalf_of_user):
     )
     assert lakebase.to_dict() == expected
     assert _ResourceBuilder.from_resources([lakebase]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_mcp_service(on_behalf_of_user):
+    mcp_service = DatabricksMcpService(
+        mcp_service_name="catalog.schema.mcp_server",
+        on_behalf_of_user=on_behalf_of_user,
+    )
+    expected = (
+        {"mcp_service": [{"name": "catalog.schema.mcp_server"}]}
+        if on_behalf_of_user is None
+        else {
+            "mcp_service": [
+                {
+                    "name": "catalog.schema.mcp_server",
+                    "on_behalf_of_user": on_behalf_of_user,
+                }
+            ]
+        }
+    )
+    assert mcp_service.to_dict() == expected
+    assert _ResourceBuilder.from_resources([mcp_service]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+    assert _ResourceBuilder.from_dict({
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected.copy(),
+    }) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
