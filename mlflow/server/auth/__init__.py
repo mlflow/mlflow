@@ -21,6 +21,7 @@ import os
 import re
 import secrets
 import threading
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
@@ -172,6 +173,7 @@ from mlflow.protos.service_pb2 import (
     DetachModelFromGatewayEndpoint,
     EndTrace,
     FinalizeLoggedModel,
+    GatewayEndpointModelConfig,
     GetAssessmentRequest,
     GetDataset,
     GetDatasetExperimentIds,
@@ -2118,7 +2120,9 @@ def validate_can_invoke_issue_detection():
     return _get_gateway_secret_permission(secret_id).can_use
 
 
-def _validate_can_use_model_definitions(model_configs) -> bool:
+def _validate_can_use_model_definitions(
+    model_configs: Sequence[GatewayEndpointModelConfig],
+) -> bool:
     """
     Helper to validate USE permission on all model definitions in model_configs.
     Returns True if all model definitions have USE permission, False otherwise.
@@ -2140,7 +2144,9 @@ def _validate_can_use_model_definitions(model_configs) -> bool:
     return True
 
 
-def _validate_can_use_model_definitions_for_create(model_configs) -> bool:
+def _validate_can_use_model_definitions_for_create(
+    model_configs: Sequence[GatewayEndpointModelConfig],
+) -> bool:
     """
     Create-only helper that enforces workspace USE permission when no model definitions
     are provided, otherwise validates USE permission on referenced model definitions.
