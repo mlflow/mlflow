@@ -1446,7 +1446,23 @@ def _validate_optional_workspace_storage_location(value: str | None, field_name:
 
 
 def _validate_workspace_default_artifact_root(value: str | None) -> str | None:
-    return _validate_optional_workspace_storage_location(value, "default_artifact_root")
+    validated = _validate_optional_workspace_storage_location(value, "default_artifact_root")
+    if validated in (None, ""):
+        return validated
+    # A scheme-less relative value is resolved by tracking clients against their own working
+    # directory, so artifacts would silently be written to the client machine. Classify with
+    # ``get_uri_scheme``, the same call the artifact repository registry and
+    # ``_validate_prompt_source`` use, so that values they treat as local paths (including
+    # single-letter "schemes" such as 'C:team-a') are rejected here. Unlike a prompt source, an
+    # absolute path is a legitimate artifact root on a shared filesystem, mirroring the
+    # server-level ``--default-artifact-root``, so it stays accepted.
+    if not get_uri_scheme(validated) and not os.path.isabs(validated):
+        raise MlflowException.invalid_parameter_value(
+            "Invalid value for 'default_artifact_root'. Expected a URI (for example "
+            "'s3://bucket/prefix' or 'mlflow-artifacts:/prefix') or an absolute path, got "
+            f"'{validated}'."
+        )
+    return validated
 
 
 def _validate_workspace_trace_archival_location(value: str | None) -> str | None:
