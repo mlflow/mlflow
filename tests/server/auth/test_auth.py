@@ -8837,3 +8837,114 @@ def test_resource_dispatch_assessment_resolves_experiment_via_trace(monkeypatch)
     assert dispatch.workspace_lookup_id == "9"
     assert dispatch.parent_type == "experiment"
     assert dispatch.parent_id == "9"
+
+
+def test_graphql_search_datasets_uses_experiment_tier(monkeypatch):
+    # Datasets are not a run sub-resource: the prefilter must use experiment READ, not
+    # the run tier, so a run-only reader is excluded and a run DENY doesn't hide them.
+    monkeypatch.setattr(
+        auth_module,
+        "_graphql_can_read_runs_in_experiment",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("datasets must not use run tier")),
+    )
+    monkeypatch.setattr(
+        auth_module, "_graphql_can_read_experiment", lambda exp_id, _u: exp_id == "keep"
+    )
+    mw = auth_module.GraphQLAuthorizationMiddleware()
+    input_obj = SimpleNamespace(experiment_ids=["keep", "drop"])
+    assert mw._check_authorization("mlflowSearchDatasets", {"input": input_obj}, "bob") is True
+    assert input_obj.experiment_ids == ["keep"]
+
+
+def test_filter_get_mcp_server_redacts_version_on_deny(monkeypatch):
+    server = {
+        "name": "srv",
+        "latest_version": {"version": 3},
+        "aliases": {"prod": 3},
+        "access_endpoints": [
+            {"server_name": "srv", "resolved_version": {"version": 3}, "tools": ["t"]}
+        ],
+    }
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_permission", lambda *a: SimpleNamespace(can_read=True)
+    )
+    monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda *a: SimpleNamespace(can_read=False),
+    )
+    out = json.loads(auth_module._filter_get_mcp_server("u", json.dumps(server).encode(), object()))
+    assert out["latest_version"] is None
+    assert out["aliases"] is None
+    ep = out["access_endpoints"][0]
+    assert ep["resolved_version"] is None
+    assert ep["tools"] is None
+
+
+def test_filter_get_mcp_server_keeps_version_when_readable(monkeypatch):
+    server = {"name": "srv", "latest_version": {"version": 3}, "aliases": {"prod": 3}}
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_permission", lambda *a: SimpleNamespace(can_read=True)
+    )
+    monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_version_permission", lambda *a: SimpleNamespace(can_read=True)
+    )
+    out = json.loads(auth_module._filter_get_mcp_server("u", json.dumps(server).encode(), object()))
+    assert out["latest_version"] == {"version": 3}
+    assert out["aliases"] == {"prod": 3}
+
+
+def test_filter_search_mcp_servers_redacts_version_on_deny(monkeypatch):
+    body = json.dumps({
+        "mcp_servers": [
+            {
+                "name": "srv",
+                "latest_version": {"version": 3},
+                "aliases": {"prod": 3},
+                "access_endpoints": [{"server_name": "srv", "resolved_version": {"version": 3}}],
+            }
+        ]
+    }).encode()
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_permission", lambda *a: SimpleNamespace(can_read=True)
+    )
+    monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", lambda *a, **k: lambda _n: True)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda *a: SimpleNamespace(can_read=False),
+    )
+    request = SimpleNamespace(
+        query_params=SimpleNamespace(get=lambda k, d=None: d, getlist=lambda _k: [])
+    )
+    out = json.loads(auth_module._filter_search_mcp_servers("u", body, request))
+    server = out["mcp_servers"][0]
+    assert server["latest_version"] is None
+    assert server["aliases"] is None
+    assert server["access_endpoints"][0]["resolved_version"] is None
+    # Summary endpoints have no ``tools`` field; redaction must not inject one.
+    assert "tools" not in server["access_endpoints"][0]
+
+
+def test_filter_search_mcp_endpoints_redacts_version_on_deny(monkeypatch):
+    body = json.dumps({
+        "mcp_access_endpoints": [
+            {"server_name": "srv", "resolved_version": {"version": 3}, "server_version": 3}
+        ]
+    }).encode()
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", lambda *a, **k: lambda _n: True)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda *a: SimpleNamespace(can_read=False),
+    )
+    request = SimpleNamespace(
+        query_params=SimpleNamespace(get=lambda k, d=None: d, getlist=lambda _k: [])
+    )
+    out = json.loads(auth_module._filter_search_mcp_endpoints("u", body, request))
+    ep = out["mcp_access_endpoints"][0]
+    assert ep["resolved_version"] is None
+    assert ep["server_version"] is None

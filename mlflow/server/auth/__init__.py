@@ -5718,11 +5718,15 @@ class GraphQLAuthorizationMiddleware:
 
         elif field_name in ("mlflowSearchRuns", "mlflowSearchDatasets"):
             if experiment_ids := (getattr(input_obj, "experiment_ids", None) or []):
-                readable_ids = [
-                    exp_id
-                    for exp_id in experiment_ids
-                    if _graphql_can_read_runs_in_experiment(exp_id, username)
-                ]
+                # Runs authorize on the run child tier (matching the REST run filter);
+                # datasets are not a run sub-resource, so they stay on experiment READ
+                # (matching the REST ``validate_can_search_datasets``).
+                can_read = (
+                    _graphql_can_read_runs_in_experiment
+                    if field_name == "mlflowSearchRuns"
+                    else _graphql_can_read_experiment
+                )
+                readable_ids = [exp_id for exp_id in experiment_ids if can_read(exp_id, username)]
                 if not readable_ids:
                     return False
                 input_obj.experiment_ids = readable_ids
@@ -6150,6 +6154,41 @@ def _backfill_readable_mcp_results(
     return next_token
 
 
+def _redact_mcp_access_endpoint_version_fields(endpoint: dict[str, Any]) -> None:
+    """Blank the version-derived fields of an MCP access-endpoint dict.
+
+    ``resolved_version``, ``server_version``, ``server_alias``, and ``tools`` all expose
+    the resolved server version content, which the ``mcp_server_version`` tier gates. Only
+    keys already present are cleared, so the summary endpoint shape (which omits ``tools``)
+    does not gain a spurious field.
+    """
+    for key in ("resolved_version", "server_version", "server_alias", "tools"):
+        if key in endpoint:
+            endpoint[key] = None
+
+
+def _redact_mcp_server_version_fields(server: dict[str, Any]) -> None:
+    """Blank an MCP server dict's embedded version data (``latest_version``, alias-to-version
+    ``aliases``, and each access endpoint's resolved version) for a caller without version read.
+    """
+    server["latest_version"] = None
+    server["aliases"] = None
+    for endpoint in server.get("access_endpoints") or []:
+        _redact_mcp_access_endpoint_version_fields(endpoint)
+
+
+def _mcp_server_version_reader(username: str) -> Callable[[str], bool]:
+    """Return a memoized ``name -> bool`` predicate for ``mcp_server_version`` read access."""
+    cache: dict[str, bool] = {}
+
+    def can_read(name: str) -> bool:
+        if name not in cache:
+            cache[name] = _get_mcp_server_version_permission(name, username).can_read
+        return cache[name]
+
+    return can_read
+
+
 def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
     perm_cache: dict[str, Permission] = {}
@@ -6185,6 +6224,10 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
         to_dict=lambda s: _stamp(MCPServerResponse.from_entity(s).model_dump(mode="json")),
     )
     data["mcp_servers"] = readable[:max_results]
+    can_read_version = _mcp_server_version_reader(username)
+    for server in data["mcp_servers"]:
+        if not can_read_version(server["name"]):
+            _redact_mcp_server_version_fields(server)
     return json.dumps(data).encode()
 
 
@@ -6217,6 +6260,10 @@ def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteR
         to_dict=lambda e: MCPAccessEndpointResponse.from_entity(e).model_dump(mode="json"),
     )
     data["mcp_access_endpoints"] = readable[:max_results]
+    can_read_version = _mcp_server_version_reader(username)
+    for endpoint in data["mcp_access_endpoints"]:
+        if not can_read_version(endpoint["server_name"]):
+            _redact_mcp_access_endpoint_version_fields(endpoint)
     return json.dumps(data).encode()
 
 
@@ -6436,6 +6483,8 @@ def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest
     if name := data.get("name"):
         perm = _get_mcp_server_permission(name, username)
         data["allowed_actions"] = _permission_to_allowed_actions(perm)
+        if not _get_mcp_server_version_permission(name, username).can_read:
+            _redact_mcp_server_version_fields(data)
     return json.dumps(data).encode()
 
 
