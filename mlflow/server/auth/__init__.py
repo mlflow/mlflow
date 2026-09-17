@@ -2557,9 +2557,11 @@ def validate_can_invoke_issue_detection():
     """
     Issue detection creates a run in the request's experiment and, when ``secret_id`` is
     given, decrypts that gateway secret into the job environment. Require UPDATE on the
-    experiment and USE on the secret, mirroring model-definition creation.
+    run child tier (with experiment fallback) and USE on the secret, mirroring
+    model-definition creation while honoring a ``run`` DENY.
     """
-    if not validate_can_update_experiment():
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_run_permission_for_experiment(experiment_id).can_update:
         return False
     body = request.get_json(silent=True)
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
@@ -2905,7 +2907,11 @@ def validate_can_search_datasets():
 
 
 def validate_can_create_promptlab_run():
-    """Checks UPDATE permission on the experiment."""
+    """Checks UPDATE on the run child tier of the experiment (with experiment fallback).
+
+    CreatePromptlabRun creates a run, so it authorizes on the ``run`` tier — an experiment
+    EDIT user with a ``run`` DENY is blocked, and a run-only grant suffices.
+    """
     data = request.json
     experiment_id = data.get("experiment_id")
     if not experiment_id:
@@ -2913,19 +2919,46 @@ def validate_can_create_promptlab_run():
             "CreatePromptlabRun request must specify experiment_id.",
             INVALID_PARAMETER_VALUE,
         )
+    return _get_run_permission_for_experiment(experiment_id).can_update
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
+
+def validate_can_create_run_in_experiment():
+    """UPDATE on the run child tier of the request's experiment (with experiment fallback).
+
+    For routes whose handler creates a run in ``experiment_id`` (e.g. prompt-optimization
+    jobs): a ``run`` DENY blocks an experiment EDIT user, and a run-only grant suffices.
+    """
+    return _get_run_permission_for_experiment(_get_request_param("experiment_id")).can_update
+
+
+def validate_can_invoke_genai_evaluate():
+    """GenAI evaluate creates an eval run in ``experiment_id`` and, via the job, reads the
+    requested traces and writes assessments. Gate on every child tier it touches: run
+    UPDATE, trace READ, and assessment UPDATE (each with experiment fallback), so an
+    experiment EDIT user with a ``run``/``trace``/``assessment`` DENY is blocked.
+    """
+    experiment_id = _get_request_param("experiment_id")
+    return (
+        _get_run_permission_for_experiment(experiment_id).can_update
+        and _get_trace_permission_for_experiment(experiment_id).can_read
+        and _experiment_child_permission("assessment", "*", experiment_id).can_update
     )
-    return permission.can_update
+
+
+def validate_can_invoke_scorer():
+    """Scorer invocation reads the requested traces and, when ``log_assessments`` is set,
+    writes assessments to them. Require trace READ, and assessment UPDATE only when the
+    request logs assessments — honoring a ``trace``/``assessment`` DENY the coarse
+    experiment tier would miss. (Unlike genai-evaluate this route creates no run.)
+    """
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_trace_permission_for_experiment(experiment_id).can_read:
+        return False
+    body = request.get_json(silent=True)
+    log_assessments = body.get("log_assessments", False) if isinstance(body, dict) else False
+    if not log_assessments:
+        return True
+    return _experiment_child_permission("assessment", "*", experiment_id).can_update
 
 
 def validate_gateway_proxy():
@@ -3369,7 +3402,7 @@ BEFORE_REQUEST_HANDLERS = {
     SetGatewayEndpointTag: validate_can_update_gateway_endpoint,
     DeleteGatewayEndpointTag: validate_can_update_gateway_endpoint,
     # Routes for prompt optimization jobs
-    CreatePromptOptimizationJob: validate_can_update_experiment,
+    CreatePromptOptimizationJob: validate_can_create_run_in_experiment,
     GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
     SearchPromptOptimizationJobs: validate_can_read_experiment,
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
@@ -3541,10 +3574,10 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     # Invoke endpoints create runs in an experiment -> require update on it.
-    (INVOKE_SCORER, "POST"): validate_can_update_experiment,
+    (INVOKE_SCORER, "POST"): validate_can_invoke_scorer,
     # Issue detection may also consume a gateway secret -> additionally require USE on it.
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
-    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
+    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_invoke_genai_evaluate,
     # Demo: generate is open to any authenticated user; delete is admin-only.
     (DEMO_GENERATE, "POST"): _allow_authenticated,
     (DEMO_DELETE, "POST"): sender_is_admin,
@@ -4608,17 +4641,24 @@ def filter_search_logged_models(resp: Response) -> None:
 
 
 def _redact_latest_versions(registered_model, can_read_version) -> None:
-    """Drop ``latest_versions`` entries the caller can't read on the version child tier.
+    """Drop ``latest_versions`` entries and clear ``aliases`` the caller can't read on the
+    version child tier.
 
     ``GetRegisteredModel`` and ``SearchRegisteredModels`` are gated on the parent
-    registered model but embed ``latest_versions``, so a ``registered_model_version``
-    DENY would otherwise leak version metadata through the parent response.
-    ``can_read_version`` is a ``_rm_or_prompt_version_read_predicate`` that accepts a
-    version proto and classifies prompt vs model versions.
+    registered model but embed ``latest_versions`` and ``aliases`` (alias-to-version
+    mappings), so a ``registered_model_version`` DENY would otherwise leak version
+    metadata through the parent response. ``can_read_version`` is a
+    ``_rm_or_prompt_version_read_predicate`` that accepts a version proto and classifies
+    prompt vs model versions; it also accepts the registered model itself (same ``name``
+    and prompt tag) to decide the model's wildcard version-tier readability. Child version
+    grants are wildcard-only, so alias entries are all-or-nothing: cleared entirely when
+    that tier is unreadable.
     """
     kept = [mv for mv in registered_model.latest_versions if can_read_version(mv)]
     del registered_model.latest_versions[:]
     registered_model.latest_versions.extend(kept)
+    if not can_read_version(registered_model):
+        registered_model.ClearField("aliases")
 
 
 def filter_search_registered_models(resp: Response):
@@ -5986,7 +6026,10 @@ def _mcp_server_suffix(path: str) -> str:
 
 
 def _is_mcp_server_version_path(parts: list[str]) -> bool:
-    return len(parts) >= 3 and parts[2] == "versions"
+    # ``versions`` and ``aliases`` sub-routes both operate on server versions: a version
+    # get/list, or an alias lookup/write that returns/mutates a resolved ``MCPServerVersion``.
+    # Both must authorize on the ``mcp_server_version`` child tier, not the parent server.
+    return len(parts) >= 3 and parts[2] in ("versions", "aliases")
 
 
 def _is_mcp_server_version_create_path(parts: list[str]) -> bool:

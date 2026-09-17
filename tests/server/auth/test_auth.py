@@ -7228,7 +7228,9 @@ def test_evaluation_dataset_and_issue_apis_require_experiment_permission(client)
     indirect=True,
 )
 def test_invoke_endpoints_require_experiment_update_permission(client):
-    # invoke routes create runs in an experiment -> a user without update on it is denied.
+    # invoke routes create runs / read traces / write assessments in an experiment -> a user
+    # with no access to it is denied. Child-tier DENY enforcement is covered separately in
+    # test_invoke_validators_honor_child_deny.
     base = client.tracking_uri
     owner, owner_pw = create_user(base)
     attacker, attacker_pw = create_user(base)
@@ -8559,3 +8561,101 @@ def test_filter_search_mcp_endpoints_redacts_version_on_deny(monkeypatch):
     ep = out["mcp_access_endpoints"][0]
     assert ep["resolved_version"] is None
     assert ep["server_version"] is None
+
+
+def test_redact_registered_model_clears_aliases_on_version_deny(monkeypatch):
+    from mlflow.protos import model_registry_pb2 as pb
+
+    resp_msg = pb.GetRegisteredModel.Response()
+    rm = resp_msg.registered_model
+    rm.name = "m1"
+    rm.latest_versions.add().name = "m1"
+    alias = rm.aliases.add()
+    alias.alias = "prod"
+    alias.version = "3"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_rm_or_prompt_version_read_predicate", lambda _u: lambda _e: False
+    )
+    resp = _fake_resp(resp_msg)
+    auth_module.redact_get_registered_model_versions(resp)
+
+    out = pb.GetRegisteredModel.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert list(out.registered_model.latest_versions) == []
+    assert list(out.registered_model.aliases) == []
+
+
+def test_mcp_alias_routes_classified_as_version_paths():
+    # /{namespace}/{slug}/aliases/{alias} returns a full version response -> version tier.
+    assert auth_module._is_mcp_server_version_path(["ns", "slug", "aliases", "prod"]) is True
+    assert auth_module._is_mcp_server_version_path(["ns", "slug", "versions", "3"]) is True
+    assert auth_module._is_mcp_server_version_path(["ns", "slug", "tags"]) is False
+    # alias routes are not version-CREATE paths (that stays versions-only)
+    assert auth_module._is_mcp_server_version_create_path(["ns", "slug", "aliases"]) is False
+
+
+def test_promptlab_run_uses_run_child_tier(monkeypatch):
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: SimpleNamespace())
+    captured = {}
+
+    def fake_run_for_experiment(experiment_id):
+        captured["experiment_id"] = experiment_id
+        return SimpleNamespace(can_update=False)
+
+    monkeypatch.setattr(auth_module, "_get_run_permission_for_experiment", fake_run_for_experiment)
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/runs/create-promptlab-run", json={"experiment_id": "9"}
+    ):
+        assert auth_module.validate_can_create_promptlab_run() is False
+    assert captured["experiment_id"] == "9"
+
+
+def test_create_run_in_experiment_validator_uses_run_tier(monkeypatch):
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _p: "9")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_run_permission_for_experiment",
+        lambda eid: SimpleNamespace(can_update=eid == "9"),
+    )
+    assert auth_module.validate_can_create_run_in_experiment() is True
+
+
+def test_invoke_validators_honor_child_deny(monkeypatch):
+    # experiment EDIT is present, but a child DENY on the relevant tier must block each invoke.
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _p: "9")
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    allow = SimpleNamespace(can_read=True, can_update=True)
+    deny = SimpleNamespace(can_read=False, can_update=False)
+
+    # genai-evaluate: run DENY blocks even with trace/assessment allowed.
+    monkeypatch.setattr(auth_module, "_get_run_permission_for_experiment", lambda _e: deny)
+    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", lambda _e: allow)
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", lambda *a, **k: allow)
+    assert auth_module.validate_can_invoke_genai_evaluate() is False
+
+    # genai-evaluate: assessment DENY blocks even with run/trace allowed.
+    monkeypatch.setattr(auth_module, "_get_run_permission_for_experiment", lambda _e: allow)
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", lambda *a, **k: deny)
+    assert auth_module.validate_can_invoke_genai_evaluate() is False
+
+    # scorer: trace DENY blocks regardless of log_assessments.
+    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", lambda _e: deny)
+    monkeypatch.setattr(auth_module, "request", SimpleNamespace(get_json=lambda silent: {}))
+    assert auth_module.validate_can_invoke_scorer() is False
+
+    # scorer: trace readable but assessment DENY blocks when log_assessments=True.
+    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", lambda _e: allow)
+    monkeypatch.setattr(
+        auth_module, "request", SimpleNamespace(get_json=lambda silent: {"log_assessments": True})
+    )
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", lambda *a, **k: deny)
+    assert auth_module.validate_can_invoke_scorer() is False
+
+    # scorer: trace readable and no assessment logging -> allowed.
+    monkeypatch.setattr(
+        auth_module, "request", SimpleNamespace(get_json=lambda silent: {"log_assessments": False})
+    )
+    assert auth_module.validate_can_invoke_scorer() is True
