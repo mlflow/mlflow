@@ -1,9 +1,19 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
-import { WorkspaceRouterSync } from './MlflowRouter';
-import { useLocation, useNavigate, useSearchParams } from './common/utils/RoutingUtils';
+import { MlflowRouter, WorkspaceRouterSync } from './MlflowRouter';
+import {
+  createHashRouter,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from './common/utils/RoutingUtils';
+import {
+  SERVER_FEATURE_KEYS,
+  useFeatureEnabled,
+  useWorkspacesEnabled,
+} from './experiment-tracking/hooks/useServerInfo';
 import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
 import {
   extractWorkspaceFromSearchParams,
@@ -19,6 +29,14 @@ jest.mock('./common/utils/RoutingUtils', () => ({
   useLocation: jest.fn(),
   useNavigate: jest.fn(),
   useSearchParams: jest.fn(),
+  createHashRouter: jest.fn(() => ({})),
+  RouterProvider: jest.fn(() => <div data-testid="router-provider" />),
+}));
+
+jest.mock('./experiment-tracking/hooks/useServerInfo', () => ({
+  SERVER_FEATURE_KEYS: { GATEWAY: 'gateway' },
+  useFeatureEnabled: jest.fn(),
+  useWorkspacesEnabled: jest.fn(),
 }));
 
 jest.mock('./workspaces/hooks/useWorkspaces', () => ({
@@ -38,6 +56,9 @@ jest.mock('./workspaces/utils/WorkspaceUtils', () => ({
 const useLocationMock = jest.mocked(useLocation);
 const useNavigateMock = jest.mocked(useNavigate);
 const useSearchParamsMock = jest.mocked(useSearchParams);
+const createHashRouterMock = jest.mocked(createHashRouter);
+const useFeatureEnabledMock = jest.mocked(useFeatureEnabled);
+const useWorkspacesEnabledMock = jest.mocked(useWorkspacesEnabled);
 const useWorkspacesMock = jest.mocked(useWorkspaces);
 const extractWorkspaceFromSearchParamsMock = jest.mocked(extractWorkspaceFromSearchParams);
 const getActiveWorkspaceMock = jest.mocked(getActiveWorkspace);
@@ -47,6 +68,43 @@ const setActiveWorkspaceMock = jest.mocked(setActiveWorkspace);
 const setLastUsedWorkspaceMock = jest.mocked(setLastUsedWorkspace);
 
 type MockUseWorkspacesReturn = ReturnType<typeof useWorkspaces>;
+
+describe('MlflowRouter', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useFeatureEnabledMock.mockReturnValue(false);
+    useWorkspacesEnabledMock.mockReturnValue({ workspacesEnabled: false, loading: false });
+  });
+
+  it('creates and renders the router while workspace support is loading', () => {
+    useWorkspacesEnabledMock.mockReturnValue({ workspacesEnabled: false, loading: true });
+
+    render(<MlflowRouter />);
+
+    expect(createHashRouterMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('router-provider')).toBeInTheDocument();
+  });
+
+  it('recreates the router when workspace support becomes enabled', () => {
+    const { rerender } = render(<MlflowRouter />);
+
+    expect(createHashRouterMock).toHaveBeenLastCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ element: expect.objectContaining({ props: { workspacesEnabled: false } }) }),
+      ]),
+    );
+
+    useWorkspacesEnabledMock.mockReturnValue({ workspacesEnabled: true, loading: false });
+    rerender(<MlflowRouter />);
+
+    expect(createHashRouterMock).toHaveBeenCalledTimes(2);
+    expect(createHashRouterMock).toHaveBeenLastCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ element: expect.objectContaining({ props: { workspacesEnabled: true } }) }),
+      ]),
+    );
+  });
+});
 
 describe('WorkspaceRouterSync', () => {
   const mockNavigate = jest.fn();

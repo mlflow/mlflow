@@ -232,7 +232,7 @@ const WorkspaceAwareRootRoute = ({ workspacesEnabled }: { workspacesEnabled: boo
 
 export const MlflowRouter = () => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const { workspacesEnabled, loading: featuresLoading } = useWorkspacesEnabled();
+  const { workspacesEnabled } = useWorkspacesEnabled();
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
 
@@ -254,23 +254,15 @@ export const MlflowRouter = () => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const hashRouter = useMemo(
     () =>
-      // Don't create router while still loading features
-      featuresLoading
-        ? null
-        : createHashRouter([
-            {
-              path: '/',
-              element: <WorkspaceAwareRootRoute workspacesEnabled={workspacesEnabled} />,
-              children: routes,
-            },
-          ]),
-    [routes, workspacesEnabled, featuresLoading],
+      createHashRouter([
+        {
+          path: '/',
+          element: <WorkspaceAwareRootRoute workspacesEnabled={workspacesEnabled} />,
+          children: routes,
+        },
+      ]),
+    [routes, workspacesEnabled],
   );
-
-  // Show loading skeleton while determining if workspaces are enabled
-  if (featuresLoading || !hashRouter) {
-    return <LegacySkeleton />;
-  }
 
   return (
     <React.Suspense fallback={<LegacySkeleton />}>
