@@ -74,6 +74,9 @@ def upgrade():
         batch_op.add_column(sa.Column("progress_updated_at", sa.BigInteger(), nullable=True))
         batch_op.add_column(sa.Column("token_hash", sa.String(length=64), nullable=True))
         batch_op.add_column(sa.Column("scoped_permissions", json_type, nullable=True))
+        # Earliest epoch-ms at which a PENDING job may be claimed. NULL means claimable now; a
+        # transient retry stamps a future value to enforce a cross-replica backoff.
+        batch_op.add_column(sa.Column("next_attempt_at", sa.BigInteger(), nullable=True))
         batch_op.create_index(
             "index_jobs_status_lease_expires_at",
             ["status", "lease_expires_at"],
@@ -86,6 +89,7 @@ def upgrade():
 def downgrade():
     with op.batch_alter_table("jobs") as batch_op:
         batch_op.drop_index("index_jobs_status_lease_expires_at")
+        batch_op.drop_column("next_attempt_at")
         batch_op.drop_column("scoped_permissions")
         batch_op.drop_column("token_hash")
         batch_op.drop_column("progress_updated_at")
