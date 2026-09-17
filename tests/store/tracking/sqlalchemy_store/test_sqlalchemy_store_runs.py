@@ -4053,6 +4053,52 @@ def test_search_logged_models_invalid_operator_lists_applicable_operators(store:
         store.search_logged_models(experiment_ids=[exp_id], filter_string="metrics.loss LIKE 'x'")
 
 
+def test_search_logged_models_metric_filter_pagination(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    logged_models = []
+    for i in range(3):
+        run = store.create_run(
+            experiment_id=exp_id, user_id="user", start_time=i, run_name=f"run-{i}", tags=[]
+        )
+        model = store.create_logged_model(
+            experiment_id=exp_id, name=f"model-{i}", source_run_id=run.info.run_id
+        )
+        for step in range(2):
+            store.log_metric(
+                run.info.run_id,
+                entities.Metric(
+                    key="loss",
+                    value=1.0,
+                    timestamp=step + 1,
+                    step=step,
+                    model_id=model.model_id,
+                ),
+            )
+        logged_models.append(model)
+
+    first_page = store.search_logged_models(
+        experiment_ids=[exp_id],
+        filter_string="metrics.loss >= 0",
+        max_results=2,
+        order_by=[{"field_name": "name"}],
+    )
+    assert [model.name for model in first_page] == ["model-0", "model-1"]
+    assert first_page.token is not None
+
+    second_page = store.search_logged_models(
+        experiment_ids=[exp_id],
+        filter_string="metrics.loss >= 0",
+        max_results=2,
+        order_by=[{"field_name": "name"}],
+        page_token=first_page.token,
+    )
+    assert [model.name for model in second_page] == ["model-2"]
+    assert second_page.token is None
+    assert {model.model_id for model in first_page + second_page} == {
+        model.model_id for model in logged_models
+    }
+
+
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
 
