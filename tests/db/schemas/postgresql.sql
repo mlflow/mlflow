@@ -102,6 +102,7 @@ CREATE TABLE jobs (
 	progress_updated_at BIGINT,
 	token_hash VARCHAR(64),
 	scoped_permissions JSON,
+	next_attempt_at BIGINT,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
