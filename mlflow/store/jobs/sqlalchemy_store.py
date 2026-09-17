@@ -9,12 +9,17 @@ import sqlalchemy
 
 from mlflow.entities._job import Job, JobProgress
 from mlflow.entities._job_status import JobStatus
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
+    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.db.utils import (
     _get_managed_session_maker,
     _safe_initialize_tables,
     create_sqlalchemy_engine_with_retry,
+    get_current_time_millis_expression,
 )
 from mlflow.store.jobs.abstract_store import (
     AbstractJobStore,
@@ -30,6 +35,18 @@ sqlalchemy.orm.configure_mappers()
 
 _LIST_JOB_PAGE_SIZE = 100
 _logger = logging.getLogger(__name__)
+
+
+def _transient_retry_backoff_seconds(retry_count: int) -> int:
+    """Exponential backoff (in seconds) before a transiently failed job may be re-claimed.
+
+    ``retry_count`` is the attempt number the job is being re-pended for (1 for the first
+    retry). The delay doubles with each attempt starting from the configured base delay and is
+    capped at the configured maximum delay.
+    """
+    base = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.get()
+    max_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY.get()
+    return min(base * (2 ** (retry_count - 1)), max_delay)
 
 
 class SqlAlchemyJobStore(AbstractJobStore):
@@ -105,9 +122,9 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
     @staticmethod
     def _transient_field_update_values() -> dict[Any, Any]:
-        # Runtime-only fields (lease, progress, auth tokens) cleared when a job
-        # reaches a terminal or re-queued state to avoid retaining stale
-        # metadata and reduce stored row size.
+        # Runtime-only fields (lease, progress, auth tokens, retry deadline) cleared when a
+        # job reaches a terminal or re-queued state to avoid retaining stale metadata and
+        # reduce stored row size.
         return {
             SqlJob.lease_expires_at: None,
             SqlJob.status_message: None,
@@ -115,6 +132,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             SqlJob.progress_updated_at: None,
             SqlJob.token_hash: None,
             SqlJob.scoped_permissions: None,
+            SqlJob.next_attempt_at: None,
         }
 
     @classmethod
@@ -257,6 +275,14 @@ class SqlAlchemyJobStore(AbstractJobStore):
                 SqlJob.lease_expires_at: self._lease_expiration_time(lease_duration),
                 SqlJob.last_update_time: update_time,
             },
+            # A job scheduled for a future retry is not claimable until its backoff elapses. The
+            # deadline is compared against the database clock so it is skew-free across replicas.
+            additional_filters=(
+                sqlalchemy.or_(
+                    SqlJob.next_attempt_at.is_(None),
+                    SqlJob.next_attempt_at <= get_current_time_millis_expression(self.db_type),
+                ),
+            ),
         )
 
     def claim_job(self, job_id: str, lease_duration: float | None = None) -> JobUpdateStatus:
@@ -556,12 +582,26 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
         with self.ManagedSessionMaker(read_only=False) as session:
             update_time = get_current_time_millis()
+            # The worker owns this RUNNING job, so no other writer changes retry_count between this
+            # read and the conditional update below; use it to size the backoff for the new attempt.
+            current_job = self._get_sql_job(session, job_id)
+            new_retry_count = current_job.retry_count + 1
+            backoff_ms = _transient_retry_backoff_seconds(new_retry_count) * 1000
+            # Set retry_count to the Python-computed value (used above to size the backoff) rather
+            # than the increment_retry SQL expression, so the stored count matches the backoff.
+            retry_values = self._pending_update_values(update_time)
+            retry_values[SqlJob.retry_count] = new_retry_count
+            # Compute the earliest-claimable time from the database clock (not the scheduler's) so a
+            # replica with a skewed clock cannot claim the job before the backoff has elapsed.
+            retry_values[SqlJob.next_attempt_at] = (
+                get_current_time_millis_expression(self.db_type) + backoff_ms
+            )
             if (
                 self._conditional_status_update(
                     session,
                     job_id,
                     (JobStatus.RUNNING,),
-                    self._pending_update_values(update_time, increment_retry=True),
+                    retry_values,
                     additional_filters=(SqlJob.retry_count < max_retries,),
                 )
                 == JobUpdateStatus.APPLIED
