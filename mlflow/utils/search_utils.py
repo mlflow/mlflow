@@ -2866,3 +2866,86 @@ class SearchIssuesUtils(SearchUtils):
             "comparator": comparator,
             "value": value,
         }
+
+
+# ---------------------------------------------------------------------------
+# Skill registry search utilities (RFC-0008)
+# ---------------------------------------------------------------------------
+
+# ORM column names, matching the MCP registry convention (SearchMCPServerUtils).
+_SKILL_REGISTRY_NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+# IS NULL / IS NOT NULL excluded; skill registry tags are always key=value.
+_SKILL_REGISTRY_TAG_COMPARATORS = {"=", "!=", "LIKE", "ILIKE"}
+
+# sqlparse misparses 'organization' as a SQL keyword, preventing it from
+# forming a Comparison token.  Backtick-quoting forces the tokenizer to
+# treat it as an identifier; _get_identifier already calls _trim_backticks.
+# Lookahead ensures we only quote the field name, not 'organization' inside values.
+_SQLPARSE_KEYWORD_FIELD_RE = re.compile(
+    r"\borganization\b(?=\s*[=!<>]|\s+(?:LIKE|ILIKE|IN|NOT)\b)",
+    re.IGNORECASE,
+)
+
+
+class _SkillRegistrySearchBase(SearchUtils):
+    """Base class for skill registry search utils, quoting sqlparse keywords."""
+
+    @classmethod
+    def parse_search_filter(cls, filter_string):
+        if filter_string:
+            filter_string = _SQLPARSE_KEYWORD_FIELD_RE.sub("`organization`", filter_string)
+        return super().parse_search_filter(filter_string)
+
+
+class SearchSkillUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing skill search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "organization",
+        "description",
+        "search_text",
+        "status",
+    }
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
+
+
+class SearchSkillVersionUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing skill version search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "status",
+        "organization",
+        "source_type",
+        "digest",
+    }
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
+
+
+class SearchAgentPluginUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing agent plugin search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "organization",
+        "description",
+        "search_text",
+        "status",
+        "member_name",
+    }
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
+
+
+class SearchAgentPluginVersionUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing agent plugin version search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "status",
+        "organization",
+        "source_type",
+    }
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
