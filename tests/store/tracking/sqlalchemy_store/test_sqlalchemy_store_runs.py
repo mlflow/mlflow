@@ -4053,6 +4053,74 @@ def test_search_logged_models_invalid_operator_lists_applicable_operators(store:
         store.search_logged_models(experiment_ids=[exp_id], filter_string="metrics.loss LIKE 'x'")
 
 
+def test_search_logged_models_order_by_metric_paginates_tied_dataset_metrics(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    expected_names_and_values = []
+    for i in range(4):
+        model = store.create_logged_model(experiment_id=exp_id, name=f"model-{i}")
+        metric_value = 4.0 - i
+        expected_names_and_values.append((model.name, metric_value))
+        for dataset_name in ["train", "val", "test"]:
+            run = store.create_run(
+                experiment_id=exp_id,
+                user_id="user",
+                start_time=0,
+                tags=[],
+                run_name=f"{model.name}-{dataset_name}",
+            )
+            store.log_metric(
+                run.info.run_id,
+                Metric(
+                    "accuracy",
+                    metric_value,
+                    timestamp=123,
+                    step=0,
+                    model_id=model.model_id,
+                    dataset_name=dataset_name,
+                    dataset_digest="d",
+                ),
+            )
+
+    expected_names = [
+        name
+        for name, _ in sorted(expected_names_and_values, key=lambda item: item[1], reverse=True)
+    ]
+    order_by = [{"field_name": "metrics.accuracy", "ascending": False}]
+    page = store.search_logged_models(experiment_ids=[exp_id], order_by=order_by, max_results=1)
+    actual_names = []
+    while True:
+        actual_names.extend(model.name for model in page)
+        if page.token is None:
+            break
+        page = store.search_logged_models(
+            experiment_ids=[exp_id], order_by=order_by, max_results=1, page_token=page.token
+        )
+
+    assert actual_names == expected_names
+
+
+def test_search_logged_models_order_by_model_id_does_not_duplicate_tiebreaker(
+    store: SqlAlchemyStore,
+):
+    with store.ManagedSessionMaker() as session:
+        query = store._get_query(session, models.SqlLoggedModel)
+        ordered = store._apply_order_by_search_logged_models(
+            query, session, [{"field_name": "model_id", "ascending": False}]
+        )
+
+        order_by = [
+            str(clause.compile(compile_kwargs={"literal_binds": True}))
+            for clause in ordered._order_by_clauses
+        ]
+        assert order_by == [
+            "CASE WHEN (logged_models.model_id IS NULL) THEN 1 ELSE 0 END ASC",
+            "logged_models.model_id DESC",
+            "logged_models.creation_timestamp_ms DESC",
+        ]
+
+
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
 
