@@ -63,6 +63,11 @@ export function useServerInfo() {
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     retry: false,
+    // `navigator.onLine` is unreliable (notably on desktop Chrome, where the browser process can
+    // latch to offline while the network is fine). React Query's default `networkMode: 'online'`
+    // pauses the query before `queryFn` runs, so the DEFAULT_RESPONSE fallback in fetchServerInfo
+    // never happens and every consumer stays in a permanent loading state.
+    networkMode: 'always',
   });
 }
 

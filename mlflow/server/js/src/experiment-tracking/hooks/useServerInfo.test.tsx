@@ -17,7 +17,7 @@ import {
   SERVER_FEATURE_KEYS,
   ServerInfoProvider,
 } from './useServerInfo';
-import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { QueryClient, QueryClientProvider, onlineManager } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
@@ -490,5 +490,66 @@ describe('useFeatureEnabled and getFeatureEnabledSync', () => {
     });
     expect(screen.getByTestId('gateway-enabled').textContent).toBe('false');
     expect(getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY, false)).toBe(false);
+  });
+});
+
+describe('useServerInfo when the browser reports being offline', () => {
+  // Regression test: React Query's default `networkMode: 'online'` pauses a query before its
+  // queryFn runs. Because MlflowRouter blocks router creation on useWorkspacesEnabled().loading,
+  // a paused serverInfo query left the whole UI stuck on a skeleton with no error and no request.
+  setupServer(
+    rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+      return res(
+        ctx.json({
+          store_type: 'SqlStore',
+          workspaces_enabled: true,
+          trace_archival_enabled: false,
+          multipart_uploads_enabled: false,
+          multipart_downloads_enabled: false,
+        }),
+      );
+    }),
+  );
+
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = createTestQueryClient();
+    onlineManager.setOnline(false);
+  });
+
+  afterEach(() => {
+    onlineManager.setOnline(undefined);
+    resetServerInfoCache();
+    queryClient.clear();
+  });
+
+  test('resolves instead of pausing forever', async () => {
+    const { result } = renderHook(() => useServerInfo(), {
+      wrapper: ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      ),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.fetchStatus).not.toBe('paused');
+    expect(result.current.data?.store_type).toBe('SqlStore');
+  });
+
+  test('useWorkspacesEnabled stops loading so the router can be created', async () => {
+    const { result } = renderHook(() => useWorkspacesEnabled(), {
+      wrapper: ({ children }: { children: React.ReactNode }) => (
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      ),
+    });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.workspacesEnabled).toBe(true);
   });
 });
