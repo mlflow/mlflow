@@ -10,6 +10,7 @@ on:
       - .github/workflows/update-model-catalog.yml
       - dev/update_model_catalog.py
       - libs/typescript/integrations/claude-code/scripts/sync-anthropic-pricing.mjs
+      - libs/typescript/integrations/codex/scripts/sync-openai-pricing.mjs
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -24,7 +25,7 @@ defaults:
 permissions: {}
 
 env:
-  CATALOG_PATHS: mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts
+  CATALOG_PATHS: mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts libs/typescript/integrations/codex/src/openaiPricing.ts
 
 jobs:
   sync:
@@ -58,6 +59,10 @@ jobs:
           # workspace package; sync:pricing only needs node and prettier.
           npm ci --ignore-scripts
           npm run -C integrations/claude-code sync:pricing
+
+      - name: Regenerate codex pricing snapshot
+        working-directory: libs/typescript
+        run: npm run -C integrations/codex sync:pricing
 
       - name: Run pre-commit on generated files
         run: |
