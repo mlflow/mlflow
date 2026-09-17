@@ -238,6 +238,7 @@ from mlflow.utils.search_utils import (
     SearchExperimentsUtils,
     SearchIssuesUtils,
     SearchLoggedModelsPaginationToken,
+    SearchLoggedModelsUtils,
     SearchTraceUtils,
     SearchUtils,
 )
@@ -3634,7 +3635,44 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.entity.type == EntityType.ATTRIBUTE:
-                attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
+                if comp.entity.key not in (
+                    set(SqlLoggedModel.ALIASES.values())
+                    | SearchLoggedModelsUtils.VALID_SEARCH_ATTRIBUTE_KEYS
+                ):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid attribute name: {comp.entity.key}",
+                        error_class="ATTRIBUTE_NOT_FOUND",
+                    )
+                col = getattr(SqlLoggedModel, comp.entity.key)
+                if comp.entity.key == "status":
+                    status_to_int = {str(s): s.to_int() for s in LoggedModelStatus}
+                    if isinstance(comp.value, tuple) and comp.op not in ("IN", "NOT IN"):
+                        raise MlflowException("Invalid status list", INVALID_PARAMETER_VALUE)
+                    if comp.op in ("LIKE", "ILIKE"):
+                        comp.value = tuple(
+                            status_to_int[str(s)]
+                            for s in LoggedModelStatus
+                            if SearchUtils.get_comparison_func(comp.op)(str(s), comp.value)
+                        )
+                        comp_func = SearchUtils.get_sql_comparison_func("IN", dialect)
+                    elif isinstance(comp.value, tuple):
+                        comp.value = tuple(
+                            status_to_int[v] for v in comp.value if v in status_to_int
+                        )
+                    if isinstance(comp.value, tuple):
+                        if not comp.value:
+                            attr_filters.append(
+                                sqlalchemy.true() if comp.op == "NOT IN" else sqlalchemy.false()
+                            )
+                            continue
+                    elif comp.value not in status_to_int:
+                        attr_filters.append(
+                            sqlalchemy.true() if comp.op == "!=" else sqlalchemy.false()
+                        )
+                        continue
+                    else:
+                        comp.value = status_to_int[comp.value]
+                attr_filters.append(comp_func(col, comp.value))
             elif comp.entity.type == EntityType.METRIC:
                 has_metric_filters = True
                 metric_filters = [

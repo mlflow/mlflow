@@ -26,6 +26,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
@@ -4051,6 +4052,53 @@ def test_search_logged_models_invalid_operator_lists_applicable_operators(store:
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     with pytest.raises(MlflowException, match=re.escape("Expected one of ('<', '<=', '>', '>=',")):
         store.search_logged_models(experiment_ids=[exp_id], filter_string="metrics.loss LIKE 'x'")
+
+
+def test_search_logged_models_attribute_filter_regressions(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    search = store.search_logged_models
+    model = store.create_logged_model(
+        experiment_id=exp_id,
+        params=[LoggedModelParameter("creation_time", "param-value")],
+        tags=[LoggedModelTag("creation_time", "tag-value")],
+    )
+    for filter_string in (
+        "attributes.creation_time > 0",
+        "attributes.`last_updated_time` > 0",
+        "`creation_time` > 0",
+        "attributes.`creation_time` > 0",
+        "params.creation_time = 'param-value'",
+        "tags.creation_time = 'tag-value'",
+    ):
+        models = search(experiment_ids=[exp_id], filter_string=filter_string)
+        assert [m.model_id for m in models] == [model.model_id]
+
+    for attribute_name in ("artifact_location", "is_numeric", "tags", "bogus"):
+        with pytest.raises(MlflowException, match=f"Invalid attribute name: {attribute_name}"):
+            search(experiment_ids=[exp_id], filter_string=f"attributes.{attribute_name} = 'x'")
+
+    ready_model = store.finalize_logged_model(
+        store.create_logged_model(experiment_id=exp_id).model_id, LoggedModelStatus.READY
+    )
+    for db_type in (SQLITE, MYSQL):
+        with mock.patch.object(store, "db_type", db_type):
+            for filter_string, expected_model_ids in (
+                ("status = 'PENDING'", {model.model_id}),
+                ("status IN ('READY')", {ready_model.model_id}),
+                ("status LIKE 'RE%'", {ready_model.model_id}),
+                ("status ILIKE 'ready'", {ready_model.model_id}),
+                ("status LIKE 'NONEXISTENT%'", set()),
+                ("status = 'UNKNOWN'", set()),
+                ("status != 'UNKNOWN'", {model.model_id, ready_model.model_id}),
+                ("status NOT IN ('UNKNOWN')", {model.model_id, ready_model.model_id}),
+                ("status NOT IN ('UNKNOWN', 'READY')", {model.model_id}),
+            ):
+                models = search(experiment_ids=[exp_id], filter_string=filter_string)
+                assert {m.model_id for m in models} == expected_model_ids
+
+    for filter_string in ("status LIKE ('READY')", "status = ('READY')"):
+        with pytest.raises(MlflowException, match="Invalid status list"):
+            search(experiment_ids=[exp_id], filter_string=filter_string)
 
 
 def test_search_runs_returns_outputs(store: SqlAlchemyStore):

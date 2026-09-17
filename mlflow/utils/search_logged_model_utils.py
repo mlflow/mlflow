@@ -46,11 +46,15 @@ class Entity:
     @classmethod
     def from_str(cls, s: str) -> "Entity":
         if m := Entity.IDENTIFIER_RE.match(s):
+            etype = EntityType.from_str(m.group(1))
+            key = m.group(2).strip("`")
+            key = SqlLoggedModel.ALIASES.get(key, key) if etype == EntityType.ATTRIBUTE else key
             return cls(
-                type=EntityType.from_str(m.group(1)),
-                key=m.group(2).strip("`"),
+                type=etype,
+                key=key,
             )
-        return cls(type=EntityType.ATTRIBUTE, key=SqlLoggedModel.ALIASES.get(s, s).strip("`"))
+        key = s.strip("`")
+        return cls(type=EntityType.ATTRIBUTE, key=SqlLoggedModel.ALIASES.get(key, key))
 
     def is_numeric(self) -> bool:
         """
