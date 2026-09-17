@@ -3082,6 +3082,14 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         response.raise_for_status()
         user1_decoy_secret_id = response.json()["secret"]["secret_id"]
 
+        grant_role_permission(
+            client.tracking_uri,
+            user2,
+            "gateway_secret",
+            user1_decoy_secret_id,
+            "MANAGE",
+        )
+
     with User(user1, password1, monkeypatch):
         response = requests.get(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/get",
