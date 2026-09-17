@@ -133,6 +133,22 @@ describe('CreateBudgetPolicyModal', () => {
     expect(screen.queryByText('Select an endpoint')).not.toBeInTheDocument();
   });
 
+  test.each([
+    ['still loading', { data: [], isLoading: true, error: undefined }],
+    ['failed', { data: [], isLoading: false, error: new Error('nope') }],
+  ])('does not claim there are no endpoints when the request is %s', async (_label, endpointsQuery) => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({ ...endpointsQuery, refetch: jest.fn() } as any);
+
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    const [scopeSelect] = screen.getAllByRole('combobox');
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    expect(screen.queryByText('No endpoints available')).not.toBeInTheDocument();
+    expect(screen.getByText('Select an endpoint')).toBeInTheDocument();
+  });
+
   test('submits ENDPOINT payload with target_value', async () => {
     const onClose = jest.fn();
     const onSuccess = jest.fn();

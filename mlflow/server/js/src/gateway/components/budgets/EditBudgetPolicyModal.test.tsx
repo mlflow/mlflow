@@ -302,7 +302,30 @@ describe('EditBudgetPolicyModal', () => {
 
       // An in-flight endpoints request must not be mistaken for "deleted".
       expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeDisabled();
+      expect(screen.queryByText('No endpoints available')).not.toBeInTheDocument();
     });
+  });
+
+  test('does not report a live endpoint as deleted when the endpoints request fails', () => {
+    // `useEndpointsQuery` yields `data: []` on failure just as it does while
+    // loading, so a failed list must not be read as "the endpoint was deleted" —
+    // that would declare a valid policy broken and block editing it.
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: new Error('You do not have permission to access this resource.'),
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockEndpointPolicy} onClose={jest.fn()} />);
+
+    expect(
+      screen.queryByText(
+        'The endpoint this policy applied to (e-1) no longer exists. Select another endpoint, or change this policy to apply to all endpoints and users.',
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('No endpoints available')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeDisabled();
   });
 
   test('shows an empty-state placeholder when no endpoints exist', () => {

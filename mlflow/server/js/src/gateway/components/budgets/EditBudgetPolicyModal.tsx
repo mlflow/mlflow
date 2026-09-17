@@ -67,7 +67,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     error: mutationError,
     reset: resetMutation,
   } = useUpdateBudgetPolicy();
-  const { data: endpoints, isLoading: isEndpointsLoading } = useEndpointsQuery();
+  const { data: endpoints, isLoading: isEndpointsLoading, error: endpointsError } = useEndpointsQuery();
   const scopeLabels = useBudgetScopeLabels();
 
   useEffect(() => {
@@ -104,10 +104,15 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
   // has no option for, so the stale id has to be treated as no selection at all
   // — otherwise Save looks available and fails server-side with
   // "GatewayEndpoint not found".
+  //
+  // Only conclude "deleted" from a list we actually have: `useEndpointsQuery`
+  // yields an empty array both while loading and on failure, and treating either
+  // as deletion would tell the user a live policy is broken and block editing it.
+  const hasEndpointList = !isEndpointsLoading && !endpointsError;
   const isEndpointMissing =
     formData.scope === 'ENDPOINT' &&
     Boolean(formData.endpointId) &&
-    !isEndpointsLoading &&
+    hasEndpointList &&
     !endpoints.some((endpoint) => endpoint.endpoint_id === formData.endpointId);
 
   const isFormValid = useMemo(() => {
@@ -228,17 +233,17 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
                 componentId="mlflow.gateway.edit-budget-policy-modal.endpoint"
                 value={formData.endpointId}
                 onChange={({ target }) => handleFieldChange('endpointId', target.value)}
-                disabled={!endpoints.length}
+                disabled={hasEndpointList && !endpoints.length}
                 validationState={isEndpointMissing ? 'error' : undefined}
                 placeholder={
-                  endpoints.length
+                  hasEndpointList && !endpoints.length
                     ? intl.formatMessage({
-                        defaultMessage: 'Select an endpoint',
-                        description: 'Placeholder for budget policy endpoint selector',
-                      })
-                    : intl.formatMessage({
                         defaultMessage: 'No endpoints available',
                         description: 'Placeholder for the budget policy endpoint selector when no endpoints exist',
+                      })
+                    : intl.formatMessage({
+                        defaultMessage: 'Select an endpoint',
+                        description: 'Placeholder for budget policy endpoint selector',
                       })
                 }
               >

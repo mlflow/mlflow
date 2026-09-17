@@ -62,8 +62,11 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     error: mutationError,
     reset: resetMutation,
   } = useCreateBudgetPolicy();
-  const { data: endpoints } = useEndpointsQuery();
+  const { data: endpoints, isLoading: isEndpointsLoading, error: endpointsError } = useEndpointsQuery();
   const scopeLabels = useBudgetScopeLabels();
+  // An empty list means "none exist" only once the request has actually
+  // succeeded; while loading or after a failure it says nothing.
+  const hasNoEndpoints = !isEndpointsLoading && !endpointsError && !endpoints.length;
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
@@ -200,16 +203,16 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
               componentId="mlflow.gateway.create-budget-policy-modal.endpoint"
               value={formData.endpointId}
               onChange={({ target }) => handleFieldChange('endpointId', target.value)}
-              disabled={!endpoints.length}
+              disabled={hasNoEndpoints}
               placeholder={
-                endpoints.length
+                hasNoEndpoints
                   ? intl.formatMessage({
-                      defaultMessage: 'Select an endpoint',
-                      description: 'Placeholder for budget policy endpoint selector',
-                    })
-                  : intl.formatMessage({
                       defaultMessage: 'No endpoints available',
                       description: 'Placeholder for the budget policy endpoint selector when no endpoints exist',
+                    })
+                  : intl.formatMessage({
+                      defaultMessage: 'Select an endpoint',
+                      description: 'Placeholder for budget policy endpoint selector',
                     })
               }
             >

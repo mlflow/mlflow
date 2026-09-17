@@ -44,8 +44,11 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
 
   const { data: budgetPolicies, nextPageToken, isLoading } = useBudgetPoliciesQuery(PAGE_SIZE, pageToken);
   const { data: budgetWindows } = useBudgetWindowsQuery();
-  const { data: endpoints } = useEndpointsQuery();
+  const { data: endpoints, isLoading: isEndpointsLoading, error: endpointsError } = useEndpointsQuery();
   const scopeLabels = useBudgetScopeLabels();
+  // Absence from an endpoint list we don't actually have yet (still loading, or
+  // the request failed) isn't evidence of deletion, so fall back to the plain id.
+  const hasEndpointList = !isEndpointsLoading && !endpointsError;
 
   const endpointNamesById = useMemo(
     () => new Map(endpoints.map((endpoint) => [endpoint.endpoint_id, endpoint.name])),
@@ -57,6 +60,9 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
       const endpointName = endpointNamesById.get(policy.target_value ?? '');
       if (endpointName) {
         return <Typography.Text>{endpointName}</Typography.Text>;
+      }
+      if (!hasEndpointList) {
+        return <Typography.Text>{policy.target_value}</Typography.Text>;
       }
       // The endpoint was deleted (deletion doesn't cascade to budget policies),
       // so only the raw id survives. Flag it as stale instead of showing a bare
