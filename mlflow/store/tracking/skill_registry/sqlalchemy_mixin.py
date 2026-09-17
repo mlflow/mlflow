@@ -4,8 +4,10 @@ import logging
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
+from mlflow.entities.skill_source import SkillSourceType
 from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -35,12 +37,71 @@ class SqlAlchemySkillRegistryMixin:
     CREATE_SKILL_VERSION_RETRIES = 3
 
     def _skill_query(self, session):
-        return SqlSkill.with_resolved_latest(self._get_query(session, SqlSkill))
+        return SqlSkill.with_resolved_latest(
+            self._get_query(session, SqlSkill).options(
+                selectinload(SqlSkill.tags),
+                selectinload(SqlSkill.skill_aliases),
+            )
+        )
 
     @staticmethod
     def _validate_skill_identity(name: str, organization: str) -> None:
         _validate_skill_name(name)
         _validate_organization_name(organization)
+
+    @staticmethod
+    def _validate_skill_version_source(
+        source_type: str | None,
+        source: str | None,
+        ref: str | None,
+        subpath: str | None,
+        digest: str | None,
+    ) -> None:
+        try:
+            parsed_source_type = SkillSourceType(source_type) if source_type is not None else None
+        except (TypeError, ValueError) as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid Skill source type: {source_type!r}"
+            ) from e
+
+        for field_name, value in (
+            ("source", source),
+            ("ref", ref),
+            ("subpath", subpath),
+        ):
+            if value is not None and (not isinstance(value, str) or len(value) > 2048):
+                raise MlflowException.invalid_parameter_value(
+                    f"Skill version {field_name} must be a string of at most 2048 characters."
+                )
+
+        if digest is not None and (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "Skill version digest must be a 64-character lowercase hexadecimal string."
+            )
+
+        if ref is not None and parsed_source_type not in (None, SkillSourceType.GIT):
+            raise MlflowException.invalid_parameter_value(
+                "Skill version ref is only supported for Git sources."
+            )
+
+    @staticmethod
+    def _validate_skill_version_status(status: str) -> str:
+        try:
+            parsed_status = SkillStatus(status)
+        except (TypeError, ValueError) as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid SkillVersion status: {status!r}"
+            ) from e
+
+        if parsed_status not in (SkillStatus.ACTIVE, SkillStatus.DRAFT):
+            raise MlflowException.invalid_parameter_value(
+                "A newly created SkillVersion must have status 'active' or 'draft'."
+            )
+        return parsed_status.value
 
     def create_skill(
         self,
@@ -158,18 +219,13 @@ class SqlAlchemySkillRegistryMixin:
 
         skill = self._with_workspace_field(SqlSkill(name=name, organization=organization))
         try:
-            with session.begin_nested():
-                session.add(skill)
-                session.flush()
-        except IntegrityError:
-            skill = (
-                self
-                ._get_query(session, SqlSkill)
-                .filter(SqlSkill.name == name, SqlSkill.organization == organization)
-                .one_or_none()
-            )
-            if skill is None:
-                raise
+            session.add(skill)
+            session.flush()
+        except IntegrityError as e:
+            raise MlflowException(
+                f"Skill '{name}' already exists in organization '{organization}'",
+                error_code=RESOURCE_ALREADY_EXISTS,
+            ) from e
         return skill
 
     def _persist_skill_version(
@@ -186,13 +242,9 @@ class SqlAlchemySkillRegistryMixin:
         status: str = SkillStatus.ACTIVE.value,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
+        self._validate_skill_version_source(source_type, source, ref, subpath, digest)
         _validate_skill_version(version)
-        try:
-            status = SkillStatus(status).value
-        except ValueError as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid SkillVersion status: {status!r}"
-            ) from e
+        status = self._validate_skill_version_status(status)
 
         skill = self._get_or_create_skill_for_version(session, name, organization)
         now = get_current_time_millis()
@@ -232,9 +284,11 @@ class SqlAlchemySkillRegistryMixin:
         status: str = SkillStatus.ACTIVE.value,
     ) -> SkillVersion:
         self._validate_skill_identity(name, organization)
-        with self.ManagedSessionMaker(read_only=False) as session:
-            for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
-                try:
+        self._validate_skill_version_source(source_type, source, ref, subpath, digest)
+        self._validate_skill_version_status(status)
+        for attempt in range(self.CREATE_SKILL_VERSION_RETRIES):
+            try:
+                with self.ManagedSessionMaker(read_only=False) as session:
                     max_version = (
                         self
                         ._get_query(session, SqlSkillVersion)
@@ -258,19 +312,18 @@ class SqlAlchemySkillRegistryMixin:
                         digest=digest,
                         status=status,
                     )
-                except MlflowException as e:
-                    if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
-                        raise
-                    session.rollback()
-                    more_retries = self.CREATE_SKILL_VERSION_RETRIES - attempt - 1
-                    _logger.info(
-                        "Skill version creation conflict (name=%s, organization=%s); "
-                        "retrying %s more time%s.",
-                        name,
-                        organization,
-                        more_retries,
-                        "s" if more_retries != 1 else "",
-                    )
+            except MlflowException as e:
+                if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                    raise
+                more_retries = self.CREATE_SKILL_VERSION_RETRIES - attempt - 1
+                _logger.info(
+                    "Skill version creation conflict (name=%s, organization=%s); "
+                    "retrying %s more time%s.",
+                    name,
+                    organization,
+                    more_retries,
+                    "s" if more_retries != 1 else "",
+                )
 
         raise MlflowException(
             f"Skill version creation error (name={name}, organization={organization}). "
