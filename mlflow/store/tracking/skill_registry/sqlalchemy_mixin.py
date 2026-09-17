@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from sqlalchemy.exc import IntegrityError
 
-from mlflow.entities.skill import RegistryIcon, Skill
+from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
+from mlflow.entities.skill_version import SkillVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -11,11 +12,16 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.dbmodels.models import SqlSkill
+from mlflow.store.tracking.dbmodels.models import SqlSkill, SqlSkillVersion
 from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import _validate_organization_name, _validate_skill_name
+from mlflow.utils.validation import (
+    _validate_organization_name,
+    _validate_skill_name,
+    _validate_skill_version,
+)
+
 
 
 class SqlAlchemySkillRegistryMixin:
@@ -132,3 +138,104 @@ class SqlAlchemySkillRegistryMixin:
             if len(skills) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList(skills[:max_results], token=next_token)
+
+    def _get_or_create_skill_for_version(self, session, name: str, organization: str) -> SqlSkill:
+        skill = (
+            self
+            ._get_query(session, SqlSkill)
+            .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+            .one_or_none()
+        )
+        if skill is not None:
+            return skill
+
+        skill = self._with_workspace_field(SqlSkill(name=name, organization=organization))
+        try:
+            with session.begin_nested():
+                session.add(skill)
+                session.flush()
+        except IntegrityError:
+            skill = (
+                self
+                ._get_query(session, SqlSkill)
+                .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+                .one_or_none()
+            )
+            if skill is None:
+                raise
+        return skill
+
+    def _persist_skill_version(
+        self,
+        session,
+        name: str,
+        organization: str,
+        version: int,
+        source_type: str | None = None,
+        source: str | None = None,
+        ref: str | None = None,
+        subpath: str | None = None,
+        digest: str | None = None,
+        status: str = SkillStatus.ACTIVE.value,
+    ) -> SkillVersion:
+        self._validate_skill_identity(name, organization)
+        _validate_skill_version(version)
+        try:
+            status = SkillStatus(status).value
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid SkillVersion status: {status!r}"
+            ) from e
+
+        skill = self._get_or_create_skill_for_version(session, name, organization)
+        now = get_current_time_millis()
+        skill_version = SqlSkillVersion(
+            workspace=skill.workspace,
+            organization=organization,
+            name=name,
+            version=version,
+            source_type=source_type,
+            source=source,
+            ref=ref,
+            subpath=subpath,
+            digest=digest,
+            status=status,
+            created_at=now,
+            last_updated_at=now,
+        )
+        session.add(skill_version)
+        try:
+            session.flush()
+        except IntegrityError as e:
+            raise MlflowException(
+                f"Skill version '{name}' version '{version}' already exists",
+                error_code=RESOURCE_ALREADY_EXISTS,
+            ) from e
+        return skill_version.to_mlflow_entity()
+
+    def get_skill_version(
+        self,
+        name: str,
+        version: int,
+        organization: str = "",
+    ) -> SkillVersion:
+        self._validate_skill_identity(name, organization)
+        _validate_skill_version(version)
+        with self.ManagedSessionMaker() as session:
+            skill_version = (
+                self
+                ._get_query(session, SqlSkillVersion)
+                .filter(
+                    SqlSkillVersion.name == name,
+                    SqlSkillVersion.organization == organization,
+                    SqlSkillVersion.version == version,
+                    SqlSkillVersion.status != SkillStatus.DELETED.value,
+                )
+                .one_or_none()
+            )
+            if skill_version is None:
+                raise MlflowException(
+                    f"Skill version '{name}' version '{version}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            return skill_version.to_mlflow_entity()

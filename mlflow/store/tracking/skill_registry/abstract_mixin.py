@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from mlflow.entities.skill import RegistryIcon, Skill
+from mlflow.entities.skill_version import SkillVersion
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
@@ -40,4 +41,25 @@ class SkillRegistryMixin:
         order_by: list[str] | None = None,
         page_token: str | None = None,
     ) -> PagedList[Skill]:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def create_skill_version(
+        self,
+        name: str,
+        organization: str = "",
+        source_type: str | None = None,
+        source: str | None = None,
+        ref: str | None = None,
+        subpath: str | None = None,
+        digest: str | None = None,
+        status: str = "active",
+    ) -> SkillVersion:
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_skill_version(
+        self,
+        name: str,
+        version: int,
+        organization: str = "",
+    ) -> SkillVersion:
         raise NotImplementedError(self.__class__.__name__)

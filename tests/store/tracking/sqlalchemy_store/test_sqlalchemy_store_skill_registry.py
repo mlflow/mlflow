@@ -1,5 +1,13 @@
 import pytest
 
+from mlflow.entities.skill import SkillStatus
+from mlflow.entities.skill_source import (
+    GitSource,
+    MlflowSource,
+    OCISource,
+    SkillSourceType,
+    ZipSource,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.utils.workspace_context import WorkspaceContext
 
@@ -105,3 +113,97 @@ def test_skill_identity_is_workspace_scoped(store, workspaces_enabled):
 
     with WorkspaceContext("team-a"):
         assert store.get_skill("reviewer", organization="acme").workspace == "team-a"
+
+
+def _persist_skill_version(store, version=1, **kwargs):
+    with store.ManagedSessionMaker(read_only=False) as session:
+        return store._persist_skill_version(
+            session=session,
+            name="reviewer",
+            organization="acme",
+            version=version,
+            **kwargs,
+        )
+
+
+@pytest.mark.parametrize(
+    ("source_type", "source", "expected_source"),
+    [
+        (
+            SkillSourceType.GIT,
+            {
+                "source": "https://github.com/acme/skills.git",
+                "ref": "v1.0.0",
+                "subpath": "reviewer",
+            },
+            GitSource(url="https://github.com/acme/skills.git", ref="v1.0.0", subpath="reviewer"),
+        ),
+        (
+            SkillSourceType.OCI,
+            {"source": "registry.example.com/skills/reviewer", "subpath": "skill"},
+            OCISource(image="registry.example.com/skills/reviewer", subpath="skill"),
+        ),
+        (
+            SkillSourceType.ZIP,
+            {"source": "https://example.com/reviewer.zip", "subpath": "reviewer"},
+            ZipSource(url="https://example.com/reviewer.zip", subpath="reviewer"),
+        ),
+        (
+            SkillSourceType.MLFLOW,
+            {"source": "mlflow-artifacts:/skills/reviewer", "subpath": "reviewer"},
+            MlflowSource(artifact_path="mlflow-artifacts:/skills/reviewer", subpath="reviewer"),
+        ),
+    ],
+)
+def test_skill_version_source_round_trip(store, source_type, source, expected_source):
+    created = _persist_skill_version(
+        store,
+        source_type=source_type,
+        digest="sha256:abc",
+        **source,
+    )
+
+    assert created.source_type == source_type
+    assert created.source == expected_source
+    assert created.digest == "sha256:abc"
+
+    retrieved = store.get_skill_version("reviewer", 1, organization="acme")
+    assert retrieved.source == expected_source
+    assert retrieved.digest == "sha256:abc"
+
+
+def test_skill_version_auto_creates_parent_and_preserves_existing_parent(store):
+    created = _persist_skill_version(store, status=SkillStatus.DRAFT.value)
+    assert created.status == SkillStatus.DRAFT
+
+    parent = store.get_skill("reviewer", organization="acme")
+    assert parent.description is None
+
+    store.update_skill(
+        "reviewer",
+        organization="acme",
+        description="Reviews code",
+        icons=[{"src": "https://example.com/reviewer.svg"}],
+    )
+    _persist_skill_version(store, version=2)
+    parent = store.get_skill("reviewer", organization="acme")
+    assert parent.description == "Reviews code"
+    assert parent.icons == [{"src": "https://example.com/reviewer.svg"}]
+
+
+def test_duplicate_skill_version_raises(store):
+    _persist_skill_version(store)
+
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        _persist_skill_version(store)
+
+    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+
+
+def test_deleted_skill_version_is_not_retrievable(store):
+    _persist_skill_version(store, status=SkillStatus.DELETED.value)
+
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.get_skill_version("reviewer", 1, organization="acme")
+
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
