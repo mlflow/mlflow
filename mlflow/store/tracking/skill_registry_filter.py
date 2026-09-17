@@ -50,6 +50,11 @@ def apply_skill_registry_filters(
 
     ``tag_join_keys`` lists the column names on the tag model that form the
     join to the parent (e.g. ``["workspace", "organization", "name"]``).
+
+    Filters that require cross-table joins (e.g. ``member_name`` for agent
+    plugins) must be extracted from ``parsed_filters`` by the caller and
+    handled separately via ``apply_member_name_filter``.  Any attribute key
+    not present in ``column_map`` is rejected.
     """
     attribute_filters: list[ClauseElement] = []
     tag_filters: dict[str, list[ClauseElement]] = {}
