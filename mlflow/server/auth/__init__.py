@@ -3372,8 +3372,8 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
     SetModelVersionTag: _validate_can_update_model_version_or_prompt_version,
     DeleteModelVersionTag: _validate_can_delete_model_version_or_prompt_version,
-    SetRegisteredModelAlias: _validate_can_update_registered_model_or_prompt,
-    DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
+    SetRegisteredModelAlias: _validate_can_update_model_version_or_prompt_version,
+    DeleteRegisteredModelAlias: _validate_can_delete_model_version_or_prompt_version,
     GetModelVersionByAlias: _validate_can_read_model_version_or_prompt_version,
     # Routes for scorers
     RegisterScorer: validate_can_register_scorer,
@@ -6221,15 +6221,13 @@ def _redact_mcp_server_version_fields(server: dict[str, Any]) -> None:
 
 
 def _mcp_server_version_reader(username: str) -> Callable[[str], bool]:
-    """Return a memoized ``name -> bool`` predicate for ``mcp_server_version`` read access."""
-    cache: dict[str, bool] = {}
+    """Return a ``name -> bool`` predicate for ``mcp_server_version`` read access.
 
-    def can_read(name: str) -> bool:
-        if name not in cache:
-            cache[name] = _get_mcp_server_version_permission(name, username).can_read
-        return cache[name]
-
-    return can_read
+    Uses the bulk read predicate, which loads the caller's child and parent grants in a
+    single query and evaluates every server name locally — avoiding an N+1 workspace +
+    grants round trip per distinct name across a search page.
+    """
+    return _role_based_read_predicate(username, "mcp_server_version", parent_type="mcp_server")
 
 
 def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
