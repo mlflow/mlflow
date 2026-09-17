@@ -52,6 +52,11 @@ def test_skill_search_text_empty_keywords():
     assert result == "code-review desc"
 
 
+def test_skill_search_text_non_string_keywords():
+    result = build_skill_search_text("name", keywords=[1, True, 3.5])
+    assert result == "name 1 True 3.5"
+
+
 def test_skill_search_text_normalizes_whitespace():
     result = build_skill_search_text("name", description="  extra   spaces  ")
     assert result == "name extra spaces"

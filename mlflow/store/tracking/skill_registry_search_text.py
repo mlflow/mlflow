@@ -24,9 +24,11 @@ _WHITESPACE_RUN = re.compile(r"\s+")
 
 
 def _normalize(text: str | None) -> str:
-    if not text:
+    if text is None:
         return ""
-    return _WHITESPACE_RUN.sub(" ", text).strip()
+    # str() guards against non-string values from untrusted manifest JSON.
+    s = str(text)
+    return _WHITESPACE_RUN.sub(" ", s).strip() if s else ""
 
 
 def build_skill_search_text(
