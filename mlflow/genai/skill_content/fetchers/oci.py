@@ -50,6 +50,10 @@ _INDEX_MEDIA_TYPES = (
     "application/vnd.docker.distribution.manifest.list.v2+json",
 )
 _DEFAULT_PLATFORM = ("linux", "amd64")
+# Buildx stores provenance and SBOM attestations as extra index entries with this platform
+# and annotation; they are not images and never count as candidates.
+_UNKNOWN_PLATFORM = ("unknown", "unknown")
+_ATTESTATION_ANNOTATION = "vnd.docker.reference.type"
 _TITLE_ANNOTATION = "org.opencontainers.image.title"
 _DOCKER_HUB_HOSTS = ("docker.io", "index.docker.io")
 _DOCKER_HUB_REGISTRY = "registry-1.docker.io"
@@ -555,36 +559,49 @@ def _select_manifest(client: RegistryClient, ref: ImageReference) -> dict[str, A
     """
     Resolve ``ref`` to a single image manifest.
 
-    A multi-platform index is resolved one level deep to its ``linux/amd64`` entry (or the
-    first entry without a platform); nested indexes are rejected. Manifests requested by
-    digest are verified against that digest.
+    A multi-platform index is resolved one level deep: to its ``linux/amd64`` entry, else the
+    first entry without a platform, else the only platform-specific entry when there is
+    exactly one (a single-platform image published as an index is deliberate; skill content
+    does not vary by platform). Buildx attestation entries are ignored. Several other
+    platforms with no ``linux/amd64`` are ambiguous and rejected. Nested indexes are
+    rejected. Manifests requested by digest are verified against that digest.
     """
     manifest, media_type = _fetch_manifest(client, ref)
     if media_type in _INDEX_MEDIA_TYPES or "manifests" in manifest:
         entries = manifest.get("manifests")
         if not isinstance(entries, list):
             raise invalid_content(f"OCI index for '{ref.display}' has a malformed manifest list.")
-        # The exact platform wins wherever it appears; a platform-independent entry is only
-        # a fallback for indexes that have no linux/amd64 manifest at all.
+        # The exact platform wins wherever it appears; a platform-independent entry is the
+        # next choice, and a lone platform-specific entry is taken as intended.
         chosen = None
-        fallback = None
+        platformless = None
+        platform_specific = []
         for candidate in entries:
             if not isinstance(candidate, dict):
                 continue
-            platform = _optional_object(
-                candidate, "platform", f"OCI index entry in '{ref.display}'"
-            )
-            if (platform.get("os"), platform.get("architecture")) == _DEFAULT_PLATFORM:
+            what = f"OCI index entry in '{ref.display}'"
+            platform = _optional_object(candidate, "platform", what)
+            os_arch = (platform.get("os"), platform.get("architecture"))
+            annotations = _optional_object(candidate, "annotations", what)
+            if os_arch == _UNKNOWN_PLATFORM or _ATTESTATION_ANNOTATION in annotations:
+                continue
+            if os_arch == _DEFAULT_PLATFORM:
                 chosen = candidate
                 break
-            if not platform and fallback is None:
-                fallback = candidate
+            if not platform:
+                if platformless is None:
+                    platformless = candidate
+            else:
+                platform_specific.append(candidate)
         if chosen is None:
-            chosen = fallback
+            chosen = platformless
+        if chosen is None and len(platform_specific) == 1:
+            chosen = platform_specific[0]
         if chosen is None:
             raise invalid_content(
                 f"OCI index for '{ref.display}' has no manifest for "
-                f"{'/'.join(_DEFAULT_PLATFORM)}; pin a single-platform manifest by digest."
+                f"{'/'.join(_DEFAULT_PLATFORM)} and {len(platform_specific)} other platforms; "
+                "pin a single-platform manifest by digest."
             )
         digest = _validate_digest(chosen.get("digest"), f"OCI index entry in '{ref.display}'")
         child_ref = ImageReference(ref.registry, ref.repository, digest)

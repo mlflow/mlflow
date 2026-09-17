@@ -242,6 +242,37 @@ def oci_registry(tmp_path, skill_tree):
         platformless_only["manifests"][0],
         {"mediaType": _MANIFEST_TYPE, "digest": _sha256(main)},
     ]
+
+    def single_platform_index(os_name, arch, *, attestation=False):
+        manifests = [
+            {
+                "mediaType": _MANIFEST_TYPE,
+                "digest": _sha256(main),
+                "platform": {"os": os_name, "architecture": arch},
+            }
+        ]
+        if attestation:
+            manifests.append({
+                "mediaType": _MANIFEST_TYPE,
+                "digest": "sha256:" + "0" * 64,
+                "platform": {"os": "unknown", "architecture": "unknown"},
+                "annotations": {"vnd.docker.reference.type": "attestation-manifest"},
+            })
+        return json.dumps({"schemaVersion": 2, "mediaType": _INDEX_TYPE, "manifests": manifests})
+
+    two_other_platforms = json.loads(json.dumps(index))
+    two_other_platforms["manifests"] = [
+        {
+            "mediaType": _MANIFEST_TYPE,
+            "digest": _sha256(main),
+            "platform": {"os": "linux", "architecture": "arm64"},
+        },
+        {
+            "mediaType": _MANIFEST_TYPE,
+            "digest": _sha256(main),
+            "platform": {"os": "windows", "architecture": "amd64"},
+        },
+    ]
     nosize = json.loads(main)
     del nosize["layers"][0]["size"]
 
@@ -287,6 +318,13 @@ def oci_registry(tmp_path, skill_tree):
         ),
         "bad-platform": (json.dumps(bad_platform).encode(), _INDEX_TYPE),
         "platformless-first": (json.dumps(platformless_first).encode(), _INDEX_TYPE),
+        "arm64-only": (single_platform_index("linux", "arm64").encode(), _INDEX_TYPE),
+        "windows-only": (single_platform_index("windows", "amd64").encode(), _INDEX_TYPE),
+        "arm64-with-attestation": (
+            single_platform_index("linux", "arm64", attestation=True).encode(),
+            _INDEX_TYPE,
+        ),
+        "two-other-platforms": (json.dumps(two_other_platforms).encode(), _INDEX_TYPE),
         "platformless-only": (json.dumps(platformless_only).encode(), _INDEX_TYPE),
         _sha256(json.dumps(lying).encode()): (json.dumps(lying).encode(), _MANIFEST_TYPE),
     }
@@ -383,11 +421,22 @@ def test_fetch_oci_uses_credential_helper(oci_registry, tmp_path, monkeypatch):
     assert handler.token_requests[0]["authorization"] == _basic("helper-user", "helper-secret")
 
 
-@pytest.mark.parametrize("reference", ["multi", "platformless-first", "platformless-only"])
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "multi",
+        "platformless-first",
+        "platformless-only",
+        "arm64-only",
+        "windows-only",
+        "arm64-with-attestation",
+    ],
+)
 def test_fetch_oci_index_resolves_platform(oci_registry, reference):
     # ``platformless-first`` lists a platform-independent manifest (with a lying layer size)
     # ahead of the linux/amd64 one; the exact match must still win. With no exact match the
-    # platform-independent entry is the fallback.
+    # platform-independent entry is the fallback, and failing that a lone platform-specific
+    # entry is taken (buildx attestation entries do not count).
     host, _ = oci_registry
     with fetch_source(f"oci://{host}/skills/demo:{reference}", subpath="skills/demo") as fetched:
         assert (fetched.root / "SKILL.md").exists()
@@ -417,6 +466,7 @@ def test_fetch_oci_subpath_limits_budget(oci_registry):
         ("file-over-dir", {}, "OCI layers disagree"),
         ("too-many-layers", {}, "has 257 layers; the maximum is 256"),
         ("bad-annotations", {}, "malformed 'annotations' field"),
+        ("two-other-platforms", {}, "no manifest for linux/amd64 and 2 other platforms"),
         ("file-under-file", {}, "OCI layers disagree about 'skills'"),
         ("file-layer-case-collision", {}, "differ only by letter case"),
         ("bad-platform", {}, "malformed 'platform' field"),
