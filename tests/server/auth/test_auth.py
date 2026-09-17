@@ -3186,6 +3186,8 @@ def test_gateway_secrets_permissions(client, monkeypatch):
         assert "using_default_passphrase" in response.json()
 
     with User(user1, password1, monkeypatch):
+        # The protobuf parser selects secretId, so this deletes the target while leaving the
+        # snake-case decoy and its permission intact.
         response = requests.delete(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
             json={"secret_id": user1_decoy_secret_id, "secretId": user1_secret_id},
