@@ -2885,6 +2885,19 @@ _SQLPARSE_KEYWORD_FIELD_RE = re.compile(
     r"\borganization\b(?=\s*[=!<>]|\s+(?:LIKE|ILIKE|IN|NOT)\b)",
     re.IGNORECASE,
 )
+# Single-quoted string literal pattern for splitting filter strings.
+_QUOTED_STRING_RE = re.compile(r"('(?:[^'\\]|\\.)*')")
+# Bare keyword pattern for order-by clauses (no value context to worry about).
+_SQLPARSE_KEYWORD_BARE_RE = re.compile(r"\b(organization)\b", re.IGNORECASE)
+
+
+def _quote_keyword_fields(filter_string: str) -> str:
+    """Backtick-quote keyword field names outside of single-quoted values."""
+    parts = _QUOTED_STRING_RE.split(filter_string)
+    return "".join(
+        _SQLPARSE_KEYWORD_FIELD_RE.sub("`organization`", part) if i % 2 == 0 else part
+        for i, part in enumerate(parts)
+    )
 
 
 class _SkillRegistrySearchBase(SearchUtils):
@@ -2893,7 +2906,7 @@ class _SkillRegistrySearchBase(SearchUtils):
     @classmethod
     def parse_search_filter(cls, filter_string):
         if filter_string:
-            filter_string = _SQLPARSE_KEYWORD_FIELD_RE.sub("`organization`", filter_string)
+            filter_string = _quote_keyword_fields(filter_string)
         return super().parse_search_filter(filter_string)
 
 

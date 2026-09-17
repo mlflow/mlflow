@@ -180,6 +180,30 @@ def test_filter_by_name_like(store):
         assert results[0].name == "code-review"
 
 
+def test_filter_by_name_lowercase_like(store):
+    _seed_skills(store)
+    with session_scope(store, commit=False) as session:
+        query = session.query(SqlSkill)
+        parsed = SearchSkillUtils.parse_search_filter("name like '%review%'")
+        query = apply_skill_registry_filters(
+            query,
+            parsed,
+            _skill_column_map(),
+            SqlSkill,
+            SqlSkillTag,
+            tag_join_keys=["workspace", "organization", "name"],
+            dialect=store.engine.dialect.name,
+        )
+        results = query.all()
+        assert len(results) == 1
+        assert results[0].name == "code-review"
+
+
+def test_filter_preserves_organization_inside_values():
+    parsed = SearchSkillUtils.parse_search_filter("description LIKE '%organization in GitHub%'")
+    assert parsed[0]["value"] == "%organization in GitHub%"
+
+
 def test_filter_by_organization(store):
     _seed_skills(store)
     with session_scope(store, commit=False) as session:
@@ -502,3 +526,144 @@ def test_pagination_no_duplicates_or_omissions(store):
 
     assert all_names == [f"skill-{i:02d}" for i in range(5)]
     assert len(all_names) == len(set(all_names))
+
+
+# ---------------------------------------------------------------------------
+# member_name excludes deleted/withdrawn versions
+# ---------------------------------------------------------------------------
+
+
+def test_member_name_excludes_deleted_skill_version(store):
+    with session_scope(store) as session:
+        _add_skill(session, name="code-review", organization="acme")
+        sv = SqlSkillVersion(
+            workspace="default",
+            organization="acme",
+            name="code-review",
+            version=1,
+            status="active",
+        )
+        session.add(sv)
+        session.add(
+            SqlAgentPlugin(
+                workspace="default",
+                organization="acme",
+                name="my-plugin",
+            )
+        )
+        session.add(
+            SqlAgentPluginVersion(
+                workspace="default",
+                organization="acme",
+                name="my-plugin",
+                version="1.0.0",
+                plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
+            )
+        )
+        session.add(
+            SqlAgentPluginVersionMember(
+                plugin_workspace="default",
+                plugin_organization="acme",
+                plugin_name="my-plugin",
+                plugin_version="1.0.0",
+                member_organization="acme",
+                member_name="code-review",
+                member_version=1,
+            )
+        )
+
+    with session_scope(store, commit=False) as session:
+        query = session.query(SqlAgentPlugin)
+        results = apply_member_name_filter(
+            query,
+            "code-review",
+            dialect=store.engine.dialect.name,
+        ).all()
+        assert len(results) == 1
+
+    # Deleting the member skill version makes the plugin version withdrawn.
+    with session_scope(store) as session:
+        sv = session.get(
+            SqlSkillVersion,
+            ("default", "acme", "code-review", 1),
+        )
+        sv.status = "deleted"
+
+    with session_scope(store, commit=False) as session:
+        query = session.query(SqlAgentPlugin)
+        results = apply_member_name_filter(
+            query,
+            "code-review",
+            dialect=store.engine.dialect.name,
+        ).all()
+        assert results == []
+
+
+def test_member_name_excludes_deleted_plugin_version(store):
+    with session_scope(store) as session:
+        _add_skill(session, name="code-review", organization="acme")
+        session.add(
+            SqlSkillVersion(
+                workspace="default",
+                organization="acme",
+                name="code-review",
+                version=1,
+                status="active",
+            )
+        )
+        session.add(
+            SqlAgentPlugin(
+                workspace="default",
+                organization="acme",
+                name="my-plugin",
+            )
+        )
+        session.add(
+            SqlAgentPluginVersion(
+                workspace="default",
+                organization="acme",
+                name="my-plugin",
+                version="1.0.0",
+                status="deleted",
+                plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
+            )
+        )
+        session.add(
+            SqlAgentPluginVersionMember(
+                plugin_workspace="default",
+                plugin_organization="acme",
+                plugin_name="my-plugin",
+                plugin_version="1.0.0",
+                member_organization="acme",
+                member_name="code-review",
+                member_version=1,
+            )
+        )
+
+    with session_scope(store, commit=False) as session:
+        query = session.query(SqlAgentPlugin)
+        results = apply_member_name_filter(
+            query,
+            "code-review",
+            dialect=store.engine.dialect.name,
+        ).all()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# Order-by with sqlparse keyword fields
+# ---------------------------------------------------------------------------
+
+
+def test_order_by_organization_keyword():
+    column_map = {
+        "organization": SqlSkill.organization,
+        "name": SqlSkill.name,
+    }
+    clauses = parse_skill_registry_order_by(
+        ["organization DESC"],
+        valid_keys={"organization", "name"},
+        column_map=column_map,
+        default_tiebreakers=[SqlSkill.name.asc()],
+    )
+    assert len(clauses) == 2

@@ -17,13 +17,26 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.skill_registry_pagination import (
     SkillRegistryPaginationToken,
 )
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import _SQLPARSE_KEYWORD_BARE_RE, SearchUtils
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Query
     from sqlalchemy.sql.elements import ClauseElement, ColumnElement
 
 _VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN"}
+
+
+def _get_comparison_func(comparator: str, dialect: str, col):
+    """Return a comparison function that handles both ORM columns and expressions.
+
+    ``SearchUtils.get_sql_comparison_func`` accesses ``column.class_`` on
+    MySQL for case-sensitive comparisons, which fails for computed
+    expressions (e.g. ``resolved_status``).  This wrapper falls back to
+    the generic comparison path for non-column expressions.
+    """
+    if hasattr(col, "class_"):
+        return SearchUtils.get_sql_comparison_func(comparator, dialect)
+    return SearchUtils.get_sql_comparison_func(comparator, None)
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +75,7 @@ def apply_skill_registry_filters(
     for f in parsed_filters:
         type_ = f["type"]
         key = f["key"]
-        comparator = f["comparator"]
+        comparator = f["comparator"].upper()
         value = f["value"]
 
         if type_ == "attribute":
@@ -73,9 +86,7 @@ def apply_skill_registry_filters(
             if key not in column_map:
                 raise MlflowException.invalid_parameter_value(f"Invalid filter attribute '{key}'.")
             col = column_map[key]
-            attribute_filters.append(
-                SearchUtils.get_sql_comparison_func(comparator, dialect)(col, value)
-            )
+            attribute_filters.append(_get_comparison_func(comparator, dialect, col)(col, value))
         elif type_ == "tag":
             if comparator not in _VALID_FILTER_COMPARATORS:
                 raise MlflowException.invalid_parameter_value(
@@ -122,15 +133,19 @@ def apply_member_name_filter(
     member_name_value: str,
     dialect: str,
 ) -> Query:
-    """Filter agent plugins to those with a version referencing the given skill.
+    """Filter agent plugins to those with an eligible version referencing the given skill.
 
-    Matches any version (not only the latest-resolved one), so this finds
-    plugins pinned to older versions as well.
+    Matches any non-deleted plugin version whose referenced member skill
+    version is also non-deleted (a plugin version with a deleted member is
+    "withdrawn" and excluded from discovery per RFC-0008).  Older eligible
+    versions still contribute matches.
     """
     # Lazy import to avoid circular dependency with dbmodels.models.
     from mlflow.store.tracking.dbmodels.models import (
         SqlAgentPlugin,
+        SqlAgentPluginVersion,
         SqlAgentPluginVersionMember,
+        SqlSkillVersion,
     )
 
     member_subquery = (
@@ -140,10 +155,31 @@ def apply_member_name_filter(
             SqlAgentPluginVersionMember.plugin_organization,
             SqlAgentPluginVersionMember.plugin_name,
         )
+        .join(
+            SqlAgentPluginVersion,
+            sa.and_(
+                SqlAgentPluginVersionMember.plugin_workspace == SqlAgentPluginVersion.workspace,
+                SqlAgentPluginVersionMember.plugin_organization
+                == SqlAgentPluginVersion.organization,
+                SqlAgentPluginVersionMember.plugin_name == SqlAgentPluginVersion.name,
+                SqlAgentPluginVersionMember.plugin_version == SqlAgentPluginVersion.version,
+            ),
+        )
+        .join(
+            SqlSkillVersion,
+            sa.and_(
+                SqlAgentPluginVersionMember.plugin_workspace == SqlSkillVersion.workspace,
+                SqlAgentPluginVersionMember.member_organization == SqlSkillVersion.organization,
+                SqlAgentPluginVersionMember.member_name == SqlSkillVersion.name,
+                SqlAgentPluginVersionMember.member_version == SqlSkillVersion.version,
+            ),
+        )
         .where(
             SearchUtils.get_sql_comparison_func("=", dialect)(
                 SqlAgentPluginVersionMember.member_name, member_name_value
-            )
+            ),
+            SqlAgentPluginVersion.status != "deleted",
+            SqlSkillVersion.status != "deleted",
         )
         .distinct()
         .subquery()
@@ -184,8 +220,10 @@ def parse_skill_registry_order_by(
 
     if order_by_list:
         for order_by_clause in order_by_list:
-            token_value, is_ascending = SearchUtils._parse_order_by_string(order_by_clause)
-            key = token_value.strip()
+            # Backtick-quote sqlparse keywords so they parse as identifiers.
+            quoted = _SQLPARSE_KEYWORD_BARE_RE.sub(r"`\1`", order_by_clause)
+            token_value, is_ascending = SearchUtils._parse_order_by_string(quoted)
+            key = SearchUtils._trim_backticks(token_value.strip())
             if key not in valid_keys:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid order_by key '{key}'. Valid keys: {sorted(valid_keys)}"
