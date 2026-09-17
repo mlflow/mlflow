@@ -28,6 +28,13 @@ MAX_ARCHIVE_ENTRIES = 10_000
 # Tar metadata (headers, padding, PAX and GNU long-name payloads) is read by the tar parser
 # before any member is surfaced, so it is bounded separately from content by a fixed allowance.
 _TAR_METADATA_ALLOWANCE = 1024 * MAX_ARCHIVE_ENTRIES
+# A tar stream has to be decompressed in full to reach the entries that are selected, so the
+# work an archive can demand is bounded separately from the content it yields: this many times
+# the content limit, across every pass over the archive (validation, extraction, and any
+# caller's own scan).
+DECOMPRESSION_WORK_MULTIPLIER = 64
+# ...but never less than this, so a small content limit still leaves room for tar headers.
+_MIN_DECOMPRESSION_WORK = 16 * 1024 * 1024
 _COPY_CHUNK_SIZE = 1024 * 1024
 _MSDOS_DIRECTORY_ATTRIBUTE = 0x10
 _ZIP_ENCRYPTED_FLAG = 0x1
@@ -77,13 +84,42 @@ class _ByteBudget:
             )
 
 
+class DecompressionBudget:
+    """
+    Cap on the decompressed bytes read while processing archives.
+
+    One budget can be shared across several passes and several archives (an OCI image's
+    layers, for instance) so that skipped content, which still has to be decompressed to be
+    skipped, cannot turn a small download into unbounded CPU work.
+    """
+
+    def __init__(self, limit: int):
+        self.limit = limit
+        self.used = 0
+
+    def consume(self, amount: int) -> None:
+        self.used += amount
+        if self.used > self.limit:
+            raise invalid_content(
+                f"Archive processing decompressed more than {self.limit} bytes, the work "
+                "allowed for the skill content size limit."
+            )
+
+
+def default_decompression_budget(max_bytes: int) -> DecompressionBudget:
+    return DecompressionBudget(
+        max(max_bytes * DECOMPRESSION_WORK_MULTIPLIER, _MIN_DECOMPRESSION_WORK)
+    )
+
+
 class _BoundedStream:
     """Read-only wrapper that fails once more than ``limit`` decompressed bytes pass through."""
 
-    def __init__(self, inner: IO[bytes], limit: int):
+    def __init__(self, inner: IO[bytes], limit: int, work: DecompressionBudget | None = None):
         self._inner = inner
         self._limit = limit
         self._read = 0
+        self._work = work
 
     def read(self, size: int = -1) -> bytes:
         # Never let the inner stream decompress more than the remaining allowance plus one
@@ -93,6 +129,8 @@ class _BoundedStream:
             size = remaining
         chunk = self._inner.read(size)
         self._read += len(chunk)
+        if self._work is not None:
+            self._work.consume(len(chunk))
         if self._read > self._limit:
             raise invalid_content(
                 f"Archive metadata decompresses to more than {self._limit} bytes, which "
@@ -174,7 +212,7 @@ _TAR_FAILURES = (tarfile.TarError, EOFError, OSError, zlib.error, RecursionError
 
 @contextmanager
 def _open_tar(
-    archive: Path, *, compressed: bool
+    archive: Path, *, compressed: bool, work: DecompressionBudget
 ) -> Iterator[tuple[tarfile.TarFile, _BoundedStream]]:
     """
     Open ``archive`` as a sequential tar stream whose metadata bytes are bounded.
@@ -184,11 +222,11 @@ def _open_tar(
     grants each member's declared payload as its header is parsed, so oversized PAX or GNU
     long-name headers are cut off instead of being buffered in memory while file contents,
     selected or not, never count against that allowance. Selected content is budgeted
-    separately by the callers.
+    separately by the callers, and every decompressed byte counts against ``work``.
     """
     with open(archive, "rb") as raw:
         inner = gzip.GzipFile(fileobj=raw, mode="rb") if compressed else raw
-        bounded = _BoundedStream(inner, _TAR_METADATA_ALLOWANCE)
+        bounded = _BoundedStream(inner, _TAR_METADATA_ALLOWANCE, work)
         try:
             with tarfile.open(fileobj=bounded, mode="r|") as tar:
                 yield tar, bounded
@@ -239,6 +277,7 @@ def validate_skill_archive(
     max_bytes: int | None = None,
     compressed: bool = True,
     subpath: str | None = None,
+    decompression_budget: DecompressionBudget | None = None,
 ) -> int:
     """
     Validate a skill archive without extracting it.
@@ -247,16 +286,18 @@ def validate_skill_archive(
     colons, reserved names, entries that are not regular files or directories, and names that
     collide after Unicode normalization or case folding are rejected. When ``subpath`` is
     given, only entries at or beneath it count toward the decompressed size limit, because
-    only those are extracted.
+    only those are extracted. The decompression work itself, skipped entries included, is
+    bounded by ``decompression_budget`` (by default a multiple of the content limit).
 
     Returns:
         The total declared size of the regular files that would be extracted.
     """
     limit = get_max_decompressed_size(max_bytes)
     prefix = normalize_subpath(subpath)
+    work = decompression_budget or default_decompression_budget(limit)
     budget = _ByteBudget(limit)
     layout = TreeLayout()
-    with _open_tar(Path(archive), compressed=compressed) as (tar, bounded):
+    with _open_tar(Path(archive), compressed=compressed, work=work) as (tar, bounded):
         for member in _iter_tar_members(tar, bounded):
             relative = _member_relative_path(member.name)
             is_dir = _tar_entry_kind(member)
@@ -277,6 +318,7 @@ def extract_skill_archive(
     max_bytes: int | None = None,
     compressed: bool = True,
     subpath: str | None = None,
+    decompression_budget: DecompressionBudget | None = None,
 ) -> Path:
     """
     Validate ``archive`` and extract it into the empty directory ``dest``.
@@ -284,16 +326,23 @@ def extract_skill_archive(
     Only regular files and directories are written, the decompressed size limit is enforced on
     the bytes actually read, and the result is verified with ``assert_regular_tree``. When
     ``subpath`` is given, entries outside it are validated but not written, so the extracted
-    tree contains just ``dest/<subpath>``.
+    tree contains just ``dest/<subpath>``. Both passes draw on one ``decompression_budget``.
     """
     archive_path = Path(archive)
     dest_path = Path(dest)
     limit = get_max_decompressed_size(max_bytes)
     prefix = normalize_subpath(subpath)
-    validate_skill_archive(archive_path, max_bytes=limit, compressed=compressed, subpath=prefix)
+    work = decompression_budget or default_decompression_budget(limit)
+    validate_skill_archive(
+        archive_path,
+        max_bytes=limit,
+        compressed=compressed,
+        subpath=prefix,
+        decompression_budget=work,
+    )
     _require_empty_dir(dest_path)
     budget = _ByteBudget(limit)
-    with _open_tar(archive_path, compressed=compressed) as (tar, bounded):
+    with _open_tar(archive_path, compressed=compressed, work=work) as (tar, bounded):
         for member in _iter_tar_members(tar, bounded):
             relative = _member_relative_path(member.name)
             if relative is None or not is_under_subpath(relative, prefix):
