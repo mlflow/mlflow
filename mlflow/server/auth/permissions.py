@@ -163,7 +163,7 @@ WILDCARD_ONLY = frozenset({PatternKind.WILDCARD})
 # Resource-type registry: name -> allowed grain. Replaces the bare
 # ``VALID_RESOURCE_TYPES`` frozenset; ``VALID_RESOURCE_TYPES`` is derived from
 # ``TYPE.keys()`` so the valid-types set is defined once, not maintained twice.
-TYPE: dict[str, frozenset[str]] = {
+TYPE: dict[str, frozenset[PatternKind]] = {
     # Top-level (unchanged grain):
     RESOURCE_TYPE_WORKSPACE: WILDCARD_AND_ID,
     RESOURCE_TYPE_EXPERIMENT: WILDCARD_AND_ID,

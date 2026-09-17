@@ -141,7 +141,9 @@ permission as follows:
    matching child grant exists, `DENY` denies; otherwise the maximum positive
    child level wins. The parent is not consulted.
 4. **Parent resource type**: only when no child grant exists, matching parent
-   grants fold via max (`MANAGE` > `EDIT` > `USE` > `READ`).
+   grants resolve the same way as the child tier — a matching parent `DENY`
+   denies; otherwise the maximum positive parent level wins
+   (`MANAGE` > `EDIT` > `USE` > `READ`).
 5. **Server `default_permission`** (defaults to `READ`): a floor used when no
    applicable role grant resolves. The floor does not lift `NO_PERMISSIONS`
    (workspace-boundary deny) or `DENY` (explicit restriction).
