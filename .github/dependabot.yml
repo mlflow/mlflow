@@ -12,7 +12,9 @@ updates:
       - "/"
       - "/.github/actions/*"
     schedule:
-      interval: monthly
+      interval: cron
+      cron: "0 9 1,15 * *"
+      timezone: Asia/Tokyo
     # Match the 7-day package cooldown used for Python (exclude-newer) and
     # JavaScript (min-release-age) dependencies.
     cooldown:
