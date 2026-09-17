@@ -215,7 +215,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2026-10-01",
+      "last_updated_at": "2026-09-10"
     },
     "mistralai/voxtral-small-24b-2507": {
       "mode": "chat",
@@ -300,7 +301,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-22"
+      "deprecation_date": "2026-10-01",
+      "last_updated_at": "2026-09-10"
     },
     "qwen/qwen3-embedding-8b": {
       "mode": "embedding",

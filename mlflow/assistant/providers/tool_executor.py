@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import shlex
+import subprocess
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -202,13 +203,7 @@ async def _execute_bash_on_host(
         if full_access:
             # Shell required: LLM-generated commands may use pipes, redirects, or && chaining.
             # Safe here because full access has no allowlist to bypass in the first place.
-            proc = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-                env=env,
-            )
+            run_args = command
         else:
             # Restricted mode: static_permission_error only validates argv[0] against the
             # allowlist. Running the raw string through a shell would let shell operators
@@ -219,19 +214,22 @@ async def _execute_bash_on_host(
             # is passed as a literal argument to the allowlisted program and never
             # interpreted as a separate command.
             try:
-                argv = shlex.split(command)
+                run_args = shlex.split(command)
             except ValueError:
                 return "Permission denied: malformed command", True
-            proc = await asyncio.create_subprocess_exec(
-                *argv,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=cwd,
-                env=env,
-            )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
-        output = stdout.decode("utf-8", errors="replace")
-        err_output = stderr.decode("utf-8", errors="replace")
+
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            run_args,
+            shell=full_access,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=cwd,
+            env=env,
+            timeout=120,
+        )
+        output = proc.stdout.decode("utf-8", errors="replace")
+        err_output = proc.stderr.decode("utf-8", errors="replace")
 
         if proc.returncode != 0:
             result = (
@@ -240,7 +238,7 @@ async def _execute_bash_on_host(
             return result.strip(), True
 
         return (output + err_output).strip() or "(no output)", False
-    except asyncio.TimeoutError:
+    except subprocess.TimeoutExpired:
         return "Command timed out after 120 seconds", True
 
 

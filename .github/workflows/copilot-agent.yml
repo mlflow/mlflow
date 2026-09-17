@@ -13,6 +13,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # The coding agent signals it is done by requesting a review on its own PR
@@ -25,7 +26,6 @@ jobs:
       && github.event.sender.login == 'Copilot'
     runs-on: ubuntu-slim
     timeout-minutes: 5
-    permissions: {}
     steps:
       # An app token, not `secrets.GITHUB_TOKEN`: the `ready_for_review` this
       # publish emits has to reach `copilot-review.yml`, and events created with
@@ -35,6 +35,8 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           # `markPullRequestReadyForReview` rejects `pull-requests: write`
           # alone. See https://github.com/cli/cli/issues/8910.
           permission-contents: write

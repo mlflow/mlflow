@@ -10,6 +10,7 @@ from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
 from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.vertex_ai import VertexAIProvider, _get_vertex_ai_host
 from mlflow.gateway.schemas import chat, completions
 
@@ -74,6 +75,78 @@ def test_headers_use_bearer_token():
     assert provider.headers == {"Authorization": "Bearer mock-access-token"}
 
 
+def test_passthrough_headers_keep_provider_bearer_token():
+    provider = _make_provider()
+    # ASGI servers lower-case inbound header names, so a client Authorization arrives
+    # as "authorization". Forwarding it alongside Vertex's own bearer token would leave
+    # the upstream with two conflicting Authorization headers (Google returns 401).
+    merged = provider._get_headers(
+        headers={
+            "authorization": "Bearer client-token",
+            "user-agent": "python-httpx/0.27.0",
+            "X-Custom": "value",
+        }
+    )
+    assert merged["Authorization"] == "Bearer mock-access-token"
+    assert "authorization" not in merged
+    assert merged["user-agent"] == "python-httpx/0.27.0"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    ("betas", "expected"),
+    [
+        (None, "interleaved-thinking-2025-05-14, advisor-tool-2026-03-01"),
+        ([], None),
+        (["interleaved-thinking-2025-05-14"], "interleaved-thinking-2025-05-14"),
+        (["web-search-2025-03-05"], None),
+    ],
+)
+def test_claude_passthrough_headers_filter_anthropic_beta(betas, expected):
+    # Vertex rejects the whole request on an anthropic-beta value it does not support, so
+    # the endpoint config chooses which client betas are forwarded: None keeps the header
+    # as is, [] drops it, and a list keeps only the listed values.
+    provider = _make_claude_provider(vertex_anthropic_betas=betas)
+    merged = provider._delegate._get_headers(
+        headers={
+            "anthropic-beta": "interleaved-thinking-2025-05-14, advisor-tool-2026-03-01",
+            "x-request-id": "req-1",
+        }
+    )
+    assert merged.get("anthropic-beta") == expected
+    assert merged["x-request-id"] == "req-1"
+    assert merged["Authorization"] == "Bearer mock-access-token"
+
+
+def test_claude_passthrough_headers_without_anthropic_beta_are_unchanged():
+    provider = _make_claude_provider(vertex_anthropic_betas=[])
+    merged = provider._delegate._get_headers(headers={"x-request-id": "req-1"})
+    assert merged == {"Authorization": "Bearer mock-access-token", "x-request-id": "req-1"}
+
+
+@pytest.mark.asyncio
+async def test_claude_passthrough_request_omits_filtered_anthropic_beta():
+    provider = _make_claude_provider(vertex_anthropic_betas=["web-search-2025-03-05"])
+    captured_session_headers = {}
+    mock_client = mock_http_client(MockAsyncResponse(_claude_chat_response()))
+
+    def mock_client_session(headers=None, **kwargs):
+        captured_session_headers.update(headers or {})
+        return mock_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            _claude_passthrough_payload(),
+            headers={"anthropic-beta": "advisor-tool-2026-03-01", "x-request-id": "req-1"},
+        )
+
+    mock_client.post.assert_called_once()
+    assert "anthropic-beta" not in captured_session_headers
+    assert captured_session_headers["x-request-id"] == "req-1"
+    assert captured_session_headers["Authorization"] == "Bearer mock-access-token"
+
+
 def test_name():
     provider = _make_provider()
     assert provider.DISPLAY_NAME == "Vertex AI"
@@ -96,6 +169,25 @@ async def test_chat():
     assert result["choices"][0]["message"]["role"] == "assistant"
     assert result["usage"]["prompt_tokens"] == 10
     assert result["usage"]["completion_tokens"] == 20
+
+
+@pytest.mark.asyncio
+async def test_gemini_passthrough_uses_vertex_endpoint():
+    provider = _make_provider()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(_chat_response())
+    ) as mock_post:
+        response = await provider.passthrough(
+            PassthroughAction.GEMINI_GENERATE_CONTENT,
+            {"contents": [{"role": "user", "parts": [{"text": "Hello"}]}]},
+        )
+
+    assert response["candidates"][0]["content"]["parts"][0]["text"] == "Hello from Vertex AI!"
+    assert mock_post.call_args[0][0] == (
+        "https://us-central1-aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/us-central1/publishers/google/models"
+        "/gemini-2.0-flash:generateContent"
+    )
 
 
 def _tool_calling_second_turn_payload():
@@ -188,9 +280,14 @@ async def test_chat_tool_calling_preserves_thought_signature():
     ) as mock_post:
         await provider.chat(chat.RequestPayload(**payload))
 
-    function_call = _find_part(mock_post.call_args[1]["json"]["contents"], "functionCall")
+    contents = mock_post.call_args[1]["json"]["contents"]
+    function_call = _find_part(contents, "functionCall")
+    part = next(
+        part for content in contents for part in content.get("parts", []) if "functionCall" in part
+    )
     assert "id" not in function_call
-    assert function_call["thoughtSignature"] == "opaque_thought_sig_token"
+    assert "thoughtSignature" not in function_call
+    assert part["thoughtSignature"] == "opaque_thought_sig_token"
 
 
 @pytest.mark.asyncio
@@ -230,6 +327,25 @@ def test_adapter_class_matches_the_active_delegate():
         _make_maas_provider("meta/llama-3.1-405b-instruct-maas").adapter_class
         is OpenAICompatibleAdapter
     )
+
+
+@pytest.mark.parametrize(
+    "model_name", ["claude-sonnet-4-5@20251101", "meta/llama-3.1-405b-instruct-maas"]
+)
+def test_delegate_inherits_enable_tracing(model_name):
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": model_name,
+            "config": {"vertex_project": "my-gcp-project", "vertex_location": "us-east5"},
+        },
+    )
+    provider = VertexAIProvider(endpoint_config, enable_tracing=True)
+    # Streaming passthrough accumulates token usage on the delegate, and the delegate only
+    # records it on the span when its own tracing flag is set.
+    assert provider._delegate._enable_tracing is True
 
 
 @pytest.mark.asyncio
@@ -282,6 +398,26 @@ def test_basic_config():
     assert config.vertex_project == "my-project"
     assert config.vertex_location is None
     assert config.vertex_credentials is None
+    assert config.vertex_anthropic_betas is None
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ([], []),
+        (["web-search-2025-03-05"], ["web-search-2025-03-05"]),
+        ("", []),
+        (
+            "web-search-2025-03-05, interleaved-thinking-2025-05-14",
+            ["web-search-2025-03-05", "interleaved-thinking-2025-05-14"],
+        ),
+    ],
+)
+def test_anthropic_betas_config(value, expected):
+    # auth_config is a string map on the server API, so the list also comes in as a
+    # comma-separated string.
+    config = VertexAIConfig(vertex_project="my-project", vertex_anthropic_betas=value)
+    assert config.vertex_anthropic_betas == expected
 
 
 def test_custom_location():
@@ -434,7 +570,7 @@ def test_anthropic_model_multi_region_location(location):
     )
 
 
-def _make_claude_provider() -> VertexAIProvider:
+def _make_claude_provider(**config) -> VertexAIProvider:
     endpoint_config = EndpointConfig(
         name="vertex-claude-endpoint",
         endpoint_type="llm/v1/chat",
@@ -444,6 +580,7 @@ def _make_claude_provider() -> VertexAIProvider:
             "config": {
                 "vertex_project": "my-gcp-project",
                 "vertex_location": "us-east5",
+                **config,
             },
         },
     )
@@ -493,13 +630,12 @@ async def test_claude_chat_uses_raw_predict_endpoint():
             "anthropic_version": "vertex-2023-10-16",
         },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
     )
 
 
-@pytest.mark.asyncio
-async def test_claude_chat_stream_uses_stream_raw_predict_endpoint():
-    provider = _make_claude_provider()
-    stream_data = [
+def _claude_stream_data():
+    return [
         b"event: message_start\n",
         b'data: {"type": "message_start", "message": {"id": "msg-1", "type": "message", '
         b'"role": "assistant", "content": [], "model": "claude-sonnet-4-5@20251101", '
@@ -515,8 +651,12 @@ async def test_claude_chat_stream_uses_stream_raw_predict_endpoint():
         b'"usage": {"output_tokens": 1}}\n',
         b"\n",
     ]
-    mock_response = MockAsyncStreamingResponse(stream_data)
-    mock_client = mock_http_client(mock_response)
+
+
+@pytest.mark.asyncio
+async def test_claude_chat_stream_uses_stream_raw_predict_endpoint():
+    provider = _make_claude_provider()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(_claude_stream_data()))
 
     with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}], stream=True)
@@ -580,6 +720,152 @@ def test_claude_adapter_applies_vertex_fields_via_judge_provider_resolution(monk
     assert "model" not in formatted
 
 
+def _claude_passthrough_payload(**overrides):
+    return {"messages": [{"role": "user", "content": "Hello"}], "max_tokens": 64, **overrides}
+
+
+@pytest.mark.asyncio
+async def test_claude_passthrough_uses_raw_predict_endpoint():
+    provider = _make_claude_provider()
+    captured_session_headers = {}
+    mock_client = mock_http_client(MockAsyncResponse(_claude_chat_response()))
+
+    def mock_client_session(headers=None, **kwargs):
+        captured_session_headers.update(headers or {})
+        return mock_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        response = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES,
+            _claude_passthrough_payload(),
+            headers={
+                "authorization": "Bearer client-token",
+                "x-request-id": "req-001",
+                "host": "gateway.example.com",
+            },
+        )
+
+    assert response["content"][0]["text"] == "Hello from Claude on Vertex AI!"
+    mock_client.post.assert_called_once_with(
+        "https://us-east5-aiplatform.googleapis.com/v1/projects/my-gcp-project"
+        "/locations/us-east5/publishers/anthropic/models/claude-sonnet-4-5@20251101:rawPredict",
+        json={
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 64,
+            "anthropic_version": "vertex-2023-10-16",
+        },
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
+    )
+    assert captured_session_headers["Authorization"] == "Bearer mock-access-token"
+    assert "authorization" not in captured_session_headers
+    assert captured_session_headers["x-request-id"] == "req-001"
+    assert "host" not in captured_session_headers
+
+
+@pytest.mark.parametrize("auth_header", ["authorization", "x-api-key"])
+def test_claude_passthrough_headers_drop_credential_agent_auth(auth_header):
+    # AnthropicProvider keeps a Claude Code / Codex / Gemini CLI client's own credential in
+    # place of the server key. A client's Anthropic credential is never valid on Vertex, and
+    # Google rejects a request carrying two Authorization headers, so it must be dropped.
+    provider = _make_claude_provider()
+    merged = provider._delegate._get_headers(
+        headers={
+            "user-agent": "claude-cli/2.0.37 (external, cli)",
+            auth_header: "client-credential",
+        }
+    )
+    assert merged == {
+        "user-agent": "claude-cli/2.0.37 (external, cli)",
+        "Authorization": "Bearer mock-access-token",
+    }
+
+
+@pytest.mark.asyncio
+async def test_claude_passthrough_stream_uses_stream_raw_predict_endpoint():
+    provider = _make_claude_provider()
+    stream_data = _claude_stream_data()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(stream_data))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = await provider.passthrough(
+            PassthroughAction.ANTHROPIC_MESSAGES, _claude_passthrough_payload(stream=True)
+        )
+        chunks = [chunk async for chunk in stream]
+
+    assert chunks == stream_data
+    mock_client.post.assert_called_once()
+    url = mock_client.post.call_args[0][0]
+    body = mock_client.post.call_args[1]["json"]
+    assert url.endswith("/claude-sonnet-4-5@20251101:streamRawPredict")
+    assert body["anthropic_version"] == "vertex-2023-10-16"
+    assert "model" not in body
+
+
+@pytest.mark.asyncio
+async def test_claude_passthrough_rejects_unsupported_action():
+    provider = _make_claude_provider()
+    with pytest.raises(AIGatewayException, match="Unsupported passthrough endpoint"):
+        await provider.passthrough(PassthroughAction.OPENAI_CHAT, _claude_passthrough_payload())
+
+
+def test_claude_passthrough_token_usage_is_read_from_anthropic_response():
+    provider = _make_claude_provider()
+    usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, _claude_chat_response()
+    )
+    assert usage == {"input_tokens": 10, "output_tokens": 15, "total_tokens": 25}
+
+
+@pytest.mark.parametrize("path", ["v1/messages", "/v1/messages", "v1/messages?beta=true"])
+@pytest.mark.asyncio
+async def test_claude_proxy_maps_messages_path_to_raw_predict(path):
+    provider = _make_claude_provider()
+    mock_client = mock_http_client(MockAsyncResponse(_claude_chat_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        response = await provider.proxy(
+            path, _claude_passthrough_payload(model="claude-sonnet-4-5@20251101")
+        )
+
+    assert response["content"][0]["text"] == "Hello from Claude on Vertex AI!"
+    mock_client.post.assert_called_once_with(
+        "https://us-east5-aiplatform.googleapis.com/v1/projects/my-gcp-project"
+        "/locations/us-east5/publishers/anthropic/models/claude-sonnet-4-5@20251101:rawPredict",
+        json={
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 64,
+            "anthropic_version": "vertex-2023-10-16",
+        },
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_claude_proxy_streams_from_stream_raw_predict_endpoint():
+    provider = _make_claude_provider()
+    stream_data = _claude_stream_data()
+    mock_client = mock_http_client(
+        MockAsyncStreamingResponse(stream_data, headers={"Content-Type": "text/event-stream"})
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.proxy("v1/messages", _claude_passthrough_payload(stream=True))
+        chunks = [chunk async for chunk in result]
+
+    assert chunks == stream_data
+    mock_client.post.assert_called_once()
+    assert mock_client.post.call_args[0][0].endswith("/claude-sonnet-4-5@20251101:streamRawPredict")
+
+
+@pytest.mark.asyncio
+async def test_claude_proxy_rejects_paths_other_than_messages():
+    provider = _make_claude_provider()
+    with pytest.raises(AIGatewayException, match="only exposes the Messages API"):
+        await provider.proxy("v1/complete", {"prompt": "Hello"})
+
+
 def _make_maas_provider(model_name: str, location: str = "us-central1") -> VertexAIProvider:
     endpoint_config = EndpointConfig(
         name="vertex-maas-endpoint",
@@ -629,10 +915,8 @@ def test_maas_model_multi_region_location(location):
     )
 
 
-@pytest.mark.asyncio
-async def test_maas_chat_uses_openai_format():
-    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
-    openai_resp = {
+def _maas_chat_response():
+    return {
         "id": "chatcmpl-123",
         "object": "chat.completion",
         "created": 1677858242,
@@ -647,9 +931,14 @@ async def test_maas_chat_uses_openai_format():
         "usage": {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18},
     }
 
+
+@pytest.mark.asyncio
+async def test_maas_chat_uses_openai_format():
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+
     with (
         mock.patch(
-            "aiohttp.ClientSession.post", return_value=MockAsyncResponse(openai_resp)
+            "aiohttp.ClientSession.post", return_value=MockAsyncResponse(_maas_chat_response())
         ) as mock_post,
     ):
         payload = chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}])
@@ -668,7 +957,45 @@ async def test_maas_chat_uses_openai_format():
             "messages": [{"role": "user", "content": "Hello"}],
         },
         timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
     )
+
+
+@pytest.mark.asyncio
+async def test_maas_passthrough_uses_openapi_endpoint():
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(_maas_chat_response())
+    ) as mock_post:
+        response = await provider.passthrough(
+            PassthroughAction.OPENAI_CHAT, {"messages": [{"role": "user", "content": "Hello"}]}
+        )
+
+    assert response["choices"][0]["message"]["content"] == "Hello from Llama on Vertex AI!"
+    mock_post.assert_called_once_with(
+        "https://us-central1-aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi/chat/completions",
+        json={
+            "model": "meta/llama-3.1-405b-instruct-maas",
+            "messages": [{"role": "user", "content": "Hello"}],
+        },
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
+    )
+
+
+def test_maas_passthrough_headers_drop_credential_agent_auth():
+    # OpenAICompatibleProvider swaps the provider Authorization for a credential agent's
+    # own. On Vertex that would replace the OAuth token with an unusable client token.
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    merged = provider._delegate._get_headers(
+        headers={"user-agent": "codex_cli_rs/0.50.0", "authorization": "Bearer client-token"}
+    )
+    assert merged == {
+        "user-agent": "codex_cli_rs/0.50.0",
+        "Authorization": "Bearer mock-access-token",
+    }
 
 
 def test_claude_get_endpoint_url():
@@ -686,6 +1013,75 @@ def test_maas_get_endpoint_url():
         "https://us-central1-aiplatform.googleapis.com"
         "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi/chat/completions"
     )
+
+
+@pytest.mark.parametrize(
+    "path", ["chat/completions", "v1/chat/completions", "/v1/chat/completions"]
+)
+@pytest.mark.asyncio
+async def test_maas_proxy_posts_to_openapi_endpoint(path):
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    resp = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "meta/llama-3.1-405b-instruct-maas",
+        "choices": [
+            {"index": 0, "message": {"role": "assistant", "content": "Hi"}, "finish_reason": "stop"}
+        ],
+    }
+    payload = {
+        "model": "meta/llama-3.1-405b-instruct-maas",
+        "messages": [{"role": "user", "content": "Hello"}],
+    }
+    captured_session_headers = {}
+    mock_client = mock_http_client(MockAsyncResponse(resp))
+
+    def mock_client_session(headers=None, **kwargs):
+        captured_session_headers.update(headers or {})
+        return mock_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        response = await provider.proxy(
+            path, payload, headers={"authorization": "Bearer client-token", "x-request-id": "req-1"}
+        )
+
+    assert response == resp
+    # The "/openapi" segment is part of the API root and must survive, unlike the "/v1"
+    # suffix that OpenAICompatibleProvider._proxy is written to strip.
+    mock_client.post.assert_called_once_with(
+        "https://us-central1-aiplatform.googleapis.com"
+        "/v1/projects/my-gcp-project/locations/us-central1/endpoints/openapi/chat/completions",
+        json=payload,
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        allow_redirects=False,
+    )
+    assert captured_session_headers["Authorization"] == "Bearer mock-access-token"
+    assert "authorization" not in captured_session_headers
+    assert captured_session_headers["x-request-id"] == "req-1"
+
+
+@pytest.mark.asyncio
+async def test_maas_proxy_streams_when_upstream_sends_event_stream():
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    stream_data = [
+        b'data: {"id": "chatcmpl-123", "choices": [{"index": 0, "delta": {"content": "Hi"}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    mock_client = mock_http_client(
+        MockAsyncStreamingResponse(stream_data, headers={"Content-Type": "text/event-stream"})
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.proxy(
+            "v1/chat/completions",
+            {"messages": [{"role": "user", "content": "Hello"}], "stream": True},
+        )
+        chunks = [chunk async for chunk in result]
+
+    assert chunks == stream_data
+    mock_client.post.assert_called_once()
+    assert mock_client.post.call_args[0][0].endswith("/endpoints/openapi/chat/completions")
 
 
 @pytest.mark.asyncio

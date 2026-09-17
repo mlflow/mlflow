@@ -73,6 +73,20 @@ def _client_provides_auth(headers: dict[str, str] | None) -> bool:
     return is_credential_agent and has_auth
 
 
+def _drop_client_auth_headers(headers: dict[str, str]) -> dict[str, str]:
+    """Return a copy of headers with client-supplied auth headers removed.
+
+    Passthrough and raw-proxy routes forward the inbound request headers to the
+    upstream provider. The ASGI server lower-cases header names, so a client
+    Authorization arrives as "authorization" and would be sent *alongside* the
+    provider's own credential (e.g. Vertex AI OAuth "Authorization: Bearer")
+    instead of replacing it. Upstreams such as Google reject requests carrying two
+    conflicting Authorization headers with HTTP 401, so non-credential-agent clients
+    are never allowed to forward auth headers.
+    """
+    return {k: v for k, v in headers.items() if k.lower() not in _CLIENT_AUTH_HEADERS}
+
+
 def _get_nested(d: dict[str, Any], key: str) -> Any:
     """Look up a value by key, supporting one level of nesting."""
     match key.split("."):

@@ -59,7 +59,7 @@ from mlflow.utils.validation import (
 
 SEARCH_MCP_SERVER_MAX_RESULTS_THRESHOLD = 1000
 
-_VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN"}
+_VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN", "NOT IN"}
 
 
 def _validate_server_json_icon_fields(server_json: dict[str, Any]) -> None:

@@ -6,6 +6,7 @@ on:
       - "docs/**"
       - "**.md"
       - "dev/clint/**"
+      - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
@@ -39,6 +40,7 @@ env:
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
@@ -68,6 +70,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
+    cache-mode: write
     strategy:
       fail-fast: false
       matrix:

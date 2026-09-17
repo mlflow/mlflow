@@ -15,6 +15,7 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   # rerun-workflow-run.yml triggers on `workflow_run`, so it needs a completed
@@ -23,7 +24,6 @@ jobs:
   approved:
     runs-on: ubuntu-slim
     timeout-minutes: 5
-    permissions: {}
     if: >-
       github.event.review.state == 'approved' &&
       (

@@ -8,6 +8,11 @@ function getSleepLength(iterationCount, numPendingJobs) {
   return (numPendingJobs <= 7 ? 30 : 5 * 60) * 1000;
 }
 module.exports = async ({ github, context }) => {
+  let rateLimitRemaining;
+  github.hook.after("request", (response) => {
+    rateLimitRemaining = response.headers["x-ratelimit-remaining"];
+  });
+
   const {
     repo: { owner, repo },
   } = context;
@@ -29,6 +34,7 @@ module.exports = async ({ github, context }) => {
   const STATE = {
     pending: "pending",
     success: "success",
+    skipped: "skipped",
     failure: "failure",
   };
 
@@ -36,11 +42,6 @@ module.exports = async ({ github, context }) => {
 
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async function logRateLimit() {
-    const { data: rateLimit } = await github.rest.rateLimit.get();
-    console.log(`Rate limit remaining: ${rateLimit.resources.core.remaining}`);
   }
 
   function isNewerRun(newRun, existingRun) {
@@ -93,8 +94,10 @@ module.exports = async ({ github, context }) => {
           ? STATE.failure
           : status !== "completed"
           ? STATE.pending
-          : conclusion === "success" || conclusion === "skipped"
+          : conclusion === "success"
           ? STATE.success
+          : conclusion === "skipped"
+          ? STATE.skipped
           : STATE.failure,
     }));
 
@@ -136,8 +139,10 @@ module.exports = async ({ github, context }) => {
           status:
             run.conclusion === "cancelled"
               ? STATE.failure
-              : run.conclusion === "success" || run.conclusion === "skipped"
+              : run.conclusion === "success"
               ? STATE.success
+              : run.conclusion === "skipped"
+              ? STATE.skipped
               : STATE.failure,
         });
       } else {
@@ -171,13 +176,22 @@ module.exports = async ({ github, context }) => {
   const start = new Date();
   let iterationCount = 0;
   const TIMEOUT = 120 * 60 * 1000; // 2 hours
-  await logRateLimit();
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
     const checks = await fetchChecks(sha);
+    if (rateLimitRemaining !== undefined) {
+      console.log(`Rate limit remaining: ${rateLimitRemaining}`);
+    }
     const longest = Math.max(...checks.map(({ name }) => name.length));
     checks.forEach(({ name, status, url }) => {
-      const icon = status === STATE.success ? "✅" : status === STATE.failure ? "❌" : "🕒";
+      const icon =
+        status === STATE.success
+          ? "✅"
+          : status === STATE.skipped
+          ? "⏭️"
+          : status === STATE.failure
+          ? "❌"
+          : "🕒";
       console.log(`- ${name.padEnd(longest)}: ${icon} ${status}${url ? ` (${url})` : ""}`);
     });
 
@@ -187,12 +201,14 @@ module.exports = async ({ github, context }) => {
       );
     }
 
-    if (checks.length > 0 && checks.every(({ status }) => status === STATE.success)) {
-      console.log("All checks passed");
+    if (
+      checks.length > 0 &&
+      checks.every(({ status }) => status === STATE.success || status === STATE.skipped)
+    ) {
+      console.log("All checks passed or were skipped");
       return;
     }
 
-    await logRateLimit();
     const pendingJobs = checks
       .filter(({ status }) => status === STATE.pending)
       .reduce((sum, check) => sum + check.pendingJobs, 0);
