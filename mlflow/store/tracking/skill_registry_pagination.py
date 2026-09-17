@@ -29,6 +29,7 @@ class SkillRegistryPaginationToken:
     Examples::
 
         "skills"
+
         "skill_versions:acme/code-review"
         "agent_plugins"
         "agent_plugin_versions:acme/my-plugin"
