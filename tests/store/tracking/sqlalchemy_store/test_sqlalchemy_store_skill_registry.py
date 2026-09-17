@@ -1,4 +1,5 @@
 import pytest
+import sqlalchemy
 
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_source import (
@@ -10,6 +11,7 @@ from mlflow.entities.skill_source import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+from mlflow.store.tracking.dbmodels.models import SqlSkillVersion
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -95,6 +97,26 @@ def test_search_skills_returns_stable_paginated_results(store):
     assert second_page.token is None
 
 
+def test_search_skills_eager_loads_tags_and_aliases(store):
+    for index in range(20):
+        store.create_skill(f"skill-{index:02d}")
+
+    statements = []
+
+    def capture_statement(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        skills = store.search_skills()
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    assert len(skills) == 20
+    assert len(statements) == 3
+
+
 @pytest.mark.parametrize("name", ["", "Reviewer", "reviewer_name", "reviewer--tool"])
 def test_create_skill_rejects_invalid_name(store, name):
     with pytest.raises(MlflowException, match="Invalid skill name|must not be empty"):
@@ -127,6 +149,22 @@ def _persist_skill_version(store, version=1, **kwargs):
         )
 
 
+def _persist_deleted_skill_version(store):
+    _persist_skill_version(store)
+    with store.ManagedSessionMaker(read_only=False) as session:
+        skill_version = (
+            store
+            ._get_query(session, SqlSkillVersion)
+            .filter(
+                SqlSkillVersion.name == "reviewer",
+                SqlSkillVersion.organization == "acme",
+                SqlSkillVersion.version == 1,
+            )
+            .one()
+        )
+        skill_version.status = SkillStatus.DELETED.value
+
+
 @pytest.mark.parametrize(
     ("source_type", "source", "expected_source"),
     [
@@ -157,20 +195,21 @@ def _persist_skill_version(store, version=1, **kwargs):
     ],
 )
 def test_skill_version_source_round_trip(store, source_type, source, expected_source):
+    digest = "a" * 64
     created = _persist_skill_version(
         store,
         source_type=source_type,
-        digest="sha256:abc",
+        digest=digest,
         **source,
     )
 
     assert created.source_type == source_type
     assert created.source == expected_source
-    assert created.digest == "sha256:abc"
+    assert created.digest == digest
 
     retrieved = store.get_skill_version("reviewer", 1, organization="acme")
     assert retrieved.source == expected_source
-    assert retrieved.digest == "sha256:abc"
+    assert retrieved.digest == digest
 
 
 def test_skill_version_auto_creates_parent_and_preserves_existing_parent(store):
@@ -230,7 +269,7 @@ def test_create_skill_version_allocates_monotonically(store):
 
 
 def test_create_skill_version_does_not_reuse_deleted_version(store):
-    _persist_skill_version(store, status=SkillStatus.DELETED.value)
+    _persist_deleted_skill_version(store)
 
     created = store.create_skill_version("reviewer", organization="acme")
 
@@ -260,8 +299,74 @@ def test_create_skill_version_retries_and_rolls_back_after_conflict(store, monke
     assert persist_calls == 2
 
 
+def test_create_skill_version_failure_does_not_leave_orphan_parent(store):
+    with pytest.raises(MlflowException, match="Invalid Skill source type") as exc:
+        store.create_skill_version(
+            "orphan-skill",
+            source_type="svn",
+            source="https://example.com/skill",
+        )
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill("orphan-skill")
+
+
+@pytest.mark.parametrize("status", [SkillStatus.DELETED.value, SkillStatus.DEPRECATED.value])
+def test_create_skill_version_rejects_non_registration_status(store, status):
+    with pytest.raises(MlflowException, match="must have status 'active' or 'draft'") as exc:
+        store.create_skill_version("invalid-status", status=status)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill("invalid-status")
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        (
+            {"source_type": "git", "source": "x" * 2049},
+            "source must be",
+        ),
+        (
+            {"source_type": "git", "source": "https://example.com/skill", "ref": "x" * 2049},
+            "ref must be",
+        ),
+        (
+            {
+                "source_type": "git",
+                "source": "https://example.com/skill",
+                "subpath": "x" * 2049,
+            },
+            "subpath must be",
+        ),
+        (
+            {"source_type": "git", "source": "https://example.com/skill", "digest": "a" * 200},
+            "digest must be",
+        ),
+        (
+            {
+                "source_type": SkillSourceType.ZIP,
+                "source": "https://example.com/skill.zip",
+                "ref": "v1",
+            },
+            "ref is only supported",
+        ),
+    ],
+)
+def test_create_skill_version_rejects_invalid_source_metadata(store, kwargs, message):
+    with pytest.raises(MlflowException, match=message) as exc:
+        store.create_skill_version("invalid-skill", **kwargs)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_skill("invalid-skill")
+
+
 def test_deleted_skill_version_is_not_retrievable(store):
-    _persist_skill_version(store, status=SkillStatus.DELETED.value)
+    _persist_deleted_skill_version(store)
 
     with pytest.raises(MlflowException, match="not found") as exc:
         store.get_skill_version("reviewer", 1, organization="acme")
