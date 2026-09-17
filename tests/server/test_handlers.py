@@ -659,14 +659,17 @@ def test_get_request_message_rejects_conflicting_field_aliases(body):
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
-def test_get_request_message_rejects_conflicting_field_aliases_in_nested_messages():
+@pytest.mark.parametrize("model_configs_key", ["model_configs", "modelConfigs"])
+def test_get_request_message_rejects_conflicting_field_aliases_in_nested_messages(
+    model_configs_key,
+):
     request = mock.MagicMock()
     request.method = "POST"
     request.content_type = "application/json"
     request.get_json = mock.MagicMock()
     request.get_json.return_value = {
         "name": "endpoint",
-        "model_configs": [
+        model_configs_key: [
             {"model_definition_id": "attacker", "modelDefinitionId": "victim"},
         ],
     }

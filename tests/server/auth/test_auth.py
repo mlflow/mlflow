@@ -4089,6 +4089,7 @@ def test_gateway_alias_spellings_cannot_bypass_secret_authorization(client, monk
                 auth=(user2, password2),
             )
             assert response.status_code == 400
+            assert "both 'secret_id' and 'secretId'" in response.json()["message"]
 
         # The camelCase spelling alone is authorized against the secret it names.
         response = requests.post(
@@ -4136,21 +4137,26 @@ def test_gateway_alias_spellings_cannot_bypass_secret_authorization(client, monk
         )
         assert response.status_code == 403
 
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
-            json={
-                "name": "e",
-                "model_configs": [
-                    {
-                        "model_definition_id": attacker_model_def_id,
-                        "modelDefinitionId": victim_model_def_id,
-                        "linkage_type": "PRIMARY",
-                    }
-                ],
-            },
-            auth=(user2, password2),
-        )
-        assert response.status_code == 400
+        # A conflicting inner spelling is refused under either spelling of the outer key.
+        for model_configs_key in ("model_configs", "modelConfigs"):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+                json={
+                    "name": "e",
+                    model_configs_key: [
+                        {
+                            "model_definition_id": attacker_model_def_id,
+                            "modelDefinitionId": victim_model_def_id,
+                            "linkage_type": "PRIMARY",
+                        }
+                    ],
+                },
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert (
+                "both 'model_definition_id' and 'modelDefinitionId'" in response.json()["message"]
+            )
 
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
@@ -4180,19 +4186,23 @@ def test_gateway_alias_spellings_cannot_bypass_secret_authorization(client, monk
             )
             assert response.status_code == 403
 
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/models/attach",
-            json={
-                "endpoint_id": attacker_endpoint_id,
-                "model_config": {
-                    "model_definition_id": attacker_model_def_id,
-                    "modelDefinitionId": victim_model_def_id,
-                    "linkage_type": "FALLBACK",
+        for model_config_key in ("model_config", "modelConfig"):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/models/attach",
+                json={
+                    "endpoint_id": attacker_endpoint_id,
+                    model_config_key: {
+                        "model_definition_id": attacker_model_def_id,
+                        "modelDefinitionId": victim_model_def_id,
+                        "linkage_type": "FALLBACK",
+                    },
                 },
-            },
-            auth=(user2, password2),
-        )
-        assert response.status_code == 400
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert (
+                "both 'model_definition_id' and 'modelDefinitionId'" in response.json()["message"]
+            )
 
     # The victim secret still points at its original provider.
     with User(user1, password1, monkeypatch):
