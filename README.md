@@ -48,7 +48,7 @@ From zero to full-stack LLMOps in minutes. No complex setup or major code change
 > **Fastest start — set up tracing with the MLflow setup wizard**
 >
 > ```bash
-> curl -LsSf https://mlflow.org/wizard/setup.sh | sh
+> curl -LsSf https://raw.githubusercontent.com/mlflow/mlflow/master/mlflow/agent/setup/setup.sh | sh
 > ```
 >
 > Run this from your project's Git repository with Claude Code, Codex, or OpenCode installed. The wizard guides you through connecting to an MLflow server or Databricks workspace, then launches your coding agent to add tracing to your app. Prefer to wire it up yourself? Follow the three steps below.

@@ -6,7 +6,8 @@ import { AssistantSparkleIcon, useAssistant } from '../../../assistant';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet, type CodeSnippetLanguage } from '@mlflow/mlflow/src/shared/web-shared/snippet';
 
-const AGENT_SETUP_COMMAND = 'curl -LsSf https://mlflow.org/wizard/setup.sh | sh';
+const AGENT_SETUP_COMMAND =
+  'curl -LsSf https://raw.githubusercontent.com/mlflow/mlflow/master/mlflow/agent/setup/setup.sh | sh';
 
 type TabKey = 'agent-setup' | 'copy-prompt' | 'code-snippet' | 'assistant';
 

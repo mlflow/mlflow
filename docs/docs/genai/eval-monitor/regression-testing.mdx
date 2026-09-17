@@ -90,7 +90,7 @@ The best regression suites are not written up front, they are grown from real fa
 From inside your project's Git repository, run the MLflow setup wizard to connect to an MLflow server or Databricks workspace and launch your coding agent to add tracing. Have Claude Code, Codex, or OpenCode installed before running it.
 
 ```bash
-curl -LsSf https://mlflow.org/wizard/setup.sh | sh
+curl -LsSf https://raw.githubusercontent.com/mlflow/mlflow/master/mlflow/agent/setup/setup.sh | sh
 ```
 
 For help writing regression tests, install the **MLflow skills** separately using the [installation instructions](https://github.com/mlflow/skills#installation). These skills provide your coding agent with MLflow tracing and evaluation guidance. The tracing wizard does not install skills or write evaluation code.
