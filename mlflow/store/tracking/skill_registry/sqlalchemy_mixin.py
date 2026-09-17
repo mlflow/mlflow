@@ -1,0 +1,134 @@
+from __future__ import annotations
+
+from sqlalchemy.exc import IntegrityError
+
+from mlflow.entities.skill import RegistryIcon, Skill
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+)
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking.dbmodels.models import SqlSkill
+from mlflow.store.tracking.skill_registry.abstract_mixin import NOT_SET
+from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.validation import _validate_organization_name, _validate_skill_name
+
+
+class SqlAlchemySkillRegistryMixin:
+    """SQLAlchemy implementation of the Skill Registry store interface."""
+
+    def _skill_query(self, session):
+        return SqlSkill.with_resolved_latest(self._get_query(session, SqlSkill))
+
+    @staticmethod
+    def _validate_skill_identity(name: str, organization: str) -> None:
+        _validate_skill_name(name)
+        _validate_organization_name(organization)
+
+    def create_skill(
+        self,
+        name: str,
+        organization: str = "",
+        description: str | None = None,
+        icons: list[RegistryIcon] | None = None,
+        created_by: str | None = None,
+    ) -> Skill:
+        self._validate_skill_identity(name, organization)
+        now = get_current_time_millis()
+        with self.ManagedSessionMaker(read_only=False) as session:
+            skill = self._with_workspace_field(
+                SqlSkill(
+                    name=name,
+                    organization=organization,
+                    description=description,
+                    icons=icons,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                    created_at=now,
+                    last_updated_at=now,
+                )
+            )
+            session.add(skill)
+            try:
+                session.flush()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Skill '{name}' already exists in organization '{organization}'",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
+            return skill.to_mlflow_entity()
+
+    def get_skill(self, name: str, organization: str = "") -> Skill:
+        self._validate_skill_identity(name, organization)
+        with self.ManagedSessionMaker() as session:
+            skill = (
+                self
+                ._skill_query(session)
+                .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+                .one_or_none()
+            )
+            if skill is None:
+                raise MlflowException(
+                    f"Skill '{name}' not found in organization '{organization}'",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            return skill.to_mlflow_entity()
+
+    def update_skill(
+        self,
+        name: str,
+        organization: str = "",
+        description: str | None = NOT_SET,
+        icons: list[RegistryIcon] | None = NOT_SET,
+        last_updated_by: str | None = None,
+    ) -> Skill:
+        self._validate_skill_identity(name, organization)
+        with self.ManagedSessionMaker(read_only=False) as session:
+            skill = (
+                self
+                ._skill_query(session)
+                .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+                .one_or_none()
+            )
+            if skill is None:
+                raise MlflowException(
+                    f"Skill '{name}' not found in organization '{organization}'",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            if description is not NOT_SET:
+                skill.description = description
+            if icons is not NOT_SET:
+                skill.icons = icons
+            skill.last_updated_by = last_updated_by
+            skill.last_updated_at = get_current_time_millis()
+            session.flush()
+            return skill.to_mlflow_entity()
+
+    def search_skills(
+        self,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Skill]:
+        if filter_string is not None or order_by is not None:
+            raise MlflowException(
+                "Skill search filters and custom ordering are not supported yet",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        self._validate_max_results_param(max_results)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        with self.ManagedSessionMaker() as session:
+            query = self._skill_query(session).order_by(
+                SqlSkill.organization.asc(), SqlSkill.name.asc()
+            )
+            rows = query.offset(offset).limit(max_results + 1).all()
+            skills = [skill.to_mlflow_entity() for skill in rows]
+            next_token = None
+            if len(skills) > max_results:
+                next_token = SearchUtils.create_page_token(offset + max_results)
+            return PagedList(skills[:max_results], token=next_token)
