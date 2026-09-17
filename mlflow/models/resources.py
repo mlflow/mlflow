@@ -22,6 +22,7 @@ class ResourceType(Enum):
     TABLE = "table"
     APP = "app"
     LAKEBASE = "lakebase"
+    MODEL_PROVIDER_SERVICE = "model_provider_service"
 
 
 class Resource(ABC):
@@ -275,6 +276,25 @@ class DatabricksLakebase(DatabricksResource):
         super().__init__(database_instance_name, on_behalf_of_user)
 
 
+class DatabricksModelProviderService(DatabricksResource):
+    """
+    Defines a Databricks Model Provider Service dependency for Model Serving.
+
+    Args:
+        model_provider_service_name (str): The name of the model provider service used by the model.
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resource is accessed with the permissions of the creator.
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.MODEL_PROVIDER_SERVICE
+
+    def __init__(self, model_provider_service_name: str, on_behalf_of_user: bool | None = None):
+        super().__init__(model_provider_service_name, on_behalf_of_user)
+
+
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
     resource_classes = {
         "databricks": {
@@ -287,6 +307,7 @@ def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
             ResourceType.TABLE.value: DatabricksTable,
             ResourceType.APP.value: DatabricksApp,
             ResourceType.LAKEBASE.value: DatabricksLakebase,
+            ResourceType.MODEL_PROVIDER_SERVICE.value: DatabricksModelProviderService,
         }
     }
     resource = resource_classes.get(target_uri)
