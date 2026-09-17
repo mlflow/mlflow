@@ -5242,7 +5242,8 @@ def _invoke_issue_detection_handler():
     )
 
     experiment_id = request_json.get("experiment_id")
-    trace_ids = request_json.get("trace_ids", [])
+    # Deduplicate while preserving order so a repeated trace_id is not fetched or analyzed twice.
+    trace_ids = list(dict.fromkeys(request_json.get("trace_ids", [])))
     categories = request_json.get("categories", [])
     provider = request_json.get("provider")
     model = request_json.get("model")
@@ -5250,6 +5251,11 @@ def _invoke_issue_detection_handler():
     endpoint_name = request_json.get("endpoint_name")
     provider_name = provider.lower() if provider else provider
 
+    if not trace_ids:
+        raise MlflowException(
+            "Please select at least one trace to analyze.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     if not endpoint_name and not (provider and model):
         raise MlflowException(
             "Either 'endpoint_name' or both 'provider' and 'model' must be provided"
@@ -5346,7 +5352,8 @@ def _invoke_genai_evaluate_handler():
     )
 
     experiment_id = request_json["experiment_id"]
-    trace_ids = request_json["trace_ids"]
+    # Deduplicate while preserving order so a repeated trace_id is not fetched or scored twice.
+    trace_ids = list(dict.fromkeys(request_json["trace_ids"]))
     serialized_scorers = request_json["serialized_scorers"]
     scorer_versions = request_json.get("scorer_versions", [None] * len(serialized_scorers))
 
@@ -7212,6 +7219,8 @@ def _invoke_scorer_handler():
             "Please select at least one trace to evaluate.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    if not isinstance(trace_ids, list) or not all(isinstance(t, str) for t in trace_ids):
+        raise MlflowException.invalid_parameter_value("trace_ids must be a list of strings")
     # Deduplicate while preserving order so a repeated trace_id is not fetched or scored twice.
     trace_ids = list(dict.fromkeys(trace_ids))
     if (scorer_name is None) != (scorer_version is None):
