@@ -12,7 +12,7 @@ import socket
 import threading
 import urllib.parse
 from fnmatch import fnmatch
-from typing import Any
+from typing import Any, Iterator
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
@@ -21,6 +21,8 @@ from mlflow.environment_variables import (
     _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS,
+    MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES,
     MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS,
     MLFLOW_ICON_URL_ALLOWED_DOMAINS,
     MLFLOW_ICON_URL_ALLOWED_SCHEMES,
@@ -922,6 +924,28 @@ def _is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return _embedded_ipv4(ip).is_global
 
 
+def _is_ip_literal_like(hostname: str) -> bool:
+    """Mirror aiohttp's heuristic for hosts it dials as IP literals without a DNS lookup."""
+    return ":" in hostname or hostname.replace(".", "").isdigit()
+
+
+def _validate_canonical_ip_literal(hostname: str, field_name: str) -> None:
+    """Reject numeric hosts that are not canonical IP literals.
+
+    ``socket`` maps legacy spellings like ``127.1`` or ``0177.0.0.1`` onto an address at
+    connect time, and validators may parse them differently (``0177.0.0.1`` is loopback to
+    ``inet_aton`` but ``177.0.0.1`` to ``getaddrinfo``).
+    """
+    if not _is_ip_literal_like(hostname):
+        return
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} host {hostname!r} is not a canonical IP address literal."
+        ) from e
+
+
 def _resolve_hostname_with_timeout(hostname: str, field_name: str):
     acquired = _HOSTNAME_RESOLUTION_SEMAPHORE.acquire(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
     if not acquired:
@@ -1015,8 +1039,147 @@ def _validate_public_https_url(
             f"{field_name} must include a hostname: {url!r}"
         )
 
+    _validate_canonical_ip_literal(hostname, field_name)
+
     if not allow_private_ips:
         _validate_hostname_resolves_to_public_ips(hostname, field_name)
+
+
+def _validate_gateway_api_base(url: str) -> None:
+    """Validate an AI Gateway secret's ``api_base``: public HTTPS only by default.
+
+    The gateway sends requests to this URL, so it follows the webhook and icon URL SSRF
+    policy. ``MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES`` and
+    ``MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS`` relax it.
+    """
+    _validate_public_https_url(
+        url,
+        field_name="Gateway secret api_base",
+        allowed_schemes=MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES.get(),
+        allow_private_ips=MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS.get(),
+    )
+
+
+# LiteLLM keyword arguments that choose where a request is sent. The LiteLLM provider spreads
+# a secret's ``auth_config`` into litellm kwargs, so each of these is as sensitive as
+# ``api_base``: ``base_url`` is litellm's alias for ``api_base``, ``model_list`` and
+# ``fallbacks`` carry per-deployment ``api_base`` values, and ``custom_llm_provider`` swaps
+# the provider and with it the default endpoint.
+GATEWAY_DESTINATION_KEYS = frozenset({
+    "api_base",
+    "base_url",
+    "model_list",
+    "fallbacks",
+    "custom_llm_provider",
+})
+# ``api_base`` is the one validated way to choose the upstream, so the aliases are rejected in
+# ``auth_config`` and nothing egress-controlling may hide in the encrypted, unvalidated
+# ``secret_value`` map.
+_GATEWAY_AUTH_CONFIG_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS - {"api_base"}
+_GATEWAY_SECRET_VALUE_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS
+
+
+def _validate_gateway_secret_auth_config(
+    auth_config: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Validate a gateway secret's ``auth_config`` on write and return a normalized copy.
+
+    ``api_base`` is the only key naming an outbound target. A blank value is dropped rather
+    than stored, since providers fall back to their default by truthiness.
+    """
+    if not auth_config:
+        return None
+    normalized = dict(auth_config)
+    if reserved := sorted(_GATEWAY_AUTH_CONFIG_RESERVED_KEYS & set(normalized)):
+        raise MlflowException.invalid_parameter_value(
+            f"auth_config must not contain {', '.join(map(repr, reserved))}: these LiteLLM "
+            "options choose where the gateway sends requests. Set the upstream with "
+            "'api_base', which is validated."
+        )
+    api_base = normalized.get("api_base")
+    if isinstance(api_base, str):
+        api_base = api_base.strip()
+    if not api_base:
+        normalized.pop("api_base", None)
+        return normalized
+    _validate_gateway_api_base(api_base)
+    normalized["api_base"] = api_base
+    return normalized
+
+
+def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
+    """Reject ``secret_value`` keys that would steer gateway egress (see reserved keys)."""
+    if not secret_value:
+        return
+    if reserved := sorted(_GATEWAY_SECRET_VALUE_RESERVED_KEYS & set(secret_value)):
+        raise MlflowException.invalid_parameter_value(
+            f"secret_value must not contain {', '.join(map(repr, reserved))}: these keys "
+            "choose where the gateway sends requests. Set the upstream with 'api_base' in "
+            "auth_config, where it is validated."
+        )
+
+
+def _find_destination_keys(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        found = GATEWAY_DESTINATION_KEYS & set(value)
+        for nested in value.values():
+            found |= _find_destination_keys(nested)
+        return found
+    if isinstance(value, list):
+        found: set[str] = set()
+        for nested in value:
+            # `dict()` also accepts a list of two-item pairs, which is how nested option maps
+            # such as trulens' `completion_kwargs` are materialized.
+            if isinstance(nested, list) and len(nested) == 2 and isinstance(nested[0], str):
+                found |= GATEWAY_DESTINATION_KEYS & {nested[0]}
+            found |= _find_destination_keys(nested)
+        return found
+    return set()
+
+
+def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
+    """Yield every ``third_party_scorer_data`` mapping nested anywhere in a serialized scorer.
+
+    Containers such as ensembles (``ensemble_scorer_data.scorers``) and MemAlign judges
+    (``memory_augmented_judge_data.base_judge``) embed whole serialized scorers that
+    ``Scorer.model_validate`` rebuilds recursively, so the walk does not assume a fixed shape.
+    """
+    if isinstance(value, dict):
+        data = value.get("third_party_scorer_data")
+        if isinstance(data, dict):
+            yield data
+        for nested in value.values():
+            yield from _iter_third_party_scorer_data(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _iter_third_party_scorer_data(nested)
+
+
+def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None:
+    """Reject third-party scorer ``kwargs`` that would steer the judge's outbound requests.
+
+    ``third_party_scorer_data`` is rebuilt by reflective instantiation and its ``kwargs`` reach
+    the wrapped library's LLM client unchanged: the TruLens LiteLLM fallback forwards them into
+    every ``litellm.completion()`` call, so ``api_base`` and its aliases let a caller pick the
+    host the server connects to. The server is the trust boundary for these payloads, so the
+    gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
+    ``model_kwargs``, ...) and inside any wrapping scorer.
+    """
+    for data in _iter_third_party_scorer_data(serialized_scorer):
+        kwargs = data.get("kwargs")
+        # Deserialization runs `dict(kwargs or {})`, so only a mapping (or null) is a valid shape.
+        if kwargs is not None and not isinstance(kwargs, dict):
+            raise MlflowException.invalid_parameter_value(
+                "third_party_scorer_data.kwargs must be a JSON object, got "
+                f"{type(kwargs).__name__}."
+            )
+        if found := sorted(_find_destination_keys(kwargs)):
+            raise MlflowException.invalid_parameter_value(
+                f"third_party_scorer_data.kwargs must not contain {', '.join(map(repr, found))}: "
+                "these options choose where the scorer's LLM client sends requests. Configure "
+                "the judge endpoint on the server instead, for example through a gateway "
+                "endpoint ('gateway:/<name>') or the provider's environment variables."
+            )
 
 
 def _validate_mcp_icon_url(url: str) -> None:

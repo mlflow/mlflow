@@ -880,6 +880,7 @@ mlflow.gateway.config.TogetherAIConfig
 mlflow.gateway.config.TogetherAIConfig.validate_togetherai_api_key
 mlflow.gateway.config.TrafficRouteConfig
 mlflow.gateway.config.VertexAIConfig
+mlflow.gateway.config.VertexAIConfig.validate_vertex_anthropic_betas
 mlflow.gateway.get_gateway_uri
 mlflow.gateway.set_gateway_uri
 mlflow.gemini.autolog
@@ -1737,6 +1738,8 @@ mlflow.pytorch.load_model
 mlflow.pytorch.log_model
 mlflow.pytorch.save_model
 mlflow.register_model
+mlflow.restore_experiment
+mlflow.restore_run
 mlflow.run
 mlflow.sagemaker.SageMakerDeploymentClient
 mlflow.sagemaker.SageMakerDeploymentClient.create_deployment

@@ -273,6 +273,8 @@ _T = TypeVar("_T")
 
 _logger = logging.getLogger(__name__)
 
+_RUN_DELETE_CASCADE_MODELS = (SqlMetric, SqlLatestMetric, SqlParam, SqlTag)
+
 # Chunk size for exact-identity recovery lookups in _log_metrics.
 # 100 keeps bound-parameter counts well under all supported dialect limits.
 _METRIC_DEDUP_CHUNK_SIZE = 100
@@ -747,13 +749,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         stages = LifecycleStage.view_type_to_stages(view_type)
         query_options = self._get_eager_experiment_query_options() if eager else []
 
-        try:
-            experiment_id_int = int(experiment_id)
-        except (ValueError, TypeError):
-            raise MlflowException(
-                f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
-                INVALID_PARAMETER_VALUE,
-            )
+        experiment_id_int = self._parse_experiment_id(experiment_id)
 
         experiment = (
             self
@@ -779,12 +775,35 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         return []
 
-    def _filter_experiment_ids(self, session, experiment_ids):
+    def _filter_experiment_ids(self, session, experiment_ids, lifecycle_stage: str | None = None):
         """
         Hook for subclasses to filter experiment IDs (e.g., for workspaces).
-        """
 
-        return experiment_ids
+        When ``lifecycle_stage`` is specified, only return IDs for experiments in that stage.
+        """
+        if lifecycle_stage is None:
+            return experiment_ids
+
+        return [
+            row.experiment_id
+            for row in session
+            .query(SqlExperiment.experiment_id)
+            .filter(
+                SqlExperiment.experiment_id.in_(experiment_ids),
+                SqlExperiment.lifecycle_stage == lifecycle_stage,
+            )
+            .all()
+        ]
+
+    @staticmethod
+    def _parse_experiment_id(experiment_id: str) -> int:
+        try:
+            return int(experiment_id)
+        except (ValueError, TypeError):
+            raise MlflowException(
+                f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid integer.",
+                INVALID_PARAMETER_VALUE,
+            )
 
     def _filter_entity_ids(
         self, session, entity_type: EntityAssociationType, entity_ids: list[str]
@@ -956,10 +975,6 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            # Note: we need to ensure the generated "run_id" only contains digits and lower
-            # case letters, because some query filters contain "IN" clause, and in MYSQL the
-            # "IN" clause is case-insensitive, we use a trick that filters out comparison values
-            # containing upper case letters when parsing "IN" clause inside query filter.
             run_id = uuid.uuid4().hex
             artifact_location = append_to_uri_path(
                 experiment.artifact_location,
@@ -1233,8 +1248,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
         """
         with self.ManagedSessionMaker(read_only=False) as session:
-            run = self._get_run(run_uuid=run_id, session=session)
-            session.delete(run)
+            # ORM delete cascades load every child row into the session, which can exhaust memory
+            # for runs with large metric histories. Bulk deletes keep memory usage independent of
+            # history size.
+            self._get_run(run_uuid=run_id, session=session)
+            for model in _RUN_DELETE_CASCADE_MODELS:
+                session.query(model).filter(model.run_uuid == run_id).delete(
+                    synchronize_session=False
+                )
+            session.query(SqlRun).filter(SqlRun.run_uuid == run_id).delete(
+                synchronize_session=False
+            )
 
     def _get_deleted_runs(self, older_than=0):
         """
@@ -2728,16 +2752,20 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = self._get_logged_model_record(session, model_id)
-            # TODO: Consider upserting tags in a single transaction for performance
-            for tag in tags:
-                session.merge(
-                    SqlLoggedModelTag(
-                        model_id=model_id,
-                        experiment_id=logged_model.experiment_id,
-                        tag_key=tag.key,
-                        tag_value=tag.value,
-                    )
-                )
+            # Dedupe by key so a repeated key in one call keeps the last value (matching the
+            # previous ``session.merge`` behavior); PostgreSQL's ``ON CONFLICT DO UPDATE``
+            # rejects statements that touch the same row twice.
+            deduped = {tag.key: tag.value for tag in tags}
+            rows = [
+                {
+                    "model_id": model_id,
+                    "experiment_id": logged_model.experiment_id,
+                    "tag_key": key,
+                    "tag_value": value,
+                }
+                for key, value in deduped.items()
+            ]
+            _bulk_upsert(session, SqlLoggedModelTag, rows)
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -2902,9 +2930,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return self.list_scorers_across_experiments([experiment.experiment_id])
 
     # SQLite caps bound parameters at 999 by default; pick a chunk size well
-    # below that so callers (e.g. the admin scorer picker passing up to 1000
-    # experiment ids per page) don't trip ``too many SQL variables``.
-    _LIST_SCORERS_CHUNK_SIZE = 500
+    # below that so callers passing large ID lists (e.g. the admin scorer
+    # picker passing up to 1000 experiment ids per page, or an authorization
+    # scope with hundreds of experiment ids) don't trip
+    # ``too many SQL variables``. Shared by every batch query in this class
+    # that chunks an ``IN (...)`` clause.
+    _ID_CHUNK_SIZE = 500
+
+    # Batch trace queries contain one ``IN (...)`` clause for trace IDs and
+    # another for experiment IDs. Keep each list well below SQLite's default
+    # bound-parameter cap so their combined bindings remain safe.
+    _TRACE_BATCH_QUERY_ID_CHUNK_SIZE = 400
 
     def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
         """
@@ -2932,8 +2968,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
         with self.ManagedSessionMaker() as session:
             scorer_ids: list[str] = []
-            for chunk_start in range(0, len(experiment_ids), self._LIST_SCORERS_CHUNK_SIZE):
-                chunk = experiment_ids[chunk_start : chunk_start + self._LIST_SCORERS_CHUNK_SIZE]
+            for chunk_start in range(0, len(experiment_ids), self._ID_CHUNK_SIZE):
+                chunk = experiment_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
                 scorer_ids.extend(
                     row.scorer_id
                     for row in session
@@ -2946,8 +2982,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # ``scorer_ids`` is also chunked for the same reason; build the
             # latest-version subquery + final query per chunk and concat.
             sql_scorer_versions: list[SqlScorerVersion] = []
-            for chunk_start in range(0, len(scorer_ids), self._LIST_SCORERS_CHUNK_SIZE):
-                chunk = scorer_ids[chunk_start : chunk_start + self._LIST_SCORERS_CHUNK_SIZE]
+            for chunk_start in range(0, len(scorer_ids), self._ID_CHUNK_SIZE):
+                chunk = scorer_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
                 latest_versions = (
                     session
                     .query(
@@ -2989,6 +3025,23 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 for i, sv in enumerate(sql_scorer_versions)
             ]
+
+    def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
+        if not experiment_ids:
+            return []
+        parsed_ids = [self._parse_experiment_id(e) for e in experiment_ids]
+        with self.ManagedSessionMaker() as session:
+            active_ids: list[str] = []
+            for chunk_start in range(0, len(parsed_ids), self._ID_CHUNK_SIZE):
+                active_ids.extend(
+                    str(experiment_id)
+                    for experiment_id in self._filter_experiment_ids(
+                        session,
+                        parsed_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE],
+                        lifecycle_stage=LifecycleStage.ACTIVE,
+                    )
+                )
+            return active_ids
 
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
@@ -3475,6 +3528,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     ) -> sqlalchemy.orm.Query:
         order_by_clauses = []
         has_creation_timestamp = False
+        has_model_id = False
         for ob in order_by or []:
             field_name = ob.get("field_name")
             ascending = ob.get("ascending", True)
@@ -3482,6 +3536,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 name = SqlLoggedModel.ALIASES.get(field_name, field_name)
                 if name == "creation_timestamp_ms":
                     has_creation_timestamp = True
+                if name == "model_id":
+                    has_model_id = True
                 try:
                     col = getattr(SqlLoggedModel, name)
                 except AttributeError:
@@ -3518,7 +3574,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     SqlLoggedModelMetric.model_id,
                     SqlLoggedModelMetric.metric_value,
                     func
-                    .rank()
+                    .row_number()
                     .over(
                         partition_by=[
                             SqlLoggedModelMetric.model_id,
@@ -3527,9 +3583,10 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         order_by=[
                             SqlLoggedModelMetric.metric_timestamp_ms.desc(),
                             SqlLoggedModelMetric.metric_step.desc(),
+                            SqlLoggedModelMetric.run_id.asc(),
                         ],
                     )
-                    .label("rank"),
+                    .label("row_num"),
                 )
                 .filter(
                     SqlLoggedModelMetric.metric_name == name,
@@ -3537,7 +3594,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 .subquery()
             )
-            subquery = select(subquery.c).where(subquery.c.rank == 1).subquery()
+            subquery = select(subquery.c).where(subquery.c.row_num == 1).subquery()
 
             models = models.outerjoin(subquery)
             # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
@@ -3549,6 +3606,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         if not has_creation_timestamp:
             order_by_clauses.append(SqlLoggedModel.creation_timestamp_ms.desc())
+        if not has_model_id:
+            order_by_clauses.append(SqlLoggedModel.model_id.asc())
 
         return models.order_by(*order_by_clauses)
 
@@ -4124,14 +4183,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             session_id ASC).
         """
         with self.ManagedSessionMaker() as session:
-            try:
-                experiment_id_int = int(experiment_id)
-            except (ValueError, TypeError):
-                raise MlflowException(
-                    f"Invalid experiment ID '{experiment_id}'. Experiment ID must be a valid "
-                    "integer.",
-                    INVALID_PARAMETER_VALUE,
-                )
+            experiment_id_int = self._parse_experiment_id(experiment_id)
 
             experiment_ids = self._filter_experiment_ids(session, [experiment_id_int])
             if not experiment_ids:
@@ -5935,13 +5987,59 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             return Trace(info=trace_snapshot.trace_info, data=TraceData(spans=spans))
         return None
 
-    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+    def _query_trace_infos_in_batches(
+        self,
+        session,
+        trace_ids: list[str],
+        experiment_ids: list[str] | None,
+        query_options=(),
+    ) -> list[SqlTraceInfo]:
+        """
+        Run the batch trace-info query, chunking both ``trace_ids`` and the
+        optional ``experiment_ids`` scope to stay under SQLite's bound-parameter cap.
+        Every trace-ID chunk is queried against every experiment-ID chunk,
+        then the combined results are restored to the requested trace-ID order.
+        """
+        trace_id_order = {trace_id: idx for idx, trace_id in enumerate(trace_ids)}
+        unique_trace_ids = list(trace_id_order)
+        experiment_id_chunks: list[list[int] | None] = [None]
+        if experiment_ids is not None:
+            parsed_ids = list(dict.fromkeys(self._parse_experiment_id(e) for e in experiment_ids))
+            experiment_id_chunks = [
+                parsed_ids[i : i + self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE]
+                for i in range(0, len(parsed_ids), self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE)
+            ]
+
+        sql_trace_infos: list[SqlTraceInfo] = []
+        for trace_id_start in range(
+            0, len(unique_trace_ids), self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE
+        ):
+            trace_id_chunk = unique_trace_ids[
+                trace_id_start : trace_id_start + self._TRACE_BATCH_QUERY_ID_CHUNK_SIZE
+            ]
+            for experiment_id_chunk in experiment_id_chunks:
+                filters = [SqlTraceInfo.request_id.in_(trace_id_chunk)]
+                if experiment_id_chunk is not None:
+                    filters.append(SqlTraceInfo.experiment_id.in_(experiment_id_chunk))
+                query = self._trace_query(session).options(*query_options).filter(*filters)
+                sql_trace_infos.extend(query.all())
+
+        sql_trace_infos.sort(key=lambda sti: trace_id_order[sti.request_id])
+        return sql_trace_infos
+
+    def batch_get_traces(
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
+    ) -> list[Trace]:
         """
         Get complete traces with spans for given trace ids.
 
         Args:
             trace_ids: The trace IDs to get.
             location: Location of the trace. Should be None for SQLAlchemy backend.
+            experiment_ids: Optional list of experiment IDs to scope the query.
 
         Returns:
             List of Trace objects for the given trace IDs.
@@ -5949,24 +6047,18 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         if not trace_ids:
             return []
 
-        order_case = case(
-            {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
-            value=SqlTraceInfo.request_id,
-        )
         with self.ManagedSessionMaker() as session:
             # Load trace metadata first; DB-backed span rows are fetched separately only for traces
             # that still read from the tracking store.
-            sql_trace_infos = (
-                self
-                ._trace_query(session)
-                .options(
+            sql_trace_infos = self._query_trace_infos_in_batches(
+                session,
+                trace_ids,
+                experiment_ids,
+                query_options=[
                     selectinload(SqlTraceInfo.tags),
                     selectinload(SqlTraceInfo.request_metadata),
                     selectinload(SqlTraceInfo.assessments),
-                )
-                .filter(SqlTraceInfo.request_id.in_(trace_ids))
-                .order_by(order_case)
-                .all()
+                ],
             )
             trace_infos = [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
             tracking_store_trace_ids = [
@@ -6015,7 +6107,10 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         return traces
 
     def batch_get_trace_infos(
-        self, trace_ids: list[str], location: str | None = None
+        self,
+        trace_ids: list[str],
+        location: str | None = None,
+        experiment_ids: list[str] | None = None,
     ) -> list[TraceInfo]:
         """
         Get trace metadata (TraceInfo) for given trace IDs without loading spans.
@@ -6023,6 +6118,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         Args:
             trace_ids: The trace IDs to get.
             location: Location of the trace. Should be None for SQLAlchemy backend.
+            experiment_ids: Optional list of experiment IDs to scope the query.
 
         Returns:
             List of TraceInfo objects for the given trace IDs.
@@ -6030,18 +6126,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         if not trace_ids:
             return []
 
-        order_case = case(
-            {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
-            value=SqlTraceInfo.request_id,
-        )
         with self.ManagedSessionMaker() as session:
-            sql_trace_infos = (
-                self
-                ._trace_query(session)
-                .filter(SqlTraceInfo.request_id.in_(trace_ids))
-                .order_by(order_case)
-                .all()
-            )
+            sql_trace_infos = self._query_trace_infos_in_batches(session, trace_ids, experiment_ids)
 
             return [sql_trace_info.to_mlflow_entity() for sql_trace_info in sql_trace_infos]
 
@@ -9595,18 +9681,37 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
         comparator = f["comparator"]
         value = f["value"]
         if type_ == "attribute":
-            if SearchExperimentsUtils.is_string_attribute(
-                type_, key, comparator
-            ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for string attribute: {comparator}"
+            if key == "experiment_id":
+                # ``experiment_id`` is an INTEGER column but filter values are always
+                # parsed as strings; only allow comparators that make sense for a
+                # nominal identifier and coerce the value(s) to int before binding,
+                # matching ``_parse_experiment_id``'s error contract.
+                if comparator not in ("=", "!=", "IN", "NOT IN"):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparator for experiment_id: {comparator}"
+                    )
+                value = (
+                    tuple(SqlAlchemyStore._parse_experiment_id(v) for v in value)
+                    if isinstance(value, tuple)
+                    else SqlAlchemyStore._parse_experiment_id(value)
                 )
-            if SearchExperimentsUtils.is_numeric_attribute(
-                type_, key, comparator
-            ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for numeric attribute: {comparator}"
-                )
+            else:
+                if SearchExperimentsUtils.is_string_attribute(
+                    type_, key, comparator
+                ) and comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparator for string attribute: {comparator}"
+                    )
+                # TODO: ``creation_time``/``last_update_time`` values are never coerced
+                # to int here either, which hits the same psycopg v3 VARCHAR-bind issue
+                # as experiment_id above. See
+                # https://github.com/mlflow/mlflow/issues/25574.
+                if SearchExperimentsUtils.is_numeric_attribute(
+                    type_, key, comparator
+                ) and comparator not in ("=", "!=", "<", "<=", ">", ">="):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparator for numeric attribute: {comparator}"
+                    )
             attr = getattr(SqlExperiment, key)
             attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
             attribute_filters.append(attr_filter)
