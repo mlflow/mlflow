@@ -10,7 +10,11 @@ import pytest
 
 from mlflow.entities._job import Job
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
+    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE
 from mlflow.server.jobs import _ALLOWED_JOB_NAME_LIST, _SUPPORTED_JOB_FUNCTION_LIST, job, submit_job
@@ -444,7 +448,10 @@ def test_exclusive_lock_reacquired_after_transient_retry(
         json.dumps({"marker_path": str(marker), "key": "k"}),
         timeout=30.0,
     )
-    monkeypatch.setattr(runner, "_backoff_after_transient_retry", lambda retry_count: None)
+    # The store owns the retry backoff (it stamps next_attempt_at); zero it so the re-pended job is
+    # immediately claimable and the test does not wait out a real delay.
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.name, "0")
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY.name, "0")
 
     _run_to_completion(job_store, executor, lease_duration=60.0)
     assert job_store.get_job(created.job_id).status == JobStatus.PENDING
@@ -476,8 +483,10 @@ def test_loop_retries_transient_error_then_succeeds(
         "executor_engine_flaky", json.dumps({"marker_path": str(marker)})
     )
 
-    # Avoid the real exponential backoff sleep between retries.
-    monkeypatch.setattr(runner, "_backoff_after_transient_retry", lambda retry_count: None)
+    # The store owns the retry backoff (it stamps next_attempt_at); zero it so the re-pended job is
+    # immediately claimable and the test does not wait out a real delay.
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.name, "0")
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY.name, "0")
 
     # First poll: transient error -> retry_or_fail_job resets the job to PENDING.
     _run_to_completion(job_store, executor, lease_duration=60.0)
@@ -980,6 +989,31 @@ def _make_job(status=JobStatus.RUNNING, retry_count=0) -> Job:
     )
 
 
+def test_scheduler_defers_transient_retry_until_backoff_elapses(
+    registered_jobs, job_store, monkeypatch
+):
+    # A transiently re-pended job carries its retry deadline in the store (next_attempt_at). A
+    # fresh scheduler with no in-flight state still refuses to claim it until that deadline passes,
+    # so any replica -- not just the one that re-pended the job -- honors the same backoff window.
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.name, "3600")
+    monkeypatch.setenv(MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY.name, "3600")
+
+    created = job_store.create_job("executor_engine_add", json.dumps({"x": 1, "y": 2}))
+    job_store.claim_job(created.job_id, 60.0)
+    job_store.retry_or_fail_job(created.job_id, "temp")
+    repended = job_store.get_job(created.job_id)
+    assert repended.status == JobStatus.PENDING
+    assert repended.retry_count == 1
+
+    ex = _BlockingExecutor()
+    scheduler = runner._JobScheduler(job_store, ex, lease_duration=60.0)
+
+    # The deadline is ~1 hour out, so the fresh scheduler claims nothing on this tick.
+    assert scheduler._schedule_pending() == 0
+    assert ex.submitted == []
+    assert job_store.get_job(created.job_id).status == JobStatus.PENDING
+
+
 @pytest.mark.parametrize(
     ("result", "expected_call"),
     [
@@ -1120,12 +1154,14 @@ def test_submit_job_executor_engine_defaults_timeout_for_exclusive(
     ):
         submit_job(executor_engine_exclusive, {"sleep_secs": 1, "key": "k"}, timeout=timeout)
 
-    # Proves the intended resolution path ran: it consulted the executor registry for the default
-    # backend's configured timeout rather than the unusable caller value.
+    # Proves the intended resolution path ran: the unusable caller value was replaced by the
+    # default backend's configured timeout (1234.0), which is only reachable by consulting the
+    # executor registry. (get_executor_registry is also consulted for backend selection, so it is
+    # asserted as called, not called-once.)
     check_reqs.assert_called_once()
     get_store.assert_called_once()
-    get_registry.assert_called_once()
-    fake_registry.get.assert_called_once()
+    get_registry.assert_called()
+    fake_registry.get.assert_called()
     assert store.create_job.call_args.args[2] == 1234.0
 
 

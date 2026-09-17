@@ -31,8 +31,6 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_GATEWAY_URI,
     MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND,
-    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
-    MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
@@ -184,14 +182,6 @@ def _build_execution_context(job: Job) -> JobExecutionContext:
     )
 
 
-def _backoff_after_transient_retry(retry_count: int) -> None:
-    # Mirror the Huey path's exponential backoff. This runs on the per-job worker thread, so it
-    # only delays that job's slot — it does not block the scheduler or other job types.
-    base_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY.get()
-    max_delay = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY.get()
-    time.sleep(min(base_delay * (2 ** (retry_count - 1)), max_delay))
-
-
 def _record_result(
     job_store: AbstractJobStore,
     job_id: str,
@@ -201,9 +191,10 @@ def _record_result(
 ) -> int | None:
     """Map an executor ``JobResult`` onto the terminal job-store transition.
 
-    Returns the ``retry_count`` when a transient error re-pended the job for retry (so the caller
-    can back off), or ``None`` otherwise. Mirrors the outcome handling in the Huey ``_exec_job``
-    path.
+    Returns the ``retry_count`` when a transient error re-pended the job for retry, or ``None``
+    otherwise, mirroring the outcome handling in the Huey ``_exec_job`` path. The retry backoff is
+    enforced by the store (it stamps ``next_attempt_at`` and the claim query withholds the job
+    until it is due), so this return value is informational here and does not drive a local wait.
 
     ``on_transient_release`` (when given) releases the exclusivity lock and returns whether it
     succeeded. It is called BEFORE the transient ``RUNNING -> PENDING`` re-pend so another replica
@@ -270,8 +261,9 @@ def _execute_claimed_job(
     While the job runs, its lease is renewed in the background (when ``lease_duration`` is set) so
     a long-running job is not treated as abandoned by stale-job recovery.
 
-    Returns the ``retry_count`` when a transient error re-pended the job (so the caller releases
-    the exclusivity lock and then backs off), or ``None`` otherwise.
+    Returns the ``retry_count`` when a transient error re-pended the job, or ``None`` otherwise.
+    The exclusivity lock is released at the re-pend via ``on_transient_release``; the retry backoff
+    itself is enforced by the store (``next_attempt_at``), not by the caller of this function.
     """
     from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
 
@@ -503,10 +495,9 @@ class _JobScheduler:
                     with self._in_flight_lock:
                         already_in_flight = job.job_id in self._in_flight
                     if already_in_flight:
-                        # A prior worker for this job is still finishing (e.g. backing off before
-                        # it re-pends a transient failure). Skip it so the job stays unclaimable
-                        # until that worker releases it, otherwise a free slot would re-claim it
-                        # mid-backoff and bypass the retry delay.
+                        # A prior worker for this job is still finishing (executing, or re-pending a
+                        # transient failure). Skip it so this replica does not double-claim it while
+                        # that worker still holds it.
                         continue
                     try:
                         sem = self._slot_for(job.job_name)
@@ -704,7 +695,6 @@ class _JobScheduler:
         return True
 
     def _run_worker(self, job: Job, workspace: str | None, sem: threading.Semaphore) -> None:
-        retry_count: int | None = None
         needs_recovery = False
         lock_released = False
 
@@ -730,7 +720,7 @@ class _JobScheduler:
 
         try:
             with ServerWorkspaceContext(workspace):
-                retry_count = _execute_claimed_job(
+                _execute_claimed_job(
                     self._job_store,
                     self._executor,
                     job,
@@ -773,13 +763,11 @@ class _JobScheduler:
                 )
                 self._fail_claimed_job(job.job_id, workspace, repr(exc))
         finally:
-            # Back off BEFORE removing the job from _in_flight on a transient retry: while the job
-            # is in _in_flight the claim loop's already_in_flight guard keeps the re-pended PENDING
-            # row unclaimable, so a free slot cannot re-claim it mid-backoff and skip the retry
-            # delay (matters for job types with max_workers > 1). The exclusive lock was already
-            # released at the re-pend, so backing off here does not hold it.
-            if retry_count is not None:
-                _backoff_after_transient_retry(retry_count)
+            # No local backoff sleep here: a transiently re-pended job carries its retry deadline in
+            # the store (next_attempt_at, stamped from the database clock) and the claim query holds
+            # it unclaimable until that deadline passes, so the worker slot is freed immediately and
+            # every replica honors the same delay. The exclusive lock was already released at the
+            # re-pend.
             with self._in_flight_lock:
                 handle = self._in_flight.pop(job.job_id, None)
             # Release the exclusive lock so a later same-key job can run -- EXCEPT when the job is

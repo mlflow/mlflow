@@ -2457,6 +2457,14 @@ class SqlJob(Base):
     an anonymous submitter.
     """
 
+    next_attempt_at = Column(BigInteger(), nullable=True)
+    """
+    Earliest time (Unix epoch milliseconds) at which a PENDING job may be claimed: `BigInteger`.
+    Set when a job is re-pended after a transient failure to enforce an exponential backoff, using
+    the database clock so the deadline is comparable across replicas regardless of host clock skew.
+    ``NULL`` means the job is claimable immediately (never retried, or reset/requeued).
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
