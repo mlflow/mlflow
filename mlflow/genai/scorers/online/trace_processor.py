@@ -242,6 +242,7 @@ class OnlineTraceScoringProcessor:
         """
         from mlflow.entities import AssessmentSource, AssessmentSourceType, Feedback
         from mlflow.genai.evaluation.harness import _log_assessments
+        from mlflow.genai.evaluation.utils import add_scorer_metadata
 
         error_feedbacks = [
             Feedback(
@@ -252,6 +253,8 @@ class OnlineTraceScoringProcessor:
             )
             for scorer in scorers
         ]
+        for scorer, feedback in zip(scorers, error_feedbacks, strict=True):
+            add_scorer_metadata(scorer, [feedback])
         try:
             _log_assessments(trace=trace, assessments=error_feedbacks, run_id=None)
         except Exception as log_error:

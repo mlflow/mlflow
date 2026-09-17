@@ -239,6 +239,20 @@ describe('TracesTable', () => {
     expect(screen.getByText('request for s1-turn-2')).toBeInTheDocument();
   });
 
+  test('sums token usage in a grouped session header', async () => {
+    const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
+    await renderWithProviders(
+      <TracesTable {...baseProps({ traces, visibleColumns: ['tokens'], isGroupedBySession: true })} />,
+    );
+
+    // The standard fixture gives each turn 15 tokens. A collapsed session must show their sum,
+    // rather than leaving the Tokens header cell blank.
+    expect(screen.getByText('30')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand session s1' }));
+    expect(screen.getAllByText('15')).toHaveLength(2);
+  });
+
   test('passes all child traces to an extra column session renderer', async () => {
     const traces = [makeSessionTrace('s1-turn-1', 's1'), makeSessionTrace('s1-turn-2', 's1')];
     const renderSessionCell = jest.fn((sessionTraces: typeof traces) => (

@@ -70,6 +70,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
+    _CLIENT_PROMPT_SOURCE_PLACEHOLDER,
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
@@ -731,7 +732,7 @@ class MlflowClient:
                 Using PromptModelConfig provides validation and type safety.
 
         Returns:
-            A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+            A :py:class:`PromptVersion <mlflow.entities.PromptVersion>` object that was created.
         """
         registry_client = self._get_registry_client()
 
@@ -819,7 +820,7 @@ class MlflowClient:
             mv: ModelVersion = registry_client.create_model_version(
                 name=name,
                 description=commit_message,
-                source="dummy-source",  # Required field, but not used for prompts
+                source=_CLIENT_PROMPT_SOURCE_PLACEHOLDER,  # Required field, unused for prompts
                 tags=tags,
             )
         except Exception:

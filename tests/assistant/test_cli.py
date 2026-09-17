@@ -72,7 +72,8 @@ def test_configure_experiment_fetch_failure(runner):
         assert "Could not fetch experiments" in result.output
 
 
-def test_configure_success(runner, tmp_path):
+def test_configure_success(runner, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     mock_result = mock.Mock()
     mock_result.returncode = 0
     mock_result.stderr = ""
@@ -103,7 +104,6 @@ def test_configure_success(runner, tmp_path):
             return_value=mock_config,
         ),
         mock.patch.object(mock_config, "save"),
-        runner.isolated_filesystem(temp_dir=tmp_path),
     ):
         # Input: provider=1, connect=y, experiment=1, project_path, model=default, skill_location=1
         result = runner.invoke(

@@ -72,6 +72,7 @@ from mlflow.genai.evaluation.session_utils import (
 from mlflow.genai.evaluation.telemetry import emit_metric_usage_event
 from mlflow.genai.evaluation.utils import (
     PGBAR_FORMAT,
+    add_scorer_metadata,
     is_none_or_nan,
     make_code_type_assessment_source,
     standardize_scorer_value,
@@ -665,6 +666,7 @@ def run(
     predict_fn=None,
     scorers=None,
     run_id: str | None = None,
+    dataset: Any | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -764,7 +766,7 @@ def run(
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
-    mlflow.log_metrics(aggregated_metrics)
+    mlflow.log_metrics(aggregated_metrics, dataset=dataset)
 
     try:
         emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)
@@ -952,6 +954,8 @@ def _compute_eval_scores(
                     ),
                 )
             ]
+
+        add_scorer_metadata(scorer, feedbacks)
 
         # Record the trace ID for the scorer function call.
         if should_trace and (trace_id := mlflow.get_last_active_trace_id(thread_local=True)):

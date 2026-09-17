@@ -3031,7 +3031,9 @@ def test_link_prompts_to_trace_smoke_test(tracking_uri):
 
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment_id = client.create_experiment("test")
+    experiment_id = client.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
     model = client.create_logged_model(experiment_id=experiment_id)
     tmp_path = tmp_path.joinpath("artifacts")
     tmp_path.mkdir()
@@ -3053,7 +3055,9 @@ def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
 
 def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment_id = client.create_experiment("test")
+    experiment_id = client.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
     model = client.create_logged_model(experiment_id=experiment_id)
     tmp_path = tmp_path.joinpath("artifacts")
     tmp_path.mkdir()
@@ -3076,7 +3080,9 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
 
 def test_log_model_artifact_with_artifact_path(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment_id = client.create_experiment("test")
+    experiment_id = client.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
     model = client.create_logged_model(experiment_id=experiment_id)
     tmp_path = tmp_path.joinpath("artifacts")
     tmp_path.mkdir()
@@ -3093,7 +3099,9 @@ def test_log_model_artifact_with_artifact_path(tmp_path: Path, tracking_uri: str
 
 def test_log_model_artifacts_with_artifact_path(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
-    experiment_id = client.create_experiment("test")
+    experiment_id = client.create_experiment(
+        "test", artifact_location=(tmp_path / "exp-artifacts").as_uri()
+    )
     model = client.create_logged_model(experiment_id=experiment_id)
     tmp_path = tmp_path.joinpath("artifacts")
     tmp_path.mkdir()

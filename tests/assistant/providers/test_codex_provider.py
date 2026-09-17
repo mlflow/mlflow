@@ -14,32 +14,19 @@ def _make_stdout_lines(*dicts) -> list[bytes]:
     return [json.dumps(d).encode() + b"\n" for d in dicts]
 
 
-def _mock_process(stdout_lines=None, returncode=0, stderr=b""):
-    """Create a mock process with async stdout iteration and stdin support."""
+def _mock_process(stdout_lines=None, returncode=0, stderr=b"", killed=False):
     process = MagicMock()
     process.pid = None
     process.returncode = returncode
+    process.killed = killed
 
-    # Mock stdin (write, drain, close, wait_closed)
-    process.stdin = MagicMock()
-    process.stdin.write = MagicMock()
-    process.stdin.drain = AsyncMock()
-    process.stdin.close = MagicMock()
-    process.stdin.wait_closed = AsyncMock()
-
-    # Mock stdout as an async iterator
-    async def _aiter():
+    async def _lines():
         for line in stdout_lines or []:
             yield line
 
-    process.stdout = _aiter()
-
-    # Mock stderr.read()
-    process.stderr = MagicMock()
-    process.stderr.read = AsyncMock(return_value=stderr)
-
-    # Mock wait
-    process.wait = AsyncMock()
+    process.lines = _lines
+    process.wait = AsyncMock(return_value=returncode)
+    process.read_stderr = AsyncMock(return_value=stderr)
     process.kill = MagicMock()
 
     return process
@@ -116,7 +103,7 @@ async def test_astream_yields_agent_message_text():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ),
     ):
@@ -147,7 +134,7 @@ async def test_astream_emits_usage_event_from_turn_completed():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ),
         patch(
@@ -187,7 +174,7 @@ async def test_astream_ignores_non_agent_message_items():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ),
     ):
@@ -206,7 +193,7 @@ async def test_astream_yields_error_on_nonzero_exit():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ),
     ):
@@ -253,7 +240,7 @@ async def test_astream_prefers_structured_codex_error_over_stderr():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ),
     ):
@@ -273,7 +260,7 @@ async def test_astream_surfaces_non_empty_error_for_empty_exception():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             side_effect=NotImplementedError(),
         ) as mock_exec,
     ):
@@ -293,7 +280,7 @@ async def test_astream_yields_interrupted_on_sigkill():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ),
     ):
@@ -311,14 +298,14 @@ async def test_astream_builds_correct_command():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ) as mock_exec,
     ):
         provider = CodexProvider()
         _ = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
 
-    args = mock_exec.call_args[0]
+    args = mock_exec.call_args[0][0]
     assert "/usr/bin/codex" in args
     assert "exec" in args
     assert "--json" in args
@@ -351,16 +338,16 @@ async def test_astream_uses_custom_view_output_schema():
 
     captured_schema = None
 
-    async def capture_schema(*args, **kwargs):
+    def capture_schema(cmd, **kwargs):
         nonlocal captured_schema
-        schema_path = args[args.index("--output-schema") + 1]
+        schema_path = cmd[cmd.index("--output-schema") + 1]
         captured_schema = json.loads(Path(schema_path).read_text())
         return mock_proc
 
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             side_effect=capture_schema,
         ) as mock_exec,
     ):
@@ -374,7 +361,7 @@ async def test_astream_uses_custom_view_output_schema():
             )
         ]
 
-    args = mock_exec.call_args.args
+    args = mock_exec.call_args.args[0]
     schema_path = args[args.index("--output-schema") + 1]
     assert not Path(schema_path).exists()
     assert captured_schema["properties"]["messages"]["type"] == "string"
@@ -482,7 +469,7 @@ async def test_astream_does_not_retry_invalid_custom_view_transport():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=process,
         ) as mock_exec,
     ):
@@ -525,7 +512,7 @@ async def test_astream_strips_trailing_delimiter_from_complete_custom_view_messa
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=process,
         ) as mock_exec,
     ):
@@ -568,7 +555,7 @@ async def test_astream_forwards_empty_custom_view_messages_for_client_validation
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=process,
         ) as mock_exec,
     ):
@@ -600,7 +587,7 @@ async def test_astream_reports_missing_structured_custom_view_response():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=process,
         ),
     ):
@@ -631,14 +618,14 @@ async def test_astream_includes_model_flag_when_configured(tmp_path):
         patch("mlflow.assistant.config.CONFIG_PATH", config_file),
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ) as mock_exec,
     ):
         provider = CodexProvider()
         _ = [e async for e in provider.astream("prompt", "http://localhost:5000")]
 
-    args = mock_exec.call_args[0]
+    args = mock_exec.call_args[0][0]
     assert "-m" in args
     assert "o4-mini" in args
 
@@ -655,14 +642,14 @@ async def test_astream_skips_model_flag_when_default(tmp_path):
         patch("mlflow.assistant.config.CONFIG_PATH", config_file),
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ) as mock_exec,
     ):
         provider = CodexProvider()
         _ = [e async for e in provider.astream("prompt", "http://localhost:5000")]
 
-    args = mock_exec.call_args[0]
+    args = mock_exec.call_args[0][0]
     assert "-m" not in args
 
 
@@ -673,18 +660,16 @@ async def test_astream_sends_prompt_via_stdin():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
-        ),
+        ) as mock_exec,
     ):
         provider = CodexProvider()
         _ = [e async for e in provider.astream("my question", "http://localhost:5000")]
 
-    stdin_bytes = mock_proc.stdin.write.call_args[0][0]
+    stdin_bytes = mock_exec.call_args.kwargs["input_bytes"]
     assert b"<system_instructions>" in stdin_bytes
     assert b"my question" in stdin_bytes
-    mock_proc.stdin.drain.assert_awaited_once()
-    mock_proc.stdin.close.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -694,9 +679,9 @@ async def test_astream_omits_system_instructions_on_resume():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
-        ),
+        ) as mock_exec,
     ):
         provider = CodexProvider()
         _ = [
@@ -706,7 +691,7 @@ async def test_astream_omits_system_instructions_on_resume():
             )
         ]
 
-    stdin_bytes = mock_proc.stdin.write.call_args[0][0]
+    stdin_bytes = mock_exec.call_args.kwargs["input_bytes"]
     assert b"<system_instructions>" not in stdin_bytes
     assert b"follow up" in stdin_bytes
 
@@ -722,7 +707,7 @@ async def test_astream_captures_session_id_from_thread_started():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ),
     ):
@@ -741,7 +726,7 @@ async def test_astream_resumes_session_when_session_id_provided():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ) as mock_exec,
     ):
@@ -753,7 +738,7 @@ async def test_astream_resumes_session_when_session_id_provided():
             )
         ]
 
-    args = mock_exec.call_args[0]
+    args = mock_exec.call_args[0][0]
     assert "resume" in args
     assert "abc-123" in args
     resume_idx = list(args).index("resume")
@@ -768,7 +753,7 @@ async def test_astream_saves_and_clears_process_pid():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ),
         patch("mlflow.assistant.providers.codex.save_process_pid") as mock_save,
@@ -802,7 +787,7 @@ async def test_astream_ignores_invalid_json_lines():
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
-            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            "mlflow.assistant.providers.codex.SubprocessLineStream",
             return_value=mock_proc,
         ),
     ):
@@ -893,6 +878,7 @@ async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypat
     sid = "11111111-1111-1111-1111-111111111111"
     with (
         patch("mlflow.server.sandbox.start_sandbox_process", return_value=fake) as start,
+        patch("mlflow.assistant.providers.codex.SubprocessLineStream") as host_stream,
         patch("mlflow.assistant.providers.codex.save_container_id") as save_cid,
         patch("mlflow.assistant.providers.codex.clear_container_id") as clear_cid,
     ):
@@ -901,6 +887,7 @@ async def test_astream_in_sandbox_streams_events_and_manages_container(monkeypat
         ]
 
     start.assert_called_once()
+    host_stream.assert_not_called()
     save_cid.assert_called_once_with(sid, "container-abc")
     clear_cid.assert_called_once_with(sid)
     assert fake.cleaned_up is True

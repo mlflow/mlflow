@@ -417,6 +417,33 @@ describe('getMatchesFromSpan', () => {
 
     expect(getMatchesFromSpan(spanNode, 'no-match')).toHaveLength(0);
   });
+
+  it('finds matches in span link attributes', () => {
+    const spanNode: ModelTraceSpanNode = {
+      key: 'test',
+      title: 'test',
+      attributes: {},
+      links: [
+        {
+          trace_id: 'tr-linked',
+          span_id: 'linked-span',
+          attributes: { relationship: 'triggered_by' },
+        },
+      ],
+      start: 0,
+      end: 1,
+      type: ModelSpanType.UNKNOWN,
+      assessments: [],
+      traceId: 'test',
+    };
+
+    expect(getMatchesFromSpan(spanNode, 'relationship')).toEqual([
+      expect.objectContaining({ section: 'links', key: 'link-0-relationship', isKeyMatch: true }),
+    ]);
+    expect(getMatchesFromSpan(spanNode, 'triggered')).toEqual([
+      expect.objectContaining({ section: 'links', key: 'link-0-relationship', isKeyMatch: false }),
+    ]);
+  });
 });
 
 describe('normalizeConversation', () => {
@@ -625,6 +652,15 @@ describe('isModelTraceChatTool', () => {
 });
 
 describe('normalizeNewSpanData', () => {
+  it('preserves span links', () => {
+    const links = [{ trace_id: 'tr-linked', span_id: 'linked-span', attributes: { relationship: 'follows_from' } }];
+    const span = { ...MOCK_V3_SPANS[0], links };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, 'tr-current');
+
+    expect(normalized.links).toEqual(links);
+  });
+
   it('should process messages and tools if not contained in attributes', () => {
     const modifiedChatInput = {
       ...MOCK_CHAT_TOOL_CALL_SPAN,
@@ -1463,6 +1499,29 @@ describe('convertOtelAttributesToMap', () => {
       span_id: '1',
       events: [{ attributes: { converted: 'value' } }],
     });
+  });
+
+  it('should decode span links and their attributes', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'AQIDBAUGBwgJCgsMDQ4PEA==',
+          span_id: 'AQIDBAUGBwg=',
+          attributes: [{ key: 'relationship', value: { string_value: 'follows_from' } }],
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result.links).toEqual([
+      {
+        trace_id: 'tr-0102030405060708090a0b0c0d0e0f10',
+        span_id: '0102030405060708',
+        attributes: { relationship: 'follows_from' },
+      },
+    ]);
   });
 
   // Regression: chat inputs/outputs (mlflow.spanInputs / mlflow.spanOutputs) arrive

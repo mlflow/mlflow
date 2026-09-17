@@ -16,6 +16,7 @@ import {
 } from 'lodash';
 
 import Utils from '../../../../common/utils/Utils';
+import { decodeLinkTraceId } from '../ModelTraceExplorer.utils';
 
 import type {
   SearchMatch,
@@ -34,6 +35,8 @@ import type {
   Assessment,
   RetrieverDocument,
   ModelTraceEvent,
+  ModelTraceSpanLink,
+  ModelTraceExplorerTab,
 } from './ModelTrace.types';
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
@@ -221,6 +224,39 @@ export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: stri
   return matches;
 };
 
+export const getLinkFieldKey = (index: number, field: string): string => {
+  return `link-${index}-${field}`;
+};
+
+const getMatchesFromLinks = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
+  const links = span.links;
+  if (!links) {
+    return [];
+  }
+
+  const matches: SearchMatch[] = [];
+  links.forEach((link, index) => {
+    const attributes = link.attributes;
+    if (!attributes || Object.keys(attributes).length === 0) return;
+
+    Object.entries(attributes).forEach(([attributeKey, attributeValue]) => {
+      const key = getLinkFieldKey(index, attributeKey);
+      const isKeyMatch = attributeKey.toLowerCase().includes(searchFilter);
+      if (isKeyMatch) {
+        matches.push({ span, section: 'links', key, isKeyMatch: true, matchIndex: 0 });
+      }
+
+      const value = JSON.stringify(attributeValue, null, 2).toLowerCase();
+      const numValueMatches = value.split(searchFilter).length - 1;
+      for (let i = 0; i < numValueMatches; i++) {
+        matches.push({ span, section: 'links', key, isKeyMatch: false, matchIndex: i });
+      }
+    });
+  });
+
+  return matches;
+};
+
 /**
  * This function extracts all the matches from a span based on the search filter,
  * and appends some necessary metadata that is necessary for the jump-to-search
@@ -240,11 +276,16 @@ export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: strin
     outputs: span?.outputs,
     attributes: span?.attributes,
     events: span?.events,
+    links: span?.links,
   };
 
-  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events') => {
+  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links') => {
     if (label === 'events') {
       matches.push(...getMatchesFromEvent(span, searchFilter));
+      return;
+    }
+    if (label === 'links') {
+      matches.push(...getMatchesFromLinks(span, searchFilter));
       return;
     }
 
@@ -525,6 +566,7 @@ export const normalizeNewSpanData = (
     (value) => tryDeserializeAttribute(value),
   );
   const events = span.events;
+  const links = span.links;
   const start = (Number(getModelTraceSpanStartTime(span)) - rootStartTime) / 1000;
   const end = (Number(getModelTraceSpanEndTime(span) ?? rootEndTime) - rootStartTime) / 1000;
 
@@ -546,6 +588,7 @@ export const normalizeNewSpanData = (
     outputs,
     attributes,
     events,
+    links,
     chatMessageFormat: messageFormat,
     chatMessages,
     chatTools,
@@ -1108,9 +1151,7 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
 
 export { prettyPrintChatMessage, prettyPrintToolCall };
 
-export const getDefaultActiveTab = (
-  selectedNode: ModelTraceSpanNode | undefined,
-): 'content' | 'attributes' | 'events' => {
+export const getDefaultActiveTab = (selectedNode: ModelTraceSpanNode | undefined): ModelTraceExplorerTab => {
   if (isNil(selectedNode)) {
     return 'content';
   }
@@ -1164,6 +1205,13 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
     );
   };
 
+  const convertLink = (link: ModelTraceSpanLink): ModelTraceSpanLink => ({
+    ...link,
+    trace_id: decodeLinkTraceId(link.trace_id),
+    span_id: decodeSpanId(link.span_id, true),
+    ...(link.attributes && { attributes: convertAttributes(link.attributes) }),
+  });
+
   return {
     ...modelTraceSpan,
     ...(modelTraceSpan.attributes && { attributes: convertAttributes(modelTraceSpan.attributes) }),
@@ -1173,6 +1221,7 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
         attributes: convertAttributes(event.attributes),
       })),
     }),
+    ...(modelTraceSpan.links && { links: modelTraceSpan.links.map(convertLink) }),
   };
 };
 

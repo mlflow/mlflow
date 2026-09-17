@@ -39,17 +39,14 @@ def _has_existing_mlruns_data() -> bool:
     """
     from mlflow.store.tracking.file_store import FileStore
 
-    mlruns_path = Path(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-    if not mlruns_path.exists():
-        return False
-
     try:
-        for item in mlruns_path.iterdir():
-            if item.is_dir() and item.name.isdigit():
-                for f in item.iterdir():
-                    if f.name == FileStore.META_DATA_FILE_NAME:
+        with os.scandir(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH) as entries:
+            for entry in entries:
+                if entry.is_dir() and entry.name.isdigit():
+                    metadata_path = os.path.join(entry.path, FileStore.META_DATA_FILE_NAME)
+                    if os.path.lexists(metadata_path):
                         return True
-    except (OSError, PermissionError):
+    except OSError:
         return False
 
     return False

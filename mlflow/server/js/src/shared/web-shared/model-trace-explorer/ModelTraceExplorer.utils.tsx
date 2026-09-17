@@ -687,10 +687,7 @@ export const getTraceHref = (traceId: string, traceInfo: ModelTrace['info'] | un
   }
 
   if (!experimentId) return undefined;
-  const params = new URLSearchParams({
-    selectedEvaluationId: traceId,
-    traceId,
-  });
+  const params = new URLSearchParams({ traceId });
   return `${getExperimentPageTracesTabRoute(experimentId)}?${params.toString()}`;
 };
 

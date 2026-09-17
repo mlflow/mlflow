@@ -8,10 +8,13 @@ import {
   useIsFileStore,
   useTraceArchivalEnabled,
   useMultipartDownloadsEnabled,
+  useFeatureEnabled,
   useWorkspacesEnabled,
+  getFeatureEnabledSync,
   getWorkspacesEnabledSync,
   getMultipartDownloadsEnabledSync,
   resetServerInfoCache,
+  SERVER_FEATURE_KEYS,
   ServerInfoProvider,
 } from './useServerInfo';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -256,6 +259,11 @@ const MultipartDownloadsTestComponent = () => {
   return <span data-testid="multipart-downloads-enabled">{multipartDownloadsEnabled ? 'true' : 'false'}</span>;
 };
 
+const GatewayFeatureTestComponent = ({ defaultValue = true }: { defaultValue?: boolean }) => {
+  const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY, defaultValue);
+  return <span data-testid="gateway-enabled">{gatewayEnabled ? 'true' : 'false'}</span>;
+};
+
 // Helper to create a fresh QueryClient for each test
 const createTestQueryClient = () =>
   new QueryClient({
@@ -420,5 +428,67 @@ describe('getMultipartDownloadsEnabledSync', () => {
 
       expect(getMultipartDownloadsEnabledSync()).toBe(true);
     });
+  });
+});
+
+describe('useFeatureEnabled and getFeatureEnabledSync', () => {
+  const server = setupServer();
+  let queryClient: QueryClient;
+
+  beforeEach(() => {
+    queryClient = createTestQueryClient();
+  });
+
+  afterEach(() => {
+    resetServerInfoCache();
+    queryClient.clear();
+  });
+
+  test('updates React consumers and the synchronous cache when server-info loads', async () => {
+    server.use(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(
+          ctx.json({
+            store_type: 'SqlStore',
+            workspaces_enabled: false,
+            trace_archival_enabled: false,
+            multipart_uploads_enabled: false,
+            multipart_downloads_enabled: false,
+            features_enabled: { gateway: false },
+          }),
+        );
+      }),
+    );
+
+    renderWithProviders(<GatewayFeatureTestComponent />, queryClient);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gateway-enabled').textContent).toBe('false');
+    });
+    expect(getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY)).toBe(false);
+  });
+
+  test('uses the provided default when an older server omits the feature map', async () => {
+    server.use(
+      rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
+        return res(
+          ctx.json({
+            store_type: 'SqlStore',
+            workspaces_enabled: false,
+            trace_archival_enabled: false,
+            multipart_uploads_enabled: false,
+            multipart_downloads_enabled: false,
+          }),
+        );
+      }),
+    );
+
+    renderWithProviders(<GatewayFeatureTestComponent defaultValue={false} />, queryClient);
+
+    await waitFor(() => {
+      expect(queryClient.getQueryState(['serverInfo'])?.status).toBe('success');
+    });
+    expect(screen.getByTestId('gateway-enabled').textContent).toBe('false');
+    expect(getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY, false)).toBe(false);
   });
 });

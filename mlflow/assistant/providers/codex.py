@@ -16,6 +16,7 @@ from mlflow.assistant.custom_view import (
     is_custom_view_request,
     parse_custom_view_response,
 )
+from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -238,27 +239,17 @@ class CodexProvider(AssistantProvider):
 
             cmd.append("-")
 
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            process = SubprocessLineStream(
+                cmd,
                 cwd=cwd,
-                limit=100 * 1024 * 1024,
                 env={**os.environ, "MLFLOW_TRACKING_URI": tracking_uri},
+                input_bytes=user_message.encode("utf-8"),
             )
 
             if mlflow_session_id and process.pid:
                 save_process_pid(mlflow_session_id, process.pid)
 
-            assert process.stdin is not None
-            assert process.stdout is not None
-            process.stdin.write(user_message.encode("utf-8"))
-            await process.stdin.drain()
-            process.stdin.close()
-            await process.stdin.wait_closed()
-
-            async for line in process.stdout:
+            async for line in process.lines():
                 line_str = line.decode("utf-8").strip()
                 if not line_str:
                     continue
@@ -304,13 +295,12 @@ class CodexProvider(AssistantProvider):
 
             await process.wait()
 
-            if process.returncode == -9:
+            if process.killed or process.returncode == -9:
                 yield Event.from_interrupted()
                 return
 
             if process.returncode != 0:
-                assert process.stderr is not None
-                stderr_bytes = await process.stderr.read()
+                stderr_bytes = await process.read_stderr()
                 error_msg = (
                     codex_error
                     or stderr_bytes.decode("utf-8", errors="replace").strip()

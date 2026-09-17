@@ -23,8 +23,13 @@ on:
         description: "ISO date to scan from (default: 14 days ago)"
         required: false
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 # Deny all permissions by default; each job grants only what it needs.
 permissions: {}
+cache-mode: none
 
 defaults:
   run:
@@ -47,6 +52,8 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
           permission-contents: write
           permission-pull-requests: write
 

@@ -1968,24 +1968,35 @@ class CreatePresignedUploadUrl(_message.Message):
     RUN_ID_FIELD_NUMBER: _builtins.int
     PATH_FIELD_NUMBER: _builtins.int
     EXPIRATION_FIELD_NUMBER: _builtins.int
+    MODEL_ID_FIELD_NUMBER: _builtins.int
     run_id: _builtins.str
-    """Run ID that owns the artifact. Must be provided."""
+    """ID of the run that owns the artifact. Exactly one of run_id and model_id
+    must be provided.
+    """
     path: _builtins.str
-    """Relative path within the run's artifact directory (e.g. "models/model.pkl").
-    Must be provided.
+    """Relative path within the owning resource's artifact directory
+    (e.g. "models/model.pkl"). Must be provided.
     """
     expiration: _builtins.int
     """URL expiration time in seconds (default: 900)."""
+    model_id: _builtins.str
+    """ID of the logged model that owns the artifact, for artifacts stored under a
+    logged model's artifact location (e.g. "<experiment>/models/<model_id>/artifacts")
+    rather than a run's. Exactly one of run_id and model_id must be provided.
+    Clients must populate model_id for logged-model artifacts; sending a logged
+    model ID through run_id is not supported.
+    """
     def __init__(
         self,
         *,
         run_id: _builtins.str | None = ...,
         path: _builtins.str | None = ...,
         expiration: _builtins.int | None = ...,
+        model_id: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["expiration", b"expiration", "path", b"path", "run_id", b"run_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["expiration", b"expiration", "model_id", b"model_id", "path", b"path", "run_id", b"run_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["expiration", b"expiration", "path", b"path", "run_id", b"run_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["expiration", b"expiration", "model_id", b"model_id", "path", b"path", "run_id", b"run_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -2982,18 +2993,28 @@ class BatchGetTraces(_message.Message):
         def WhichOneof(self, oneof_group: _Never) -> None: ...
 
     TRACE_IDS_FIELD_NUMBER: _builtins.int
+    EXPERIMENT_IDS_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def trace_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """ID of the traces to fetch. Must be provided."""
+
+    @_builtins.property
+    def experiment_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Optional list of experiment IDs to scope the query. When provided, only
+        traces belonging to these experiments are returned. Not supported when
+        proxying to a Databricks-hosted backend, since that API has no
+        corresponding field.
+        """
 
     def __init__(
         self,
         *,
         trace_ids: _abc.Iterable[_builtins.str] | None = ...,
+        experiment_ids: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["trace_ids", b"trace_ids"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_ids", b"experiment_ids", "trace_ids", b"trace_ids"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -3024,18 +3045,28 @@ class BatchGetTraceInfos(_message.Message):
         def WhichOneof(self, oneof_group: _Never) -> None: ...
 
     TRACE_IDS_FIELD_NUMBER: _builtins.int
+    EXPERIMENT_IDS_FIELD_NUMBER: _builtins.int
     @_builtins.property
     def trace_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """IDs of the traces to fetch. Must be provided."""
+
+    @_builtins.property
+    def experiment_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Optional list of experiment IDs to scope the query. When provided, only
+        traces belonging to these experiments are returned. Not supported when
+        proxying to a Databricks-hosted backend, since that API has no
+        corresponding field.
+        """
 
     def __init__(
         self,
         *,
         trace_ids: _abc.Iterable[_builtins.str] | None = ...,
+        experiment_ids: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["trace_ids", b"trace_ids"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_ids", b"experiment_ids", "trace_ids", b"trace_ids"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -5771,7 +5802,7 @@ Global___RegisterScorer: _TypeAlias = RegisterScorer  # noqa: Y015
 
 @_typing.final
 class ListScorers(_message.Message):
-    """List all scorers, optionally scoped to a single experiment."""
+    """List all scorers, optionally scoped to one or more experiments."""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -5796,18 +5827,30 @@ class ListScorers(_message.Message):
         def WhichOneof(self, oneof_group: _Never) -> None: ...
 
     EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
+    EXPERIMENT_IDS_FIELD_NUMBER: _builtins.int
     experiment_id: _builtins.str
-    """The experiment ID. If empty, returns scorers across all experiments
-    in the active workspace (used by the admin-UI scorer picker).
+    """A single experiment ID. Kept for backward compatibility; prefer
+    ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+    with ``experiment_ids`` -- specifying both is an error.
     """
+    @_builtins.property
+    def experiment_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Optional list of experiment IDs to scope the query. When provided, only
+        scorers from these experiments are returned. Mutually exclusive with
+        ``experiment_id`` -- specifying both is an error.
+
+        Not supported against a Databricks-hosted backend.
+        """
+
     def __init__(
         self,
         *,
         experiment_id: _builtins.str | None = ...,
+        experiment_ids: _abc.Iterable[_builtins.str] | None = ...,
     ) -> None: ...
     _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "experiment_ids", b"experiment_ids"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
