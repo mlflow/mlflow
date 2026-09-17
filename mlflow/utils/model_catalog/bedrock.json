@@ -313,7 +313,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.06,
-        "output_per_million_tokens": 0.24
+        "output_per_million_tokens": 0.24,
+        "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
         "function_calling": true,
@@ -322,7 +323,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "amazon.nova-micro-v1:0": {
       "mode": "chat",
@@ -333,7 +334,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.035,
-        "output_per_million_tokens": 0.14
+        "output_per_million_tokens": 0.14,
+        "cache_read_per_million_tokens": 0.00875
       },
       "capabilities": {
         "function_calling": true,
@@ -342,7 +344,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "amazon.nova-pro-v1:0": {
       "mode": "chat",
@@ -353,7 +355,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
-        "output_per_million_tokens": 3.2
+        "output_per_million_tokens": 3.2,
+        "cache_read_per_million_tokens": 0.2
       },
       "capabilities": {
         "function_calling": true,
@@ -362,7 +365,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "amazon.titan-embed-g1-text-02": {
       "mode": "embedding",
@@ -1876,7 +1879,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.063,
-        "output_per_million_tokens": 0.252
+        "output_per_million_tokens": 0.252,
+        "cache_read_per_million_tokens": 0.01575
       },
       "capabilities": {
         "function_calling": true,
@@ -1885,7 +1889,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "apac.amazon.nova-micro-v1:0": {
       "mode": "chat",
@@ -1896,7 +1900,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.037,
-        "output_per_million_tokens": 0.148
+        "output_per_million_tokens": 0.148,
+        "cache_read_per_million_tokens": 0.00925
       },
       "capabilities": {
         "function_calling": true,
@@ -1905,7 +1910,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "apac.amazon.nova-pro-v1:0": {
       "mode": "chat",
@@ -1916,7 +1921,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.84,
-        "output_per_million_tokens": 3.36
+        "output_per_million_tokens": 3.36,
+        "cache_read_per_million_tokens": 0.21
       },
       "capabilities": {
         "function_calling": true,
@@ -1925,7 +1931,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "apac.anthropic.claude-3-5-sonnet-20240620-v1:0": {
       "mode": "chat",
@@ -3260,7 +3266,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.078,
-        "output_per_million_tokens": 0.312
+        "output_per_million_tokens": 0.312,
+        "cache_read_per_million_tokens": 0.0195
       },
       "capabilities": {
         "function_calling": true,
@@ -3269,7 +3276,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "eu.amazon.nova-micro-v1:0": {
       "mode": "chat",
@@ -3280,7 +3287,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.046,
-        "output_per_million_tokens": 0.184
+        "output_per_million_tokens": 0.184,
+        "cache_read_per_million_tokens": 0.0115
       },
       "capabilities": {
         "function_calling": true,
@@ -3289,7 +3297,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "eu.amazon.nova-pro-v1:0": {
       "mode": "chat",
@@ -3300,7 +3308,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.05,
-        "output_per_million_tokens": 4.2
+        "output_per_million_tokens": 4.2,
+        "cache_read_per_million_tokens": 0.2625
       },
       "capabilities": {
         "function_calling": true,
@@ -3309,7 +3318,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "eu.anthropic.claude-3-5-haiku-20241022-v1:0": {
       "mode": "chat",
@@ -6780,7 +6789,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.96,
-        "output_per_million_tokens": 3.84
+        "output_per_million_tokens": 3.84,
+        "cache_read_per_million_tokens": 0.24
       },
       "capabilities": {
         "function_calling": true,
@@ -6789,7 +6799,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "us-gov-east-1/amazon.titan-embed-text-v1": {
       "mode": "embedding",
@@ -7284,7 +7294,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.072,
-        "output_per_million_tokens": 0.288
+        "output_per_million_tokens": 0.288,
+        "cache_read_per_million_tokens": 0.018
       },
       "capabilities": {
         "function_calling": true,
@@ -7293,7 +7304,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-09"
+      "last_updated_at": "2026-09-17"
     },
     "us-gov-west-1/amazon.nova-micro-v1:0": {
       "mode": "chat",
@@ -7304,7 +7315,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.042,
-        "output_per_million_tokens": 0.168
+        "output_per_million_tokens": 0.168,
+        "cache_read_per_million_tokens": 0.0105
       },
       "capabilities": {
         "function_calling": true,
@@ -7313,7 +7325,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-09"
+      "last_updated_at": "2026-09-17"
     },
     "us-gov-west-1/amazon.nova-pro-v1:0": {
       "mode": "chat",
@@ -7324,7 +7336,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.96,
-        "output_per_million_tokens": 3.84
+        "output_per_million_tokens": 3.84,
+        "cache_read_per_million_tokens": 0.24
       },
       "capabilities": {
         "function_calling": true,
@@ -7333,7 +7346,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "us-gov-west-1/amazon.titan-embed-text-v1": {
       "mode": "embedding",
@@ -8567,7 +8580,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.06,
-        "output_per_million_tokens": 0.24
+        "output_per_million_tokens": 0.24,
+        "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
         "function_calling": true,
@@ -8576,7 +8590,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "us.amazon.nova-micro-v1:0": {
       "mode": "chat",
@@ -8587,7 +8601,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.035,
-        "output_per_million_tokens": 0.14
+        "output_per_million_tokens": 0.14,
+        "cache_read_per_million_tokens": 0.00875
       },
       "capabilities": {
         "function_calling": true,
@@ -8596,7 +8611,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "us.amazon.nova-premier-v1:0": {
       "mode": "chat",
@@ -8628,7 +8643,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
-        "output_per_million_tokens": 3.2
+        "output_per_million_tokens": 3.2,
+        "cache_read_per_million_tokens": 0.2
       },
       "capabilities": {
         "function_calling": true,
@@ -8637,7 +8653,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "us.anthropic.claude-3-5-haiku-20241022-v1:0": {
       "mode": "chat",
@@ -9772,6 +9788,26 @@
         "response_schema": false
       },
       "last_updated_at": "2026-08-31"
+    },
+    "writer.palmyra-vision-7b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096,
+        "max_tokens": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-17"
     },
     "writer.palmyra-x4-v1:0": {
       "mode": "chat",

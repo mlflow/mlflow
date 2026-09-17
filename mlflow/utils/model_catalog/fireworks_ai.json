@@ -1086,9 +1086,9 @@
         "vision": true,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-09-07"
+      "last_updated_at": "2026-09-17"
     },
     "accounts/fireworks/models/deepseek-v4-pro": {
       "mode": "chat",
@@ -5685,19 +5685,23 @@
     },
     "accounts/fireworks/routers/glm-5p3-fast": {
       "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
       "pricing": {
         "input_per_million_tokens": 2.1,
         "output_per_million_tokens": 6.6,
         "cache_read_per_million_tokens": 0.39
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-09-15"
+      "last_updated_at": "2026-09-17"
     },
     "accounts/fireworks/routers/kimi-k2p6-fast": {
       "mode": "chat",
@@ -5848,9 +5852,9 @@
         "vision": true,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-09-07"
+      "last_updated_at": "2026-09-17"
     },
     "deepseek-v4-pro": {
       "mode": "chat",
@@ -6040,6 +6044,26 @@
         "response_schema": true
       },
       "last_updated_at": "2026-08-25"
+    },
+    "glm-5p3-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_tokens": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.1,
+        "output_per_million_tokens": 6.6,
+        "cache_read_per_million_tokens": 0.39
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-17"
     },
     "gpt-oss-120b": {
       "mode": "chat",

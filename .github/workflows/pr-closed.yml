@@ -1,5 +1,5 @@
-# Cancel workflow runs associated with a pull request when it is closed or merged.
-name: Cancel
+# Cancel workflow runs and delete caches associated with a pull request when it is closed or merged.
+name: PR Closed
 
 on:
   pull_request_target:
@@ -44,3 +44,21 @@ jobs:
             done <<< "$run_ids"
           fi
           wait
+
+  delete-caches:
+    needs: cancel
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      actions: write # to delete PR-scoped caches
+    steps:
+      - name: Delete closed PR caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh cache delete --all \
+            --ref "refs/pull/$PR_NUMBER/merge" \
+            --succeed-on-no-caches \
+            --repo "$REPO"
