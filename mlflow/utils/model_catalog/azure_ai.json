@@ -219,9 +219,9 @@
         "max_tokens": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 2.1,
-        "output_per_million_tokens": 6.6,
-        "cache_read_per_million_tokens": 0.21
+        "input_per_million_tokens": 2.31,
+        "output_per_million_tokens": 7.26,
+        "cache_read_per_million_tokens": 0.231
       },
       "capabilities": {
         "function_calling": true,
@@ -230,7 +230,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-09-17"
     },
     "FW-Inkling": {
       "mode": "chat",
@@ -240,9 +240,9 @@
         "max_tokens": 1048576
       },
       "pricing": {
-        "input_per_million_tokens": 1.0,
-        "output_per_million_tokens": 4.05,
-        "cache_read_per_million_tokens": 0.17
+        "input_per_million_tokens": 1.1,
+        "output_per_million_tokens": 4.46,
+        "cache_read_per_million_tokens": 0.19
       },
       "capabilities": {
         "function_calling": true,
@@ -251,7 +251,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-09-17"
     },
     "FW-Kimi-K2.5": {
       "mode": "chat",
@@ -389,9 +389,9 @@
         "max_tokens": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 0.6,
-        "output_per_million_tokens": 2.4,
-        "cache_read_per_million_tokens": 0.119
+        "input_per_million_tokens": 0.66,
+        "output_per_million_tokens": 2.64,
+        "cache_read_per_million_tokens": 0.13
       },
       "capabilities": {
         "function_calling": true,
@@ -400,7 +400,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-09-17"
     },
     "FW-Nemotron-Lightning-3.5-30B-A3B": {
       "mode": "chat",
@@ -489,8 +489,8 @@
         "max_tokens": 16384
       },
       "pricing": {
-        "input_per_million_tokens": 1.41,
-        "output_per_million_tokens": 0.35
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 1.0
       },
       "capabilities": {
         "function_calling": true,
@@ -499,7 +499,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "Llama-4-Scout-17B-16E-Instruct": {
       "mode": "chat",
@@ -931,8 +931,8 @@
         "max_tokens": 4096
       },
       "pricing": {
-        "input_per_million_tokens": 0.08,
-        "output_per_million_tokens": 0.32
+        "input_per_million_tokens": 0.075,
+        "output_per_million_tokens": 0.3
       },
       "capabilities": {
         "function_calling": true,
@@ -941,7 +941,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-17"
     },
     "Phi-4-multimodal-instruct": {
       "mode": "chat",
@@ -1851,6 +1851,43 @@
       },
       "last_updated_at": "2026-06-22"
     },
+    "gpt-5.5-2026-04-24": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1050000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 30.0,
+        "cache_read_per_million_tokens": 0.5,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 60.0,
+            "cache_read_per_million_tokens": 1.0
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_read_per_million_tokens": 1.0,
+            "input_per_million_tokens": 10.0,
+            "output_per_million_tokens": 45.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-09-17"
+    },
     "gpt-6-astra": {
       "mode": "chat",
       "context_window": {
@@ -2047,11 +2084,11 @@
         "function_calling": true,
         "vision": true,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
       },
       "deprecation_date": "2027-04-06",
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-17"
     },
     "grok-4-20-reasoning": {
       "mode": "chat",
@@ -2069,11 +2106,11 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
       },
       "deprecation_date": "2027-04-06",
-      "last_updated_at": "2026-09-10"
+      "last_updated_at": "2026-09-17"
     },
     "grok-4-fast-non-reasoning": {
       "mode": "chat",
@@ -2125,7 +2162,15 @@
       "pricing": {
         "input_per_million_tokens": 1.25,
         "output_per_million_tokens": 2.5,
-        "cache_read_per_million_tokens": 0.2
+        "cache_read_per_million_tokens": 0.2,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 0.4,
+            "input_per_million_tokens": 2.5,
+            "output_per_million_tokens": 5.0
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -2134,7 +2179,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-17"
+      "last_updated_at": "2026-09-17"
     },
     "grok-4.6": {
       "mode": "chat",
@@ -2146,7 +2191,15 @@
       "pricing": {
         "input_per_million_tokens": 2.0,
         "output_per_million_tokens": 6.0,
-        "cache_read_per_million_tokens": 0.5
+        "cache_read_per_million_tokens": 0.5,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 1.0,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 12.0
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -2155,7 +2208,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-07"
+      "last_updated_at": "2026-09-17"
     },
     "grok-code-fast-1": {
       "mode": "chat",
