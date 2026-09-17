@@ -50,7 +50,13 @@ def bundled_skill(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     (skills / "README.md").write_text("# MLflow skills\n")
 
-    monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda: manifest)
+    monkeypatch.setattr(
+        hint,
+        "_bundled_skill_manifest",
+        lambda skill=hint.TRACING_SKILL: (
+            manifest if skill == hint.TRACING_SKILL else reading_manifest
+        ),
+    )
     monkeypatch.setattr(hint.resources, "files", lambda _package: skills)
     return manifest
 
@@ -65,7 +71,7 @@ def hint_message() -> str | None:
 def trace_reading_hint_message() -> str | None:
     """Run the trace-reading hint, returning the logged message or None when it stayed silent."""
     with mock.patch.object(hint._logger, "info") as info:
-        hint.maybe_hint_trace_reading_skill()
+        hint.maybe_hint_tracing_skill(hint.TRACE_READING_SKILL)
     return info.call_args[0][0] if info.call_args else None
 
 
@@ -122,7 +128,7 @@ def test_points_at_the_bundled_skill_rather_than_the_network(
 
 def test_silent_when_the_install_ships_no_skill(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CLAUDECODE", "1")
-    monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda: None)
+    monkeypatch.setattr(hint, "_bundled_skill_manifest", lambda *args, **kwargs: None)
     # Nothing local to point at, so say nothing rather than send the agent elsewhere.
     assert hint_message() is None
 
@@ -282,15 +288,15 @@ def test_trace_reading_hint_under_agent(clean_env: Path, monkeypatch: pytest.Mon
     message = trace_reading_hint_message()
     assert message is not None
     assert hint.TRACE_READING_SKILL in message
-    assert "Read traces with the `mlflow traces` CLI" in message
+    assert "for guidance on retrieving and inspecting MLflow traces" in message
     assert len(message.splitlines()) == 1
 
 
 def test_trace_reading_hint_is_emitted_once(clean_env: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("CLAUDECODE", "1")
     with mock.patch.object(hint._logger, "info") as info:
-        hint.maybe_hint_trace_reading_skill()
-        hint.maybe_hint_trace_reading_skill()
+        hint.maybe_hint_tracing_skill(hint.TRACE_READING_SKILL)
+        hint.maybe_hint_tracing_skill(hint.TRACE_READING_SKILL)
     info.assert_called_once()
 
 
@@ -306,7 +312,7 @@ def test_trace_reading_hint_silent_without_agent(clean_env: Path):
 
 def test_trace_reading_hint_no_agent_cost(clean_env: Path):
     with mock.patch.object(hint.resources, "files") as files_mock:
-        hint.maybe_hint_trace_reading_skill()
+        hint.maybe_hint_tracing_skill(hint.TRACE_READING_SKILL)
     files_mock.assert_not_called()
 
 
@@ -318,6 +324,7 @@ def test_trace_reading_hint_silent_when_no_bundled_skill(
     empty_skills.mkdir()
     (empty_skills / "README.md").write_text("# MLflow skills\n")
     monkeypatch.setattr(hint.resources, "files", lambda _package: empty_skills)
+    monkeypatch.setattr(hint, "_bundled_skill_manifest", _REAL_BUNDLED_LOOKUP)
     assert trace_reading_hint_message() is None
 
 
@@ -328,7 +335,8 @@ def test_trace_reading_hint_is_emitted_once_across_threads(
     with mock.patch.object(hint._logger, "info") as info:
         threads = [
             threading.Thread(
-                target=hint.maybe_hint_trace_reading_skill,
+                target=hint.maybe_hint_tracing_skill,
+                args=(hint.TRACE_READING_SKILL,),
                 name=f"trace-reading-hint-test-{index}",
             )
             for index in range(5)
@@ -387,7 +395,7 @@ def test_fluent_get_and_search_share_trace_reading_hint(
 
 def test_fluent_hint_skipped_when_sdk_only(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("mlflow.tracing.fluent.IS_TRACING_SDK_ONLY", True)
-    with mock.patch("mlflow.agent.hint.maybe_hint_trace_reading_skill") as hint_mock:
+    with mock.patch("mlflow.agent.hint.maybe_hint_tracing_skill") as hint_mock:
         from mlflow.tracing.fluent import _maybe_hint_trace_reading_skill
 
         _maybe_hint_trace_reading_skill()

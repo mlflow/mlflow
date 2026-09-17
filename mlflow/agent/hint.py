@@ -84,13 +84,21 @@ _HINT = (
     "MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
 )
 _TRACE_READING_HINT = (
-    "Read traces with the `mlflow traces` CLI described in the `{skill}` skill at {path} "
-    "rather than hand-written `mlflow.search_traces()`/`mlflow.get_trace()` calls; it ships "
-    "with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
+    "Load the `{skill}` skill at {path} for guidance on retrieving and inspecting MLflow "
+    "traces; it ships with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
+)
+_DEFAULT_HINT = (
+    "Load the `{skill}` skill at {path}; it ships with this "
+    "MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
 )
 
+_SKILL_HINTS = {
+    TRACING_SKILL: _HINT,
+    TRACE_READING_SKILL: _TRACE_READING_HINT,
+}
 
-def _bundled_skill_manifest() -> Path | None:
+
+def _bundled_skill_manifest(skill: str = TRACING_SKILL) -> Path | None:
     """Path to the skill shipped with this install, or ``None`` when absent.
 
     Released packages bundle it; a source checkout without the
@@ -102,9 +110,7 @@ def _bundled_skill_manifest() -> Path | None:
 
     try:
         # Chained joinpath: importlib's MultiplexedPath takes a single segment.
-        manifest = (
-            resources.files(SKILLS_PACKAGE).joinpath(TRACING_SKILL).joinpath(SKILL_MANIFEST_FILE)
-        )
+        manifest = resources.files(SKILLS_PACKAGE).joinpath(skill).joinpath(SKILL_MANIFEST_FILE)
         return Path(str(manifest)) if manifest.is_file() else None
     except (ModuleNotFoundError, OSError):
         return None
@@ -124,27 +130,19 @@ def _is_agent_driving() -> bool:
     )
 
 
-def maybe_hint_tracing_skill() -> None:
-    """Log the tracing-skill hint when a coding agent is driving."""
-    if MLFLOW_DISABLE_AGENT_HINT.get():
-        return
-    if not _is_agent_driving():
-        return
-    if (path := _bundled_skill_manifest()) is None:
-        return
-    _logger.info(_HINT.format(skill=TRACING_SKILL, path=path))
-
-
-def maybe_hint_trace_reading_skill() -> None:
-    """Log the trace-reading skill hint when a coding agent is driving."""
+def maybe_hint_tracing_skill(skill: str = TRACING_SKILL) -> None:
+    """Log the skill hint when a coding agent is driving."""
     try:
-        if (skills_path := _claim_agent_hint(TRACE_READING_SKILL)) is None:
+        if skill in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
             return
-        from mlflow.assistant.skill_installer import SKILL_MANIFEST_FILE
-
-        manifest = skills_path / TRACE_READING_SKILL / SKILL_MANIFEST_FILE
-        if manifest.is_file():
-            _logger.info(_TRACE_READING_HINT.format(skill=TRACE_READING_SKILL, path=manifest))
+        if (path := _bundled_skill_manifest(skill)) is None:
+            return
+        with _EMITTED_HINTS_LOCK:
+            if skill in _EMITTED_HINTS:
+                return
+            _EMITTED_HINTS.add(skill)
+        hint_template = _SKILL_HINTS.get(skill, _DEFAULT_HINT)
+        _logger.info(hint_template.format(skill=skill, path=path))
     except Exception:
         # User-configurable logging handlers must not affect MLflow behavior.
         return

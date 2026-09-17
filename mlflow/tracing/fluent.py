@@ -885,9 +885,9 @@ def _maybe_hint_trace_reading_skill() -> None:
     # `mlflow.agent` does not ship in the mlflow-tracing package.
     if IS_TRACING_SDK_ONLY:
         return
-    from mlflow.agent.hint import maybe_hint_trace_reading_skill
+    from mlflow.agent.hint import TRACE_READING_SKILL, maybe_hint_tracing_skill
 
-    maybe_hint_trace_reading_skill()
+    maybe_hint_tracing_skill(TRACE_READING_SKILL)
 
 
 @deprecated_parameter("request_id", "trace_id")
