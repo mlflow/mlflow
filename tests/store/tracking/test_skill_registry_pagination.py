@@ -127,6 +127,30 @@ def test_decode_rejects_missing_fields():
         SkillRegistryPaginationToken.decode(incomplete)
 
 
+def test_decode_rejects_negative_offset():
+    payload = {
+        "filter_string": None,
+        "order_by": None,
+        "offset": -1,
+        "query_scope": "skills",
+    }
+    token = base64.b64encode(json.dumps(payload).encode()).decode()
+    with pytest.raises(MlflowException, match=r"(?i)non-negative integer"):
+        SkillRegistryPaginationToken.decode(token)
+
+
+def test_decode_rejects_non_integer_offset():
+    payload = {
+        "filter_string": None,
+        "order_by": None,
+        "offset": "abc",
+        "query_scope": "skills",
+    }
+    token = base64.b64encode(json.dumps(payload).encode()).decode()
+    with pytest.raises(MlflowException, match=r"(?i)non-negative integer"):
+        SkillRegistryPaginationToken.decode(token)
+
+
 # ---------------------------------------------------------------------------
 # validate_max_results
 # ---------------------------------------------------------------------------

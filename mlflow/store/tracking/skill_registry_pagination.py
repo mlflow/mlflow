@@ -53,7 +53,7 @@ class SkillRegistryPaginationToken:
                 "Invalid page token: could not decode."
             ) from None
         try:
-            return cls(
+            token = cls(
                 filter_string=payload["filter_string"],
                 order_by=payload["order_by"],
                 offset=payload["offset"],
@@ -63,6 +63,11 @@ class SkillRegistryPaginationToken:
             raise MlflowException.invalid_parameter_value(
                 "Invalid page token: missing or malformed fields."
             ) from None
+        if not isinstance(token.offset, int) or token.offset < 0:
+            raise MlflowException.invalid_parameter_value(
+                "Invalid page token: offset must be a non-negative integer."
+            )
+        return token
 
     def validate(
         self,
