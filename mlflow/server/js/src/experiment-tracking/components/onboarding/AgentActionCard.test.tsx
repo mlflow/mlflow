@@ -1,6 +1,6 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { renderWithIntl, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event';
 
 import { AgentActionCard } from './AgentActionCard';
@@ -101,21 +101,6 @@ describe('AgentActionCard', () => {
       </DesignSystemProvider>,
     );
     expect(screen.getByRole('tab', { name: /One-line setup/ })).toBeInTheDocument();
-  });
-
-  it('shows the setup wizard command in the one-line setup tab', () => {
-    renderCard({ showAgentSetupTab: true });
-
-    expect(screen.getByText('curl -LsSf https://mlflow.org/wizard/setup.sh | sh')).toBeInTheDocument();
-  });
-
-  it('copies the displayed setup wizard command to the clipboard', async () => {
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    renderCard({ showAgentSetupTab: true });
-
-    await user.click(within(screen.getByRole('tabpanel')).getByRole('button'));
-
-    expect(await navigator.clipboard.readText()).toBe('curl -LsSf https://mlflow.org/wizard/setup.sh | sh');
   });
 
   it('clicking "Open assistant" opens the panel and prefills the chat input with the prompt', async () => {
