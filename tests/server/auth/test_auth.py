@@ -8524,12 +8524,12 @@ def test_filter_search_mcp_servers_redacts_version_on_deny(monkeypatch):
         auth_module, "_get_mcp_server_permission", lambda *a: SimpleNamespace(can_read=True)
     )
     monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
-    monkeypatch.setattr(auth_module, "_role_based_read_predicate", lambda *a, **k: lambda _n: True)
-    monkeypatch.setattr(
-        auth_module,
-        "_get_mcp_server_version_permission",
-        lambda *a: SimpleNamespace(can_read=False),
-    )
+
+    def fake_predicate(_username, resource_type, parent_type=None):
+        # server row-read allowed; version tier denied -> version fields redacted.
+        return lambda _n: resource_type != "mcp_server_version"
+
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
     request = SimpleNamespace(
         query_params=SimpleNamespace(get=lambda k, d=None: d, getlist=lambda _k: [])
     )
@@ -8548,12 +8548,13 @@ def test_filter_search_mcp_endpoints_redacts_version_on_deny(monkeypatch):
             {"server_name": "srv", "resolved_version": {"version": 3}, "server_version": 3}
         ]
     }).encode()
-    monkeypatch.setattr(auth_module, "_role_based_read_predicate", lambda *a, **k: lambda _n: True)
-    monkeypatch.setattr(
-        auth_module,
-        "_get_mcp_server_version_permission",
-        lambda *a: SimpleNamespace(can_read=False),
-    )
+    monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+
+    def fake_predicate(_username, resource_type, parent_type=None):
+        # endpoint row-read (mcp_server) allowed; version tier denied -> fields redacted.
+        return lambda _n: resource_type != "mcp_server_version"
+
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
     request = SimpleNamespace(
         query_params=SimpleNamespace(get=lambda k, d=None: d, getlist=lambda _k: [])
     )
@@ -8659,3 +8660,27 @@ def test_invoke_validators_honor_child_deny(monkeypatch):
         auth_module, "request", SimpleNamespace(get_json=lambda silent: {"log_assessments": False})
     )
     assert auth_module.validate_can_invoke_scorer() is True
+
+
+def test_registered_model_alias_routes_gated_on_version_tier():
+    # Alias set/delete mutate version mappings -> version-tier validators, matching the
+    # version-tier read on GetModelVersionByAlias (not the parent model/prompt tier).
+    from mlflow.protos.model_registry_pb2 import (
+        DeleteRegisteredModelAlias,
+        GetModelVersionByAlias,
+        SetRegisteredModelAlias,
+    )
+
+    handlers = auth_module.BEFORE_REQUEST_HANDLERS
+    assert (
+        handlers[SetRegisteredModelAlias]
+        is auth_module._validate_can_update_model_version_or_prompt_version
+    )
+    assert (
+        handlers[DeleteRegisteredModelAlias]
+        is auth_module._validate_can_delete_model_version_or_prompt_version
+    )
+    assert (
+        handlers[GetModelVersionByAlias]
+        is auth_module._validate_can_read_model_version_or_prompt_version
+    )
