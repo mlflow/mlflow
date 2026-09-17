@@ -508,6 +508,80 @@ def test_retry_or_fail_job_returns_incremented_retry_count(monkeypatch, tmp_path
     assert store.get_job(job.job_id).retry_count == 1
 
 
+def test_transient_retry_backoff_seconds_is_exponential_and_capped(monkeypatch):
+    from mlflow.store.jobs.sqlalchemy_store import _transient_retry_backoff_seconds
+
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", "10")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", "60")
+
+    assert _transient_retry_backoff_seconds(1) == 10  # 10 * 2**0
+    assert _transient_retry_backoff_seconds(2) == 20  # 10 * 2**1
+    assert _transient_retry_backoff_seconds(3) == 40  # 10 * 2**2
+    assert _transient_retry_backoff_seconds(4) == 60  # 80 clamped to the max
+    assert _transient_retry_backoff_seconds(10) == 60  # stays clamped
+
+
+def test_retry_or_fail_job_stamps_future_next_attempt_at(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", "2")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", "30")
+    monkeypatch.setenv("MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", "60")
+    store = SqlAlchemyJobStore(f"sqlite:///{tmp_path / 'test.db'}")
+
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    before = int(time.time() * 1000)
+    store.retry_or_fail_job(job.job_id, "temp")
+
+    with store.ManagedSessionMaker() as session:
+        sql_job = session.query(SqlJob).filter(SqlJob.id == job.job_id).one()
+        # retry_count 1 -> 30s backoff, so the job is not claimable until ~30s from now.
+        assert sql_job.next_attempt_at is not None
+        assert sql_job.next_attempt_at >= before + 30_000
+
+
+def test_claim_job_defers_until_next_attempt_at(tmp_path: Path):
+    store = SqlAlchemyJobStore(f"sqlite:///{tmp_path / 'test.db'}")
+    job = store.create_job("test_job", "{}")
+
+    future = int(time.time() * 1000) + 3_600_000
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.next_attempt_at: future
+        })
+
+    # A PENDING job whose next_attempt_at is in the future is withheld from claiming.
+    assert store.claim_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.WRONG_STATE
+    assert store.get_job(job.job_id).status == JobStatus.PENDING
+
+    # Once the deadline has passed, the same job is claimable.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.next_attempt_at: int(time.time() * 1000) - 1_000
+        })
+    assert store.claim_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.APPLIED
+    assert store.get_job(job.job_id).status == JobStatus.RUNNING
+
+
+def test_reset_job_clears_next_attempt_at(tmp_path: Path):
+    store = SqlAlchemyJobStore(f"sqlite:///{tmp_path / 'test.db'}")
+    job = store.create_job("test_job", "{}")
+    store.claim_job(job.job_id, lease_duration=30.0)
+
+    # Stamp a future deadline as a transient retry would, then reset the job back to PENDING.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlJob).filter(SqlJob.id == job.job_id).update({
+            SqlJob.next_attempt_at: int(time.time() * 1000) + 3_600_000
+        })
+    store.reset_job(job.job_id)
+
+    with store.ManagedSessionMaker() as session:
+        sql_job = session.query(SqlJob).filter(SqlJob.id == job.job_id).one()
+        assert sql_job.next_attempt_at is None
+    # A reset job carries no deadline, so it is immediately claimable.
+    assert store.claim_job(job.job_id, lease_duration=30.0) == JobUpdateStatus.APPLIED
+
+
 def test_claim_job_and_renew_lease(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)

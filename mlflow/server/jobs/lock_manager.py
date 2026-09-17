@@ -324,7 +324,12 @@ class JobLockManager:
         The statement joins ``job_locks`` to ``jobs`` and updates the lock row only if the lock
         matches ``lock_key`` AND one of these conditions is true:
 
-        - The job status is terminal or pending (not RUNNING or NEEDS_RECOVERY).
+        - The job status is PENDING, SUCCEEDED, FAILED, or TIMEOUT. CANCELED is intentionally
+          excluded: a job canceled through the store flips to CANCELED immediately, but its worker
+          is still forwarding the cancellation to the executor and only releases the lock in its
+          ``finally`` block, so treating CANCELED as stale here would let a second same-key job
+          start while the canceled job's backend work is still stopping. RUNNING and NEEDS_RECOVERY
+          are also excluded.
         - The job has a timeout and the lock age exceeds 115% of that timeout.
 
         If neither condition is true, the statement updates zero rows.
@@ -358,7 +363,6 @@ class JobLockManager:
             JobStatus.SUCCEEDED.to_int(),
             JobStatus.FAILED.to_int(),
             JobStatus.TIMEOUT.to_int(),
-            JobStatus.CANCELED.to_int(),
         ]
         job_has_timed_out_or_status_is_eligible = or_(
             job_has_timed_out, SqlJob.status.in_(eligible_status)
@@ -452,14 +456,29 @@ class JobLockManager:
                     acquired_at=new_lock.acquired_at,
                 )
 
-            # If the provided job_id matches an existing valid lock, a simple refusal could
-            # cause the caller to mark a running job terminal. This scenario is unlikely as
-            # the job claim logic should prevent multi replica ownership. More likely is the
-            # single owner of the job may attempt to acquire the lock twice for the same job_id
-            # before it is expired or in an eligible state. This is unlikely but the check is cheap.
+            # The same job reacquiring its own still-valid lock: refresh it and return it rather
+            # than refuse. This is the recovery path -- a NEEDS_RECOVERY job keeps its lock (so no
+            # same-key job runs beside possibly-live backend work), is reset to PENDING, and
+            # re-claimed; that re-claimed run must resume ownership of its own lock instead of
+            # being refused and spinning until the lock goes stale. Job claiming is atomic, so a
+            # same-job_id reacquire only happens once the prior holder is gone. Re-stamp
+            # acquired_at to now so the recovered run gets a full staleness window matching its
+            # fresh execution timeout; keeping the pre-crash acquired_at would let the lock cross
+            # the stale threshold mid-run and be stolen by another same-key job.
             if existing_lock.job_id == job_id:
-                raise MlflowException.invalid_parameter_value(
-                    "A valid lock already exists for this job_id"
+                session.execute(
+                    update(SqlJobLock)
+                    .where(SqlJobLock.lock_key == lock_key)
+                    .values(acquired_at=get_current_time_millis_expression(self.db_type))
+                )
+                refreshed_lock = (
+                    session.query(SqlJobLock).filter(SqlJobLock.lock_key == lock_key).one()
+                )
+                _check_time_drift_and_log(app_now_millis, refreshed_lock.acquired_at)
+                return JobLock(
+                    lock_key=refreshed_lock.lock_key,
+                    job_id=refreshed_lock.job_id,
+                    acquired_at=refreshed_lock.acquired_at,
                 )
 
             _logger.debug("Job lock acquisition denied. A valid lock exists.")
@@ -469,9 +488,11 @@ class JobLockManager:
         """
         Creates an exclusive job lock from ``lock_key`` and ``job_id``.
 
-        Returns ``JobLock`` if no lock exists or the existing lock is stale.
+        Returns ``JobLock`` if no lock exists, the existing lock is stale, or the same ``job_id``
+        is reacquiring its own still-valid lock (the recovery path, where a job resumes ownership
+        of the lock it kept while unfinished).
 
-        Returns ``None`` if a valid lock already exists.
+        Returns ``None`` if a valid lock is held by a different job.
 
         NOTE:
             This method cleans up stale locks only when a new acquisition
@@ -485,10 +506,10 @@ class JobLockManager:
                 to an existing ``SqlJob``
 
         Returns:
-            JobLock if lock acquired, None if held by another live job.
+            JobLock if lock acquired (including a same-job_id reacquire), None if held by another
+            live job.
 
         Raises:
-            MlflowException: A valid lock already exists for the job_id.
             MlflowException: Calling job has null timeout.
         """
 

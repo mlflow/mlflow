@@ -101,6 +101,7 @@ CREATE TABLE jobs (
 	progress_updated_at BIGINT,
 	token_hash VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	scoped_permissions NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	next_attempt_at BIGINT,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
