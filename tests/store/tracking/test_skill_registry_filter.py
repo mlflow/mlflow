@@ -366,6 +366,17 @@ def test_order_by_none_uses_defaults():
     assert len(clauses) == 1
 
 
+def test_order_by_deduplicates_tiebreaker_with_mismatched_key_name():
+    column_map = {"creation_timestamp": SqlSkill.created_at}
+    clauses = parse_skill_registry_order_by(
+        ["creation_timestamp ASC"],
+        valid_keys={"creation_timestamp"},
+        column_map=column_map,
+        default_tiebreakers=[SqlSkill.created_at.asc()],
+    )
+    assert len(clauses) == 1
+
+
 # ---------------------------------------------------------------------------
 # Pagination
 # ---------------------------------------------------------------------------

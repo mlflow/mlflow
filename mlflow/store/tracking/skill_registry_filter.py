@@ -207,13 +207,10 @@ def parse_skill_registry_order_by(
 ) -> list[ClauseElement]:
     """Parse an ``order_by`` list into SQLAlchemy clauses.
 
-    ``default_tiebreakers`` are appended when their keys have not been
-    explicitly requested, ensuring deterministic pagination order.
-
-    The keys in ``valid_keys`` and ``column_map`` must use the same names
-    as the underlying ORM column attributes (e.g. ``created_at``, not
-    ``creation_timestamp``) so that tiebreaker deduplication can compare
-    them against the column key introspected from each clause.
+    ``default_tiebreakers`` are appended when their underlying column has
+    not been explicitly requested, ensuring deterministic pagination order.
+    Deduplication compares by column identity, so it works for both simple
+    columns and computed expressions.
     """
     clauses: list[ClauseElement] = []
     observed: set[str] = set()
@@ -234,9 +231,19 @@ def parse_skill_registry_order_by(
             col = column_map[key]
             clauses.append(col.asc() if is_ascending else col.desc())
 
+    # Build a reverse lookup from column key to API key so tiebreaker
+    # deduplication works regardless of naming mismatches.
+    col_key_to_api_key = {}
+    for api_key, col in column_map.items():
+        attr_key = col.key if hasattr(col, "key") else None
+        if attr_key is not None:
+            col_key_to_api_key[attr_key] = api_key
+
     for clause in default_tiebreakers:
-        col_key = clause.element.key if hasattr(clause, "element") else None
-        if col_key not in observed:
+        elem = clause.element if hasattr(clause, "element") else clause
+        col_key = elem.key if hasattr(elem, "key") else None
+        api_key = col_key_to_api_key.get(col_key)
+        if api_key not in observed and col_key not in observed:
             clauses.append(clause)
 
     return clauses
