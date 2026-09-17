@@ -358,6 +358,7 @@ def test_is_unprotected_route_handles_static_prefix(monkeypatch):
 def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
     monkeypatch.delenv(STATIC_PREFIX_ENV_VAR, raising=False)
     assert _find_fastapi_validator("/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/gateway/mlflow/v1/models", "GET") is not None
     assert _find_fastapi_validator("/v1/traces", "GET") is not None
     assert _find_fastapi_validator("/ajax-api/3.0/jobs/search", "GET") is not None
     assert _find_fastapi_validator("/ajax-api/3.0/mlflow/assistant/config", "GET") is not None
@@ -365,6 +366,7 @@ def test_find_fastapi_validator_handles_static_prefix(monkeypatch):
 
     monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/mlflow")
     assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/chat/completions", "GET") is not None
+    assert _find_fastapi_validator("/mlflow/gateway/mlflow/v1/models", "GET") is not None
     assert _find_fastapi_validator("/mlflow/v1/traces", "GET") is not None
     assert _find_fastapi_validator("/mlflow/ajax-api/3.0/jobs/search", "GET") is not None
     assert (
@@ -3529,6 +3531,113 @@ def test_gateway_unauthenticated_access_denied(client, monkeypatch):
         url=client.tracking_uri + "/ajax-api/3.0/mlflow/gateway/supported-providers",
     )
     assert response.status_code == 401
+
+
+def _create_gateway_endpoint(tracking_uri, name, auth, workspace=None):
+    headers = {"X-MLFLOW-WORKSPACE": workspace} if workspace else {}
+    response = requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": f"{name}-key",
+            "secret_value": {"api_key": "test-key"},
+            "provider": "openai",
+        },
+        auth=auth,
+        headers=headers,
+    )
+    response.raise_for_status()
+    secret_id = response.json()["secret"]["secret_id"]
+
+    response = requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+        json={
+            "name": f"{name}-model",
+            "secret_id": secret_id,
+            "provider": "openai",
+            "model_name": "gpt-4o",
+        },
+        auth=auth,
+        headers=headers,
+    )
+    response.raise_for_status()
+    model_id = response.json()["model_definition"]["model_definition_id"]
+
+    response = requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+        json={
+            "name": name,
+            "model_configs": [{"model_definition_id": model_id, "linkage_type": "PRIMARY"}],
+            "usage_tracking": False,
+        },
+        auth=auth,
+        headers=headers,
+    )
+    response.raise_for_status()
+    return response.json()["endpoint"]
+
+
+def test_list_models_filters_by_use_permission(fastapi_client):
+    tracking_uri = fastapi_client.tracking_uri
+    owner_auth = create_user(tracking_uri)
+    username, password = create_user(tracking_uri)
+    read_only = _create_gateway_endpoint(tracking_uri, "read-only", owner_auth)
+    usable = _create_gateway_endpoint(tracking_uri, "usable", owner_auth)
+    url = tracking_uri + "/gateway/mlflow/v1/models"
+
+    assert requests.get(url).status_code == 401
+
+    response = requests.get(url, auth=(username, password))
+    assert response.status_code == 200
+    assert response.json()["data"] == []
+
+    grant_role_permission(
+        tracking_uri, username, "gateway_endpoint", read_only["endpoint_id"], "READ"
+    )
+    grant_role_permission(tracking_uri, username, "gateway_endpoint", usable["endpoint_id"], "USE")
+
+    response = requests.get(url, auth=(username, password))
+    assert response.status_code == 200
+    assert [model["id"] for model in response.json()["data"]] == ["usable"]
+
+    # The admin owns neither endpoint and has no endpoint role grants.
+    response = requests.get(url, auth=(ADMIN_USERNAME, ADMIN_PASSWORD))
+    assert response.status_code == 200
+    assert [model["id"] for model in response.json()["data"]] == ["read-only", "usable"]
+
+
+def test_list_models_isolates_workspaces(fastapi_workspace_client):
+    tracking_uri = fastapi_workspace_client.tracking_uri
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    username, password = create_user(tracking_uri)
+    requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/workspaces",
+        json={"name": "other-team"},
+        auth=admin_auth,
+    ).raise_for_status()
+    _create_gateway_endpoint(tracking_uri, "shared", admin_auth, DEFAULT_WORKSPACE_NAME)
+    other_endpoint = _create_gateway_endpoint(tracking_uri, "shared", admin_auth, "other-team")
+    grant_role_permission(
+        tracking_uri,
+        username,
+        "gateway_endpoint",
+        other_endpoint["endpoint_id"],
+        "USE",
+        workspace="other-team",
+    )
+    url = tracking_uri + "/gateway/mlflow/v1/models"
+
+    response = requests.get(
+        url,
+        auth=(username, password),
+        headers={"X-MLFLOW-WORKSPACE": DEFAULT_WORKSPACE_NAME},
+    )
+    assert response.status_code == 200
+    assert response.json()["data"] == []
+
+    for credentials in ((username, password), admin_auth):
+        response = requests.get(url, auth=credentials, headers={"X-MLFLOW-WORKSPACE": "other-team"})
+        assert response.status_code == 200
+        assert [model["id"] for model in response.json()["data"]] == ["shared"]
 
 
 def test_gateway_endpoint_use_permission(fastapi_client, monkeypatch):

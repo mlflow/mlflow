@@ -15,6 +15,7 @@ import mlflow
 from mlflow.entities import (
     FallbackConfig,
     FallbackStrategy,
+    GatewayEndpoint,
     GatewayEndpointModelConfig,
     GatewayModelLinkageType,
     RoutingStrategy,
@@ -1635,6 +1636,39 @@ async def test_chat_completions_endpoint_missing_model_parameter(store: SqlAlche
         await chat_completions(mock_request)
 
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("endpoint_names", "expected_ids"),
+    [([], []), (["beta", "alpha", None], ["alpha", "beta"])],
+)
+def test_list_models_endpoint(store: SqlAlchemyStore, endpoint_names, expected_ids):
+    endpoints = [
+        GatewayEndpoint(
+            endpoint_id=f"endpoint-{index}",
+            name=name,
+            created_at=1234567890123,
+            last_updated_at=1234567890123,
+        )
+        for index, name in enumerate(endpoint_names)
+    ]
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch.object(store, "list_gateway_endpoints", return_value=endpoints),
+    ):
+        response = TestClient(app).get("/gateway/mlflow/v1/models")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "object": "list",
+        "data": [
+            {"id": name, "object": "model", "created": 1234567890, "owned_by": "mlflow"}
+            for name in expected_ids
+        ],
+    }
 
 
 @pytest.mark.asyncio
