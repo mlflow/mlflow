@@ -68,7 +68,7 @@ dependencies = [
   "sqlparse<1,>=0.4.0",
   "starlette<2",
   "typing-extensions<5,>=4.0.0",
-  "uuid-utils<1,>=0.17.0",
+  "uuid-utils<2,>=0.17.0",
   "uvicorn<1",
   "waitress<4; platform_system == 'Windows'",
 ]

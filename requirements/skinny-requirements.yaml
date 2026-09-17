@@ -103,7 +103,7 @@ pydantic:
 uuid-utils:
   pip_release: uuid-utils
   minimum: "0.17.0"
-  max_major_version: 0
+  max_major_version: 1
 
 typing-extensions:
   pip_release: typing-extensions
