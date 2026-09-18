@@ -88,6 +88,7 @@ class CatalogPricingTier(TypedDict, total=False):
     output_per_million_tokens: float
     cache_read_per_million_tokens: float
     cache_write_per_million_tokens: float
+    cache_write_1hr_per_million_tokens: float
 
 
 class CatalogLongContextTier(CatalogPricingTier, total=False):
@@ -124,6 +125,7 @@ class ModelInfo(TypedDict, total=False):
     output_cost_per_token: float
     cache_read_input_token_cost: float
     cache_creation_input_token_cost: float
+    cache_creation_input_token_cost_above_1hr: float
     modality: dict[str, CatalogPricingModality]
     deprecation_date: str
     last_updated_at: str
@@ -204,6 +206,8 @@ def _flatten_catalog_entry(entry: CatalogModelEntry) -> ModelInfo:
             info["cache_read_input_token_cost"] = v / 1_000_000
         if (v := pricing.get("cache_write_per_million_tokens")) is not None:
             info["cache_creation_input_token_cost"] = v / 1_000_000
+        if (v := pricing.get("cache_write_1hr_per_million_tokens")) is not None:
+            info["cache_creation_input_token_cost_above_1hr"] = v / 1_000_000
         if modality := pricing.get("modality"):
             info["modality"] = modality
 

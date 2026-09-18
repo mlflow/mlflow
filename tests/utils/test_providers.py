@@ -429,6 +429,7 @@ def test_flatten_catalog_entry():
             "output_per_million_tokens": 10.0,
             "cache_read_per_million_tokens": 1.25,
             "cache_write_per_million_tokens": 5.0,
+            "cache_write_1hr_per_million_tokens": 8.0,
         },
         "capabilities": {
             "function_calling": True,
@@ -447,6 +448,7 @@ def test_flatten_catalog_entry():
     assert info["output_cost_per_token"] == pytest.approx(1e-5)
     assert info["cache_read_input_token_cost"] == pytest.approx(1.25e-6)
     assert info["cache_creation_input_token_cost"] == pytest.approx(5e-6)
+    assert info["cache_creation_input_token_cost_above_1hr"] == pytest.approx(8e-6)
     assert info["supports_function_calling"] is True
     assert info["supports_vision"] is True
     assert info["supports_reasoning"] is False
