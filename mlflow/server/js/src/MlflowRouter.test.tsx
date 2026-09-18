@@ -3,12 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { MlflowRouter, WorkspaceRouterSync } from './MlflowRouter';
-import {
-  createHashRouter,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from './common/utils/RoutingUtils';
+import { createHashRouter, useLocation, useNavigate, useSearchParams } from './common/utils/RoutingUtils';
 import {
   SERVER_FEATURE_KEYS,
   useFeatureEnabled,
