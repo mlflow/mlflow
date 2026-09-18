@@ -26,11 +26,16 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_JOB_HUEY_REDIS_URL,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY,
+    MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
     MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR, MLFLOW_SERVER_UP_TIME
-from mlflow.tracing.trace_archival_service import run_trace_archival_scheduler
+from mlflow.tracing.trace_archival_service import (
+    _get_trace_archival_scheduler_settings,
+    _run_trace_archival_scheduler,
+    _should_run_trace_archival_scheduler,
+)
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd
@@ -804,14 +809,45 @@ def _build_job_name_to_fn_fullname_map():
 register_post_import_hook(lambda m: _build_job_name_to_fn_fullname_map(), __name__)
 
 
-def register_periodic_tasks(huey_instance) -> None:
+def initialize_periodic_tasks_tracking_store():
+    """Build the periodic worker's primary tracking store from explicit server configuration."""
+    backend_store_uri = os.environ.get("MLFLOW_BACKEND_STORE_URI")
+    if not backend_store_uri:
+        raise MlflowException.invalid_parameter_value(
+            "Periodic server tasks require MLFLOW_BACKEND_STORE_URI to be set."
+        )
+
+    from mlflow.tracking._tracking_service.utils import _get_store
+
+    tracking_store = _get_store(
+        store_uri=backend_store_uri,
+        artifact_uri=os.environ.get("MLFLOW_DEFAULT_ARTIFACT_ROOT"),
+    )
+    if MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get() and getattr(tracking_store, "engine", None) is None:
+        raise MlflowException.invalid_parameter_value(
+            "SQL trace rollups require MLFLOW_BACKEND_STORE_URI to identify a SQL tracking store."
+        )
+    return tracking_store
+
+
+def register_periodic_tasks(huey_instance, tracking_store=None) -> None:
     """
     Register all periodic tasks with the given huey instance.
 
     Args:
         huey_instance: The huey instance to register tasks with.
+        tracking_store: Optional pre-initialized store, primarily for tests. Production workers
+            initialize it lazily on the first store-dependent task poll.
     """
     from huey import crontab
+
+    cached_tracking_store = tracking_store
+
+    def get_tracking_store():
+        nonlocal cached_tracking_store
+        if cached_tracking_store is None:
+            cached_tracking_store = initialize_periodic_tasks_tracking_store()
+        return cached_tracking_store
 
     @huey_instance.periodic_task(crontab(minute="*/1"))
     # Prevent concurrent execution if scheduler takes longer than 1 minute.
@@ -833,11 +869,58 @@ def register_periodic_tasks(huey_instance) -> None:
     def trace_archival_scheduler():
         """Runs every minute and delegates scheduling cadence to the archival service."""
         try:
-            run_trace_archival_scheduler()
+            settings = _get_trace_archival_scheduler_settings()
+            if settings is None or not _should_run_trace_archival_scheduler(
+                settings.interval_seconds
+            ):
+                return
+            _run_trace_archival_scheduler(get_tracking_store(), settings=settings)
         except Exception as e:
             _logger.exception(f"Trace archival scheduler failed: {e!r}")
 
     _logger.info(
         "Registered trace_archival_scheduler periodic task (polls every 1 minute and "
         "no-ops when trace archival is disabled or unconfigured)"
+    )
+
+    from mlflow.tracing.trace_rollup_service import (
+        run_sql_trace_rollup_scheduler,
+        validate_and_resolve_sql_trace_rollup_schedule,
+    )
+
+    # The schedule is irrelevant while SQL rollups are disabled. In particular, do not reject
+    # server startup for an unused schedule value.
+    if not MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.get():
+        _logger.info("SQL trace rollup scheduler was not registered because rollups are disabled")
+        return
+
+    # An invalid schedule for an enabled feature is a startup configuration error. Let the
+    # validation exception propagate instead of silently disabling maintenance.
+    rollup_schedule = validate_and_resolve_sql_trace_rollup_schedule()
+    rollup_crontab = crontab(
+        minute=rollup_schedule.minute,
+        hour=rollup_schedule.hour,
+        day=rollup_schedule.day,
+        month=rollup_schedule.month,
+        day_of_week=rollup_schedule.day_of_week,
+        strict=True,
+    )
+
+    @huey_instance.periodic_task(rollup_crontab)
+    @huey_instance.lock_task("sql-trace-rollup-scheduler-lock")
+    def sql_trace_rollup_scheduler():
+        """Run SQL trace rollup maintenance on the configured UTC cron schedule."""
+        try:
+            run_sql_trace_rollup_scheduler(get_tracking_store())
+        except Exception as e:
+            _logger.exception(f"SQL trace rollup scheduler failed: {e!r}")
+
+    _logger.info(
+        "Registered sql_trace_rollup_scheduler periodic task (UTC cron: %s %s %s %s %s; "
+        "no-ops unless SQL rollups and job execution are enabled)",
+        rollup_schedule.minute,
+        rollup_schedule.hour,
+        rollup_schedule.day,
+        rollup_schedule.month,
+        rollup_schedule.day_of_week,
     )

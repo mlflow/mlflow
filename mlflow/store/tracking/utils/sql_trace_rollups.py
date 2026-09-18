@@ -27,6 +27,7 @@ can be reused.
 """
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -43,6 +44,7 @@ from sqlalchemy import (
     or_,
     select,
 )
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from mlflow.entities.trace_metrics import (
@@ -73,11 +75,16 @@ from mlflow.tracing.constant import (
     TraceMetricDimensionKey,
     TraceMetricKey,
 )
+from mlflow.utils.time import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
 
 MS_PER_DAY = 86_400_000
 DAILY_INTERVAL_SECONDS = 86_400
+
+# Source mutations only need to invalidate a partition once it is old enough for maintenance to
+# have published it. Newer partitions are discovered from raw data after this eligibility lag.
+ROLLUP_ELIGIBILITY_LAG_MS = MS_PER_DAY
 
 # Keep every date ``IN`` predicate comfortably below MSSQL's 2,100-parameter statement limit and
 # bound planner memory for caller-controlled timestamp ranges. A larger request remains valid; it
@@ -752,9 +759,9 @@ def _valid_sql_grouped_day_starts(
     return sorted(ms for rollup_day, ms in date_to_ms.items() if rollup_day not in invalid_dates)
 
 
-def _rollup_day_bucket_expression(db_type: str):
+def _rollup_day_bucket_expression(db_type: str, rollup_day: Any | None = None):
     """Convert a SQL DATE rollup key to its UTC-midnight epoch-millisecond bucket."""
-    rollup_day = SqlSpanCostDailyRollup.rollup_day
+    rollup_day = rollup_day if rollup_day is not None else SqlSpanCostDailyRollup.rollup_day
     epoch_day = literal(date(1970, 1, 1))
     match db_type:
         case db_types.POSTGRES:
@@ -1099,3 +1106,102 @@ def order_and_limit_data_points(
     rollups-disabled response.
     """
     return sorted(data_points, key=_data_point_ordering)[:max_results]
+
+
+def _lock_rebuild_entry_query(session: Session, query):
+    if session.get_bind().dialect.name == db_types.MSSQL:
+        # SQL Server ignores SELECT FOR UPDATE. UPDLOCK serializes readers that intend to mutate
+        # the row, while HOLDLOCK provides serializable key-range locking when the row does not
+        # exist yet. Writers and rebuilders therefore synchronize on the same key.
+        return query.with_hint(
+            SqlTraceRollupRebuild,
+            "WITH (UPDLOCK, HOLDLOCK)",
+            dialect_name=db_types.MSSQL,
+        )
+    return query.with_for_update()
+
+
+def ensure_locked_rebuild_entry(
+    session: Session, family: RollupFamily, experiment_id: int, rollup_day: date
+) -> SqlTraceRollupRebuild:
+    """Insert (if absent) and lock a partition rebuild entry in the current transaction."""
+    query = session.query(SqlTraceRollupRebuild).filter(
+        SqlTraceRollupRebuild.experiment_id == experiment_id,
+        SqlTraceRollupRebuild.rollup_day == rollup_day,
+        SqlTraceRollupRebuild.rollup_family == family.value,
+    )
+
+    if session.get_bind().dialect.name == db_types.SQLITE:
+        # SQLite ignores SELECT FOR UPDATE. Even a no-op UPDATE starts a write transaction and
+        # holds the database writer lock through commit, which serializes the publisher and source
+        # writer whether this key already exists or is about to be inserted. This also works when
+        # earlier reads have already started a deferred transaction, unlike BEGIN IMMEDIATE.
+        updated = query.update(
+            {SqlTraceRollupRebuild.rollup_family: SqlTraceRollupRebuild.rollup_family},
+            synchronize_session=False,
+        )
+        if updated:
+            return query.one()
+
+    if entry := _lock_rebuild_entry_query(session, query).one_or_none():
+        return entry
+
+    savepoint = session.begin_nested()
+    try:
+        entry = SqlTraceRollupRebuild(
+            experiment_id=experiment_id,
+            rollup_day=rollup_day,
+            rollup_family=family.value,
+        )
+        session.add(entry)
+        session.flush()
+    except IntegrityError:
+        savepoint.rollback()
+        return _lock_rebuild_entry_query(session, query).one()
+    else:
+        savepoint.commit()
+        return entry
+
+
+def enqueue_rollup_rebuilds(
+    session: Session,
+    family: RollupFamily,
+    experiment_id: int | None,
+    timestamp_ms_values: Iterable[int | None],
+) -> None:
+    """Invalidate rollup partitions affected by a source mutation.
+
+    Disabled deployments never pay the database cost of queue maintenance. When enabled, only
+    timestamps old enough to have been materialized need invalidation; newer partitions will be
+    discovered from raw data by maintenance once they become eligible.
+    """
+    enqueue_rollup_rebuild_partitions(
+        session,
+        [(family, experiment_id, timestamp_ms_values)],
+    )
+
+
+def enqueue_rollup_rebuild_partitions(
+    session: Session,
+    partitions: Iterable[tuple[RollupFamily, int | None, Iterable[int | None]]],
+) -> None:
+    """Lock all affected rebuild keys in one deterministic global order.
+
+    Writers call this before locking or mutating source rows. The publisher locks the same queue
+    key before reading source rows, so queue-first ordering both prevents lost invalidations and
+    avoids a queue-row/source-row deadlock cycle.
+    """
+    if not rollups_enabled():
+        return
+    cutoff_ms = get_current_time_millis() - ROLLUP_ELIGIBILITY_LAG_MS
+    keys = {
+        (int(experiment_id), _day_start_ms_to_date(timestamp_ms), family)
+        for family, experiment_id, timestamp_ms_values in partitions
+        if experiment_id is not None and family in SERVABLE_FAMILIES
+        for timestamp_ms in timestamp_ms_values
+        if timestamp_ms is not None and timestamp_ms <= cutoff_ms
+    }
+    for experiment_id, rollup_day, family in sorted(
+        keys, key=lambda key: (key[0], key[1], key[2].value)
+    ):
+        ensure_locked_rebuild_entry(session, family, experiment_id, rollup_day)
