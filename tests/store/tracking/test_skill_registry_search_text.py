@@ -3,11 +3,9 @@
 
 from __future__ import annotations
 
-from unittest.mock import Mock
-
 import pytest
 
-from mlflow.store.tracking.dbmodels.models import SqlAgentPluginVersion
+from mlflow.store.tracking.dbmodels.models import SqlAgentPluginVersion, SqlSkill
 from mlflow.store.tracking.skill_registry_search_text import (
     build_agent_plugin_version_search_text,
     build_skill_search_text,
@@ -131,10 +129,25 @@ def test_agent_plugin_search_text_normalizes_whitespace():
 # ---------------------------------------------------------------------------
 
 
+# Real (transient) ORM rows rather than mocks: the model rejects attribute
+# names it does not define, so these check the wrappers against the model's
+# actual columns rather than names the test assumes.
+
+
+def _plugin_version_row(plugin_json, organization="acme"):
+    return SqlAgentPluginVersion(
+        workspace="default",
+        organization=organization,
+        name="my-plugin",
+        version="1.0.0",
+        plugin_json=plugin_json,
+    )
+
+
 def test_recompute_skill_search_text():
-    row = Mock()
-    row.name = "code-review"
-    row.description = "Reviews PRs"
+    row = SqlSkill(
+        workspace="default", organization="acme", name="code-review", description="Reviews PRs"
+    )
     assert recompute_skill_search_text(row) == "code-review Reviews PRs"
     assert recompute_skill_search_text(row, keywords=["security"]) == (
         "code-review Reviews PRs security"
@@ -142,57 +155,29 @@ def test_recompute_skill_search_text():
 
 
 def test_recompute_agent_plugin_version_search_text():
-    row = Mock()
-    row.name = "my-plugin"
-    row.organization = "acme"
-    row.plugin_json = {
+    row = _plugin_version_row({
         "description": "Plugin description",
         "keywords": ["deploy", "ci"],
         "author": {"name": "Jane"},
-    }
-    result = recompute_agent_plugin_version_search_text(
-        row,
-        parent_description="Parent desc",
-    )
+    })
+    result = recompute_agent_plugin_version_search_text(row, parent_description="Parent desc")
     assert result == "my-plugin Parent desc acme Plugin description deploy ci Jane"
-
-
-def test_recompute_agent_plugin_version_search_text_no_author():
-    row = Mock()
-    row.name = "my-plugin"
-    row.organization = ""
-    row.plugin_json = {"description": "desc"}
-    result = recompute_agent_plugin_version_search_text(row)
-    assert result == "my-plugin desc"
 
 
 @pytest.mark.parametrize(
     ("plugin_json", "expected"),
     [
+        ({"description": "desc"}, "my-plugin desc"),
+        (None, "my-plugin"),
         # A string is not a keyword list; iterating it would add each character.
-        ({"keywords": "deploy"}, "p acme"),
-        ({"keywords": ["deploy", 7]}, "p acme deploy 7"),
-        ({"author": "Jane"}, "p acme"),
-        (["not", "a", "dict"], "p acme"),
+        ({"keywords": "deploy"}, "my-plugin"),
+        ({"keywords": ["deploy", 7]}, "my-plugin deploy 7"),
+        ({"author": "Jane"}, "my-plugin"),
+        (["not", "a", "dict"], "my-plugin"),
     ],
 )
-def test_recompute_agent_plugin_version_search_text_ignores_malformed_manifest(
+def test_recompute_agent_plugin_version_search_text_handles_partial_or_malformed_manifest(
     plugin_json, expected
 ):
-    row = SqlAgentPluginVersion(
-        workspace="default",
-        organization="acme",
-        name="p",
-        version="1.0.0",
-        plugin_json=plugin_json,
-    )
+    row = _plugin_version_row(plugin_json, organization="")
     assert recompute_agent_plugin_version_search_text(row) == expected
-
-
-def test_recompute_agent_plugin_version_search_text_none_plugin_json():
-    row = Mock()
-    row.name = "my-plugin"
-    row.organization = ""
-    row.plugin_json = None
-    result = recompute_agent_plugin_version_search_text(row)
-    assert result == "my-plugin"
