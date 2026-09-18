@@ -273,6 +273,7 @@ _MOCK_PROVIDER_DATA = {
             "output_cost_per_token": 2e-6,
             "cache_read_input_token_cost": 5e-7,
             "cache_creation_input_token_cost": 3e-6,
+            "cache_creation_input_token_cost_above_1hr": 4.8e-6,
         },
     },
     "openai": {
@@ -359,6 +360,63 @@ def test_cost_per_token_cache_creation_tokens(mock_model_cost):
     # cache_creation: 300 * 3e-6 = 0.0009
     assert input_cost == pytest.approx(0.0016)
     assert output_cost == pytest.approx(0.001)
+
+
+def test_cost_per_token_cache_creation_5m_ttl_uses_default_rate(mock_model_cost):
+    input_cost, _ = cost_per_token(
+        model="test-model",
+        prompt_tokens=1000,
+        cache_creation_input_tokens=300,
+        cache_creation_ttl="5m",
+    )
+    # regular: 700 * 1e-6 = 0.0007; cache_creation: 300 * 3e-6 = 0.0009
+    assert input_cost == pytest.approx(0.0016)
+
+
+def test_cost_per_token_cache_creation_1h_ttl_uses_1hr_rate(mock_model_cost):
+    input_cost, _ = cost_per_token(
+        model="test-model",
+        prompt_tokens=1000,
+        cache_creation_input_tokens=300,
+        cache_creation_ttl="1h",
+    )
+    # regular: 700 * 1e-6 = 0.0007; cache_creation: 300 * 4.8e-6 = 0.00144
+    assert input_cost == pytest.approx(0.00214)
+
+
+def test_cost_per_token_1h_ttl_falls_back_to_default_cache_rate():
+    no_1hr_data = {
+        "no_1hr_provider": {
+            "test-model": {
+                "input_cost_per_token": 1e-6,
+                "output_cost_per_token": 2e-6,
+                "cache_creation_input_token_cost": 3e-6,
+            }
+        }
+    }
+    with (
+        mock.patch(
+            "mlflow.utils.providers._load_provider",
+            side_effect=lambda p: no_1hr_data.get(p, {}),
+        ),
+        mock.patch(
+            "mlflow.utils.providers._load_bundled_provider",
+            side_effect=lambda p: no_1hr_data.get(p, {}),
+        ),
+        mock.patch(
+            "mlflow.utils.providers._list_provider_names",
+            return_value=list(no_1hr_data.keys()),
+        ),
+    ):
+        input_cost, _ = cost_per_token(
+            model="test-model",
+            prompt_tokens=1000,
+            cache_creation_input_tokens=300,
+            cache_creation_ttl="1h",
+        )
+        # No 1hr rate published, falls back to the 5-minute cache-creation rate
+        # regular: 700 * 1e-6 = 0.0007; cache_creation: 300 * 3e-6 = 0.0009
+        assert input_cost == pytest.approx(0.0016)
 
 
 def test_cost_per_token_zero_tokens(mock_model_cost):
