@@ -26,7 +26,7 @@ _CHILD_RESOURCE_TYPES = (
     "scorer_version",
     "mcp_server_version",
 )
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore, _RoleGrant
 
 from tests.helper_functions import random_str
 
@@ -569,9 +569,9 @@ def test_list_role_grants_for_user_in_workspace(store, user):
     # Should include specific experiment grant, wildcard experiment grant,
     # and the workspace-wide grant. Should NOT include the registered_model grant.
     assert sorted(grants) == sorted([
-        ("experiment", "42", "EDIT"),
-        ("experiment", "*", "READ"),
-        ("workspace", "*", "USE"),
+        _RoleGrant("experiment", "42", "EDIT"),
+        _RoleGrant("experiment", "*", "READ"),
+        _RoleGrant("workspace", "*", "USE"),
     ])
 
 
@@ -587,9 +587,9 @@ def test_list_role_grants_for_user_in_workspace_includes_parent_type(store, user
         user.id, "ws1", "run", parent_type="experiment"
     )
     assert sorted(grants) == sorted([
-        ("run", "*", "EDIT"),
-        ("experiment", "*", "READ"),
-        ("workspace", "*", "MANAGE"),
+        _RoleGrant("run", "*", "EDIT"),
+        _RoleGrant("experiment", "*", "READ"),
+        _RoleGrant("workspace", "*", "MANAGE"),
     ])
 
 
@@ -606,9 +606,9 @@ def test_list_role_grants_for_child_type(store, user, child_type):
 
     grants = store.list_role_grants_for_user_in_workspace(user.id, "ws1", child_type)
 
-    assert (child_type, "*", "EDIT") in grants
-    assert ("workspace", "*", "USE") in grants
-    assert (unrelated, "*", "READ") not in grants
+    assert _RoleGrant(child_type, "*", "EDIT") in grants
+    assert _RoleGrant("workspace", "*", "USE") in grants
+    assert _RoleGrant(unrelated, "*", "READ") not in grants
 
 
 def test_list_role_grants_for_user_in_workspace_cross_workspace(store, user):

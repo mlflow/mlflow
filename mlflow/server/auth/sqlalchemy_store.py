@@ -100,6 +100,19 @@ _RETAINED_LEGACY_PERMISSION_TABLES: tuple[str, ...] = (
 )
 
 
+@dataclass(frozen=True, order=True)
+class _RoleGrant:
+    """One role-based grant row: the resource type it applies to, its pattern, and the
+    permission level. Named fields (over a positional 3-tuple) let callers branch on
+    ``resource_type`` / ``resource_pattern`` / ``permission`` by name and keep per-field
+    type checking. ``order=True`` keeps the list sortable for stable comparisons.
+    """
+
+    resource_type: str
+    resource_pattern: str
+    permission: str
+
+
 @dataclass
 class _ResourceTypeGrants:
     """Accumulates one resource type's grants for a user during the resolution fold.
@@ -2293,7 +2306,7 @@ class SqlAlchemyStore:
         workspace: str,
         resource_type: str,
         parent_type: str | None = None,
-    ) -> list[tuple[str, str, str]]:
+    ) -> list["_RoleGrant"]:
         """
         Return the user's **role-based** permission grants in ``workspace`` that apply
         to ``resource_type`` (and, when ``parent_type`` is given, its parent type too),
@@ -2310,7 +2323,7 @@ class SqlAlchemyStore:
         ``resource_type`` on each row lets the caller distinguish the workspace-admin
         grant from a same-shaped resource grant.
 
-        Returns a list of ``(resource_type, resource_pattern, permission)`` tuples.
+        Returns a list of ``_RoleGrant(resource_type, resource_pattern, permission)``.
         """
         _validate_resource_type(resource_type)
         types = {resource_type, RESOURCE_TYPE_WORKSPACE}
@@ -2340,7 +2353,7 @@ class SqlAlchemyStore:
                 )
                 .all()
             )
-            return [(rtype, pattern, permission) for rtype, pattern, permission in rows]
+            return [_RoleGrant(rtype, pattern, permission) for rtype, pattern, permission in rows]
 
     def list_workspace_admin_workspaces(self, user_id: int) -> set[str]:
         """

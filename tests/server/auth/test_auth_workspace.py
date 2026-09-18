@@ -23,7 +23,7 @@ from mlflow.server.auth.routes import (
     SEARCH_DATASETS,
     UPLOAD_ARTIFACT,
 )
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore, _RoleGrant
 from mlflow.utils import workspace_context
 
 from tests.helper_functions import random_str
@@ -3640,9 +3640,9 @@ def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
 
         def list_role_grants_for_user_in_workspace(self, *args, **kwargs):
             return [
-                ("experiment", "*", NO_PERMISSIONS.name),
-                ("experiment", "exp-allowed", READ.name),
-                ("experiment", "exp-explicit-deny", NO_PERMISSIONS.name),
+                _RoleGrant("experiment", "*", NO_PERMISSIONS.name),
+                _RoleGrant("experiment", "exp-allowed", READ.name),
+                _RoleGrant("experiment", "exp-explicit-deny", NO_PERMISSIONS.name),
             ]
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
