@@ -2346,19 +2346,19 @@ def _role_based_read_predicate(
     child = _ReadGrants(resource_type)
     parent = _ReadGrants(parent_type) if parent_type is not None else None
     workspace_admin = False
-    for rtype, resource_pattern, permission in store.list_role_grants_for_user_in_workspace(
+    for grant in store.list_role_grants_for_user_in_workspace(
         user.id, workspace_name, resource_type, parent_type
     ):
         if (
-            rtype == RESOURCE_TYPE_WORKSPACE
-            and resource_pattern == "*"
-            and permission == MANAGE.name
+            grant.resource_type == RESOURCE_TYPE_WORKSPACE
+            and grant.resource_pattern == "*"
+            and grant.permission == MANAGE.name
         ):
             workspace_admin = True
-        elif rtype == resource_type:
-            child.add(resource_pattern, permission)
-        elif parent is not None and rtype == parent_type:
-            parent.add(resource_pattern, permission)
+        elif grant.resource_type == resource_type:
+            child.add(grant.resource_pattern, grant.permission)
+        elif parent is not None and grant.resource_type == parent_type:
+            parent.add(grant.resource_pattern, grant.permission)
 
     default_read_fallback = get_permission(auth_config.default_permission).can_read and (
         not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(workspace_name)
