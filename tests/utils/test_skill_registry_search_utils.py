@@ -75,6 +75,39 @@ def test_skill_filter_rejects_unsupported_field():
         SearchSkillUtils.parse_search_filter("nonexistent = 'val'")
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "match"),
+    [
+        # Range operators are not part of the tag or string-attribute vocabulary.
+        ("tags.team > 'a'", r"Invalid comparator '>' for tag 'team'"),
+        ("tags.team <= 'a'", r"Invalid comparator '<=' for tag 'team'"),
+        ("name > 'a'", r"Invalid comparator '>' for attribute 'name'"),
+        ("status >= 'active'", r"Invalid comparator '>=' for attribute 'status'"),
+        # IS NULL is excluded from the registry tag vocabulary.
+        ("tags.team IS NULL", r"Invalid comparator 'IS NULL' for tag 'team'"),
+        # Run-search entity types are not part of the registry grammar.
+        ("params.foo = 'x'", r"Invalid filter type 'parameter'"),
+        ("metrics.m > 1", r"Invalid filter type 'metric'"),
+    ],
+)
+def test_skill_filter_rejects_unsupported_operator(filter_string, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        SearchSkillUtils.parse_search_filter(filter_string)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("name like '%review%'", "LIKE"),
+        ("name Ilike '%review%'", "ILIKE"),
+        ("tags.team like 'plat%'", "LIKE"),
+    ],
+)
+def test_skill_filter_normalizes_comparator_case(filter_string, expected):
+    assert SearchSkillUtils.parse_search_filter(filter_string)[0]["comparator"] == expected
+
+
 # ---------------------------------------------------------------------------
 # SearchSkillVersionUtils — valid filters
 # ---------------------------------------------------------------------------

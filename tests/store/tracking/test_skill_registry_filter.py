@@ -762,19 +762,29 @@ def test_member_name_excludes_version_with_deleted_sibling(store):
 # ---------------------------------------------------------------------------
 
 
-def test_unsupported_tag_comparator_rejected(store):
-    _seed_skills(store)
-    with session_scope(store, commit=False) as session:
-        query = session.query(SqlSkill)
-        parsed = SearchSkillUtils.parse_search_filter("tags.team > 'a'")
-        with pytest.raises(MlflowException, match=r"(?i)invalid comparator"):
-            apply_skill_registry_filters(
-                query,
-                parsed,
-                _skill_column_map(),
-                SqlSkill,
-                SqlSkillTag,
-                tag_join_keys=["workspace", "organization", "name"],
-                dialect=store.engine.dialect.name,
-                valid_tag_comparators={"=", "!=", "LIKE", "ILIKE"},
-            )
+def test_unsupported_tag_comparator_rejected():
+    with Session() as session, pytest.raises(MlflowException, match=r"(?i)invalid comparator"):
+        apply_skill_registry_filters(
+            session.query(SqlSkill),
+            SearchSkillUtils.parse_search_filter("tags.team > 'a'"),
+            {},
+            SqlSkill,
+            SqlSkillTag,
+            ["workspace", "organization", "name"],
+            "sqlite",
+        )
+
+
+def test_unsupported_tag_comparator_rejected_for_hand_built_filters():
+    # Filter dicts built without the parser are still checked before reaching SQL.
+    hand_built = [{"type": "tag", "key": "team", "comparator": ">", "value": "a"}]
+    with Session() as session, pytest.raises(MlflowException, match=r"(?i)invalid comparator"):
+        apply_skill_registry_filters(
+            session.query(SqlSkill),
+            hand_built,
+            {},
+            SqlSkill,
+            SqlSkillTag,
+            ["workspace", "organization", "name"],
+            "sqlite",
+        )

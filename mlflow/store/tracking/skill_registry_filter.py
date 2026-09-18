@@ -17,12 +17,18 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.skill_registry_pagination import (
     SkillRegistryPaginationToken,
 )
-from mlflow.utils.search_utils import _SQLPARSE_KEYWORD_BARE_RE, SearchUtils
+from mlflow.utils.search_utils import (
+    _SKILL_REGISTRY_TAG_COMPARATORS,
+    _SQLPARSE_KEYWORD_BARE_RE,
+    SearchUtils,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Query
     from sqlalchemy.sql.elements import ClauseElement, ColumnElement
 
+# Parsing already validates operators per field type; these checks guard
+# callers that build filter dicts by hand.
 _VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN"}
 
 
@@ -64,7 +70,6 @@ def apply_skill_registry_filters(
     tag_model_class: type,
     tag_join_keys: list[str],
     dialect: str,
-    valid_tag_comparators: set[str] | None = None,
 ) -> Query:
     """Apply parsed filter dicts as SQLAlchemy WHERE clauses.
 
@@ -101,8 +106,7 @@ def apply_skill_registry_filters(
             col = column_map[key]
             attribute_filters.append(_get_comparison_func(comparator, dialect, col)(col, value))
         elif type_ == "tag":
-            allowed = valid_tag_comparators or _VALID_FILTER_COMPARATORS
-            if comparator not in allowed:
+            if comparator not in _SKILL_REGISTRY_TAG_COMPARATORS:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator '{comparator}' for tag '{key}'."
                 )

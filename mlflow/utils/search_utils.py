@@ -2920,7 +2920,38 @@ class _SkillRegistrySearchBase(SearchUtils):
     def parse_search_filter(cls, filter_string):
         if filter_string:
             filter_string = _quote_keyword_fields(filter_string)
-        return super().parse_search_filter(filter_string)
+        parsed = super().parse_search_filter(filter_string)
+        for comparison in parsed:
+            cls._validate_registry_comparison(comparison)
+        return parsed
+
+    @classmethod
+    def _validate_registry_comparison(cls, comparison):
+        # The inherited parser does not check operators, so an unsupported one
+        # (e.g. ``tags.team > 'a'``) would otherwise reach SQL. Validate against
+        # the vocabulary this search surface declares and normalize case.
+        type_ = comparison["type"]
+        key = comparison["key"]
+        if type_ == cls._TAG_IDENTIFIER:
+            allowed = cls.VALID_TAG_COMPARATORS
+        elif type_ == cls._ATTRIBUTE_IDENTIFIER:
+            allowed = (
+                cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS
+                if key in cls.NUMERIC_ATTRIBUTES
+                else cls.VALID_STRING_ATTRIBUTE_COMPARATORS
+            )
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid filter type '{type_}' for '{key}'. "
+                "Only attributes and tags.<key> are supported."
+            )
+        comparator = comparison["comparator"].upper()
+        if comparator not in allowed:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid comparator '{comparison['comparator']}' for {type_} '{key}'. "
+                f"Supported comparators: {sorted(allowed)}"
+            )
+        comparison["comparator"] = comparator
 
 
 class SearchSkillUtils(_SkillRegistrySearchBase):
