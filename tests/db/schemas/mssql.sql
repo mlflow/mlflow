@@ -276,7 +276,7 @@ CREATE TABLE mcp_access_endpoints (
 	id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	server_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	server_version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	server_version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CS_AS",
 	server_alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	url VARCHAR(2048) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	transport_type VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('streamable-http') NOT NULL,
@@ -293,7 +293,7 @@ CREATE TABLE mcp_server_aliases (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
 	CONSTRAINT mcp_server_aliases_pk PRIMARY KEY (workspace, name, alias),
 	CONSTRAINT mcp_server_aliases_server_fkey FOREIGN KEY(workspace, name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
@@ -312,7 +312,7 @@ CREATE TABLE mcp_server_tags (
 CREATE TABLE mcp_server_versions (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
 	version_major INTEGER NOT NULL,
 	version_minor INTEGER NOT NULL,
 	version_patch INTEGER NOT NULL,
@@ -589,7 +589,7 @@ CREATE TABLE logged_model_tags (
 CREATE TABLE mcp_server_version_tags (
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version VARCHAR(128) COLLATE "SQL_Latin1_General_CP1_CS_AS" NOT NULL,
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT mcp_server_version_tags_pk PRIMARY KEY (workspace, name, version, key),
