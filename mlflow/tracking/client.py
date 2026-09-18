@@ -920,8 +920,8 @@ class MlflowClient:
         self,
         filter_string: str | None = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
-        order_by: list[str] | None = None,
         page_token: str | None = None,
+        order_by: list[str] | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the MLflow Prompt Registry.
@@ -938,12 +938,12 @@ class MlflowClient:
             max_results (int):
                 The maximum number of prompts to return in one page.  Defaults
                 to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
-            order_by (Optional[list[str]]):
-                List of column names with ASC|DESC annotation to order the results by.
-                Not honored by Unity Catalog registries. Defaults to `None`.
             page_token (Optional[str]):
                 A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
+            order_by (Optional[list[str]]):
+                List of column names with ASC|DESC annotation to order the results by.
+                Not honored by Unity Catalog registries. Defaults to `None`.
 
         Returns:
             A pageable list of :py:class:`Prompt <mlflow.entities.Prompt>` objects
@@ -969,6 +969,9 @@ class MlflowClient:
 
                 # Get prompts by experiment
                 prompts = client.search_prompts(filter_string='experiment_id = "1"')
+
+                # Get prompts ordered by name
+                prompts = client.search_prompts(order_by=["name ASC"])
 
                 # Get specific version content
                 for prompt in prompts:

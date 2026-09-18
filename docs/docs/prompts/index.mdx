@@ -226,6 +226,9 @@ import mlflow
 prompts = mlflow.genai.search_prompts(filter_string="task='summarization'")
 print(f"Found {len(prompts)} prompts")
 
+# Order results by name
+prompts = mlflow.genai.search_prompts(order_by=["name ASC"])
+
 # For pagination control, use the client API:
 from mlflow.tracking import MlflowClient
 
