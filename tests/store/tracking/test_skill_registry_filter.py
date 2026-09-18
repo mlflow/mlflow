@@ -469,6 +469,23 @@ def test_order_by_none_uses_defaults():
     assert len(clauses) == 1
 
 
+def test_order_by_deduplicates_computed_expression_tiebreaker():
+    # Each call builds a new expression object, so deduplication must compare
+    # structure rather than identity or column keys.
+    clauses = parse_skill_registry_order_by(
+        ["status DESC"],
+        valid_keys={"status"},
+        column_map={"status": SqlSkill.resolved_status_expression()},
+        default_tiebreakers=[
+            SqlSkill.resolved_status_expression().asc(),
+            SqlSkill.name.asc(),
+        ],
+    )
+    assert len(clauses) == 2
+    assert clauses[0].compare(SqlSkill.resolved_status_expression().desc())
+    assert clauses[1].compare(SqlSkill.name.asc())
+
+
 def test_order_by_deduplicates_tiebreaker_with_mismatched_key_name():
     column_map = {"creation_timestamp": SqlSkill.created_at}
     clauses = parse_skill_registry_order_by(

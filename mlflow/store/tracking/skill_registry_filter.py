@@ -237,13 +237,14 @@ def parse_skill_registry_order_by(
 ) -> list[ClauseElement]:
     """Parse an ``order_by`` list into SQLAlchemy clauses.
 
-    ``default_tiebreakers`` are appended when their underlying column has
-    not been explicitly requested, ensuring deterministic pagination order.
-    Deduplication compares by column identity, so it works for both simple
-    columns and computed expressions.
+    ``default_tiebreakers`` are appended when their expression has not been
+    explicitly requested, ensuring deterministic pagination order.
+    Deduplication compares expressions structurally, so it covers plain
+    columns, columns mapped under a different key, and computed expressions.
     """
     clauses: list[ClauseElement] = []
     observed: set[str] = set()
+    ordered_expressions: list[ClauseElement] = []
 
     if order_by_list:
         for order_by_clause in order_by_list:
@@ -261,24 +262,20 @@ def parse_skill_registry_order_by(
                 raise MlflowException.invalid_parameter_value(f"Duplicate order_by field: '{key}'")
             observed.add(key)
             col = column_map[key]
+            ordered_expressions.append(_as_expression(col))
             clauses.append(col.asc() if is_ascending else col.desc())
 
-    # Build a reverse lookup from column key to API key so tiebreaker
-    # deduplication works regardless of naming mismatches.
-    col_key_to_api_key = {}
-    for api_key, col in column_map.items():
-        attr_key = col.key if hasattr(col, "key") else None
-        if attr_key is not None:
-            col_key_to_api_key[attr_key] = api_key
-
     for clause in default_tiebreakers:
-        elem = clause.element if hasattr(clause, "element") else clause
-        col_key = elem.key if hasattr(elem, "key") else None
-        api_key = col_key_to_api_key.get(col_key)
-        if api_key not in observed and col_key not in observed:
+        tiebreaker = _as_expression(getattr(clause, "element", clause))
+        if not any(tiebreaker.compare(expr) for expr in ordered_expressions):
             clauses.append(clause)
 
     return clauses
+
+
+def _as_expression(value):
+    # Mapped attributes (e.g. SqlSkill.name) are not ClauseElements themselves.
+    return value.__clause_element__() if hasattr(value, "__clause_element__") else value
 
 
 # ---------------------------------------------------------------------------
