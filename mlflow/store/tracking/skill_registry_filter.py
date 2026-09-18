@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 # Parsing already validates operators per field type; these checks guard
 # callers that build filter dicts by hand.
-_VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN"}
+_VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN", "NOT IN"}
 
 
 def _get_comparison_func(comparator: str, dialect: str, col):

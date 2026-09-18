@@ -108,6 +108,25 @@ def test_skill_filter_normalizes_comparator_case(filter_string, expected):
     assert SearchSkillUtils.parse_search_filter(filter_string)[0]["comparator"] == expected
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "comparator", "values"),
+    [
+        ("status IN ('active', 'draft')", "IN", ("active", "draft")),
+        ("status NOT IN ('deleted')", "NOT IN", ("deleted",)),
+    ],
+)
+def test_skill_filter_parses_status_list(filter_string, comparator, values):
+    parsed = SearchSkillVersionUtils.parse_search_filter(filter_string)
+    assert parsed[0]["comparator"] == comparator
+    assert parsed[0]["value"] == values
+
+
+def test_skill_filter_rejects_list_on_non_status_field():
+    with pytest.raises(MlflowException, match=r"Only 'status' supports IN") as exc:
+        SearchSkillUtils.parse_search_filter("organization IN ('acme', 'beta')")
+    assert "run_id" not in exc.value.message
+
+
 # ---------------------------------------------------------------------------
 # SearchSkillVersionUtils — valid filters
 # ---------------------------------------------------------------------------

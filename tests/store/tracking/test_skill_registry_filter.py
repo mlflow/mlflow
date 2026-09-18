@@ -20,6 +20,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkill,
     SqlSkillTag,
     SqlSkillVersion,
+    SqlSkillVersionTag,
 )
 from mlflow.store.tracking.skill_registry_filter import (
     apply_member_name_filter,
@@ -31,7 +32,7 @@ from mlflow.store.tracking.skill_registry_pagination import (
     SkillRegistryPaginationToken,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils.search_utils import SearchSkillUtils
+from mlflow.utils.search_utils import SearchSkillUtils, SearchSkillVersionUtils
 
 
 @pytest.fixture
@@ -258,6 +259,41 @@ def test_empty_filter_returns_all(store):
         )
         results = query.all()
         assert len(results) == 3
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_versions"),
+    [
+        ("status IN ('active', 'deprecated')", {1, 3}),
+        ("status NOT IN ('deleted', 'draft')", {1, 3}),
+        ("status IN ('draft')", {2}),
+    ],
+)
+def test_filter_by_status_list(store, filter_string, expected_versions):
+    with session_scope(store) as session:
+        _add_skill(session, name="code-review", organization="acme")
+        for version, status in [(1, "active"), (2, "draft"), (3, "deprecated"), (4, "deleted")]:
+            session.add(
+                SqlSkillVersion(
+                    workspace="default",
+                    organization="acme",
+                    name="code-review",
+                    version=version,
+                    status=status,
+                )
+            )
+
+    with session_scope(store, commit=False) as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkillVersion),
+            SearchSkillVersionUtils.parse_search_filter(filter_string),
+            {"status": SqlSkillVersion.status},
+            SqlSkillVersion,
+            SqlSkillVersionTag,
+            tag_join_keys=["workspace", "organization", "name", "version"],
+            dialect=store.engine.dialect.name,
+        )
+        assert {sv.version for sv in query.all()} == expected_versions
 
 
 # ---------------------------------------------------------------------------

@@ -2926,6 +2926,15 @@ class _SkillRegistrySearchBase(SearchUtils):
         return parsed
 
     @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        # The inherited check only allows run_id, whose error message would
+        # confuse skill registry callers.
+        if key != "status":
+            raise MlflowException.invalid_parameter_value(
+                f"Only 'status' supports IN and NOT IN comparisons, got '{key}'."
+            )
+
+    @classmethod
     def _validate_registry_comparison(cls, comparison):
         # The inherited parser does not check operators, so an unsupported one
         # (e.g. ``tags.team > 'a'``) would otherwise reach SQL. Validate against
