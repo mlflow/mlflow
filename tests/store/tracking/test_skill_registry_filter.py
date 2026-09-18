@@ -53,9 +53,11 @@ def session_scope(store, *, commit=True):
             session.commit()
 
 
-def _add_skill(session, *, name, organization="", description=None, search_text=None):
+def _add_skill(
+    session, *, name, organization="", description=None, search_text=None, workspace="default"
+):
     skill = SqlSkill(
-        workspace="default",
+        workspace=workspace,
         organization=organization,
         name=name,
         description=description,
@@ -65,9 +67,9 @@ def _add_skill(session, *, name, organization="", description=None, search_text=
     return skill
 
 
-def _add_skill_tag(session, *, name, organization="", key, value):
+def _add_skill_tag(session, *, name, organization="", key, value, workspace="default"):
     tag = SqlSkillTag(
-        workspace="default",
+        workspace=workspace,
         organization=organization,
         name=name,
         key=key,
@@ -949,6 +951,52 @@ def test_member_name_matches_older_eligible_version_when_newer_is_withdrawn(stor
         _add_plugin_version_with_members(session, "2.0.0", ["code-review", "unsafe-helper"])
 
     assert _member_matches(store, "code-review") == [("default", "my-plugin")]
+
+
+# ---------------------------------------------------------------------------
+# Workspace isolation
+# ---------------------------------------------------------------------------
+
+
+def test_member_name_isolated_by_workspace(store):
+    # Both workspaces hold the same skill and plugin identity; only team-a's
+    # plugin lists the member, so team-b's plugin must not match.
+    with session_scope(store) as session:
+        for workspace in ("team-a", "team-b"):
+            _seed_member_skills(session, {"code-review": "active"}, workspace=workspace)
+        _add_plugin_version_with_members(session, "1.0.0", ["code-review"], workspace="team-a")
+        _add_plugin_version_with_members(session, "1.0.0", [], workspace="team-b")
+
+    assert _member_matches(store, "code-review") == [("team-a", "my-plugin")]
+
+
+def test_tag_filter_isolated_by_workspace(store):
+    # The same skill identity exists in both workspaces; only team-b's is tagged.
+    with session_scope(store) as session:
+        for workspace in ("team-a", "team-b"):
+            _add_skill(session, name="code-review", organization="acme", workspace=workspace)
+        _add_skill_tag(
+            session,
+            name="code-review",
+            organization="acme",
+            key="team",
+            value="platform",
+            workspace="team-b",
+        )
+
+    with session_scope(store, commit=False) as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkill),
+            SearchSkillUtils.parse_search_filter("tags.team = 'platform'"),
+            _skill_column_map(),
+            SqlSkill,
+            SqlSkillTag,
+            tag_join_keys=["workspace", "organization", "name"],
+            dialect=store.engine.dialect.name,
+        )
+        assert [(skill.workspace, skill.name) for skill in query.all()] == [
+            ("team-b", "code-review")
+        ]
 
 
 # ---------------------------------------------------------------------------
