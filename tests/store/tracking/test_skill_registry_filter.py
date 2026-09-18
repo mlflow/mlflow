@@ -706,53 +706,68 @@ def test_member_name_filter(store):
 
 
 # ---------------------------------------------------------------------------
-# End-to-end DB pagination: no duplicates, no omissions
+# End-to-end pagination through the helpers: no duplicates, no omissions
 # ---------------------------------------------------------------------------
 
 
-def test_pagination_no_duplicates_or_omissions(store):
-    with session_scope(store) as session:
-        for i in range(5):
-            _add_skill(session, name=f"skill-{i:02d}", organization="acme")
-
-    all_names: list[str] = []
+def _page_through_skills(store, filter_string, order_by, default_tiebreakers, page_size):
+    """Collect every page the way a store search method would, using only the helpers."""
+    names: list[str] = []
     offset = 0
-    page_size = 2
-    query_scope = "skills"
-
     with session_scope(store, commit=False) as session:
-        # Page through all results
-        for _ in range(10):  # safety bound
-            query = (
-                session
-                .query(SqlSkill)
-                .filter(SqlSkill.organization == "acme")
-                .order_by(SqlSkill.name.asc())
-                .offset(offset)
-                .limit(page_size + 1)
+        while True:
+            query = apply_skill_registry_filters(
+                session.query(SqlSkill),
+                SearchSkillUtils.parse_search_filter(filter_string),
+                _skill_column_map(),
+                SqlSkill,
+                SqlSkillTag,
+                tag_join_keys=["workspace", "organization", "name"],
+                dialect=store.engine.dialect.name,
             )
-            rows = query.all()
+            clauses = parse_skill_registry_order_by(
+                order_by,
+                valid_keys={"description", "name"},
+                column_map={"description": SqlSkill.description, "name": SqlSkill.name},
+                default_tiebreakers=default_tiebreakers,
+            )
+            rows = query.order_by(*clauses).offset(offset).limit(page_size + 1).all()
             page = paginate_results(
-                [r.name for r in rows],
+                [row.name for row in rows],
                 max_results=page_size,
                 offset=offset,
-                filter_string="organization = 'acme'",
-                order_by=["name ASC"],
-                query_scope=query_scope,
+                filter_string=filter_string,
+                order_by=order_by,
+                query_scope="skills",
             )
-            all_names.extend(page)
+            names.extend(page)
             if page.token is None:
-                break
-            decoded = SkillRegistryPaginationToken.decode(page.token)
-            decoded.validate(
-                filter_string="organization = 'acme'",
-                order_by=["name ASC"],
-                query_scope=query_scope,
-            )
-            offset = decoded.offset
+                return names
+            token = SkillRegistryPaginationToken.decode(page.token)
+            token.validate(filter_string=filter_string, order_by=order_by, query_scope="skills")
+            offset = token.offset
 
-    assert all_names == [f"skill-{i:02d}" for i in range(5)]
-    assert len(all_names) == len(set(all_names))
+
+def test_pagination_through_helpers_returns_every_row_once(store):
+    # Every acme skill ties on description, so only the tiebreaker orders them.
+    # Names are inserted ascending and the tiebreaker sorts descending, so the
+    # expected order cannot come from insertion or primary-key order.
+    acme_names = [f"skill-{i}" for i in range(7)]
+    with session_scope(store) as session:
+        for name in acme_names:
+            _add_skill(session, name=name, organization="acme", description="shared")
+        for name in ["skill-8", "skill-9"]:
+            _add_skill(session, name=name, organization="beta", description="shared")
+
+    names = _page_through_skills(
+        store,
+        filter_string="organization = 'acme'",
+        order_by=["description ASC"],
+        default_tiebreakers=[SqlSkill.name.desc()],
+        page_size=3,
+    )
+
+    assert names == sorted(acme_names, reverse=True)
 
 
 # ---------------------------------------------------------------------------
