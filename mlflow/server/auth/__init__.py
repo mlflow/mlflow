@@ -929,10 +929,12 @@ _ARTIFACT_PROXY_LAYOUT_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?\d+/([^/]+)
 _ARTIFACT_PROXY_CHILD_FOLDERS = {"traces": "trace", "models": "logged_model"}
 
 
-def _artifact_proxy_child_from_path(artifact_path: str) -> tuple[str, str] | None:
+def _artifact_proxy_child_from_path(artifact_path: str | None) -> tuple[str, str] | None:
     """Return ``(child_type, child_key)`` for a proxied artifact path, or ``None`` for an
-    experiment-level path that should resolve on the experiment tier.
+    experiment-level path (or absent path) that should resolve on the experiment tier.
     """
+    if not artifact_path:
+        return None
     m = _ARTIFACT_PROXY_LAYOUT_PATTERN.match(artifact_path)
     if not m:
         return None
@@ -4730,8 +4732,11 @@ def _redact_registered_model_response(resp: Response, response_cls) -> None:
     """
     if sender_is_admin():
         return
+    body = resp.json
+    if not body:
+        return
     response_message = response_cls.Response()
-    parse_dict(resp.json, response_message)
+    parse_dict(body, response_message)
     can_read_version = _rm_or_prompt_version_read_predicate(authenticate_request().username)
     _redact_latest_versions(response_message.registered_model, can_read_version)
     resp.data = message_to_json(response_message)

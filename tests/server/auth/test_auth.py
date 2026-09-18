@@ -6749,6 +6749,11 @@ def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch
         "_get_mcp_server_permission",
         lambda name, username: READ,
     )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda name, username: READ,
+    )
     request = SimpleNamespace()
     body = json.dumps({"name": "com.test/server"}).encode()
     result = json.loads(handler("testuser", body, request))
