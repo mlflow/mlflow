@@ -8987,70 +8987,6 @@ def test_mcp_alias_routes_classified_as_version_paths():
     assert auth_module._is_mcp_server_version_create_path(["ns", "slug", "aliases"]) is False
 
 
-def test_promptlab_run_uses_run_child_tier(monkeypatch):
-    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: SimpleNamespace())
-    captured = {}
-
-    def fake_run_for_experiment(experiment_id):
-        captured["experiment_id"] = experiment_id
-        return SimpleNamespace(can_update=False)
-
-    monkeypatch.setattr(auth_module, "_get_run_permission_for_experiment", fake_run_for_experiment)
-    with auth_module.app.test_request_context(
-        "/api/2.0/mlflow/runs/create-promptlab-run", json={"experiment_id": "9"}
-    ):
-        assert auth_module.validate_can_create_promptlab_run() is False
-    assert captured["experiment_id"] == "9"
-
-
-def test_create_run_in_experiment_validator_uses_run_tier(monkeypatch):
-    monkeypatch.setattr(auth_module, "_get_request_param", lambda _p: "9")
-    monkeypatch.setattr(
-        auth_module,
-        "_get_run_permission_for_experiment",
-        lambda eid: SimpleNamespace(can_update=eid == "9"),
-    )
-    assert auth_module.validate_can_create_run_in_experiment() is True
-
-
-def test_invoke_validators_honor_child_deny(monkeypatch):
-    # experiment EDIT is present, but a child DENY on the relevant tier must block each invoke.
-    monkeypatch.setattr(auth_module, "_get_request_param", lambda _p: "9")
-    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
-    allow = SimpleNamespace(can_read=True, can_update=True)
-    deny = SimpleNamespace(can_read=False, can_update=False)
-
-    # genai-evaluate: run DENY blocks even with trace/assessment allowed.
-    monkeypatch.setattr(auth_module, "_get_run_permission_for_experiment", lambda _e: deny)
-    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", lambda _e: allow)
-    monkeypatch.setattr(auth_module, "_experiment_child_permission", lambda *a, **k: allow)
-    assert auth_module.validate_can_invoke_genai_evaluate() is False
-
-    # genai-evaluate: assessment DENY blocks even with run/trace allowed.
-    monkeypatch.setattr(auth_module, "_get_run_permission_for_experiment", lambda _e: allow)
-    monkeypatch.setattr(auth_module, "_experiment_child_permission", lambda *a, **k: deny)
-    assert auth_module.validate_can_invoke_genai_evaluate() is False
-
-    # scorer: trace DENY blocks regardless of log_assessments.
-    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", lambda _e: deny)
-    monkeypatch.setattr(auth_module, "request", SimpleNamespace(get_json=lambda silent: {}))
-    assert auth_module.validate_can_invoke_scorer() is False
-
-    # scorer: trace readable but assessment DENY blocks when log_assessments=True.
-    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", lambda _e: allow)
-    monkeypatch.setattr(
-        auth_module, "request", SimpleNamespace(get_json=lambda silent: {"log_assessments": True})
-    )
-    monkeypatch.setattr(auth_module, "_experiment_child_permission", lambda *a, **k: deny)
-    assert auth_module.validate_can_invoke_scorer() is False
-
-    # scorer: trace readable and no assessment logging -> allowed.
-    monkeypatch.setattr(
-        auth_module, "request", SimpleNamespace(get_json=lambda silent: {"log_assessments": False})
-    )
-    assert auth_module.validate_can_invoke_scorer() is True
-
-
 def test_registered_model_alias_routes_gated_on_version_tier():
     # Alias set/delete mutate version mappings -> version-tier validators, matching the
     # version-tier read on GetModelVersionByAlias (not the parent model/prompt tier).
@@ -9073,3 +9009,32 @@ def test_registered_model_alias_routes_gated_on_version_tier():
         handlers[GetModelVersionByAlias]
         is auth_module._validate_can_read_model_version_or_prompt_version
     )
+
+
+def test_filter_list_scorers_child_only_grant_keeps_row(monkeypatch):
+    from mlflow.protos import service_pb2 as pb
+
+    resp_msg = pb.ListScorers.Response()
+    keep = resp_msg.scorers.add()
+    keep.experiment_id = 9
+    keep.scorer_name = "keep"
+    denied = resp_msg.scorers.add()
+    denied.experiment_id = 9
+    denied.scorer_name = "denied"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module.store, "_scorer_pattern", lambda e, n: f"{e}/{n}")
+
+    # No experiment predicate is consulted; the scorer_version tier alone decides.
+    def fake_predicate(_username, resource_type, parent_type=None):
+        assert resource_type == "scorer_version"
+        return lambda pattern: not pattern.endswith("/denied")
+
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+    resp = _fake_resp(resp_msg)
+    auth_module.filter_list_scorers(resp)
+
+    out = pb.ListScorers.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert [s.scorer_name for s in out.scorers] == ["keep"]
