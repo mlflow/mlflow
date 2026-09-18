@@ -6,6 +6,7 @@ from mlflow.models.resources import (
     DatabricksFunction,
     DatabricksGenieSpace,
     DatabricksLakebase,
+    DatabricksModelService,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
     DatabricksTable,
@@ -155,6 +156,38 @@ def test_lakebase(on_behalf_of_user):
     )
     assert lakebase.to_dict() == expected
     assert _ResourceBuilder.from_resources([lakebase]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_model_service(on_behalf_of_user):
+    model_service = DatabricksModelService(
+        model_service_name="system.ai.gemini-3-8-flash",
+        on_behalf_of_user=on_behalf_of_user,
+    )
+    expected = (
+        {"model_service": [{"name": "system.ai.gemini-3-8-flash"}]}
+        if on_behalf_of_user is None
+        else {
+            "model_service": [
+                {
+                    "name": "system.ai.gemini-3-8-flash",
+                    "on_behalf_of_user": on_behalf_of_user,
+                }
+            ]
+        }
+    )
+    assert model_service.to_dict() == expected
+    assert _ResourceBuilder.from_resources([model_service]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+    assert _ResourceBuilder.from_dict({
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected.copy(),
+    }) == {
         "api_version": DEFAULT_API_VERSION,
         "databricks": expected,
     }
