@@ -149,6 +149,20 @@ def test_truncate_responses_api_output():
     assert _get_truncated_preview(input_str, role="assistant") == "a" * 47 + "..."
 
 
+def test_truncate_genai_semconv_message_parts():
+    messages = [
+        {"role": "system", "parts": [{"type": "text", "content": "You are helpful"}]},
+        {"role": "user", "parts": [{"type": "text", "content": "What is MLflow?"}]},
+        {"role": "assistant", "parts": [{"type": "text", "content": "MLflow tracks ML experiments."}]},
+    ]
+
+    assert _get_truncated_preview(json.dumps(messages), role="user") == "What is MLflow?"
+    assert (
+        _get_truncated_preview(json.dumps(messages), role="assistant")
+        == "MLflow tracks ML experiments."
+    )
+
+
 @pytest.mark.parametrize(
     "input_data",
     [
