@@ -43,9 +43,22 @@ def test_skill_filter_parses_tag():
     assert parsed[0]["value"] == "platform"
 
 
-def test_skill_filter_parses_compound():
-    parsed = SearchSkillUtils.parse_search_filter("status = 'active' AND organization = 'acme'")
-    assert len(parsed) == 2
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        (
+            "status = 'active' AND organization = 'acme'",
+            [("attribute", "status", "=", "active"), ("attribute", "organization", "=", "acme")],
+        ),
+        (
+            "organization = 'acme' AND tags.team LIKE 'plat%'",
+            [("attribute", "organization", "=", "acme"), ("tag", "team", "LIKE", "plat%")],
+        ),
+    ],
+)
+def test_skill_filter_parses_compound(filter_string, expected):
+    parsed = SearchSkillUtils.parse_search_filter(filter_string)
+    assert [(f["type"], f["key"], f["comparator"], f["value"]) for f in parsed] == expected
 
 
 def test_skill_filter_parses_organization_like():
