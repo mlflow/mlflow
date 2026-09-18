@@ -207,10 +207,15 @@ def apply_member_name_filter(
 def parse_skill_registry_order_by(
     order_by_list: list[str] | None,
     valid_keys: set[str],
-    column_map: dict[str, ColumnElement],
+    column_map: dict[str, ColumnElement | tuple[ColumnElement, ...]],
     default_tiebreakers: list[ClauseElement],
 ) -> list[ClauseElement]:
     """Parse an ``order_by`` list into SQLAlchemy clauses.
+
+    A key may map to a tuple of expressions ordered in sequence, each taking
+    the requested direction. Agent plugin ``version`` needs this: mapped to
+    its materialized SemVer columns it sorts by precedence, whereas the raw
+    version string would sort ``10.0.0`` before ``9.1.0``.
 
     ``default_tiebreakers`` are appended when their expression has not been
     explicitly requested, ensuring deterministic pagination order.
@@ -236,9 +241,12 @@ def parse_skill_registry_order_by(
             if key in observed:
                 raise MlflowException.invalid_parameter_value(f"Duplicate order_by field: '{key}'")
             observed.add(key)
-            col = column_map[key]
-            ordered_expressions.append(_as_expression(col))
-            clauses.append(col.asc() if is_ascending else col.desc())
+            columns = column_map[key]
+            if not isinstance(columns, tuple):
+                columns = (columns,)
+            for col in columns:
+                ordered_expressions.append(_as_expression(col))
+                clauses.append(col.asc() if is_ascending else col.desc())
 
     for clause in default_tiebreakers:
         tiebreaker = _as_expression(getattr(clause, "element", clause))

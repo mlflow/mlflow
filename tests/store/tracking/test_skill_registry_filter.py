@@ -488,6 +488,66 @@ def test_order_by_deduplicates_computed_expression_tiebreaker():
     assert clauses[1].compare(SqlSkill.name.asc())
 
 
+_SEMVER_COLUMNS = (
+    SqlAgentPluginVersion.version_major,
+    SqlAgentPluginVersion.version_minor,
+    SqlAgentPluginVersion.version_patch,
+    SqlAgentPluginVersion.version_prerelease_sort_key,
+)
+_VERSIONS_BY_PRECEDENCE = ["1.0.0-alpha", "1.0.0-beta", "1.0.0", "2.0.0", "9.1.0", "10.0.0"]
+
+
+@pytest.mark.parametrize(
+    ("order_by", "expected"),
+    [
+        ("version DESC", _VERSIONS_BY_PRECEDENCE[::-1]),
+        ("version ASC", _VERSIONS_BY_PRECEDENCE),
+    ],
+)
+def test_order_by_multi_column_key_sorts_semver_by_precedence(store, order_by, expected):
+    with session_scope(store) as session:
+        session.add(SqlAgentPlugin(workspace="default", organization="acme", name="my-plugin"))
+        for version in ["2.0.0", "1.0.0", "10.0.0", "1.0.0-beta", "9.1.0", "1.0.0-alpha"]:
+            session.add(
+                SqlAgentPluginVersion(
+                    workspace="default",
+                    organization="acme",
+                    name="my-plugin",
+                    version=version,
+                    plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
+                )
+            )
+
+    clauses = parse_skill_registry_order_by(
+        [order_by],
+        valid_keys={"version"},
+        column_map={"version": _SEMVER_COLUMNS},
+        default_tiebreakers=[],
+    )
+    with session_scope(store, commit=False) as session:
+        ordered = [v.version for v in session.query(SqlAgentPluginVersion).order_by(*clauses)]
+        # Precedence must match the ORM's own latest-version ordering.
+        latest_first = session.query(SqlAgentPluginVersion).order_by(
+            *SqlAgentPlugin._version_order_by()
+        )
+        assert [v.version for v in latest_first] == _VERSIONS_BY_PRECEDENCE[::-1]
+    assert ordered == expected
+
+
+def test_order_by_multi_column_key_deduplicates_tiebreakers():
+    clauses = parse_skill_registry_order_by(
+        ["version DESC"],
+        valid_keys={"version"},
+        column_map={"version": _SEMVER_COLUMNS},
+        default_tiebreakers=[
+            SqlAgentPluginVersion.version_major.desc(),
+            SqlAgentPluginVersion.created_at.desc(),
+        ],
+    )
+    assert len(clauses) == 5
+    assert clauses[-1].compare(SqlAgentPluginVersion.created_at.desc())
+
+
 def test_order_by_deduplicates_tiebreaker_with_mismatched_key_name():
     column_map = {"creation_timestamp": SqlSkill.created_at}
     clauses = parse_skill_registry_order_by(
