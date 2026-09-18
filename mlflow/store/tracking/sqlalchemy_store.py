@@ -3723,7 +3723,20 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 models, session, experiment_ids, filter_string, datasets
             )
             models = self._apply_order_by_search_logged_models(models, session, order_by)
-            models = models.offset(offset).limit(max_results + 1).all()
+            models = (
+                models
+                .options(
+                    # Eagerly load the relationships read by `to_mlflow_entity` so that a page
+                    # of results costs a fixed number of queries instead of three per model.
+                    # Use a select in load rather than a joined load to limit memory overhead.
+                    selectinload(SqlLoggedModel.tags),
+                    selectinload(SqlLoggedModel.params),
+                    selectinload(SqlLoggedModel.metrics),
+                )
+                .offset(offset)
+                .limit(max_results + 1)
+                .all()
+            )
 
             if len(models) > max_results:
                 token = SearchLoggedModelsPaginationToken(
