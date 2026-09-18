@@ -2916,6 +2916,9 @@ def _quote_keyword_fields(filter_string: str) -> str:
 class _SkillRegistrySearchBase(SearchUtils):
     """Base class for skill registry search utils, quoting sqlparse keywords."""
 
+    # Attributes resolved by exact-match joins rather than a column comparison.
+    EQUALITY_ONLY_ATTRIBUTES: set[str] = set()
+
     @classmethod
     def parse_search_filter(cls, filter_string):
         if filter_string:
@@ -2944,11 +2947,12 @@ class _SkillRegistrySearchBase(SearchUtils):
         if type_ == cls._TAG_IDENTIFIER:
             allowed = cls.VALID_TAG_COMPARATORS
         elif type_ == cls._ATTRIBUTE_IDENTIFIER:
-            allowed = (
-                cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS
-                if key in cls.NUMERIC_ATTRIBUTES
-                else cls.VALID_STRING_ATTRIBUTE_COMPARATORS
-            )
+            if key in cls.EQUALITY_ONLY_ATTRIBUTES:
+                allowed = {"="}
+            elif key in cls.NUMERIC_ATTRIBUTES:
+                allowed = cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS
+            else:
+                allowed = cls.VALID_STRING_ATTRIBUTE_COMPARATORS
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid filter type '{type_}' for '{key}'. "
@@ -3003,6 +3007,8 @@ class SearchAgentPluginUtils(_SkillRegistrySearchBase):
     }
     NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
     VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
+    # apply_member_name_filter matches membership rows by exact name only.
+    EQUALITY_ONLY_ATTRIBUTES = {"member_name"}
 
 
 class SearchAgentPluginVersionUtils(_SkillRegistrySearchBase):

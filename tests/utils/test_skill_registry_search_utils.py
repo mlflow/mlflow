@@ -164,6 +164,21 @@ def test_agent_plugin_filter_parses_member_name():
     assert parsed[0]["value"] == "code-review"
 
 
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "member_name LIKE 'code%'",
+        "member_name ILIKE 'CODE%'",
+        "member_name != 'code-review'",
+    ],
+)
+def test_agent_plugin_filter_rejects_non_equality_member_name(filter_string):
+    # Member search matches membership rows by exact name, so only = is supported.
+    with pytest.raises(MlflowException, match=r"Supported comparators: \['='\]") as exc:
+        SearchAgentPluginUtils.parse_search_filter(filter_string)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_agent_plugin_filter_parses_search_text():
     parsed = SearchAgentPluginUtils.parse_search_filter("search_text ILIKE '%deploy%'")
     assert len(parsed) == 1
