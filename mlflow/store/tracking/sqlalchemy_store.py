@@ -159,6 +159,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlScorer,
     SqlScorerVersion,
+    SqlSkill,
+    SqlSkillAlias,
+    SqlSkillTag,
+    SqlSkillVersion,
+    SqlSkillVersionTag,
     SqlSpan,
     SqlSpanMetrics,
     SqlTag,
@@ -171,6 +176,9 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStoreMixin
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
+)
+from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import (
+    SqlAlchemySkillRegistryMixin,
 )
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     query_metrics,
@@ -303,7 +311,12 @@ class DatasetFilter(TypedDict, total=False):
     dataset_digest: str
 
 
-class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMixin, AbstractStore):
+class SqlAlchemyStore(
+    SqlAlchemySkillRegistryMixin,
+    SqlAlchemyMCPServerRegistryMixin,
+    SqlAlchemyGatewayStoreMixin,
+    AbstractStore,
+):
     """
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
     supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
@@ -426,8 +439,16 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
         Return a query for ``model``. Workspace-aware subclasses override this to enforce scoping.
         """
-
-        return session.query(model)
+        query = session.query(model)
+        if not self.supports_workspaces and model in (
+            SqlSkill,
+            SqlSkillVersion,
+            SqlSkillTag,
+            SqlSkillVersionTag,
+            SqlSkillAlias,
+        ):
+            return query.filter(model.workspace == DEFAULT_WORKSPACE_NAME)
+        return query
 
     @staticmethod
     def _artifact_path_segments(uri: str | None) -> list[str]:
@@ -469,6 +490,20 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     "workspace (i.e., assigned to non-default workspaces). Enable workspace "
                     "support (MLFLOW_ENABLE_WORKSPACES=true) or move those experiments back to the "
                     "default workspace before starting the tracking store in single-tenant mode.",
+                    error_code=INVALID_STATE,
+                )
+
+            workspace_scoped_skill = (
+                session
+                .query(SqlSkill.name)
+                .filter(SqlSkill.workspace != DEFAULT_WORKSPACE_NAME)
+                .first()
+            )
+            if workspace_scoped_skill:
+                raise MlflowException(
+                    "Cannot disable workspaces because Skills exist outside the default "
+                    "workspace. Enable workspace support (MLFLOW_ENABLE_WORKSPACES=true) "
+                    "before starting the tracking store in single-tenant mode.",
                     error_code=INVALID_STATE,
                 )
 
