@@ -111,6 +111,26 @@ def _parse_tag(value: str) -> tuple[str, str]:
     return key, val
 
 
+def _format_proxied_artifact_root_notes(proxied_artifact_roots) -> list[str]:
+    if not proxied_artifact_roots:
+        return []
+
+    notes = [
+        "Note: some moved experiments use proxied mlflow-artifacts: locations. "
+        "These paths are resolved relative to the active workspace, so historical "
+        "artifacts may need to be relocated under the server's --artifacts-destination:",
+    ]
+    notes.extend(
+        f"  {root.name!r} ({root.artifact_location}): "
+        f"{root.current_path or '<artifact root>'} -> {root.target_path or '<artifact root>'}"
+        for root in proxied_artifact_roots
+    )
+    notes.append(
+        "Stored run, logged model, and trace artifact URIs are not rewritten by this command."
+    )
+    return notes
+
+
 @commands.command("move-resources")
 @click.argument("url")
 @click.option(
@@ -235,8 +255,9 @@ def move_resources(
     artifact_location is repointed to the artifact root resolved for the target
     workspace, in the same transaction as the move. Artifact objects are not
     copied or deleted, and stored run, logged model and trace URIs are left
-    unchanged, so everything already logged keeps resolving at its current
-    location while new runs land under the new root.
+    unchanged. Historical artifacts keep resolving when stored artifact URIs
+    are absolute locations; proxied mlflow-artifacts: locations may require
+    relocating objects under the server's --artifacts-destination.
 
     **IMPORTANT**: Always take a backup of your database before running this command.
     """
@@ -300,6 +321,7 @@ def move_resources(
                 f"Note: {result.row_count} rows match {len(result.names)} distinct "
                 f"name(s). All rows with a matching name will be moved."
             )
+        extra_notes.extend(_format_proxied_artifact_root_notes(result.proxied_artifact_roots))
 
         if dry_run:
             click.echo(
@@ -349,6 +371,9 @@ def move_resources(
                 f"Repointed {result.row_count} experiment artifact root(s) "
                 f"under {result.retarget_root}."
             )
+        if yes:
+            for note in _format_proxied_artifact_root_notes(result.proxied_artifact_roots):
+                click.echo(note)
     except (RuntimeError, MlflowException) as e:
         raise click.ClickException(str(e)) from e
     except sqlalchemy.exc.SQLAlchemyError as e:
