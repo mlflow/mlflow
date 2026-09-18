@@ -416,6 +416,12 @@ from mlflow.server.mcp_server_api import (
     is_mcp_server_api_path,
 )
 from mlflow.server.mcp_server_api import (
+    create_mcp_access_endpoint as _create_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    get_mcp_access_endpoint as _get_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
     get_mcp_server as _get_mcp_server_endpoint,
 )
 from mlflow.server.mcp_server_api import (
@@ -423,6 +429,15 @@ from mlflow.server.mcp_server_api import (
 )
 from mlflow.server.mcp_server_api import (
     search_mcp_servers as _search_mcp_servers_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    search_server_access_endpoints as _search_server_access_endpoints_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    update_mcp_access_endpoint as _update_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    update_mcp_server as _update_mcp_server_endpoint,
 )
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
@@ -4631,23 +4646,20 @@ def filter_search_logged_models(resp: Response) -> None:
 
 
 def _redact_latest_versions(registered_model, can_read_version) -> None:
-    """Drop ``latest_versions`` entries and clear ``aliases`` the caller can't read on the
-    version child tier.
+    """Clear ``latest_versions`` and ``aliases`` when the caller can't read the model's
+    versions on the child tier.
 
-    ``GetRegisteredModel`` and ``SearchRegisteredModels`` are gated on the parent
-    registered model but embed ``latest_versions`` and ``aliases`` (alias-to-version
-    mappings), so a ``registered_model_version`` DENY would otherwise leak version
-    metadata through the parent response. ``can_read_version`` is a
-    ``_rm_or_prompt_version_read_predicate`` that accepts a version proto and classifies
-    prompt vs model versions; it also accepts the registered model itself (same ``name``
-    and prompt tag) to decide the model's wildcard version-tier readability. Child version
-    grants are wildcard-only, so alias entries are all-or-nothing: cleared entirely when
-    that tier is unreadable.
+    ``GetRegisteredModel``/``UpdateRegisteredModel``/``RenameRegisteredModel``/
+    ``SearchRegisteredModels`` are gated on the parent registered model but embed
+    ``latest_versions`` and ``aliases`` (alias-to-version mappings), so a
+    ``registered_model_version`` DENY would otherwise leak version metadata through the
+    parent response. Version child grants are wildcard-only, so the read decision is a
+    single boolean for the whole model — clear both fields wholesale rather than filtering
+    per version. ``can_read_version`` is a ``_rm_or_prompt_version_read_predicate`` that
+    accepts the registered model itself (same ``name`` and prompt tag).
     """
-    kept = [mv for mv in registered_model.latest_versions if can_read_version(mv)]
-    del registered_model.latest_versions[:]
-    registered_model.latest_versions.extend(kept)
     if not can_read_version(registered_model):
+        registered_model.ClearField("latest_versions")
         registered_model.ClearField("aliases")
 
 
@@ -4710,19 +4722,34 @@ def filter_search_registered_models(resp: Response):
     resp.data = message_to_json(response_message)
 
 
-def redact_get_registered_model_versions(resp: Response):
-    """Redact ``latest_versions`` in a ``GetRegisteredModel`` response the caller can't
-    read on the version child tier. The row itself is already gated by
-    ``_validate_can_read_registered_model_or_prompt``; this drops embedded version
-    metadata a ``registered_model_version`` DENY should hide.
+def _redact_registered_model_response(resp: Response, response_cls) -> None:
+    """Redact embedded version data (``latest_versions``/``aliases``) from a response that
+    carries a single ``registered_model``, on the version child tier. The operation itself
+    is already gated on the parent registered model; this only hides embedded version
+    metadata a ``registered_model_version`` DENY should not expose.
     """
     if sender_is_admin():
         return
-    response_message = GetRegisteredModel.Response()
+    response_message = response_cls.Response()
     parse_dict(resp.json, response_message)
     can_read_version = _rm_or_prompt_version_read_predicate(authenticate_request().username)
     _redact_latest_versions(response_message.registered_model, can_read_version)
     resp.data = message_to_json(response_message)
+
+
+def redact_get_registered_model_versions(resp: Response):
+    """Redact embedded version data in a ``GetRegisteredModel`` response the caller can't
+    read on the version child tier.
+    """
+    _redact_registered_model_response(resp, GetRegisteredModel)
+
+
+def redact_update_registered_model_versions(resp: Response):
+    """Redact embedded version data in an ``UpdateRegisteredModel`` response. The update
+    is authorized on the parent registered model (a child DENY must not block a parent
+    mutation); this only strips version metadata from the echoed model.
+    """
+    _redact_registered_model_response(resp, UpdateRegisteredModel)
 
 
 def filter_search_model_versions(resp: Response):
@@ -4768,6 +4795,9 @@ def rename_registered_model_permission(resp: Response):
         )
     store.rename_grants_for_resource("registered_model", old_name, new_name, workspace_scoped=True)
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
+    # The rename response echoes the renamed RegisteredModel (with latest_versions/aliases);
+    # redact embedded version data the caller can't read on the version child tier.
+    _redact_registered_model_response(resp, RenameRegisteredModel)
 
 
 def set_can_manage_scorer_permission(resp: Response):
@@ -4937,6 +4967,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchModelVersions: filter_search_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
     GetRegisteredModel: redact_get_registered_model_versions,
+    UpdateRegisteredModel: redact_update_registered_model_versions,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
     ListScorers: filter_list_scorers,
@@ -6275,6 +6306,19 @@ def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteR
     return json.dumps(data).encode()
 
 
+def _filter_single_mcp_endpoint(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    """Redact version-derived fields from a single ``MCPAccessEndpointResponse`` (get /
+    create / update endpoint routes) when the caller can't read the server's versions.
+    The endpoint operation itself is authorized on the server tier; this only strips
+    embedded resolved-version content a ``mcp_server_version`` DENY should hide.
+    """
+    data = json.loads(body)
+    server_name = data.get("server_name")
+    if server_name and not _get_mcp_server_version_permission(server_name, username).can_read:
+        _redact_mcp_access_endpoint_version_fields(data)
+    return json.dumps(data).encode()
+
+
 def _get_require_authentication_validator() -> Callable[[str, StarletteRequest], Awaitable[bool]]:
     """
     Get a validator that requires authentication but grants access to any authenticated user.
@@ -6520,7 +6564,12 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
 ] = {
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
+    _search_server_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
+    _update_mcp_server_endpoint: _filter_get_mcp_server,
+    _get_mcp_access_endpoint_endpoint: _filter_single_mcp_endpoint,
+    _create_mcp_access_endpoint_endpoint: _filter_single_mcp_endpoint,
+    _update_mcp_access_endpoint_endpoint: _filter_single_mcp_endpoint,
     _search_jobs_endpoint: _filter_search_jobs,
     _list_gateway_models_endpoint: _filter_list_gateway_models,
 }

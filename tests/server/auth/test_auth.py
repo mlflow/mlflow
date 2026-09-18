@@ -9038,3 +9038,98 @@ def test_filter_list_scorers_child_only_grant_keeps_row(monkeypatch):
     out = pb.ListScorers.Response()
     auth_module.parse_dict(json.loads(resp.data), out)
     assert [s.scorer_name for s in out.scorers] == ["keep"]
+
+
+def test_update_registered_model_redacts_versions_only_on_deny(monkeypatch):
+    from mlflow.protos import model_registry_pb2 as pb
+
+    def build_resp():
+        m = pb.UpdateRegisteredModel.Response()
+        m.registered_model.name = "m1"
+        m.registered_model.latest_versions.add().name = "m1"
+        a = m.registered_model.aliases.add()
+        a.alias = "prod"
+        a.version = "3"
+        return _fake_resp(m)
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+
+    # No version DENY (parent-readable) -> response unchanged (no deviation).
+    monkeypatch.setattr(
+        auth_module, "_rm_or_prompt_version_read_predicate", lambda _u: lambda _e: True
+    )
+    resp = build_resp()
+    auth_module.redact_update_registered_model_versions(resp)
+    out = pb.UpdateRegisteredModel.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert [v.name for v in out.registered_model.latest_versions] == ["m1"]
+    assert len(out.registered_model.aliases) == 1
+
+    # version DENY -> version data redacted, but the operation still succeeded (handler ran).
+    monkeypatch.setattr(
+        auth_module, "_rm_or_prompt_version_read_predicate", lambda _u: lambda _e: False
+    )
+    resp = build_resp()
+    auth_module.redact_update_registered_model_versions(resp)
+    out = pb.UpdateRegisteredModel.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert list(out.registered_model.latest_versions) == []
+    assert list(out.registered_model.aliases) == []
+
+
+def test_update_registered_model_redaction_bypassed_for_admin(monkeypatch):
+    from mlflow.protos import model_registry_pb2 as pb
+
+    m = pb.UpdateRegisteredModel.Response()
+    m.registered_model.name = "m1"
+    m.registered_model.latest_versions.add().name = "m1"
+    resp = _fake_resp(m)
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: True)
+    auth_module.redact_update_registered_model_versions(resp)
+    # admin path returns early; response untouched (data stays None -> not rewritten).
+    assert resp.data is None
+
+
+def test_filter_single_mcp_endpoint_redacts_on_version_deny(monkeypatch):
+    body = json.dumps({
+        "server_name": "srv",
+        "resolved_version": {"version": 3},
+        "server_version": 3,
+        "tools": ["t"],
+    }).encode()
+    req = SimpleNamespace()
+
+    # version DENY -> version fields nulled.
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda *a: SimpleNamespace(can_read=False),
+    )
+    out = json.loads(auth_module._filter_single_mcp_endpoint("u", body, req))
+    assert out["resolved_version"] is None
+    assert out["server_version"] is None
+    assert out["tools"] is None
+
+    # version readable -> unchanged.
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_version_permission", lambda *a: SimpleNamespace(can_read=True)
+    )
+    out = json.loads(auth_module._filter_single_mcp_endpoint("u", body, req))
+    assert out["resolved_version"] == {"version": 3}
+    assert out["tools"] == ["t"]
+
+
+def test_mcp_patch_and_endpoint_routes_registered_for_redaction():
+    filters = auth_module.FASTAPI_ENDPOINT_RESPONSE_FILTERS
+    assert filters[auth_module._update_mcp_server_endpoint] is auth_module._filter_get_mcp_server
+    assert (
+        filters[auth_module._search_server_access_endpoints_endpoint]
+        is auth_module._filter_search_mcp_endpoints
+    )
+    for ep in (
+        auth_module._get_mcp_access_endpoint_endpoint,
+        auth_module._create_mcp_access_endpoint_endpoint,
+        auth_module._update_mcp_access_endpoint_endpoint,
+    ):
+        assert filters[ep] is auth_module._filter_single_mcp_endpoint
