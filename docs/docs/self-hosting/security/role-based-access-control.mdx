@@ -85,7 +85,11 @@ The effective permission when no role grant matches is the server's
 
 Most MLflow resources are permissioned directly. The child resource types below can
 also be granted independently. Child grants are workspace-wide and wildcard-only:
-use `(child_type, *, LEVEL)`. Per-id child grants are rejected.
+use `(child_type, *, LEVEL)`. Per-id child grants are rejected. A wildcard child grant
+applies across every matching resource in the workspace, so mutating one through the
+direct grant API (`grant_user_permission` with `resource_id="*"`) requires Workspace
+Manager (`(workspace, *, MANAGE)`) — a per-resource `MANAGE` grant is not sufficient for
+wildcard child grants.
 
 | Parent type        | Child type                 |
 | ------------------ | -------------------------- |
