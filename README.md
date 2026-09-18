@@ -32,7 +32,7 @@ Learn more at [MLflow for LLMs and Agents](https://mlflow.org/docs/latest/genai)
 <div align="center">
    <div>
       <a href="https://mlflow.org/"><strong>Website</strong></a> ·
-      <a href="https://demo.mlflow.org/"><strong>Try Demo</strong></a> ·
+      <a href="https://demo.mlflow.org/#/experiments/1"><strong>Try Demo</strong></a> ·
       <a href="https://mlflow.org/docs/latest"><strong>Docs</strong></a> ·
       <a href="https://mlflow.org/blog"><strong>News</strong></a> ·
       <a href="https://lu.ma/mlflow?k=c"><strong>Events</strong></a>
