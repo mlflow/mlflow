@@ -449,6 +449,30 @@ navigate to the model as well.
     # Load the prompt
     prompt = mlflow.genai.load_prompt(model_info.prompts[0])
 """,
+    "uv": """An instance of :py:class:`~mlflow.utils.uv_utils.UvConfig` that configures
+        uv-based dependency export. When provided, MLflow uses ``uv export`` to generate
+        pinned requirements from a uv lockfile instead of inferring dependencies by
+        capturing imported packages during model inference.
+
+        Example::
+
+            from mlflow.utils.uv_utils import UvConfig
+
+            mlflow.pyfunc.log_model(
+                name="model",
+                python_model=my_model,
+                uv=UvConfig(
+                    project_path="/path/to/project",
+                    groups=["serving"],
+                ),
+            )
+
+        If ``None`` (default), MLflow auto-detects uv projects from the current working
+        directory when ``MLFLOW_UV_AUTO_DETECT`` is enabled (default: true).
+
+        .. Note:: Experimental: This parameter may change or be removed in a future
+                                release without warning.
+""",
 })
 
 
