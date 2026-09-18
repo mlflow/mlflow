@@ -64,7 +64,8 @@ class SkillRegistryPaginationToken:
             raise MlflowException.invalid_parameter_value(
                 "Invalid page token: missing or malformed fields."
             ) from None
-        if not isinstance(token.offset, int) or token.offset < 0:
+        # bool is a subclass of int, so reject it explicitly.
+        if isinstance(token.offset, bool) or not isinstance(token.offset, int) or token.offset < 0:
             raise MlflowException.invalid_parameter_value(
                 "Invalid page token: offset must be a non-negative integer."
             )
