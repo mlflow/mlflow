@@ -523,6 +523,14 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
     "MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE", int, 100 * 1024**2
 )
 
+#: Specifies whether to route Unity Catalog model-registry artifact operations (e.g.
+#: ``mlflow.<flavor>.load_model("models:/<catalog>.<schema>.<model>/<version>")``) through the
+#: Databricks SDK Files REST API (``DatabricksSDKModelsArtifactRepository``) instead of the
+#: scoped-cloud-credential artifact repositories. (default: ``False``)
+MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVariable(
+    "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", False
+)
+
 #: Specifies whether or not to allow the MLflow server to follow redirects when
 #: making HTTP requests. If set to False, the server will throw an exception if it
 #: encounters a redirect response.
