@@ -4,7 +4,7 @@ import logging
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import subqueryload
 
 from mlflow.entities.skill import RegistryIcon, Skill, SkillStatus
 from mlflow.entities.skill_source import SkillSourceType
@@ -39,8 +39,8 @@ class SqlAlchemySkillRegistryMixin:
     def _skill_query(self, session):
         return SqlSkill.with_resolved_latest(
             self._get_query(session, SqlSkill).options(
-                selectinload(SqlSkill.tags),
-                selectinload(SqlSkill.skill_aliases),
+                subqueryload(SqlSkill.tags),
+                subqueryload(SqlSkill.skill_aliases),
             )
         )
 
@@ -180,6 +180,12 @@ class SqlAlchemySkillRegistryMixin:
             skill.last_updated_by = last_updated_by
             skill.last_updated_at = get_current_time_millis()
             session.flush()
+            skill = (
+                self
+                ._skill_query(session)
+                .filter(SqlSkill.name == name, SqlSkill.organization == organization)
+                .one()
+            )
             return skill.to_mlflow_entity()
 
     def search_skills(
