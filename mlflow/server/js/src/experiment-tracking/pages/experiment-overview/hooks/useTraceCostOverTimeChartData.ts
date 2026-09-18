@@ -44,7 +44,12 @@ export function useTraceCostOverTimeChartData(
   const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
     useOverviewChartContext();
 
-  const dimensionKey = dimension === 'model' ? SpanDimensionKey.MODEL_NAME : SpanDimensionKey.MODEL_PROVIDER;
+  const dimensionKey =
+    dimension === 'model'
+      ? SpanDimensionKey.MODEL_NAME
+      : dimension === 'provider'
+        ? SpanDimensionKey.MODEL_PROVIDER
+        : SpanDimensionKey.GATEWAY_CALLER;
 
   // Fetch total cost grouped by dimension and time
   const { data, isLoading, error } = useTraceMetricsQuery({

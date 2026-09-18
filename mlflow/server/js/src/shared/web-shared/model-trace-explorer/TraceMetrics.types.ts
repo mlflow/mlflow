@@ -247,6 +247,8 @@ export enum SpanDimensionKey {
   MODEL_NAME = 'span_model_name',
   /** Model provider dimension */
   MODEL_PROVIDER = 'span_model_provider',
+  /** Gateway caller dimension (value of mlflow.gateway.caller trace metadata) */
+  GATEWAY_CALLER = 'span_gateway_caller',
 }
 
 /**

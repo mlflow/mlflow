@@ -29,7 +29,12 @@ export function useTraceCostBreakdownChartData(
 ): UseTraceCostBreakdownChartDataResult {
   const { experimentIds, startTimeMs, endTimeMs, filters } = useOverviewChartContext();
 
-  const dimensionKey = dimension === 'model' ? SpanDimensionKey.MODEL_NAME : SpanDimensionKey.MODEL_PROVIDER;
+  const dimensionKey =
+    dimension === 'model'
+      ? SpanDimensionKey.MODEL_NAME
+      : dimension === 'provider'
+        ? SpanDimensionKey.MODEL_PROVIDER
+        : SpanDimensionKey.GATEWAY_CALLER;
 
   // Fetch total cost grouped by dimension
   const { data, isLoading, error } = useTraceMetricsQuery({

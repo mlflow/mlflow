@@ -22,5 +22,8 @@ export const CostDimensionToggle: React.FC<CostDimensionToggleProps> = ({ compon
     <SegmentedControlButton value="provider">
       <FormattedMessage defaultMessage="Provider" description="Dimension toggle option for provider" />
     </SegmentedControlButton>
+    <SegmentedControlButton value="caller">
+      <FormattedMessage defaultMessage="Caller" description="Dimension toggle option for gateway caller" />
+    </SegmentedControlButton>
   </SegmentedControlGroup>
 );

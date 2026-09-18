@@ -113,6 +113,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.SPAN_GATEWAY_CALLER,
         },
     ),
     SpanMetricKey.OUTPUT_COST: TraceMetricsConfig(
@@ -120,6 +121,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.SPAN_GATEWAY_CALLER,
         },
     ),
     SpanMetricKey.TOTAL_COST: TraceMetricsConfig(
@@ -127,6 +129,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.SPAN_GATEWAY_CALLER,
         },
     ),
 }
@@ -153,6 +156,7 @@ VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
 
 TIME_BUCKET_LABEL = "time_bucket"
 _SESSION_TRACE_METADATA = aliased(SqlTraceMetadata)
+_GATEWAY_CALLER_METADATA = aliased(SqlTraceMetadata)
 
 
 def get_percentile_aggregation(
@@ -439,6 +443,17 @@ def _apply_dimension_to_query(
                         db_type,
                         SpanAttributeKey.MODEL_PROVIDER,
                         SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+                    )
+                case SpanMetricDimensionKey.SPAN_GATEWAY_CALLER:
+                    query = query.join(
+                        _GATEWAY_CALLER_METADATA,
+                        and_(
+                            _GATEWAY_CALLER_METADATA.request_id == SqlSpan.trace_id,
+                            _GATEWAY_CALLER_METADATA.key == TraceMetadataKey.GATEWAY_CALLER,
+                        ),
+                    )
+                    return query, _GATEWAY_CALLER_METADATA.value.label(
+                        SpanMetricDimensionKey.SPAN_GATEWAY_CALLER
                     )
         case MetricViewType.ASSESSMENTS:
             match dimension:

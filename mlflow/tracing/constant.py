@@ -282,6 +282,7 @@ class SpanMetricDimensionKey:
     SPAN_STATUS = "span_status"
     SPAN_MODEL_NAME = "span_model_name"
     SPAN_MODEL_PROVIDER = "span_model_provider"
+    SPAN_GATEWAY_CALLER = "span_gateway_caller"
 
 
 class AssessmentMetricKey:

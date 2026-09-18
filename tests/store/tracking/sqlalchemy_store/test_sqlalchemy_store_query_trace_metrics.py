@@ -5068,3 +5068,106 @@ def test_query_span_metrics_count_by_span_status_and_model_provider(store: SqlAl
         },
         "values": {"COUNT": 2},
     }
+
+
+def test_query_span_metrics_cost_by_gateway_caller(store: SqlAlchemyStore):
+    """Gateway caller dimension groups span costs by the calling client identity."""
+    exp_id = store.create_experiment("test_span_cost_by_gateway_caller")
+
+    # Two gateway traces with different callers
+    for trace_id, caller in [("trace_gateway_a", "team-alpha"), ("trace_gateway_b", "team-beta")]:
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "gateway_trace"},
+            trace_metadata={TraceMetadataKey.GATEWAY_CALLER: caller},
+        )
+        store.start_trace(trace_info)
+
+    # One trace with NO gateway caller (non-gateway span — should be excluded)
+    no_caller_trace = TraceInfo(
+        trace_id="trace_no_caller",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "direct_trace"},
+        trace_metadata={},
+    )
+    store.start_trace(no_caller_trace)
+
+    spans = [
+        create_test_span(
+            "trace_gateway_a",
+            "llm_call_a",
+            span_id=1,
+            span_type="LLM",
+            start_ns=1000000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.02,
+                    "total_cost": 0.03,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+        create_test_span(
+            "trace_gateway_b",
+            "llm_call_b",
+            span_id=2,
+            span_type="LLM",
+            start_ns=1100000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.005,
+                    "output_cost": 0.015,
+                    "total_cost": 0.02,
+                },
+                SpanAttributeKey.MODEL: "claude-3",
+                SpanAttributeKey.MODEL_PROVIDER: "anthropic",
+            },
+        ),
+        create_test_span(
+            "trace_no_caller",
+            "direct_call",
+            span_id=3,
+            span_type="LLM",
+            start_ns=1200000000,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.001,
+                    "output_cost": 0.001,
+                    "total_cost": 0.002,
+                },
+                SpanAttributeKey.MODEL: "gpt-3.5",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            },
+        ),
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.SPAN_GATEWAY_CALLER],
+    )
+
+    # Only gateway spans (those whose trace has GATEWAY_CALLER metadata) are included
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_GATEWAY_CALLER: "team-alpha"},
+        "values": {"SUM": 0.03},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": SpanMetricKey.TOTAL_COST,
+        "dimensions": {SpanMetricDimensionKey.SPAN_GATEWAY_CALLER: "team-beta"},
+        "values": {"SUM": 0.02},
+    }

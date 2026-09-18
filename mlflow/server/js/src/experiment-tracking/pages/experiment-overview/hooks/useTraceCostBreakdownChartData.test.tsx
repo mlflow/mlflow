@@ -27,6 +27,13 @@ const createProviderCostDataPoint = (provider: string, totalCost: number) => ({
   values: { [AggregationType.SUM]: totalCost },
 });
 
+// Helper to create a cost breakdown data point grouped by gateway caller
+const createCallerCostDataPoint = (caller: string, totalCost: number) => ({
+  metric_name: SpanMetricKey.TOTAL_COST,
+  dimensions: { [SpanDimensionKey.GATEWAY_CALLER]: caller },
+  values: { [AggregationType.SUM]: totalCost },
+});
+
 describe('useTraceCostBreakdownChartData', () => {
   const testExperimentId = 'test-experiment-123';
   const startTimeMs = new Date('2025-12-22T10:00:00Z').getTime();
@@ -482,6 +489,89 @@ describe('useTraceCostBreakdownChartData', () => {
 
       expect(capturedBody.dimensions).toContain(SpanDimensionKey.MODEL_PROVIDER);
       expect(capturedBody.dimensions).not.toContain(SpanDimensionKey.MODEL_NAME);
+    });
+
+    it('should request GATEWAY_CALLER dimension when caller is specified', async () => {
+      let capturedBody: any = null;
+
+      server.use(
+        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+          capturedBody = await req.json();
+          return res(ctx.json({ data_points: [] }));
+        }),
+      );
+
+      renderHook(() => useTraceCostBreakdownChartData('caller'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(capturedBody).not.toBeNull();
+      });
+
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.GATEWAY_CALLER);
+      expect(capturedBody.dimensions).not.toContain(SpanDimensionKey.MODEL_NAME);
+      expect(capturedBody.dimensions).not.toContain(SpanDimensionKey.MODEL_PROVIDER);
+    });
+  });
+
+  describe('caller dimension', () => {
+    it('should group cost data by gateway caller', async () => {
+      setupTraceMetricsHandler([
+        createCallerCostDataPoint('team-a', 0.5),
+        createCallerCostDataPoint('team-b', 0.3),
+        createCallerCostDataPoint('team-c', 0.2),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostBreakdownChartData('caller'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData).toHaveLength(3);
+      expect(result.current.chartData[0].name).toBe('team-a');
+      expect(result.current.chartData[1].name).toBe('team-b');
+      expect(result.current.chartData[2].name).toBe('team-c');
+    });
+
+    it('should sort callers by cost descending', async () => {
+      setupTraceMetricsHandler([
+        createCallerCostDataPoint('cheap-caller', 0.01),
+        createCallerCostDataPoint('expensive-caller', 0.1),
+        createCallerCostDataPoint('medium-caller', 0.05),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostBreakdownChartData('caller'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.chartData[0].name).toBe('expensive-caller');
+      expect(result.current.chartData[1].name).toBe('medium-caller');
+      expect(result.current.chartData[2].name).toBe('cheap-caller');
+    });
+
+    it('should calculate total cost across all callers', async () => {
+      setupTraceMetricsHandler([
+        createCallerCostDataPoint('team-a', 0.05),
+        createCallerCostDataPoint('team-b', 0.03),
+      ]);
+
+      const { result } = renderHook(() => useTraceCostBreakdownChartData('caller'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.totalCost).toBeCloseTo(0.08, 10);
     });
   });
 
