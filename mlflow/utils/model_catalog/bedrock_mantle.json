@@ -305,7 +305,7 @@
     "us-gov-west-1/xai.grok-4.3": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131072,
+        "max_input": 1048576,
         "max_output": 16384,
         "max_tokens": 16384
       },
@@ -321,7 +321,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-09-04"
+      "last_updated_at": "2026-09-18"
     },
     "us-gov-west-1/xai.grok-4.6": {
       "mode": "chat",
@@ -347,7 +347,7 @@
     "xai.grok-4.3": {
       "mode": "chat",
       "context_window": {
-        "max_input": 131072,
+        "max_input": 1048576,
         "max_output": 16384,
         "max_tokens": 16384
       },
@@ -363,7 +363,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-06"
+      "last_updated_at": "2026-09-18"
     },
     "xai.grok-4.6": {
       "mode": "chat",
