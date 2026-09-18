@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 import sqlalchemy as sa
+from sqlalchemy.dialects import mssql, mysql
 from sqlalchemy.orm import Session
 
 from mlflow.exceptions import MlflowException
@@ -259,6 +260,72 @@ def test_empty_filter_returns_all(store):
         )
         results = query.all()
         assert len(results) == 3
+
+
+@pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mysql", "mssql"])
+def test_filter_computed_status_builds_on_every_dialect(dialect):
+    with Session() as session:
+        apply_skill_registry_filters(
+            session.query(SqlSkill),
+            SearchSkillUtils.parse_search_filter("status = 'active'"),
+            {"status": SqlSkill.resolved_status_expression()},
+            SqlSkill,
+            SqlSkillTag,
+            ["workspace", "organization", "name"],
+            dialect,
+        )
+
+
+@pytest.mark.parametrize(
+    ("dialect_name", "dialect", "case_sensitive_sql"),
+    [
+        ("mysql", mysql.dialect(), "binary("),
+        ("mssql", mssql.dialect(), "_CS_"),
+    ],
+)
+@pytest.mark.parametrize("filter_string", ["status = 'Active'", "status LIKE 'Act%'"])
+def test_filter_computed_status_stays_case_sensitive(
+    dialect_name, dialect, case_sensitive_sql, filter_string
+):
+    # Computed expressions must compare with the same case sensitivity as columns.
+    with Session() as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkill),
+            SearchSkillUtils.parse_search_filter(filter_string),
+            {"status": SqlSkill.resolved_status_expression()},
+            SqlSkill,
+            SqlSkillTag,
+            ["workspace", "organization", "name"],
+            dialect_name,
+        )
+        assert case_sensitive_sql in str(query.statement.compile(dialect=dialect))
+
+
+def test_filter_by_computed_status(store):
+    with session_scope(store) as session:
+        for name, status in [("code-review", "active"), ("lint-check", "draft")]:
+            _add_skill(session, name=name, organization="acme")
+            session.add(
+                SqlSkillVersion(
+                    workspace="default",
+                    organization="acme",
+                    name=name,
+                    version=1,
+                    status=status,
+                )
+            )
+
+    with session_scope(store, commit=False) as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkill),
+            SearchSkillUtils.parse_search_filter("status = 'active'"),
+            {"status": SqlSkill.resolved_status_expression()},
+            SqlSkill,
+            SqlSkillTag,
+            tag_join_keys=["workspace", "organization", "name"],
+            dialect=store.engine.dialect.name,
+        )
+        assert [skill.name for skill in query.all()] == ["code-review"]
 
 
 @pytest.mark.parametrize(

@@ -14,6 +14,9 @@ import sqlalchemy as sa
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
+    _get_expression_comparison_func,
+)
 from mlflow.store.tracking.skill_registry_pagination import (
     SkillRegistryPaginationToken,
 )
@@ -33,28 +36,17 @@ _VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "
 
 
 def _get_comparison_func(comparator: str, dialect: str, col):
-    """Return a comparison function that handles both ORM columns and expressions.
+    """Return a comparison function for a mapped column or a computed expression.
 
-    ``SearchUtils.get_sql_comparison_func`` accesses ``column.class_`` on
-    MySQL and ``column.type`` on MSSQL for case-sensitive comparisons,
-    which fails for computed expressions (e.g. ``resolved_status``).
-    For non-column expressions we use the generic comparison path directly.
+    ``SearchUtils.get_sql_comparison_func`` builds MySQL's case-sensitive SQL
+    from ``column.class_``, which computed expressions (e.g. a resolved
+    status subquery) do not have. Those reuse the MCP registry's
+    expression-safe comparison, which keeps MySQL and MSSQL comparisons
+    case-sensitive, matching the column path.
     """
     if hasattr(col, "class_"):
         return SearchUtils.get_sql_comparison_func(comparator, dialect)
-
-    def _expression_comparison_func(column, value):
-        if comparator == "LIKE":
-            return column.like(value)
-        if comparator == "ILIKE":
-            return column.ilike(value)
-        if comparator == "IN":
-            return column.in_(value)
-        if comparator == "NOT IN":
-            return ~column.in_(value)
-        return SearchUtils.get_comparison_func(comparator)(column, value)
-
-    return _expression_comparison_func
+    return _get_expression_comparison_func(comparator, dialect)
 
 
 # ---------------------------------------------------------------------------
