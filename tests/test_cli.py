@@ -1890,3 +1890,100 @@ def test_mlflow_gc_only_deletes_finalized_jobs(sqlite_store_with_jobs):
         job_store.get_job(timeout_job.job_id)
     with pytest.raises(MlflowException, match=r"Job .+ not found"):
         job_store.get_job(canceled_job.job_id)
+
+
+def _create_deleted_experiment_with_deleted_run(store, name):
+    experiment_id = store.create_experiment(name)
+    run = store.create_run(
+        experiment_id=experiment_id,
+        user_id="Anderson",
+        start_time=get_current_time_millis(),
+        tags=[],
+        run_name="name",
+    )
+    store.delete_run(run.info.run_id)
+    store.delete_experiment(experiment_id)
+    return experiment_id, run.info.run_id
+
+
+def test_mlflow_gc_run_ids_does_not_delete_other_deleted_runs(sqlite_store):
+    """`gc --run-ids` must delete the runs it was given and nothing else.
+
+    Regression test for https://github.com/mlflow/mlflow/issues/13254. The
+    experiment sweep used to run whenever `--experiment-ids` was omitted, so
+    naming a run also collected every soft-deleted experiment in the store and
+    every soft-deleted run inside it.
+    """
+    store = sqlite_store[0]
+    target = _create_run_in_store(store, create_artifacts=False)
+    store.delete_run(target.info.run_id)
+    bystander_experiment_id, bystander_run_id = _create_deleted_experiment_with_deleted_run(
+        store, "bystander"
+    )
+
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        sqlite_store[1],
+        "--run-ids",
+        target.info.run_id,
+    ])
+
+    with pytest.raises(MlflowException, match=r"Run .+ not found"):
+        store.get_run(target.info.run_id)
+    assert store.get_run(bystander_run_id).info.run_id == bystander_run_id
+    assert store.get_experiment(bystander_experiment_id).name == "bystander"
+
+
+def test_mlflow_gc_experiment_ids_does_not_delete_other_deleted_runs(sqlite_store):
+    """`gc --experiment-ids` must not also collect every soft-deleted run.
+
+    The mirror image of the same defect: `run_ids_to_delete` fell back to every
+    soft-deleted run in the store whenever `--run-ids` was omitted.
+    """
+    store = sqlite_store[0]
+    bystander = _create_run_in_store(store, create_artifacts=False)
+    store.delete_run(bystander.info.run_id)
+    target_experiment_id, target_run_id = _create_deleted_experiment_with_deleted_run(
+        store, "target"
+    )
+
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        sqlite_store[1],
+        "--experiment-ids",
+        target_experiment_id,
+    ])
+
+    with pytest.raises(MlflowException, match=r"Run .+ not found"):
+        store.get_run(target_run_id)
+    assert store.get_run(bystander.info.run_id).info.run_id == bystander.info.run_id
+
+
+def test_mlflow_gc_without_ids_still_deletes_everything(sqlite_store):
+    store = sqlite_store[0]
+    loose_run = _create_run_in_store(store, create_artifacts=False)
+    store.delete_run(loose_run.info.run_id)
+    experiment_id, run_id = _create_deleted_experiment_with_deleted_run(store, "swept")
+
+    subprocess.check_call([
+        sys.executable,
+        "-m",
+        "mlflow",
+        "gc",
+        "--backend-store-uri",
+        sqlite_store[1],
+    ])
+
+    for deleted in (loose_run.info.run_id, run_id):
+        with pytest.raises(MlflowException, match=r"Run .+ not found"):
+            store.get_run(deleted)
+    with pytest.raises(MlflowException, match=r"No Experiment with id="):
+        store.get_experiment(experiment_id)
