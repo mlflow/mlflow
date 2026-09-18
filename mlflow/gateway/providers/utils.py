@@ -186,9 +186,12 @@ async def send_stream_request(
         except aiohttp.ClientResponseError as e:
             try:
                 error_body = await response.json()
-                detail = error_body.get("error", {}).get("message", e.message)
+                detail = error_body.get("error", {}).get("message", e.message) if "error" in error_body else error_body
             except Exception:
-                detail = e.message
+                try:
+                    detail = await response.text()
+                except Exception:
+                    detail = e.message
             raise HTTPException(status_code=e.status, detail=detail)
 
         async for line in response.content:
