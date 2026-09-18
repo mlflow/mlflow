@@ -103,6 +103,48 @@ def prepopulate_trace_analytics(url, batch_size):
             engine.dispose()
 
 
+@commands.command("delete-trace-rollups")
+@click.argument("url", envvar="MLFLOW_TRACKING_URI")
+@click.option(
+    "--yes",
+    "confirm_delete",
+    is_flag=True,
+    help="Delete without prompting for confirmation.",
+)
+def delete_trace_rollups(url, confirm_delete):
+    """Delete all SQL trace rollups and queued rebuild state.
+
+    This recovery command removes derived rollup data only; authoritative traces, spans, and
+    assessments are preserved. Stop all MLflow servers that use this database before running it.
+    If rollups are enabled again later, maintenance rebuilds them from the authoritative tables.
+    """
+    import sqlalchemy.exc
+
+    import mlflow.store.db.utils
+    from mlflow.store.db.trace_rollups import delete_sql_trace_rollups
+
+    if not confirm_delete:
+        click.confirm(
+            "Delete all SQL trace rollups and queued rebuild state? Raw trace data is preserved.",
+            abort=True,
+        )
+
+    engine = None
+    try:
+        engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
+        stats = delete_sql_trace_rollups(engine)
+        click.echo(
+            "Deleted SQL trace rollups: "
+            f"trace_metric={stats.trace_metric}, span_cost={stats.span_cost}, "
+            f"assessment={stats.assessment}, rebuild_queue={stats.rebuild_queue}."
+        )
+    except sqlalchemy.exc.SQLAlchemyError as e:
+        raise click.ClickException(f"Database operation failed ({type(e).__name__}).") from e
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
 @commands.command("migrate-to-default-workspace")
 @click.argument("url")
 @click.option(

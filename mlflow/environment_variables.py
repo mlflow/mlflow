@@ -1693,11 +1693,30 @@ MLFLOW_TRACE_ARCHIVAL_CONFIG = _EnvironmentVariable("MLFLOW_TRACE_ARCHIVAL_CONFI
 #: Enables opt-in SQL daily rollups for trace analytics. When ``true``, the query planner serves
 #: eligible daily aggregate requests from precomputed rollup tables, falling back to the raw path
 #: for any day that is not covered. When ``false`` (the default), all trace analytics queries use
-#: the raw path.
+#: the raw path. Before disabling an active deployment, remove existing derived rows with
+#: ``mlflow db delete-trace-rollups``.
 #: (default: ``False``)
 MLFLOW_SQL_TRACE_ROLLUPS_ENABLED = _BooleanEnvironmentVariable(
     "MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", False
 )
+
+#: Five-field UTC cron expression for the server-owned SQL trace rollup scheduler.
+#: (default: ``"0 2 * * *"``)
+MLFLOW_TRACE_ROLLUPS_SCHEDULE = _EnvironmentVariable(
+    "MLFLOW_TRACE_ROLLUPS_SCHEDULE", str, "0 2 * * *"
+)
+
+#: Caps the number of ``(experiment_id, rollup_day, family)`` partitions attempted in one
+#: maintenance pass.
+#: (default: ``100``)
+MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN = _EnvironmentVariable(
+    "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", int, 1000
+)
+
+#: Maximum number of distinct SQL trace rollup partitions maintained concurrently. SQLite always
+#: uses one worker because it permits only one concurrent writer.
+#: (default: ``4``)
+MLFLOW_TRACE_ROLLUPS_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TRACE_ROLLUPS_MAX_WORKERS", int, 4)
 
 #: Specifies the maximum number of workers for async judge invocation jobs.
 #: (default: ``10``)

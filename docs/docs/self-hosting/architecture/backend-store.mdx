@@ -113,7 +113,7 @@ Trace analytics queries (used by the traces dashboards) aggregate metrics such a
 
 Rollups are an **opt-in read acceleration**. They never change query results: any day that is not yet rolled up, and any partial day at the edges of a requested range, is served from the raw path, so enabling rollups only changes query speed. This feature requires a database backend (it is not available for the file store).
 
-To let the query planner serve eligible whole days from the rollup tables, set the following environment variable on the tracking server:
+Configure rollup reads and maintenance with the following environment variables on the tracking server:
 
 <Table>
   <thead>
@@ -126,13 +126,48 @@ To let the query planner serve eligible whole days from the rollup tables, set t
   <tbody>
     <tr>
       <td>`MLFLOW_SQL_TRACE_ROLLUPS_ENABLED`</td>
-      <td>When `true`, trace analytics queries serve eligible whole days from precomputed rollup tables and fall back to the raw path for any day that is not covered. When `false`, all queries use the raw path.</td>
+      <td>When `true`, the server maintains daily rollups and trace analytics queries serve eligible whole days from them. When `false`, maintenance is a no-op and all queries use the raw path.</td>
       <td>`false`</td>
+    </tr>
+    <tr>
+      <td>`MLFLOW_TRACE_ROLLUPS_SCHEDULE`</td>
+      <td>Five-field UTC cron expression for the server-owned maintenance task.</td>
+      <td>`0 2 * * *`</td>
+    </tr>
+    <tr>
+      <td>`MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN`</td>
+      <td>Maximum number of daily partitions successfully built or emptied by one maintenance run. Deferred partitions do not consume this publication budget.</td>
+      <td>`1000`</td>
+    </tr>
+    <tr>
+      <td>`MLFLOW_TRACE_ROLLUPS_MAX_WORKERS`</td>
+      <td>Maximum number of experiments maintained concurrently. Days within an experiment are processed serially to preserve ordering.</td>
+      <td>`4`</td>
     </tr>
   </tbody>
 </Table>
 
-Enabling this variable does not populate the rollup tables by itself; a separate maintenance job builds and refreshes them. Until a day has been rolled up, queries for that day transparently use the raw path, so the feature is safe to turn on before any rollups exist.
+When job execution is available, MLflow registers the scheduled maintenance task automatically. The task builds only complete UTC-day partitions after the end of the day has been older than the 24-hour eligibility cutoff and all contributing traces are complete or inactive. Writes that can make an existing partition stale add it to a durable rebuild queue; the next maintenance run atomically replaces that partition and removes its queue entry.
+
+The server-owned scheduler delegates each run to the service-level `run_sql_trace_rollup_scheduler(tracking_store)` function. The function no-ops when `MLFLOW_SQL_TRACE_ROLLUPS_ENABLED` is `false`. Until a day has valid rollup coverage, queries for that day transparently use the raw path.
+
+Maintenance drains the durable rebuild queue before discovering new days. It examines past deferred entries so one active trace cannot block later eligible work, and emits warnings when deferred backlog remains or either the publication or bounded examination limit is reached. `MLFLOW_TRACE_ROLLUPS_MAX_WORKERS` is forced to `1` on SQLite because SQLite serializes writes; other SQL backends may process different experiments in parallel.
+
+### Disabling or recovering SQL trace rollups
+
+Before disabling SQL trace rollups, stop every MLflow server that uses the database and delete the derived rollup state:
+
+```bash
+mlflow db delete-trace-rollups <database-url>
+```
+
+Use the same recovery command if the derived rollup state becomes stale. It deletes only the daily rollup rows and rebuild queue; authoritative traces, spans, and assessments are preserved. The command prompts for confirmation by default. For unattended administration after the servers have stopped, pass `--yes`:
+
+```bash
+mlflow db delete-trace-rollups --yes <database-url>
+```
+
+If rollups are enabled again later, maintenance rebuilds them from the authoritative tables.
 
 :::note[Backend-specific behavior]
 
