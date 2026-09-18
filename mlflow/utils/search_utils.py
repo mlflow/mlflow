@@ -2866,3 +2866,143 @@ class SearchIssuesUtils(SearchUtils):
             "comparator": comparator,
             "value": value,
         }
+
+
+# ---------------------------------------------------------------------------
+# Skill registry search utilities (RFC-0008)
+# ---------------------------------------------------------------------------
+
+# ORM column names, matching the MCP registry convention (SearchMCPServerUtils).
+_SKILL_REGISTRY_NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+# IS NULL / IS NOT NULL excluded; skill registry tags are always key=value.
+_SKILL_REGISTRY_TAG_COMPARATORS = {"=", "!=", "LIKE", "ILIKE"}
+
+# Field names that sqlparse lexes as SQL keywords, which prevents them from
+# forming Comparison tokens. Downstream fields that are also keywords (e.g.
+# source, ref, key, alias) must be added here.
+_SQLPARSE_KEYWORD_FIELDS = {"organization", "version"}
+
+
+def _quote_keyword_fields(text: str) -> str:
+    """Backtick-quote keyword field names so sqlparse treats them as identifiers.
+
+    Uses sqlparse's own lexer, so quoted values, quoted identifiers, and
+    dotted tag keys (e.g. ``tags.mlflow.organization``) are left untouched
+    exactly as the parser sees them. ``_get_identifier`` trims the backticks.
+    """
+    return "".join(
+        f"`{value}`"
+        if ttype in TokenType.Keyword and value.lower() in _SQLPARSE_KEYWORD_FIELDS
+        else value
+        for ttype, value in sqlparse.lexer.tokenize(text)
+    )
+
+
+class _SkillRegistrySearchBase(SearchUtils):
+    """Base class for skill registry search utils, quoting sqlparse keywords."""
+
+    # Attributes resolved by exact-match joins rather than a column comparison.
+    EQUALITY_ONLY_ATTRIBUTES: set[str] = set()
+
+    @classmethod
+    def parse_search_filter(cls, filter_string):
+        if filter_string:
+            filter_string = _quote_keyword_fields(filter_string)
+        parsed = super().parse_search_filter(filter_string)
+        for comparison in parsed:
+            cls._validate_registry_comparison(comparison)
+        return parsed
+
+    @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        # The inherited check only allows run_id, whose error message would
+        # confuse skill registry callers.
+        if key != "status":
+            raise MlflowException.invalid_parameter_value(
+                f"Only 'status' supports IN and NOT IN comparisons, got '{key}'."
+            )
+
+    @classmethod
+    def _validate_registry_comparison(cls, comparison):
+        # The inherited parser does not check operators, so an unsupported one
+        # (e.g. ``tags.team > 'a'``) would otherwise reach SQL. Validate against
+        # the vocabulary this search surface declares and normalize case.
+        type_ = comparison["type"]
+        key = comparison["key"]
+        if type_ == cls._TAG_IDENTIFIER:
+            allowed = cls.VALID_TAG_COMPARATORS
+        elif type_ == cls._ATTRIBUTE_IDENTIFIER:
+            if key in cls.EQUALITY_ONLY_ATTRIBUTES:
+                allowed = {"="}
+            elif key in cls.NUMERIC_ATTRIBUTES:
+                allowed = cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS
+            else:
+                allowed = cls.VALID_STRING_ATTRIBUTE_COMPARATORS
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid filter type '{type_}' for '{key}'. "
+                "Only attributes and tags.<key> are supported."
+            )
+        comparator = comparison["comparator"].upper()
+        if comparator not in allowed:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid comparator '{comparison['comparator']}' for {type_} '{key}'. "
+                f"Supported comparators: {sorted(allowed)}"
+            )
+        comparison["comparator"] = comparator
+
+
+class SearchSkillUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing skill search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "organization",
+        "description",
+        "search_text",
+        "status",
+    }
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
+
+
+class SearchSkillVersionUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing skill version search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "status",
+        "organization",
+        "source_type",
+        "digest",
+    }
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
+
+
+class SearchAgentPluginUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing agent plugin search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "organization",
+        "description",
+        "search_text",
+        "status",
+        "member_name",
+    }
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
+    # apply_member_name_filter matches membership rows by exact name only.
+    EQUALITY_ONLY_ATTRIBUTES = {"member_name"}
+
+
+class SearchAgentPluginVersionUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing agent plugin version search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "status",
+        "organization",
+        "source_type",
+    }
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
