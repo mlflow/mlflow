@@ -304,7 +304,7 @@
     "daybreak-blue-latest": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000,
         "max_tokens": 128000
       },
@@ -330,7 +330,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-25"
+      "last_updated_at": "2026-09-17"
     },
     "daybreak-red-latest": {
       "mode": "chat",
