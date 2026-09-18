@@ -411,6 +411,40 @@ def test_filter_by_multiple_tags(store):
         assert results[0].name == "code-review"
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("tags.team LIKE 'plat%'", {"code-review", "lint-check", "ml-review"}),
+        ("tags.team ILIKE 'PLAT%'", {"code-review", "lint-check", "ml-review"}),
+        # != only matches skills that carry the tag, so untagged-skill is excluded.
+        ("tags.team != 'platform'", {"deploy", "ml-review"}),
+        # Both conditions on one key must hold for the same tag row; each alone
+        # matches a different, larger set.
+        ("tags.team LIKE 'plat%' AND tags.team != 'platform'", {"ml-review"}),
+    ],
+)
+def test_filter_by_tag_operators(store, filter_string, expected):
+    _seed_skills(store)
+    with session_scope(store) as session:
+        _add_skill(session, name="ml-review", organization="acme")
+        _add_skill_tag(
+            session, name="ml-review", organization="acme", key="team", value="platform-ml"
+        )
+        _add_skill(session, name="untagged-skill", organization="acme")
+
+    with session_scope(store, commit=False) as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkill),
+            SearchSkillUtils.parse_search_filter(filter_string),
+            _skill_column_map(),
+            SqlSkill,
+            SqlSkillTag,
+            tag_join_keys=["workspace", "organization", "name"],
+            dialect=store.engine.dialect.name,
+        )
+        assert {skill.name for skill in query.all()} == expected
+
+
 # ---------------------------------------------------------------------------
 # Order-by parsing
 # ---------------------------------------------------------------------------
