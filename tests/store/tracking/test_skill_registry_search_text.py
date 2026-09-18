@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from mlflow.store.tracking.dbmodels.models import SqlAgentPluginVersion
 from mlflow.store.tracking.skill_registry_search_text import (
     build_agent_plugin_version_search_text,
     build_skill_search_text,
@@ -163,6 +164,29 @@ def test_recompute_agent_plugin_version_search_text_no_author():
     row.plugin_json = {"description": "desc"}
     result = recompute_agent_plugin_version_search_text(row)
     assert result == "my-plugin desc"
+
+
+@pytest.mark.parametrize(
+    ("plugin_json", "expected"),
+    [
+        # A string is not a keyword list; iterating it would add each character.
+        ({"keywords": "deploy"}, "p acme"),
+        ({"keywords": ["deploy", 7]}, "p acme deploy 7"),
+        ({"author": "Jane"}, "p acme"),
+        (["not", "a", "dict"], "p acme"),
+    ],
+)
+def test_recompute_agent_plugin_version_search_text_ignores_malformed_manifest(
+    plugin_json, expected
+):
+    row = SqlAgentPluginVersion(
+        workspace="default",
+        organization="acme",
+        name="p",
+        version="1.0.0",
+        plugin_json=plugin_json,
+    )
+    assert recompute_agent_plugin_version_search_text(row) == expected
 
 
 def test_recompute_agent_plugin_version_search_text_none_plugin_json():

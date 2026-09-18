@@ -89,14 +89,16 @@ def recompute_agent_plugin_version_search_text(
     parent_description: str | None = None,
 ) -> str:
     """Convenience wrapper for an ``SqlAgentPluginVersion`` ORM row."""
-    plugin_json = version_row.plugin_json or {}
-    author = plugin_json.get("author") or {}
+    # plugin_json is stored manifest data, so ignore fields that do not have the
+    # shape the RFC defines rather than failing or iterating a string's characters.
+    plugin_json = version_row.plugin_json if isinstance(version_row.plugin_json, dict) else {}
+    keywords = plugin_json.get("keywords")
+    author = plugin_json.get("author")
     return build_agent_plugin_version_search_text(
         name=version_row.name,
         parent_description=parent_description,
         organization=version_row.organization,
         manifest_description=plugin_json.get("description"),
-        keywords=plugin_json.get("keywords"),
-        # author may be a non-dict value per the RFC's forward-compatibility rules.
+        keywords=keywords if isinstance(keywords, list) else None,
         author_name=author.get("name") if isinstance(author, dict) else None,
     )
