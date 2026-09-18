@@ -783,24 +783,37 @@ def test_order_by_organization_keyword():
     assert len(clauses) == 2
 
 
-def test_order_by_version_keyword():
+@pytest.mark.parametrize("field", ["name", "organization", "version"])
+@pytest.mark.parametrize("quote", ["", "`", '"'])
+@pytest.mark.parametrize("direction", ["", "ASC", "DESC"])
+def test_order_by_accepts_plain_and_quoted_identifiers(field, quote, direction):
+    # organization and version are sqlparse keywords; name is a control.
+    column = getattr(SqlSkillVersion, field)
+    identifier = f"{quote}{field}{quote}"
+    order_by = f"{identifier} {direction}" if direction else identifier
     clauses = parse_skill_registry_order_by(
-        ["version DESC"],
-        valid_keys={"version"},
-        column_map={"version": SqlSkillVersion.version},
+        [order_by],
+        valid_keys={field},
+        column_map={field: column},
         default_tiebreakers=[],
     )
+    expected = column.desc() if direction == "DESC" else column.asc()
     assert len(clauses) == 1
+    assert clauses[0].compare(expected)
 
 
-def test_order_by_backtick_quoted_not_double_quoted():
-    clauses = parse_skill_registry_order_by(
-        ["`organization` DESC"],
-        valid_keys={"organization"},
-        column_map={"organization": SqlSkill.organization},
-        default_tiebreakers=[],
-    )
-    assert len(clauses) == 1
+@pytest.mark.parametrize("field", ["name", "organization", "version"])
+@pytest.mark.parametrize("direction", ["", "ASC", "DESC"])
+def test_order_by_rejects_single_quoted_identifiers(field, direction):
+    order_by = f"'{field}' {direction}".strip()
+    with pytest.raises(MlflowException, match=r"(?i)order_by") as exc:
+        parse_skill_registry_order_by(
+            [order_by],
+            valid_keys={field},
+            column_map={field: getattr(SqlSkillVersion, field)},
+            default_tiebreakers=[],
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 # ---------------------------------------------------------------------------

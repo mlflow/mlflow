@@ -250,7 +250,9 @@ def parse_skill_registry_order_by(
             # Backtick-quote sqlparse keywords so they parse as identifiers.
             quoted = _SQLPARSE_KEYWORD_BARE_RE.sub(r"`\1`", order_by_clause)
             token_value, is_ascending = SearchUtils._parse_order_by_string(quoted)
-            key = SearchUtils._trim_backticks(token_value.strip())
+            # The base parser strips double quotes only when a direction
+            # follows, so normalize the key as _get_identifier does for filters.
+            key = SearchUtils._trim_backticks(SearchUtils._strip_quotes(token_value.strip()))
             if key not in valid_keys:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid order_by key '{key}'. Valid keys: {sorted(valid_keys)}"
