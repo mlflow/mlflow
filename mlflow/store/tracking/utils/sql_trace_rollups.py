@@ -1131,6 +1131,18 @@ def ensure_locked_rebuild_entry(
         SqlTraceRollupRebuild.rollup_family == family.value,
     )
 
+    if session.get_bind().dialect.name == db_types.SQLITE:
+        # SQLite ignores SELECT FOR UPDATE. Even a no-op UPDATE starts a write transaction and
+        # holds the database writer lock through commit, which serializes the publisher and source
+        # writer whether this key already exists or is about to be inserted. This also works when
+        # earlier reads have already started a deferred transaction, unlike BEGIN IMMEDIATE.
+        updated = query.update(
+            {SqlTraceRollupRebuild.rollup_family: SqlTraceRollupRebuild.rollup_family},
+            synchronize_session=False,
+        )
+        if updated:
+            return query.one()
+
     if entry := _lock_rebuild_entry_query(session, query).one_or_none():
         return entry
 

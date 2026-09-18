@@ -126,11 +126,13 @@ def run_sql_trace_rollup_scheduler(tracking_store) -> RollupBuildStats | None:
     for family in ("trace_metric", "span_cost", "assessment"):
         family_stats = getattr(stats, family)
         _logger.info(
-            "SQL trace rollup maintenance %s: built=%d, emptied=%d, deferred=%d, skipped_cap=%d",
+            "SQL trace rollup maintenance %s: "
+            "built=%d, emptied=%d, deferred=%d, failed=%d, skipped_cap=%d",
             family,
             family_stats.built,
             family_stats.emptied,
             family_stats.deferred,
+            family_stats.failed,
             family_stats.skipped_cap,
         )
     return stats

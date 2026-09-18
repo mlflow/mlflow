@@ -11,10 +11,10 @@ pool below parallelizes distinct partition keys inside that one run; coordinatin
 instances would require a database-backed lease/claim protocol and is intentionally unsupported.
 
 Each partition ``(experiment_id, rollup_day, family)`` is rebuilt in its own transaction that first
-takes a ``SELECT FOR UPDATE`` lock on the partition's rebuild-queue entry, then atomically replaces
-the rollup rows and deletes the entry. A writer that races with a rebuild locks the same entry in
-the transaction that changes the source rows, so it either waits and re-enqueues after publication
-or blocks the rebuild until it commits; a stale rollup is never left marked valid.
+takes a backend-appropriate write lock on the partition's rebuild-queue entry, then atomically
+replaces the rollup rows and deletes the entry. A writer that races with a rebuild locks the same
+entry in the transaction that changes the source rows, so it either waits and re-enqueues after
+publication or blocks the rebuild until it commits; a stale rollup is never left marked valid.
 """
 
 import logging
@@ -30,6 +30,7 @@ from sqlalchemy import case, func, or_, true
 from sqlalchemy.orm import Session, aliased, sessionmaker
 
 from mlflow.entities.trace_metrics import MetricViewType
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
@@ -70,8 +71,14 @@ DEFAULT_MAX_WORKERS = 4
 DEFAULT_PARTITIONS_PER_EXPERIMENT = 10
 QUEUE_EXAMINATION_MULTIPLIER = 10
 MIN_QUEUE_EXAMINATION_LIMIT = 100
+_MIN_SOURCE_TIMESTAMP = -(2**63)
 
-_COMPLETE_TRACE_STATUSES = (TraceStatus.OK.value, TraceStatus.ERROR.value)
+_COMPLETE_TRACE_STATUSES = tuple(
+    sorted({
+        *(status.value for status in TraceStatus.end_statuses()),
+        TraceState.STATE_UNSPECIFIED.value,
+    })
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -147,7 +154,7 @@ _SPAN_COST_METRIC_SPECS: tuple[_MetricSpec, ...] = (
     _MetricSpec(SpanMetricKey.TOTAL_COST, SqlSpan.total_cost, count_only=False, percentile=False),
 )
 
-_PartitionOutcome = Literal["built", "emptied", "deferred"]
+_PartitionOutcome = Literal["built", "emptied", "deferred", "failed"]
 _Candidate = tuple[RollupFamily, tuple[int, int]]
 
 
@@ -156,6 +163,7 @@ class RollupFamilyBuildStats:
     built: int = 0
     emptied: int = 0
     deferred: int = 0
+    failed: int = 0
     skipped_cap: int = 0
 
 
@@ -652,11 +660,15 @@ def _source_discovery_parts(family: RollupFamily, db_type: str):
     if family == RollupFamily.TRACE_METRIC:
         source_model = SqlTraceInfo
         experiment_id = SqlTraceInfo.experiment_id
+        source_timestamp = SqlTraceInfo.timestamp_ms
+        timestamp_units_per_ms = 1
         day_start_ms = _day_bucket_expr(SqlTraceInfo.timestamp_ms) * MS_PER_DAY
         source_filters = [SqlTraceInfo.timestamp_ms.isnot(None)]
     elif family == RollupFamily.SPAN_COST:
         source_model = SqlSpan
         experiment_id = SqlSpan.experiment_id
+        source_timestamp = SqlSpan.start_time_unix_nano
+        timestamp_units_per_ms = 1_000_000
         day_start_ms = _span_day_start_expr(db_type)
         source_filters = [
             SqlSpan.experiment_id.isnot(None),
@@ -670,13 +682,22 @@ def _source_discovery_parts(family: RollupFamily, db_type: str):
     else:
         source_model = SqlAssessments
         experiment_id = SqlAssessments.experiment_id
+        source_timestamp = SqlAssessments.trace_timestamp_ms
+        timestamp_units_per_ms = 1
         day_start_ms = _day_bucket_expr(SqlAssessments.trace_timestamp_ms) * MS_PER_DAY
         source_filters = [
             SqlAssessments.valid == true(),
             SqlAssessments.experiment_id.isnot(None),
             SqlAssessments.trace_timestamp_ms.isnot(None),
         ]
-    return source_model, experiment_id, day_start_ms, source_filters
+    return (
+        source_model,
+        experiment_id,
+        source_timestamp,
+        timestamp_units_per_ms,
+        day_start_ms,
+        source_filters,
+    )
 
 
 def _candidate_experiment_ids(
@@ -687,9 +708,14 @@ def _candidate_experiment_ids(
     """Find experiments with source data newer than their latest persisted rollup."""
     with session_factory() as session:
         db_type = session.get_bind().dialect.name
-        _, source_experiment_id, day_start_ms, source_filters = _source_discovery_parts(
-            family, db_type
-        )
+        (
+            _,
+            source_experiment_id,
+            source_timestamp,
+            timestamp_units_per_ms,
+            _,
+            source_filters,
+        ) = _source_discovery_parts(family, db_type)
         rollup_model = FAMILY_MODEL[family]
         latest_day_start_ms = (
             sa
@@ -705,10 +731,11 @@ def _candidate_experiment_ids(
                 sa.and_(
                     source_experiment_id == SqlExperiment.experiment_id,
                     *source_filters,
-                    day_start_ms < frozen_day_bucket * MS_PER_DAY,
-                    or_(
-                        latest_day_start_ms.is_(None),
-                        day_start_ms > latest_day_start_ms,
+                    source_timestamp < frozen_day_bucket * MS_PER_DAY * timestamp_units_per_ms,
+                    source_timestamp
+                    >= func.coalesce(
+                        (latest_day_start_ms + MS_PER_DAY) * timestamp_units_per_ms,
+                        _MIN_SOURCE_TIMESTAMP,
                     ),
                 )
             )
@@ -728,9 +755,14 @@ def _new_candidates_for_experiment(
     """Discover the next unbuilt days for one experiment using its source-time index."""
     with session_factory() as session:
         db_type = session.get_bind().dialect.name
-        source_model, source_experiment_id, day_start_ms, source_filters = _source_discovery_parts(
-            family, db_type
-        )
+        (
+            source_model,
+            source_experiment_id,
+            source_timestamp,
+            timestamp_units_per_ms,
+            day_start_ms,
+            source_filters,
+        ) = _source_discovery_parts(family, db_type)
         rollup_model = FAMILY_MODEL[family]
         queued_days = (
             session
@@ -762,14 +794,16 @@ def _new_candidates_for_experiment(
             .filter(
                 source_experiment_id == experiment_id,
                 *source_filters,
-                day_start_ms < frozen_day_bucket * MS_PER_DAY,
+                source_timestamp < frozen_day_bucket * MS_PER_DAY * timestamp_units_per_ms,
                 queued_days.c.day_start_ms.is_(None),
             )
             .group_by(day_start_ms)
             .order_by(day_start_ms)
         )
         if latest_day_start_ms is not None:
-            query = query.filter(day_start_ms > int(latest_day_start_ms))
+            query = query.filter(
+                source_timestamp >= (int(latest_day_start_ms) + MS_PER_DAY) * timestamp_units_per_ms
+            )
         rows, overflow = _bounded_query_rows(query, limit)
     return (
         [
@@ -803,13 +837,43 @@ def _process_candidate_groups(
         outcomes = []
         for candidate in candidates:
             family, partition = candidate
-            outcome = _rebuild_partition(
-                session_factory,
-                family,
-                partition,
-                cutoff_ms,
-                frozen_day_bucket,
-            )
+            try:
+                outcome = _rebuild_partition(
+                    session_factory,
+                    family,
+                    partition,
+                    cutoff_ms,
+                    frozen_day_bucket,
+                )
+            except Exception:
+                experiment_id, day_bucket = partition
+                _logger.exception(
+                    "Failed to rebuild SQL trace rollup partition "
+                    "(%s, %s, %s); skipping later partitions for this experiment.",
+                    experiment_id,
+                    _bucket_to_date(day_bucket),
+                    family.value,
+                )
+                # A queued candidate remains durable because its rebuild transaction rolled back.
+                # A newly discovered candidate may have failed before its marker committed, so
+                # record it in a fresh transaction for a later maintenance pass.
+                try:
+                    with session_factory() as session, session.begin():
+                        ensure_locked_rebuild_entry(
+                            session,
+                            family,
+                            experiment_id,
+                            _bucket_to_date(day_bucket),
+                        )
+                except Exception:
+                    _logger.exception(
+                        "Failed to retain SQL trace rollup rebuild marker for (%s, %s, %s).",
+                        experiment_id,
+                        _bucket_to_date(day_bucket),
+                        family.value,
+                    )
+                outcomes.append((candidate, "failed"))
+                break
             outcomes.append((candidate, outcome))
         return outcomes
 
@@ -847,6 +911,8 @@ def _record_outcomes(
                     deferred_samples.append(
                         f"({experiment_id}, {_bucket_to_date(day_bucket)}, {family.value})"
                     )
+            case "failed":
+                stats.failed += 1
     return successful, deferred_samples
 
 
@@ -896,6 +962,7 @@ def run_sql_trace_rollups(
     deferred_samples: list[str] = []
     overflow_families_seen: set[RollupFamily] = set()
     examined_candidates: set[_Candidate] = set()
+    failed_experiment_ids: set[int] = set()
 
     # Drain the durable queue first. A keyset cursor skips deferred rows within this run, while
     # the separate examination bound prevents permanently active traces from causing an
@@ -915,6 +982,17 @@ def run_sql_trace_rollups(
         if not queued:
             queue_exhausted = True
             break
+        skipped_after_failure = [
+            candidate for candidate in queued if candidate[1][0] in failed_experiment_ids
+        ]
+        examined += len(skipped_after_failure)
+        examined_candidates.update(skipped_after_failure)
+        queued = [candidate for candidate in queued if candidate[1][0] not in failed_experiment_ids]
+        if not queued:
+            if overflow_family is None:
+                queue_exhausted = True
+                break
+            continue
         outcomes = _process_candidate_groups(
             session_factory,
             _group_candidates_by_experiment(queued),
@@ -925,6 +1003,9 @@ def run_sql_trace_rollups(
         )
         successful, samples = _record_outcomes(outcomes, family_stats)
         examined_candidates.update(candidate for candidate, _ in outcomes)
+        failed_experiment_ids.update(
+            candidate[1][0] for candidate, outcome in outcomes if outcome == "failed"
+        )
         published += successful
         examined += len(outcomes)
         deferred_samples.extend(samples[: 5 - len(deferred_samples)])
@@ -946,7 +1027,8 @@ def run_sql_trace_rollups(
                 family,
                 frozen_day_bucket,
             ):
-                candidate_families.setdefault(experiment_id, []).append(family)
+                if experiment_id not in failed_experiment_ids:
+                    candidate_families.setdefault(experiment_id, []).append(family)
         experiment_ids = list(candidate_families)
         random.shuffle(experiment_ids)
 
@@ -959,6 +1041,8 @@ def run_sql_trace_rollups(
             )
             candidate_groups = []
             for experiment_id in experiment_ids:
+                if experiment_id in failed_experiment_ids:
+                    continue
                 if slots <= 0:
                     break
                 quota = min(DEFAULT_PARTITIONS_PER_EXPERIMENT, slots)
@@ -1002,6 +1086,9 @@ def run_sql_trace_rollups(
             )
             successful, samples = _record_outcomes(outcomes, family_stats)
             examined_candidates.update(candidate for candidate, _ in outcomes)
+            failed_experiment_ids.update(
+                candidate[1][0] for candidate, outcome in outcomes if outcome == "failed"
+            )
             published += successful
             examined += len(outcomes)
             deferred_samples.extend(samples[: 5 - len(deferred_samples)])

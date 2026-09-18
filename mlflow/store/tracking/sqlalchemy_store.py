@@ -179,6 +179,8 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     validate_query_trace_metrics_params,
 )
 from mlflow.store.tracking.utils.sql_trace_rollups import (
+    MS_PER_DAY,
+    ROLLUP_ELIGIBILITY_LAG_MS,
     RollupFamily,
     configure_rollup_read_snapshot,
     enqueue_rollup_rebuild_partitions,
@@ -972,19 +974,26 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         if not rollups_enabled():
             return
 
-        timestamps_by_experiment: dict[int, list[int]] = defaultdict(list)
-        for experiment_id, trace_timestamp_ms in session.query(
-            SqlAssessments.experiment_id, SqlAssessments.trace_timestamp_ms
-        ).filter(assessment_filter):
-            if experiment_id is None:
-                continue
-            timestamps_by_experiment[experiment_id].append(trace_timestamp_ms)
+        day_bucket = func.floor(SqlAssessments.trace_timestamp_ms / MS_PER_DAY)
+        cutoff_ms = get_current_time_millis() - ROLLUP_ELIGIBILITY_LAG_MS
+        affected_partitions = (
+            session
+            .query(SqlAssessments.experiment_id, day_bucket.label("day_bucket"))
+            .filter(
+                assessment_filter,
+                SqlAssessments.experiment_id.isnot(None),
+                SqlAssessments.trace_timestamp_ms.isnot(None),
+                SqlAssessments.trace_timestamp_ms <= cutoff_ms,
+            )
+            .distinct()
+            .order_by(SqlAssessments.experiment_id, day_bucket)
+        )
         enqueue_rollup_rebuild_partitions(
             session,
-            [
-                (RollupFamily.ASSESSMENT, experiment_id, timestamps)
-                for experiment_id, timestamps in timestamps_by_experiment.items()
-            ],
+            (
+                (RollupFamily.ASSESSMENT, int(experiment_id), [int(bucket) * MS_PER_DAY])
+                for experiment_id, bucket in affected_partitions
+            ),
         )
 
     def _mark_run_active(self, session, run):
@@ -3895,60 +3904,61 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     sql_assessment.trace_timestamp_ms = trace_info.request_time
                     sql_assessments.append(sql_assessment)
                 trace_write_workspace = self._get_active_workspace()
-                # Snapshot the old source partitions without taking source-row locks, then lock
-                # every old and new rebuild key before the read-modify-write lock below. A
-                # concurrent queue-first writer either commits before this lock acquisition or
-                # leaves its own marker behind, so a snapshot race cannot lose invalidation.
-                db_trace_snapshot = (
-                    self
-                    ._trace_query(session, workspace=trace_write_workspace)
-                    .filter(SqlTraceInfo.request_id == trace_id)
-                    .one_or_none()
-                )
-                if db_trace_snapshot is None:
-                    raise MlflowException(
-                        f"Trace with ID '{trace_id}' no longer exists.",
-                        error_code=RESOURCE_DOES_NOT_EXIST,
+                if rollups_enabled():
+                    # Snapshot the old source partitions without taking source-row locks, then
+                    # lock every old and new rebuild key before the read-modify-write lock below.
+                    # A concurrent queue-first writer either commits before this lock acquisition
+                    # or leaves its own marker behind, so a snapshot race cannot lose invalidation.
+                    db_trace_snapshot = (
+                        self
+                        ._trace_query(session, workspace=trace_write_workspace)
+                        .filter(SqlTraceInfo.request_id == trace_id)
+                        .one_or_none()
                     )
-                previous_partition = (
-                    int(db_trace_snapshot.experiment_id),
-                    db_trace_snapshot.timestamp_ms,
-                )
-                previous_span_partitions = [
-                    (int(experiment_id), int(start_time_unix_nano) // 1_000_000)
-                    for experiment_id, start_time_unix_nano in session.query(
-                        SqlSpan.experiment_id, SqlSpan.start_time_unix_nano
-                    ).filter(
-                        SqlSpan.trace_id == trace_id,
-                        SqlSpan.experiment_id.isnot(None),
-                        SqlSpan.start_time_unix_nano.isnot(None),
+                    if db_trace_snapshot is None:
+                        raise MlflowException(
+                            f"Trace with ID '{trace_id}' no longer exists.",
+                            error_code=RESOURCE_DOES_NOT_EXIST,
+                        )
+                    previous_partition = (
+                        int(db_trace_snapshot.experiment_id),
+                        db_trace_snapshot.timestamp_ms,
                     )
-                ]
-                enqueue_rollup_rebuild_partitions(
-                    session,
-                    [
-                        *new_rollup_partitions,
-                        *[
-                            (family, previous_partition[0], [previous_partition[1]])
-                            for family in (
-                                RollupFamily.TRACE_METRIC,
-                                RollupFamily.ASSESSMENT,
-                            )
+                    previous_span_partitions = [
+                        (int(experiment_id), int(start_time_unix_nano) // 1_000_000)
+                        for experiment_id, start_time_unix_nano in session.query(
+                            SqlSpan.experiment_id, SqlSpan.start_time_unix_nano
+                        ).filter(
+                            SqlSpan.trace_id == trace_id,
+                            SqlSpan.experiment_id.isnot(None),
+                            SqlSpan.start_time_unix_nano.isnot(None),
+                        )
+                    ]
+                    enqueue_rollup_rebuild_partitions(
+                        session,
+                        [
+                            *new_rollup_partitions,
+                            *[
+                                (family, previous_partition[0], [previous_partition[1]])
+                                for family in (
+                                    RollupFamily.TRACE_METRIC,
+                                    RollupFamily.ASSESSMENT,
+                                )
+                            ],
+                            *[
+                                (RollupFamily.SPAN_COST, experiment_id, [timestamp_ms])
+                                for experiment_id, timestamp_ms in previous_span_partitions
+                            ],
+                            *[
+                                (
+                                    RollupFamily.SPAN_COST,
+                                    int(trace_info.experiment_id),
+                                    [timestamp_ms],
+                                )
+                                for _, timestamp_ms in previous_span_partitions
+                            ],
                         ],
-                        *[
-                            (RollupFamily.SPAN_COST, experiment_id, [timestamp_ms])
-                            for experiment_id, timestamp_ms in previous_span_partitions
-                        ],
-                        *[
-                            (
-                                RollupFamily.SPAN_COST,
-                                int(trace_info.experiment_id),
-                                [timestamp_ms],
-                            )
-                            for _, timestamp_ms in previous_span_partitions
-                        ],
-                    ],
-                )
+                    )
                 # Lock the reread because this is the read half of a read-modify-write
                 # merge on trace_info, not a passive lookup. The db_payload_generation bump below
                 # coordinates DB-backed payload generation, but this row lock also prevents
@@ -4050,16 +4060,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def _get_sql_trace_info(
         self, session, trace_id, workspace=None, *, for_update=False
     ) -> SqlTraceInfo:
-        sql_trace_info = (
-            self
-            ._trace_query(
-                session,
-                for_update_or_delete=for_update,
-                workspace=workspace,
-            )
-            .filter(SqlTraceInfo.request_id == trace_id)
-            .one_or_none()
+        query = self._trace_query(
+            session,
+            for_update_or_delete=for_update,
+            workspace=workspace,
         )
+        # A locking reread is used after queue-key acquisition. Force SQLAlchemy to refresh an
+        # object already present in the identity map so routing comparisons never use its earlier
+        # optimistic snapshot.
+        if for_update:
+            query = query.populate_existing()
+        sql_trace_info = query.filter(SqlTraceInfo.request_id == trace_id).one_or_none()
         if sql_trace_info is None:
             raise MlflowException(
                 f"Trace with ID '{trace_id}' not found.",
@@ -4738,19 +4749,22 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 filters.append(SqlTraceInfo.request_id.in_(select(limited_subquery.c.request_id)))
 
+            use_rollups = rollups_enabled()
             selected_trace_ids = self._select_trace_ids_for_delete(
                 session=session,
                 filters=filters,
+                lock=not use_rollups,
             )
             if not selected_trace_ids:
                 return 0
 
-            self._enqueue_rollup_rebuilds_for_trace_delete(
-                session, int(experiment_id), selected_trace_ids
-            )
-            selected_trace_ids = self._lock_trace_ids_for_delete(session, selected_trace_ids)
-            if not selected_trace_ids:
-                return 0
+            if use_rollups:
+                self._enqueue_rollup_rebuilds_for_trace_delete(
+                    session, int(experiment_id), selected_trace_ids
+                )
+                selected_trace_ids = self._lock_trace_ids_for_delete(session, selected_trace_ids)
+                if not selected_trace_ids:
+                    return 0
 
             # Classify selected traces while the trace rows remain locked, then delete the
             # DB-backed subset before any slow object-store cleanup begins.
@@ -4862,10 +4876,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         *,
         session: Session,
         filters: list[ColumnElement[bool]],
+        lock: bool = False,
     ) -> list[str]:
         rows = (
             self
-            ._trace_query(session)
+            ._trace_query(session, for_update_or_delete=lock)
             .with_entities(SqlTraceInfo.request_id)
             .filter(and_(*filters))
             # Keep row locking deterministic so overlapping delete calls acquire trace_info locks
@@ -4986,66 +5001,98 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             The created Assessment object with backend-generated metadata.
         """
 
-        with self.ManagedSessionMaker(read_only=False) as session:
-            self._validate_trace_accessible(session, assessment.trace_id)
-            sql_trace_info = self._get_sql_trace_info(session, assessment.trace_id)
-            sql_assessment = SqlAssessments.from_mlflow_entity(assessment)
-            sql_assessment.experiment_id = sql_trace_info.experiment_id
-            sql_assessment.trace_timestamp_ms = sql_trace_info.timestamp_ms
-
-            enqueue_rollup_rebuilds(
-                session,
-                RollupFamily.ASSESSMENT,
-                sql_trace_info.experiment_id,
-                [sql_trace_info.timestamp_ms],
-            )
-
-            if sql_assessment.overrides:
-                update_count = (
-                    session
-                    .query(SqlAssessments)
-                    .filter(
-                        SqlAssessments.trace_id == sql_assessment.trace_id,
-                        SqlAssessments.assessment_id == sql_assessment.overrides,
+        use_rollups = rollups_enabled()
+        while True:
+            with self.ManagedSessionMaker(read_only=False) as session:
+                self._validate_trace_accessible(session, assessment.trace_id)
+                if use_rollups:
+                    # Queue keys must be acquired before the trace row lock. Snapshot the routing
+                    # fields optimistically, lock that assessment partition, then lock and refresh
+                    # the trace. If a span writer moved the trace between those reads, retry in a
+                    # fresh transaction so we never acquire another queue key while holding the
+                    # source-row lock.
+                    sql_trace_info = self._get_sql_trace_info(session, assessment.trace_id)
+                    routing_snapshot = (
+                        int(sql_trace_info.experiment_id),
+                        sql_trace_info.timestamp_ms,
                     )
-                    .update({"valid": False})
-                )
-
-                if update_count == 0:
-                    raise MlflowException(
-                        f"Assessment with ID '{sql_assessment.overrides}' not found "
-                        "for trace '{trace_id}'",
-                        RESOURCE_DOES_NOT_EXIST,
+                    enqueue_rollup_rebuilds(
+                        session,
+                        RollupFamily.ASSESSMENT,
+                        routing_snapshot[0],
+                        [routing_snapshot[1]],
+                    )
+                    sql_trace_info = self._get_sql_trace_info(
+                        session,
+                        assessment.trace_id,
+                        for_update=True,
+                    )
+                    current_routing = (
+                        int(sql_trace_info.experiment_id),
+                        sql_trace_info.timestamp_ms,
+                    )
+                    if current_routing != routing_snapshot:
+                        session.rollback()
+                        continue
+                else:
+                    # Preserve the pre-rollup path: one locking read protects the assessment's
+                    # denormalized experiment and timestamp from concurrent span writes.
+                    sql_trace_info = self._get_sql_trace_info(
+                        session,
+                        assessment.trace_id,
+                        for_update=True,
                     )
 
-            session.add(sql_assessment)
-            # A missing trace (e.g. deleted while still attached to a review queue) trips the
-            # ``trace_id`` -> ``trace_info`` foreign key on flush. Rather than leak the raw SQL
-            # error, roll back and check whether the trace is actually gone: report a clean
-            # "not found" if so, otherwise a generic error (the IntegrityError could also come
-            # from another constraint, e.g. a caller-supplied duplicate ``assessment_id``).
-            try:
-                session.flush()
-            except IntegrityError as e:
-                session.rollback()
-                trace_exists = (
-                    session
-                    .query(SqlTraceInfo.request_id)
-                    .filter(SqlTraceInfo.request_id == assessment.trace_id)
-                    .first()
-                ) is not None
-                if not trace_exists:
+                sql_assessment = SqlAssessments.from_mlflow_entity(assessment)
+                sql_assessment.experiment_id = sql_trace_info.experiment_id
+                sql_assessment.trace_timestamp_ms = sql_trace_info.timestamp_ms
+
+                if sql_assessment.overrides:
+                    update_count = (
+                        session
+                        .query(SqlAssessments)
+                        .filter(
+                            SqlAssessments.trace_id == sql_assessment.trace_id,
+                            SqlAssessments.assessment_id == sql_assessment.overrides,
+                        )
+                        .update({"valid": False})
+                    )
+
+                    if update_count == 0:
+                        raise MlflowException(
+                            f"Assessment with ID '{sql_assessment.overrides}' not found "
+                            f"for trace '{assessment.trace_id}'",
+                            RESOURCE_DOES_NOT_EXIST,
+                        )
+
+                session.add(sql_assessment)
+                # A missing trace (e.g. deleted while still attached to a review queue) trips the
+                # ``trace_id`` -> ``trace_info`` foreign key on flush. Rather than leak the raw SQL
+                # error, roll back and check whether the trace is actually gone: report a clean
+                # "not found" if so, otherwise a generic error (the IntegrityError could also come
+                # from another constraint, e.g. a caller-supplied duplicate ``assessment_id``).
+                try:
+                    session.flush()
+                except IntegrityError as e:
+                    session.rollback()
+                    trace_exists = (
+                        session
+                        .query(SqlTraceInfo.request_id)
+                        .filter(SqlTraceInfo.request_id == assessment.trace_id)
+                        .first()
+                    ) is not None
+                    if not trace_exists:
+                        raise MlflowException(
+                            f"Trace with ID '{assessment.trace_id}' not found. "
+                            "It may have been deleted.",
+                            RESOURCE_DOES_NOT_EXIST,
+                        ) from e
                     raise MlflowException(
-                        f"Trace with ID '{assessment.trace_id}' not found. "
-                        "It may have been deleted.",
-                        RESOURCE_DOES_NOT_EXIST,
+                        f"Failed to create assessment for trace '{assessment.trace_id}' "
+                        "due to a constraint violation.",
+                        INTERNAL_ERROR,
                     ) from e
-                raise MlflowException(
-                    f"Failed to create assessment for trace '{assessment.trace_id}' "
-                    "due to a constraint violation.",
-                    INTERNAL_ERROR,
-                ) from e
-            return sql_assessment.to_mlflow_entity()
+                return sql_assessment.to_mlflow_entity()
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
