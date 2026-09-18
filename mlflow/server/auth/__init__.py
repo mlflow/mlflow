@@ -15,6 +15,7 @@ import base64
 import functools
 import hmac
 import importlib
+import inspect
 import json
 import logging
 import os
@@ -275,6 +276,7 @@ from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
     MANAGE,
     NO_PERMISSIONS,
+    RESOURCE_TYPE_AGENT_PLUGIN,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
@@ -282,6 +284,7 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_MCP_SERVER,
     RESOURCE_TYPE_REGISTERED_MODEL,
     RESOURCE_TYPE_SCORER,
+    RESOURCE_TYPE_SKILL,
     RESOURCE_TYPE_WORKSPACE,
     USE,
     Permission,
@@ -1155,6 +1158,72 @@ def _get_mcp_server_permission(name: str, username: str) -> Permission:
     )
 
 
+def _get_skill_permission(organization: str | None, name: str, username: str) -> Permission:
+    resource_key = _skill_registry_resource_key(organization, name)
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type=RESOURCE_TYPE_SKILL,
+            resource_key=resource_key,
+            workspace_lookup_id=resource_key,
+            workspace_fetcher=_get_skill_for_auth,
+            workspace_label="skill",
+        ),
+    )
+
+
+def _get_agent_plugin_permission(
+    organization: str | None,
+    name: str,
+    username: str,
+) -> Permission:
+    resource_key = _skill_registry_resource_key(organization, name)
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type=RESOURCE_TYPE_AGENT_PLUGIN,
+            resource_key=resource_key,
+            workspace_lookup_id=resource_key,
+            workspace_fetcher=_get_agent_plugin_for_auth,
+            workspace_label="agent plugin",
+        ),
+    )
+
+
+# Shared capability helpers used by Skill Registry route validators and store/import
+# preflight paths.
+def _can_read_skill(organization: str | None, name: str, username: str) -> bool:
+    return _get_skill_permission(organization, name, username).can_read
+
+
+def _can_update_skill(organization: str | None, name: str, username: str) -> bool:
+    return _get_skill_permission(organization, name, username).can_update
+
+
+def _can_delete_skill(organization: str | None, name: str, username: str) -> bool:
+    return _get_skill_permission(organization, name, username).can_delete
+
+
+def _can_manage_skill(organization: str | None, name: str, username: str) -> bool:
+    return _get_skill_permission(organization, name, username).can_manage
+
+
+def _can_read_agent_plugin(organization: str | None, name: str, username: str) -> bool:
+    return _get_agent_plugin_permission(organization, name, username).can_read
+
+
+def _can_update_agent_plugin(organization: str | None, name: str, username: str) -> bool:
+    return _get_agent_plugin_permission(organization, name, username).can_update
+
+
+def _can_delete_agent_plugin(organization: str | None, name: str, username: str) -> bool:
+    return _get_agent_plugin_permission(organization, name, username).can_delete
+
+
+def _can_manage_agent_plugin(organization: str | None, name: str, username: str) -> bool:
+    return _get_agent_plugin_permission(organization, name, username).can_manage
+
+
 def _permission_to_allowed_actions(perm: Permission) -> list[str]:
     actions = []
     if perm.can_use:
@@ -1448,6 +1517,14 @@ def validate_can_create_mcp_server(username: str) -> bool:
     return _can_create_in_workspace(username)
 
 
+def validate_can_create_skill(username: str) -> bool:
+    return _can_create_in_workspace(username)
+
+
+def validate_can_create_agent_plugin(username: str) -> bool:
+    return _can_create_in_workspace(username)
+
+
 def validate_can_view_workspace() -> bool:
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
@@ -1688,6 +1765,140 @@ def _reject_workspace_resource_type(resource_type: str) -> None:
         )
 
 
+@dataclass(frozen=True)
+class _SkillRegistryAuthParent:
+    """Minimal parent shape used by auth after resolving a Skill Registry row."""
+
+    workspace: str
+
+
+def _skill_registry_resource_key(organization: str | None, name: str) -> str:
+    # Callers must pass the canonical organization/name values used by the Skill
+    # Registry store. The auth layer must not case-fold here because the backing
+    # resource primary keys are case-sensitive on production databases.
+    return f"@{organization}/{name}" if organization else name
+
+
+def _skill_registry_resource_parts(resource_id: str) -> tuple[str, str]:
+    if resource_id.startswith("@"):
+        organization, sep, name = resource_id[1:].partition("/")
+        if sep and organization and name and "/" not in name:
+            return organization, name
+    elif resource_id and "/" not in resource_id:
+        return "", resource_id
+
+    raise MlflowException(
+        "Invalid Skill Registry resource_id. Expected 'name' or '@organization/name'.",
+        INVALID_PARAMETER_VALUE,
+    )
+
+
+def _get_skill_registry_parent_from_store_method(
+    getter: Callable[..., Any],
+    organization: str,
+    name: str,
+    workspace: str,
+) -> Any:
+    try:
+        signature = inspect.signature(getter)
+    except (TypeError, ValueError):
+        return getter(name=name, organization=organization)
+
+    call_patterns = (
+        ((), {"name": name, "organization": organization, "workspace": workspace}),
+        ((), {"name": name, "organization": organization}),
+        ((organization, name), {}),
+    )
+    for args, kwargs in call_patterns:
+        try:
+            signature.bind(*args, **kwargs)
+        except TypeError:
+            continue
+        return getter(*args, **kwargs)
+
+    raise MlflowException(
+        f"Could not determine Skill Registry getter calling convention for {getter!r}.",
+        INTERNAL_ERROR,
+    )
+
+
+def _skill_registry_auth_workspace(resource_type: str, resource_id: str) -> str:
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    if workspace_name is None:
+        raise MlflowException(
+            f"Cannot resolve workspace for {resource_type} '{resource_id}' without "
+            "an active workspace.",
+            RESOURCE_DOES_NOT_EXIST,
+        )
+    return workspace_name
+
+
+def _get_skill_registry_parent_for_auth(
+    resource_type: str,
+    resource_id: str,
+) -> _SkillRegistryAuthParent:
+    organization, name = _skill_registry_resource_parts(resource_id)
+    tracking_store = _get_tracking_store()
+    workspace_name = _skill_registry_auth_workspace(resource_type, resource_id)
+
+    getter_name = {
+        RESOURCE_TYPE_SKILL: "get_skill",
+        RESOURCE_TYPE_AGENT_PLUGIN: "get_agent_plugin",
+    }[resource_type]
+    getter = getattr(tracking_store, getter_name, None)
+    if getter is not None:
+        parent = _get_skill_registry_parent_from_store_method(
+            getter, organization, name, workspace_name
+        )
+        parent_workspace = getattr(parent, "workspace", None)
+        if parent_workspace != workspace_name:
+            raise MlflowException(
+                f"{resource_type} '{resource_id}' does not exist.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        return _SkillRegistryAuthParent(workspace=parent_workspace)
+
+    session_maker = getattr(tracking_store, "ManagedSessionMaker", None)
+    if session_maker is None:
+        raise MlflowException(
+            f"Cannot resolve workspace for {resource_type} '{resource_id}'.",
+            RESOURCE_DOES_NOT_EXIST,
+        )
+
+    from mlflow.store.tracking.dbmodels.models import SqlAgentPlugin, SqlSkill
+
+    model = SqlSkill if resource_type == RESOURCE_TYPE_SKILL else SqlAgentPlugin
+    with session_maker() as session:
+        parent = (
+            session
+            .query(model)
+            .filter(
+                model.workspace == workspace_name,
+                model.organization == organization,
+                model.name == name,
+            )
+            .first()
+        )
+        if parent is None:
+            raise MlflowException(
+                f"{resource_type} '{resource_id}' does not exist.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        return _SkillRegistryAuthParent(workspace=parent.workspace)
+
+
+def _get_skill_for_auth(resource_id: str) -> _SkillRegistryAuthParent:
+    return _get_skill_registry_parent_for_auth(RESOURCE_TYPE_SKILL, resource_id)
+
+
+def _get_agent_plugin_for_auth(resource_id: str) -> _SkillRegistryAuthParent:
+    return _get_skill_registry_parent_for_auth(RESOURCE_TYPE_AGENT_PLUGIN, resource_id)
+
+
 # Maps each resource_type to ``(workspace_label, workspace_fetcher_factory)``.
 # Factory is invoked lazily so tests can patch the underlying store.
 _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], Any]]]] = {
@@ -1715,6 +1926,14 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
     RESOURCE_TYPE_MCP_SERVER: (
         "mcp server",
         lambda: _get_tracking_store().get_mcp_server,
+    ),
+    RESOURCE_TYPE_SKILL: (
+        "skill",
+        lambda: _get_skill_for_auth,
+    ),
+    RESOURCE_TYPE_AGENT_PLUGIN: (
+        "agent plugin",
+        lambda: _get_agent_plugin_for_auth,
     ),
 }
 
@@ -1750,6 +1969,10 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
     if spec is None:
         return None
     label, fetcher_factory = spec
+    if resource_type in {RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN}:
+        # Validate the composite id and format it into the canonical grant key.
+        organization, name = _skill_registry_resource_parts(resource_id)
+        resource_id = _skill_registry_resource_key(organization, name)
     return _ResourceDispatch(
         resource_key=resource_id,
         workspace_lookup_id=resource_id,
@@ -3739,6 +3962,44 @@ def delete_can_manage_registered_model_permission(resp: Response):
         )
     store.delete_grants_for_resource("registered_model", name, workspace_scoped=True)
     store.delete_grants_for_resource("prompt", name, workspace_scoped=True)
+
+
+def grant_manage_for_created_skill(username: str, organization: str | None, name: str) -> None:
+    store.grant_user_permission(
+        username,
+        RESOURCE_TYPE_SKILL,
+        _skill_registry_resource_key(organization, name),
+        MANAGE.name,
+    )
+
+
+def grant_manage_for_created_agent_plugin(
+    username: str,
+    organization: str | None,
+    name: str,
+) -> None:
+    store.grant_user_permission(
+        username,
+        RESOURCE_TYPE_AGENT_PLUGIN,
+        _skill_registry_resource_key(organization, name),
+        MANAGE.name,
+    )
+
+
+def delete_skill_permissions(organization: str | None, name: str) -> None:
+    store.delete_grants_for_resource(
+        RESOURCE_TYPE_SKILL,
+        _skill_registry_resource_key(organization, name),
+        workspace_scoped=True,
+    )
+
+
+def delete_agent_plugin_permissions(organization: str | None, name: str) -> None:
+    store.delete_grants_for_resource(
+        RESOURCE_TYPE_AGENT_PLUGIN,
+        _skill_registry_resource_key(organization, name),
+        workspace_scoped=True,
+    )
 
 
 # ---- Role management handlers (RBAC) ----

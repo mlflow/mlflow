@@ -9,6 +9,10 @@ from mlflow.server.auth.permissions import (
     PERMISSION_PRIORITY,
     READ,
     RESOURCE_GRANTABLE_PERMISSIONS,
+    RESOURCE_TYPE_AGENT_PLUGIN,
+    RESOURCE_TYPE_SKILL,
+    SKILL_REGISTRY_GRANTABLE_PERMISSIONS,
+    SKILL_REGISTRY_RESOURCE_TYPES,
     USE,
     VALID_RESOURCE_TYPES,
     WORKSPACE_GRANTABLE_PERMISSIONS,
@@ -156,6 +160,12 @@ def test_prompt_is_a_first_class_resource_type():
     assert "prompt" != "registered_model"
 
 
+def test_skill_registry_resource_types_are_first_class_resource_types():
+    assert RESOURCE_TYPE_SKILL in VALID_RESOURCE_TYPES
+    assert RESOURCE_TYPE_AGENT_PLUGIN in VALID_RESOURCE_TYPES
+    assert SKILL_REGISTRY_RESOURCE_TYPES == {RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN}
+
+
 # ---- Scope-aware validator --------------------------------------------------
 
 
@@ -169,6 +179,7 @@ def test_grantable_permission_sets_pin_simplified_model():
     """
     assert WORKSPACE_GRANTABLE_PERMISSIONS == {USE.name, MANAGE.name}
     assert RESOURCE_GRANTABLE_PERMISSIONS == {READ.name, USE.name, EDIT.name, MANAGE.name}
+    assert SKILL_REGISTRY_GRANTABLE_PERMISSIONS == {READ.name, EDIT.name, MANAGE.name}
 
 
 @pytest.mark.parametrize(
@@ -183,9 +194,30 @@ def test_validate_resource_grant_accepts_grantable(permission):
     _validate_permission_for_resource_type(permission, "mcp_server")
 
 
+@pytest.mark.parametrize("resource_type", [RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN])
+@pytest.mark.parametrize("permission", [READ.name, EDIT.name, MANAGE.name])
+def test_validate_skill_registry_resource_grant_accepts_rfc_tiers(resource_type, permission):
+    _validate_permission_for_resource_type(permission, resource_type)
+
+
+@pytest.mark.parametrize("resource_type", [RESOURCE_TYPE_SKILL, RESOURCE_TYPE_AGENT_PLUGIN])
+def test_validate_skill_registry_resource_grant_rejects_use(resource_type):
+    with pytest.raises(MlflowException, match="Skill Registry grants accept only"):
+        _validate_permission_for_resource_type(USE.name, resource_type)
+
+
 @pytest.mark.parametrize(
     "resource_type",
-    ["experiment", "registered_model", "prompt", "scorer", "gateway_endpoint", "mcp_server"],
+    [
+        "experiment",
+        "registered_model",
+        "prompt",
+        "scorer",
+        "gateway_endpoint",
+        "mcp_server",
+        RESOURCE_TYPE_SKILL,
+        RESOURCE_TYPE_AGENT_PLUGIN,
+    ],
 )
 def test_validate_resource_grant_rejects_no_permissions(resource_type):
     with pytest.raises(MlflowException, match="NO_PERMISSIONS"):
