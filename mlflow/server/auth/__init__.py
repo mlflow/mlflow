@@ -3036,7 +3036,8 @@ def _can_own_or_manage_review_queue(queue, username: str) -> bool:
 
 
 def _can_delete_or_prune_review_queue(queue, username: str) -> bool:
-    """Whether the user may delete the queue or remove its items (un-assign work).
+    """Whether the user may delete the queue (its only caller is delete_review_queue;
+    removing items is a plain review_queue EDIT and no longer routes here).
 
     A manager may act on any queue; an EDIT owner only on their own CUSTOM queue (a
     USER queue's lifecycle is a manager's responsibility, never its assignee's).
@@ -3179,7 +3180,7 @@ def validate_can_delete_review_queue():
 
 
 def validate_can_add_items_to_review_queue():
-    # Adding items (flag-for-review) is open to any EDITor, unlike removing them.
+    # Adding and removing items (flag-for-review / un-assign) are both review_queue EDIT.
     return _get_permission_from_review_queue_id().can_update
 
 
