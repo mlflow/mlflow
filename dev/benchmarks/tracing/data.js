@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789694154441,
+  "lastUpdate": 1789718911264,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "31463517+B-Step62@users.noreply.github.com",
-            "name": "Yuki Watanabe",
-            "username": "B-Step62"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d90c784b5701d756b5092e9298812e6c4f462312",
-          "message": "Pin `transformers<5` for pytorch < 2.5 in cross-version tests (#23440)\n\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-05-19T20:52:14Z",
-          "tree_id": "6ecc4bff1336dc6e8a9af0196ec53bba1edc3d6f",
-          "url": "https://github.com/mlflow/mlflow/commit/d90c784b5701d756b5092e9298812e6c4f462312"
-        },
-        "date": 1779224144023,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 40.17700990000179,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 20.188407540543366,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 20.383333358209804,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 19.97779718644114,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 19.29860076562573,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.506053200000906,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.27098739999792,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "pdevadiga451@gmail.com",
+            "name": "Pushparaj",
+            "username": "Pdevadiga45"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "301afac43fb384b8d6bf9cd5249266d3312b5ab8",
+          "message": "Fix positional Series alignment in `eval_results_table` (#25799)\n\nSigned-off-by: Pushparaj <pdevadiga451@gmail.com>",
+          "timestamp": "2026-09-18T08:04:52Z",
+          "tree_id": "36730cb55ff524fb12fdda5f235484434a6fcefe",
+          "url": "https://github.com/mlflow/mlflow/commit/301afac43fb384b8d6bf9cd5249266d3312b5ab8"
+        },
+        "date": 1789718909171,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 48.51252455000079,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 7.411932807693178,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.902759462120707,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 7.0721807835058055,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.2651589285722356,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.630330200005233,
             "unit": "ms"
           }
         ]
