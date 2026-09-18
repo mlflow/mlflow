@@ -1899,9 +1899,25 @@ def _update_run():
             "end_time": [_assert_intlike],
             "status": [_assert_string],
             "run_name": [_assert_string],
+            "expected_status": [_assert_string],
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
+    if request_message.HasField("expected_status"):
+        if not request_message.HasField("status"):
+            raise MlflowException.invalid_parameter_value(
+                "The status field must be provided when expected_status is set."
+            )
+        updated = _get_tracking_store().claim_run(
+            run_id,
+            request_message.expected_status,
+            request_message.status,
+        )
+        response_message = UpdateRun.Response(updated=updated)
+        response = Response(mimetype="application/json")
+        response.set_data(message_to_json(response_message))
+        return response
+
     run_name = request_message.run_name if request_message.HasField("run_name") else None
     end_time = request_message.end_time if request_message.HasField("end_time") else None
     status = request_message.status if request_message.HasField("status") else None

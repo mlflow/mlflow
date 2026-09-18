@@ -515,19 +515,22 @@ class MlflowStorage(BaseStorage):
         self, trial_id, state: TrialState, values: Sequence[float] | None = None
     ) -> bool:
         # Optuna uses a False return to indicate that a RUNNING trial could not
-        # be claimed. A WAITING trial is eligible for this transition.
+        # be claimed. The tracking store performs this transition atomically so
+        # that concurrent workers cannot both claim the same WAITING trial.
         if state == TrialState.RUNNING:
-            current_state = mlflow_optuna_status_map[
-                self._mlflow_client.get_run(trial_id).info.status
-            ]
-            if current_state != TrialState.WAITING:
+            if not self._mlflow_client._claim_run(
+                trial_id,
+                expected_status=optuna_mlflow_status_map[TrialState.WAITING],
+                status=optuna_mlflow_status_map[TrialState.RUNNING],
+            ):
                 return False
-
-        # Update trial state
-        if state.is_finished():
-            self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
         else:
-            self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
+            # Update trial state. The RUNNING transition is already performed by
+            # the atomic claim above, so it must not be written a second time.
+            if state.is_finished():
+                self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
+            else:
+                self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
 
         # Queue value metrics if provided
         timestamp = int(time.time() * 1000)

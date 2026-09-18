@@ -146,6 +146,7 @@ from mlflow.protos.service_pb2 import (
     SetTraceTagV3,
     TraceLocation,
     UpdateGatewaySecret,
+    UpdateRun,
 )
 from mlflow.protos.service_pb2 import (
     FallbackStrategy as ProtoFallbackStrategy,
@@ -253,6 +254,7 @@ from mlflow.server.handlers import (
     _update_model_version,
     _update_registered_model,
     _update_review_queue,
+    _update_run,
     _update_workspace_handler,
     _upload_artifact,
     _upsert_dataset_records_handler,
@@ -863,6 +865,25 @@ def jsonify(obj):
         return [_jsonify(o) for o in obj]
     else:
         return _jsonify(obj)
+
+
+def test_update_run_with_expected_status_claims_atomically(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = UpdateRun(
+        run_id="run-id",
+        status=RunStatus.RUNNING,
+        expected_status=RunStatus.SCHEDULED,
+    )
+    mock_tracking_store.claim_run.return_value = False
+
+    response = _update_run()
+
+    assert response.status_code == 200
+    assert json.loads(response.get_data()) == {"updated": False}
+    mock_tracking_store.claim_run.assert_called_once_with(
+        "run-id", RunStatus.SCHEDULED, RunStatus.RUNNING
+    )
 
 
 # Tests for Model Registry handlers

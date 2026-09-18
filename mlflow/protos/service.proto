@@ -3475,9 +3475,16 @@ message UpdateRun {
   // Updated name of the run.
   optional string run_name = 5;
 
+  // If set, update the run only when its current status matches this value.
+  // The response's `updated` field indicates whether the conditional update succeeded.
+  optional RunStatus expected_status = 6;
+
   message Response {
     // Updated metadata of the run.
     optional RunInfo run_info = 1;
+
+    // Whether a conditional status update succeeded.
+    optional bool updated = 2;
   }
 }
 
