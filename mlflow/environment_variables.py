@@ -537,13 +537,6 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
 
-#: Specifies the chunk size in bytes to use when downloading a file from a UC model version via
-#: the Databricks Files REST API (``DatabricksSDKModelsArtifactRepository``).
-#: (default: ``104_857_600`` (100 MB))
-MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
-    "MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE", int, 100 * 1024**2
-)
-
 #: Specifies whether to route Unity Catalog model-registry artifact operations (e.g.
 #: ``mlflow.<flavor>.load_model("models:/<catalog>.<schema>.<model>/<version>")``) through the
 #: Databricks SDK Files REST API (``DatabricksSDKModelsArtifactRepository``) instead of the
