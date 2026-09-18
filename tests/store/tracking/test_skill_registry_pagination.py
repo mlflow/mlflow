@@ -180,6 +180,13 @@ def test_validate_max_results_rejects_non_positive(value):
         validate_max_results(value)
 
 
+@pytest.mark.parametrize("value", [None, "10", 1.5, True])
+def test_validate_max_results_rejects_non_integer(value):
+    with pytest.raises(MlflowException, match=r"(?i)must be an integer") as exc:
+        validate_max_results(value)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
 def test_validate_max_results_rejects_over_threshold():
     with pytest.raises(MlflowException, match=r"(?i)at most 1000"):
         validate_max_results(1001)

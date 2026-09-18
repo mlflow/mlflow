@@ -100,6 +100,11 @@ def validate_max_results(
     max_results: int,
     threshold: int = SEARCH_SKILL_REGISTRY_MAX_RESULTS_THRESHOLD,
 ) -> None:
+    # bool is a subclass of int, so reject it explicitly.
+    if isinstance(max_results, bool) or not isinstance(max_results, int):
+        raise MlflowException.invalid_parameter_value(
+            f"max_results must be an integer, got {max_results!r}."
+        )
     if max_results < 1:
         raise MlflowException.invalid_parameter_value(
             f"max_results must be at least 1, got {max_results}."
