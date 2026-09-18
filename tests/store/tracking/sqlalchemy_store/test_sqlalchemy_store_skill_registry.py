@@ -1,5 +1,9 @@
+from types import SimpleNamespace
+
 import pytest
 import sqlalchemy
+from sqlalchemy.dialects import mssql
+from sqlalchemy.orm import Session
 
 from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_source import (
@@ -9,9 +13,17 @@ from mlflow.entities.skill_source import (
     SkillSourceType,
     ZipSource,
 )
+from mlflow.entities.workspace import Workspace
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
-from mlflow.store.tracking.dbmodels.models import SqlSkillVersion
+from mlflow.store.tracking.dbmodels.models import (
+    SqlSkill,
+    SqlSkillAlias,
+    SqlSkillTag,
+    SqlSkillVersion,
+)
+from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import SqlAlchemySkillRegistryMixin
+from mlflow.tracking._tracking_service.utils import _get_sqlalchemy_store
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -72,6 +84,19 @@ def test_update_skill_distinguishes_omitted_and_null_values(store):
     assert cleared.last_updated_by == "bob"
 
 
+def test_update_skill_preserves_resolved_fields(store):
+    store.create_skill_version("reviewer")
+    store.create_skill_version("reviewer", status=SkillStatus.DRAFT.value)
+
+    updated = store.update_skill("reviewer", description="Updated")
+    assert updated.latest_version == 1
+    assert updated.status == SkillStatus.ACTIVE
+
+    updated = store.update_skill("reviewer", icons=[{"src": "https://example.com/reviewer.svg"}])
+    assert updated.latest_version == 1
+    assert updated.status == SkillStatus.ACTIVE
+
+
 def test_skill_icons_round_trip_and_can_be_cleared(store):
     icons = [{"src": "https://example.com/reviewer.svg", "sizes": ["any"]}]
     created = store.create_skill("reviewer", icons=icons)
@@ -115,6 +140,137 @@ def test_search_skills_eager_loads_tags_and_aliases(store):
 
     assert len(skills) == 20
     assert len(statements) == 3
+
+
+def test_skill_query_relationship_loading_is_sql_server_compatible():
+    engine = sqlalchemy.create_engine("sqlite:///:memory:")
+    try:
+        SqlSkill.metadata.create_all(
+            engine,
+            tables=[
+                model.__table__ for model in (SqlSkill, SqlSkillVersion, SqlSkillTag, SqlSkillAlias)
+            ],
+        )
+        with engine.begin() as connection:
+            connection.execute(
+                SqlSkill.__table__.insert().values(
+                    workspace="default", organization="acme", name="reviewer"
+                )
+            )
+
+        owner = SimpleNamespace(_get_query=lambda session, model: session.query(model))
+        captured = []
+        with Session(engine) as session:
+
+            @sqlalchemy.event.listens_for(session, "do_orm_execute")
+            def capture_tag_query(state):
+                if state.is_relationship_load and state.bind_mapper.class_ is SqlSkillTag:
+                    statement = state.statement.params(**(state.parameters or {}))
+                    sql = str(
+                        statement.compile(
+                            dialect=mssql.dialect(), compile_kwargs={"literal_binds": True}
+                        )
+                    )
+                    captured.append(" ".join(sql.split()))
+
+            query = SqlAlchemySkillRegistryMixin._skill_query(owner, session)
+            query.filter(SqlSkill.name == "reviewer", SqlSkill.organization == "acme").one()
+
+        assert len(captured) == 1
+        unsupported = "WHERE (skill_tags.workspace, skill_tags.organization, skill_tags.name) IN ("
+        assert unsupported not in captured[0], captured[0]
+    finally:
+        engine.dispose()
+
+
+def test_skill_queries_load_relationships_on_supported_backends(store):
+    store.create_skill("reviewer", organization="acme")
+
+    retrieved = store.get_skill("reviewer", organization="acme")
+    assert retrieved.name == "reviewer"
+
+    updated = store.update_skill("reviewer", organization="acme", description="Updated")
+    assert updated.description == "Updated"
+
+    listed = store.search_skills()
+    assert [(skill.name, skill.organization) for skill in listed] == [("reviewer", "acme")]
+
+
+def test_cannot_disable_workspaces_with_non_default_skills(tmp_path, monkeypatch):
+    uri = f"sqlite:///{tmp_path / 'registry.db'}"
+    artifacts = str(tmp_path / "artifacts")
+
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    with WorkspaceContext("default"):
+        scoped = _get_sqlalchemy_store(uri, artifacts)
+        scoped._get_workspace_provider_instance().create_workspace(Workspace(name="private-team"))
+    with WorkspaceContext("private-team"):
+        scoped.create_skill("secret-skill", description="private data")
+        scoped.create_skill_version("secret-skill")
+
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+
+    with pytest.raises(MlflowException, match="Skills exist outside the default workspace") as exc:
+        _get_sqlalchemy_store(uri, artifacts)
+
+    assert exc.value.error_code == "INVALID_STATE"
+
+
+@pytest.mark.parametrize(
+    "operation",
+    ["get_skill", "search_skills", "update_skill", "get_skill_version", "create_skill_version"],
+)
+def test_existing_single_tenant_store_ignores_later_private_skills(
+    tmp_path, monkeypatch, operation
+):
+    uri = f"sqlite:///{tmp_path / 'registry.db'}"
+    artifacts = str(tmp_path / "artifacts")
+
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    single_tenant = _get_sqlalchemy_store(uri, artifacts)
+    single_tenant.create_skill("public-skill", organization="acme")
+
+    with monkeypatch.context() as server_b:
+        server_b.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+        with WorkspaceContext("default"):
+            workspace_store = _get_sqlalchemy_store(uri, artifacts)
+            workspace_store._get_workspace_provider_instance().create_workspace(
+                Workspace(name="private-team")
+            )
+        with WorkspaceContext("private-team"):
+            workspace_store.create_skill(
+                "secret-skill", organization="acme", description="Private description"
+            )
+            for _ in range(2):
+                workspace_store.create_skill_version("secret-skill", organization="acme")
+
+    if operation == "search_skills":
+        skills = single_tenant.search_skills()
+        assert [(skill.name, skill.workspace) for skill in skills] == [("public-skill", "default")]
+    elif operation == "create_skill_version":
+        created = single_tenant.create_skill_version("secret-skill", organization="acme")
+        assert (created.workspace, created.version) == ("default", 1)
+    else:
+
+        def access_private_skill():
+            if operation == "get_skill":
+                return single_tenant.get_skill("secret-skill", organization="acme")
+            if operation == "get_skill_version":
+                return single_tenant.get_skill_version("secret-skill", 1, organization="acme")
+            return single_tenant.update_skill(
+                "secret-skill", organization="acme", description="Changed by server A"
+            )
+
+        with pytest.raises(MlflowException, match="not found") as exc:
+            access_private_skill()
+        assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+    with monkeypatch.context() as server_b:
+        server_b.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+        with WorkspaceContext("private-team"):
+            private = workspace_store.get_skill("secret-skill", organization="acme")
+            assert private.description == "Private description"
+            assert private.latest_version == 2
 
 
 @pytest.mark.parametrize("name", ["", "Reviewer", "reviewer_name", "reviewer--tool"])
