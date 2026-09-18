@@ -2261,6 +2261,67 @@ async def test_anthropic_passthrough_messages_streaming(store: SqlAlchemyStore):
         assert b"message_stop" in chunks[6]
 
 
+@pytest.mark.asyncio
+async def test_anthropic_passthrough_messages_streaming_error_is_a_named_event(
+    store: SqlAlchemyStore,
+):
+    secret = store.create_gateway_secret(
+        secret_name="anthropic-stream-error-key",
+        secret_value={"api_key": "sk-ant-test-error"},
+        provider="anthropic",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="anthropic-stream-error-model",
+        secret_id=secret.secret_id,
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+    )
+    store.create_gateway_endpoint(
+        name="anthropic-stream-error-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": "anthropic-stream-error-endpoint",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "stream": True,
+        }
+    )
+
+    async def failing_stream():
+        yield b'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant","content":[],"model":"claude-3-5-sonnet-20241022","usage":{"input_tokens":10,"output_tokens":0}}}\n\n'  # noqa: E501
+        raise HTTPException(
+            status_code=429, detail="Number of requests has exceeded your rate limit"
+        )
+
+    with mock.patch(
+        "mlflow.gateway.providers.anthropic.send_stream_request", return_value=failing_stream()
+    ) as mock_send_stream:
+        response = await anthropic_passthrough_messages(mock_request)
+        chunks = [chunk async for chunk in response.body_iterator]
+
+    mock_send_stream.assert_called_once()
+    assert b"message_start" in chunks[0]
+    # The upstream error has to arrive as a named event or Anthropic clients drop it.
+    assert chunks[-1].startswith(b"event: error\ndata: ")
+    assert json.loads(chunks[-1].split(b"data: ", 1)[1]) == {
+        "type": "error",
+        "error": {
+            "type": "rate_limit_error",
+            "message": "Number of requests has exceeded your rate limit",
+        },
+    }
+
+
 # =============================================================================
 # Gemini generateContent/streamGenerateContent passthrough endpoint tests
 # =============================================================================
