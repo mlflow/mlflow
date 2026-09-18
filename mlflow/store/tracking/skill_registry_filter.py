@@ -12,8 +12,15 @@ from typing import TYPE_CHECKING, Any
 
 import sqlalchemy as sa
 
+from mlflow.entities import SkillStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking.dbmodels.models import (
+    SqlAgentPlugin,
+    SqlAgentPluginVersion,
+    SqlAgentPluginVersionMember,
+    _agent_plugin_version_has_deleted_member,
+)
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     _get_expression_comparison_func,
 )
@@ -145,47 +152,15 @@ def apply_member_name_filter(
 ) -> Query:
     """Filter agent plugins to those with an eligible version referencing the given skill.
 
-    A plugin version is eligible when it is non-deleted and none of its
-    members reference a deleted skill version (a version with any deleted
-    member is "withdrawn" and excluded from discovery per RFC-0008).
-    Older eligible versions still contribute matches.
+    A version is eligible when it is not deleted and not withdrawn, using the
+    same withdrawal rule as latest-version resolution: a version that bundles
+    any deleted skill version is withdrawn (per RFC-0008), while deprecated
+    members do not withdraw it. Older eligible versions still contribute
+    matches.
     """
-    # Lazy import to avoid circular dependency with dbmodels.models.
-    from mlflow.store.tracking.dbmodels.models import (
-        SqlAgentPlugin,
-        SqlAgentPluginVersion,
-        SqlAgentPluginVersionMember,
-        SqlSkillVersion,
-    )
-
-    # Alias for the sibling-member check so it doesn't conflict with the
-    # outer member table reference.
-    sibling = SqlAgentPluginVersionMember.__table__.alias("sibling_member")
-    sibling_sv = SqlSkillVersion.__table__.alias("sibling_sv")
-
-    # A plugin version is withdrawn when ANY of its members references a
-    # deleted skill version, not only the member matching the search term.
-    has_deleted_sibling = sa.exists(
-        sa
-        .select(sa.literal(1))
-        .select_from(sibling)
-        .join(
-            sibling_sv,
-            sa.and_(
-                sibling.c.plugin_workspace == sibling_sv.c.workspace,
-                sibling.c.member_organization == sibling_sv.c.organization,
-                sibling.c.member_name == sibling_sv.c.name,
-                sibling.c.member_version == sibling_sv.c.version,
-            ),
-        )
-        .where(
-            sibling.c.plugin_workspace == SqlAgentPluginVersionMember.plugin_workspace,
-            sibling.c.plugin_organization == SqlAgentPluginVersionMember.plugin_organization,
-            sibling.c.plugin_name == SqlAgentPluginVersionMember.plugin_name,
-            sibling.c.plugin_version == SqlAgentPluginVersionMember.plugin_version,
-            sibling_sv.c.status == "deleted",
-        )
-    )
+    # Correlate only the plugin version, so the check covers every member of
+    # that version rather than just the member row matched by name.
+    is_withdrawn = _agent_plugin_version_has_deleted_member().correlate(SqlAgentPluginVersion)
 
     member_subquery = (
         sa
@@ -208,8 +183,8 @@ def apply_member_name_filter(
             SearchUtils.get_sql_comparison_func("=", dialect)(
                 SqlAgentPluginVersionMember.member_name, member_name_value
             ),
-            SqlAgentPluginVersion.status != "deleted",
-            ~has_deleted_sibling,
+            SqlAgentPluginVersion.status != SkillStatus.DELETED.value,
+            ~is_withdrawn,
         )
         .distinct()
         .subquery()

@@ -890,6 +890,67 @@ def test_member_name_excludes_version_with_deleted_sibling(store):
         assert results == []
 
 
+def _add_plugin_version_with_members(session, version, members, workspace="default"):
+    session.add(
+        SqlAgentPluginVersion(
+            workspace=workspace,
+            organization="acme",
+            name="my-plugin",
+            version=version,
+            plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
+        )
+    )
+    for member_name in members:
+        session.add(
+            SqlAgentPluginVersionMember(
+                plugin_workspace=workspace,
+                plugin_organization="acme",
+                plugin_name="my-plugin",
+                plugin_version=version,
+                member_organization="acme",
+                member_name=member_name,
+                member_version=1,
+            )
+        )
+
+
+def _seed_member_skills(session, statuses, workspace="default"):
+    for name, status in statuses.items():
+        session.add(SqlSkill(workspace=workspace, organization="acme", name=name))
+        session.add(
+            SqlSkillVersion(
+                workspace=workspace, organization="acme", name=name, version=1, status=status
+            )
+        )
+    session.add(SqlAgentPlugin(workspace=workspace, organization="acme", name="my-plugin"))
+
+
+def _member_matches(store, member_name):
+    with session_scope(store, commit=False) as session:
+        query = apply_member_name_filter(
+            session.query(SqlAgentPlugin), member_name, dialect=store.engine.dialect.name
+        )
+        return [(plugin.workspace, plugin.name) for plugin in query.all()]
+
+
+def test_member_name_keeps_version_with_deprecated_sibling(store):
+    with session_scope(store) as session:
+        _seed_member_skills(session, {"code-review": "active", "old-helper": "deprecated"})
+        _add_plugin_version_with_members(session, "1.0.0", ["code-review", "old-helper"])
+
+    # Only deleted members withdraw a version; deprecated ones do not.
+    assert _member_matches(store, "code-review") == [("default", "my-plugin")]
+
+
+def test_member_name_matches_older_eligible_version_when_newer_is_withdrawn(store):
+    with session_scope(store) as session:
+        _seed_member_skills(session, {"code-review": "active", "unsafe-helper": "deleted"})
+        _add_plugin_version_with_members(session, "1.0.0", ["code-review"])
+        _add_plugin_version_with_members(session, "2.0.0", ["code-review", "unsafe-helper"])
+
+    assert _member_matches(store, "code-review") == [("default", "my-plugin")]
+
+
 # ---------------------------------------------------------------------------
 # Tag comparator validation
 # ---------------------------------------------------------------------------
