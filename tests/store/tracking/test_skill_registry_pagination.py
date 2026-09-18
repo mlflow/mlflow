@@ -60,6 +60,30 @@ def test_validate_accepts_matching_query():
     )
 
 
+@pytest.mark.parametrize(
+    ("token_filter", "token_order_by", "request_filter", "request_order_by"),
+    [
+        (None, None, "", []),
+        ("", [], None, None),
+        (None, [], "", None),
+    ],
+)
+def test_validate_treats_empty_values_as_absent(
+    token_filter, token_order_by, request_filter, request_order_by
+):
+    token = SkillRegistryPaginationToken(
+        filter_string=token_filter,
+        order_by=token_order_by,
+        offset=10,
+        query_scope="skills",
+    )
+    token.validate(
+        filter_string=request_filter,
+        order_by=request_order_by,
+        query_scope="skills",
+    )
+
+
 def test_validate_rejects_different_filter_string():
     token = SkillRegistryPaginationToken(
         filter_string="status = 'active'",

@@ -77,12 +77,14 @@ class SkillRegistryPaginationToken:
         order_by: list[str] | None,
         query_scope: str,
     ) -> None:
-        if self.filter_string != filter_string:
+        # Clients may send "" or [] on one page and omit the value on another.
+        # Treat empty values as absent on both sides so the token still matches.
+        if (self.filter_string or None) != (filter_string or None):
             raise MlflowException.invalid_parameter_value(
                 "Page token was issued for a different filter_string and cannot "
                 "be used with the current request."
             )
-        if self.order_by != order_by:
+        if (self.order_by or None) != (order_by or None):
             raise MlflowException.invalid_parameter_value(
                 "Page token was issued for a different order_by and cannot "
                 "be used with the current request."
