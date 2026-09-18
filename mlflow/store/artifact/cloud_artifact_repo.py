@@ -245,6 +245,9 @@ class CloudArtifactRepository(ArtifactRepository):
             or not file_size
             or file_size < MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
             or is_fuse_or_uc_volumes_uri(local_path)
+            # DatabricksSDKModelsArtifactRepository can only download file via databricks sdk
+            # rather than presigned uri used in _parallelized_download_from_cloud.
+            or type(self).__name__ == "DatabricksSDKModelsArtifactRepository"
         ):
             self._download_from_cloud(remote_file_path, local_path)
         else:

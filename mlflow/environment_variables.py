@@ -536,3 +536,11 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: The OpenJDK version to install in the Docker image used for MLflow models.
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
+
+#: Specifies whether to route Unity Catalog model-registry artifact operations (e.g.
+#: ``mlflow.<flavor>.load_model("models:/<catalog>.<schema>.<model>/<version>")``) through the
+#: Databricks SDK Files REST API (``DatabricksSDKModelsArtifactRepository``) instead of the
+#: scoped-cloud-credential artifact repositories. (default: ``False``)
+MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVariable(
+    "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", False
+)
