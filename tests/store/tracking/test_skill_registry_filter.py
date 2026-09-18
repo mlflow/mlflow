@@ -48,6 +48,9 @@ def session_scope(store, *, commit=True):
     with Session(store.engine) as session:
         if store.engine.dialect.name == "sqlite":
             session.execute(sa.text("PRAGMA foreign_keys = ON"))
+            # Pragmas are per connection; match production's ManagedSessionMaker
+            # so LIKE does not depend on which pooled connection this session gets.
+            session.execute(sa.text("PRAGMA case_sensitive_like = true"))
         yield session
         if commit:
             session.commit()
