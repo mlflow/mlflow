@@ -137,6 +137,10 @@ def _seed(store) -> str:
     t3 = _new_trace(store, exp_id, DAY_B_START + 7_000, duration_ms=500, state=TraceState.OK)
     _add_feedback(store, t1, value=0.4)
     _add_feedback(store, t3, value=0.9)
+    # These read-routing tests seed rollup rows directly. Maintenance-owned invalidations created
+    # by the source writes are cleared so each test can explicitly control coverage and queue state.
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlTraceRollupRebuild).delete()
     return exp_id
 
 
@@ -200,6 +204,13 @@ def _insert_span_cost_rollup(
     model_provider=None,
 ):
     with store.ManagedSessionMaker(read_only=False) as session:
+        # Direct seeding models a completed atomic publication. Source writes now enqueue the
+        # span-cost day, so remove that invalidation just as the maintenance publisher does.
+        session.query(SqlTraceRollupRebuild).filter_by(
+            experiment_id=int(exp_id),
+            rollup_day=_day_of(day_start_ms),
+            rollup_family=RollupFamily.SPAN_COST.value,
+        ).delete(synchronize_session=False)
         session.add(
             SqlSpanCostDailyRollup(
                 experiment_id=int(exp_id),

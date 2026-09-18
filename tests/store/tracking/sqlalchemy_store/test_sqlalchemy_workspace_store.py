@@ -43,10 +43,16 @@ from mlflow.entities.gateway_budget_policy import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import TraceArchivalConfig
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACE_ARCHIVAL_CONFIG
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.store.db.trace_rollups import run_sql_trace_rollups
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
     SqlEntityAssociation,
@@ -64,7 +70,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceMetricKey
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -182,6 +188,95 @@ def test_trace_rollup_models_are_workspace_scoped(workspace_tracking_store, mode
             with workspace_tracking_store.ManagedSessionMaker() as session:
                 rows = workspace_tracking_store._get_query(session, model).all()
                 assert [row.experiment_id for row in rows] == [experiment_ids[workspace]]
+
+
+def test_trace_rollup_invalidation_is_workspace_scoped(workspace_tracking_store, monkeypatch):
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
+    experiment_ids = {}
+    for workspace in ("team-rollup-a", "team-rollup-b"):
+        with WorkspaceContext(workspace):
+            experiment_id = workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            experiment_ids[workspace] = int(experiment_id)
+            _create_trace(
+                workspace_tracking_store,
+                f"trace-{workspace}",
+                experiment_id,
+                request_time=1_700_000_000_000,
+            )
+
+    for workspace in ("team-rollup-a", "team-rollup-b"):
+        with WorkspaceContext(workspace):
+            with workspace_tracking_store.ManagedSessionMaker() as session:
+                entries = workspace_tracking_store._get_query(session, SqlTraceRollupRebuild).all()
+                assert {entry.experiment_id for entry in entries} == {experiment_ids[workspace]}
+                assert {entry.rollup_family for entry in entries} == {
+                    "trace_metric",
+                    "assessment",
+                }
+
+
+def test_query_trace_metrics_serves_rollups_only_for_active_workspace(
+    workspace_tracking_store, monkeypatch
+):
+    day_start_ms = 20_000 * 86_400_000
+    experiment_ids = {}
+    for workspace in ("team-query-a", "team-query-b"):
+        with WorkspaceContext(workspace):
+            experiment_id = workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            experiment_ids[workspace] = experiment_id
+            _create_trace(
+                workspace_tracking_store,
+                f"trace-{workspace}",
+                experiment_id,
+                request_time=day_start_ms + 1_000,
+                execution_duration=100,
+            )
+
+    run_sql_trace_rollups(
+        workspace_tracking_store.engine,
+        now_ms=day_start_ms + 10 * 86_400_000,
+    )
+
+    # Give each workspace's completed rollup a distinct value so the assertion proves both that
+    # the rollup path was used and that a requested experiment from another workspace was ignored.
+    expected_counts = {"team-query-a": 11, "team-query-b": 22}
+    with workspace_tracking_store.ManagedSessionMaker(read_only=False) as session:
+        for workspace, expected_count in expected_counts.items():
+            session.query(SqlTraceMetricDailyRollup).filter_by(
+                experiment_id=int(experiment_ids[workspace]),
+                metric_name=TraceMetricKey.TRACE_COUNT,
+                grouping_set="global",
+            ).update({"sample_count": expected_count})
+
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
+    all_experiment_ids = list(experiment_ids.values())
+    for workspace, expected_count in expected_counts.items():
+        with WorkspaceContext(workspace):
+            result = workspace_tracking_store.query_trace_metrics(
+                experiment_ids=all_experiment_ids,
+                view_type=MetricViewType.TRACES,
+                metric_name=TraceMetricKey.TRACE_COUNT,
+                aggregations=[MetricAggregation(AggregationType.COUNT)],
+                time_interval_seconds=86_400,
+                start_time_ms=day_start_ms,
+                end_time_ms=day_start_ms + 86_400_000 - 1,
+            )
+            assert len(result) == 1
+            assert result[0].values == {"COUNT": expected_count}
+
+            other_workspace = next(name for name in expected_counts if name != workspace)
+            assert (
+                workspace_tracking_store.query_trace_metrics(
+                    experiment_ids=[experiment_ids[other_workspace]],
+                    view_type=MetricViewType.TRACES,
+                    metric_name=TraceMetricKey.TRACE_COUNT,
+                    aggregations=[MetricAggregation(AggregationType.COUNT)],
+                    time_interval_seconds=86_400,
+                    start_time_ms=day_start_ms,
+                    end_time_ms=day_start_ms + 86_400_000 - 1,
+                )
+                == []
+            )
 
 
 def test_experiments_are_workspace_scoped(workspace_tracking_store):
