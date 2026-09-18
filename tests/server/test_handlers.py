@@ -2532,6 +2532,9 @@ def test_create_presigned_download_url_rejects_out_of_range_default_expiration(m
         "http://internal-host:5000/api/2.0/mlflow-artifacts/artifacts",
         "https://169.254.169.254/latest/meta-data",
         "mlflow-artifacts://internal-host:5000/experiments",
+        "r2://bucket@evil.example/experiments",
+        "b2://bucket@evil.example/experiments",
+        "abfss://fs@acct.evil.example/experiments",
     ],
 )
 def test_create_experiment_rejects_host_addressed_artifact_location(
@@ -7231,7 +7234,7 @@ def test_get_artifact_handler_refuses_run_artifact_root_on_foreign_host(monkeypa
 
     assert response.status_code == 400
     assert (
-        "does not serve artifacts from 'ftp://internal-host:21/pub/run1/artifacts'"
+        "does not connect to artifact location 'ftp://internal-host:21/pub/run1/artifacts'"
         in (json.loads(response.get_data())["message"])
     )
     mock_get_repo.assert_not_called()

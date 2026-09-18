@@ -76,7 +76,6 @@ from mlflow.entities.trace_metrics import MetricAggregation, MetricViewType
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
-    MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES,
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_AI_GATEWAY,
@@ -341,7 +340,11 @@ from mlflow.store.artifact.artifact_repo import (
     _validate_attachment_path,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.host_policy import rejected_host_addressed_scheme
+from mlflow.store.artifact.host_policy import (
+    host_addressed_rejection_message,
+    rejected_host_addressed_scheme,
+    validate_artifact_uri_host,
+)
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
@@ -1424,14 +1427,10 @@ def _workspace_not_supported(message: str) -> MlflowException:
 
 def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
     scheme = rejected_host_addressed_scheme(uri)
-    if scheme is None:
-        return
-    raise MlflowException.invalid_parameter_value(
-        f"'{field_name}' cannot use the '{scheme}' scheme to address a host other than the "
-        "tracking server's configured artifact storage, because the server would connect to "
-        f"the host named in the URI. Set the {MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} "
-        "environment variable on the server to allow it."
-    )
+    if scheme is not None:
+        raise MlflowException.invalid_parameter_value(
+            host_addressed_rejection_message(scheme, field_name=field_name)
+        )
 
 
 def _get_artifact_repository_for_uri(artifact_uri: str) -> ArtifactRepository:
@@ -1441,15 +1440,7 @@ def _get_artifact_repository_for_uri(artifact_uri: str) -> ArtifactRepository:
     same policy to every repository built in a server process; this explicit check keeps the
     handlers covered when the server is run without the `mlflow server` CLI environment.
     """
-    scheme = rejected_host_addressed_scheme(artifact_uri)
-    if scheme is not None:
-        raise MlflowException(
-            f"The tracking server does not serve artifacts from '{artifact_uri}': the '{scheme}' "
-            "scheme addresses a host other than the server's configured artifact storage. Set "
-            f"the {MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES.name} environment variable on "
-            "the server to allow it.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    validate_artifact_uri_host(artifact_uri)
     return get_artifact_repository(artifact_uri)
 
 

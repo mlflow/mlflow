@@ -1551,8 +1551,8 @@ MLFLOW_GATEWAY_API_BASE_ALLOWED_SCHEMES = _EnvironmentVariable(
 )
 
 #: Host-addressed artifact URI schemes (``ftp``, ``sftp``, ``hdfs``, ``viewfs``, ``http``,
-#: ``https``, ``mlflow-artifacts``) that the tracking server connects to even when the URI
-#: points at a host other than the server's ``--default-artifact-root`` or
+#: ``https``, ``mlflow-artifacts``, ``r2``, ``b2``, ``abfss``) that the tracking server connects
+#: to even when the URI points at a host other than the server's ``--default-artifact-root`` or
 #: ``--artifacts-destination``. The artifact repositories for these schemes connect to the host
 #: named in the URI, so inside a server process (and its job subprocesses) locations on other
 #: hosts are rejected, both when a client submits them and when a stored location is used.

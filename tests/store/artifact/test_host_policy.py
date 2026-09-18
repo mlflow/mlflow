@@ -2,6 +2,7 @@ import pytest
 
 from mlflow.environment_variables import MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES
 from mlflow.exceptions import MlflowException
+from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, ARTIFACTS_DESTINATION_ENV_VAR
 from mlflow.store.artifact.host_policy import (
     _SERVER_ARTIFACT_ROOT_ENV_VAR,
     _SERVER_ARTIFACTS_DESTINATION_ENV_VAR,
@@ -35,6 +36,17 @@ from mlflow.store.artifact.host_policy import (
         ("mlflow-artifacts://host/exp", {("http", "host", 80), ("http", "host", 443)}),
         ("ftp:///pub", {("ftp", "", 21)}),
         ("hdfs:///mlflow", {("hdfs", "", None)}),
+        (
+            "r2://bucket@acct.r2.cloudflarestorage.com/x",
+            {("r2", "acct.r2.cloudflarestorage.com", 443)},
+        ),
+        (
+            "b2://bucket@s3.us-west-004.backblazeb2.com/x",
+            {("b2", "s3.us-west-004.backblazeb2.com", 443)},
+        ),
+        ("abfss://fs@acct.dfs.core.windows.net/x", {("abfss", "acct.dfs.core.windows.net", 443)}),
+        ("wasbs://container@acct.blob.core.windows.net/x", None),
+        ("s3://bucket/x", None),
     ],
 )
 def test_host_addressed_uri_targets(uri, expected):
@@ -75,6 +87,11 @@ def test_malformed_authority_is_never_trusted(monkeypatch, uri):
         ("mlflow-artifacts://artifacts", "http://artifacts/api/2.0/mlflow-artifacts/artifacts/x"),
         ("mlflow-artifacts://artifacts", "https://artifacts/api/2.0/mlflow-artifacts/artifacts/x"),
         ("mlflow-artifacts://artifacts", "mlflow-artifacts://ARTIFACTS/x"),
+        (
+            "r2://mlflow@acct.r2.cloudflarestorage.com/root",
+            "r2://other@acct.r2.cloudflarestorage.com/x",
+        ),
+        ("abfss://fs@acct.dfs.core.windows.net/root", "abfss://other@acct.dfs.core.windows.net/x"),
     ],
 )
 def test_locations_on_trusted_hosts_are_accepted(monkeypatch, trusted, uri):
@@ -96,6 +113,16 @@ def test_locations_on_trusted_hosts_are_accepted(monkeypatch, trusted, uri):
         ("mlflow-artifacts://artifacts:5000", "mlflow-artifacts://artifacts/x", "mlflow-artifacts"),
         ("mlflow-artifacts://artifacts", "http://artifacts:5000/x", "http"),
         ("http://artifacts/root", "mlflow-artifacts://other/root/x", "mlflow-artifacts"),
+        ("r2://mlflow@acct.r2.cloudflarestorage.com/root", "r2://mlflow@evil.example/x", "r2"),
+        ("b2://mlflow@s3.us-west-004.backblazeb2.com/root", "b2://mlflow@evil.example/x", "b2"),
+        ("abfss://fs@acct.dfs.core.windows.net/root", "abfss://fs@acct.evil.example/x", "abfss"),
+        # The trusted name appears only as userinfo; the host actually contacted is `evil.example`.
+        ("http://trusted.example/root", "http://trusted.example@evil.example/root", "http"),
+        (
+            "r2://mlflow@acct.r2.cloudflarestorage.com/root",
+            "r2://acct.r2.cloudflarestorage.com@evil.example/x",
+            "r2",
+        ),
     ],
 )
 def test_locations_on_other_hosts_are_rejected(monkeypatch, trusted, uri, scheme):
@@ -115,6 +142,13 @@ def test_allowed_schemes_env_var_is_case_insensitive(monkeypatch):
     assert rejected_host_addressed_scheme("hdfs://other/x") is None
     assert rejected_host_addressed_scheme("sftp://other/x") is None
     assert rejected_host_addressed_scheme("ftp://other/x") == "ftp"
+
+
+def test_marker_env_vars_match_server_constants():
+    # The policy cannot import `mlflow.server.constants`; a rename there must not silently turn
+    # the registry-level enforcement off.
+    assert _SERVER_ARTIFACT_ROOT_ENV_VAR == ARTIFACT_ROOT_ENV_VAR
+    assert _SERVER_ARTIFACTS_DESTINATION_ENV_VAR == ARTIFACTS_DESTINATION_ENV_VAR
 
 
 def test_enforcement_only_applies_in_tracking_server_processes(monkeypatch):
