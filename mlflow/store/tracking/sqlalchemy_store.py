@@ -1930,7 +1930,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
 
         MAX_DATASET_SUMMARIES_RESULTS = 1000
-        experiment_ids = [int(e) for e in experiment_ids]
+        experiment_ids = [self._parse_experiment_id(e) for e in experiment_ids]
         with self.ManagedSessionMaker() as session:
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
             # Note that the join with the input tag table is a left join. This is required so if an
@@ -2275,7 +2275,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 stmt = stmt.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-            experiment_ids = [int(e) for e in experiment_ids]
+            experiment_ids = [self._parse_experiment_id(e) for e in experiment_ids]
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
             stmt = (
                 stmt
@@ -3688,7 +3688,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             models = models.join(subquery)
 
-        experiment_ids = [int(e) for e in experiment_ids]
+        experiment_ids = [self._parse_experiment_id(e) for e in experiment_ids]
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
@@ -4469,7 +4469,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             # Filter by experiment IDs
             if experiment_ids:
-                experiment_ids_int = [int(exp_id) for exp_id in experiment_ids]
+                experiment_ids_int = [
+                    self._parse_experiment_id(exp_id) for exp_id in experiment_ids
+                ]
                 query = query.filter(SqlTraceInfo.experiment_id.in_(experiment_ids_int))
 
             # Filter by time range
@@ -4552,7 +4554,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         deleted_db_backed_count = 0
         selected_archived_traces: list[_TraceDeleteSelection] = []
         with self.ManagedSessionMaker(read_only=False) as session:
-            filters = [SqlTraceInfo.experiment_id == int(experiment_id)]
+            filters = [SqlTraceInfo.experiment_id == self._parse_experiment_id(experiment_id)]
             if max_timestamp_millis is not None:
                 filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
             if trace_ids:
@@ -5151,7 +5153,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         """
 
         with self.ManagedSessionMaker() as session:
-            experiment_ids = self._filter_experiment_ids(session, [int(e) for e in experiment_ids])
+            experiment_ids = self._filter_experiment_ids(
+                session, [self._parse_experiment_id(e) for e in experiment_ids]
+            )
             experiment_ids = [str(e) for e in experiment_ids]
 
             filter1_combined = (
@@ -8330,7 +8334,9 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
 
             if experiment_id:
-                query = query.filter(SqlIssue.experiment_id == int(experiment_id))
+                query = query.filter(
+                    SqlIssue.experiment_id == self._parse_experiment_id(experiment_id)
+                )
 
             if filter_string:
                 parsed_filters = SearchIssuesUtils.parse_search_filter(filter_string)

@@ -14,6 +14,7 @@ from mlflow.entities import (
     TraceState,
     ViewType,
 )
+from mlflow.entities.trace_metrics import AggregationType, MetricAggregation, MetricViewType
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
@@ -36,6 +37,7 @@ from mlflow.store.tracking.dbmodels.models import (
     TraceState,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import TraceMetricKey
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
@@ -315,6 +317,47 @@ def test_get_experiment_invalid_id(store: SqlAlchemyStore):
         check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
     ):
         store.get_experiment("invalid_id")
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("_search_datasets", {"experiment_ids": ["abc"]}),
+        (
+            "search_runs",
+            {"experiment_ids": ["abc"], "filter_string": None, "run_view_type": ViewType.ALL},
+        ),
+        ("search_logged_models", {"experiment_ids": ["abc"]}),
+        (
+            "query_trace_metrics",
+            {
+                "experiment_ids": ["abc"],
+                "view_type": MetricViewType.TRACES,
+                "metric_name": TraceMetricKey.TRACE_COUNT,
+                "aggregations": [MetricAggregation(aggregation_type=AggregationType.COUNT)],
+            },
+        ),
+        ("delete_traces", {"experiment_id": "abc", "max_timestamp_millis": 0}),
+        (
+            "calculate_trace_filter_correlation",
+            {
+                "experiment_ids": ["abc"],
+                "filter_string1": "trace.status = 'OK'",
+                "filter_string2": "trace.status = 'ERROR'",
+            },
+        ),
+        ("search_issues", {"experiment_id": "abc"}),
+    ],
+)
+def test_non_numeric_experiment_id_raises_invalid_parameter_value(
+    store: SqlAlchemyStore, method, kwargs
+):
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        getattr(store, method)(**kwargs)
 
 
 def test_search_experiments_view_type(store: SqlAlchemyStore):
