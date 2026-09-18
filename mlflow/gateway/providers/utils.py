@@ -101,6 +101,21 @@ async def _aiohttp_post(
             await connector.close()
 
 
+def _error_detail(error_body: Any) -> str:
+    """Return the most specific message an upstream error body carries.
+
+    Providers disagree on the shape: OpenAI-compatible APIs nest the message under
+    ``error``, Amazon Bedrock returns a top-level ``message``, and others use neither,
+    so fall back to the whole body rather than dropping it.
+    """
+    match error_body:
+        case {"error": {"message": str(message)}} if message:
+            return message
+        case {"message": str(message)} if message:
+            return message
+    return str(error_body)
+
+
 async def send_request(
     headers: dict[str, str],
     base_url: str,
@@ -185,10 +200,12 @@ async def send_stream_request(
             response.raise_for_status()
         except aiohttp.ClientResponseError as e:
             try:
-                error_body = await response.json()
-                detail = error_body.get("error", {}).get("message", e.message)
+                detail = _error_detail(await response.json())
             except Exception:
-                detail = e.message
+                try:
+                    detail = await response.text()
+                except Exception:
+                    detail = e.message
             raise HTTPException(status_code=e.status, detail=detail)
 
         async for line in response.content:
@@ -247,8 +264,7 @@ async def send_proxy_request(
                 response.raise_for_status()
             except aiohttp.ClientResponseError as e:
                 try:
-                    error_body = await response.json()
-                    detail = error_body.get("error", {}).get("message") or str(error_body)
+                    detail = _error_detail(await response.json())
                 except Exception:
                     try:
                         detail = await response.text()
