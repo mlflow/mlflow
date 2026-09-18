@@ -981,7 +981,12 @@ class SqlTraceMetadata(Base):
 class SqlTraceMetricDailyRollup(Base):
     __tablename__ = "sql_trace_metric_daily_rollups"
 
-    id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
+    id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        sa.Identity(always=False),
+        autoincrement=True,
+        nullable=False,
+    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     metric_name = Column(String(250), nullable=False)
@@ -1011,7 +1016,12 @@ class SqlTraceMetricDailyRollup(Base):
 class SqlSpanCostDailyRollup(Base):
     __tablename__ = "sql_span_cost_daily_rollups"
 
-    id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
+    id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        sa.Identity(always=False),
+        autoincrement=True,
+        nullable=False,
+    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     metric_name = Column(String(250), nullable=False)
@@ -1041,7 +1051,12 @@ class SqlSpanCostDailyRollup(Base):
 class SqlAssessmentDailyRollup(Base):
     __tablename__ = "sql_assessment_daily_rollups"
 
-    id = Column(BigInteger().with_variant(Integer, "sqlite"), autoincrement=True, nullable=False)
+    id = Column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        sa.Identity(always=False),
+        autoincrement=True,
+        nullable=False,
+    )
     experiment_id = Column(Integer, nullable=False)
     rollup_day = Column(Date, nullable=False)
     metric_name = Column(String(250), nullable=False)

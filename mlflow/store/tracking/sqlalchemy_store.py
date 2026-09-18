@@ -199,11 +199,13 @@ from mlflow.store.tracking.utils.trace_analytics import (
     COST_COLUMN_BY_KEY,
     PROMOTED_TRACE_METADATA_KEYS,
     TOKEN_COLUMN_BY_KEY,
+    TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY,
     analytics_columns_from_metadata,
     assessment_aggregate,
     bounded_model_dimension,
     compatibility_metadata_from_columns,
     finite_float_or_none,
+    get_trace_analytics_metadata_filter,
     token_count_or_none,
     validate_session_id,
     validate_trace_name,
@@ -956,10 +958,10 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # same transaction so backends that reuse integer experiment ids (notably SQLite)
             # cannot expose aggregates or rebuild state from the deleted experiment.
             for model in (
+                SqlTraceRollupRebuild,
                 SqlTraceMetricDailyRollup,
                 SqlSpanCostDailyRollup,
                 SqlAssessmentDailyRollup,
-                SqlTraceRollupRebuild,
             ):
                 session.query(model).filter(model.experiment_id == int(experiment_id)).delete(
                     synchronize_session=False
@@ -4911,14 +4913,30 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             span_days_by_experiment[int(span_experiment_id)].add(
                 int(start_time_unix_nano) // 1_000_000
             )
+        assessment_days_by_experiment: defaultdict[int, set[int]] = defaultdict(set)
+        for assessment_experiment_id, trace_timestamp_ms in session.query(
+            SqlAssessments.experiment_id, SqlAssessments.trace_timestamp_ms
+        ).filter(
+            SqlAssessments.trace_id.in_(trace_ids),
+            SqlAssessments.experiment_id.isnot(None),
+            SqlAssessments.trace_timestamp_ms.isnot(None),
+        ):
+            assessment_days_by_experiment[int(assessment_experiment_id)].add(
+                int(trace_timestamp_ms)
+            )
         enqueue_rollup_rebuild_partitions(
             session,
             [
                 (RollupFamily.TRACE_METRIC, experiment_id, timestamps),
-                (RollupFamily.ASSESSMENT, experiment_id, timestamps),
                 *[
                     (RollupFamily.SPAN_COST, span_experiment_id, span_timestamps)
                     for span_experiment_id, span_timestamps in span_days_by_experiment.items()
+                ],
+                *[
+                    (RollupFamily.ASSESSMENT, assessment_experiment_id, assessment_timestamps)
+                    for assessment_experiment_id, assessment_timestamps in (
+                        assessment_days_by_experiment.items()
+                    )
                 ],
             ],
         )
@@ -10303,63 +10321,6 @@ def _parse_trace_filter(filter_string):
     )
 
 
-_TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY = {
-    TraceMetadataKey.TOKEN_USAGE: TOKEN_COLUMN_BY_KEY,
-    TraceMetadataKey.COST: COST_COLUMN_BY_KEY,
-}
-
-
-def _get_trace_analytics_metadata_filter(
-    key: str, comparator: str, value: str | None
-) -> ColumnElement[bool]:
-    columns_by_item_key = {
-        item_key: getattr(SqlTraceInfo, column)
-        for item_key, column in _TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY[key].items()
-    }
-    metadata_exists = or_(*(column.isnot(None) for column in columns_by_item_key.values()))
-    if comparator == "IS NULL":
-        return ~metadata_exists
-    if comparator == "IS NOT NULL":
-        return metadata_exists
-    if comparator not in ("=", "!="):
-        raise MlflowException.invalid_parameter_value(
-            f"Comparator '{comparator}' is not supported for reserved metadata '{key}'. "
-            "Only '=', '!=', 'IS NULL', and 'IS NOT NULL' are supported."
-        )
-
-    try:
-        parsed = json.loads(value)
-    except (TypeError, ValueError):
-        parsed = None
-
-    converter = token_count_or_none if key == TraceMetadataKey.TOKEN_USAGE else finite_float_or_none
-    normalized = (
-        {
-            item_key: converted
-            for item_key in columns_by_item_key
-            if (converted := converter(parsed.get(item_key))) is not None
-        }
-        if isinstance(parsed, dict) and set(parsed).issubset(columns_by_item_key)
-        else {}
-    )
-    # Preserve equality against the exact JSON string synthesized for compatibility metadata.
-    canonical_value = json.dumps(normalized)
-    value_is_canonical = bool(normalized) and value == canonical_value
-    if value_is_canonical:
-        value_matches = and_(
-            *(
-                and_(column.isnot(None), column == normalized[item_key])
-                if item_key in normalized
-                else column.is_(None)
-                for item_key, column in columns_by_item_key.items()
-            )
-        )
-    else:
-        value_matches = sqlalchemy.false()
-
-    return value_matches if comparator == "=" else and_(metadata_exists, ~value_matches)
-
-
 def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     """Sorts a set of traces based on their natural ordering and an overriding set of order_bys.
     Traces are ordered first by timestamp_ms descending, then by trace_id for tie-breaking.
@@ -10374,7 +10335,7 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
 
         if (
             SearchTraceUtils.is_request_metadata(key_type, "=")
-            and key in _TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY
+            and key in TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY
         ):
             raise MlflowException.invalid_parameter_value(
                 f"Ordering by reserved metadata '{key}' is not supported because it is "
@@ -10546,10 +10507,10 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scope
                 continue
             if (
                 SearchTraceUtils.is_request_metadata(key_type, comparator)
-                and key_name in _TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY
+                and key_name in TRACE_ANALYTICS_COLUMNS_BY_METADATA_KEY
             ):
                 attribute_filters.append(
-                    _get_trace_analytics_metadata_filter(key_name, comparator, value)
+                    get_trace_analytics_metadata_filter(key_name, comparator, value, SqlTraceInfo)
                 )
                 continue
             # Check if this is a run_id filter (stored as SOURCE_RUN in metadata)

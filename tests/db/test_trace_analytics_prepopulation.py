@@ -597,6 +597,10 @@ def test_prepopulation_schema_contract_matches_orm_models(tmp_path):
             mysql.TEXT(),
             mysql.dialect(),
         ),
+        (sa.Float(precision=53), postgresql.DOUBLE_PRECISION(), postgresql.dialect()),
+        (sa.Float(precision=53), mysql.DOUBLE(), mysql.dialect()),
+        (sa.Float(precision=53), mssql.FLOAT(), mssql.dialect()),
+        (sa.Float(precision=53), sqlite.FLOAT(), sqlite.dialect()),
         # MySQL has no native BOOLEAN type: it stores and reflects Boolean columns as TINYINT(1),
         # so a reflected TINYINT(1) must match an expected Boolean on that dialect (e.g. when a
         # prepopulation rerun revalidates the is_numeric_value column it already added).
@@ -617,6 +621,38 @@ def test_types_are_compatible_across_dialect_reflected_types(expected, actual, d
 )
 def test_types_are_incompatible_for_non_boolean_tinyint(expected, actual, dialect):
     assert not schema.types_are_compatible(expected, actual, dialect)
+
+
+@pytest.mark.parametrize(
+    ("expected", "actual", "dialect"),
+    [
+        (sa.Float(precision=53), sa.Float(precision=24), postgresql.dialect()),
+        (sa.Float(precision=53), postgresql.REAL(), postgresql.dialect()),
+        (sa.Float(precision=53), mysql.FLOAT(), mysql.dialect()),
+        (sa.String(length=500), postgresql.TEXT(), postgresql.dialect()),
+        (sa.String(length=500), mysql.TEXT(), mysql.dialect()),
+    ],
+)
+def test_types_are_incompatible_for_promoted_column_shapes(expected, actual, dialect):
+    assert not schema.types_are_compatible(expected, actual, dialect)
+
+
+def test_existing_column_rejects_unexpected_server_default():
+    expected = sa.Column("input_tokens", sa.BigInteger(), nullable=True)
+    actual = {
+        "name": "input_tokens",
+        "type": sa.BigInteger(),
+        "nullable": True,
+        "default": "0",
+    }
+
+    with pytest.raises(RuntimeError, match="unexpected server default"):
+        schema._validate_existing_column(
+            "trace_info",
+            expected,
+            actual,
+            sqlite.dialect(),
+        )
 
 
 def test_prepopulation_conversion_semantics_match_the_frozen_migration():

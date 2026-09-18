@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from sqlalchemy import event
 
 from mlflow import entities
 from mlflow.entities import (
@@ -758,6 +759,42 @@ def test_hard_delete_experiment_cascades_to_child_tables(
         assert session.query(SqlAssessments).filter_by(trace_id=request_id).count() == 0
         assert session.query(SqlSpan).filter_by(trace_id=request_id).count() == 0
         assert session.query(SqlSpanMetrics).filter_by(trace_id=request_id).count() == 0
+
+
+def test_hard_delete_experiment_deletes_rollup_queue_first(store: SqlAlchemyStore):
+    experiment_id = int(store.create_experiment(f"rollup-delete-order-{uuid.uuid4()}"))
+    rollup_day = datetime.now(timezone.utc).date()
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlTraceRollupRebuild(
+                experiment_id=experiment_id,
+                rollup_day=rollup_day,
+                rollup_family="trace_metric",
+            ),
+            SqlTraceMetricDailyRollup(
+                experiment_id=experiment_id,
+                rollup_day=rollup_day,
+                metric_name="trace_count",
+                grouping_set="global",
+                sample_count=1,
+            ),
+        ])
+
+    delete_statements = []
+
+    def record_delete_order(_, __, statement, ___, ____, _____):
+        normalized = statement.strip().lower()
+        if normalized.startswith("delete from sql_trace_"):
+            delete_statements.append(normalized)
+
+    store.delete_experiment(str(experiment_id))
+    event.listen(store.engine, "before_cursor_execute", record_delete_order)
+    try:
+        store._hard_delete_experiment(str(experiment_id))
+    finally:
+        event.remove(store.engine, "before_cursor_execute", record_delete_order)
+
+    assert delete_statements[0].startswith("delete from sql_trace_rollup_rebuild_queue")
 
 
 def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):

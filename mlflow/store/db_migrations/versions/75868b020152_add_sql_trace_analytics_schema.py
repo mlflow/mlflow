@@ -22,13 +22,6 @@ from mlflow.store.db.trace_analytics_schema_75868b020152 import (
     _validate_existing_column,
     analytics_columns_by_table,
 )
-from mlflow.tracing.constant import (
-    CostKey,
-    SpanAttributeKey,
-    TokenUsageKey,
-    TraceMetadataKey,
-    TraceTagKey,
-)
 
 revision = "75868b020152"
 down_revision = "b7e2c1a4d9f3"
@@ -41,17 +34,23 @@ _BATCH_SIZE = 250
 _BIGINT_MIN = -(2**63)
 _BIGINT_MAX = 2**63 - 1
 _TOKEN_COLUMNS = {
-    TokenUsageKey.INPUT_TOKENS: "input_tokens",
-    TokenUsageKey.OUTPUT_TOKENS: "output_tokens",
-    TokenUsageKey.TOTAL_TOKENS: "total_tokens",
-    TokenUsageKey.CACHE_READ_INPUT_TOKENS: "cache_read_input_tokens",
-    TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: "cache_creation_input_tokens",
+    "input_tokens": "input_tokens",
+    "output_tokens": "output_tokens",
+    "total_tokens": "total_tokens",
+    "cache_read_input_tokens": "cache_read_input_tokens",
+    "cache_creation_input_tokens": "cache_creation_input_tokens",
 }
 _COST_COLUMNS = {
-    CostKey.INPUT_COST: "input_cost",
-    CostKey.OUTPUT_COST: "output_cost",
-    CostKey.TOTAL_COST: "total_cost",
+    "input_cost": "input_cost",
+    "output_cost": "output_cost",
+    "total_cost": "total_cost",
 }
+_TRACE_NAME_TAG_KEY = "mlflow.traceName"
+_TRACE_SESSION_METADATA_KEY = "mlflow.trace.session"
+_TOKEN_USAGE_METADATA_KEY = "mlflow.trace.tokenUsage"
+_COST_METADATA_KEY = "mlflow.trace.cost"
+_SPAN_MODEL_ATTRIBUTE_KEY = "mlflow.llm.model"
+_SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY = "mlflow.llm.provider"
 
 
 def upgrade():
@@ -232,6 +231,7 @@ def _create_rollup_tables():
         sa.Column(
             "id",
             sa.BigInteger().with_variant(sa.Integer(), "sqlite"),
+            sa.Identity(always=False),
             autoincrement=True,
             nullable=False,
         ),
@@ -254,6 +254,7 @@ def _create_rollup_tables():
         sa.Column(
             "id",
             sa.BigInteger().with_variant(sa.Integer(), "sqlite"),
+            sa.Identity(always=False),
             autoincrement=True,
             nullable=False,
         ),
@@ -274,6 +275,7 @@ def _create_rollup_tables():
         sa.Column(
             "id",
             sa.BigInteger().with_variant(sa.Integer(), "sqlite"),
+            sa.Identity(always=False),
             autoincrement=True,
             nullable=False,
         ),
@@ -447,7 +449,7 @@ def _backfill_trace_analytics():
         for row in bind.execute(
             sa.select(trace_tags.c.request_id, trace_tags.c.value).where(
                 trace_tags.c.request_id.in_(batch_ids),
-                trace_tags.c.key == TraceTagKey.TRACE_NAME,
+                trace_tags.c.key == _TRACE_NAME_TAG_KEY,
             )
         ):
             trace_names[row.request_id] = row.value
@@ -459,9 +461,9 @@ def _backfill_trace_analytics():
             ).where(
                 trace_metadata.c.request_id.in_(batch_ids),
                 trace_metadata.c.key.in_([
-                    TraceMetadataKey.TRACE_SESSION,
-                    TraceMetadataKey.TOKEN_USAGE,
-                    TraceMetadataKey.COST,
+                    _TRACE_SESSION_METADATA_KEY,
+                    _TOKEN_USAGE_METADATA_KEY,
+                    _COST_METADATA_KEY,
                 ]),
             )
         ):
@@ -485,18 +487,18 @@ def _backfill_trace_analytics():
                 trace_names[trace_id], TRACE_NAME_MAX_LENGTH
             )
             session_id, session_id_truncated = _bounded_string_or_none(
-                values.get(TraceMetadataKey.TRACE_SESSION), SESSION_ID_MAX_LENGTH
+                values.get(_TRACE_SESSION_METADATA_KEY), SESSION_ID_MAX_LENGTH
             )
             truncation_counts["trace_name"] += trace_name_truncated
             truncation_counts["session_id"] += session_id_truncated
-            token_usage = _json_object(values.get(TraceMetadataKey.TOKEN_USAGE))
+            token_usage = _json_object(values.get(_TOKEN_USAGE_METADATA_KEY))
             tokens = {
                 column: metrics_by_trace[trace_id].get(
                     column, _token_count_or_none(token_usage.get(key))
                 )
                 for key, column in _TOKEN_COLUMNS.items()
             }
-            cost = _json_object(values.get(TraceMetadataKey.COST))
+            cost = _json_object(values.get(_COST_METADATA_KEY))
             costs = {
                 column: _finite_float_or_none(cost.get(key))
                 for key, column in _COST_COLUMNS.items()
@@ -591,10 +593,10 @@ def _backfill_span_analytics():
             )
             costs = metrics_by_span[(row.trace_id, row.span_id)]
             model_name, model_name_truncated = _bounded_string_or_none(
-                dimensions.get(SpanAttributeKey.MODEL), MODEL_DIMENSION_MAX_LENGTH
+                dimensions.get(_SPAN_MODEL_ATTRIBUTE_KEY), MODEL_DIMENSION_MAX_LENGTH
             )
             model_provider, model_provider_truncated = _bounded_string_or_none(
-                dimensions.get(SpanAttributeKey.MODEL_PROVIDER), MODEL_DIMENSION_MAX_LENGTH
+                dimensions.get(_SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY), MODEL_DIMENSION_MAX_LENGTH
             )
             truncation_counts["model_name"] += model_name_truncated
             truncation_counts["model_provider"] += model_provider_truncated
@@ -790,7 +792,7 @@ def _validated_dimension_attributes(value, span_key):
     if value is None:
         return {}
 
-    allowed_keys = {SpanAttributeKey.MODEL, SpanAttributeKey.MODEL_PROVIDER}
+    allowed_keys = {_SPAN_MODEL_ATTRIBUTE_KEY, _SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY}
     unexpected = set(value) - allowed_keys if isinstance(value, dict) else set()
     invalid_value_keys = (
         {
@@ -914,13 +916,13 @@ def _cleanup_legacy_analytics():
     trace_metrics = sa.Table("trace_metrics", metadata, autoload_with=bind)
     span_metrics = sa.Table("span_metrics", metadata, autoload_with=bind)
 
-    _delete_trace_rows(trace_tags, [TraceTagKey.TRACE_NAME])
+    _delete_trace_rows(trace_tags, [_TRACE_NAME_TAG_KEY])
     _delete_trace_rows(
         trace_metadata,
         [
-            TraceMetadataKey.TRACE_SESSION,
-            TraceMetadataKey.TOKEN_USAGE,
-            TraceMetadataKey.COST,
+            _TRACE_SESSION_METADATA_KEY,
+            _TOKEN_USAGE_METADATA_KEY,
+            _COST_METADATA_KEY,
         ],
     )
     _delete_trace_rows(trace_metrics, list(_TOKEN_COLUMNS))
@@ -954,13 +956,13 @@ def _reconstruct_legacy_analytics():
             if row["trace_name"] is not None:
                 tag_rows.append({
                     "request_id": trace_id,
-                    "key": TraceTagKey.TRACE_NAME,
+                    "key": _TRACE_NAME_TAG_KEY,
                     "value": row["trace_name"],
                 })
             if row["session_id"] is not None:
                 metadata_rows.append({
                     "request_id": trace_id,
-                    "key": TraceMetadataKey.TRACE_SESSION,
+                    "key": _TRACE_SESSION_METADATA_KEY,
                     "value": row["session_id"],
                 })
             token_usage = {
@@ -971,7 +973,7 @@ def _reconstruct_legacy_analytics():
             if token_usage:
                 metadata_rows.append({
                     "request_id": trace_id,
-                    "key": TraceMetadataKey.TOKEN_USAGE,
+                    "key": _TOKEN_USAGE_METADATA_KEY,
                     "value": json.dumps(token_usage),
                 })
                 metric_rows.extend(
@@ -986,7 +988,7 @@ def _reconstruct_legacy_analytics():
             if cost:
                 metadata_rows.append({
                     "request_id": trace_id,
-                    "key": TraceMetadataKey.COST,
+                    "key": _COST_METADATA_KEY,
                     "value": json.dumps(cost),
                 })
         if tag_rows:
@@ -1034,8 +1036,8 @@ def _reconstruct_legacy_analytics():
             dimensions = {
                 key: row[column]
                 for key, column in (
-                    (SpanAttributeKey.MODEL, "model_name"),
-                    (SpanAttributeKey.MODEL_PROVIDER, "model_provider"),
+                    (_SPAN_MODEL_ATTRIBUTE_KEY, "model_name"),
+                    (_SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY, "model_provider"),
                 )
                 if row[column] is not None
             }

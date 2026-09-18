@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 from click.testing import CliRunner
 from sqlalchemy import event
-from sqlalchemy.dialects import mssql
+from sqlalchemy.dialects import mssql, mysql
 from sqlalchemy.orm import Session
 
 import mlflow.db
@@ -41,10 +41,15 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.utils import sql_trace_rollups as sql_trace_rollup_utils
 from mlflow.store.tracking.utils.sql_trace_rollups import (
+    GroupingSet,
     RollupFamily,
+    RollupReadPlan,
     _lock_rebuild_entry_query,
+    compute_covered_day_starts,
+    configure_rollup_read_snapshot,
     enqueue_rollup_rebuild_partitions,
     enqueue_rollup_rebuilds,
+    ensure_locked_rebuild_entry,
 )
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
@@ -781,6 +786,32 @@ def test_trace_delete_enqueues_span_cost_partition(store: SqlAlchemyStore):
         assert span_cost_entry.rollup_day == _day_of(DAY_B_MS)
 
 
+def test_trace_delete_uses_assessment_routing_columns(store: SqlAlchemyStore):
+    trace_experiment_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    assessment_experiment_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_id = _new_trace(store, trace_experiment_id, DAY_A_MS)
+    assessment = _add_feedback(store, trace_id, value=0.2)
+    run_sql_trace_rollups(store.engine, now_ms=FUTURE_NOW_MS)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.query(SqlAssessments).filter_by(assessment_id=assessment.assessment_id).update({
+            SqlAssessments.experiment_id: int(assessment_experiment_id),
+            SqlAssessments.trace_timestamp_ms: DAY_B_MS,
+        })
+
+    store.delete_traces(trace_experiment_id, trace_ids=[trace_id])
+
+    with store.ManagedSessionMaker() as session:
+        assessment_entry = (
+            session
+            .query(SqlTraceRollupRebuild)
+            .filter_by(rollup_family=RollupFamily.ASSESSMENT.value)
+            .one()
+        )
+        assert assessment_entry.experiment_id == int(assessment_experiment_id)
+        assert assessment_entry.rollup_day == _day_of(DAY_B_MS)
+
+
 @pytest.mark.parametrize("mutation", ["create", "update", "delete"])
 def test_assessment_mutations_enqueue_rebuild(store: SqlAlchemyStore, mutation: str):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
@@ -1316,6 +1347,63 @@ def test_rebuild_lock_serializes_writer_after_publisher(store: SqlAlchemyStore, 
     assert _count(store, SqlTraceRollupRebuild, rollup_family=RollupFamily.TRACE_METRIC.value) == 1
 
 
+def test_mssql_reader_locks_absent_queue_key_before_rollup_rows(store: SqlAlchemyStore):
+    if store.engine.dialect.name != "mssql":
+        pytest.skip("validates SQL Server key-range locking")
+
+    exp_id = int(store.create_experiment(f"exp-{uuid.uuid4()}"))
+    rollup_day = _day_of(DAY_A_MS)
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.add(
+            SqlTraceMetricDailyRollup(
+                experiment_id=exp_id,
+                rollup_day=rollup_day,
+                metric_name=TraceMetricKey.TRACE_COUNT,
+                grouping_set=GroupingSet.GLOBAL.value,
+                sample_count=1,
+            )
+        )
+
+    plan = RollupReadPlan(
+        family=RollupFamily.TRACE_METRIC,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        grouping_set=GroupingSet.GLOBAL,
+        dimensions=[],
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        bucketed=True,
+        experiment_id=exp_id,
+        covered_day_starts_ms=[DAY_A_MS // MS_PER_DAY * MS_PER_DAY],
+        raw_ranges=[],
+        uses_percentiles=False,
+    )
+    publisher_started = Event()
+    publisher_locked = Event()
+
+    def lock_for_publication():
+        with store.ManagedSessionMaker(read_only=False) as session:
+            publisher_started.set()
+            ensure_locked_rebuild_entry(
+                session,
+                RollupFamily.TRACE_METRIC,
+                exp_id,
+                rollup_day,
+            )
+            publisher_locked.set()
+
+    with ThreadPoolExecutor(
+        max_workers=1, thread_name_prefix="test-rollup-reader-lock"
+    ) as executor:
+        with store.ManagedSessionMaker() as reader:
+            configure_rollup_read_snapshot(reader, store.db_type)
+            assert compute_covered_day_starts(reader, plan) == plan.covered_day_starts_ms
+            publisher = executor.submit(lock_for_publication)
+            assert publisher_started.wait(timeout=10)
+            assert not publisher_locked.wait(timeout=0.5)
+
+        publisher.result(timeout=10)
+    assert publisher_locked.is_set()
+
+
 def test_assessment_bulk_invalidation_materializes_only_distinct_days(
     store: SqlAlchemyStore, monkeypatch
 ):
@@ -1410,6 +1498,29 @@ def test_mssql_rebuild_lock_compiles_update_and_key_range_hints():
     statement = _lock_rebuild_entry_query(session, query).statement.compile(dialect=mssql.dialect())
 
     assert "WITH (UPDLOCK, HOLDLOCK)" in str(statement)
+
+
+def test_mysql_rebuild_entry_is_upserted_before_locking_read(monkeypatch):
+    session = Mock()
+    session.get_bind.return_value.dialect.name = "mysql"
+    query = session.query.return_value.filter.return_value
+    locked_query = Mock()
+    entry = Mock()
+    locked_query.one.return_value = entry
+    lock_query = Mock(return_value=locked_query)
+    monkeypatch.setattr(sql_trace_rollup_utils, "_lock_rebuild_entry_query", lock_query)
+
+    result = ensure_locked_rebuild_entry(
+        session,
+        RollupFamily.TRACE_METRIC,
+        experiment_id=1,
+        rollup_day=_day_of(DAY_A_MS),
+    )
+
+    stmt = session.execute.call_args.args[0]
+    assert "ON DUPLICATE KEY UPDATE" in str(stmt.compile(dialect=mysql.dialect()))
+    lock_query.assert_called_once_with(session, query)
+    assert result is entry
 
 
 def test_rebuild_keys_are_locked_in_global_order(monkeypatch):
