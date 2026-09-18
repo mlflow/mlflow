@@ -4569,6 +4569,77 @@ def test_skill_registry_creator_grants_and_delete_cleanup_are_workspace_isolated
     auth_store.engine.dispose()
 
 
+@pytest.mark.parametrize(
+    ("model", "organization", "name", "resource_label", "permission_getter", "grant_func"),
+    [
+        (
+            SqlSkill,
+            "",
+            "created-after-miss-skill",
+            "skill",
+            auth_module._get_skill_permission,
+            auth_module.grant_manage_for_created_skill,
+        ),
+        (
+            SqlAgentPlugin,
+            "acme",
+            "created-after-miss-plugin",
+            "agent plugin",
+            auth_module._get_agent_plugin_permission,
+            auth_module.grant_manage_for_created_agent_plugin,
+        ),
+    ],
+)
+def test_skill_registry_creator_manage_survives_cached_missing_parent(
+    tmp_path,
+    monkeypatch,
+    model,
+    organization,
+    name,
+    resource_label,
+    permission_getter,
+    grant_func,
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+        raising=False,
+    )
+
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(f"sqlite:///{tmp_path / 'auth-created-after-miss.db'}")
+    tracking_store = TrackingSqlAlchemyStore(
+        f"sqlite:///{tmp_path / 'tracking-created-after-miss.db'}",
+        str(tmp_path / "artifacts"),
+    )
+    monkeypatch.setattr(auth_module, "store", auth_store, raising=False)
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+    auth_module._RESOURCE_WORKSPACE_CACHE.clear()
+
+    try:
+        username = "alice"
+        auth_store.create_user(username, "supersecurepassword", is_admin=False)
+        auth_store.set_workspace_permission("team-a", username, USE.name)
+        resource_key = auth_module._skill_registry_resource_key(organization, name)
+        cache_key = f"{resource_label}:team-a:{resource_key}"
+
+        with workspace_context.WorkspaceContext("team-a"):
+            assert permission_getter(organization, name, username) == NO_PERMISSIONS
+            assert cache_key not in auth_module._RESOURCE_WORKSPACE_CACHE
+
+            with tracking_store.ManagedSessionMaker(read_only=False) as session:
+                session.add(model(workspace="team-a", organization=organization, name=name))
+
+            grant_func(username, organization, name)
+            assert permission_getter(organization, name, username) == MANAGE
+    finally:
+        auth_module._RESOURCE_WORKSPACE_CACHE.clear()
+        auth_store.engine.dispose()
+        tracking_store.engine.dispose()
+
+
 def test_list_mcp_server_permissions_scoped_to_active_workspace(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 
