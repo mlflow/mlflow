@@ -67,6 +67,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceInfo,
     SqlTraceMetadata,
 )
+from mlflow.store.tracking.gateway.credential_scope import (
+    load_gateway_auth_config,
+    validate_gateway_secret_update_does_not_retarget_credential,
+)
 from mlflow.telemetry.events import (
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
@@ -310,12 +314,22 @@ class SqlAlchemyGatewayStoreMixin:
                 auth_config. If None, auth_config is unchanged. If empty dict, clears auth_config.
             updated_by: Username of the updater.
 
+        When auth_config adds, changes, or removes api_base, supply secret_value
+        in the same request. Otherwise, the update raises INVALID_PARAMETER_VALUE.
+
         Returns:
             Updated Secret entity.
         """
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_secret = self._get_entity_or_raise(
                 session, SqlGatewaySecret, {"secret_id": secret_id}, "GatewaySecret"
+            )
+
+            existing_auth_config = load_gateway_auth_config(sql_secret.auth_config)
+            validate_gateway_secret_update_does_not_retarget_credential(
+                existing_auth_config,
+                auth_config,
+                secret_value_provided=secret_value is not None,
             )
 
             if secret_value is not None:
