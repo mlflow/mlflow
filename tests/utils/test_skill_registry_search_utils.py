@@ -8,7 +8,9 @@ from mlflow.utils.search_utils import (
     SearchAgentPluginVersionUtils,
     SearchSkillUtils,
     SearchSkillVersionUtils,
+    SearchUtils,
 )
+from mlflow.utils.validation import _validate_skill_tag
 
 # ---------------------------------------------------------------------------
 # SearchSkillUtils — valid filters
@@ -81,6 +83,37 @@ def test_skill_filter_preserves_double_quoted_organization_in_value():
 def test_skill_filter_preserves_dotted_tag_key():
     parsed = SearchSkillUtils.parse_search_filter("tags.mlflow.organization = 'acme'")
     assert parsed[0]["key"] == "mlflow.organization"
+
+
+_ALL_SEARCH_UTILS = [
+    SearchSkillUtils,
+    SearchSkillVersionUtils,
+    SearchAgentPluginUtils,
+    SearchAgentPluginVersionUtils,
+]
+
+
+@pytest.mark.parametrize("utils", _ALL_SEARCH_UTILS)
+@pytest.mark.parametrize("key", ["my organization in GitHub", "API version in use"])
+def test_filter_preserves_backtick_quoted_tag_key_containing_keyword(utils, key):
+    _validate_skill_tag(key, "yes")
+    filter_string = f"tags.`{key}` = 'yes'"
+    assert SearchUtils.parse_search_filter(filter_string)[0]["key"] == key
+    assert utils.parse_search_filter(filter_string) == [
+        {"type": "tag", "key": key, "comparator": "=", "value": "yes"}
+    ]
+
+
+@pytest.mark.parametrize("utils", _ALL_SEARCH_UTILS)
+def test_filter_preserves_value_with_escaped_newline(utils):
+    # A backslash before a newline must not end the quoted value early, and the
+    # keyword field after it must still be quoted.
+    value = "%a\\\nb organization = x%"
+    parsed = utils.parse_search_filter(f"tags.note LIKE '{value}' AND organization = 'acme'")
+    assert parsed == [
+        {"type": "tag", "key": "note", "comparator": "LIKE", "value": value},
+        {"type": "attribute", "key": "organization", "comparator": "=", "value": "acme"},
+    ]
 
 
 def test_skill_filter_rejects_unsupported_field():

@@ -2877,39 +2877,24 @@ _SKILL_REGISTRY_NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
 # IS NULL / IS NOT NULL excluded; skill registry tags are always key=value.
 _SKILL_REGISTRY_TAG_COMPARATORS = {"=", "!=", "LIKE", "ILIKE"}
 
-# sqlparse misparses 'organization' and 'version' as SQL keywords, preventing
-# them from forming Comparison tokens.  Backtick-quoting forces the tokenizer
-# to treat them as identifiers; _get_identifier already calls _trim_backticks.
-#
-# The field regex requires:
-#   - no preceding dot (excludes dotted tag keys like tags.mlflow.organization)
-#   - no preceding backtick (excludes already-quoted identifiers)
-#   - a comparator lookahead (ensures we match field position, not values)
-_SQLPARSE_KEYWORD_FIELD_RE = re.compile(
-    r"(?<![.`])\b(organization|version)\b(?![`])"
-    r"(?=\s*[=!<>]|\s+(?:LIKE|ILIKE|IN|NOT)\b)",
-    re.IGNORECASE,
-)
-# Quoted string literal pattern for splitting filter strings.  Handles both
-# single and double quotes so values like "%organization in GitHub%" and
-# "don't" are preserved.
-_QUOTED_STRING_RE = re.compile(r"""('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")""")
-# Bare keyword pattern for order-by clauses (no value context to worry about).
-# Negative lookbehind/lookahead prevents double-quoting of already-quoted
-# identifiers in any quote style.
-# Note: if downstream stories add field names that are also sqlparse keywords
-# (e.g. source, ref, key, alias), they must be added to both regexes.
-_SQLPARSE_KEYWORD_BARE_RE = re.compile(
-    r"""(?<![`"'])\b(organization|version)\b(?![`"'])""", re.IGNORECASE
-)
+# Field names that sqlparse lexes as SQL keywords, which prevents them from
+# forming Comparison tokens. Downstream fields that are also keywords (e.g.
+# source, ref, key, alias) must be added here.
+_SQLPARSE_KEYWORD_FIELDS = {"organization", "version"}
 
 
-def _quote_keyword_fields(filter_string: str) -> str:
-    """Backtick-quote keyword field names outside of quoted values."""
-    parts = _QUOTED_STRING_RE.split(filter_string)
+def _quote_keyword_fields(text: str) -> str:
+    """Backtick-quote keyword field names so sqlparse treats them as identifiers.
+
+    Uses sqlparse's own lexer, so quoted values, quoted identifiers, and
+    dotted tag keys (e.g. ``tags.mlflow.organization``) are left untouched
+    exactly as the parser sees them. ``_get_identifier`` trims the backticks.
+    """
     return "".join(
-        _SQLPARSE_KEYWORD_FIELD_RE.sub(r"`\1`", part) if i % 2 == 0 else part
-        for i, part in enumerate(parts)
+        f"`{value}`"
+        if ttype in TokenType.Keyword and value.lower() in _SQLPARSE_KEYWORD_FIELDS
+        else value
+        for ttype, value in sqlparse.lexer.tokenize(text)
     )
 
 

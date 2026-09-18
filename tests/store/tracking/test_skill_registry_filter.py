@@ -16,8 +16,10 @@ from sqlalchemy.orm import Session
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
+    SqlAgentPluginTag,
     SqlAgentPluginVersion,
     SqlAgentPluginVersionMember,
+    SqlAgentPluginVersionTag,
     SqlSkill,
     SqlSkillTag,
     SqlSkillVersion,
@@ -33,7 +35,12 @@ from mlflow.store.tracking.skill_registry_pagination import (
     SkillRegistryPaginationToken,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils.search_utils import SearchSkillUtils, SearchSkillVersionUtils
+from mlflow.utils.search_utils import (
+    SearchAgentPluginUtils,
+    SearchAgentPluginVersionUtils,
+    SearchSkillUtils,
+    SearchSkillVersionUtils,
+)
 
 
 @pytest.fixture
@@ -446,6 +453,78 @@ def test_filter_by_tag_operators(store, filter_string, expected):
             dialect=store.engine.dialect.name,
         )
         assert {skill.name for skill in query.all()} == expected
+
+
+_KEYWORD_TAGS = {
+    "matching": {"my organization in GitHub": "yes", "API version in use": "v2"},
+    "other": {"my organization in GitHub": "no", "API version in use": "v1"},
+}
+_ESCAPED_NEWLINE_VALUE = "a\\\nb organization = x"
+
+
+def _add_tagged_registry_row(session, parent_model, tag_model, name, tags):
+    ident = {"workspace": "default", "organization": "acme", "name": name}
+    extra = {}
+    if parent_model is SqlSkillVersion:
+        session.add(SqlSkill(**ident))
+        ident["version"] = 1
+        extra = {"status": "active"}
+    elif parent_model is SqlAgentPluginVersion:
+        session.add(SqlAgentPlugin(**ident))
+        ident["version"] = "1.0.0"
+        extra = {"plugin_json": {"$schema": "https://example.com", "name": name}}
+    session.add(parent_model(**ident, **extra))
+    session.add_all(tag_model(**ident, key=key, value=value) for key, value in tags.items())
+
+
+@pytest.mark.parametrize(
+    ("utils", "parent_model", "tag_model"),
+    [
+        (SearchSkillUtils, SqlSkill, SqlSkillTag),
+        (SearchSkillVersionUtils, SqlSkillVersion, SqlSkillVersionTag),
+        (SearchAgentPluginUtils, SqlAgentPlugin, SqlAgentPluginTag),
+        (SearchAgentPluginVersionUtils, SqlAgentPluginVersion, SqlAgentPluginVersionTag),
+    ],
+    ids=["skill", "skill_version", "agent_plugin", "agent_plugin_version"],
+)
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "tags.`my organization in GitHub` = 'yes'",
+        "tags.`API version in use` = 'v2'",
+        f"tags.note = '{_ESCAPED_NEWLINE_VALUE}' AND organization = 'acme'",
+    ],
+    ids=["backtick-organization", "backtick-version", "escaped-newline-value"],
+)
+def test_filter_matches_quoted_tag_keys_and_values_containing_keywords(
+    store, utils, parent_model, tag_model, filter_string
+):
+    with session_scope(store) as session:
+        _add_tagged_registry_row(
+            session,
+            parent_model,
+            tag_model,
+            "matching",
+            {**_KEYWORD_TAGS["matching"], "note": _ESCAPED_NEWLINE_VALUE},
+        )
+        _add_tagged_registry_row(
+            session, parent_model, tag_model, "other", {**_KEYWORD_TAGS["other"], "note": "a"}
+        )
+
+    join_keys = ["workspace", "organization", "name"]
+    if hasattr(tag_model, "version"):
+        join_keys.append("version")
+    with session_scope(store, commit=False) as session:
+        query = apply_skill_registry_filters(
+            session.query(parent_model),
+            utils.parse_search_filter(filter_string),
+            {"organization": parent_model.organization},
+            parent_model,
+            tag_model,
+            tag_join_keys=join_keys,
+            dialect=store.engine.dialect.name,
+        )
+        assert [row.name for row in query.all()] == ["matching"]
 
 
 # ---------------------------------------------------------------------------

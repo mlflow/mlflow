@@ -29,8 +29,8 @@ from mlflow.store.tracking.skill_registry_pagination import (
 )
 from mlflow.utils.search_utils import (
     _SKILL_REGISTRY_TAG_COMPARATORS,
-    _SQLPARSE_KEYWORD_BARE_RE,
     SearchUtils,
+    _quote_keyword_fields,
 )
 
 if TYPE_CHECKING:
@@ -229,7 +229,7 @@ def parse_skill_registry_order_by(
     if order_by_list:
         for order_by_clause in order_by_list:
             # Backtick-quote sqlparse keywords so they parse as identifiers.
-            quoted = _SQLPARSE_KEYWORD_BARE_RE.sub(r"`\1`", order_by_clause)
+            quoted = _quote_keyword_fields(order_by_clause)
             token_value, is_ascending = SearchUtils._parse_order_by_string(quoted)
             # The base parser strips double quotes only when a direction
             # follows, so normalize the key as _get_identifier does for filters.
