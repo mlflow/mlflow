@@ -390,9 +390,7 @@ def test_query_trace_metrics_filters_promoted_metadata(
 
     with store.ManagedSessionMaker() as session:
         assert (
-            session.query(SqlTraceMetadata)
-            .filter(SqlTraceMetadata.key == metadata_key)
-            .count()
+            session.query(SqlTraceMetadata).filter(SqlTraceMetadata.key == metadata_key).count()
             == 0
         )
 
