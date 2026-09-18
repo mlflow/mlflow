@@ -678,3 +678,103 @@ def test_order_by_organization_keyword():
         default_tiebreakers=[SqlSkill.name.asc()],
     )
     assert len(clauses) == 2
+
+
+def test_order_by_version_keyword():
+    clauses = parse_skill_registry_order_by(
+        ["version DESC"],
+        valid_keys={"version"},
+        column_map={"version": SqlSkillVersion.version},
+        default_tiebreakers=[],
+    )
+    assert len(clauses) == 1
+
+
+def test_order_by_backtick_quoted_not_double_quoted():
+    clauses = parse_skill_registry_order_by(
+        ["`organization` DESC"],
+        valid_keys={"organization"},
+        column_map={"organization": SqlSkill.organization},
+        default_tiebreakers=[],
+    )
+    assert len(clauses) == 1
+
+
+# ---------------------------------------------------------------------------
+# Deleted sibling member withdraws entire version from member search
+# ---------------------------------------------------------------------------
+
+
+def test_member_name_excludes_version_with_deleted_sibling(store):
+    with session_scope(store) as session:
+        for name, status in [("code-review", "active"), ("unsafe-helper", "deleted")]:
+            _add_skill(session, name=name, organization="acme")
+            session.add(
+                SqlSkillVersion(
+                    workspace="default",
+                    organization="acme",
+                    name=name,
+                    version=1,
+                    status=status,
+                )
+            )
+        session.add(
+            SqlAgentPlugin(
+                workspace="default",
+                organization="acme",
+                name="my-plugin",
+            )
+        )
+        session.add(
+            SqlAgentPluginVersion(
+                workspace="default",
+                organization="acme",
+                name="my-plugin",
+                version="1.0.0",
+                plugin_json={"$schema": "https://example.com", "name": "my-plugin"},
+            )
+        )
+        for name in ("code-review", "unsafe-helper"):
+            session.add(
+                SqlAgentPluginVersionMember(
+                    plugin_workspace="default",
+                    plugin_organization="acme",
+                    plugin_name="my-plugin",
+                    plugin_version="1.0.0",
+                    member_organization="acme",
+                    member_name=name,
+                    member_version=1,
+                )
+            )
+
+    with session_scope(store, commit=False) as session:
+        query = session.query(SqlAgentPlugin)
+        results = apply_member_name_filter(
+            query,
+            "code-review",
+            dialect=store.engine.dialect.name,
+        ).all()
+        assert results == []
+
+
+# ---------------------------------------------------------------------------
+# Tag comparator validation
+# ---------------------------------------------------------------------------
+
+
+def test_unsupported_tag_comparator_rejected(store):
+    _seed_skills(store)
+    with session_scope(store, commit=False) as session:
+        query = session.query(SqlSkill)
+        parsed = SearchSkillUtils.parse_search_filter("tags.team > 'a'")
+        with pytest.raises(MlflowException, match=r"(?i)invalid comparator"):
+            apply_skill_registry_filters(
+                query,
+                parsed,
+                _skill_column_map(),
+                SqlSkill,
+                SqlSkillTag,
+                tag_join_keys=["workspace", "organization", "name"],
+                dialect=store.engine.dialect.name,
+                valid_tag_comparators={"=", "!=", "LIKE", "ILIKE"},
+            )

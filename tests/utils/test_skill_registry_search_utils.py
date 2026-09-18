@@ -60,6 +60,16 @@ def test_skill_filter_parses_empty_filter():
     assert SearchSkillUtils.parse_search_filter("") == []
 
 
+def test_skill_filter_preserves_double_quoted_organization_in_value():
+    parsed = SearchSkillUtils.parse_search_filter('description LIKE "%organization in GitHub%"')
+    assert parsed[0]["value"] == "%organization in GitHub%"
+
+
+def test_skill_filter_preserves_dotted_tag_key():
+    parsed = SearchSkillUtils.parse_search_filter("tags.mlflow.organization = 'acme'")
+    assert parsed[0]["key"] == "mlflow.organization"
+
+
 def test_skill_filter_rejects_unsupported_field():
     with pytest.raises(MlflowException, match=r"(?i)invalid"):
         SearchSkillUtils.parse_search_filter("nonexistent = 'val'")

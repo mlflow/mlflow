@@ -2877,25 +2877,38 @@ _SKILL_REGISTRY_NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
 # IS NULL / IS NOT NULL excluded; skill registry tags are always key=value.
 _SKILL_REGISTRY_TAG_COMPARATORS = {"=", "!=", "LIKE", "ILIKE"}
 
-# sqlparse misparses 'organization' as a SQL keyword, preventing it from
-# forming a Comparison token.  Backtick-quoting forces the tokenizer to
-# treat it as an identifier; _get_identifier already calls _trim_backticks.
-# Lookahead ensures we only quote the field name, not 'organization' inside values.
+# sqlparse misparses 'organization' and 'version' as SQL keywords, preventing
+# them from forming Comparison tokens.  Backtick-quoting forces the tokenizer
+# to treat them as identifiers; _get_identifier already calls _trim_backticks.
+#
+# The field regex requires:
+#   - no preceding dot (excludes dotted tag keys like tags.mlflow.organization)
+#   - no preceding backtick (excludes already-quoted identifiers)
+#   - a comparator lookahead (ensures we match field position, not values)
 _SQLPARSE_KEYWORD_FIELD_RE = re.compile(
-    r"\borganization\b(?=\s*[=!<>]|\s+(?:LIKE|ILIKE|IN|NOT)\b)",
+    r"(?<![.`])\b(organization|version)\b(?![`])"
+    r"(?=\s*[=!<>]|\s+(?:LIKE|ILIKE|IN|NOT)\b)",
     re.IGNORECASE,
 )
-# Single-quoted string literal pattern for splitting filter strings.
-_QUOTED_STRING_RE = re.compile(r"('(?:[^'\\]|\\.)*')")
+# Quoted string literal pattern for splitting filter strings.  Handles both
+# single and double quotes so values like "%organization in GitHub%" and
+# "don't" are preserved.
+_QUOTED_STRING_RE = re.compile(r"""('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")""")
 # Bare keyword pattern for order-by clauses (no value context to worry about).
-_SQLPARSE_KEYWORD_BARE_RE = re.compile(r"\b(organization)\b", re.IGNORECASE)
+# Negative lookbehind/lookahead prevents double-quoting of already-quoted
+# identifiers in any quote style.
+# Note: if downstream stories add field names that are also sqlparse keywords
+# (e.g. source, ref, key, alias), they must be added to both regexes.
+_SQLPARSE_KEYWORD_BARE_RE = re.compile(
+    r"""(?<![`"'])\b(organization|version)\b(?![`"'])""", re.IGNORECASE
+)
 
 
 def _quote_keyword_fields(filter_string: str) -> str:
-    """Backtick-quote keyword field names outside of single-quoted values."""
+    """Backtick-quote keyword field names outside of quoted values."""
     parts = _QUOTED_STRING_RE.split(filter_string)
     return "".join(
-        _SQLPARSE_KEYWORD_FIELD_RE.sub("`organization`", part) if i % 2 == 0 else part
+        _SQLPARSE_KEYWORD_FIELD_RE.sub(r"`\1`", part) if i % 2 == 0 else part
         for i, part in enumerate(parts)
     )
 

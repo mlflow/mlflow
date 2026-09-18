@@ -30,13 +30,25 @@ def _get_comparison_func(comparator: str, dialect: str, col):
     """Return a comparison function that handles both ORM columns and expressions.
 
     ``SearchUtils.get_sql_comparison_func`` accesses ``column.class_`` on
-    MySQL for case-sensitive comparisons, which fails for computed
-    expressions (e.g. ``resolved_status``).  This wrapper falls back to
-    the generic comparison path for non-column expressions.
+    MySQL and ``column.type`` on MSSQL for case-sensitive comparisons,
+    which fails for computed expressions (e.g. ``resolved_status``).
+    For non-column expressions we use the generic comparison path directly.
     """
     if hasattr(col, "class_"):
         return SearchUtils.get_sql_comparison_func(comparator, dialect)
-    return SearchUtils.get_sql_comparison_func(comparator, None)
+
+    def _expression_comparison_func(column, value):
+        if comparator == "LIKE":
+            return column.like(value)
+        if comparator == "ILIKE":
+            return column.ilike(value)
+        if comparator == "IN":
+            return column.in_(value)
+        if comparator == "NOT IN":
+            return ~column.in_(value)
+        return SearchUtils.get_comparison_func(comparator)(column, value)
+
+    return _expression_comparison_func
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +64,7 @@ def apply_skill_registry_filters(
     tag_model_class: type,
     tag_join_keys: list[str],
     dialect: str,
+    valid_tag_comparators: set[str] | None = None,
 ) -> Query:
     """Apply parsed filter dicts as SQLAlchemy WHERE clauses.
 
@@ -88,7 +101,8 @@ def apply_skill_registry_filters(
             col = column_map[key]
             attribute_filters.append(_get_comparison_func(comparator, dialect, col)(col, value))
         elif type_ == "tag":
-            if comparator not in _VALID_FILTER_COMPARATORS:
+            allowed = valid_tag_comparators or _VALID_FILTER_COMPARATORS
+            if comparator not in allowed:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator '{comparator}' for tag '{key}'."
                 )
@@ -135,10 +149,10 @@ def apply_member_name_filter(
 ) -> Query:
     """Filter agent plugins to those with an eligible version referencing the given skill.
 
-    Matches any non-deleted plugin version whose referenced member skill
-    version is also non-deleted (a plugin version with a deleted member is
-    "withdrawn" and excluded from discovery per RFC-0008).  Older eligible
-    versions still contribute matches.
+    A plugin version is eligible when it is non-deleted and none of its
+    members reference a deleted skill version (a version with any deleted
+    member is "withdrawn" and excluded from discovery per RFC-0008).
+    Older eligible versions still contribute matches.
     """
     # Lazy import to avoid circular dependency with dbmodels.models.
     from mlflow.store.tracking.dbmodels.models import (
@@ -146,6 +160,35 @@ def apply_member_name_filter(
         SqlAgentPluginVersion,
         SqlAgentPluginVersionMember,
         SqlSkillVersion,
+    )
+
+    # Alias for the sibling-member check so it doesn't conflict with the
+    # outer member table reference.
+    sibling = SqlAgentPluginVersionMember.__table__.alias("sibling_member")
+    sibling_sv = SqlSkillVersion.__table__.alias("sibling_sv")
+
+    # A plugin version is withdrawn when ANY of its members references a
+    # deleted skill version, not only the member matching the search term.
+    has_deleted_sibling = sa.exists(
+        sa
+        .select(sa.literal(1))
+        .select_from(sibling)
+        .join(
+            sibling_sv,
+            sa.and_(
+                sibling.c.plugin_workspace == sibling_sv.c.workspace,
+                sibling.c.member_organization == sibling_sv.c.organization,
+                sibling.c.member_name == sibling_sv.c.name,
+                sibling.c.member_version == sibling_sv.c.version,
+            ),
+        )
+        .where(
+            sibling.c.plugin_workspace == SqlAgentPluginVersionMember.plugin_workspace,
+            sibling.c.plugin_organization == SqlAgentPluginVersionMember.plugin_organization,
+            sibling.c.plugin_name == SqlAgentPluginVersionMember.plugin_name,
+            sibling.c.plugin_version == SqlAgentPluginVersionMember.plugin_version,
+            sibling_sv.c.status == "deleted",
+        )
     )
 
     member_subquery = (
@@ -165,21 +208,12 @@ def apply_member_name_filter(
                 SqlAgentPluginVersionMember.plugin_version == SqlAgentPluginVersion.version,
             ),
         )
-        .join(
-            SqlSkillVersion,
-            sa.and_(
-                SqlAgentPluginVersionMember.plugin_workspace == SqlSkillVersion.workspace,
-                SqlAgentPluginVersionMember.member_organization == SqlSkillVersion.organization,
-                SqlAgentPluginVersionMember.member_name == SqlSkillVersion.name,
-                SqlAgentPluginVersionMember.member_version == SqlSkillVersion.version,
-            ),
-        )
         .where(
             SearchUtils.get_sql_comparison_func("=", dialect)(
                 SqlAgentPluginVersionMember.member_name, member_name_value
             ),
             SqlAgentPluginVersion.status != "deleted",
-            SqlSkillVersion.status != "deleted",
+            ~has_deleted_sibling,
         )
         .distinct()
         .subquery()
