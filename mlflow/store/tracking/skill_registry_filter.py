@@ -14,6 +14,7 @@ import sqlalchemy as sa
 
 from mlflow.entities import SkillStatus
 from mlflow.exceptions import MlflowException
+from mlflow.store.db.db_types import MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.dbmodels.models import (
     SqlAgentPlugin,
@@ -53,6 +54,10 @@ def _get_comparison_func(comparator: str, dialect: str, col):
     """
     if hasattr(col, "class_"):
         return SearchUtils.get_sql_comparison_func(comparator, dialect)
+    if dialect == MYSQL and comparator == "ILIKE":
+        # The MCP helper emits a plain LIKE here, which is case-sensitive under
+        # a binary collation. ilike() lowers both sides, as the column path does.
+        return lambda expression, value: expression.ilike(value)
     return _get_expression_comparison_func(comparator, dialect)
 
 

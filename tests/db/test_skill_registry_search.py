@@ -148,6 +148,36 @@ def test_db_backend_like_is_case_sensitive_and_ilike_is_not(store, org, filter_s
     assert _skill_names(store, org, filter_string) == (["code-review"] if matches else [])
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "matches"),
+    [
+        ("status ILIKE 'ACT%'", True),
+        ("status LIKE 'Act%'", False),
+        ("status = 'Active'", False),
+    ],
+)
+def test_db_backend_ilike_on_binary_collated_expression(store, org, filter_string, matches):
+    # A binary collation makes plain LIKE case-sensitive, so ILIKE must lower
+    # both sides rather than rely on the default collation.
+    if store.engine.dialect.name != "mysql":
+        pytest.skip("Only MySQL chooses case sensitivity by collation for computed LIKE")
+    with store.ManagedSessionMaker(read_only=False) as session:
+        _add_skill(session, org, "code-review", status="active")
+
+    status = SqlSkill.resolved_status_expression().collate("utf8mb4_bin")
+    with store.ManagedSessionMaker() as session:
+        query = apply_skill_registry_filters(
+            session.query(SqlSkill).filter(SqlSkill.organization == org),
+            SearchSkillUtils.parse_search_filter(filter_string),
+            {"status": status},
+            SqlSkill,
+            SqlSkillTag,
+            tag_join_keys=["workspace", "organization", "name"],
+            dialect=store.engine.dialect.name,
+        )
+        assert [skill.name for skill in query] == (["code-review"] if matches else [])
+
+
 # Counterpart: test_filter_by_computed_status and test_filter_by_status_list.
 def test_db_backend_status_list_on_computed_status(store, org):
     with store.ManagedSessionMaker(read_only=False) as session:

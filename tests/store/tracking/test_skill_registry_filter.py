@@ -26,6 +26,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersionTag,
 )
 from mlflow.store.tracking.skill_registry_filter import (
+    _get_comparison_func,
     apply_member_name_filter,
     apply_skill_registry_filters,
     paginate_results,
@@ -295,7 +296,9 @@ def test_filter_computed_status_builds_on_every_dialect(dialect):
         ("mssql", mssql.dialect(), "_CS_"),
     ],
 )
-@pytest.mark.parametrize("filter_string", ["status = 'Active'", "status LIKE 'Act%'"])
+@pytest.mark.parametrize(
+    "filter_string", ["status = 'Active'", "status != 'Active'", "status LIKE 'Act%'"]
+)
 def test_filter_computed_status_stays_case_sensitive(
     dialect_name, dialect, case_sensitive_sql, filter_string
 ):
@@ -311,6 +314,23 @@ def test_filter_computed_status_stays_case_sensitive(
             dialect_name,
         )
         assert case_sensitive_sql in str(query.statement.compile(dialect=dialect))
+
+
+@pytest.mark.parametrize(
+    "column",
+    [
+        SqlSkillVersion.status,
+        SqlSkillVersion.status.__clause_element__().collate("utf8mb4_bin"),
+    ],
+    ids=["orm-column-control", "computed-case-sensitive-column"],
+)
+def test_mysql_ilike_preserves_case_insensitive_sql(column):
+    dialect = mysql.dialect()
+    condition = _get_comparison_func("ILIKE", "mysql", column)(column, "ACT%")
+    actual = condition.compile(dialect=dialect)
+    expected = column.ilike("ACT%").compile(dialect=dialect)
+    assert str(actual) == str(expected)
+    assert actual.params == expected.params
 
 
 def test_filter_by_computed_status(store):
