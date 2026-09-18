@@ -362,29 +362,41 @@ def test_cost_per_token_cache_creation_tokens(mock_model_cost):
     assert output_cost == pytest.approx(0.001)
 
 
-def test_cost_per_token_cache_creation_5m_ttl_uses_default_rate(mock_model_cost):
+def test_cost_per_token_cache_creation_no_1hr_uses_default_rate(mock_model_cost):
     input_cost, _ = cost_per_token(
         model="test-model",
         prompt_tokens=1000,
         cache_creation_input_tokens=300,
-        cache_creation_ttl="5m",
     )
     # regular: 700 * 1e-6 = 0.0007; cache_creation: 300 * 3e-6 = 0.0009
     assert input_cost == pytest.approx(0.0016)
 
 
-def test_cost_per_token_cache_creation_1h_ttl_uses_1hr_rate(mock_model_cost):
+def test_cost_per_token_cache_creation_1hr_subset_uses_1hr_rate(mock_model_cost):
     input_cost, _ = cost_per_token(
         model="test-model",
         prompt_tokens=1000,
         cache_creation_input_tokens=300,
-        cache_creation_ttl="1h",
+        cache_creation_input_tokens_above_1hr=100,
     )
-    # regular: 700 * 1e-6 = 0.0007; cache_creation: 300 * 4.8e-6 = 0.00144
+    # regular: 700 * 1e-6 = 0.0007
+    # 5m cache_creation: (300-100) * 3e-6 = 0.0006
+    # 1h cache_creation: 100 * 4.8e-6 = 0.00048
+    assert input_cost == pytest.approx(0.00178)
+
+
+def test_cost_per_token_cache_creation_all_1hr_uses_1hr_rate(mock_model_cost):
+    input_cost, _ = cost_per_token(
+        model="test-model",
+        prompt_tokens=1000,
+        cache_creation_input_tokens=300,
+        cache_creation_input_tokens_above_1hr=300,
+    )
+    # regular: 700 * 1e-6 = 0.0007; 1h cache_creation: 300 * 4.8e-6 = 0.00144
     assert input_cost == pytest.approx(0.00214)
 
 
-def test_cost_per_token_1h_ttl_falls_back_to_default_cache_rate():
+def test_cost_per_token_1hr_subset_falls_back_to_default_cache_rate():
     no_1hr_data = {
         "no_1hr_provider": {
             "test-model": {
@@ -412,9 +424,9 @@ def test_cost_per_token_1h_ttl_falls_back_to_default_cache_rate():
             model="test-model",
             prompt_tokens=1000,
             cache_creation_input_tokens=300,
-            cache_creation_ttl="1h",
+            cache_creation_input_tokens_above_1hr=100,
         )
-        # No 1hr rate published, falls back to the 5-minute cache-creation rate
+        # No 1hr rate published, the 1h subset falls back to the 5-minute cache-creation rate
         # regular: 700 * 1e-6 = 0.0007; cache_creation: 300 * 3e-6 = 0.0009
         assert input_cost == pytest.approx(0.0016)
 
