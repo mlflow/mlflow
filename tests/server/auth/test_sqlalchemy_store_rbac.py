@@ -1,7 +1,7 @@
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.auth.db.models import SqlRolePermission
+from mlflow.server.auth.db.models import SqlRole, SqlRolePermission, SqlUserRoleAssignment
 from mlflow.server.auth.entities import Role, RolePermission, UserRoleAssignment
 from mlflow.server.auth.permissions import (
     EDIT,
@@ -407,6 +407,33 @@ def test_grant_user_permissions_in_session_rolls_back_with_outer_transaction(sto
         )
         is None
     )
+
+
+def test_aborted_grant_rolls_back_created_role_and_assignment(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
+    user = store.create_user("alice", "strong-password")
+
+    def grant_then_abort():
+        with store.ManagedSessionMaker(read_only=False) as session:
+            store.grant_user_permissions_in_session(
+                session,
+                user.username,
+                [(RESOURCE_TYPE_SKILL, "demo-skill", MANAGE.name)],
+            )
+            raise MlflowException("abort")
+
+    try:
+        with pytest.raises(MlflowException, match="abort"):
+            grant_then_abort()
+
+        with store.ManagedSessionMaker() as session:
+            assert session.query(SqlRole).count() == 0
+            assert session.query(SqlUserRoleAssignment).count() == 0
+            assert session.query(SqlRolePermission).count() == 0
+    finally:
+        store.engine.dispose()
 
 
 def test_grant_user_permissions_in_session_rolls_back_partial_batch_on_duplicate(store, user):

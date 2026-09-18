@@ -443,7 +443,7 @@ store = SqlAlchemyStore()
 
 # Cache for resource_id -> workspace_name mapping. The relationship between a resource
 # (experiment, registered model) and its workspace is immutable.
-_RESOURCE_WORKSPACE_CACHE: TTLCache[str, str | None] = TTLCache(
+_RESOURCE_WORKSPACE_CACHE: TTLCache[str, str] = TTLCache(
     maxsize=auth_config.workspace_cache_max_size,
     ttl=auth_config.workspace_cache_ttl_seconds,
 )
@@ -708,9 +708,11 @@ def _get_resource_workspace(
     silent: bool = False,
 ) -> str | None:
     """
-    Get the workspace name for a resource, using a cache to avoid repeated lookups.
+    Get the workspace name for a resource, using a cache to avoid repeated successful lookups.
 
-    The resource->workspace relationship is immutable, so caching is safe.
+    The resource->workspace relationship is immutable after creation, so successful
+    lookups are safe to cache. Missing resources are not cached because the same
+    resource id can become valid after a create operation.
 
     Args:
         silent: When True, suppress the lookup-failure warning. Set by
@@ -743,12 +745,11 @@ def _get_resource_workspace(
             )
         workspace_name = None
 
+    if workspace_name is None:
+        return None
+
     if cache_key is None:
-        cache_key = (
-            f"{resource_label}:{workspace_name}:{resource_id}"
-            if workspace_name is not None
-            else f"{resource_label}:{resource_id}"
-        )
+        cache_key = f"{resource_label}:{workspace_name}:{resource_id}"
 
     _RESOURCE_WORKSPACE_CACHE[cache_key] = workspace_name
     return workspace_name

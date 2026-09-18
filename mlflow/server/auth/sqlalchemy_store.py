@@ -459,6 +459,7 @@ class SqlAlchemyStore:
     ) -> None:
         self._reject_workspace_resource_type(resource_type)
         _validate_permission_for_resource_type(permission, resource_type)
+        self._begin_sqlite_transaction_before_savepoint(session)
         user = self._get_user(session, username=username)
         workspace_name = self._get_active_workspace_name()
         role = self._get_or_create_synthetic_user_role(session, user.id, workspace_name)
