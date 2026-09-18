@@ -31,19 +31,9 @@ def _normalize(text: str | None) -> str:
     return _WHITESPACE_RUN.sub(" ", s).strip() if s else ""
 
 
-def build_skill_search_text(
-    name: str,
-    description: str | None = None,
-    keywords: list[str] | None = None,
-) -> str:
-    """Build the ``search_text`` projection for a skill.
-
-    Covers name and description, plus optional imported keywords from a
-    packaged plugin member.
-    """
+def build_skill_search_text(name: str, description: str | None = None) -> str:
+    """Build the ``search_text`` projection for a skill from its name and description."""
     parts = [_normalize(name), _normalize(description)]
-    if keywords:
-        parts.extend(_normalize(kw) for kw in keywords)
     return " ".join(part for part in parts if part)
 
 
@@ -72,16 +62,9 @@ def build_agent_plugin_version_search_text(
     return " ".join(part for part in parts if part)
 
 
-def recompute_skill_search_text(
-    skill_row: SqlSkill,
-    keywords: list[str] | None = None,
-) -> str:
-    """Convenience wrapper that reads fields from an ``SqlSkill`` ORM row."""
-    return build_skill_search_text(
-        name=skill_row.name,
-        description=skill_row.description,
-        keywords=keywords,
-    )
+def recompute_skill_search_text(skill_row: SqlSkill) -> str:
+    """Rebuild ``search_text`` from an ``SqlSkill`` row, e.g. after its description changes."""
+    return build_skill_search_text(name=skill_row.name, description=skill_row.description)
 
 
 def recompute_agent_plugin_version_search_text(

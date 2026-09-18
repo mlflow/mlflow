@@ -27,15 +27,6 @@ def test_skill_search_text_name_and_description():
     assert result == "code-review Reviews pull requests"
 
 
-def test_skill_search_text_with_keywords():
-    result = build_skill_search_text(
-        "code-review",
-        description="Reviews PRs",
-        keywords=["security", "lint"],
-    )
-    assert result == "code-review Reviews PRs security lint"
-
-
 def test_skill_search_text_none_description():
     result = build_skill_search_text("code-review", description=None)
     assert result == "code-review"
@@ -44,16 +35,6 @@ def test_skill_search_text_none_description():
 def test_skill_search_text_empty_description():
     result = build_skill_search_text("code-review", description="")
     assert result == "code-review"
-
-
-def test_skill_search_text_empty_keywords():
-    result = build_skill_search_text("code-review", description="desc", keywords=[])
-    assert result == "code-review desc"
-
-
-def test_skill_search_text_non_string_keywords():
-    result = build_skill_search_text("name", keywords=[1, True, 3.5])
-    assert result == "name 1 True 3.5"
 
 
 def test_skill_search_text_normalizes_whitespace():
@@ -144,14 +125,13 @@ def _plugin_version_row(plugin_json, organization="acme"):
     )
 
 
-def test_recompute_skill_search_text():
-    row = SqlSkill(
-        workspace="default", organization="acme", name="code-review", description="Reviews PRs"
-    )
+def test_recompute_skill_search_text_after_description_update():
+    # register_skill creates the parent with a null description; update_skill sets it later.
+    row = SqlSkill(workspace="default", organization="acme", name="code-review")
+    assert recompute_skill_search_text(row) == "code-review"
+
+    row.description = "Reviews PRs"
     assert recompute_skill_search_text(row) == "code-review Reviews PRs"
-    assert recompute_skill_search_text(row, keywords=["security"]) == (
-        "code-review Reviews PRs security"
-    )
 
 
 def test_recompute_agent_plugin_version_search_text():
