@@ -1706,15 +1706,16 @@ MLFLOW_TRACE_ROLLUPS_SCHEDULE = _EnvironmentVariable(
     "MLFLOW_TRACE_ROLLUPS_SCHEDULE", str, "0 2 * * *"
 )
 
-#: Caps the number of ``(experiment_id, rollup_day, family)`` partitions attempted in one
-#: maintenance pass.
-#: (default: ``100``)
+#: Caps the number of ``(experiment_id, rollup_day, family)`` partitions successfully built or
+#: emptied in one maintenance pass. Deferred partitions (for example, partitions with active traces
+#: that are not yet eligible) do not consume this publication budget.
+#: (default: ``1000``)
 MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN = _EnvironmentVariable(
     "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN", int, 1000
 )
 
-#: Maximum number of distinct SQL trace rollup partitions maintained concurrently. SQLite always
-#: uses one worker because it permits only one concurrent writer.
+#: Maximum number of distinct SQL trace rollup partitions maintained concurrently in a single
+#: maintenance pass. SQLite always uses one worker because it permits only one concurrent writer.
 #: (default: ``4``)
 MLFLOW_TRACE_ROLLUPS_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TRACE_ROLLUPS_MAX_WORKERS", int, 4)
 

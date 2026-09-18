@@ -214,7 +214,7 @@ def test_scheduler_noops_when_rollups_are_disabled(monkeypatch):
     maintenance.assert_not_called()
 
 
-def test_service_entrypoint_runs_without_jobs_backend(monkeypatch):
+def test_service_entrypoint_logs_historical_bootstrap(monkeypatch, caplog):
     monkeypatch.setenv(MLFLOW_SERVER_ENABLE_JOB_EXECUTION.name, "false")
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
     engine = object()
@@ -222,8 +222,12 @@ def test_service_entrypoint_runs_without_jobs_backend(monkeypatch):
     expected = _stats()
     maintenance = Mock(return_value=expected)
     monkeypatch.setattr(trace_rollup_service, "run_sql_trace_rollups", maintenance)
+    monkeypatch.setattr(
+        trace_rollup_service, "sql_trace_rollup_rows_exist", Mock(return_value=False)
+    )
 
     assert run_sql_trace_rollup_scheduler(tracking_store) == expected
+    assert "MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN" in caplog.text
     maintenance.assert_called_once_with(
         engine,
         max_partitions_per_run=MLFLOW_TRACE_ROLLUPS_MAX_PARTITIONS_PER_RUN.get(),
@@ -251,6 +255,9 @@ def test_scheduler_delegates_to_shared_maintenance_path(monkeypatch):
     expected = _stats()
     maintenance = Mock(return_value=expected)
     monkeypatch.setattr(trace_rollup_service, "run_sql_trace_rollups", maintenance)
+    monkeypatch.setattr(
+        trace_rollup_service, "sql_trace_rollup_rows_exist", Mock(return_value=True)
+    )
 
     assert run_sql_trace_rollup_scheduler(tracking_store) == expected
     maintenance.assert_called_once_with(engine, max_partitions_per_run=7, max_workers=3)
