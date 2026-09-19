@@ -8457,6 +8457,24 @@ def test_delete_scorer_without_version_uses_parent_permission(monkeypatch, permi
         assert auth_module.validate_can_delete_scorer_version() is expected
 
 
+def test_delete_scorer_version_tolerates_non_object_json(monkeypatch):
+    # A non-object JSON body (e.g. a list) must not 500 the validator: it carries no
+    # "version", so it resolves the whole-scorer tier instead of raising AttributeError on
+    # `.get`. Guards against the `(get_json() or {}).get(...)` non-dict crash.
+    from mlflow.server.auth.permissions import MANAGE
+
+    monkeypatch.setattr(auth_module, "_get_permission_from_scorer_name", lambda: MANAGE)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_version_name",
+        lambda: pytest.fail("version tier must not resolve for a non-object body (no version)"),
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete", method="DELETE", json=[1, 2, 3]
+    ):
+        assert auth_module.validate_can_delete_scorer_version() is True
+
+
 def test_delete_scorer_version_does_not_cascade_parent_grants(monkeypatch):
     auth_store = mock.Mock()
     auth_store._scorer_pattern.return_value = "1/scorer"
