@@ -126,12 +126,44 @@ level. `DENY` is authoritative within its child type; it restricts only that
 child type and does not affect sibling children. Removing a child grant returns
 that child to parent inheritance.
 
-`DENY` is an authorization control for resources that already exist. It is not
-a top-level creation policy: creating an experiment, registered model/prompt,
-or MCP server continues to require workspace `USE` or `MANAGE`, because no
-resource ID exists yet to resolve against a resource grant. Restricting creation
-by a future resource's ID or name requires condition-based creation policy and
-is outside this model.
+#### Checking a child permission (`resource_id` formats)
+
+Child grants are always wildcard (`resource_id="*"`), but the per-user
+_check_ APIs (`get_user_permission` and friends) resolve a **specific** child
+instance, so they take a concrete `resource_id`. The value is not always the
+child's own id: a child must resolve to its parent (and therefore its
+workspace), so some tiers key on a composite or on the parent identity:
+
+| Child type                 | `resource_id` to check                                              |
+| -------------------------- | ------------------------------------------------------------------- |
+| `run`                      | run id                                                              |
+| `trace`                    | trace request id                                                    |
+| `assessment`               | `<trace_id>/<assessment_id>` (the trace id resolves the experiment) |
+| `logged_model`             | logged model id                                                     |
+| `review_queue`             | review queue id                                                     |
+| `registered_model_version` | the **registered model name** (the version tier keys on its parent) |
+| `prompt_version`           | the **prompt name**                                                 |
+| `scorer`, `scorer_version` | `<experiment_id>/<scorer_name>`                                     |
+| `mcp_server_version`       | the **MCP server name**                                             |
+
+The version tiers deliberately take the parent model/prompt/scorer/MCP-server
+identity rather than a version number: a version's permission resolves through
+its parent, so the parent identity is what locates the grant. An invalid
+composite (for example an `assessment` `resource_id` without a `/`) is rejected
+with `INVALID_PARAMETER_VALUE`. These formats apply only to permission
+_checks_; grants remain wildcard-only.
+
+`DENY` restricts operations once there is a resource to resolve against. Because
+a wildcard **child** grant matches regardless of a specific id, a child `DENY`
+_does_ gate child creation: `(run, *, DENY)` blocks creating runs — including
+through composite routes such as prompt-optimization and GenAI evaluate — just
+as it blocks reading or mutating them.
+
+It is not, however, a **top-level** creation policy: creating an experiment,
+registered model/prompt, or MCP server continues to require workspace `USE` or
+`MANAGE`, because no resource ID exists yet to resolve against a resource grant.
+Restricting top-level creation by a future resource's ID or name requires
+condition-based creation policy and is outside this model.
 
 #### Permission resolution
 
