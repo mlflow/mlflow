@@ -6431,9 +6431,14 @@ def test_mcp_server_root_post_enforces_workspace_create_authz(prefix, monkeypatc
 
 
 def test_validate_can_create_mcp_server_delegates_to_shared_helper():
-    with mock.patch.object(
-        auth_module, "_can_create_in_workspace", return_value=True
-    ) as mock_helper:
+    # The validator gates on the workspace-create helper AND a (mcp_server, *, DENY) veto;
+    # with no DENY the veto is a no-op and the workspace helper decides.
+    with (
+        mock.patch.object(
+            auth_module, "_can_create_in_workspace", return_value=True
+        ) as mock_helper,
+        mock.patch.object(auth_module, "_top_level_create_denied", return_value=False),
+    ):
         result = auth_module.validate_can_create_mcp_server("alice")
         mock_helper.assert_called_once_with("alice")
         assert result is True
@@ -6626,6 +6631,38 @@ def test_top_level_deny_blocks_rfc_parent_types(monkeypatch, tmp_path, resource_
     admin_perm = store.get_role_permission_for_resource(admin.id, resource_type, "res-1", ws)
     assert admin_perm is not None
     assert admin_perm.can_manage  # admin bypass wins over DENY
+
+
+@pytest.mark.parametrize(
+    "resource_type", ["experiment", "registered_model", "prompt", "mcp_server"]
+)
+def test_top_level_create_denied_by_self_type_deny(monkeypatch, tmp_path, resource_type):
+    # Mirror of the sub-resource rule for parents: workspace USE/EDIT allows creating a
+    # top-level resource, but a (type, *, DENY) prevents its creation. With workspaces
+    # disabled, create rights are implicit, so the veto is what blocks. Verified via the
+    # shared _top_level_create_denied helper (the create validators call it after the
+    # workspace-create gate).
+    from mlflow.server.auth.permissions import DENY
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / f'create-deny-{resource_type}.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    ws = "default"
+    user = store.create_user("creator", "supersecurepassword", is_admin=False)
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="creator")
+    )
+
+    # No DENY -> workspaces disabled means create is allowed (baseline, unchanged behavior).
+    assert auth_module._top_level_create_denied(resource_type, "creator") is False
+
+    # Add (type, *, DENY) -> creation is now vetoed.
+    role = store.create_role(name=f"deny-create-{resource_type}", workspace=ws)
+    store.add_role_permission(role.id, resource_type, "*", DENY.name)
+    store.assign_role_to_user(user.id, role.id)
+    assert auth_module._top_level_create_denied(resource_type, "creator") is True
 
 
 @pytest.mark.parametrize(

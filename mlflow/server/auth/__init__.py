@@ -719,6 +719,31 @@ def _can_create_in_workspace(username: str) -> bool:
     return False
 
 
+def _top_level_create_denied(resource_type: str, username: str) -> bool:
+    """``True`` iff a workspace-wide ``(resource_type, *, DENY)`` blocks CREATING a top-level
+    resource of that type.
+
+    Mirrors the sub-resource rule for the parent tier: workspace ``USE``/``EDIT`` allows
+    creating a top-level resource, but a ``(type, *, DENY)`` prevents it — exactly as a
+    ``(child, *, DENY)`` prevents child creation even under parent ``USE``. Creation has no
+    resource id yet, so this resolves the wildcard ``(type, *)`` grant in the request
+    workspace (the default workspace when workspaces are disabled, where grants live). A
+    ``DENY`` is opt-in, so this only ever blocks a caller who explicitly set it —
+    backwards-compatible with the pre-existing workspace-only create gate.
+    """
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    if workspace_name is None:
+        return False
+    perm = store.get_role_permission_for_resource(
+        store.get_user(username).id, resource_type, "*", workspace_name
+    )
+    return perm is not None and perm.name == DENY.name
+
+
 def _user_can_create_in_workspace() -> bool:
     return _can_create_in_workspace(authenticate_request().username)
 
@@ -1807,15 +1832,35 @@ def _can_read_model_version_source(
 
 
 def validate_can_create_experiment() -> bool:
-    return _user_can_create_in_workspace()
+    # Workspace USE/EDIT allows creating an experiment, but a (experiment, *, DENY) prevents
+    # it -- mirroring the sub-resource rule (parent USE allows child creation; child DENY
+    # blocks it).
+    if not _user_can_create_in_workspace():
+        return False
+    return not _top_level_create_denied("experiment", authenticate_request().username)
 
 
 def validate_can_create_registered_model() -> bool:
-    return _user_can_create_in_workspace()
+    # CreateRegisteredModel creates a registered_model or a prompt (distinguished by a
+    # request tag). Workspace USE/EDIT allows it, but a (registered_model, *, DENY) or
+    # (prompt, *, DENY) prevents creation. Vetoing on either type is fail-safe: creation has
+    # no persisted entity to classify yet, and a DENY on the sibling type only over-blocks,
+    # never under-protects.
+    if not _user_can_create_in_workspace():
+        return False
+    username = authenticate_request().username
+    return not (
+        _top_level_create_denied("registered_model", username)
+        or _top_level_create_denied("prompt", username)
+    )
 
 
 def validate_can_create_mcp_server(username: str) -> bool:
-    return _can_create_in_workspace(username)
+    # Workspace USE/EDIT allows creating an MCP server, but a (mcp_server, *, DENY) prevents
+    # it (parent-resource mirror of the sub-resource DENY-blocks-creation rule).
+    if not _can_create_in_workspace(username):
+        return False
+    return not _top_level_create_denied("mcp_server", username)
 
 
 def validate_can_view_workspace() -> bool:
