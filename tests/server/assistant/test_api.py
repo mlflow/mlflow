@@ -149,6 +149,16 @@ def test_message(client):
     assert response.json()["session_id"] == session_id
 
 
+def test_message_invalid_session_id_returns_422(client):
+    # A malformed client-supplied session_id must be rejected at the boundary rather than
+    # surfacing as a 500 from SessionManager's path-traversal guard deep in save().
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "Hello", "session_id": "../../etc/passwd"},
+    )
+    assert response.status_code == 422
+
+
 def test_message_fills_in_working_dir_once_experiment_id_arrives(client, tmp_path):
     # A session started with no experiment_id has no working_dir, so file
     # tools (Read, and Bash + python/python3) are denied. Related to

@@ -417,6 +417,12 @@ async def send_message(request: MessageRequest, http_request: Request) -> Messag
     username = _current_username(http_request)
     # Generate or use existing session ID
     session_id = request.session_id or str(uuid.uuid4())
+    # Reject a malformed client-supplied session ID at the boundary. Otherwise it fails
+    # SessionManager's path-traversal guard deep inside save() and surfaces as a 500.
+    try:
+        SessionManager.validate_session_id(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
     project_path = get_project_path(request.experiment_id) if request.experiment_id else None
 
