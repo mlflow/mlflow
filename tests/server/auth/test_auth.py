@@ -9874,24 +9874,33 @@ def test_registered_model_alias_routes_gated_on_version_tier():
     )
 
 
-def test_filter_list_scorers_child_only_grant_keeps_row(monkeypatch):
+def test_filter_list_scorers_requires_experiment_and_version_read(monkeypatch):
+    # OSS parity: every visible row requires experiment READ AND read on the scorer_version
+    # tier (scorer-parent fallback). A version-readable row in an unreadable experiment is
+    # dropped, and a version-denied row in a readable experiment is dropped.
     from mlflow.protos import service_pb2 as pb
 
     resp_msg = pb.ListScorers.Response()
     keep = resp_msg.scorers.add()
     keep.experiment_id = 9
     keep.scorer_name = "keep"
-    denied = resp_msg.scorers.add()
-    denied.experiment_id = 9
-    denied.scorer_name = "denied"
+    version_denied = resp_msg.scorers.add()
+    version_denied.experiment_id = 9
+    version_denied.scorer_name = "denied"
+    exp_denied = resp_msg.scorers.add()
+    exp_denied.experiment_id = 13  # experiment 13 is not readable
+    exp_denied.scorer_name = "keep"
 
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
     monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
     monkeypatch.setattr(auth_module.store, "_scorer_pattern", lambda e, n: f"{e}/{n}")
 
-    # No experiment predicate is consulted; the scorer_version tier alone decides.
     def fake_predicate(_username, resource_type, parent_type=None):
+        if resource_type == "experiment":
+            assert parent_type is None
+            return lambda exp_id: exp_id != "13"
         assert resource_type == "scorer_version"
+        assert parent_type == "scorer"
         return lambda pattern: not pattern.endswith("/denied")
 
     monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
@@ -9900,7 +9909,7 @@ def test_filter_list_scorers_child_only_grant_keeps_row(monkeypatch):
 
     out = pb.ListScorers.Response()
     auth_module.parse_dict(json.loads(resp.data), out)
-    assert [s.scorer_name for s in out.scorers] == ["keep"]
+    assert [(s.experiment_id, s.scorer_name) for s in out.scorers] == [(9, "keep")]
 
 
 def test_update_registered_model_redacts_versions_only_on_deny(monkeypatch):
