@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.16.1.dev0"
+version = "3.16.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -248,7 +248,7 @@ docs = [
 [tool.uv]
 exclude-newer = "P7D"
 exclude-newer-package = { torch = false, torchvision = false }
-required-version = ">=0.11.14"
+required-version = ">=0.12.16"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept

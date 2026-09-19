@@ -274,6 +274,25 @@ def test_update_workspace_with_only_trace_archival_retention(app, mock_workspace
     assert args[0].trace_archival_retention == "14d"
 
 
+def test_create_workspace_rejects_conflicting_field_aliases(
+    app, mock_workspace_store, mock_tracking_store
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={
+                "name": "team-a",
+                "default_artifact_root": "/a",
+                "defaultArtifactRoot": "/b",
+            },
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert "both 'default_artifact_root' and 'defaultArtifactRoot'" in payload["message"]
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
 def test_create_workspace_rejects_invalid_trace_archival_retention(
     app, mock_workspace_store, mock_tracking_store
 ):
@@ -307,6 +326,21 @@ def test_create_workspace_rejects_invalid_trace_archival_location(
     assert response.status_code == 400
     payload = _workspace_to_json(response.get_data(True))
     assert "trace_archival_config.location" in payload["message"]
+    mock_workspace_store.create_workspace.assert_not_called()
+
+
+def test_create_workspace_rejects_host_addressed_default_artifact_root(
+    app, mock_workspace_store, mock_tracking_store
+):
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={"name": "team-ftp", "default_artifact_root": "ftp://internal-host:21/pub"},
+        )
+
+    assert response.status_code == 400
+    payload = _workspace_to_json(response.get_data(True))
+    assert "'default_artifact_root' cannot use the 'ftp' scheme" in payload["message"]
     mock_workspace_store.create_workspace.assert_not_called()
 
 

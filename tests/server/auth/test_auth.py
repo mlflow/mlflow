@@ -4229,6 +4229,218 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
         ).raise_for_status()
 
 
+def test_gateway_alias_spellings_cannot_bypass_secret_authorization(client, monkeypatch):
+    # Protobuf JSON accepts both `secret_id` and `secretId`, last key wins. Authorization
+    # must not read one spelling while the handler acts on the other (GHSA-3g8m-hm3x-gh2r).
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    def create_secret(name, user, password):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": name,
+                "secret_value": {"api_key": f"{name}-key"},
+                "provider": "openai",
+                "auth_config": {"api_base": "https://api.openai.com/v1"},
+            },
+            auth=(user, password),
+        )
+        response.raise_for_status()
+        return response.json()["secret"]["secret_id"]
+
+    with User(user1, password1, monkeypatch):
+        victim_secret_id = create_secret("victim_secret", user1, password1)
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "victim_model",
+                "secret_id": victim_secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        victim_model_def_id = response.json()["model_definition"]["model_definition_id"]
+
+    with User(user2, password2, monkeypatch):
+        attacker_secret_id = create_secret("attacker_secret", user2, password2)
+
+        # Both spellings in one body are ambiguous and refused, in either key order.
+        for both in (
+            {"secret_id": attacker_secret_id, "secretId": victim_secret_id},
+            {"secretId": victim_secret_id, "secret_id": attacker_secret_id},
+        ):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/update",
+                json={**both, "auth_config": {"api_base": "https://attacker.example/v1"}},
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert "both 'secret_id' and 'secretId'" in response.json()["message"]
+
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+                json={"name": "m", **both, "provider": "openai", "model_name": "gpt-4"},
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert "both 'secret_id' and 'secretId'" in response.json()["message"]
+
+        # The camelCase spelling alone is authorized against the secret it names.
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "m",
+                "secretId": victim_secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "attacker_model",
+                "secret_id": attacker_secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+        attacker_model_def_id = response.json()["model_definition"]["model_definition_id"]
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/update",
+            json={"model_definition_id": attacker_model_def_id, "secretId": victim_secret_id},
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+        # Nested model configs follow the same rules on endpoint creation.
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "e",
+                "modelConfigs": [
+                    {"modelDefinitionId": victim_model_def_id, "linkageType": "PRIMARY"}
+                ],
+            },
+            auth=(user2, password2),
+        )
+        assert response.status_code == 403
+
+        # A conflicting inner spelling is refused under either spelling of the outer key.
+        for model_configs_key in ("model_configs", "modelConfigs"):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+                json={
+                    "name": "e",
+                    model_configs_key: [
+                        {
+                            "model_definition_id": attacker_model_def_id,
+                            "modelDefinitionId": victim_model_def_id,
+                            "linkage_type": "PRIMARY",
+                        }
+                    ],
+                },
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert (
+                "both 'model_definition_id' and 'modelDefinitionId'" in response.json()["message"]
+            )
+
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "attacker_endpoint",
+                "model_configs": [
+                    {"model_definition_id": attacker_model_def_id, "linkage_type": "PRIMARY"}
+                ],
+            },
+            auth=(user2, password2),
+        )
+        response.raise_for_status()
+        attacker_endpoint_id = response.json()["endpoint"]["endpoint_id"]
+
+        # Attaching a model requires USE on the model definition, whichever spelling names it.
+        for model_config_key in ("model_config", "modelConfig"):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/models/attach",
+                json={
+                    "endpoint_id": attacker_endpoint_id,
+                    model_config_key: {
+                        "model_definition_id": victim_model_def_id,
+                        "linkage_type": "FALLBACK",
+                    },
+                },
+                auth=(user2, password2),
+            )
+            assert response.status_code == 403
+
+        for model_config_key in ("model_config", "modelConfig"):
+            response = requests.post(
+                url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/models/attach",
+                json={
+                    "endpoint_id": attacker_endpoint_id,
+                    model_config_key: {
+                        "model_definition_id": attacker_model_def_id,
+                        "modelDefinitionId": victim_model_def_id,
+                        "linkage_type": "FALLBACK",
+                    },
+                },
+                auth=(user2, password2),
+            )
+            assert response.status_code == 400
+            assert (
+                "both 'model_definition_id' and 'modelDefinitionId'" in response.json()["message"]
+            )
+
+    # The victim secret still points at its original provider.
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/get",
+            params={"secret_id": victim_secret_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        assert response.json()["secret"]["auth_config"] == {"api_base": "https://api.openai.com/v1"}
+
+    # Cleanup
+    with User(user2, password2, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": attacker_endpoint_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": attacker_model_def_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": attacker_secret_id},
+            auth=(user2, password2),
+        ).raise_for_status()
+    with User(user1, password1, monkeypatch):
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": victim_model_def_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": victim_secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
@@ -7170,6 +7382,74 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
         url, json={**payload, "experiment_id": owner_exp_id}, auth=(owner, owner_pw)
     )
     assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    ("path", "extra_payload"),
+    [
+        ("genai/evaluate/invoke", {"serialized_scorers": ['{"name": "judge"}']}),
+        (
+            "issues/invoke",
+            {
+                "categories": ["correctness"],
+                "provider": "openai",
+                "model": "gpt-4o",
+                "endpoint_name": "my-endpoint",
+            },
+        ),
+    ],
+)
+def test_invoke_endpoints_reject_foreign_trace_ids(client, path, extra_payload):
+    # UPDATE on the caller's own experiment must not be enough to process a trace from an
+    # experiment the caller cannot read (GHSA-v7w2-x9m4-3743).
+    base = client.tracking_uri
+    victim, victim_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    victim_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "victim-exp"},
+        auth=(victim, victim_pw),
+    ).json()["experiment_id"]
+    victim_trace_id = _create_trace(base, victim_exp_id, (victim, victim_pw))
+    attacker_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "attacker-exp"},
+        auth=(attacker, attacker_pw),
+    ).json()["experiment_id"]
+
+    # Control: the attacker cannot read the victim's trace directly.
+    resp = requests.get(
+        f"{base}/api/2.0/mlflow/traces/{victim_trace_id}/info", auth=(attacker, attacker_pw)
+    )
+    assert resp.status_code == 403
+
+    resp = requests.post(
+        f"{base}/ajax-api/3.0/mlflow/{path}",
+        json={
+            "experiment_id": attacker_exp_id,
+            "trace_ids": [victim_trace_id],
+            **extra_payload,
+        },
+        auth=(attacker, attacker_pw),
+    )
+    # The route validator passes (the attacker owns the experiment); the JSON error body
+    # shows the rejection comes from the handler binding the trace to that experiment.
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "PERMISSION_DENIED"
+
+    runs = requests.post(
+        f"{base}/api/2.0/mlflow/runs/search",
+        json={"experiment_ids": [attacker_exp_id]},
+        auth=(attacker, attacker_pw),
+    )
+    runs.raise_for_status()
+    assert runs.json().get("runs", []) == []
 
 
 @pytest.mark.parametrize(

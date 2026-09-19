@@ -115,4 +115,39 @@ describe('useAssessmentCountMetrics', () => {
       }),
     );
   });
+
+  it('passes logged model ID as metadata filter', () => {
+    mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isLoading: false });
+
+    renderHook(() =>
+      useAssessmentCountMetrics({
+        ...defaultParams,
+        loggedModelId: 'model-123',
+      }),
+    );
+
+    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: ['trace.metadata.`mlflow.modelId` = "model-123"'],
+      }),
+    );
+  });
+
+  it('passes run UUID and logged model ID as metadata filters', () => {
+    mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isLoading: false });
+
+    renderHook(() =>
+      useAssessmentCountMetrics({
+        ...defaultParams,
+        runUuid: 'run-123',
+        loggedModelId: 'model-123',
+      }),
+    );
+
+    expect(mockUseTraceMetricsQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: ['trace.metadata.`mlflow.sourceRun` = "run-123"', 'trace.metadata.`mlflow.modelId` = "model-123"'],
+      }),
+    );
+  });
 });

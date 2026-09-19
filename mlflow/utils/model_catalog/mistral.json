@@ -110,7 +110,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.25,
-        "output_per_million_tokens": 0.25
+        "output_per_million_tokens": 0.25,
+        "cache_read_per_million_tokens": 0.025
       },
       "capabilities": {
         "function_calling": false,
@@ -119,7 +120,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-18"
     },
     "devstral-2512": {
       "mode": "chat",
@@ -150,7 +151,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
-        "output_per_million_tokens": 2.0
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.04
       },
       "capabilities": {
         "function_calling": true,
@@ -159,7 +161,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-18"
     },
     "devstral-medium-2507": {
       "mode": "chat",
@@ -190,7 +192,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
-        "output_per_million_tokens": 2.0
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.04
       },
       "capabilities": {
         "function_calling": true,
@@ -199,7 +202,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-18"
     },
     "devstral-small-2505": {
       "mode": "chat",
@@ -250,7 +253,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
-        "output_per_million_tokens": 0.3
+        "output_per_million_tokens": 0.3,
+        "cache_read_per_million_tokens": 0.01
       },
       "capabilities": {
         "function_calling": true,
@@ -259,7 +263,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-18"
     },
     "glm-5-2": {
       "mode": "chat",
@@ -682,7 +686,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.4,
-        "output_per_million_tokens": 2.0
+        "output_per_million_tokens": 2.0,
+        "cache_read_per_million_tokens": 0.04
       },
       "capabilities": {
         "function_calling": true,
@@ -691,7 +696,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "mistral-code-fim-latest": {
       "mode": "chat",
@@ -1007,7 +1012,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 7.5
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.15
       },
       "capabilities": {
         "function_calling": true,
@@ -1016,7 +1022,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "mistral-medium-3-1-2508": {
       "mode": "chat",
@@ -1111,7 +1117,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
-        "output_per_million_tokens": 0.3
+        "output_per_million_tokens": 0.3,
+        "cache_read_per_million_tokens": 0.01
       },
       "capabilities": {
         "function_calling": true,
@@ -1120,7 +1127,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-18"
     },
     "mistral-small-2603": {
       "mode": "chat",
@@ -1193,7 +1200,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.25,
-        "output_per_million_tokens": 0.25
+        "output_per_million_tokens": 0.25,
+        "cache_read_per_million_tokens": 0.025
       },
       "capabilities": {
         "function_calling": false,
@@ -1202,7 +1210,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-18"
     },
     "mistral-vibe-cli-fast": {
       "mode": "chat",
@@ -1316,7 +1324,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.3,
-        "output_per_million_tokens": 0.3
+        "output_per_million_tokens": 0.3,
+        "cache_read_per_million_tokens": 0.03
       },
       "capabilities": {
         "function_calling": false,
@@ -1325,7 +1334,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-18"
     },
     "open-mistral-nemo-2407": {
       "mode": "chat",
@@ -1436,7 +1445,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 6.0
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.2
       },
       "capabilities": {
         "function_calling": true,
@@ -1445,7 +1455,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-09-18"
     },
     "voxtral-small-2507": {
       "mode": "chat",
@@ -1456,7 +1466,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
-        "output_per_million_tokens": 0.4
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.01
       },
       "capabilities": {
         "function_calling": true,
@@ -1465,7 +1476,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "voxtral-small-latest": {
       "mode": "chat",
@@ -1476,7 +1487,8 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.1,
-        "output_per_million_tokens": 0.4
+        "output_per_million_tokens": 0.4,
+        "cache_read_per_million_tokens": 0.01
       },
       "capabilities": {
         "function_calling": true,
@@ -1485,7 +1497,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-09-18"
     },
     "zai-glm-5": {
       "mode": "chat",
