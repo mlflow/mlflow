@@ -2541,7 +2541,70 @@ def test_run_child_permission_outcomes(client: MlflowClient, monkeypatch):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
-def test_search_runs(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+def test_delete_and_restore_run_honor_run_deny(client: MlflowClient, monkeypatch):
+    # §8.A delete tier: DeleteRun/RestoreRun resolve run .can_delete, so (run, *, DENY)
+    # blocks them even for an experiment-EDIT caller. (The run outcomes test covers
+    # create/update; this covers the delete capability specifically.)
+    owner, owner_pw = create_user(client.tracking_uri)
+    denied, denied_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("delete-run-deny")
+        run = client.create_run(experiment_id)
+    grant_role_permission(client.tracking_uri, denied, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied, "run", "*", "DENY")
+    with User(denied, denied_pw, monkeypatch):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.delete_run(run.info.run_id)
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.restore_run(run.info.run_id)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_log_batch_honors_logged_model_deny(client: MlflowClient, monkeypatch):
+    # §8.A footnote: LogBatch/LogMetric target the run tier AND the per-metric model_id's
+    # logged_model tier (secondary touch). A (logged_model, *, DENY) must block a metric
+    # that names a model_id even when the caller can write the run.
+    owner, owner_pw = create_user(client.tracking_uri)
+    denied, denied_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("log-batch-lm-deny")
+        run = client.create_run(experiment_id)
+        model = client.create_logged_model(experiment_id)
+    grant_role_permission(client.tracking_uri, denied, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied, "logged_model", "*", "DENY")
+    with User(denied, denied_pw, monkeypatch):
+        # A metric bound to the denied model_id must be rejected (logged_model DENY),
+        # even though the run itself is writable.
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.log_metric(run.info.run_id, "m", 1.0, model_id=model.model_id)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_delete_traces_honors_trace_deny(client: MlflowClient, monkeypatch):
+    # §8.A trace delete tier: DeleteTraces resolves trace .can_delete, so (trace, *, DENY)
+    # blocks it for an experiment-EDIT caller.
+    import requests
+
+    owner, owner_pw = create_user(client.tracking_uri)
+    denied, denied_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("delete-traces-deny")
+    grant_role_permission(client.tracking_uri, denied, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied, "trace", "*", "DENY")
+    resp = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/traces/delete-traces",
+        json={"experiment_id": experiment_id, "trace_ids": ["tr-1"]},
+        auth=(denied, denied_pw),
+    )
+    assert resp.status_code == 403
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
 
