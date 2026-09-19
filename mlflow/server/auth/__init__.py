@@ -68,10 +68,12 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
-    PERMISSION_DENIED,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
+)
+from mlflow.protos.databricks_pb2 import (
+    PERMISSION_DENIED as PERMISSION_DENIED,
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
@@ -1303,31 +1305,6 @@ def _get_permission_from_scorer_name() -> Permission:
     )
 
 
-def _authorize_scorer_parent_create(experiment_id: str, name: str) -> None:
-    """Raise ``PERMISSION_DENIED`` if CREATING a new scorer parent is blocked by a ``DENY``.
-
-    DENY-only (owner decision, OSS parity): RegisterScorer's positive requirement is
-    ``experiment.can_update`` in both branches (master consults no scorer tier at all), and
-    the branch-independent ``(scorer_version, *, DENY)`` veto is checked at the pre-request
-    gate -- both are existence-independent, so checking them early is race-free. The ONLY
-    branch-dependent check is this one: a ``(scorer, *, DENY)`` wildcard blocks creating a
-    scorer parent. It runs INSIDE the write transaction, invoked only when the store
-    determines this call actually creates the parent, so a request re-classified by a
-    concurrent create/delete still gets exactly the right veto. The version-add branch has
-    no branch-specific check (a scorer-parent DENY does NOT block registering versions --
-    the version-type DENY is the only version-write veto, per the owner decision), so no
-    ``authorize_version_add`` callback is wired. Admins bypass.
-    """
-    if sender_is_admin():
-        return
-    username = authenticate_request().username
-    if _top_level_create_denied("scorer", username):
-        raise MlflowException(
-            "Permission denied: a DENY grant on the scorer type blocks creating this scorer.",
-            error_code=PERMISSION_DENIED,
-        )
-
-
 def _registered_scorer_deny_active(experiment_id: str, name: str) -> bool:
     """``True`` iff invoking the CONCRETE registered scorer ``name`` is blocked by a ``DENY``.
 
@@ -1413,19 +1390,35 @@ def validate_can_register_scorer():
     branch keeps that contract for both creating a scorer and adding a version. DENY is the
     only scorer-tier overlay:
 
-    * ``(scorer_version, *, DENY)`` vetoes either branch (both write a version), checked here
-      -- branch-free and existence-independent, so no probe and no TOCTOU;
-    * ``(scorer, *, DENY)`` additionally vetoes CREATING a scorer parent -- the only
-      branch-dependent check, enforced transactionally by ``_authorize_scorer_parent_create``
-      (invoked by ``register_scorer`` iff this call actually creates the parent). A
-      scorer-parent DENY does NOT block registering versions on an existing scorer (the
-      version-type DENY above is the sole version-write veto).
+    * ``(scorer_version, *, DENY)`` vetoes either branch (both write a version) -- branch-free
+      and existence-independent;
+    * ``(scorer, *, DENY)`` additionally vetoes CREATING a scorer parent, applied when the
+      pre-request probe reports the scorer absent. A scorer-parent DENY does NOT block
+      registering versions on an existing scorer.
+
+    The probe also flags parent creation for the after-request MANAGE grant. KNOWN LIMIT
+    (deferred to a follow-up PR): the probe is a pre-request check, so a concurrent
+    create/delete between probe and handler can misclassify the branch -- affecting only
+    which DENY veto applied and the MANAGE-grant flag, not the positive requirement. Note
+    the flag-gated grant is already strictly safer than master, which grants MANAGE
+    unconditionally on every registration; the race-free fix (a transactional store
+    callback + created-signal) is intentionally out of scope here.
     """
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
     if not _get_experiment_permission(experiment_id, username).can_update:
         return False
-    return not _scorer_version_deny_active(experiment_id)
+    if _scorer_version_deny_active(experiment_id):
+        return False
+    name = _get_request_param("name")
+    try:
+        _get_tracking_store().get_scorer(experiment_id, name)
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            raise
+        g.mlflow_creates_scorer_parent = True
+        return not _top_level_create_denied("scorer", username)
+    return True
 
 
 def validate_can_read_scorer_version():
@@ -5397,24 +5390,15 @@ def rename_registered_model_permission(resp: Response):
     _redact_registered_model_response(resp, RenameRegisteredModel)
 
 
-def _record_scorer_parent_created(created: bool) -> None:
-    """Record whether the register-scorer transaction actually created the scorer parent.
-
-    Called by the handler with the store's authoritative signal (the store knows a parent can
-    exist with zero versions, so neither the pre-request existence probe nor the response
-    version number is reliable). ``set_can_manage_scorer_permission`` reads this to grant
-    parent MANAGE only on a real create.
-    """
-    g.mlflow_scorer_parent_created = created
-
-
 def set_can_manage_scorer_permission(resp: Response):
-    # Grant parent MANAGE only when THIS request's transaction actually created the scorer
-    # parent, per the store's authoritative signal (relayed via _record_scorer_parent_created
-    # from the handler). The pre-request existence flag and the response version number are
-    # both unreliable -- a parent can exist with zero versions (all versions deleted), so a
-    # version-add against it computes version 1 yet is NOT a create (Copilot finding).
-    if not getattr(g, "mlflow_scorer_parent_created", False):
+    # Grant parent MANAGE only when the pre-request probe classified this request as
+    # creating the scorer parent (validate_can_register_scorer sets the flag). This is
+    # strictly safer than master, which grants MANAGE unconditionally on every
+    # RegisterScorer call (including plain version-adds to another user's scorer). KNOWN
+    # LIMIT (deferred to a follow-up PR): the probe can misclassify under a concurrent
+    # create (grant to a racing non-creator) or against an existing empty parent; the
+    # race-free fix requires a transactional created-signal from the store.
+    if not getattr(g, "mlflow_creates_scorer_parent", False):
         return
     response_message = RegisterScorer.Response()
     parse_dict(resp.json, response_message)

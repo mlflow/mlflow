@@ -2,7 +2,6 @@ import asyncio
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
@@ -1665,12 +1664,7 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         )
 
     def register_scorer(
-        self,
-        experiment_id: str,
-        name: str,
-        serialized_scorer: str,
-        authorize_version_add: Callable[[], None] | None = None,
-        authorize_parent_create: Callable[[], None] | None = None,
+        self, experiment_id: str, name: str, serialized_scorer: str
     ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
@@ -1679,49 +1673,11 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             experiment_id: The experiment ID.
             name: The scorer name.
             serialized_scorer: The serialized scorer string (JSON).
-            authorize_version_add: Optional callback invoked inside the write transaction when
-                the target scorer PARENT already existed and this call adds a version to it
-                (including the first version added to an empty parent whose versions were all
-                deleted -- keyed on parent existence, not the version number). It receives no
-                arguments and must raise to abort the write (rolling back the transaction).
-            authorize_parent_create: Optional callback invoked inside the write transaction
-                when this call actually CREATES the scorer parent. Same raise-to-abort
-                contract. Exactly one of the two callbacks fires per call, chosen by whether
-                the parent already existed -- so the server can authorize the mutually
-                exclusive create vs. version-add cases authoritatively (a pre-request probe
-                cannot distinguish a truly-absent parent from an existing empty one).
-                Ignored by stores/clients that do not enforce authorization.
 
         Returns:
             mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
         """
         raise NotImplementedError(self.__class__.__name__)
-
-    def supports_transactional_scorer_authorization(self) -> bool:
-        """Whether ``register_scorer`` upholds the transactional scorer-authorization
-        contract. A store that returns ``True`` MUST guarantee ALL of:
-
-        1. It invokes EXACTLY ONE of the two authorization callbacks inside the write
-           transaction, before performing the corresponding write, chosen by whether this
-           call actually creates the scorer parent:
-             * ``authorize_parent_create`` when it creates the parent (before inserting it);
-             * ``authorize_version_add`` when the parent already existed and it adds a version
-               (before inserting the version) -- INCLUDING the first version added to an empty
-               parent whose versions were all deleted (keyed on parent existence, not the
-               version number).
-        2. A raise from the invoked callback aborts the write and rolls back the transaction.
-        3. It sets ``scorer_parent_created`` (a bool) on the returned ``ScorerVersion`` to
-           report whether THIS transaction created the scorer parent, so the server can grant
-           parent ``MANAGE`` only on a real create.
-
-        Defaults to ``False``: a store must opt in only after guaranteeing all three. Because
-        the pre-request gate cannot distinguish a truly-absent parent from an existing empty
-        one, server-side auth relies on the branch callback (part 1) as the authoritative
-        create-vs-version-add decision, and fails closed rather than silently skip
-        authorization or misgrant ownership when the backing store cannot make the guarantee
-        (e.g. a delegating store that accepts-and-ignores the callbacks).
-        """
-        return False
 
     def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """

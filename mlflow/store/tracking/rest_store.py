@@ -1,7 +1,6 @@
 import functools
 import json
 import logging
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.model_registry.prompt_version import PromptVersion
@@ -1764,12 +1763,7 @@ class RestStore(
     ############################################################################################
 
     def register_scorer(
-        self,
-        experiment_id: str,
-        name: str,
-        serialized_scorer: str,
-        authorize_version_add: Callable[[], None] | None = None,
-        authorize_parent_create: Callable[[], None] | None = None,
+        self, experiment_id: str, name: str, serialized_scorer: str
     ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
@@ -1778,9 +1772,6 @@ class RestStore(
             experiment_id: String ID of the experiment.
             name: String name of the scorer.
             serialized_scorer: String containing the serialized scorer data.
-            authorize_version_add: Accepted for interface parity with the abstract store and
-                ignored -- authorization is enforced server-side, not by this REST client.
-            authorize_parent_create: Accepted for interface parity and ignored, as above.
 
         Returns:
             ScorerVersion: The newly registered scorer version object.

@@ -5996,62 +5996,11 @@ def _register_scorer():
         },
     )
     _validate_serialized_scorer_payload(request_message.serialized_scorer)
-    store = _get_tracking_store()
-    auth_mod = sys.modules.get("mlflow.server.auth")
-    if auth_mod is not None and auth_mod.is_auth_enabled():
-        # Auth is on. RegisterScorer's positive requirement (experiment update) and the
-        # (scorer_version, *, DENY) veto are branch-independent and enforced at the
-        # pre-request gate. The ONLY branch-dependent check -- (scorer, *, DENY) blocks
-        # CREATING a scorer parent -- must run transactionally: whether this call creates the
-        # parent or adds a version is decided by state a concurrent request can change, so
-        # register_scorer invokes the callback only when it actually creates the parent
-        # (rolling back on a raise). The store also reports scorer_parent_created so the
-        # after-request MANAGE grant fires only for the real creator. Fail CLOSED if the
-        # backing store cannot make those transactional guarantees.
-        if not getattr(store, "supports_transactional_scorer_authorization", lambda: False)():
-            raise MlflowException(
-                f"The configured tracking store ({type(store).__name__}) does not support "
-                "transactional scorer authorization, which is required when server "
-                "authentication is enabled to safely register scorers.",
-                error_code=INTERNAL_ERROR,
-            )
-        _experiment_id = request_message.experiment_id
-        _name = request_message.name
-        scorer_version = store.register_scorer(
-            request_message.experiment_id,
-            request_message.name,
-            request_message.serialized_scorer,
-            authorize_parent_create=lambda: auth_mod._authorize_scorer_parent_create(
-                _experiment_id, _name
-            ),
-        )
-        # The store is authoritative on whether THIS transaction created the parent (a parent
-        # can exist with zero versions, so the version number is not a reliable signal). A
-        # store that declares supports_transactional_scorer_authorization() MUST set the
-        # scorer_parent_created attribute on the returned ScorerVersion (documented on the
-        # capability). Treat a missing signal as a contract violation and fail CLOSED, rather
-        # than default it to False and silently deny a genuine creator parent MANAGE.
-        parent_created = getattr(scorer_version, "scorer_parent_created", None)
-        if not isinstance(parent_created, bool):
-            raise MlflowException(
-                f"The configured tracking store ({type(store).__name__}) declares "
-                "transactional scorer authorization support but did not report a valid "
-                "boolean 'scorer_parent_created' on the registered version (got "
-                f"{type(parent_created).__name__}). This is a store contract violation.",
-                error_code=INTERNAL_ERROR,
-            )
-        # Relay it to the auth layer so the after-request MANAGE grant fires only on a real
-        # parent create.
-        auth_mod._record_scorer_parent_created(parent_created)
-    else:
-        # Auth disabled (or not initialized): no callback to thread. Call the pre-existing
-        # three-argument contract so custom tracking stores that predate the
-        # authorize_version_add keyword keep working.
-        scorer_version = store.register_scorer(
-            request_message.experiment_id,
-            request_message.name,
-            request_message.serialized_scorer,
-        )
+    scorer_version = _get_tracking_store().register_scorer(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.serialized_scorer,
+    )
     response_message = RegisterScorer.Response()
     response_message.version = scorer_version.scorer_version
     response_message.scorer_id = scorer_version.scorer_id
