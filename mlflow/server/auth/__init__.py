@@ -1359,6 +1359,19 @@ def _authorize_scorer_parent_create(experiment_id: str, name: str) -> None:
         )
 
 
+def _registered_scorer_deny_active(experiment_id: str, name: str) -> bool:
+    """``True`` iff invoking the CONCRETE registered scorer ``name`` is blocked by a ``DENY``.
+
+    Unlike ``_scorer_version_deny_active`` (which resolves only the workspace-wide
+    ``(scorer_version, *)`` tier), this resolves the specific scorer's ``scorer_version`` tier
+    WITH ``parent_type="scorer"`` fallback, so a ``DENY`` on the concrete scorer parent
+    ``(scorer, <name>, DENY)`` -- or on its versions -- blocks a caller who would otherwise
+    invoke that registered scorer via experiment-``UPDATE`` alone (Copilot finding 1). Used by
+    the invoke/evaluate/optimize routes when they reference a registered scorer by name.
+    """
+    return _deny_veto(_get_scorer_version_permission(experiment_id, name))
+
+
 def _get_scorer_version_permission(experiment_id: str, name: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
@@ -1686,6 +1699,24 @@ def validate_can_log_batch():
     # Parse through the proto (covers the camelCase `modelId` alias on nested metrics).
     msg = _get_request_message(LogBatch())
     model_ids = {m.model_id for m in msg.metrics if m.model_id}
+    return _validate_can_update_run_and_models(model_ids)
+
+
+def validate_can_log_inputs():
+    # LogInputs writes MODEL_INPUT lineage rows targeting the logged models in `models`, so a
+    # run-updater could otherwise attach lineage to a logged model they are denied. Require
+    # run UPDATE AND UPDATE on every referenced logged-model id (Copilot finding 2), matching
+    # LogMetric/LogBatch. Parse through the proto for the camelCase `modelId` alias.
+    msg = _get_request_message(LogInputs())
+    model_ids = {m.model_id for m in msg.models if m.model_id}
+    return _validate_can_update_run_and_models(model_ids)
+
+
+def validate_can_log_outputs():
+    # LogOutputs writes MODEL_OUTPUT lineage rows targeting the logged models in `models`;
+    # same requirement as LogInputs.
+    msg = _get_request_message(LogOutputs())
+    model_ids = {m.model_id for m in msg.models if m.model_id}
     return _validate_can_update_run_and_models(model_ids)
 
 
@@ -2374,7 +2405,19 @@ def _resolve_user_permission_for_resource(
     """
     _reject_workspace_resource_type(resource_type)
     _validate_resource_type(resource_type)
-    dispatch = _resource_dispatch_keys(resource_type, resource_id)
+    # Child dispatch eagerly loads the resource (get_run/get_trace_info/get_logged_model/
+    # get_review_queue, scorer/assessment key parsing). A nonexistent child id raises
+    # RESOURCE_DOES_NOT_EXIST; per the documented deny-by-default contract of
+    # get_user_permission, an unknown resource must resolve to NO_PERMISSIONS, NOT leak
+    # existence via a 404 (a self-permission caller is authorized before this lookup, so a
+    # 200-vs-404 split would be an existence oracle -- Copilot finding 4). Malformed input
+    # (INVALID_PARAMETER_VALUE) still surfaces as a 400.
+    try:
+        dispatch = _resource_dispatch_keys(resource_type, resource_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return get_permission(NO_PERMISSIONS.name)
+        raise
     if dispatch is None:
         raise MlflowException(
             f"resource_type '{resource_type}' is not supported by the per-user "
@@ -2965,6 +3008,13 @@ def validate_can_invoke_scorer():
     # though no positive scorer_version grant is required (Copilot #32 split verdict).
     if _scorer_version_deny_active(experiment_id):
         return False
+    # When the request references a REGISTERED scorer by name, also honor a DENY on that
+    # concrete scorer parent / its versions (scorer_version tier with scorer-parent fallback),
+    # so experiment UPDATE alone cannot invoke a scorer the caller is denied (Copilot #1).
+    if isinstance(body, dict):
+        scorer_name = body.get("scorer_name")
+        if scorer_name and _registered_scorer_deny_active(experiment_id, scorer_name):
+            return False
     return True
 
 
@@ -3197,6 +3247,47 @@ def validate_can_delete_traces():
 
 def validate_can_update_trace_by_trace_id():
     return _get_trace_permission(_get_request_param("trace_id")).can_update
+
+
+def _prompt_version_deny_active(prompt_name: str) -> bool:
+    """``True`` iff linking versions of prompt ``prompt_name`` is blocked by a ``DENY``.
+
+    Resolves the ``prompt_version`` tier for the named prompt WITH ``parent_type="prompt"``
+    fallback, so either ``(prompt_version, *, DENY)`` or a ``DENY`` on the concrete prompt
+    parent blocks the link (Copilot finding 3). The prompt name is both the grant key and the
+    workspace-lookup id (matching ``_get_permission_from_prompt_name``).
+    """
+    username = authenticate_request().username
+    return _deny_veto(
+        _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="prompt_version",
+                resource_key="*",
+                workspace_lookup_id=prompt_name,
+                workspace_fetcher=_get_model_registry_store().get_registered_model,
+                workspace_label="prompt",
+                parent_type="prompt",
+                parent_id=prompt_name,
+            )
+        )
+    )
+
+
+def validate_can_link_prompts_to_trace():
+    """LinkPromptsToTrace persists PROMPT_VERSION associations onto a trace. Keep the trace
+    UPDATE requirement AND honor a DENY on each referenced prompt version (or its concrete
+    prompt parent), so trace UPDATE alone cannot attach a denied prompt version (Copilot
+    finding 3). No positive prompt_version grant is required (cross-parent to the trace
+    anchor, per the #32 split verdict) -- only the DENY veto.
+    """
+    if not _get_trace_permission(_get_request_param("trace_id")).can_update:
+        return False
+    msg = _get_request_message(LinkPromptsToTrace())
+    for pv in msg.prompt_versions:
+        if pv.name and _prompt_version_deny_active(pv.name):
+            return False
+    return True
 
 
 def validate_can_update_trace_by_request_id():
@@ -3782,9 +3873,9 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateRun: validate_can_update_run,
     LogMetric: validate_can_log_metric,
     LogBatch: validate_can_log_batch,
-    LogInputs: validate_can_update_run,
+    LogInputs: validate_can_log_inputs,
     LogModel: validate_can_update_run,
-    LogOutputs: validate_can_update_run,
+    LogOutputs: validate_can_log_outputs,
     SetTag: validate_can_update_run,
     DeleteTag: validate_can_update_run,
     LogParam: validate_can_update_run,
@@ -3893,7 +3984,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteTraceTag: validate_can_update_trace_by_request_id,
     DeleteTraceTagV3: validate_can_update_trace_by_trace_id,
     LinkTracesToRun: validate_can_link_traces_to_run,
-    LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
+    LinkPromptsToTrace: validate_can_link_prompts_to_trace,
     CalculateTraceFilterCorrelation: validate_can_calculate_trace_filter_correlation,
     QueryTraceMetrics: validate_can_query_trace_metrics,
     CreateAssessment: validate_can_update_assessment,
@@ -6780,12 +6871,25 @@ def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteR
     server_version = params.get("server_version")
     server_alias = params.get("server_alias")
 
+    # This filter serves BOTH the global /endpoints search and the per-server
+    # /{name}/endpoints route. On the per-server route the backfill MUST stay scoped to that
+    # server: a bare search_mcp_access_endpoints() would pull endpoints from OTHER servers and
+    # advance a token in a different result set (Copilot finding 5). Recover the routed server
+    # name from the path (the suffix before the trailing "/endpoints"); None for the global
+    # route.
+    server_name = None
+    suffix = _mcp_server_suffix(get_routed_asgi_path(request))
+    if suffix and suffix != "endpoints":
+        # "<name...>/endpoints" -> "<name...>"
+        server_name = suffix.removesuffix("/endpoints")
+
     data["next_page_token"] = _backfill_readable_mcp_results(
         can_read=can_read,
         readable=readable,
         max_results=max_results,
         next_token=data.get("next_page_token"),
         fetch_page=lambda token: _get_tracking_store().search_mcp_access_endpoints(
+            server_name=server_name,
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
