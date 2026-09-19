@@ -338,6 +338,56 @@ def test_expectation_value_serialization(value):
     assert result.value == expectation.value
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        42,
+        0,
+        -7,
+        # Integers beyond 2**53 cannot be represented by a double, so a lossy number_value
+        # path both retypes them to float and corrupts their value.
+        9007199254740993,
+        12345678901234567,
+    ],
+)
+def test_expectation_scalar_int_round_trip_preserves_int(value):
+    expectation = ExpectationValue(value)
+    proto = expectation.to_proto()
+    assert proto.HasField("serialized_value")
+
+    result = ExpectationValue.from_proto(proto)
+    assert result.value == value
+    assert isinstance(result.value, int)
+
+    result = ExpectationValue.from_dictionary(expectation.to_dictionary())
+    assert result.value == value
+    assert isinstance(result.value, int)
+
+
+@pytest.mark.parametrize("value", [True, False])
+def test_expectation_bool_round_trip_stays_bool(value):
+    expectation = ExpectationValue(value)
+    proto = expectation.to_proto()
+    assert not proto.HasField("serialized_value")
+
+    result = ExpectationValue.from_proto(proto)
+    assert result.value is value
+    assert isinstance(result.value, bool)
+
+    result = ExpectationValue.from_dictionary(expectation.to_dictionary())
+    assert result.value is value
+    assert isinstance(result.value, bool)
+
+
+def test_expectation_none_round_trip_stays_on_value_path():
+    expectation = ExpectationValue(None)
+    proto = expectation.to_proto()
+    assert not proto.HasField("serialized_value")
+
+    assert ExpectationValue.from_proto(proto).value is None
+    assert ExpectationValue.from_dictionary(expectation.to_dictionary()).value is None
+
+
 def test_expectation_invalid_values():
     class CustomObject:
         pass
