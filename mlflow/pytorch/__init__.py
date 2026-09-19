@@ -171,6 +171,7 @@ def log_model(
     model_id: str | None = None,
     export_model: bool = False,
     serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
+    uv=None,
     **kwargs,
 ):
     """
@@ -235,6 +236,7 @@ def log_model(
             virtually executing model.forward) and only supports Numpy array / Tensor or a list
             of Numpy arrays / Tensors as inputs. For details, see
             https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
+        uv: {{ uv }}
         kwargs: kwargs to pass to ``torch.save`` method.
 
     Returns:
@@ -331,6 +333,7 @@ def log_model(
         model_id=model_id,
         export_model=export_model,
         serialization_format=serialization_format,
+        uv=uv,
         **kwargs,
     )
 
@@ -351,6 +354,7 @@ def save_model(
     metadata=None,
     export_model: bool = False,
     serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
+    uv=None,
     **kwargs,
 ):
     """
@@ -396,6 +400,7 @@ def save_model(
             virtually executing model.forward) and only supports Numpy array / Tensor or a list
             of Numpy arrays / Tensors as inputs. For details, see
             https://docs.pytorch.org/docs/stable/user_guide/torch_compiler/export/pt2_archive.html.
+        uv: {{ uv }}
         kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -651,6 +656,7 @@ def save_model(
                 model_data_path,
                 FLAVOR_NAME,
                 fallback=default_reqs,
+                uv=uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -674,6 +680,13 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
+    if uv is not None:
+        from mlflow.utils.uv_utils import copy_uv_project_files
+
+        source_dir = uv.resolve_project_dir()
+        if source_dir is not None:
+            copy_uv_project_files(path, source_dir)
 
 
 def _is_pickle_deserialization_allowed() -> bool:

@@ -416,6 +416,7 @@ def infer_pip_requirements(
     uv_project_dir=None,
     uv_groups=None,
     uv_extras=None,
+    uv=None,
 ):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
@@ -445,9 +446,23 @@ def infer_pip_requirements(
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
 
     """
-    # Check for uv project first - if detected, use uv export instead of
-    # inferring model dependencies by capturing imported packages during model inference.
-    # An explicit uv_project_dir overrides the MLFLOW_UV_AUTO_DETECT env var.
+    # UvConfig takes precedence over individual uv_* params
+    if uv is not None:
+        from mlflow.utils.uv_utils import UvConfig
+
+        if not isinstance(uv, UvConfig):
+            raise MlflowException.invalid_parameter_value(
+                f"'uv' must be a UvConfig instance, got {type(uv).__name__}"
+            )
+        if uv_project_dir is not None or uv_groups is not None or uv_extras is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Cannot specify both 'uv' (UvConfig) and individual uv_project_dir/"
+                "uv_groups/uv_extras parameters. Use one or the other."
+            )
+        uv_project_dir = uv.project_path
+        uv_groups = uv.groups or None
+        uv_extras = uv.extras or None
+
     if uv_project_dir is not None or MLFLOW_UV_AUTO_DETECT.get():
         if uv_project := detect_uv_project(uv_project_dir):
             _logger.info(
