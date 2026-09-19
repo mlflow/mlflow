@@ -143,15 +143,19 @@ workspace), so some tiers key on a composite or on the parent identity:
 | `review_queue`             | review queue id                                                     |
 | `registered_model_version` | the **registered model name** (the version tier keys on its parent) |
 | `prompt_version`           | the **prompt name**                                                 |
-| `scorer`, `scorer_version` | `<experiment_id>/<scorer_name>`                                     |
+| `scorer`, `scorer_version` | `<experiment_id>/<url-encoded scorer_name>`                          |
 | `mcp_server_version`       | the **MCP server name**                                             |
 
 The version tiers deliberately take the parent model/prompt/scorer/MCP-server
 identity rather than a version number: a version's permission resolves through
-its parent, so the parent identity is what locates the grant. An invalid
-composite (for example an `assessment` `resource_id` without a `/`) is rejected
-with `INVALID_PARAMETER_VALUE`. These formats apply only to permission
-_checks_; grants remain wildcard-only.
+its parent, so the parent identity is what locates the grant. The `scorer` /
+`scorer_version` key stores the scorer name **URL-encoded** (`quote(name,
+safe="")`), so the name component must be percent-encoded — a name containing
+`/`, spaces, or other special characters will otherwise resolve to a different
+key and report the wrong permission. An invalid composite (for example an
+`assessment` `resource_id` without a `/`) is rejected with
+`INVALID_PARAMETER_VALUE`. These formats apply only to permission _checks_;
+grants remain wildcard-only.
 
 `DENY` restricts operations once there is a resource to resolve against. Because
 a wildcard **child** grant matches regardless of a specific id, a child `DENY`

@@ -1321,7 +1321,8 @@ def validate_can_update_scorer_version():
 
 
 def validate_can_delete_scorer_version():
-    version = (request.get_json(silent=True) or {}).get("version")
+    body = request.get_json(silent=True)
+    version = body.get("version") if isinstance(body, dict) else None
     if version is None:
         return _get_permission_from_scorer_name().can_delete
     return _get_permission_from_scorer_version_name().can_delete
@@ -2757,7 +2758,8 @@ def validate_can_invoke_scorer():
     experiment_id = _get_request_param("experiment_id")
     if not _get_trace_permission_for_experiment(experiment_id).can_read:
         return False
-    if (request.get_json(silent=True) or {}).get("log_assessments", False):
+    body = request.get_json(silent=True)
+    if isinstance(body, dict) and body.get("log_assessments", False):
         if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
             return False
     return True
