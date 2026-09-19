@@ -57,6 +57,7 @@ The grantable permission levels for resource-scoped permissions are:
 
 | Permission | Can read | Can use | Can update | Can delete | Can manage |
 | ---------- | -------- | ------- | ---------- | ---------- | ---------- |
+| `DENY`     | No       | No      | No         | No         | No         |
 | `READ`     | Yes      | No      | No         | No         | No         |
 | `USE`      | Yes      | Yes     | No         | No         | No         |
 | `EDIT`     | Yes      | Yes     | Yes        | No         | No         |
@@ -66,20 +67,114 @@ The grantable permission levels for resource-scoped permissions are:
 endpoint, referencing a model definition, creating new experiments /
 registered models within a workspace).
 
-`NO_PERMISSIONS` is the resolver's deny sentinel for workspace-boundary
-cases - e.g., a user with no workspace membership when
+`NO_PERMISSIONS` is the resolver's internal deny sentinel for workspace-boundary
+cases - for example, a user with no workspace membership when
 `grant_default_workspace_access` is off. It is **not grantable** as a role
-permission or a direct grant; the auth server rejects attempts to assign
-it. The effective permission when no role grant matches is the server's
+permission or a direct grant.
+
+`DENY` is the grantable explicit-deny level. A `DENY` grant wins over positive
+grants in the same resource type, including `MANAGE`, and fails every capability
+check. It does not override a Workspace Manager: `(workspace, *, MANAGE)` is
+resolved first and always allows within that workspace.
+
+The effective permission when no role grant matches is the server's
 `default_permission` (`READ` by default; see
 [Permission resolution](#permission-resolution)).
 
-Because grants are folded via a max (see
-[Permission resolution](#permission-resolution)), RBAC has no
-explicit-deny override. To restrict access to a
-specific resource, grant access more narrowly (per-resource or
-resource-type wildcard) rather than holding a broad workspace-level grant
-and trying to except the resource.
+### Sub-resource grants
+
+Most MLflow resources are permissioned directly. The child resource types below can
+also be granted independently. Child grants are workspace-wide and wildcard-only:
+use `(child_type, *, LEVEL)`. Per-id child grants are rejected. A wildcard child grant
+applies across every matching resource in the workspace, so mutating one through the
+direct grant API (`grant_user_permission` with `resource_id="*"`) requires Workspace
+Manager (`(workspace, *, MANAGE)`) — a per-resource `MANAGE` grant is not sufficient for
+wildcard child grants.
+
+| Parent type        | Child type                 |
+| ------------------ | -------------------------- |
+| `experiment`       | `run`                      |
+| `experiment`       | `trace`                    |
+| `experiment`       | `assessment`               |
+| `experiment`       | `logged_model`             |
+| `experiment`       | `review_queue`             |
+| `registered_model` | `registered_model_version` |
+| `prompt`           | `prompt_version`           |
+| `scorer`           | `scorer_version`           |
+| `mcp_server`       | `mcp_server_version`       |
+
+A child resolves on its own resource type when the user has any grant on that
+child type. Otherwise, it inherits its parent permission exactly as before. This
+keeps existing roles backward compatible: an `(experiment, *, EDIT)` grant still
+allows editing runs, traces, assessments, logged models, and review queues when
+there are no child grants.
+
+Examples:
+
+```python
+# Log runs while keeping the experiment read-only.
+auth_client.grant_user_permission("pipeline", "experiment", "*", "READ")
+auth_client.grant_user_permission("pipeline", "run", "*", "EDIT")
+
+# Keep experiment EDIT but block traces containing sensitive content.
+auth_client.grant_user_permission("restricted", "experiment", "*", "EDIT")
+auth_client.grant_user_permission("restricted", "trace", "*", "DENY")
+```
+
+A positive child grant is authoritative, even when it is lower than the parent
+level. `DENY` is authoritative within its child type; it restricts only that
+child type and does not affect sibling children. Removing a child grant returns
+that child to parent inheritance.
+
+#### Checking a child permission (`resource_id` formats)
+
+Child grants are always wildcard (`resource_id="*"`), but the per-user
+_check_ APIs (`get_user_permission` and friends) resolve a **specific** child
+instance, so they take a concrete `resource_id`. The value is not always the
+child's own id: a child must resolve to its parent (and therefore its
+workspace), so some tiers key on a composite or on the parent identity:
+
+| Child type                 | `resource_id` to check                                              |
+| -------------------------- | ------------------------------------------------------------------- |
+| `run`                      | run id                                                              |
+| `trace`                    | trace request id                                                    |
+| `assessment`               | `<trace_id>/<assessment_id>` (the trace id resolves the experiment) |
+| `logged_model`             | logged model id                                                     |
+| `review_queue`             | review queue id                                                     |
+| `registered_model_version` | the **registered model name** (the version tier keys on its parent) |
+| `prompt_version`           | the **prompt name**                                                 |
+| `scorer`, `scorer_version` | `<experiment_id>/<url-encoded scorer_name>`                         |
+| `mcp_server_version`       | the **MCP server name**                                             |
+
+The version tiers deliberately take the parent model/prompt/scorer/MCP-server
+identity rather than a version number: a version's permission resolves through
+its parent, so the parent identity is what locates the grant. The `scorer` /
+`scorer_version` key stores the scorer name **URL-encoded** (`quote(name,
+safe="")`), so the name component must be percent-encoded — a name containing
+`/`, spaces, or other special characters will otherwise resolve to a different
+key and report the wrong permission. An invalid composite (for example an
+`assessment` `resource_id` without a `/`) is rejected with
+`INVALID_PARAMETER_VALUE`. These formats apply only to permission _checks_;
+grants remain wildcard-only.
+
+`DENY` restricts operations once there is a resource to resolve against. Because
+a wildcard **child** grant matches regardless of a specific id, a child `DENY`
+_does_ gate child creation: `(run, *, DENY)` blocks creating runs — including
+through composite routes such as prompt-optimization and GenAI evaluate — just
+as it blocks reading or mutating them.
+
+The **same rule applies to top-level resources**. Creating an experiment,
+registered model, prompt, or MCP server requires workspace `USE` or `MANAGE`
+(there is no resource ID yet to resolve a per-resource grant against), **but a
+wildcard `DENY` on that resource type prevents creation**: `(experiment, *,
+DENY)` blocks `CreateExperiment`, `(registered_model, *, DENY)` /
+`(prompt, *, DENY)` block model/prompt registration, and `(mcp_server, *, DENY)`
+blocks creating an MCP server — the parent-resource mirror of the child rule
+(the container permission allows creation; a `DENY` on the resource being
+created overrides it). This is symmetric with sub-resources: a parent `USE`/`EDIT`
+allows creating children, and a child `DENY` blocks it. Restricting creation by a
+_specific future_ resource ID or name (rather than the whole type) still requires
+condition-based creation policy and is outside this model.
 
 #### Permission resolution
 
@@ -87,21 +182,22 @@ For each authorization check, MLflow evaluates the user's effective
 permission as follows:
 
 1. **Platform Admin bypass**: `is_admin = true` short-circuits to allow.
-2. **Role-derived grants**: all of the user's roles in the request's workspace
-   contribute. Grants that apply to the resource fold via a max, and the
-   highest-priority permission wins (`MANAGE` > `EDIT` > `USE` > `READ`).
-   `(workspace, *, MANAGE)` folds into every per-resource check - it grants
-   management of every resource in the workspace. `(workspace, *, USE)`
-   does **not** fold into per-resource checks; it confers workspace
-   membership and create rights only (see
-   [Workspace isolation](#workspace-isolation)).
-3. **Server `default_permission`** (defaults to `READ`): a floor max'd
-   into the resolution result. When no role grant matches at all, the
-   floor is the final answer. The floor does **not** lift `NO_PERMISSIONS` -
-   when the resolver returns it for a workspace-boundary reason (no
-   workspace membership, missing workspace, lookup error), that deny
-   stands. See [Workspace isolation](#workspace-isolation) for when the
-   floor applies in multi-workspace mode.
+2. **Workspace Manager bypass**: `(workspace, *, MANAGE)` allows within its
+   workspace, including when a child type has a `DENY` grant.
+3. **Child resource type**, when the request targets a grantable child: if any
+   matching child grant exists, `DENY` denies; otherwise the maximum positive
+   child level wins. The parent is not consulted.
+4. **Parent resource type**: only when no child grant exists, matching parent
+   grants resolve the same way as the child tier — a matching parent `DENY`
+   denies; otherwise the maximum positive parent level wins
+   (`MANAGE` > `EDIT` > `USE` > `READ`).
+5. **Server `default_permission`** (defaults to `READ`): a floor used when no
+   applicable role grant resolves. The floor does not lift `NO_PERMISSIONS`
+   (workspace-boundary deny) or `DENY` (explicit restriction).
+
+`(workspace, *, USE)` does not fold into per-resource checks; it confers
+workspace membership and create rights only (see
+[Workspace isolation](#workspace-isolation)).
 
 ## Workspace isolation
 

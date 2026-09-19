@@ -2316,6 +2316,45 @@ def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_create_logged_model_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("logged-model-child-permission-outcomes")
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "logged_model", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "logged_model", "*", "DENY")
+
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.create_logged_model(experiment_id=experiment_id)
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            model = client.create_logged_model(experiment_id=experiment_id)
+
+        assert model.experiment_id == experiment_id
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_logged_model_artifact_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -2420,7 +2459,6 @@ def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPa
         models = client.search_logged_models(experiment_ids=experiment_ids)
         assert len(models) == 10
 
-        # Pagination
         models = client.search_logged_models(experiment_ids=experiment_ids, max_results=2)
         assert len(models) == 2
         assert models.token is not None
@@ -2439,7 +2477,6 @@ def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPa
         models = client.search_logged_models(experiment_ids=experiment_ids)
         assert len(models) == len(readable)
 
-        # Pagination
         models = client.search_logged_models(experiment_ids=experiment_ids, max_results=2)
         assert len(models) == 2
         assert models.token is not None
@@ -2453,6 +2490,217 @@ def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPa
         models = client.search_logged_models(experiment_ids=experiment_ids, page_token=models.token)
         assert len(models) == 2
         assert models.token is None
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_run_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("run-child-permission-outcomes")
+        anchor_run = client.create_run(experiment_id)
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "run", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "run", "*", "DENY")
+
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.create_run(experiment_id)
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.log_metric(anchor_run.info.run_id, "denied_metric", 1.0)
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            run = client.create_run(experiment_id)
+            client.log_metric(anchor_run.info.run_id, f"metric_{username}", 1.0)
+        assert run.info.experiment_id == experiment_id
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_delete_and_restore_run_honor_run_deny(client: MlflowClient, monkeypatch):
+    # §8.A delete tier: DeleteRun/RestoreRun resolve run .can_delete, so (run, *, DENY)
+    # blocks them even for an experiment-EDIT caller. (The run outcomes test covers
+    # create/update; this covers the delete capability specifically.)
+    owner, owner_pw = create_user(client.tracking_uri)
+    denied, denied_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("delete-run-deny")
+        run = client.create_run(experiment_id)
+    grant_role_permission(client.tracking_uri, denied, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied, "run", "*", "DENY")
+    with User(denied, denied_pw, monkeypatch):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.delete_run(run.info.run_id)
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.restore_run(run.info.run_id)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_log_batch_honors_logged_model_deny(client: MlflowClient, monkeypatch):
+    # §8.A footnote: LogBatch/LogMetric target the run tier AND the per-metric model_id's
+    # logged_model tier (secondary touch). A (logged_model, *, DENY) must block a metric
+    # that names a model_id even when the caller can write the run.
+    owner, owner_pw = create_user(client.tracking_uri)
+    denied, denied_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("log-batch-lm-deny")
+        run = client.create_run(experiment_id)
+        model = client.create_logged_model(experiment_id)
+    grant_role_permission(client.tracking_uri, denied, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied, "logged_model", "*", "DENY")
+    with User(denied, denied_pw, monkeypatch):
+        # A metric bound to the denied model_id must be rejected (logged_model DENY),
+        # even though the run itself is writable.
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.log_metric(run.info.run_id, "m", 1.0, model_id=model.model_id)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_delete_traces_honors_trace_deny(client: MlflowClient, monkeypatch):
+    # §8.A trace delete tier: DeleteTraces resolves trace .can_delete, so (trace, *, DENY)
+    # blocks it for an experiment-EDIT caller.
+    import requests
+
+    owner, owner_pw = create_user(client.tracking_uri)
+    denied, denied_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        experiment_id = client.create_experiment("delete-traces-deny")
+    grant_role_permission(client.tracking_uri, denied, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied, "trace", "*", "DENY")
+    resp = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/traces/delete-traces",
+        json={"experiment_id": experiment_id, "trace_ids": ["tr-1"]},
+        auth=(denied, denied_pw),
+    )
+    assert resp.status_code == 403
+
+
+# §7 Class A — static transitive sink-trace. Maps each composite/job route to its submitted
+# job entrypoint and the in-scope child types its gate covers, then walks the job's transitive
+# closure (within mlflow.genai) for child-mutation sink calls and asserts every reached sink's
+# child type is covered. Catches a future *delegated* child write buried N hops inside a job
+# (the class that produced INVOKE_ISSUE_DETECTION's assessment write and INVOKE_GENAI_EVALUATE's
+# set_trace_tag) without executing the job. A new uncovered sink fails the test, forcing either
+# a gate (positive/veto) or an explicit allow-list update.
+_SINK_TO_CHILD = {
+    "create_run": "run",
+    "delete_run": "run",
+    "restore_run": "run",
+    "log_batch": "run",
+    "log_metric": "run",
+    "set_trace_tag": "trace",
+    "delete_trace_tag": "trace",
+    "delete_traces": "trace",
+    "log_assessment": "assessment",
+    "_log_assessments": "assessment",
+    "create_assessment": "assessment",
+    "delete_assessment": "assessment",
+    "log_feedback": "assessment",
+    "log_expectation": "assessment",
+    "log_issue": "assessment",  # issue detection writes Issue assessments (LLM_JUDGE)
+    "create_logged_model": "logged_model",
+    "delete_logged_model": "logged_model",
+}
+
+# route -> (job sink modules, child types the route's gate covers). The module list is the
+# curated transitive closure of child-mutation code each job reaches (handler -> job ->
+# harness/pipeline). It is intentionally explicit rather than auto-walked: a static call-graph
+# walk silently under-detects cross-module/aliased calls (e.g. the eval job calls
+# mlflow.genai.evaluate, the discovery job calls discover_issues), which would make the guard
+# pass on an empty set and give false confidence. Explicit modules fail loudly if a job grows a
+# new sink-bearing module the maintainer hasn't classified here.
+_COMPOSITE_JOB_COVERAGE = {
+    "INVOKE_SCORER": (
+        ["mlflow/genai/scorers/job.py", "mlflow/genai/evaluation/harness.py"],
+        {"trace", "assessment"},
+    ),
+    "INVOKE_GENAI_EVALUATE": (
+        ["mlflow/genai/evaluation/job.py", "mlflow/genai/evaluation/harness.py"],
+        {"run", "trace", "assessment"},
+    ),
+    "INVOKE_ISSUE_DETECTION": (
+        ["mlflow/genai/discovery/job.py", "mlflow/genai/discovery/pipeline.py"],
+        {"run", "trace", "assessment"},
+    ),
+}
+
+
+def _sink_children_in_modules(module_paths: list[str]) -> set[str]:
+    """Scan the given source files for child-mutation sink calls (attribute or bare name) and
+    return the set of in-scope child types written. Uses an AST call walk per file so a bare
+    substring in a comment/string doesn't count.
+    """
+    import ast
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[3]
+    children: set[str] = set()
+    for rel in module_paths:
+        path = repo_root / rel
+        try:
+            tree = ast.parse(path.read_text())
+        except (OSError, SyntaxError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            called = None
+            if isinstance(node.func, ast.Name):
+                called = node.func.id
+            elif isinstance(node.func, ast.Attribute):
+                called = node.func.attr
+            if called in _SINK_TO_CHILD:
+                children.add(_SINK_TO_CHILD[called])
+    return children
+
+
+@pytest.mark.parametrize("route", sorted(_COMPOSITE_JOB_COVERAGE))
+def test_composite_job_child_writes_are_gate_covered(route):
+    module_paths, covered = _COMPOSITE_JOB_COVERAGE[route]
+    written = _sink_children_in_modules(module_paths)
+    # Sanity: the curated module list must actually contain sinks; an empty scan means the
+    # module paths drifted (renamed/moved) and the guard has silently stopped protecting.
+    assert written, (
+        f"{route}: no child-write sinks found in {module_paths} — the sink-module list is "
+        f"stale (files moved/renamed?). Update _COMPOSITE_JOB_COVERAGE."
+    )
+    uncovered = written - covered
+    assert not uncovered, (
+        f"{route}: job sink modules {module_paths} write in-scope child types "
+        f"{sorted(uncovered)} that its gate does not cover (covers {sorted(covered)}). Add a "
+        f"gate (positive or DENY veto) for the new child type, or update the coverage entry if "
+        f"intentionally allowed."
+    )
 
 
 @pytest.mark.parametrize(
@@ -6183,9 +6431,14 @@ def test_mcp_server_root_post_enforces_workspace_create_authz(prefix, monkeypatc
 
 
 def test_validate_can_create_mcp_server_delegates_to_shared_helper():
-    with mock.patch.object(
-        auth_module, "_can_create_in_workspace", return_value=True
-    ) as mock_helper:
+    # The validator gates on the workspace-create helper AND a (mcp_server, *, DENY) veto;
+    # with no DENY the veto is a no-op and the workspace helper decides.
+    with (
+        mock.patch.object(
+            auth_module, "_can_create_in_workspace", return_value=True
+        ) as mock_helper,
+        mock.patch.object(auth_module, "_top_level_create_denied", return_value=False),
+    ):
         result = auth_module.validate_can_create_mcp_server("alice")
         mock_helper.assert_called_once_with("alice")
         assert result is True
@@ -6225,7 +6478,9 @@ def test_read_predicate_honors_grant_default_workspace_access(
         def get_user(self, username):
             return SimpleNamespace(id=42, username=username)
 
-        def list_role_grants_for_user_in_workspace(self, user_id, workspace, resource_type):
+        def list_role_grants_for_user_in_workspace(
+            self, user_id, workspace, resource_type, parent_type=None
+        ):
             return []
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
@@ -6233,6 +6488,181 @@ def test_read_predicate_honors_grant_default_workspace_access(
     with workspace_context.WorkspaceContext(default_workspace):
         predicate = auth_module._role_based_read_predicate("alice", resource_type)
         assert predicate(resource_id) is True
+
+
+def test_child_grant_read_write_agree(monkeypatch, tmp_path):
+    """Child EDIT grants enable matching read/write decisions while a child DENY
+    blocks both paths without changing the parent experiment permission.
+    """
+    from mlflow.server.auth.permissions import DENY, EDIT
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'agree.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    ws = "default"  # DEFAULT_WORKSPACE_NAME when workspaces are disabled
+    user = store.create_user("scientist", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="r", workspace=ws)
+    store.add_role_permission(role.id, "experiment", "*", READ.name)
+    for child_type in ("run", "assessment", "logged_model", "review_queue"):
+        store.add_role_permission(role.id, child_type, "*", EDIT.name)
+    store.add_role_permission(role.id, "trace", "*", DENY.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    def write(child_type, child_id):
+        return store.get_role_permission_for_resource(
+            user.id, child_type, child_id, ws, parent_type="experiment", parent_id="e1"
+        )
+
+    def can_read(child_type, child_id):
+        return auth_module._role_based_read_predicate(
+            "scientist", child_type, parent_type="experiment"
+        )(child_id)
+
+    for child_type, child_id in (
+        ("run", "r1"),
+        ("assessment", "a1"),
+        ("logged_model", "m1"),
+        ("review_queue", "q1"),
+    ):
+        assert write(child_type, child_id).can_update
+        assert write(child_type, child_id).can_read
+        assert can_read(child_type, child_id)
+
+    assert write("trace", "t1").name == DENY.name
+    assert not write("trace", "t1").can_read
+    assert not can_read("trace", "t1")
+    assert not write("run", "r1").can_manage
+    assert can_read("experiment", "e1")
+
+
+def test_version_grant_read_write_agree(monkeypatch, tmp_path):
+    from mlflow.server.auth.permissions import EDIT
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'version-agree.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    user = store.create_user("version-writer", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="versions", workspace="default")
+    grants = (
+        ("registered_model", "model-a", "registered_model_version"),
+        ("prompt", "prompt-a", "prompt_version"),
+        ("mcp_server", "namespace/server-a", "mcp_server_version"),
+    )
+    for parent_type, parent_id, child_type in grants:
+        store.add_role_permission(role.id, parent_type, parent_id, READ.name)
+        store.add_role_permission(role.id, child_type, "*", EDIT.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    for parent_type, parent_id, child_type in grants:
+        write = store.get_role_permission_for_resource(
+            user.id,
+            child_type,
+            "v1",
+            "default",
+            parent_type=parent_type,
+            parent_id=parent_id,
+        )
+        read = auth_module._role_based_read_predicate(
+            "version-writer", child_type, parent_type=parent_type
+        )(parent_id)
+        assert write.can_update
+        assert write.can_read
+        assert read
+
+
+@pytest.mark.parametrize("resource_type", ["registered_model", "prompt", "scorer", "mcp_server"])
+def test_top_level_deny_blocks_rfc_parent_types(monkeypatch, tmp_path, resource_type):
+    # DENY is grantable on the RFC's top-level parent types (the sub-resource parents), not
+    # only the child tiers. A (parent_type, *, DENY) must block read/update/delete/manage and
+    # empty search for that type -- verified via the store fold (all .can_* False) and the
+    # read predicate that backs the list/search filters. Workspace-admin still bypasses.
+    from mlflow.server.auth.permissions import DENY, MANAGE
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / f'top-deny-{resource_type}.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    ws = "default"  # DEFAULT_WORKSPACE_NAME when workspaces are disabled
+    user = store.create_user("denied-user", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="deny-role", workspace=ws)
+    store.add_role_permission(role.id, resource_type, "*", DENY.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    # Single-tier fold resolves to DENY -> every capability is False, so read/update/delete/
+    # manage validators (which call .can_read/.can_update/.can_delete/.can_manage) all block.
+    perm = store.get_role_permission_for_resource(user.id, resource_type, "res-1", ws)
+    assert perm is not None
+    assert perm.name == DENY.name
+    assert not perm.can_read
+    assert not perm.can_update
+    assert not perm.can_delete
+    assert not perm.can_manage
+
+    # The read predicate backing the list/search filters drops the DENY'd row (wildcard DENY
+    # empties the list of that type).
+    assert auth_module._role_based_read_predicate("denied-user", resource_type)("res-1") is False
+
+    # Workspace-admin bypass beats a top-level DENY (matches child semantics).
+    admin = store.create_user("ws-admin", "supersecurepassword", is_admin=False)
+    admin_role = store.create_role(name="ws-admin-role", workspace=ws)
+    store.add_role_permission(admin_role.id, "workspace", "*", MANAGE.name)
+    store.add_role_permission(admin_role.id, resource_type, "*", DENY.name)
+    store.assign_role_to_user(admin.id, admin_role.id)
+    admin_perm = store.get_role_permission_for_resource(admin.id, resource_type, "res-1", ws)
+    assert admin_perm is not None
+    assert admin_perm.can_manage  # admin bypass wins over DENY
+
+
+@pytest.mark.parametrize(
+    "resource_type", ["experiment", "registered_model", "prompt", "mcp_server"]
+)
+def test_top_level_create_denied_by_self_type_deny(monkeypatch, tmp_path, resource_type):
+    # Mirror of the sub-resource rule for parents: workspace USE/EDIT allows creating a
+    # top-level resource, but a (type, *, DENY) prevents its creation. With workspaces
+    # disabled, create rights are implicit, so the veto is what blocks. Verified via the
+    # shared _top_level_create_denied helper (the create validators call it after the
+    # workspace-create gate).
+    from mlflow.server.auth.permissions import DENY
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / f'create-deny-{resource_type}.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    ws = "default"
+    user = store.create_user("creator", "supersecurepassword", is_admin=False)
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="creator")
+    )
+
+    # No DENY -> workspaces disabled means create is allowed (baseline, unchanged behavior).
+    assert auth_module._top_level_create_denied(resource_type, "creator") is False
+
+    # Add (type, *, DENY) -> creation is now vetoed.
+    role = store.create_role(name=f"deny-create-{resource_type}", workspace=ws)
+    store.add_role_permission(role.id, resource_type, "*", DENY.name)
+    store.assign_role_to_user(user.id, role.id)
+    assert auth_module._top_level_create_denied(resource_type, "creator") is True
 
 
 @pytest.mark.parametrize(
@@ -6251,6 +6681,11 @@ def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch
     monkeypatch.setattr(
         auth_module,
         "_get_mcp_server_permission",
+        lambda name, username: READ,
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
         lambda name, username: READ,
     )
     request = SimpleNamespace()
@@ -6356,23 +6791,52 @@ def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix
     store = _Store()
     permission_helper = mock.Mock(
         side_effect=lambda name, username: SimpleNamespace(
+            name="EDIT",
             can_read=False,
             can_update=store.exists,
             can_delete=False,
         )
     )
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
-    monkeypatch.setattr(auth_module, "_get_mcp_server_permission", permission_helper)
+    monkeypatch.setattr(auth_module, "_get_mcp_server_version_permission", permission_helper)
     monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
 
     request = SimpleNamespace(method="POST", state=SimpleNamespace())
     assert asyncio.run(validator("alice", request)) is True
     assert request.state.mcp_server_parent_auto_created is True
-    assert permission_helper.call_count == 0
+    # The version tier IS consulted on the auto-create path now, to honor a version DENY
+    # (create gate allows + version tier is not DENY -> allowed).
+    assert permission_helper.call_count == 1
 
     store.exists = True
     assert request.state.mcp_server_can_update_existing_recheck() is True
-    permission_helper.assert_called_once_with("com.test/race-server", "alice")
+    assert permission_helper.call_count == 2
+    permission_helper.assert_called_with("com.test/race-server", "alice")
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_version_create_denied_when_parent_missing_and_version_denied(monkeypatch, prefix):
+    # Auto-creating the server on first version write must still honor a
+    # (mcp_server_version, *, DENY): the workspace create gate alone must not bypass it.
+    validator = _find_fastapi_validator(f"{prefix}/com.test/deny-server/versions", "POST")
+    assert validator is not None
+
+    def _get_mcp_server(_name):
+        raise MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(
+        auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_mcp_server=_get_mcp_server)
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda name, username: SimpleNamespace(name="DENY", can_update=False),
+    )
+    # Workspace create gate would otherwise allow the implicit parent.
+    monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
+
+    request = SimpleNamespace(method="POST", state=SimpleNamespace())
+    assert asyncio.run(validator("alice", request)) is False
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
@@ -7053,7 +7517,9 @@ def test_evaluation_dataset_and_issue_apis_require_experiment_permission(client)
     indirect=True,
 )
 def test_invoke_endpoints_require_experiment_update_permission(client):
-    # invoke routes create runs in an experiment -> a user without update on it is denied.
+    # invoke routes create runs / read traces / write assessments in an experiment -> a user
+    # with no access to it is denied. Child-tier DENY enforcement is covered separately in
+    # test_invoke_validators_honor_child_deny.
     base = client.tracking_uri
     owner, owner_pw = create_user(base)
     attacker, attacker_pw = create_user(base)
@@ -7096,6 +7562,330 @@ def test_invoke_endpoints_require_experiment_update_permission(client):
             auth=(owner, owner_pw),
         )
         assert resp.status_code != 403, f"{path} -> {resp.status_code}"
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_invoke_validators_honor_child_deny(client):
+    # The composite run-creating routes (issues/invoke, genai evaluate/invoke,
+    # create-promptlab-run, prompt-optimization jobs) create a run in the target
+    # experiment, so they gate on the run child tier: experiment EDIT alone must not let a
+    # caller holding (run, *, DENY) create runs through them. Per RFC sub-resource
+    # permissions, a child DENY must hold on every path that reaches the child, not only on
+    # the direct CreateRun RPC.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "invoke-child-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+
+    # Attacker gets experiment EDIT -- enough to clear the experiment-tier gate.
+    grant_role_permission(base, attacker, "experiment", exp_id, "EDIT")
+
+    run_creating_routes = [
+        (
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            {"experiment_id": exp_id, "trace_ids": ["tr-1"], "categories": ["x"], "provider": "p"},
+        ),
+        (
+            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+            {"experiment_id": exp_id, "trace_ids": ["tr-1"], "serialized_scorers": ["s"]},
+        ),
+        ("/ajax-api/2.0/mlflow/runs/create-promptlab-run", {"experiment_id": exp_id}),
+        (
+            "/api/3.0/mlflow/prompt-optimization/jobs",
+            {
+                "experiment_id": exp_id,
+                "source_prompt_uri": "prompts:/test/1",
+                "config": {"optimizer_type": 1, "dataset_id": "d", "scorers": ["Correctness"]},
+            },
+        ),
+    ]
+
+    # Baseline: experiment EDIT with no run grant -> the run tier falls back to experiment
+    # update, so the auth gate passes. The handler may still error for unrelated reasons
+    # (backend not wired in this env), so assert only that it is not a 403.
+    for path, payload in run_creating_routes:
+        resp = requests.post(f"{base}{path}", json=payload, auth=(attacker, attacker_pw))
+        assert resp.status_code != 403, f"baseline {path} -> {resp.status_code}"
+
+    # Add a run-tier DENY. The run child tier is consulted ahead of the experiment
+    # fallback, so every run-creating route must now reject the caller with 403.
+    grant_role_permission(base, attacker, "run", "*", "DENY")
+    for path, payload in run_creating_routes:
+        resp = requests.post(f"{base}{path}", json=payload, auth=(attacker, attacker_pw))
+        assert resp.status_code == 403, f"run DENY {path} -> {resp.status_code}"
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_invoke_scorer_honors_child_deny(client):
+    # INVOKE_SCORER scores traces and (optionally) writes assessments in an experiment. It
+    # must honor a (trace, *, DENY) grant, and a (assessment, *, DENY) grant when
+    # log_assessments is set -- an experiment-EDIT caller must not bypass those child DENYs.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "invoke-scorer-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    url = f"{base}/ajax-api/3.0/mlflow/scorer/invoke"
+    # An inline (serialized) scorer references no registered scorer, so scorer_version is
+    # not consulted; this isolates the trace/assessment tiers. The handler may 400 on the
+    # dummy payload, so the baseline asserts only that the auth gate is not a 403.
+    payload = {"experiment_id": exp_id, "serialized_scorer": "{}", "trace_ids": ["tr-1"]}
+
+    def fresh_editor():
+        user, pw = create_user(base)
+        grant_role_permission(base, user, "experiment", exp_id, "EDIT")
+        return user, pw
+
+    # Baseline: experiment EDIT alone clears the gate (trace READ falls back to experiment).
+    user, pw = fresh_editor()
+    assert requests.post(url, json=payload, auth=(user, pw)).status_code != 403
+
+    # (trace, *, DENY): the traces being scored are unreadable -> denied.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "trace", "*", "DENY")
+    assert requests.post(url, json=payload, auth=(user, pw)).status_code == 403
+
+    # (assessment, *, DENY): consulted only when log_assessments is set.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "assessment", "*", "DENY")
+    # Without log_assessments the assessment tier is not consulted -> still passes.
+    assert requests.post(url, json=payload, auth=(user, pw)).status_code != 403
+    # With log_assessments the job writes assessments, so assessment UPDATE is required.
+    assert (
+        requests.post(url, json={**payload, "log_assessments": True}, auth=(user, pw)).status_code
+        == 403
+    )
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_invoke_genai_evaluate_and_issue_detection_honor_trace_assessment_deny(client):
+    # INVOKE_GENAI_EVALUATE reads, tags (set_trace_tag), and writes assessments onto the
+    # supplied traces, so it needs trace UPDATE + assessment UPDATE. INVOKE_ISSUE_DETECTION
+    # reads the traces and writes Issue assessments (_annotate_issue_traces), so it needs
+    # trace READ + assessment UPDATE. Both must honor (trace, *, DENY) and (assessment, *,
+    # DENY) -- an experiment-EDIT caller must not bypass those child DENYs. (Trace/assessment
+    # are gated experiment-scoped; whether the traces belong to the experiment is business
+    # logic, out of the auth model's scope.)
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "invoke-eval-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    evaluate_url = f"{base}/ajax-api/3.0/mlflow/genai/evaluate/invoke"
+    issues_url = f"{base}/ajax-api/3.0/mlflow/issues/invoke"
+    evaluate_payload = {"experiment_id": exp_id, "trace_ids": ["tr-1"], "serialized_scorers": ["s"]}
+    issues_payload = {
+        "experiment_id": exp_id,
+        "trace_ids": ["tr-1"],
+        "categories": ["x"],
+        "provider": "p",
+    }
+
+    def fresh_editor():
+        user, pw = create_user(base)
+        grant_role_permission(base, user, "experiment", exp_id, "EDIT")
+        return user, pw
+
+    # Baseline: experiment EDIT clears every tier via fallback (handler may error for
+    # unrelated reasons, so assert only that the auth gate is not a 403).
+    user, pw = fresh_editor()
+    assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code != 403
+    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code != 403
+
+    # (trace, *, DENY): the traces being read are unreadable -> both routes denied.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "trace", "*", "DENY")
+    assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code == 403
+    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code == 403
+
+    # (assessment, *, DENY): both routes write assessments back onto the traces
+    # (genai-evaluate via the eval harness, issue detection via _annotate_issue_traces),
+    # so both are denied.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "assessment", "*", "DENY")
+    assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code == 403
+    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code == 403
+
+    # (trace, *, READ) caps traces at read: genai-evaluate tags the evaluated traces
+    # (set_trace_tag), so it requires trace UPDATE -> denied; issue detection only reads the
+    # traces, so trace READ is enough -> still allowed. This distinguishes the two tiers.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "trace", "*", "READ")
+    assert requests.post(evaluate_url, json=evaluate_payload, auth=(user, pw)).status_code == 403
+    assert requests.post(issues_url, json=issues_payload, auth=(user, pw)).status_code != 403
+
+
+def test_delete_prompt_optimization_job_honors_run_deny(monkeypatch):
+    # DeletePromptOptimizationJob deletes the job's associated MLflow run, so it must honor a
+    # (run, *, DENY) grant an experiment-MANAGE caller would otherwise bypass. Keep the
+    # experiment/job-tier gate; add run-tier DELETE on the job's run.
+    from mlflow.server import auth
+    from mlflow.server.auth.permissions import DENY, MANAGE
+
+    # Experiment/job-tier gate passes (caller has MANAGE on the experiment).
+    monkeypatch.setattr(auth, "_get_permission_from_prompt_optimization_job_id", lambda: MANAGE)
+    # The job created a run.
+    monkeypatch.setattr(auth, "_prompt_optimization_job_run_id", lambda: "run-1")
+
+    # (run, *, DENY) on that run -> delete denied despite experiment MANAGE.
+    monkeypatch.setattr(auth, "_get_run_permission", lambda _rid: DENY)
+    assert auth.validate_can_delete_prompt_optimization_job() is False
+
+    # Run deletable -> allowed.
+    monkeypatch.setattr(auth, "_get_run_permission", lambda _rid: MANAGE)
+    assert auth.validate_can_delete_prompt_optimization_job() is True
+
+    # No associated run -> the experiment/job-tier gate alone governs (allowed).
+    monkeypatch.setattr(auth, "_prompt_optimization_job_run_id", lambda: None)
+    assert auth.validate_can_delete_prompt_optimization_job() is True
+
+
+def test_filter_references_assessments_matches_backtick_quoted_identifiers():
+    # Trace filters may backtick-quote the entity identifier (SearchUtils._valid_entity_type
+    # strips the backticks), so `feedback`.correctness must be detected as an assessment
+    # reference just like the bare form -- otherwise it bypasses the assessment-read gate on
+    # QueryTraceMetrics / CalculateTraceFilterCorrelation.
+    from mlflow.server import auth
+
+    assert auth._filter_references_assessments("feedback.correctness > 0.5")
+    assert auth._filter_references_assessments("`feedback`.correctness > 0.5")
+    assert auth._filter_references_assessments("`assessment`.foo = 'x'")
+    assert auth._filter_references_assessments("`expectation`.bar < 1")
+    # Non-assessment fields and mere substring hits are not flagged (fail-safe, not
+    # over-eager): a leading word char before the identifier must not match.
+    assert not auth._filter_references_assessments("attributes.status = 'OK'")
+    assert not auth._filter_references_assessments("myfeedback.value = 1")
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_trace_metrics_and_correlation_honor_assessment_deny(client):
+    # QueryTraceMetrics(view_type=ASSESSMENTS) and CalculateTraceFilterCorrelation with an
+    # assessment-referencing filter return assessment-*derived* data (never emitting an
+    # assessment object, so redaction can't apply), so they must gate on the assessment tier
+    # in addition to trace READ. A caller with trace READ (via experiment READ) but
+    # (assessment, *, DENY) must be blocked from the assessment-derived variants and allowed
+    # the trace-only variants.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    user, pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "trace-metrics-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    # experiment READ grants trace READ and assessment READ via fallback ...
+    grant_role_permission(base, user, "experiment", exp_id, "READ")
+    # ... then an explicit assessment DENY overrides only the assessment tier.
+    grant_role_permission(base, user, "assessment", "*", "DENY")
+
+    metrics_url = f"{base}/api/3.0/mlflow/traces/metrics"
+    corr_url = f"{base}/api/3.0/mlflow/traces/calculate-filter-correlation"
+
+    # QueryTraceMetrics: the ASSESSMENTS view is assessment-derived -> denied.
+    assert (
+        requests.post(
+            metrics_url,
+            json={"experiment_ids": [exp_id], "view_type": "ASSESSMENTS", "metric_name": "count"},
+            auth=(user, pw),
+        ).status_code
+        == 403
+    )
+    # A non-assessment (TRACES) view needs only trace READ -> not blocked by assessment DENY.
+    assert (
+        requests.post(
+            metrics_url,
+            json={"experiment_ids": [exp_id], "view_type": "TRACES", "metric_name": "count"},
+            auth=(user, pw),
+        ).status_code
+        != 403
+    )
+
+    # CalculateTraceFilterCorrelation: an assessment-referencing filter is assessment-derived.
+    assert (
+        requests.post(
+            corr_url,
+            json={
+                "experiment_ids": [exp_id],
+                "filter_string1": "feedback.correctness > 0.5",
+                "filter_string2": 'trace.status = "OK"',
+            },
+            auth=(user, pw),
+        ).status_code
+        == 403
+    )
+    # A trace-only correlation touches no assessment data -> allowed.
+    assert (
+        requests.post(
+            corr_url,
+            json={
+                "experiment_ids": [exp_id],
+                "filter_string1": 'trace.status = "OK"',
+                "filter_string2": 'trace.status = "ERROR"',
+            },
+            auth=(user, pw),
+        ).status_code
+        != 403
+    )
+
+
+def test_trace_assessment_redactor_is_query_bounded(monkeypatch):
+    # The trace-assessment redactor must build the assessment read predicate ONCE per
+    # response, not once per experiment, so redacting a batch spanning many experiments stays
+    # O(1) authorization queries. Guards against a caching-only regression (which would still
+    # build/query per distinct experiment).
+    from mlflow.protos.service_pb2 import SearchTracesV3
+    from mlflow.server import auth
+    from mlflow.utils.proto_json_utils import message_to_json
+
+    builds = {"count": 0}
+
+    def fake_predicate(username, resource_type, parent_type=None):
+        builds["count"] += 1
+        return lambda _exp_id: False  # deny -> clears assessments, exercises the path
+
+    monkeypatch.setattr(auth, "_role_based_read_predicate", fake_predicate)
+    monkeypatch.setattr(auth, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth, "authenticate_request", lambda: type("U", (), {"username": "u"})())
+
+    response_message = SearchTracesV3.Response()
+    for i in range(10):  # 10 DISTINCT experiments
+        trace_info = response_message.traces.add()
+        trace_info.trace_location.mlflow_experiment.experiment_id = f"exp-{i}"
+
+    class _FakeResp:
+        def __init__(self, msg):
+            self.json = json.loads(message_to_json(msg))
+            self.data = None
+
+    resp = _FakeResp(response_message)
+    auth._redact_trace_assessments_response(resp, SearchTracesV3, lambda m: list(m.traces))
+
+    assert builds["count"] == 1  # built once for the whole response, not once per experiment
 
 
 @pytest.mark.parametrize(
@@ -7210,3 +8000,1508 @@ def test_presigned_upload_url_requires_run_update_permission(client):
         auth=(owner, owner_pw),
     )
     assert resp.status_code != 403
+
+
+_CHILD_VALIDATOR_OUTCOMES = [
+    ("validate_can_create_run", "_get_permission_from_experiment_id_for_run", "can_update"),
+    ("validate_can_read_run", "_get_permission_from_run_id", "can_read"),
+    ("validate_can_update_run", "_get_permission_from_run_id", "can_update"),
+    ("validate_can_read_run_artifact", "_get_permission_from_run_id_or_uuid", "can_read"),
+    ("validate_can_update_run_artifact", "_get_permission_from_run_id_or_uuid", "can_update"),
+    ("validate_can_start_trace", "_get_trace_permission_for_experiment", "can_update"),
+    ("validate_can_read_trace_by_request_id", "_get_trace_permission", "can_read"),
+    ("validate_can_read_trace_by_trace_id", "_get_trace_permission", "can_read"),
+    ("validate_can_update_trace_by_request_id", "_get_trace_permission", "can_update"),
+    ("validate_can_update_trace_by_trace_id", "_get_trace_permission", "can_update"),
+    ("validate_can_read_assessment", "_get_assessment_permission_from_trace_id", "can_read"),
+    ("validate_can_update_assessment", "_get_assessment_permission_from_trace_id", "can_update"),
+    ("validate_can_read_logged_model", "_get_permission_from_model_id", "can_read"),
+    ("validate_can_update_logged_model", "_get_permission_from_model_id", "can_update"),
+    ("validate_can_delete_logged_model", "_get_permission_from_model_id", "can_delete"),
+    (
+        "validate_can_add_items_to_review_queue",
+        "_get_permission_from_review_queue_id",
+        "can_update",
+    ),
+    (
+        "validate_can_remove_items_from_review_queue",
+        "_get_permission_from_review_queue_id",
+        "can_update",
+    ),
+    (
+        "_validate_can_read_model_version_or_prompt_version",
+        "_get_model_version_permission_from_registered_model_or_prompt_name",
+        "can_read",
+    ),
+    (
+        "_validate_can_update_model_version_or_prompt_version",
+        "_get_model_version_permission_from_registered_model_or_prompt_name",
+        "can_update",
+    ),
+    (
+        "_validate_can_delete_model_version_or_prompt_version",
+        "_get_model_version_permission_from_registered_model_or_prompt_name",
+        "can_delete",
+    ),
+    (
+        "validate_can_read_scorer_version",
+        "_get_permission_from_scorer_version_name",
+        "can_read",
+    ),
+    (
+        "validate_can_update_scorer_version",
+        "_get_permission_from_scorer_version_name",
+        "can_update",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("validator_name", "resolver_name", "capability"), _CHILD_VALIDATOR_OUTCOMES
+)
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("parent_inherited", True),
+        ("no_parent_or_child", False),
+        ("child_override", True),
+        ("child_deny", False),
+    ],
+)
+def test_child_validator_outcomes(
+    monkeypatch, validator_name, resolver_name, capability, case, expected
+):
+    from mlflow.server.auth.permissions import get_permission
+
+    allow_permission = "MANAGE" if capability == "can_delete" else "EDIT"
+    permission = allow_permission if expected else "NO_PERMISSIONS"
+    if case == "child_deny":
+        permission = "DENY"
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _name: "resource-id")
+    monkeypatch.setattr(auth_module, resolver_name, lambda *_args: get_permission(permission))
+
+    assert getattr(auth_module, validator_name)() is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_create_review_queue_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    reject = mock.Mock()
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _name: "experiment-id")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_review_queue_permission_for_experiment",
+        lambda _experiment_id: get_permission(permission),
+    )
+    monkeypatch.setattr(auth_module, "_reject_create_review_queue_shadowing_user", reject)
+
+    assert auth_module.validate_can_create_review_queue() is expected
+    assert reject.called is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_create_model_version_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_model_version_permission_from_registered_model_or_prompt_name",
+        lambda: get_permission(permission),
+    )
+
+    with auth_module.app.test_request_context("/model-versions/create", method="POST", json={}):
+        assert auth_module.validate_can_create_model_version() is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_start_trace_v3_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_trace_permission_for_experiment",
+        lambda _experiment_id: get_permission(permission),
+    )
+    payload = {
+        "trace": {"trace_info": {"trace_location": {"mlflow_experiment": {"experiment_id": "e1"}}}}
+    }
+    with auth_module.app.test_request_context("/traces/start", method="POST", json=payload):
+        assert auth_module.validate_can_start_trace_v3() is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_register_existing_scorer_version_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_request_param",
+        lambda name: {"experiment_id": "e1", "name": "s"}[name],
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_scorer=lambda _experiment_id, _name: SimpleNamespace()),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_scorer_version_permission",
+        lambda _experiment_id, _name: get_permission(permission),
+    )
+
+    assert auth_module.validate_can_register_scorer() is expected
+
+
+def test_deny_veto_rejects_iff_any_permission_is_deny():
+    from mlflow.server.auth.permissions import DENY, MANAGE, NO_PERMISSIONS, READ
+
+    assert auth_module._deny_veto(DENY) is True
+    assert auth_module._deny_veto(READ, DENY) is True  # any DENY vetoes
+    assert auth_module._deny_veto(READ, MANAGE, NO_PERMISSIONS) is False
+    assert auth_module._deny_veto(None) is False  # unresolved is not a veto
+    assert auth_module._deny_veto() is False
+
+
+@pytest.mark.parametrize(("scorer_version_denied", "expected"), [(False, True), (True, False)])
+def test_composite_routes_honor_scorer_version_deny(monkeypatch, scorer_version_denied, expected):
+    # A (scorer_version, *, DENY) vetoes INVOKE_SCORER / INVOKE_GENAI_EVALUATE /
+    # CreatePromptOptimizationJob even though no positive scorer_version grant is required
+    # (Copilot #32 split verdict). All positive checks are stubbed to pass so the veto is
+    # the only deciding factor.
+    from mlflow.server.auth.permissions import MANAGE
+
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _name: "e1")
+    monkeypatch.setattr(auth_module, "validate_can_update_experiment", lambda: True)
+    monkeypatch.setattr(auth_module, "validate_can_create_run", lambda: True)
+    monkeypatch.setattr(auth_module, "_get_trace_permission_for_experiment", lambda _e: MANAGE)
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", lambda *a, **k: MANAGE)
+    monkeypatch.setattr(
+        auth_module, "_scorer_version_deny_active", lambda _e: scorer_version_denied
+    )
+
+    with auth_module.app.test_request_context("/x", method="POST", json={}):
+        assert auth_module.validate_can_invoke_scorer() is expected
+        assert auth_module.validate_can_invoke_genai_evaluate() is expected
+        assert auth_module.validate_can_create_prompt_optimization_job() is expected
+
+
+@pytest.mark.parametrize(("scorer_version_denied", "expected"), [(False, True), (True, False)])
+def test_register_new_scorer_honors_scorer_version_deny(
+    monkeypatch, scorer_version_denied, expected
+):
+    # Creating a brand-new scorer is gated on experiment.can_update (its pre-RFC contract),
+    # but a (scorer_version, *, DENY) still vetoes writing version 1.
+    from mlflow.server.auth.permissions import MANAGE
+
+    def _raise_not_found(_experiment_id, _name):
+        raise MlflowException("no scorer", error_code=RESOURCE_DOES_NOT_EXIST)
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_request_param",
+        lambda name: {"experiment_id": "e1", "name": "s"}[name],
+    )
+    monkeypatch.setattr(
+        auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_scorer=_raise_not_found)
+    )
+    monkeypatch.setattr(auth_module, "_get_experiment_permission", lambda _e, _u: MANAGE)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_scorer_version_deny_active", lambda _e: scorer_version_denied
+    )
+
+    with auth_module.app.test_request_context("/scorers", method="POST"):
+        assert auth_module.validate_can_register_scorer() is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_mcp_server_version_create_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_mcp_server=lambda _name: SimpleNamespace()),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda _name, _username: get_permission(permission),
+    )
+    validator = auth_module._get_mcp_server_validator(
+        "/api/3.0/mlflow/mcp-servers/namespace/server/versions"
+    )
+
+    request = SimpleNamespace(method="POST", state=SimpleNamespace())
+    assert asyncio.run(validator("user", request)) is expected
+
+
+@pytest.mark.parametrize(
+    ("_case", "permission", "expected"),
+    [
+        ("parent_inherited", "EDIT", True),
+        ("no_parent_or_child", "NO_PERMISSIONS", False),
+        ("child_override", "EDIT", True),
+        ("child_deny", "DENY", False),
+    ],
+)
+def test_create_logged_model_outcomes(monkeypatch, _case, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _name: "experiment-id")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_logged_model_permission_for_experiment",
+        lambda _experiment_id: get_permission(permission),
+    )
+
+    assert auth_module.validate_can_create_logged_model() is expected
+
+
+@pytest.mark.parametrize("grant_topology", ["parent_and_child", "child_only", "parent_only"])
+@pytest.mark.parametrize("workspace_admin", [False, True])
+def test_read_predicate_child_deny_and_workspace_admin_precedence(
+    monkeypatch, tmp_path, grant_topology, workspace_admin
+):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'read-precedence.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    user = store.create_user("reader", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="role", workspace="default")
+    store.assign_role_to_user(user.id, role.id)
+
+    if grant_topology == "parent_and_child":
+        store.add_role_permission(role.id, "experiment", "e1", "EDIT")
+        store.add_role_permission(role.id, "run", "*", "DENY")
+    elif grant_topology == "child_only":
+        store.add_role_permission(role.id, "run", "*", "DENY")
+    else:
+        store.add_role_permission(role.id, "experiment", "e1", "DENY")
+
+    if workspace_admin:
+        store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+
+    can_read = auth_module._role_based_read_predicate("reader", "run", parent_type="experiment")
+    assert can_read("e1") is workspace_admin
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_start_trace_child_permission_outcomes(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("trace-child-permission-outcomes")
+        anchor_trace_id = _create_trace(client.tracking_uri, experiment_id, (owner, owner_password))
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "trace", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "trace", "*", "DENY")
+
+    payload = {
+        "experiment_id": experiment_id,
+        "timestamp_ms": int(time.time() * 1000),
+        "execution_time_ms": 10,
+        "status": "OK",
+        "request_metadata": [],
+        "tags": [],
+    }
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        response = requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/traces",
+            json=payload,
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+        response = requests.patch(
+            url=client.tracking_uri + f"/api/2.0/mlflow/traces/{anchor_trace_id}/tags",
+            json={"key": "denied", "value": "true"},
+            auth=(username, password),
+        )
+        assert response.status_code == 403
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        response = requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/traces",
+            json=payload,
+            auth=(username, password),
+        )
+        assert response.status_code == 200
+        response = requests.patch(
+            url=client.tracking_uri + f"/api/2.0/mlflow/traces/{anchor_trace_id}/tags",
+            json={"key": f"tag_{username}", "value": "true"},
+            auth=(username, password),
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_assessment_child_permission_outcomes(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("assessment-child-permission-outcomes")
+        trace_id = _create_trace(client.tracking_uri, experiment_id, (owner, owner_password))
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "assessment", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "assessment", "*", "DENY")
+
+    def create_assessment(auth, name):
+        return requests.post(
+            url=client.tracking_uri + f"/api/3.0/mlflow/traces/{trace_id}/assessments",
+            json={
+                "assessment": {
+                    "assessment_name": name,
+                    "feedback": {"value": {"rating": 4}},
+                    "source": {"source_type": "HUMAN", "source_id": "tester"},
+                }
+            },
+            auth=auth,
+        )
+
+    for auth in ((no_grant, no_grant_password), (denied_writer, denied_writer_password)):
+        assert create_assessment(auth, f"denied_{auth[0]}").status_code == 403
+
+    for auth, name in (
+        ((parent_writer, parent_writer_password), "parent_assessment"),
+        ((child_writer, child_writer_password), "child_assessment"),
+    ):
+        response = create_assessment(auth, name)
+        assert response.status_code == 200
+        assessment_id = response.json()["assessment"]["assessment_id"]
+        response = requests.patch(
+            url=client.tracking_uri
+            + f"/api/3.0/mlflow/traces/{trace_id}/assessments/{assessment_id}",
+            json={
+                "assessment": {
+                    "assessment_id": assessment_id,
+                    "trace_id": trace_id,
+                    "assessment_name": f"updated_{name}",
+                },
+                "update_mask": "assessmentName",
+            },
+            auth=auth,
+        )
+        assert response.status_code == 200
+        response = requests.delete(
+            url=client.tracking_uri
+            + f"/api/3.0/mlflow/traces/{trace_id}/assessments/{assessment_id}",
+            auth=auth,
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_registered_model_version_child_permission_outcomes(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("model-version-child-permission-outcomes")
+        run = client.create_run(experiment_id)
+        model = client.create_registered_model("model-version-child-permission")
+
+    source = f"runs:/{run.info.run_id}/model"
+    for username in (parent_writer, child_writer, denied_writer):
+        grant_role_permission(client.tracking_uri, username, "experiment", experiment_id, "READ")
+    grant_role_permission(
+        client.tracking_uri, parent_writer, "registered_model", model.name, "EDIT"
+    )
+    grant_role_permission(client.tracking_uri, child_writer, "registered_model", model.name, "READ")
+    grant_role_permission(
+        client.tracking_uri, child_writer, "registered_model_version", "*", "EDIT"
+    )
+    grant_role_permission(
+        client.tracking_uri, denied_writer, "registered_model", model.name, "EDIT"
+    )
+    grant_role_permission(
+        client.tracking_uri, denied_writer, "registered_model_version", "*", "DENY"
+    )
+
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.create_model_version(model.name, source, run_id=run.info.run_id)
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            version = client.create_model_version(model.name, source, run_id=run.info.run_id)
+
+        assert version.name == model.name
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_prompt_version_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        prompt = client.create_prompt("prompt-version-child-permission")
+
+    grant_role_permission(client.tracking_uri, parent_writer, "prompt", prompt.name, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "prompt", prompt.name, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "prompt_version", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "prompt", prompt.name, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "prompt_version", "*", "DENY")
+
+    for username, password in (
+        (no_grant, no_grant_password),
+        (denied_writer, denied_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            with pytest.raises(MlflowException, match="Permission denied"):
+                client.create_prompt_version(prompt.name, "hello")
+
+    for username, password in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        with User(username, password, monkeypatch):
+            version = client.create_prompt_version(prompt.name, f"hello {username}")
+
+        assert version.name == prompt.name
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_scorer_version_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("scorer-version-child-permission-outcomes")
+        response = requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/scorers/register",
+            json={
+                "experiment_id": experiment_id,
+                "name": "scorer_child_permission",
+                "serialized_scorer": json.dumps({"v": 1}),
+            },
+            auth=(owner, owner_password),
+        )
+        response.raise_for_status()
+
+    scorer_pattern = f"{experiment_id}/scorer_child_permission"
+    for username in (parent_writer, denied_writer):
+        grant_role_permission(client.tracking_uri, username, "scorer", scorer_pattern, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "scorer", scorer_pattern, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "scorer_version", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "scorer_version", "*", "DENY")
+
+    payload = {
+        "experiment_id": experiment_id,
+        "name": "scorer_child_permission",
+        "serialized_scorer": json.dumps({"v": 2}),
+    }
+    for auth in ((no_grant, no_grant_password), (denied_writer, denied_writer_password)):
+        response = requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/scorers/register",
+            json=payload,
+            auth=auth,
+        )
+        assert response.status_code == 403
+
+    for auth in (
+        (parent_writer, parent_writer_password),
+        (child_writer, child_writer_password),
+    ):
+        response = requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/scorers/register",
+            json=payload,
+            auth=auth,
+        )
+        assert response.status_code == 200
+
+    from mlflow.server.auth.client import AuthServiceClient
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        permission = AuthServiceClient(client.tracking_uri).get_user_permission(
+            child_writer, "scorer", scorer_pattern
+        )
+    assert permission.permission == "READ"
+    assert permission.allowed is False
+
+
+@pytest.mark.parametrize("prefix", [_MCP_REST_PREFIX])
+def test_mcp_server_version_child_permission_outcomes(fastapi_client, monkeypatch, prefix):
+    owner, owner_password = create_user(fastapi_client.tracking_uri)
+    no_grant, no_grant_password = create_user(fastapi_client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(fastapi_client.tracking_uri)
+    child_writer, child_writer_password = create_user(fastapi_client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/version-child-permission"
+
+    with User(owner, owner_password, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(owner, owner_password),
+        ).raise_for_status()
+
+    grant_role_permission(
+        fastapi_client.tracking_uri, parent_writer, "mcp_server", server_name, "EDIT"
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri, child_writer, "mcp_server", server_name, "READ"
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri, child_writer, "mcp_server_version", "*", "EDIT"
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri, denied_writer, "mcp_server", server_name, "EDIT"
+    )
+    grant_role_permission(
+        fastapi_client.tracking_uri, denied_writer, "mcp_server_version", "*", "DENY"
+    )
+
+    def create_version(auth, version):
+        return requests.post(
+            url=fastapi_client.tracking_uri + f"{prefix}/{server_name}/versions",
+            json={
+                "server_json": {"name": server_name, "version": version},
+                "source": "https://example.com/server.py",
+            },
+            auth=auth,
+        )
+
+    assert create_version((no_grant, no_grant_password), "1.0.0").status_code == 403
+    assert create_version((denied_writer, denied_writer_password), "1.0.1").status_code == 403
+    assert create_version((parent_writer, parent_writer_password), "1.0.2").status_code == 200
+    assert create_version((child_writer, child_writer_password), "1.0.3").status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_review_queue_child_permission_outcomes(client: MlflowClient, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    no_grant, no_grant_password = create_user(client.tracking_uri)
+    parent_writer, parent_writer_password = create_user(client.tracking_uri)
+    child_writer, child_writer_password = create_user(client.tracking_uri)
+    denied_writer, denied_writer_password = create_user(client.tracking_uri)
+
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("review-queue-child-permission-outcomes")
+        trace_id = _create_trace(client.tracking_uri, experiment_id, (owner, owner_password))
+        response = requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/create",
+            json={"experiment_id": experiment_id, "name": "owner_queue", "queue_type": "CUSTOM"},
+            auth=(owner, owner_password),
+        )
+        response.raise_for_status()
+        owner_queue_id = response.json()["review_queue"]["queue_id"]
+
+    grant_role_permission(client.tracking_uri, parent_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, child_writer, "experiment", experiment_id, "READ")
+    grant_role_permission(client.tracking_uri, child_writer, "review_queue", "*", "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "experiment", experiment_id, "EDIT")
+    grant_role_permission(client.tracking_uri, denied_writer, "review_queue", "*", "DENY")
+
+    def create_queue(auth, name):
+        return requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/create",
+            json={"experiment_id": experiment_id, "name": name, "queue_type": "CUSTOM"},
+            auth=auth,
+        )
+
+    def add_item(auth, queue_id):
+        return requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/items/add",
+            json={"queue_id": queue_id, "item_type": "TRACE", "item_ids": [trace_id]},
+            auth=auth,
+        )
+
+    def remove_item(auth, queue_id):
+        return requests.post(
+            client.tracking_uri + "/api/3.0/mlflow/review-queues/items/remove",
+            json={"queue_id": queue_id, "item_ids": [trace_id]},
+            auth=auth,
+        )
+
+    for auth in ((no_grant, no_grant_password), (denied_writer, denied_writer_password)):
+        assert create_queue(auth, f"denied_{auth[0]}").status_code == 403
+        assert add_item(auth, owner_queue_id).status_code == 403
+        assert remove_item(auth, owner_queue_id).status_code == 403
+
+    for auth, name in (
+        ((parent_writer, parent_writer_password), "parent_queue"),
+        ((child_writer, child_writer_password), "child_queue"),
+    ):
+        response = create_queue(auth, name)
+        assert response.status_code == 200
+        queue_id = response.json()["review_queue"]["queue_id"]
+        assert add_item(auth, queue_id).status_code == 200
+        assert remove_item(auth, queue_id).status_code == 200
+
+
+def test_read_predicate_scopes_parent_deny_to_matching_resource(monkeypatch, tmp_path):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=READ.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'read-pattern-scope.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    user = store.create_user("reader", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="role", workspace="default")
+    store.assign_role_to_user(user.id, role.id)
+    store.add_role_permission(role.id, "experiment", "e1", "DENY")
+
+    can_read = auth_module._role_based_read_predicate("reader", "experiment")
+    assert not can_read("e1")
+    assert can_read("e2")
+
+
+@pytest.mark.parametrize(("permission", "expected"), [("MANAGE", True), ("DENY", False)])
+def test_delete_scorer_version_uses_child_permission(monkeypatch, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_version_name",
+        lambda: get_permission(permission),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_name",
+        lambda: pytest.fail("whole-scorer permission must not resolve for a version delete"),
+    )
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete",
+        method="DELETE",
+        json={"experiment_id": "1", "name": "scorer", "version": 1},
+    ):
+        assert auth_module.validate_can_delete_scorer_version() is expected
+
+
+@pytest.mark.parametrize(("permission", "expected"), [("MANAGE", True), ("DENY", False)])
+def test_delete_scorer_without_version_uses_parent_permission(monkeypatch, permission, expected):
+    from mlflow.server.auth.permissions import get_permission
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_name",
+        lambda: get_permission(permission),
+    )
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_version_name",
+        lambda: pytest.fail("version permission must not resolve for whole-scorer delete"),
+    )
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete",
+        method="DELETE",
+        json={"experiment_id": "1", "name": "scorer"},
+    ):
+        assert auth_module.validate_can_delete_scorer_version() is expected
+
+
+def test_delete_scorer_version_tolerates_non_object_json(monkeypatch):
+    # A non-object JSON body (e.g. a list) must not 500 the validator: it carries no
+    # "version", so it resolves the whole-scorer tier instead of raising AttributeError on
+    # `.get`. Guards against the `(get_json() or {}).get(...)` non-dict crash.
+    from mlflow.server.auth.permissions import MANAGE
+
+    monkeypatch.setattr(auth_module, "_get_permission_from_scorer_name", lambda: MANAGE)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_scorer_version_name",
+        lambda: pytest.fail("version tier must not resolve for a non-object body (no version)"),
+    )
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete", method="DELETE", json=[1, 2, 3]
+    ):
+        assert auth_module.validate_can_delete_scorer_version() is True
+
+
+def test_delete_scorer_version_does_not_cascade_parent_grants(monkeypatch):
+    auth_store = mock.Mock()
+    auth_store._scorer_pattern.return_value = "1/scorer"
+    monkeypatch.setattr(auth_module, "store", auth_store)
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete",
+        method="DELETE",
+        json={"experiment_id": "1", "name": "scorer", "version": 1},
+    ):
+        auth_module.delete_scorer_permissions_cascade(mock.Mock())
+    auth_store.delete_grants_for_resource.assert_not_called()
+
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/scorers/delete",
+        method="DELETE",
+        json={"experiment_id": "1", "name": "scorer"},
+    ):
+        auth_module.delete_scorer_permissions_cascade(mock.Mock())
+    auth_store.delete_grants_for_resource.assert_called_once_with("scorer", "1/scorer")
+
+
+def test_graphql_run_permission_uses_run_child_tier(monkeypatch):
+    run = SimpleNamespace(info=SimpleNamespace(experiment_id="7"))
+    monkeypatch.setattr(
+        auth_module, "_get_tracking_store", lambda: SimpleNamespace(get_run=lambda _rid: run)
+    )
+    captured = {}
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        captured.update(
+            child_type=child_type,
+            child_key=child_key,
+            experiment_id=experiment_id,
+            username=username,
+        )
+        return SimpleNamespace(can_read=False)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    perm = auth_module._graphql_get_permission_for_run("run-1", "bob")
+    assert perm.can_read is False
+    assert captured == {
+        "child_type": "run",
+        "child_key": "run-1",
+        "experiment_id": "7",
+        "username": "bob",
+    }
+
+
+def test_graphql_search_runs_prefilter_keeps_run_only_grant(monkeypatch):
+    # A run-tier READ grant with no experiment READ must not drop the experiment.
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        assert child_type == "run"
+        return SimpleNamespace(can_read=experiment_id == "keep")
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    mw = auth_module.GraphQLAuthorizationMiddleware()
+    input_obj = SimpleNamespace(experiment_ids=["keep", "drop"])
+    allowed = mw._check_authorization("mlflowSearchRuns", {"input": input_obj}, "bob")
+    assert allowed is True
+    assert input_obj.experiment_ids == ["keep"]
+
+
+def test_otlp_ingestion_validator_uses_trace_child_tier(monkeypatch):
+    captured = {}
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        captured.update(child_type=child_type, experiment_id=experiment_id, username=username)
+        return SimpleNamespace(can_update=False)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    validator = auth_module._get_otel_validator("/otlp/v1/traces")
+    request = SimpleNamespace(headers={"x-mlflow-experiment-id": "9"})
+    allowed = asyncio.run(validator("carol", request))
+    assert allowed is False
+    assert captured == {"child_type": "trace", "experiment_id": "9", "username": "carol"}
+
+
+def test_get_or_create_user_queue_uses_review_queue_child_tier(monkeypatch):
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _p: "9")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_review_queue_permission_for_experiment",
+        lambda eid: SimpleNamespace(can_update=eid == "9"),
+    )
+    # Experiment-tier resolver must not be consulted for this child operation.
+    monkeypatch.setattr(
+        auth_module,
+        "_get_permission_from_experiment_id",
+        lambda: (_ for _ in ()).throw(AssertionError("should use review_queue tier")),
+    )
+    assert auth_module.validate_can_get_or_create_user_queue() is True
+
+
+def test_review_queue_item_uses_review_queue_child_tier(monkeypatch):
+    queue = SimpleNamespace(experiment_id="9")
+    monkeypatch.setattr(
+        auth_module, "authenticate_request", lambda: SimpleNamespace(username="dan")
+    )
+    monkeypatch.setattr(auth_module, "_get_request_param", lambda _p: "queue-1")
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_review_queue=lambda _q: queue),
+    )
+    monkeypatch.setattr(
+        auth_module, "_get_review_queue_permission", lambda q: SimpleNamespace(can_update=True)
+    )
+    monkeypatch.setattr(auth_module, "_review_queue_has_member", lambda q, u: True)
+    monkeypatch.setattr(
+        auth_module,
+        "_get_experiment_permission",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should use review_queue tier")),
+    )
+    assert auth_module.validate_can_review_queue_item() is True
+
+
+def test_artifact_proxy_child_from_path_dispatches_by_layout():
+    assert auth_module._artifact_proxy_child_from_path("42/run-abc/artifacts/model.pkl") == (
+        "run",
+        "run-abc",
+    )
+    assert auth_module._artifact_proxy_child_from_path(
+        "workspaces/team-a/7/run-xyz/artifacts/f"
+    ) == ("run", "run-xyz")
+    # ``traces``/``models`` folders dispatch to their own child tiers, not the run tier.
+    assert auth_module._artifact_proxy_child_from_path("42/traces/tr-1/artifacts/data") == (
+        "trace",
+        "tr-1",
+    )
+    assert auth_module._artifact_proxy_child_from_path("42/models/m-1/artifacts/MLmodel") == (
+        "logged_model",
+        "m-1",
+    )
+    # Experiment-level path has no child.
+    assert auth_module._artifact_proxy_child_from_path("42/artifacts/plot.png") is None
+    # A child folder root (no concrete id) resolves on the wildcard child key so a
+    # child DENY is still honored when listing the folder.
+    assert auth_module._artifact_proxy_child_from_path("42/traces") == ("trace", "*")
+    assert auth_module._artifact_proxy_child_from_path("42/models") == ("logged_model", "*")
+
+
+@pytest.mark.parametrize(
+    ("artifact_path", "expected_type", "expected_key"),
+    [
+        ("42/run-abc/artifacts/model.pkl", "run", "run-abc"),
+        ("42/traces/tr-1/artifacts/data", "trace", "tr-1"),
+        ("42/models/m-1/artifacts/MLmodel", "logged_model", "m-1"),
+    ],
+)
+def test_proxy_artifact_permission_uses_child_tier_for_layout(
+    monkeypatch, artifact_path, expected_type, expected_key
+):
+    captured = {}
+
+    def fake_child_permission(child_type, child_key, experiment_id, username=None):
+        captured.update(
+            child_type=child_type,
+            child_key=child_key,
+            experiment_id=experiment_id,
+            username=username,
+        )
+        return SimpleNamespace(can_read=True)
+
+    monkeypatch.setattr(auth_module, "_experiment_child_permission", fake_child_permission)
+    perm = auth_module._get_proxy_artifact_permission(
+        f"/api/2.0/mlflow-artifacts/artifacts/{artifact_path}", "erin"
+    )
+    assert perm.can_read is True
+    assert captured == {
+        "child_type": expected_type,
+        "child_key": expected_key,
+        "experiment_id": "42",
+        "username": "erin",
+    }
+
+
+def test_proxy_artifact_permission_experiment_level_uses_experiment_tier(monkeypatch):
+    # An experiment-level path (no run/trace/model segment) must not hit the child tier.
+    monkeypatch.setattr(
+        auth_module,
+        "_experiment_child_permission",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should use experiment tier")),
+    )
+    monkeypatch.setattr(
+        auth_module, "_role_permission_for", lambda **_: SimpleNamespace(can_read=True)
+    )
+    monkeypatch.setattr(auth_module, "_get_role_permission_or_default", lambda perm: perm)
+    perm = auth_module._get_proxy_artifact_permission(
+        "/api/2.0/mlflow-artifacts/artifacts/42/artifacts/plot.png", "erin"
+    )
+    assert perm.can_read is True
+
+
+def _fake_resp(response_message):
+    from mlflow.utils.proto_json_utils import message_to_json
+
+    return SimpleNamespace(json=json.loads(message_to_json(response_message)), data=None)
+
+
+def test_redact_get_trace_info_v3_assessments_hides_denied(monkeypatch):
+    from mlflow.protos import service_pb2 as pb
+
+    resp_msg = pb.GetTraceInfoV3.Response()
+    ti = resp_msg.trace.trace_info
+    ti.trace_id = "tr-1"
+    ti.trace_location.mlflow_experiment.experiment_id = "9"
+    ti.assessments.add().assessment_id = "a-1"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_role_based_read_predicate", lambda *a, **k: lambda _eid: False
+    )
+    resp = _fake_resp(resp_msg)
+    auth_module.redact_get_trace_info_v3_assessments(resp)
+
+    out = pb.GetTraceInfoV3.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert list(out.trace.trace_info.assessments) == []
+
+
+def test_redact_trace_assessments_kept_when_readable(monkeypatch):
+    from mlflow.protos import service_pb2 as pb
+
+    resp_msg = pb.SearchTracesV3.Response()
+    ti = resp_msg.traces.add()
+    ti.trace_id = "tr-1"
+    ti.trace_location.mlflow_experiment.experiment_id = "9"
+    ti.assessments.add().assessment_id = "a-1"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_role_based_read_predicate", lambda *a, **k: lambda _eid: True
+    )
+    resp = _fake_resp(resp_msg)
+    auth_module.redact_search_traces_v3_assessments(resp)
+
+    out = pb.SearchTracesV3.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert [a.assessment_id for a in out.traces[0].assessments] == ["a-1"]
+
+
+def test_redact_get_registered_model_versions_hides_denied(monkeypatch):
+    from mlflow.protos import model_registry_pb2 as pb
+
+    resp_msg = pb.GetRegisteredModel.Response()
+    rm = resp_msg.registered_model
+    rm.name = "m1"
+    rm.latest_versions.add().name = "m1"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_rm_or_prompt_version_read_predicate", lambda _u: lambda _mv: False
+    )
+    resp = _fake_resp(resp_msg)
+    auth_module.redact_get_registered_model_versions(resp)
+
+    out = pb.GetRegisteredModel.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert list(out.registered_model.latest_versions) == []
+
+
+def test_list_scorers_gated_on_scorer_version_tier(monkeypatch):
+    from mlflow.protos import service_pb2 as pb
+
+    resp_msg = pb.ListScorers.Response()
+    s1 = resp_msg.scorers.add()
+    s1.experiment_id = 9
+    s1.scorer_name = "keep"
+    s2 = resp_msg.scorers.add()
+    s2.experiment_id = 9
+    s2.scorer_name = "denied"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module.store, "_scorer_pattern", lambda e, n: f"{e}/{n}")
+
+    def fake_predicate(_username, resource_type, parent_type=None):
+        if resource_type == "experiment":
+            return lambda _e: True
+        # scorer_version tier: deny "denied"
+        return lambda pattern: not pattern.endswith("/denied")
+
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+    resp = _fake_resp(resp_msg)
+    auth_module.filter_list_scorers(resp)
+
+    out = pb.ListScorers.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert [s.scorer_name for s in out.scorers] == ["keep"]
+
+
+def test_assessment_lookup_keys_requires_trace_id():
+    assert auth_module._assessment_lookup_keys("tr-1/a-1") == ("tr-1", "a-1")
+    with pytest.raises(MlflowException, match="Expected '<trace_id>/<assessment_id>'"):
+        auth_module._assessment_lookup_keys("a-1")
+
+
+def test_resource_dispatch_assessment_resolves_experiment_via_trace(monkeypatch):
+    # The convenience API must resolve the assessment's experiment through its trace,
+    # not by passing the assessment id to get_trace_info.
+    trace = SimpleNamespace(experiment_id="9")
+    calls = {}
+
+    def fake_get_trace_info(trace_id):
+        calls["trace_id"] = trace_id
+        return trace
+
+    monkeypatch.setattr(
+        auth_module,
+        "_get_tracking_store",
+        lambda: SimpleNamespace(get_trace_info=fake_get_trace_info, get_experiment=lambda _e: None),
+    )
+    dispatch = auth_module._resource_dispatch_keys("assessment", "tr-1/a-1")
+    assert calls["trace_id"] == "tr-1"
+    assert dispatch.resource_key == "a-1"
+    assert dispatch.workspace_lookup_id == "9"
+    assert dispatch.parent_type == "experiment"
+    assert dispatch.parent_id == "9"
+
+
+def test_graphql_search_datasets_uses_experiment_tier(monkeypatch):
+    # Datasets are not a run sub-resource: the prefilter must use experiment READ, not
+    # the run tier, so a run-only reader is excluded and a run DENY doesn't hide them.
+    monkeypatch.setattr(
+        auth_module,
+        "_graphql_can_read_runs_in_experiment",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("datasets must not use run tier")),
+    )
+    monkeypatch.setattr(
+        auth_module, "_graphql_can_read_experiment", lambda exp_id, _u: exp_id == "keep"
+    )
+    mw = auth_module.GraphQLAuthorizationMiddleware()
+    input_obj = SimpleNamespace(experiment_ids=["keep", "drop"])
+    assert mw._check_authorization("mlflowSearchDatasets", {"input": input_obj}, "bob") is True
+    assert input_obj.experiment_ids == ["keep"]
+
+
+def test_filter_get_mcp_server_redacts_version_on_deny(monkeypatch):
+    server = {
+        "name": "srv",
+        "latest_version": {"version": 3},
+        "aliases": {"prod": 3},
+        "access_endpoints": [
+            {"server_name": "srv", "resolved_version": {"version": 3}, "tools": ["t"]}
+        ],
+    }
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_permission", lambda *a: SimpleNamespace(can_read=True)
+    )
+    monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda *a: SimpleNamespace(can_read=False),
+    )
+    out = json.loads(auth_module._filter_get_mcp_server("u", json.dumps(server).encode(), object()))
+    assert out["latest_version"] is None
+    assert out["aliases"] is None
+    ep = out["access_endpoints"][0]
+    assert ep["resolved_version"] is None
+    assert ep["tools"] is None
+
+
+def test_filter_get_mcp_server_keeps_version_when_readable(monkeypatch):
+    server = {"name": "srv", "latest_version": {"version": 3}, "aliases": {"prod": 3}}
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_permission", lambda *a: SimpleNamespace(can_read=True)
+    )
+    monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_version_permission", lambda *a: SimpleNamespace(can_read=True)
+    )
+    out = json.loads(auth_module._filter_get_mcp_server("u", json.dumps(server).encode(), object()))
+    assert out["latest_version"] == {"version": 3}
+    assert out["aliases"] == {"prod": 3}
+
+
+def test_filter_search_mcp_servers_redacts_version_on_deny(monkeypatch):
+    body = json.dumps({
+        "mcp_servers": [
+            {
+                "name": "srv",
+                "latest_version": {"version": 3},
+                "aliases": {"prod": 3},
+                "access_endpoints": [{"server_name": "srv", "resolved_version": {"version": 3}}],
+            }
+        ]
+    }).encode()
+    monkeypatch.setattr(
+        auth_module,
+        "_role_based_permission_resolver",
+        lambda *a, **k: lambda _n: SimpleNamespace(can_read=True),
+    )
+    monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+
+    def fake_predicate(_username, resource_type, parent_type=None):
+        # server row-read allowed; version tier denied -> version fields redacted.
+        return lambda _n: resource_type != "mcp_server_version"
+
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+    request = SimpleNamespace(
+        query_params=SimpleNamespace(get=lambda k, d=None: d, getlist=lambda _k: [])
+    )
+    out = json.loads(auth_module._filter_search_mcp_servers("u", body, request))
+    server = out["mcp_servers"][0]
+    assert server["latest_version"] is None
+    assert server["aliases"] is None
+    assert server["access_endpoints"][0]["resolved_version"] is None
+    # Summary endpoints have no ``tools`` field; redaction must not inject one.
+    assert "tools" not in server["access_endpoints"][0]
+
+
+def test_role_based_permission_resolver_matches_store_fold(monkeypatch, tmp_path):
+    # The bulk full-Permission resolver must resolve each id to the SAME Permission as the
+    # authoritative per-resource store fold (get_role_permission_for_resource), so allowed-
+    # action stamping via the bulk path is identical to the single-resource path.
+    from mlflow.server.auth.permissions import DENY, EDIT, USE, get_permission
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'perm-resolver.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    ws = "default"  # DEFAULT_WORKSPACE_NAME when workspaces are disabled
+    user = store.create_user("resolver-user", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="rr", workspace=ws)
+    store.add_role_permission(role.id, "mcp_server", "srv-edit", EDIT.name)
+    store.add_role_permission(role.id, "mcp_server", "srv-deny", DENY.name)
+    store.add_role_permission(role.id, "mcp_server", "srv-use", USE.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    resolver = auth_module._role_based_permission_resolver("resolver-user", "mcp_server")
+
+    def store_perm(name):
+        folded = store.get_role_permission_for_resource(user.id, "mcp_server", name, ws)
+        return folded if folded is not None else get_permission(NO_PERMISSIONS.name)
+
+    # positive (EDIT/USE), DENY, and no-grant (default) all match the store fold.
+    for name in ("srv-edit", "srv-deny", "srv-use", "srv-none"):
+        assert resolver(name).name == store_perm(name).name, name
+
+
+def test_filter_search_mcp_servers_is_query_bounded(monkeypatch):
+    # The MCP server search filter must build the bulk permission resolver (and the version
+    # reader) ONCE per response, not once per server, so a multi-server page stays O(1)
+    # authorization queries rather than a workspace + grants round trip per distinct name.
+    from mlflow.server import auth
+    from mlflow.server.auth.permissions import MANAGE
+
+    builds = {"perm": 0, "version": 0}
+
+    def fake_resolver(username, resource_type, parent_type=None):
+        builds["perm"] += 1
+        return lambda _name: MANAGE  # readable + all actions
+
+    def fake_version_reader(username):
+        builds["version"] += 1
+        return lambda _name: True
+
+    monkeypatch.setattr(auth, "_role_based_permission_resolver", fake_resolver)
+    monkeypatch.setattr(auth, "_mcp_server_version_reader", fake_version_reader)
+    monkeypatch.setattr(auth, "_permission_to_allowed_actions", lambda _p: [])
+
+    body = json.dumps({"mcp_servers": [{"name": f"srv-{i}"} for i in range(10)]}).encode()
+    request = SimpleNamespace(
+        query_params=SimpleNamespace(get=lambda k, d=None: d, getlist=lambda _k: [])
+    )
+    auth._filter_search_mcp_servers("u", body, request)
+
+    assert builds["perm"] == 1  # built once for the whole page, not once per server
+    assert builds["version"] == 1
+
+
+def test_filter_search_mcp_endpoints_redacts_version_on_deny(monkeypatch):
+    body = json.dumps({
+        "mcp_access_endpoints": [
+            {"server_name": "srv", "resolved_version": {"version": 3}, "server_version": 3}
+        ]
+    }).encode()
+    monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
+
+    def fake_predicate(_username, resource_type, parent_type=None):
+        # endpoint row-read (mcp_server) allowed; version tier denied -> fields redacted.
+        return lambda _n: resource_type != "mcp_server_version"
+
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+    request = SimpleNamespace(
+        query_params=SimpleNamespace(get=lambda k, d=None: d, getlist=lambda _k: [])
+    )
+    out = json.loads(auth_module._filter_search_mcp_endpoints("u", body, request))
+    ep = out["mcp_access_endpoints"][0]
+    assert ep["resolved_version"] is None
+    assert ep["server_version"] is None
+
+
+def test_redact_registered_model_clears_aliases_on_version_deny(monkeypatch):
+    from mlflow.protos import model_registry_pb2 as pb
+
+    resp_msg = pb.GetRegisteredModel.Response()
+    rm = resp_msg.registered_model
+    rm.name = "m1"
+    rm.latest_versions.add().name = "m1"
+    alias = rm.aliases.add()
+    alias.alias = "prod"
+    alias.version = "3"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(
+        auth_module, "_rm_or_prompt_version_read_predicate", lambda _u: lambda _e: False
+    )
+    resp = _fake_resp(resp_msg)
+    auth_module.redact_get_registered_model_versions(resp)
+
+    out = pb.GetRegisteredModel.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert list(out.registered_model.latest_versions) == []
+    assert list(out.registered_model.aliases) == []
+
+
+def test_mcp_alias_routes_classified_as_version_paths():
+    # /{namespace}/{slug}/aliases/{alias} returns a full version response -> version tier.
+    assert auth_module._is_mcp_server_version_path(["ns", "slug", "aliases", "prod"]) is True
+    assert auth_module._is_mcp_server_version_path(["ns", "slug", "versions", "3"]) is True
+    assert auth_module._is_mcp_server_version_path(["ns", "slug", "tags"]) is False
+    # alias routes are not version-CREATE paths (that stays versions-only)
+    assert auth_module._is_mcp_server_version_create_path(["ns", "slug", "aliases"]) is False
+
+
+def test_registered_model_alias_routes_gated_on_version_tier():
+    # Alias set/delete mutate version mappings -> version-tier validators, matching the
+    # version-tier read on GetModelVersionByAlias (not the parent model/prompt tier).
+    from mlflow.protos.model_registry_pb2 import (
+        DeleteRegisteredModelAlias,
+        GetModelVersionByAlias,
+        SetRegisteredModelAlias,
+    )
+
+    handlers = auth_module.BEFORE_REQUEST_HANDLERS
+    assert (
+        handlers[SetRegisteredModelAlias]
+        is auth_module._validate_can_update_model_version_or_prompt_version
+    )
+    assert (
+        handlers[DeleteRegisteredModelAlias]
+        is auth_module._validate_can_delete_model_version_or_prompt_version
+    )
+    assert (
+        handlers[GetModelVersionByAlias]
+        is auth_module._validate_can_read_model_version_or_prompt_version
+    )
+
+
+def test_filter_list_scorers_child_only_grant_keeps_row(monkeypatch):
+    from mlflow.protos import service_pb2 as pb
+
+    resp_msg = pb.ListScorers.Response()
+    keep = resp_msg.scorers.add()
+    keep.experiment_id = 9
+    keep.scorer_name = "keep"
+    denied = resp_msg.scorers.add()
+    denied.experiment_id = 9
+    denied.scorer_name = "denied"
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(auth_module.store, "_scorer_pattern", lambda e, n: f"{e}/{n}")
+
+    # No experiment predicate is consulted; the scorer_version tier alone decides.
+    def fake_predicate(_username, resource_type, parent_type=None):
+        assert resource_type == "scorer_version"
+        return lambda pattern: not pattern.endswith("/denied")
+
+    monkeypatch.setattr(auth_module, "_role_based_read_predicate", fake_predicate)
+    resp = _fake_resp(resp_msg)
+    auth_module.filter_list_scorers(resp)
+
+    out = pb.ListScorers.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert [s.scorer_name for s in out.scorers] == ["keep"]
+
+
+def test_update_registered_model_redacts_versions_only_on_deny(monkeypatch):
+    from mlflow.protos import model_registry_pb2 as pb
+
+    def build_resp():
+        m = pb.UpdateRegisteredModel.Response()
+        m.registered_model.name = "m1"
+        m.registered_model.latest_versions.add().name = "m1"
+        a = m.registered_model.aliases.add()
+        a.alias = "prod"
+        a.version = "3"
+        return _fake_resp(m)
+
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    monkeypatch.setattr(auth_module, "authenticate_request", lambda: SimpleNamespace(username="u"))
+
+    # No version DENY (parent-readable) -> response unchanged (no deviation).
+    monkeypatch.setattr(
+        auth_module, "_rm_or_prompt_version_read_predicate", lambda _u: lambda _e: True
+    )
+    resp = build_resp()
+    auth_module.redact_update_registered_model_versions(resp)
+    out = pb.UpdateRegisteredModel.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert [v.name for v in out.registered_model.latest_versions] == ["m1"]
+    assert len(out.registered_model.aliases) == 1
+
+    # version DENY -> version data redacted, but the operation still succeeded (handler ran).
+    monkeypatch.setattr(
+        auth_module, "_rm_or_prompt_version_read_predicate", lambda _u: lambda _e: False
+    )
+    resp = build_resp()
+    auth_module.redact_update_registered_model_versions(resp)
+    out = pb.UpdateRegisteredModel.Response()
+    auth_module.parse_dict(json.loads(resp.data), out)
+    assert list(out.registered_model.latest_versions) == []
+    assert list(out.registered_model.aliases) == []
+
+
+def test_update_registered_model_redaction_bypassed_for_admin(monkeypatch):
+    from mlflow.protos import model_registry_pb2 as pb
+
+    m = pb.UpdateRegisteredModel.Response()
+    m.registered_model.name = "m1"
+    m.registered_model.latest_versions.add().name = "m1"
+    resp = _fake_resp(m)
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: True)
+    auth_module.redact_update_registered_model_versions(resp)
+    # admin path returns early; response untouched (data stays None -> not rewritten).
+    assert resp.data is None
+
+
+def test_filter_single_mcp_endpoint_redacts_on_version_deny(monkeypatch):
+    body = json.dumps({
+        "server_name": "srv",
+        "resolved_version": {"version": 3},
+        "server_version": 3,
+        "tools": ["t"],
+    }).encode()
+    req = SimpleNamespace()
+
+    # version DENY -> version fields nulled.
+    monkeypatch.setattr(
+        auth_module,
+        "_get_mcp_server_version_permission",
+        lambda *a: SimpleNamespace(can_read=False),
+    )
+    out = json.loads(auth_module._filter_single_mcp_endpoint("u", body, req))
+    assert out["resolved_version"] is None
+    assert out["server_version"] is None
+    assert out["tools"] is None
+
+    # version readable -> unchanged.
+    monkeypatch.setattr(
+        auth_module, "_get_mcp_server_version_permission", lambda *a: SimpleNamespace(can_read=True)
+    )
+    out = json.loads(auth_module._filter_single_mcp_endpoint("u", body, req))
+    assert out["resolved_version"] == {"version": 3}
+    assert out["tools"] == ["t"]
+
+
+def test_mcp_patch_and_endpoint_routes_registered_for_redaction():
+    filters = auth_module.FASTAPI_ENDPOINT_RESPONSE_FILTERS
+    assert filters[auth_module._update_mcp_server_endpoint] is auth_module._filter_get_mcp_server
+    assert (
+        filters[auth_module._search_server_access_endpoints_endpoint]
+        is auth_module._filter_search_mcp_endpoints
+    )
+    for ep in (
+        auth_module._get_mcp_access_endpoint_endpoint,
+        auth_module._create_mcp_access_endpoint_endpoint,
+        auth_module._update_mcp_access_endpoint_endpoint,
+    ):
+        assert filters[ep] is auth_module._filter_single_mcp_endpoint

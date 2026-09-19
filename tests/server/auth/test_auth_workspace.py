@@ -23,7 +23,7 @@ from mlflow.server.auth.routes import (
     SEARCH_DATASETS,
     UPLOAD_ARTIFACT,
 )
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore, _RoleGrant
 from mlflow.utils import workspace_context
 
 from tests.helper_functions import random_str
@@ -1016,7 +1016,7 @@ def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, m
 
 
 def test_filter_experiment_ids_workspace_scope_role(workspace_permission_setup, monkeypatch):
-    # Role with ('workspace', '*', USE) should grant read access to all experiments.
+    # Workspace USE admits top-level creation but does not grant resource reads.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     user_id = store.get_user(username).id
@@ -1029,7 +1029,7 @@ def test_filter_experiment_ids_workspace_scope_role(workspace_permission_setup, 
 
     token = workspace_context.set_server_request_workspace("team-a")
     try:
-        assert auth_module.filter_experiment_ids(["exp-1", "exp-2"]) == ["exp-1", "exp-2"]
+        assert auth_module.filter_experiment_ids(["exp-1", "exp-2"]) == []
     finally:
         workspace_context._WORKSPACE.reset(token)
 
@@ -1117,7 +1117,7 @@ def test_create_model_version_source_read_blocks_cross_workspace(
     # AttributeError on `.get(...)`. Bypass the target-model check (which reads
     # `name` from the body) to isolate the source-read coercion.
     monkeypatch.setattr(
-        auth_module, "_validate_can_update_registered_model_or_prompt", lambda: True
+        auth_module, "_validate_can_update_model_version_or_prompt_version", lambda: True
     )
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/model-versions/create",
@@ -3640,9 +3640,9 @@ def test_role_based_read_predicate_ignores_no_permissions_grants(monkeypatch):
 
         def list_role_grants_for_user_in_workspace(self, *args, **kwargs):
             return [
-                ("*", NO_PERMISSIONS.name),
-                ("exp-allowed", READ.name),
-                ("exp-explicit-deny", NO_PERMISSIONS.name),
+                _RoleGrant("experiment", "*", NO_PERMISSIONS.name),
+                _RoleGrant("experiment", "exp-allowed", READ.name),
+                _RoleGrant("experiment", "exp-explicit-deny", NO_PERMISSIONS.name),
             ]
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)

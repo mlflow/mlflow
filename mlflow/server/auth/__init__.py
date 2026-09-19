@@ -21,7 +21,7 @@ import os
 import re
 import secrets
 import threading
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -273,20 +273,32 @@ from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_
 from mlflow.server.auth.entities import GetUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import (
+    DENY,
     MANAGE,
     NO_PERMISSIONS,
+    RESOURCE_TYPE_ASSESSMENT,
     RESOURCE_TYPE_EXPERIMENT,
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
     RESOURCE_TYPE_GATEWAY_SECRET,
+    RESOURCE_TYPE_LOGGED_MODEL,
     RESOURCE_TYPE_MCP_SERVER,
+    RESOURCE_TYPE_MCP_SERVER_VERSION,
+    RESOURCE_TYPE_PROMPT,
+    RESOURCE_TYPE_PROMPT_VERSION,
     RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
+    RESOURCE_TYPE_REVIEW_QUEUE,
+    RESOURCE_TYPE_RUN,
     RESOURCE_TYPE_SCORER,
+    RESOURCE_TYPE_SCORER_VERSION,
+    RESOURCE_TYPE_TRACE,
     RESOURCE_TYPE_WORKSPACE,
     USE,
     Permission,
     _validate_resource_type,
     get_permission,
+    matches,
 )
 from mlflow.server.auth.permissions import (
     max_permission as max_permission,
@@ -403,6 +415,12 @@ from mlflow.server.mcp_server_api import (
     is_mcp_server_api_path,
 )
 from mlflow.server.mcp_server_api import (
+    create_mcp_access_endpoint as _create_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    get_mcp_access_endpoint as _get_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
     get_mcp_server as _get_mcp_server_endpoint,
 )
 from mlflow.server.mcp_server_api import (
@@ -410,6 +428,15 @@ from mlflow.server.mcp_server_api import (
 )
 from mlflow.server.mcp_server_api import (
     search_mcp_servers as _search_mcp_servers_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    search_server_access_endpoints as _search_server_access_endpoints_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    update_mcp_access_endpoint as _update_mcp_access_endpoint_endpoint,
+)
+from mlflow.server.mcp_server_api import (
+    update_mcp_server as _update_mcp_server_endpoint,
 )
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
@@ -641,21 +668,19 @@ def _get_role_permission_or_default(
 ) -> Permission:
     """Fold the role-derived permission against ``default_permission`` as a floor.
 
-    ``NO_PERMISSIONS`` is preserved rather than max'd against ``default_permission``
-    — it's the resolver's "user has no presence in this workspace" signal (no role
-    matches in the resource's workspace and it isn't an autograted default workspace).
-    That's the only place the workspace boundary lives in this chain; lifting it via
-    the floor would silently leak ``default_permission`` (e.g. READ) into every
-    workspace the user has no role in. ``None`` (workspaces disabled, no grant) still
-    falls through to ``default_permission`` as the safety net.
+    Two levels are preserved rather than max'd against ``default_permission``:
+    ``NO_PERMISSIONS`` (the resolver's "user has no presence in this workspace" signal
+    — no role matches in the resource's workspace and it isn't an autogranted default
+    workspace) and ``DENY`` (an explicit sub-resource restriction). Flooring either
+    would silently leak ``default_permission`` (e.g. READ) past a workspace boundary or
+    an intended deny. ``None`` (workspaces disabled, no grant) still falls through to
+    ``default_permission`` as the safety net.
     """
     perm = role_permission_func()
     default = get_permission(auth_config.default_permission)
     if perm is None:
-        # Workspaces disabled, no grant matched.
         return default
-    if perm.name == NO_PERMISSIONS.name:
-        # Workspace-boundary deny — see docstring.
+    if perm.name in (NO_PERMISSIONS.name, DENY.name):
         return perm
     return get_permission(max_permission(perm.name, default.name))
 
@@ -692,6 +717,31 @@ def _can_create_in_workspace(username: str) -> bool:
     if perm is None and _user_inherits_default_workspace_grant(workspace_name):
         return get_permission(auth_config.default_permission).can_use
     return False
+
+
+def _top_level_create_denied(resource_type: str, username: str) -> bool:
+    """``True`` iff a workspace-wide ``(resource_type, *, DENY)`` blocks CREATING a top-level
+    resource of that type.
+
+    Mirrors the sub-resource rule for the parent tier: workspace ``USE``/``EDIT`` allows
+    creating a top-level resource, but a ``(type, *, DENY)`` prevents it — exactly as a
+    ``(child, *, DENY)`` prevents child creation even under parent ``USE``. Creation has no
+    resource id yet, so this resolves the wildcard ``(type, *)`` grant in the request
+    workspace (the default workspace when workspaces are disabled, where grants live). A
+    ``DENY`` is opt-in, so this only ever blocks a caller who explicitly set it —
+    backwards-compatible with the pre-existing workspace-only create gate.
+    """
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    if workspace_name is None:
+        return False
+    perm = store.get_role_permission_for_resource(
+        store.get_user(username).id, resource_type, "*", workspace_name
+    )
+    return perm is not None and perm.name == DENY.name
 
 
 def _user_can_create_in_workspace() -> bool:
@@ -764,6 +814,8 @@ def _role_permission_for(
     workspace_lookup_id: str,
     workspace_fetcher: Callable[[str], Any],
     workspace_label: str,
+    parent_type: str | None = None,
+    parent_id: str | None = None,
 ) -> Callable[[], Permission | None]:
     """
     Build a callable that resolves a user's role-based permission on a specific resource,
@@ -773,6 +825,11 @@ def _role_permission_for(
     workspace-resolution id for composite resources, e.g. scorers use
     ``SqlAlchemyStore._scorer_pattern(experiment_id, scorer_name)`` as the role key
     but resolve the workspace via the parent experiment).
+
+    ``parent_type``/``parent_id`` name the resource's parent tier for the sub-resource
+    inheritance fold: when the caller holds no grant on ``resource_type``, the store
+    falls back to the parent tier (today's inheritance). Top-level resources pass
+    neither and resolve on a single tier exactly as before.
     """
 
     def _role_perm() -> Permission | None:
@@ -793,7 +850,7 @@ def _role_permission_for(
             # an --artifacts-only server that shares the auth DB but has no experiment data.
             workspace_name = DEFAULT_WORKSPACE_NAME
         perm = store.get_role_permission_for_resource(
-            user.id, resource_type, resource_key, workspace_name
+            user.id, resource_type, resource_key, workspace_name, parent_type, parent_id
         )
         if perm is not None:
             return perm
@@ -820,11 +877,14 @@ def _role_permission_for_known_workspace(
     resource_type: str,
     resource_key: str,
     workspace_name: str | None,
+    parent_type: str | None = None,
+    parent_id: str | None = None,
 ) -> Callable[[], Permission | None]:
     """Like ``_role_permission_for`` but with workspace already resolved.
 
     Avoids the ``workspace_fetcher`` DB round-trip when the caller already
-    holds the resource object (e.g. ``_get_permission_from_registered_model_or_prompt_name``).
+    holds the resource object. ``parent_type``/``parent_id`` carry the child
+    fallback tier exactly as they do for ``_role_permission_for``.
     """
 
     def _role_perm() -> Permission | None:
@@ -839,7 +899,12 @@ def _role_permission_for_known_workspace(
             resolved_workspace = DEFAULT_WORKSPACE_NAME
         user = store.get_user(username)
         perm = store.get_role_permission_for_resource(
-            user.id, resource_type, resource_key, resolved_workspace
+            user.id,
+            resource_type,
+            resource_key,
+            resolved_workspace,
+            parent_type,
+            parent_id,
         )
         if perm is not None:
             return perm
@@ -875,14 +940,75 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
 # artifact-proxy validator falls back to the coarser workspace-tier grant.
 _EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
 
+# Proxied artifact paths carry the resource layout in the segments after the experiment id:
+#   run:          <experiment_id>/<run_id>/artifacts/...
+#   trace:        <experiment_id>/traces/<trace_id>/artifacts/...
+#   logged model: <experiment_id>/models/<model_id>/artifacts/...
+#   experiment:   <experiment_id>/artifacts/... (experiment-level, no child)
+# ``traces``/``models``/``artifacts`` are the fixed subdirectory names the tracking store
+# uses (``TRACE_FOLDER_NAME``/``MODELS_FOLDER_NAME``/``ARTIFACTS_FOLDER_NAME``). Matching them
+# lets the proxy authorize each artifact on its own child tier (with experiment fallback), so a
+# ``trace``/``logged_model``/``run`` DENY is honored and a child-only grant can use the proxy.
+_ARTIFACT_PROXY_LAYOUT_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?\d+/([^/]+)(?:/([^/]+))?")
+_ARTIFACT_PROXY_CHILD_FOLDERS = {"traces": "trace", "models": "logged_model"}
 
-def _get_experiment_id_from_view_args():
+
+def _artifact_proxy_child_from_path(artifact_path: str | None) -> tuple[str, str] | None:
+    """Return ``(child_type, child_key)`` for a proxied artifact path, or ``None`` for an
+    experiment-level path (or absent path) that should resolve on the experiment tier.
+    """
+    if not artifact_path:
+        return None
+    m = _ARTIFACT_PROXY_LAYOUT_PATTERN.match(artifact_path)
+    if not m:
+        return None
+    second = m.group(1)
+    third = m.group(2)
+    # ``<experiment_id>/artifacts/...`` targets the experiment itself.
+    if second == "artifacts":
+        return None
+    if child_type := _ARTIFACT_PROXY_CHILD_FOLDERS.get(second):
+        # ``traces``/``models`` are folder names; the next segment is the concrete child
+        # id, or absent when listing the folder root. Child grants are wildcard-only, so a
+        # missing id resolves on the wildcard key ``*`` — the folder listing is still gated
+        # by the child tier (honoring DENY) with experiment fallback.
+        return child_type, (third if third is not None else "*")
+    # Any other second segment is a run id: ``<experiment_id>/<run_id>/artifacts/...``.
+    return "run", second
+
+
+def _artifact_proxy_path_from_view_args() -> str | None:
     # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
     # For the list-artifacts endpoint, the path is a query parameter named "path".
-    if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
+    return request.view_args.get("artifact_path") or request.args.get("path")
+
+
+def _get_experiment_id_from_view_args():
+    if artifact_path := _artifact_proxy_path_from_view_args():
         if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
             return m.group(1)
     return None
+
+
+def _proxy_artifact_permission_for_layout(
+    experiment_id: str, artifact_path: str, username: str
+) -> Permission:
+    """Resolve a proxied artifact's permission on the correct child tier for its layout,
+    falling back to the experiment tier for experiment-level paths.
+    """
+    if child := _artifact_proxy_child_from_path(artifact_path):
+        child_type, child_key = child
+        return _experiment_child_permission(child_type, child_key, experiment_id, username=username)
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="experiment",
+            resource_key=experiment_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+        ),
+    )
 
 
 def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
@@ -891,17 +1017,9 @@ def _get_permission_from_experiment_id_artifact_proxy() -> Permission:
     # Flask-served list/delete/presigned/MPU requests.
     username = getattr(g, "mlflow_authenticated_user", None) or authenticate_request().username
 
+    artifact_path = _artifact_proxy_path_from_view_args()
     if experiment_id := _get_experiment_id_from_view_args():
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="experiment",
-                resource_key=experiment_id,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
+        return _proxy_artifact_permission_for_layout(experiment_id, artifact_path, username)
 
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():
@@ -939,43 +1057,112 @@ def _get_permission_from_experiment_name() -> Permission:
     )
 
 
-def _get_run_permission(run_id: str) -> Permission:
-    # run permissions inherit from parent resource (experiment)
-    # so we just get the experiment permission
-    run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
-    username = authenticate_request().username
+def _experiment_child_permission(
+    child_type: str, child_key: str, experiment_id: str, username: str | None = None
+) -> Permission:
+    """Resolve a sub-resource's permission on its own tier, scoped to ``experiment_id``.
+
+    The child (``run``/``trace``/``assessment``/``logged_model``/``review_queue``) is
+    resolved on ``child_type`` and, on child-grant absence, falls back to the parent
+    experiment (today's inheritance). ``child_key`` is the resource key: a concrete id
+    when one exists, or ``"*"`` for create-style routes that target the experiment
+    before a child id is minted (child grants are wildcard-grain, so ``"*"`` matches
+    any child grant). The experiment supplies both the workspace scope and the parent
+    fallback tier, so a ``DENY`` child grant restricts and a positive child grant
+    escalates independently of the experiment level. ``username`` defaults to the
+    request's authenticated user; callers that already resolved it (GraphQL, the
+    artifact proxy) pass it to avoid re-authenticating.
+    """
     return _get_role_permission_or_default(
         _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
+            username=username or authenticate_request().username,
+            resource_type=child_type,
+            resource_key=child_key,
             workspace_lookup_id=experiment_id,
             workspace_fetcher=_get_tracking_store().get_experiment,
             workspace_label="experiment",
+            parent_type="experiment",
+            parent_id=experiment_id,
         ),
     )
+
+
+def _get_run_permission(run_id: str) -> Permission:
+    experiment_id = _get_tracking_store().get_run(run_id).info.experiment_id
+    return _experiment_child_permission("run", run_id, experiment_id)
 
 
 def _get_permission_from_run_id() -> Permission:
     return _get_run_permission(_get_request_param("run_id"))
 
 
-def _get_model_permission(model_id: str) -> Permission:
-    # logged model permissions inherit from parent resource (experiment)
-    model = _get_tracking_store().get_logged_model(model_id)
-    experiment_id = model.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
+def _get_trace_permission(trace_id: str) -> Permission:
+    try:
+        trace = _get_tracking_store().get_trace_info(trace_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return NO_PERMISSIONS
+        raise
+    return _experiment_child_permission("trace", trace_id, trace.experiment_id)
+
+
+def _get_run_permission_for_experiment(experiment_id: str) -> Permission:
+    return _experiment_child_permission("run", "*", experiment_id)
+
+
+def _get_permission_from_experiment_id_for_run() -> Permission:
+    return _get_run_permission_for_experiment(_get_request_param("experiment_id"))
+
+
+def _get_trace_permission_for_experiment(experiment_id: str) -> Permission:
+    return _experiment_child_permission("trace", "*", experiment_id)
+
+
+def _trace_read_predicate() -> Callable[[str], bool]:
+    """Bulk ``experiment_id -> bool`` trace-read predicate.
+
+    Loads the caller's grants once and evaluates every experiment locally, so a
+    multi-experiment trace request stays O(1) authorization queries instead of one
+    workspace + grants round trip per experiment. Equivalent per-experiment to
+    ``_get_trace_permission_for_experiment(eid).can_read`` (trace tier, experiment
+    fallback).
+    """
+    return _role_based_read_predicate(
+        authenticate_request().username, "trace", parent_type="experiment"
     )
+
+
+def _get_assessment_permission_from_trace_id(trace_id: str) -> Permission:
+    """Resolve an assessment permission after locating its trace's experiment.
+
+    Assessments are wildcard-grain children of experiments, reached through a trace.
+    A missing trace fails closed to ``NO_PERMISSIONS`` rather than exposing whether the
+    trace exists.
+    """
+    try:
+        trace = _get_tracking_store().get_trace_info(trace_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return NO_PERMISSIONS
+        raise
+    return _experiment_child_permission("assessment", "*", trace.experiment_id)
+
+
+def _get_logged_model_permission_for_experiment(experiment_id: str) -> Permission:
+    return _experiment_child_permission("logged_model", "*", experiment_id)
+
+
+def _get_model_permission(model_id: str) -> Permission:
+    model = _get_tracking_store().get_logged_model(model_id)
+    return _experiment_child_permission("logged_model", model_id, model.experiment_id)
+
+
+def _get_review_queue_permission_for_experiment(experiment_id: str) -> Permission:
+    return _experiment_child_permission("review_queue", "*", experiment_id)
+
+
+def _get_review_queue_permission(queue) -> Permission:
+    return _get_review_queue_permission_for_experiment(queue.experiment_id)
 
 
 def _get_permission_from_model_id() -> Permission:
@@ -1058,6 +1245,46 @@ def _get_permission_from_registered_model_or_prompt_name() -> Permission:
     )
 
 
+def _get_model_version_permission_from_registered_model_or_prompt_name() -> Permission:
+    """Resolve a model/prompt version on its child tier with parent fallback."""
+    name = _get_request_param("name")
+    username = authenticate_request().username
+    workspace_name = None
+    parent_type = "registered_model"
+    child_type = "registered_model_version"
+    try:
+        rm = _get_model_registry_store().get_registered_model(name)
+        if rm._is_prompt():
+            parent_type = "prompt"
+            child_type = "prompt_version"
+        workspace_name = getattr(rm, "workspace", None)
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            raise
+    return _get_role_permission_or_default(
+        _role_permission_for_known_workspace(
+            username,
+            child_type,
+            "*",
+            workspace_name,
+            parent_type=parent_type,
+            parent_id=name,
+        )
+    )
+
+
+def _validate_can_read_model_version_or_prompt_version():
+    return _get_model_version_permission_from_registered_model_or_prompt_name().can_read
+
+
+def _validate_can_update_model_version_or_prompt_version():
+    return _get_model_version_permission_from_registered_model_or_prompt_name().can_update
+
+
+def _validate_can_delete_model_version_or_prompt_version():
+    return _get_model_version_permission_from_registered_model_or_prompt_name().can_delete
+
+
 def _get_permission_from_scorer_name() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
@@ -1072,6 +1299,116 @@ def _get_permission_from_scorer_name() -> Permission:
             workspace_label="experiment",
         ),
     )
+
+
+def _get_scorer_version_permission(experiment_id: str, name: str) -> Permission:
+    username = authenticate_request().username
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="scorer_version",
+            resource_key="*",
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+            parent_type="scorer",
+            parent_id=store._scorer_pattern(experiment_id, name),
+        )
+    )
+
+
+def _get_permission_from_scorer_version_name() -> Permission:
+    return _get_scorer_version_permission(
+        _get_request_param("experiment_id"), _get_request_param("name")
+    )
+
+
+def _deny_veto(*permissions: "Permission | None") -> bool:
+    """Universal DENY veto (RFC "absolute deny"): return ``True`` (⇒ reject) iff **any**
+    resolved permission is ``DENY``.
+
+    Positive requirements are anchor-scoped -- a route requires only its same-parent
+    children, so requiring a *cross-parent* positive grant would break an existing caller who
+    legitimately lacks it. A ``DENY`` is the opposite: it must hold on **every** resource the
+    call path touches (even a cross-parent one for which no positive grant is required),
+    because ``DENY`` is a net-new, opt-in grant -- vetoing only blocks a caller who
+    *explicitly* set ``(X, *, DENY)``, so it is backwards-compatible by construction. Resolve
+    each touched resource's tier (parent fallback is built into the resolver) and pass the
+    Permissions here.
+    """
+    return any(p is not None and p.name == DENY.name for p in permissions)
+
+
+def _scorer_version_deny_active(experiment_id: str) -> bool:
+    """``True`` iff the caller holds a workspace-wide ``(scorer_version, *, DENY)`` in the
+    experiment's workspace -- the cross-parent DENY veto for routes that *use* a scorer.
+
+    Composite/invoke routes (``INVOKE_SCORER`` / ``INVOKE_GENAI_EVALUATE`` /
+    ``CreatePromptOptimizationJob``) and new-scorer registration require no *positive*
+    ``scorer_version`` grant (it is cross-parent to the experiment anchor -- Copilot #32), but
+    a ``scorer_version`` ``DENY`` must still block them. The wildcard grant denies every
+    version in the workspace, so this resolves the ``(scorer_version, *)`` tier independent of
+    any specific scorer name.
+    """
+    username = authenticate_request().username
+    return _deny_veto(
+        _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="scorer_version",
+                resource_key="*",
+                workspace_lookup_id=experiment_id,
+                workspace_fetcher=_get_tracking_store().get_experiment,
+                workspace_label="experiment",
+            )
+        )
+    )
+
+
+def validate_can_register_scorer():
+    """Register a scorer (creates the scorer parent and/or a new version).
+
+    Positive authorization is anchor-scoped:
+    * **new scorer** -- creation is gated on ``experiment.can_update`` (its pre-RFC contract;
+      scorer is not an experiment child, and the not-yet-existing ``scorer_version`` tier
+      would fall to ``default_permission`` and wrongly deny an experiment-``EDIT`` creator);
+    * **existing scorer** -- a new version resolves the ``scorer_version`` tier
+      (``can_update``), so a positive ``scorer_version`` grant is authoritative.
+
+    On top of the positive check, a ``(scorer_version, *, DENY)`` vetoes creating a new
+    scorer's first version (the existing-scorer path already folds a ``DENY`` into
+    ``can_update``).
+    """
+    experiment_id = _get_request_param("experiment_id")
+    name = _get_request_param("name")
+    try:
+        _get_tracking_store().get_scorer(experiment_id, name)
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            raise
+        g.mlflow_creates_scorer_parent = True
+        if not _get_experiment_permission(
+            experiment_id, authenticate_request().username
+        ).can_update:
+            return False
+        return not _scorer_version_deny_active(experiment_id)
+    return _get_scorer_version_permission(experiment_id, name).can_update
+
+
+def validate_can_read_scorer_version():
+    return _get_permission_from_scorer_version_name().can_read
+
+
+def validate_can_update_scorer_version():
+    return _get_permission_from_scorer_version_name().can_update
+
+
+def validate_can_delete_scorer_version():
+    body = request.get_json(silent=True)
+    version = body.get("version") if isinstance(body, dict) else None
+    if version is None:
+        return _get_permission_from_scorer_name().can_delete
+    return _get_permission_from_scorer_version_name().can_delete
 
 
 def _get_permission_from_scorer_permission_request() -> Permission:
@@ -1155,6 +1492,21 @@ def _get_mcp_server_permission(name: str, username: str) -> Permission:
     )
 
 
+def _get_mcp_server_version_permission(name: str, username: str) -> Permission:
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="mcp_server_version",
+            resource_key="*",
+            workspace_lookup_id=name,
+            workspace_fetcher=_get_tracking_store().get_mcp_server,
+            workspace_label="mcp server",
+            parent_type="mcp_server",
+            parent_id=name,
+        ),
+    )
+
+
 def _permission_to_allowed_actions(perm: Permission) -> list[str]:
     actions = []
     if perm.can_use:
@@ -1225,6 +1577,23 @@ def validate_can_read_run():
     return _get_permission_from_run_id().can_read
 
 
+def validate_can_create_run():
+    """Gate CreateRun on the ``run`` tier scoped to the target experiment, falling
+    back to experiment ``can_update`` when no run grant is present.
+    """
+    return _get_permission_from_experiment_id_for_run().can_update
+
+
+def validate_can_create_prompt_optimization_job():
+    """CreatePromptOptimizationJob creates a run (positive: run tier) and its optimize job
+    uses scorers. A positive ``scorer_version`` grant is not required (cross-parent to the
+    experiment anchor), but a ``(scorer_version, *, DENY)`` vetoes it.
+    """
+    if not validate_can_create_run():
+        return False
+    return not _scorer_version_deny_active(_get_request_param("experiment_id"))
+
+
 def validate_can_update_run():
     return _get_permission_from_run_id().can_update
 
@@ -1284,11 +1653,37 @@ def validate_can_update_prompt_optimization_job():
     return _get_permission_from_prompt_optimization_job_id().can_update
 
 
+def _prompt_optimization_job_run_id() -> "str | None":
+    """The MLflow run the optimization job created, stored in the job's ``params`` (the
+    same record ``_delete_prompt_optimization_job`` reads to delete the run). ``None`` when
+    the job never created a run.
+    """
+    job_id = _get_request_param("job_id")
+    return json.loads(get_job(job_id).params).get("run_id")
+
+
 def validate_can_delete_prompt_optimization_job():
-    return _get_permission_from_prompt_optimization_job_id().can_delete
+    """DeletePromptOptimizationJob deletes the job AND its associated MLflow run
+    (``_delete_prompt_optimization_job`` -> ``delete_run(run_id)``). Keep the existing
+    job/experiment-tier delete gate, and additionally require run-tier DELETE on the job's
+    run so a ``(run, *, DENY)`` grant an experiment-``MANAGE`` caller would otherwise bypass
+    through this route is honored (experiment fallback keeps it backwards-compatible).
+    """
+    if not _get_permission_from_prompt_optimization_job_id().can_delete:
+        return False
+    run_id = _prompt_optimization_job_run_id()
+    if not run_id:
+        return True
+    return _get_run_permission(run_id).can_delete
 
 
 # Logged models
+def validate_can_create_logged_model():
+    return _get_logged_model_permission_for_experiment(
+        _get_request_param("experiment_id")
+    ).can_update
+
+
 def validate_can_read_logged_model():
     return _get_permission_from_model_id().can_read
 
@@ -1402,7 +1797,7 @@ def validate_can_create_model_version():
     # registered model, so without a read check here a caller could point `source` at another
     # user's run/model and read those artifacts through their own registered model. Require read
     # on the source run/model to keep create-time access consistent with artifact-read gating.
-    if not _validate_can_update_registered_model_or_prompt():
+    if not _validate_can_update_model_version_or_prompt_version():
         return False
     # Parse through the proto, exactly as the handler does, so the camelCase `runId` /
     # `modelId` aliases the handler accepts are authorized against the same IDs it will
@@ -1437,15 +1832,35 @@ def _can_read_model_version_source(
 
 
 def validate_can_create_experiment() -> bool:
-    return _user_can_create_in_workspace()
+    # Workspace USE/EDIT allows creating an experiment, but a (experiment, *, DENY) prevents
+    # it -- mirroring the sub-resource rule (parent USE allows child creation; child DENY
+    # blocks it).
+    if not _user_can_create_in_workspace():
+        return False
+    return not _top_level_create_denied("experiment", authenticate_request().username)
 
 
 def validate_can_create_registered_model() -> bool:
-    return _user_can_create_in_workspace()
+    # CreateRegisteredModel creates a registered_model or a prompt (distinguished by a
+    # request tag). Workspace USE/EDIT allows it, but a (registered_model, *, DENY) or
+    # (prompt, *, DENY) prevents creation. Vetoing on either type is fail-safe: creation has
+    # no persisted entity to classify yet, and a DENY on the sibling type only over-blocks,
+    # never under-protects.
+    if not _user_can_create_in_workspace():
+        return False
+    username = authenticate_request().username
+    return not (
+        _top_level_create_denied("registered_model", username)
+        or _top_level_create_denied("prompt", username)
+    )
 
 
 def validate_can_create_mcp_server(username: str) -> bool:
-    return _can_create_in_workspace(username)
+    # Workspace USE/EDIT allows creating an MCP server, but a (mcp_server, *, DENY) prevents
+    # it (parent-resource mirror of the sub-resource DENY-blocks-creation rule).
+    if not _can_create_in_workspace(username):
+        return False
+    return not _top_level_create_denied("mcp_server", username)
 
 
 def validate_can_view_workspace() -> bool:
@@ -1675,6 +2090,22 @@ def _scorer_lookup_keys(resource_id: str) -> tuple[str, str]:
     return experiment_id, resource_id
 
 
+def _assessment_lookup_keys(resource_id: str) -> tuple[str, str]:
+    """Split an assessment ``resource_id`` into (trace_id, assessment_id).
+
+    Assessments are wildcard-grain children of an experiment reached through a trace,
+    so the convenience API needs the trace id to resolve the experiment (the assessment
+    id alone cannot). The key is ``<trace_id>/<assessment_id>``.
+    """
+    trace_id, sep, assessment_id = resource_id.partition("/")
+    if not sep:
+        raise MlflowException(
+            "Invalid assessment resource_id. Expected '<trace_id>/<assessment_id>'.",
+            INVALID_PARAMETER_VALUE,
+        )
+    return trace_id, assessment_id
+
+
 def _reject_workspace_resource_type(resource_type: str) -> None:
     # Workspace-tier grants have their own surface (set_workspace_permission /
     # delete_workspace_permission); rejecting here gives every code path the
@@ -1719,6 +2150,19 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
 }
 
 
+_CHILD_RESOURCE_TYPES = frozenset({
+    RESOURCE_TYPE_RUN,
+    RESOURCE_TYPE_TRACE,
+    RESOURCE_TYPE_ASSESSMENT,
+    RESOURCE_TYPE_LOGGED_MODEL,
+    RESOURCE_TYPE_REVIEW_QUEUE,
+    RESOURCE_TYPE_REGISTERED_MODEL_VERSION,
+    RESOURCE_TYPE_PROMPT_VERSION,
+    RESOURCE_TYPE_SCORER_VERSION,
+    RESOURCE_TYPE_MCP_SERVER_VERSION,
+})
+
+
 @dataclass(frozen=True)
 class _ResourceDispatch:
     """Lookup keys for resolving ``(resource_type, resource_id)`` against the
@@ -1732,6 +2176,8 @@ class _ResourceDispatch:
     workspace_lookup_id: str
     workspace_fetcher: Callable[[str], Any]
     workspace_label: str
+    parent_type: str | None = None
+    parent_id: str | None = None
 
 
 def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDispatch | None:
@@ -1745,6 +2191,92 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
             workspace_lookup_id=experiment_id,
             workspace_fetcher=_get_tracking_store().get_experiment,
             workspace_label="experiment",
+        )
+    if resource_type == RESOURCE_TYPE_RUN:
+        run = _get_tracking_store().get_run(resource_id)
+        return _ResourceDispatch(
+            resource_key=resource_id,
+            workspace_lookup_id=run.info.experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+            parent_type=RESOURCE_TYPE_EXPERIMENT,
+            parent_id=run.info.experiment_id,
+        )
+    if resource_type == RESOURCE_TYPE_TRACE:
+        trace = _get_tracking_store().get_trace_info(resource_id)
+        return _ResourceDispatch(
+            resource_key=resource_id,
+            workspace_lookup_id=trace.experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+            parent_type=RESOURCE_TYPE_EXPERIMENT,
+            parent_id=trace.experiment_id,
+        )
+    if resource_type == RESOURCE_TYPE_ASSESSMENT:
+        trace_id, assessment_id = _assessment_lookup_keys(resource_id)
+        trace = _get_tracking_store().get_trace_info(trace_id)
+        return _ResourceDispatch(
+            resource_key=assessment_id,
+            workspace_lookup_id=trace.experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+            parent_type=RESOURCE_TYPE_EXPERIMENT,
+            parent_id=trace.experiment_id,
+        )
+    if resource_type == RESOURCE_TYPE_LOGGED_MODEL:
+        model = _get_tracking_store().get_logged_model(resource_id)
+        return _ResourceDispatch(
+            resource_key=resource_id,
+            workspace_lookup_id=model.experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+            parent_type=RESOURCE_TYPE_EXPERIMENT,
+            parent_id=model.experiment_id,
+        )
+    if resource_type == RESOURCE_TYPE_REVIEW_QUEUE:
+        queue = _get_tracking_store().get_review_queue(resource_id)
+        return _ResourceDispatch(
+            resource_key=resource_id,
+            workspace_lookup_id=queue.experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+            parent_type=RESOURCE_TYPE_EXPERIMENT,
+            parent_id=queue.experiment_id,
+        )
+    if resource_type in {RESOURCE_TYPE_REGISTERED_MODEL_VERSION, RESOURCE_TYPE_PROMPT_VERSION}:
+        parent_type = (
+            RESOURCE_TYPE_REGISTERED_MODEL
+            if resource_type == RESOURCE_TYPE_REGISTERED_MODEL_VERSION
+            else RESOURCE_TYPE_PROMPT
+        )
+        return _ResourceDispatch(
+            resource_key=resource_id,
+            workspace_lookup_id=resource_id,
+            workspace_fetcher=_get_model_registry_store().get_registered_model,
+            workspace_label=(
+                "registered model" if parent_type == RESOURCE_TYPE_REGISTERED_MODEL else "prompt"
+            ),
+            parent_type=parent_type,
+            parent_id=resource_id,
+        )
+    if resource_type == RESOURCE_TYPE_SCORER_VERSION:
+        experiment_id, scorer_pattern = _scorer_lookup_keys(resource_id)
+        return _ResourceDispatch(
+            resource_key=resource_id,
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+            parent_type=RESOURCE_TYPE_SCORER,
+            parent_id=scorer_pattern,
+        )
+    if resource_type == RESOURCE_TYPE_MCP_SERVER_VERSION:
+        return _ResourceDispatch(
+            resource_key=resource_id,
+            workspace_lookup_id=resource_id,
+            workspace_fetcher=_get_tracking_store().get_mcp_server,
+            workspace_label="mcp server",
+            parent_type=RESOURCE_TYPE_MCP_SERVER,
+            parent_id=resource_id,
         )
     spec = _RESOURCE_WORKSPACE_FETCHER.get(resource_type)
     if spec is None:
@@ -1782,6 +2314,8 @@ def _resolve_user_permission_for_resource(
             workspace_lookup_id=dispatch.workspace_lookup_id,
             workspace_fetcher=dispatch.workspace_fetcher,
             workspace_label=dispatch.workspace_label,
+            parent_type=dispatch.parent_type,
+            parent_id=dispatch.parent_id,
         ),
     )
 
@@ -1794,6 +2328,15 @@ def validate_can_manage_resource() -> bool:
     resource_type = _get_request_param("resource_type")
     resource_id = _get_request_param("resource_id")
     requester = authenticate_request().username
+    if resource_type in _CHILD_RESOURCE_TYPES and resource_id == "*":
+        workspace_name = (
+            workspace_context.get_request_workspace()
+            if MLFLOW_ENABLE_WORKSPACES.get()
+            else DEFAULT_WORKSPACE_NAME
+        )
+        return workspace_name is not None and store.is_workspace_admin(
+            store.get_user(requester).id, workspace_name
+        )
     return _resolve_user_permission_for_resource(requester, resource_type, resource_id).can_manage
 
 
@@ -1870,59 +2413,220 @@ def _rm_or_prompt_read_predicate(username: str) -> Callable[[Any], bool]:
     return can_read
 
 
-def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[str], bool]:
+@dataclass
+class _ReadGrants:
+    """Accumulates one resource type's read grants for a predicate fold.
+
+    A parent resource type permits both wildcard and exact-id patterns, so grant
+    presence and DENY must be evaluated for the queried resource rather than for
+    the resource type as a whole. Child types are wildcard-only, but use the same
+    matcher to keep the two paths aligned with the store fold.
     """
-    Build a ``p(resource_id) -> bool`` predicate from ``username``'s role
-    grants in the active workspace. Max-style: any positive grant (specific or
-    wildcard) wins; ``NO_PERMISSIONS`` rows are ignored. Falls back to
-    ``default_permission.can_read`` when workspaces are disabled, otherwise to
-    deny.
+
+    resource_type: str
+    grants: list[tuple[str, str]] = field(default_factory=list)
+
+    def add(self, resource_pattern: str, permission: str) -> None:
+        if permission == DENY.name or get_permission(permission).can_read:
+            self.grants.append((resource_pattern, permission))
+
+    def matching_grants(self, resource_id: str) -> list[str]:
+        return [
+            permission
+            for resource_pattern, permission in self.grants
+            if matches(resource_pattern, self.resource_type, resource_id)
+        ]
+
+    def has_grant(self, resource_id: str) -> bool:
+        return bool(self.matching_grants(resource_id))
+
+    def can_read(self, resource_id: str) -> bool:
+        permissions = self.matching_grants(resource_id)
+        if DENY.name in permissions:
+            return False
+        return any(get_permission(permission).can_read for permission in permissions)
+
+    def permission(self, resource_id: str) -> Permission:
+        """Fold the matching grants for ``resource_id`` into a single ``Permission``.
+
+        Mirrors the store's ``_Grants.resolve`` (DENY-ahead-of-max): a matching ``DENY``
+        (or a match set that folds to nothing) resolves to ``DENY``; otherwise the max of
+        the matching positive permissions. Only meaningful when ``has_grant(resource_id)``
+        is true; an empty match yields ``NO_PERMISSIONS``.
+        """
+        permissions = self.matching_grants(resource_id)
+        if DENY.name in permissions:
+            return DENY
+        best: str | None = None
+        for permission in permissions:
+            best = max_permission(best, permission) if best is not None else permission
+        return get_permission(best) if best is not None else NO_PERMISSIONS
+
+
+def _rm_or_prompt_version_read_predicate(username: str) -> Callable[[Any], bool]:
+    """Build a version-read predicate for shared model-registry version responses."""
+    can_read_model_version = _role_based_read_predicate(
+        username, "registered_model_version", parent_type="registered_model"
+    )
+    can_read_prompt_version = _role_based_read_predicate(
+        username, "prompt_version", parent_type="prompt"
+    )
+
+    def can_read(entity) -> bool:
+        return (can_read_prompt_version if _entity_is_prompt(entity) else can_read_model_version)(
+            entity.name
+        )
+
+    return can_read
+
+
+def _load_role_grants(
+    username: str, resource_type: str, parent_type: str | None
+) -> tuple[bool, "_ReadGrants", "_ReadGrants | None", str | None]:
+    """Bulk-load ``username``'s child + parent grants for ``resource_type`` in one query.
+
+    Returns ``(workspace_admin, child_grants, parent_grants, workspace_name)``. A
+    ``workspace_name`` of ``None`` means there is no active workspace (callers deny / return
+    NO_PERMISSIONS). Shared by ``_role_based_read_predicate`` and
+    ``_role_based_permission_resolver`` so the single grants query and tier-loading logic
+    live in one place.
     """
     workspace_name = (
         workspace_context.get_request_workspace()
         if MLFLOW_ENABLE_WORKSPACES.get()
         else DEFAULT_WORKSPACE_NAME
     )
+    child = _ReadGrants(resource_type)
+    parent = _ReadGrants(parent_type) if parent_type is not None else None
+    workspace_admin = False
+    if workspace_name is None:
+        return workspace_admin, child, parent, workspace_name
+
+    user = store.get_user(username)
+    for grant in store.list_role_grants_for_user_in_workspace(
+        user.id, workspace_name, resource_type, parent_type
+    ):
+        if (
+            grant.resource_type == RESOURCE_TYPE_WORKSPACE
+            and grant.resource_pattern == "*"
+            and grant.permission == MANAGE.name
+        ):
+            workspace_admin = True
+        elif grant.resource_type == resource_type:
+            child.add(grant.resource_pattern, grant.permission)
+        elif parent is not None and grant.resource_type == parent_type:
+            parent.add(grant.resource_pattern, grant.permission)
+    return workspace_admin, child, parent, workspace_name
+
+
+def _role_based_read_predicate(
+    username: str, resource_type: str, parent_type: str | None = None
+) -> Callable[[str], bool]:
+    """
+    Build a ``p(resource_id) -> bool`` read predicate from ``username``'s role grants
+    in the active workspace, honoring the sub-resource tier-override model.
+
+    Precedence (highest first), mirroring ``get_role_permission_for_resource``:
+
+    1. **workspace-admin** — a ``(workspace, *, MANAGE)`` grant reads everything
+       (beats a child ``DENY``).
+    2. **child tier** — if the caller holds *any* grant on ``resource_type``:
+       a ``DENY`` grant denies; otherwise the row's ``can_read`` decides (wildcard or
+       specific id). The parent is not consulted.
+    3. **parent fallback** — only when ``parent_type`` is given and the caller has no
+       grant on the child type: resolve the parent tier the same way (today's
+       inheritance).
+    4. **default** — ``default_permission.can_read`` when workspaces are disabled or
+       the default-workspace autogrant applies; otherwise deny.
+
+    ``DENY`` is an absolute deny within its tier; it never overrides a present child
+    grant downward. ``NO_PERMISSIONS`` rows are inert (ignored), preserving pre-RFC
+    behavior. Top-level reads pass no ``parent_type`` and behave as a single tier —
+    identical to before this RFC.
+
+    PRECONDITION — super-admin is NOT handled here. This predicate honors only the
+    *workspace*-admin bypass (step 1); the *super*-admin (global ``is_admin``) bypass
+    lives OUTSIDE, at each caller's ``if sender_is_admin(): return`` guard. So a super
+    admin whose only relevant grant is a ``DENY`` would be wrongly denied if a caller
+    invoked this predicate without that guard first. Every current caller does gate
+    ``sender_is_admin()`` first; a NEW caller MUST do the same. The clean fix (deferred)
+    is to fold the super-admin bypass into a single shared resolver so ``DENY`` can
+    never be evaluated ahead of it — see ``get_role_permission_for_resource``.
+    """
+    workspace_admin, child, parent, workspace_name = _load_role_grants(
+        username, resource_type, parent_type
+    )
     if workspace_name is None:
         return lambda _resource_id: False
 
-    user = store.get_user(username)
-    readable: set[str] = set()
-    wildcard_can_read = False
-    for resource_pattern, permission in store.list_role_grants_for_user_in_workspace(
-        user.id, workspace_name, resource_type
-    ):
-        if not get_permission(permission).can_read:
-            continue
-        if resource_pattern == "*":
-            wildcard_can_read = True
-        else:
-            readable.add(resource_pattern)
-
-    default_can_read = get_permission(auth_config.default_permission).can_read
-    fallback = (
-        default_can_read
-        if (
-            not MLFLOW_ENABLE_WORKSPACES.get()
-            or _user_inherits_default_workspace_grant(workspace_name)
-        )
-        else False
+    default_read_fallback = get_permission(auth_config.default_permission).can_read and (
+        not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(workspace_name)
     )
 
     def predicate(resource_id: str) -> bool:
-        return resource_id in readable or wildcard_can_read or fallback
+        if workspace_admin:
+            return True
+        if child.has_grant(resource_id):
+            return child.can_read(resource_id)
+        if parent is not None and parent.has_grant(resource_id):
+            return parent.can_read(resource_id)
+        return default_read_fallback
 
     return predicate
 
 
+def _role_based_permission_resolver(
+    username: str, resource_type: str, parent_type: str | None = None
+) -> Callable[[str], Permission]:
+    """Bulk ``resource_id -> Permission`` resolver — the full-``Permission`` analog of
+    ``_role_based_read_predicate``.
+
+    Loads the caller's grants once and resolves every id in memory (O(1) queries),
+    returning the effective ``Permission`` (all capability bits, for e.g. allowed-action
+    stamping) under the same precedence: workspace-admin -> ``MANAGE``; child tier
+    (DENY-ahead-of-max); parent fallback; else the configured ``default_permission``.
+
+    Same super-admin precondition as ``_role_based_read_predicate``: this honors only the
+    workspace-admin bypass, so callers MUST gate ``sender_is_admin()`` first.
+    """
+    workspace_admin, child, parent, workspace_name = _load_role_grants(
+        username, resource_type, parent_type
+    )
+    if workspace_name is None:
+        return lambda _resource_id: NO_PERMISSIONS
+
+    applies_default = not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(
+        workspace_name
+    )
+    default_permission = (
+        get_permission(auth_config.default_permission) if applies_default else NO_PERMISSIONS
+    )
+
+    def resolver(resource_id: str) -> Permission:
+        if workspace_admin:
+            return MANAGE
+        if child.has_grant(resource_id):
+            return child.permission(resource_id)
+        if parent is not None and parent.has_grant(resource_id):
+            return parent.permission(resource_id)
+        return default_permission
+
+    return resolver
+
+
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
     """
-    Filter experiment IDs to only include those the user has read access to.
+    Filter experiment IDs to only include those whose runs the user can read.
 
     Called from ``search_runs_impl`` before the tracking store query. When workspaces
     are enabled, the tracking store subsequently filters to the active workspace, so we
     only consult role grants in that workspace here — experiments outside it would be
     rejected anyway.
+
+    Run search reads runs, so filtering is gated on the ``run`` tier with experiment
+    fallback: a ``(run, *, READ)`` escalation exposes runs, a ``(run, *, DENY)``
+    restriction hides them, and absent run grants inherit experiment read (pre-RFC
+    behavior).
 
     Args:
         experiment_ids: List of experiment IDs to filter
@@ -1936,7 +2640,9 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
     try:
         if sender_is_admin():
             return experiment_ids
-        predicate = _role_based_read_predicate(authenticate_request().username, "experiment")
+        predicate = _role_based_read_predicate(
+            authenticate_request().username, "run", parent_type="experiment"
+        )
         return [exp_id for exp_id in experiment_ids if predicate(exp_id)]
     except (RuntimeError, AttributeError):
         # Auth system not fully initialized, skip filtering
@@ -2086,13 +2792,60 @@ def validate_can_update_gateway_model_definition():
     return permission.can_use
 
 
+def validate_can_invoke_genai_evaluate():
+    """INVOKE_GENAI_EVALUATE creates a run in the request experiment, reads the supplied
+    ``trace_ids``, and the submitted evaluation job tags (``set_trace_tag``) and writes
+    assessments back onto those traces (``genai/evaluation/harness.py``). Enforce the three
+    experiment children it touches, each with experiment fallback so an experiment-``EDIT``
+    caller cannot bypass a ``(child, *, DENY)`` grant through this route:
+
+    * run UPDATE -- creates the evaluation run (same gate as ``CreateRun``);
+    * trace UPDATE -- the harness reads AND tags the evaluated traces
+      (``mlflow.set_trace_tag``, ``harness.py:894``), so require UPDATE, not just READ; gated
+      experiment-scoped (the wildcard-grain trace tier honors a workspace ``(trace, *,
+      DENY)`` regardless of the anchor experiment); and
+    * assessment UPDATE -- the evaluation always logs assessments back onto the traces
+      (unconditional here, unlike ``INVOKE_SCORER``'s ``log_assessments`` flag).
+
+    Asserting the supplied ``trace_ids`` actually belong to ``experiment_id`` is the
+    operation's business-logic concern, not the auth model's: trace is workspace/experiment-
+    grained, so the auth layer does not reverse-map a trace id to its experiment.
+    """
+    if not validate_can_create_run():
+        return False
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_trace_permission_for_experiment(experiment_id).can_update:
+        return False
+    if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
+        return False
+    # Cross-parent DENY veto: a (scorer_version, *, DENY) blocks the evaluation even though
+    # no positive scorer_version grant is required (the eval uses registered scorers).
+    if _scorer_version_deny_active(experiment_id):
+        return False
+    return True
+
+
 def validate_can_invoke_issue_detection():
     """
-    Issue detection creates a run in the request's experiment and, when ``secret_id`` is
-    given, decrypts that gateway secret into the job environment. Require UPDATE on the
-    experiment and USE on the secret, mirroring model-definition creation.
+    Issue detection creates a run in the request's experiment, reads the supplied
+    ``trace_ids``, writes ``Issue`` assessments back onto them (``_annotate_issue_traces``,
+    ``genai/discovery/pipeline.py``), and, when ``secret_id`` is given, decrypts that gateway
+    secret into the job environment. Require run-tier UPDATE on the target experiment
+    (experiment fallback, like ``CreateRun`` -- so a ``(run, *, DENY)`` grant is honored),
+    trace-tier READ and assessment-tier UPDATE on the experiment (honoring ``(trace, *,
+    DENY)`` / ``(assessment, *, DENY)``), and USE on the secret, mirroring model-definition
+    creation.
+
+    As with ``INVOKE_GENAI_EVALUATE``, trace/assessment are gated experiment-scoped;
+    asserting the supplied ``trace_ids`` belong to ``experiment_id`` is the operation's
+    business-logic concern, not the auth model's.
     """
-    if not validate_can_update_experiment():
+    if not validate_can_create_run():
+        return False
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_trace_permission_for_experiment(experiment_id).can_read:
+        return False
+    if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
         return False
     body = request.get_json(silent=True)
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
@@ -2100,6 +2853,38 @@ def validate_can_invoke_issue_detection():
     if not secret_id:
         return True
     return _get_gateway_secret_permission(secret_id).can_use
+
+
+def validate_can_invoke_scorer():
+    """INVOKE_SCORER applies a scorer (as a judge) to existing traces and can log the
+    results back as assessments. It does NOT create a run or mutate the experiment, and --
+    consistent with how the route is gated today -- applying a scorer is not treated as an
+    operation on the scorer resource, so no scorer / scorer_version permission is required.
+    The permission-relevant resources are the ones it actually touches:
+
+    * experiment UPDATE -- the existing gate for writing within the experiment;
+    * trace READ -- the traces being scored; ``trace_ids`` all belong to the request
+      experiment, so the wildcard-grain trace tier (experiment fallback) covers them; and
+    * assessment UPDATE -- only when ``log_assessments`` is set, since the job then writes
+      assessments back onto the traces (matching the direct assessment-write routes).
+
+    The trace/assessment checks honor a ``(child, *, DENY)`` grant that an
+    experiment-``EDIT`` caller would otherwise bypass through this route.
+    """
+    if not validate_can_update_experiment():
+        return False
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_trace_permission_for_experiment(experiment_id).can_read:
+        return False
+    body = request.get_json(silent=True)
+    if isinstance(body, dict) and body.get("log_assessments", False):
+        if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
+            return False
+    # Cross-parent DENY veto: a (scorer_version, *, DENY) blocks invoking a scorer even
+    # though no positive scorer_version grant is required (Copilot #32 split verdict).
+    if _scorer_version_deny_active(experiment_id):
+        return False
+    return True
 
 
 def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> bool:
@@ -2192,28 +2977,14 @@ def validate_can_update_gateway_endpoint():
 
 
 def _get_permission_from_run_id_or_uuid() -> Permission:
-    """
-    Get permission for Flask routes that use either run_id or run_uuid parameter.
-    """
+    """Resolve run artifact authorization on the run child tier."""
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     if not run_id:
         raise MlflowException(
             "Request must specify run_id or run_uuid parameter",
             INVALID_PARAMETER_VALUE,
         )
-    run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
+    return _get_run_permission(run_id)
 
 
 def validate_can_read_run_artifact():
@@ -2227,27 +2998,13 @@ def validate_can_update_run_artifact():
 
 
 def _get_permission_from_model_version() -> Permission:
-    """
-    Get permission for model version artifacts.
-    Model versions inherit permissions from their registered model.
-    """
-    name = request.args.get("name")
-    if not name:
+    """Resolve model/prompt version artifact reads on the version child tier."""
+    if not request.args.get("name"):
         raise MlflowException(
             "Request must specify name parameter",
             INVALID_PARAMETER_VALUE,
         )
-    username = authenticate_request().username
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="registered_model",
-            resource_key=name,
-            workspace_lookup_id=name,
-            workspace_fetcher=_get_model_registry_store().get_registered_model,
-            workspace_label="registered model",
-        ),
-    )
+    return _get_model_version_permission_from_registered_model_or_prompt_name()
 
 
 def validate_can_read_model_version_artifact():
@@ -2262,8 +3019,7 @@ def _get_permission_from_trace_request_id() -> Permission:
             "Request must specify request_id parameter",
             INVALID_PARAMETER_VALUE,
         )
-    trace = _get_tracking_store().get_trace_info(request_id)
-    return _get_experiment_permission(trace.experiment_id, authenticate_request().username)
+    return _get_trace_permission(request_id)
 
 
 def validate_can_read_trace_artifact():
@@ -2271,34 +3027,20 @@ def validate_can_read_trace_artifact():
     return _get_permission_from_trace_request_id().can_read
 
 
-def _get_permission_from_trace(trace_id: str, username: str) -> Permission:
-    try:
-        trace = _get_tracking_store().get_trace_info(trace_id)
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return NO_PERMISSIONS
-        raise
-    return _get_experiment_permission(trace.experiment_id, username)
-
-
 def validate_can_read_trace_by_request_id():
-    return _get_permission_from_trace(
-        _get_request_param("request_id"), authenticate_request().username
-    ).can_read
+    return _get_trace_permission(_get_request_param("request_id")).can_read
 
 
 def validate_can_read_trace_by_trace_id():
-    return _get_permission_from_trace(
-        _get_request_param("trace_id"), authenticate_request().username
-    ).can_read
+    return _get_trace_permission(_get_request_param("trace_id")).can_read
 
 
 def validate_can_search_traces():
     experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
-    username = authenticate_request().username
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(eid) for eid in experiment_ids)
 
 
 def validate_can_search_traces_v3():
@@ -2314,10 +3056,10 @@ def validate_can_search_traces_v3():
         if isinstance(ml_exp := loc.get("mlflow_experiment"), dict)
         if (eid := ml_exp.get("experiment_id"))
     ]
-    username = authenticate_request().username
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(eid) for eid in experiment_ids)
 
 
 def validate_can_batch_get_traces():
@@ -2332,43 +3074,127 @@ def validate_can_batch_get_traces():
         trace_ids = request.args.to_dict(flat=False).get("trace_ids", [])
     else:
         trace_ids = (request.json or {}).get("trace_ids", [])
-    username = authenticate_request().username
-    tracking_store = _get_tracking_store()
     try:
-        experiment_ids = {tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids}
+        experiment_ids = {
+            _get_tracking_store().get_trace_info(trace_id).experiment_id for trace_id in trace_ids
+        }
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(experiment_id) for experiment_id in experiment_ids)
 
 
 def validate_can_delete_traces():
-    return _get_experiment_permission(
-        _get_request_param("experiment_id"), authenticate_request().username
-    ).can_delete
+    return _get_trace_permission_for_experiment(_get_request_param("experiment_id")).can_delete
 
 
 def validate_can_update_trace_by_trace_id():
-    return _get_permission_from_trace(
-        _get_request_param("trace_id"), authenticate_request().username
-    ).can_update
+    return _get_trace_permission(_get_request_param("trace_id")).can_update
 
 
 def validate_can_update_trace_by_request_id():
-    return _get_permission_from_trace(
-        _get_request_param("request_id"), authenticate_request().username
-    ).can_update
+    return _get_trace_permission(_get_request_param("request_id")).can_update
+
+
+def validate_can_read_assessment():
+    return _get_assessment_permission_from_trace_id(_get_request_param("trace_id")).can_read
+
+
+def validate_can_update_assessment():
+    return _get_assessment_permission_from_trace_id(_get_request_param("trace_id")).can_update
 
 
 def validate_can_read_traces_by_experiment_ids():
     experiment_ids = (request.json or {}).get("experiment_ids", [])
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(eid) for eid in experiment_ids)
+
+
+# Trace-search filter identifiers that reference assessment data (``feedback`` and
+# ``expectation`` are assessment kinds). A correlation/metric filter referencing any of
+# these produces an assessment-derived result, so it must be gated on the assessment tier.
+_ASSESSMENT_FILTER_IDENTIFIERS = ("assessment", "feedback", "expectation")
+
+
+def _filter_references_assessments(*filter_strings: str) -> bool:
+    """Best-effort, fail-safe check for whether a trace filter references assessment data.
+
+    Matches an identifier used as a filter field prefix (e.g. ``feedback.correctness``),
+    including a backtick-quoted identifier (e.g. `` `feedback`.correctness ``) since
+    ``SearchUtils._valid_entity_type`` strips the backticks. Deliberately conservative: a
+    false positive only over-restricts (requires assessment READ on a filter that merely
+    looks assessment-related), never under-protects.
+    """
+    for filter_string in filter_strings:
+        if not filter_string:
+            continue
+        for identifier in _ASSESSMENT_FILTER_IDENTIFIERS:
+            if re.search(rf"(?<![\w.])`?{identifier}`?\.", filter_string, re.IGNORECASE):
+                return True
+    return False
+
+
+def validate_can_query_trace_metrics():
+    """Gate QueryTraceMetrics on the tiers of the data it returns.
+
+    Always require trace READ for every requested experiment. When ``view_type`` is
+    ``ASSESSMENTS`` the response is assessment-derived aggregates (values/counts/dimensions)
+    that never emit an assessment object -- so redaction cannot apply -- and must therefore
+    additionally require assessment READ. Otherwise a ``(trace READ)`` + ``(assessment,
+    *, DENY)`` caller would read assessment-derived data through this route.
+    """
+    from mlflow.protos.service_pb2 import MetricViewType
+
+    msg = _get_request_message(QueryTraceMetrics())
+    experiment_ids = list(msg.experiment_ids)
+    if not experiment_ids:
+        return False
     username = authenticate_request().username
-    return bool(experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in experiment_ids
-    )
+    trace_readable = _role_based_read_predicate(username, "trace", parent_type="experiment")
+    if not all(trace_readable(eid) for eid in experiment_ids):
+        return False
+    if msg.view_type == MetricViewType.ASSESSMENTS:
+        assessment_readable = _role_based_read_predicate(
+            username, "assessment", parent_type="experiment"
+        )
+        return all(assessment_readable(eid) for eid in experiment_ids)
+    return True
+
+
+def validate_can_calculate_trace_filter_correlation():
+    """Gate CalculateTraceFilterCorrelation on the tiers of the data it summarizes.
+
+    It returns an NPMI statistic over two trace-filter conditions. Always require trace READ
+    for every requested experiment; additionally require assessment READ when any of the
+    filter strings references assessment data (feedback/expectation), since the statistic is
+    then assessment-derived. Same expose-the-child-so-gate-the-child rule as
+    QueryTraceMetrics; the reference check is conservative (fail-safe toward requiring
+    assessment READ).
+    """
+    msg = _get_request_message(CalculateTraceFilterCorrelation())
+    experiment_ids = list(msg.experiment_ids)
+    if not experiment_ids:
+        return False
+    username = authenticate_request().username
+    trace_readable = _role_based_read_predicate(username, "trace", parent_type="experiment")
+    if not all(trace_readable(eid) for eid in experiment_ids):
+        return False
+    if _filter_references_assessments(msg.filter_string1, msg.filter_string2, msg.base_filter):
+        assessment_readable = _role_based_read_predicate(
+            username, "assessment", parent_type="experiment"
+        )
+        return all(assessment_readable(eid) for eid in experiment_ids)
+    return True
+
+
+def validate_can_start_trace():
+    return _get_trace_permission_for_experiment(_get_request_param("experiment_id")).can_update
 
 
 def validate_can_start_trace_v3():
@@ -2379,35 +3205,34 @@ def validate_can_start_trace_v3():
                 "trace_info": {"trace_location": {"mlflow_experiment": {"experiment_id": str(eid)}}}
             }
         } if eid:
-            return _get_experiment_permission(eid, authenticate_request().username).can_update
+            return _get_trace_permission_for_experiment(eid).can_update
         case _:
             return False
 
 
 def validate_can_link_traces_to_run():
-    tracking_store = _get_tracking_store()
-    username = authenticate_request().username
     run_id = _get_request_param("run_id")
     try:
-        run = tracking_store.get_run(run_id)
+        run_permission = _get_run_permission(run_id)
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    if not _get_experiment_permission(run.info.experiment_id, username).can_update:
+    if not run_permission.can_update:
         return False
     trace_ids = (request.json or {}).get("trace_ids", [])
     try:
-        trace_experiment_ids = {
-            tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids
+        experiment_ids = {
+            _get_tracking_store().get_trace_info(trace_id).experiment_id for trace_id in trace_ids
         }
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             return False
         raise
-    return bool(trace_experiment_ids) and all(
-        _get_experiment_permission(eid, username).can_read for eid in trace_experiment_ids
-    )
+    if not experiment_ids:
+        return False
+    trace_readable = _trace_read_predicate()
+    return all(trace_readable(experiment_id) for experiment_id in experiment_ids)
 
 
 def validate_can_read_metric_history_bulk(run_ids=None):
@@ -2425,23 +3250,8 @@ def validate_can_read_metric_history_bulk(run_ids=None):
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
-    tracking_store = _get_tracking_store()
-
     for run_id in run_ids:
-        run = tracking_store.get_run(run_id)
-        experiment_id = run.info.experiment_id
-        permission = _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="experiment",
-                resource_key=experiment_id,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
-        if not permission.can_read:
+        if not _get_run_permission(run_id).can_read:
             return False
 
     return True
@@ -2493,7 +3303,13 @@ def validate_can_search_datasets():
 
 
 def validate_can_create_promptlab_run():
-    """Checks UPDATE permission on the experiment."""
+    """Gate CreatePromptlabRun on the ``run`` tier of the target experiment.
+
+    The handler creates a run in ``experiment_id``, so this resolves the run child tier
+    (falling back to experiment ``can_update`` when no run grant is present), identical to
+    ``CreateRun`` -- otherwise an experiment-``EDIT`` caller with a ``(run, *, DENY)`` grant
+    could create runs through this route, bypassing the run ``DENY``.
+    """
     data = request.json
     experiment_id = data.get("experiment_id")
     if not experiment_id:
@@ -2502,18 +3318,7 @@ def validate_can_create_promptlab_run():
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
-    return permission.can_update
+    return _get_run_permission_for_experiment(experiment_id).can_update
 
 
 def validate_gateway_proxy():
@@ -2536,8 +3341,7 @@ def validate_gateway_proxy():
 # ``filter_list_review_queues``.
 def _get_permission_from_review_queue_id() -> Permission:
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    username = authenticate_request().username
-    return _get_experiment_permission(queue.experiment_id, username)
+    return _get_review_queue_permission(queue)
 
 
 def _get_permission_from_label_schema_id() -> Permission:
@@ -2559,25 +3363,26 @@ def _is_review_queue_owner(queue, username: str) -> bool:
 
 
 def _can_own_or_manage_review_queue(queue, username: str) -> bool:
-    """Owner-level access to a queue: experiment MANAGE, or experiment EDIT and
-    you own the queue (``created_by``). Ownership amplifies EDIT — it is never a
+    """Owner-level access to a queue: review_queue MANAGE, or review_queue EDIT
+    and ownership (``created_by``). Ownership amplifies EDIT — it is never a
     substitute for it.
     """
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _get_review_queue_permission(queue)
     if perm.can_manage:
         return True
     return perm.can_update and _is_review_queue_owner(queue, username)
 
 
 def _can_delete_or_prune_review_queue(queue, username: str) -> bool:
-    """Whether the user may delete the queue or remove its items (un-assign work).
+    """Whether the user may delete the queue (its only caller is delete_review_queue;
+    removing items is a plain review_queue EDIT and no longer routes here).
 
     A manager may act on any queue; an EDIT owner only on their own CUSTOM queue (a
     USER queue's lifecycle is a manager's responsibility, never its assignee's).
     """
     from mlflow.genai.review_queues import ReviewQueueType
 
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _get_review_queue_permission(queue)
     if perm.can_manage:
         return True
     return (
@@ -2654,13 +3459,16 @@ def _reject_rename_review_queue_shadowing_user(queue, message):
 
 
 def validate_can_create_review_queue():
-    # Creating (and thereby owning) a queue requires experiment EDIT.
-    permission = _get_permission_from_experiment_id().can_update
-    # A custom queue may not take a registered username, which would shadow that
-    # user's personal queue. Only enforced once the caller is authorized.
+    permission = _get_review_queue_permission_for_experiment(
+        _get_request_param("experiment_id")
+    ).can_update
     if permission:
         _reject_create_review_queue_shadowing_user()
     return permission
+
+
+def validate_can_list_review_queues():
+    return _get_review_queue_permission_for_experiment(_get_request_param("experiment_id")).can_read
 
 
 def validate_can_update_review_queue():
@@ -2671,7 +3479,7 @@ def validate_can_update_review_queue():
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
     message = _parse_update_review_queue_request()
     if message.HasField("new_owner"):
-        permission = _get_experiment_permission(queue.experiment_id, username).can_manage
+        permission = _get_review_queue_permission(queue).can_manage
     else:
         permission = _can_own_or_manage_review_queue(queue, username)
     # A rename can't take a registered username either (same shadowing concern).
@@ -2700,9 +3508,7 @@ def enforce_review_queue_name_not_username():
 
 
 def validate_can_remove_items_from_review_queue():
-    username = authenticate_request().username
-    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    return _can_delete_or_prune_review_queue(queue, username)
+    return _get_permission_from_review_queue_id().can_update
 
 
 def validate_can_delete_review_queue():
@@ -2712,20 +3518,20 @@ def validate_can_delete_review_queue():
 
 
 def validate_can_add_items_to_review_queue():
-    # Adding items (flag-for-review) is open to any EDITor, unlike removing them.
+    # Adding and removing items (flag-for-review / un-assign) are both review_queue EDIT.
     return _get_permission_from_review_queue_id().can_update
 
 
 def validate_can_get_or_create_user_queue():
-    return _get_permission_from_experiment_id().can_update
+    return _get_review_queue_permission_for_experiment(
+        _get_request_param("experiment_id")
+    ).can_update
 
 
 def validate_can_view_review_queue():
-    # Detail-tier read: experiment READ plus MANAGE, owner, or membership. Mirrors
-    # the row predicate in ``filter_list_review_queues``.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _get_review_queue_permission(queue)
     if not perm.can_read:
         return False
     if perm.can_manage or _review_queue_has_member(queue, username):
@@ -2736,7 +3542,7 @@ def validate_can_view_review_queue():
 def validate_can_view_review_queue_by_name():
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
-    perm = _get_experiment_permission(experiment_id, username)
+    perm = _get_review_queue_permission_for_experiment(experiment_id)
     if not perm.can_read:
         return False
     if perm.can_manage:
@@ -2752,10 +3558,10 @@ def validate_can_view_review_queue_by_name():
 def validate_can_review_queue_item():
     # Submitting / reopening review work: experiment EDIT plus membership in the
     # queue's assigned-user pool (even a manager must assign themselves first).
-    # Fetch the queue once and resolve the experiment permission from it.
+    # Fetch the queue once and resolve the review_queue child permission from it.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    perm = _get_experiment_permission(queue.experiment_id, username)
+    perm = _get_review_queue_permission(queue)
     return perm.can_update and _review_queue_has_member(queue, username)
 
 
@@ -2774,11 +3580,9 @@ def validate_can_manage_label_schema():
 def filter_list_review_queues(resp: Response) -> None:
     """Narrow a ``ListReviewQueues`` response to queues the caller may see.
 
-    A server admin or any user with experiment EDIT (or MANAGE) sees every
-    queue (the list tier is intentionally broad — clicking into a queue is
-    separately gated by ``validate_can_view_review_queue``). A READ-only user
-    sees only queues they are assigned to (their personal queue plus any custom
-    queue whose assigned-user pool contains them).
+    A review_queue EDIT/MANAGE grant sees every queue. A caller inheriting only
+    experiment READ sees queues they are assigned to. A review_queue DENY is rejected
+    by the pre-request read gate before this filter runs.
     """
     if sender_is_admin():
         return
@@ -2787,10 +3591,8 @@ def filter_list_review_queues(resp: Response) -> None:
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    # One shared experiment, so resolve the grant once: EDIT/MANAGE see all rows,
-    # READ-only users see only queues they're assigned to.
     experiment_id = _get_request_param("experiment_id")
-    perm = _get_experiment_permission(experiment_id, username)
+    perm = _get_review_queue_permission_for_experiment(experiment_id)
     if perm.can_update:
         return
 
@@ -2798,6 +3600,65 @@ def filter_list_review_queues(resp: Response) -> None:
     response_message.ClearField("review_queues")
     response_message.review_queues.extend(visible)
     resp.data = message_to_json(response_message)
+
+
+def _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable) -> None:
+    """Clear a ``TraceInfoV3``'s assessments when the caller can't read them.
+
+    Assessments are wildcard-grain children of the trace's experiment, so a single
+    per-experiment check gates every assessment on the trace. ``assessment_readable`` is a
+    ``p(experiment_id) -> bool`` predicate built once per response (see
+    ``_redact_trace_assessments_response``), so a multi-experiment batch stays O(1)
+    authorization queries rather than one workspace + grants round trip per experiment.
+    """
+    exp_id = trace_info_v3.trace_location.mlflow_experiment.experiment_id
+    if not assessment_readable(exp_id):
+        del trace_info_v3.assessments[:]
+
+
+def _redact_trace_assessments_response(
+    resp: Response, response_cls, trace_info_v3_selector
+) -> None:
+    """Shared after-request redactor for V3 trace responses embedding assessments.
+
+    ``trace_info_v3_selector`` yields each ``TraceInfoV3`` in the parsed response; the
+    row itself is already gated by the trace read validator, so this only drops embedded
+    assessment content a ``assessment`` DENY should hide. The assessment-read predicate is
+    built once from the caller's grants (one query, evaluated in memory) so redacting a
+    response spanning many experiments does not add a per-experiment query.
+    """
+    if sender_is_admin():
+        return
+    response_message = response_cls.Response()
+    parse_dict(resp.json, response_message)
+    assessment_readable = _role_based_read_predicate(
+        authenticate_request().username, "assessment", parent_type="experiment"
+    )
+    for trace_info_v3 in trace_info_v3_selector(response_message):
+        _redact_trace_info_v3_assessments(trace_info_v3, assessment_readable)
+    resp.data = message_to_json(response_message)
+
+
+def redact_get_trace_assessments(resp: Response):
+    _redact_trace_assessments_response(resp, GetTrace, lambda m: [m.trace.trace_info])
+
+
+def redact_get_trace_info_v3_assessments(resp: Response):
+    _redact_trace_assessments_response(resp, GetTraceInfoV3, lambda m: [m.trace.trace_info])
+
+
+def redact_search_traces_v3_assessments(resp: Response):
+    _redact_trace_assessments_response(resp, SearchTracesV3, lambda m: list(m.traces))
+
+
+def redact_batch_get_traces_assessments(resp: Response):
+    _redact_trace_assessments_response(
+        resp, BatchGetTraces, lambda m: [t.trace_info for t in m.traces]
+    )
+
+
+def redact_batch_get_trace_infos_assessments(resp: Response):
+    _redact_trace_assessments_response(resp, BatchGetTraceInfos, lambda m: list(m.trace_infos))
 
 
 BEFORE_REQUEST_HANDLERS = {
@@ -2811,7 +3672,7 @@ BEFORE_REQUEST_HANDLERS = {
     SetExperimentTag: validate_can_update_experiment,
     DeleteExperimentTag: validate_can_update_experiment,
     # Routes for runs
-    CreateRun: validate_can_update_experiment,
+    CreateRun: validate_can_create_run,
     GetRun: validate_can_read_run,
     DeleteRun: validate_can_delete_run,
     RestoreRun: validate_can_delete_run,
@@ -2841,26 +3702,26 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteRegisteredModel: _validate_can_delete_registered_model_or_prompt,
     UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
     RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
-    GetLatestVersions: _validate_can_read_registered_model_or_prompt,
+    GetLatestVersions: _validate_can_read_model_version_or_prompt_version,
     CreateModelVersion: validate_can_create_model_version,
-    GetModelVersion: _validate_can_read_registered_model_or_prompt,
-    DeleteModelVersion: _validate_can_delete_registered_model_or_prompt,
-    UpdateModelVersion: _validate_can_update_registered_model_or_prompt,
-    TransitionModelVersionStage: _validate_can_update_registered_model_or_prompt,
-    GetModelVersionDownloadUri: _validate_can_read_registered_model_or_prompt,
+    GetModelVersion: _validate_can_read_model_version_or_prompt_version,
+    DeleteModelVersion: _validate_can_delete_model_version_or_prompt_version,
+    UpdateModelVersion: _validate_can_update_model_version_or_prompt_version,
+    TransitionModelVersionStage: _validate_can_update_model_version_or_prompt_version,
+    GetModelVersionDownloadUri: _validate_can_read_model_version_or_prompt_version,
     SetRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
     DeleteRegisteredModelTag: _validate_can_update_registered_model_or_prompt,
-    SetModelVersionTag: _validate_can_update_registered_model_or_prompt,
-    DeleteModelVersionTag: _validate_can_delete_registered_model_or_prompt,
-    SetRegisteredModelAlias: _validate_can_update_registered_model_or_prompt,
-    DeleteRegisteredModelAlias: _validate_can_delete_registered_model_or_prompt,
-    GetModelVersionByAlias: _validate_can_read_registered_model_or_prompt,
+    SetModelVersionTag: _validate_can_update_model_version_or_prompt_version,
+    DeleteModelVersionTag: _validate_can_delete_model_version_or_prompt_version,
+    SetRegisteredModelAlias: _validate_can_update_model_version_or_prompt_version,
+    DeleteRegisteredModelAlias: _validate_can_delete_model_version_or_prompt_version,
+    GetModelVersionByAlias: _validate_can_read_model_version_or_prompt_version,
     # Routes for scorers
-    RegisterScorer: validate_can_update_experiment,
+    RegisterScorer: validate_can_register_scorer,
     ListScorers: validate_can_read_scorer_list,
-    GetScorer: validate_can_read_scorer,
-    DeleteScorer: validate_can_delete_scorer,
-    ListScorerVersions: validate_can_read_scorer,
+    GetScorer: validate_can_read_scorer_version,
+    DeleteScorer: validate_can_delete_scorer_version,
+    ListScorerVersions: validate_can_read_scorer_version,
     # Routes for gateway secrets
     CreateGatewaySecret: validate_can_create_gateway_secret,
     GetGatewaySecretInfo: validate_can_read_gateway_secret,
@@ -2904,13 +3765,15 @@ BEFORE_REQUEST_HANDLERS = {
     SetGatewayEndpointTag: validate_can_update_gateway_endpoint,
     DeleteGatewayEndpointTag: validate_can_update_gateway_endpoint,
     # Routes for prompt optimization jobs
-    CreatePromptOptimizationJob: validate_can_update_experiment,
+    # Creates a run in the target experiment -> gate on the run tier (experiment fallback,
+    # like CreateRun) so a (run, *, DENY) grant is honored, not just experiment UPDATE.
+    CreatePromptOptimizationJob: validate_can_create_prompt_optimization_job,
     GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
     SearchPromptOptimizationJobs: validate_can_read_experiment,
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
     DeletePromptOptimizationJob: validate_can_delete_prompt_optimization_job,
     # Routes for traces
-    StartTrace: validate_can_update_experiment,
+    StartTrace: validate_can_start_trace,
     StartTraceV3: validate_can_start_trace_v3,
     EndTrace: validate_can_update_trace_by_request_id,
     GetTraceInfo: validate_can_read_trace_by_request_id,
@@ -2928,18 +3791,18 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteTraceTagV3: validate_can_update_trace_by_trace_id,
     LinkTracesToRun: validate_can_link_traces_to_run,
     LinkPromptsToTrace: validate_can_update_trace_by_trace_id,
-    CalculateTraceFilterCorrelation: validate_can_read_traces_by_experiment_ids,
-    QueryTraceMetrics: validate_can_read_traces_by_experiment_ids,
-    CreateAssessment: validate_can_update_trace_by_trace_id,
-    GetAssessmentRequest: validate_can_read_trace_by_trace_id,
-    UpdateAssessment: validate_can_update_trace_by_trace_id,
-    DeleteAssessment: validate_can_update_trace_by_trace_id,
+    CalculateTraceFilterCorrelation: validate_can_calculate_trace_filter_correlation,
+    QueryTraceMetrics: validate_can_query_trace_metrics,
+    CreateAssessment: validate_can_update_assessment,
+    GetAssessmentRequest: validate_can_read_assessment,
+    UpdateAssessment: validate_can_update_assessment,
+    DeleteAssessment: validate_can_update_assessment,
     # Routes for review queues
     CreateReviewQueue: validate_can_create_review_queue,
     GetReviewQueue: validate_can_view_review_queue,
     GetReviewQueueByName: validate_can_view_review_queue_by_name,
     GetOrCreateUserQueue: validate_can_get_or_create_user_queue,
-    ListReviewQueues: validate_can_read_experiment,
+    ListReviewQueues: validate_can_list_review_queues,
     UpdateReviewQueue: validate_can_update_review_queue,
     DeleteReviewQueue: validate_can_delete_review_queue,
     AddItemsToReviewQueue: validate_can_add_items_to_review_queue,
@@ -3075,11 +3938,18 @@ BEFORE_REQUEST_VALIDATORS.update({
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-    # Invoke endpoints create runs in an experiment -> require update on it.
-    (INVOKE_SCORER, "POST"): validate_can_update_experiment,
+    # INVOKE_SCORER applies a scorer to existing traces (it does not create a run and is
+    # not a scorer-resource operation). Parent is the experiment; enforce the experiment
+    # children it touches -- trace READ, and assessment UPDATE when log_assessments is set.
+    # scorer_version is a child of scorer (a different parent), so it is NOT enforced here.
+    (INVOKE_SCORER, "POST"): validate_can_invoke_scorer,
+    # Issue detection and genai-evaluate create a run in the target experiment, so they
+    # gate on the run tier (experiment fallback) like CreateRun -> honors (run, *, DENY).
     # Issue detection may also consume a gateway secret -> additionally require USE on it.
+    # scorer_version (a child of scorer, a different parent) is not enforced -- applying a
+    # scorer is not a scorer-resource operation.
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
-    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
+    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_invoke_genai_evaluate,
     # Demo: generate is open to any authenticated user; delete is admin-only.
     (DEMO_GENERATE, "POST"): _allow_authenticated,
     (DEMO_DELETE, "POST"): sender_is_admin,
@@ -3121,7 +3991,7 @@ TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
 }
 
 LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
-    CreateLoggedModel: validate_can_update_experiment,
+    CreateLoggedModel: validate_can_create_logged_model,
     GetLoggedModel: validate_can_read_logged_model,
     DeleteLoggedModel: validate_can_delete_logged_model,
     FinalizeLoggedModel: validate_can_update_logged_model,
@@ -4086,8 +4956,7 @@ def filter_search_logged_models(resp: Response) -> None:
     parse_dict(resp.json, response_proto)
 
     username = authenticate_request().username
-    can_read = _role_based_read_predicate(username, "experiment")
-    # Remove unreadable models
+    can_read = _role_based_read_predicate(username, "logged_model", parent_type="experiment")
     for m in list(response_proto.models):
         if not can_read(m.info.experiment_id):
             response_proto.models.remove(m)
@@ -4143,6 +5012,24 @@ def filter_search_logged_models(resp: Response) -> None:
     resp.data = message_to_json(response_proto)
 
 
+def _redact_latest_versions(registered_model, can_read_version) -> None:
+    """Clear ``latest_versions`` and ``aliases`` when the caller can't read the model's
+    versions on the child tier.
+
+    ``GetRegisteredModel``/``UpdateRegisteredModel``/``RenameRegisteredModel``/
+    ``SearchRegisteredModels`` are gated on the parent registered model but embed
+    ``latest_versions`` and ``aliases`` (alias-to-version mappings), so a
+    ``registered_model_version`` DENY would otherwise leak version metadata through the
+    parent response. Version child grants are wildcard-only, so the read decision is a
+    single boolean for the whole model — clear both fields wholesale rather than filtering
+    per version. ``can_read_version`` is a ``_rm_or_prompt_version_read_predicate`` that
+    accepts the registered model itself (same ``name`` and prompt tag).
+    """
+    if not can_read_version(registered_model):
+        registered_model.ClearField("latest_versions")
+        registered_model.ClearField("aliases")
+
+
 def filter_search_registered_models(resp: Response):
     if sender_is_admin():
         return
@@ -4196,7 +5083,43 @@ def filter_search_registered_models(resp: Response):
         final_offset = start_offset + len(refetched)
         response_message.next_page_token = SearchUtils.create_page_token(final_offset)
 
+    can_read_version = _rm_or_prompt_version_read_predicate(username)
+    for rm in response_message.registered_models:
+        _redact_latest_versions(rm, can_read_version)
     resp.data = message_to_json(response_message)
+
+
+def _redact_registered_model_response(resp: Response, response_cls) -> None:
+    """Redact embedded version data (``latest_versions``/``aliases``) from a response that
+    carries a single ``registered_model``, on the version child tier. The operation itself
+    is already gated on the parent registered model; this only hides embedded version
+    metadata a ``registered_model_version`` DENY should not expose.
+    """
+    if sender_is_admin():
+        return
+    body = resp.json
+    if not body:
+        return
+    response_message = response_cls.Response()
+    parse_dict(body, response_message)
+    can_read_version = _rm_or_prompt_version_read_predicate(authenticate_request().username)
+    _redact_latest_versions(response_message.registered_model, can_read_version)
+    resp.data = message_to_json(response_message)
+
+
+def redact_get_registered_model_versions(resp: Response):
+    """Redact embedded version data in a ``GetRegisteredModel`` response the caller can't
+    read on the version child tier.
+    """
+    _redact_registered_model_response(resp, GetRegisteredModel)
+
+
+def redact_update_registered_model_versions(resp: Response):
+    """Redact embedded version data in an ``UpdateRegisteredModel`` response. The update
+    is authorized on the parent registered model (a child DENY must not block a parent
+    mutation); this only strips version metadata from the echoed model.
+    """
+    _redact_registered_model_response(resp, UpdateRegisteredModel)
 
 
 def filter_search_model_versions(resp: Response):
@@ -4209,8 +5132,8 @@ def filter_search_model_versions(resp: Response):
     username = authenticate_request().username
     # Prompt versions and model versions share the same REST surface; classify
     # each row by its ``mlflow.prompt.is_prompt`` tag so a prompt-version
-    # carrying a ``(prompt, name, READ)`` grant isn't dropped on the floor.
-    can_read = _rm_or_prompt_read_predicate(username)
+    # carrying a ``(prompt_version, *, READ)`` grant isn't dropped on the floor.
+    can_read = _rm_or_prompt_version_read_predicate(username)
 
     # filter out model versions whose parent model is unreadable
     for mv in list(response_message.model_versions):
@@ -4242,9 +5165,14 @@ def rename_registered_model_permission(resp: Response):
         )
     store.rename_grants_for_resource("registered_model", old_name, new_name, workspace_scoped=True)
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
+    # The rename response echoes the renamed RegisteredModel (with latest_versions/aliases);
+    # redact embedded version data the caller can't read on the version child tier.
+    _redact_registered_model_response(resp, RenameRegisteredModel)
 
 
 def set_can_manage_scorer_permission(resp: Response):
+    if not getattr(g, "mlflow_creates_scorer_parent", False):
+        return
     response_message = RegisterScorer.Response()
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
@@ -4257,7 +5185,9 @@ def set_can_manage_scorer_permission(resp: Response):
 
 
 def delete_scorer_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
+    data = request.get_json(force=True, silent=True) or {}
+    if data.get("version") is not None:
+        return
     experiment_id = data.get("experiment_id")
     name = data.get("name")
     if experiment_id and name:
@@ -4315,8 +5245,10 @@ def filter_list_scorers(resp: Response) -> None:
     Single-experiment requests are already gated by ``validate_can_read_scorer_list``
     (which delegates to ``validate_can_read_experiment``); cross-experiment requests
     (empty ``experiment_id``) skip that gate so the response can carry scorers from
-    multiple experiments. This filter applies the experiment + scorer read
-    predicates per row so the picker doesn't leak names the caller has no grant on.
+    multiple experiments. Each row embeds the scorer's latest ``ScorerVersion``
+    (``serialized_scorer``), so rows are gated on the ``scorer_version`` child tier
+    (which falls back to the parent scorer): a ``scorer_version`` DENY drops the row
+    and a child-only grant keeps it, matching the per-version RPCs.
     """
     if sender_is_admin():
         return
@@ -4325,14 +5257,15 @@ def filter_list_scorers(resp: Response) -> None:
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    can_read_experiment = _role_based_read_predicate(username, "experiment")
-    can_read_scorer = _role_based_read_predicate(username, "scorer")
+    can_read_scorer_version = _role_based_read_predicate(
+        username, "scorer_version", parent_type="scorer"
+    )
     for scorer in list(response_message.scorers):
         exp_id = str(scorer.experiment_id)
-        if not can_read_experiment(exp_id):
-            response_message.scorers.remove(scorer)
-            continue
-        if not can_read_scorer(store._scorer_pattern(exp_id, scorer.scorer_name)):
+        # The scorer_version tier (with scorer-parent fallback) is authoritative for the
+        # row, per the tier-override model: a scorer_version DENY hides it and a child-only
+        # scorer_version grant keeps it, without an extra experiment-read pre-gate.
+        if not can_read_scorer_version(store._scorer_pattern(exp_id, scorer.scorer_name)):
             response_message.scorers.remove(scorer)
     resp.data = message_to_json(response_message)
 
@@ -4403,11 +5336,18 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchLoggedModels: filter_search_logged_models,
     SearchModelVersions: filter_search_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
+    GetRegisteredModel: redact_get_registered_model_versions,
+    UpdateRegisteredModel: redact_update_registered_model_versions,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
     ListScorers: filter_list_scorers,
     DeleteScorer: delete_scorer_permissions_cascade,
     ListReviewQueues: filter_list_review_queues,
+    GetTrace: redact_get_trace_assessments,
+    GetTraceInfoV3: redact_get_trace_info_v3_assessments,
+    SearchTracesV3: redact_search_traces_v3_assessments,
+    BatchGetTraces: redact_batch_get_traces_assessments,
+    BatchGetTraceInfos: redact_batch_get_trace_infos_assessments,
     CreateGatewaySecret: set_can_manage_gateway_secret_permission,
     DeleteGatewaySecret: delete_gateway_secret_permissions_cascade,
     CreateGatewayEndpoint: set_can_manage_gateway_endpoint_permission,
@@ -5047,17 +5987,7 @@ def _graphql_get_permission_for_experiment(experiment_id: str, username: str) ->
 
 def _graphql_get_permission_for_run(run_id: str, username: str) -> Permission:
     run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
-    return _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
+    return _experiment_child_permission("run", run_id, run.info.experiment_id, username=username)
 
 
 def _graphql_get_permission_for_model(model_name: str, username: str) -> Permission:
@@ -5079,6 +6009,12 @@ def _graphql_can_read_experiment(experiment_id: str, username: str) -> bool:
 
 def _graphql_can_read_run(run_id: str, username: str) -> bool:
     return _graphql_get_permission_for_run(run_id, username).can_read
+
+
+def _graphql_can_read_runs_in_experiment(experiment_id: str, username: str) -> bool:
+    # Search prefilter: keep the experiment when the user can read its runs on either
+    # tier — a run-tier grant (``run``/``*``) or, on child-grant absence, experiment READ.
+    return _experiment_child_permission("run", "*", experiment_id, username=username).can_read
 
 
 def _graphql_can_read_model(model_name: str, username: str) -> bool:
@@ -5190,11 +6126,15 @@ class GraphQLAuthorizationMiddleware:
 
         elif field_name in ("mlflowSearchRuns", "mlflowSearchDatasets"):
             if experiment_ids := (getattr(input_obj, "experiment_ids", None) or []):
-                readable_ids = [
-                    exp_id
-                    for exp_id in experiment_ids
-                    if _graphql_can_read_experiment(exp_id, username)
-                ]
+                # Runs authorize on the run child tier (matching the REST run filter);
+                # datasets are not a run sub-resource, so they stay on experiment READ
+                # (matching the REST ``validate_can_search_datasets``).
+                can_read = (
+                    _graphql_can_read_runs_in_experiment
+                    if field_name == "mlflowSearchRuns"
+                    else _graphql_can_read_experiment
+                )
+                readable_ids = [exp_id for exp_id in experiment_ids if can_read(exp_id, username)]
                 if not readable_ids:
                     return False
                 input_obj.experiment_ids = readable_ids
@@ -5215,11 +6155,12 @@ class GraphQLAuthorizationMiddleware:
     def _model_version_read_predicate(self, username: str) -> Callable[[Any], bool]:
         # mlflowSearchRuns resolves ``modelVersions`` once per run, and building the predicate
         # costs a user lookup plus a grants query, so memoize it for the current request.
-        # Prompt-aware like the REST ``filter_search_model_versions`` so a prompt version is
-        # judged by prompt grants rather than registered-model grants.
+        # Prompt-aware and version-child-tier aware like the REST version filter, so a prompt
+        # version is judged by prompt-version grants and a model version by
+        # registered_model_version grants, each falling back to its parent.
         predicates = g.setdefault("_graphql_model_version_read_predicates", {})
         if username not in predicates:
-            predicates[username] = _rm_or_prompt_read_predicate(username)
+            predicates[username] = _rm_or_prompt_version_read_predicate(username)
         return predicates[username]
 
     def _filter_model_versions_result(self, result, username: str):
@@ -5474,6 +6415,13 @@ def _mcp_server_suffix(path: str) -> str:
     raise MlflowException(f"Not an MCP server path: {path}", error_code=BAD_REQUEST)
 
 
+def _is_mcp_server_version_path(parts: list[str]) -> bool:
+    # ``versions`` and ``aliases`` sub-routes both operate on server versions: a version
+    # get/list, or an alias lookup/write that returns/mutates a resolved ``MCPServerVersion``.
+    # Both must authorize on the ``mcp_server_version`` child tier, not the parent server.
+    return len(parts) >= 3 and parts[2] in ("versions", "aliases")
+
+
 def _is_mcp_server_version_create_path(parts: list[str]) -> bool:
     return len(parts) == 3 and parts[2] == "versions"
 
@@ -5508,13 +6456,23 @@ def _get_mcp_server_validator(
     async def validator(username: str, request: StarletteRequest) -> bool:
         if request.method == "POST" and _is_mcp_server_version_create_path(parts):
             request.state.mcp_server_can_update_existing_recheck = lambda: (
-                _get_mcp_server_permission(name, username).can_update
+                _get_mcp_server_version_permission(name, username).can_update
             )
             parent_missing = not _server_exists()
             request.state.mcp_server_parent_auto_created = parent_missing
             if parent_missing:
-                return validate_can_create_mcp_server(username)
-        perm = _get_mcp_server_permission(name, username)
+                if not validate_can_create_mcp_server(username):
+                    return False
+                # Cross-parent DENY veto: honor (mcp_server_version, *, DENY) even when the
+                # server is auto-created on first version write. (Workspaces-enabled + absent
+                # server can't resolve the version workspace -> NO_PERMISSIONS, which
+                # fail-safes to the create gate.)
+                return not _deny_veto(_get_mcp_server_version_permission(name, username))
+        perm = (
+            _get_mcp_server_version_permission(name, username)
+            if _is_mcp_server_version_path(parts)
+            else _get_mcp_server_permission(name, username)
+        )
         match request.method:
             case "GET":
                 return perm.can_read
@@ -5610,20 +6568,54 @@ def _backfill_readable_mcp_results(
     return next_token
 
 
+def _redact_mcp_access_endpoint_version_fields(endpoint: dict[str, Any]) -> None:
+    """Blank the version-derived fields of an MCP access-endpoint dict.
+
+    ``resolved_version``, ``server_version``, ``server_alias``, and ``tools`` all expose
+    the resolved server version content, which the ``mcp_server_version`` tier gates. Only
+    keys already present are cleared, so the summary endpoint shape (which omits ``tools``)
+    does not gain a spurious field.
+    """
+    for key in ("resolved_version", "server_version", "server_alias", "tools"):
+        if key in endpoint:
+            endpoint[key] = None
+
+
+def _redact_mcp_server_version_fields(server: dict[str, Any]) -> None:
+    """Blank an MCP server dict's embedded version data (``latest_version``, alias-to-version
+    ``aliases``, and each access endpoint's resolved version) for a caller without version read.
+    """
+    server["latest_version"] = None
+    server["aliases"] = None
+    for endpoint in server.get("access_endpoints") or []:
+        _redact_mcp_access_endpoint_version_fields(endpoint)
+
+
+def _mcp_server_version_reader(username: str) -> Callable[[str], bool]:
+    """Return a ``name -> bool`` predicate for ``mcp_server_version`` read access.
+
+    Uses the bulk read predicate, which loads the caller's child and parent grants in a
+    single query and evaluates every server name locally — avoiding an N+1 workspace +
+    grants round trip per distinct name across a search page.
+    """
+    return _role_based_read_predicate(username, "mcp_server_version", parent_type="mcp_server")
+
+
 def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    perm_cache: dict[str, Permission] = {}
-
-    def _perm(name: str) -> Permission:
-        if name not in perm_cache:
-            perm_cache[name] = _get_mcp_server_permission(name, username)
-        return perm_cache[name]
+    # Bulk mcp_server permission resolver: loads the caller's grants once and resolves each
+    # server name in memory (the full Permission, used for BOTH the read filter and
+    # allowed-action stamping) instead of a workspace + grants round trip per distinct name
+    # -- the parent-tier residual of Copilot #31 (the version tier is already bulk below).
+    server_permission = _role_based_permission_resolver(username, "mcp_server")
 
     def _stamp(s: dict[str, Any]) -> dict[str, Any]:
-        s["allowed_actions"] = _permission_to_allowed_actions(_perm(s["name"]))
+        s["allowed_actions"] = _permission_to_allowed_actions(server_permission(s["name"]))
         return s
 
-    readable = [_stamp(s) for s in data.get("mcp_servers", []) if _perm(s["name"]).can_read]
+    readable = [
+        _stamp(s) for s in data.get("mcp_servers", []) if server_permission(s["name"]).can_read
+    ]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
@@ -5631,7 +6623,7 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     order_by = params.getlist("order_by") or None
 
     data["next_page_token"] = _backfill_readable_mcp_results(
-        can_read=lambda name: _perm(name).can_read,
+        can_read=lambda name: server_permission(name).can_read,
         readable=readable,
         max_results=max_results,
         next_token=data.get("next_page_token"),
@@ -5645,6 +6637,10 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
         to_dict=lambda s: _stamp(MCPServerResponse.from_entity(s).model_dump(mode="json")),
     )
     data["mcp_servers"] = readable[:max_results]
+    can_read_version = _mcp_server_version_reader(username)
+    for server in data["mcp_servers"]:
+        if not can_read_version(server["name"]):
+            _redact_mcp_server_version_fields(server)
     return json.dumps(data).encode()
 
 
@@ -5677,6 +6673,23 @@ def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteR
         to_dict=lambda e: MCPAccessEndpointResponse.from_entity(e).model_dump(mode="json"),
     )
     data["mcp_access_endpoints"] = readable[:max_results]
+    can_read_version = _mcp_server_version_reader(username)
+    for endpoint in data["mcp_access_endpoints"]:
+        if not can_read_version(endpoint["server_name"]):
+            _redact_mcp_access_endpoint_version_fields(endpoint)
+    return json.dumps(data).encode()
+
+
+def _filter_single_mcp_endpoint(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    """Redact version-derived fields from a single ``MCPAccessEndpointResponse`` (get /
+    create / update endpoint routes) when the caller can't read the server's versions.
+    The endpoint operation itself is authorized on the server tier; this only strips
+    embedded resolved-version content a ``mcp_server_version`` DENY should hide.
+    """
+    data = json.loads(body)
+    server_name = data.get("server_name")
+    if server_name and not _get_mcp_server_version_permission(server_name, username).can_read:
+        _redact_mcp_access_endpoint_version_fields(data)
     return json.dumps(data).encode()
 
 
@@ -5740,7 +6753,9 @@ def _get_otel_validator(
             raise MlflowException(
                 "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
             )
-        return _get_experiment_permission(experiment_id, username).can_update
+        return _experiment_child_permission(
+            "trace", "*", experiment_id, username=username
+        ).can_update
 
     return validator
 
@@ -5748,29 +6763,35 @@ def _get_otel_validator(
 def _extract_experiment_id_from_artifact_proxy_path(
     path: str, query_path: str | None = None
 ) -> str | None:
-    # Mirror Flask view_args extraction for both simple artifact routes and MPU
-    # control-plane routes (create/complete/abort). FastAPI permission middleware
-    # claims all `_is_proxy_artifact_path` URLs, so experiment ids must be parsed
-    # from /mpu/... as well as /artifacts/....
-    prefixes = (
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
-        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
-    )
-    prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
-    if prefix is not None:
-        artifact_path = path.removeprefix(prefix)
+    if artifact_path := _artifact_proxy_relative_path(path, query_path):
         if m := _EXPERIMENT_ID_PATTERN.match(f"{artifact_path}/"):
             return m.group(1)
+    return None
 
-    # List-artifacts uses GET .../artifacts?path=<experiment_id>/... (Flask parity).
-    if query_path and (m := _EXPERIMENT_ID_PATTERN.match(query_path)):
-        return m.group(1)
+
+_ARTIFACT_PROXY_PREFIXES = (
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+)
+
+
+def _artifact_proxy_relative_path(path: str, query_path: str | None = None) -> str | None:
+    """Return the storage-relative artifact path for a FastAPI proxy request, or ``None``.
+
+    Handles both the simple ``/artifacts/`` and MPU control-plane (create/complete/abort)
+    routes, plus the list-artifacts ``?path=`` query form (Flask parity).
+    """
+    prefix = next((prefix for prefix in _ARTIFACT_PROXY_PREFIXES if path.startswith(prefix)), None)
+    if prefix is not None:
+        return path.removeprefix(prefix)
+    if query_path:
+        return query_path
     return None
 
 
@@ -5778,16 +6799,8 @@ def _get_proxy_artifact_permission(
     path: str, username: str, query_path: str | None = None
 ) -> Permission:
     if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path, query_path):
-        return _get_role_permission_or_default(
-            _role_permission_for(
-                username=username,
-                resource_type="experiment",
-                resource_key=experiment_id,
-                workspace_lookup_id=experiment_id,
-                workspace_fetcher=_get_tracking_store().get_experiment,
-                workspace_label="experiment",
-            ),
-        )
+        artifact_path = _artifact_proxy_relative_path(path, query_path) or ""
+        return _proxy_artifact_permission_for_layout(experiment_id, artifact_path, username)
 
     if MLFLOW_ENABLE_WORKSPACES.get():
         if workspace_name := workspace_context.get_request_workspace():
@@ -5896,6 +6909,8 @@ def _filter_get_mcp_server(username: str, body: bytes, request: StarletteRequest
     if name := data.get("name"):
         perm = _get_mcp_server_permission(name, username)
         data["allowed_actions"] = _permission_to_allowed_actions(perm)
+        if not _get_mcp_server_version_permission(name, username).can_read:
+            _redact_mcp_server_version_fields(data)
     return json.dumps(data).encode()
 
 
@@ -5913,7 +6928,12 @@ FASTAPI_ENDPOINT_RESPONSE_FILTERS: dict[
 ] = {
     _search_mcp_servers_endpoint: _filter_search_mcp_servers,
     _search_all_access_endpoints_endpoint: _filter_search_mcp_endpoints,
+    _search_server_access_endpoints_endpoint: _filter_search_mcp_endpoints,
     _get_mcp_server_endpoint: _filter_get_mcp_server,
+    _update_mcp_server_endpoint: _filter_get_mcp_server,
+    _get_mcp_access_endpoint_endpoint: _filter_single_mcp_endpoint,
+    _create_mcp_access_endpoint_endpoint: _filter_single_mcp_endpoint,
+    _update_mcp_access_endpoint_endpoint: _filter_single_mcp_endpoint,
     _search_jobs_endpoint: _filter_search_jobs,
 }
 

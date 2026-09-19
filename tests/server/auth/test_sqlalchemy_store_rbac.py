@@ -2,14 +2,31 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.entities import Role, RolePermission, UserRoleAssignment
-from mlflow.server.auth.permissions import EDIT, MANAGE, READ, USE, VALID_RESOURCE_TYPES
+from mlflow.server.auth.permissions import (
+    EDIT,
+    MANAGE,
+    READ,
+    USE,
+    VALID_RESOURCE_TYPES,
+)
 
 # Every concrete resource type the resolver accepts, excluding the special
 # ``"workspace"`` (admin-only grant form) and ``"*"`` (workspace-wide grant
 # form). Those two carry their own validation rules and are exercised by
 # scope-specific tests rather than the shared parametrised matrix below.
 _CONCRETE_RESOURCE_TYPES = sorted(VALID_RESOURCE_TYPES - {"workspace", "*"})
-from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+_CHILD_RESOURCE_TYPES = (
+    "run",
+    "trace",
+    "assessment",
+    "logged_model",
+    "review_queue",
+    "registered_model_version",
+    "prompt_version",
+    "scorer_version",
+    "mcp_server_version",
+)
+from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore, _RoleGrant
 
 from tests.helper_functions import random_str
 
@@ -551,7 +568,47 @@ def test_list_role_grants_for_user_in_workspace(store, user):
     grants = store.list_role_grants_for_user_in_workspace(user.id, "ws1", "experiment")
     # Should include specific experiment grant, wildcard experiment grant,
     # and the workspace-wide grant. Should NOT include the registered_model grant.
-    assert sorted(grants) == sorted([("42", "EDIT"), ("*", "READ"), ("*", "USE")])
+    assert sorted(grants) == sorted([
+        _RoleGrant("experiment", "42", "EDIT"),
+        _RoleGrant("experiment", "*", "READ"),
+        _RoleGrant("workspace", "*", "USE"),
+    ])
+
+
+def test_list_role_grants_for_user_in_workspace_includes_parent_type(store, user):
+    # With parent_type, one query returns child + parent + workspace grants together.
+    role = store.create_role(name="child-parent", workspace="ws1")
+    store.add_role_permission(role.id, "run", "*", "EDIT")
+    store.add_role_permission(role.id, "experiment", "*", "READ")
+    store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    grants = store.list_role_grants_for_user_in_workspace(
+        user.id, "ws1", "run", parent_type="experiment"
+    )
+    assert sorted(grants) == sorted([
+        _RoleGrant("run", "*", "EDIT"),
+        _RoleGrant("experiment", "*", "READ"),
+        _RoleGrant("workspace", "*", "MANAGE"),
+    ])
+
+
+@pytest.mark.parametrize("child_type", _CHILD_RESOURCE_TYPES)
+def test_list_role_grants_for_child_type(store, user, child_type):
+    role = store.create_role(name=f"{child_type}-role", workspace="ws1")
+    store.add_role_permission(role.id, child_type, "*", "EDIT")
+    store.add_role_permission(role.id, "workspace", "*", "USE")
+    unrelated = next(
+        resource_type for resource_type in _CHILD_RESOURCE_TYPES if resource_type != child_type
+    )
+    store.add_role_permission(role.id, unrelated, "*", "READ")
+    store.assign_role_to_user(user.id, role.id)
+
+    grants = store.list_role_grants_for_user_in_workspace(user.id, "ws1", child_type)
+
+    assert _RoleGrant(child_type, "*", "EDIT") in grants
+    assert _RoleGrant("workspace", "*", "USE") in grants
+    assert _RoleGrant(unrelated, "*", "READ") not in grants
 
 
 def test_list_role_grants_for_user_in_workspace_cross_workspace(store, user):
@@ -987,3 +1044,401 @@ def test_get_role_permission_picks_highest(store, user, perms, expected):
 
     result = store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1")
     assert result == expected
+
+
+# ---- Sub-resource permissions: tier-override fold + DENY --------------------
+#
+# These exercise ``get_role_permission_for_resource`` with the ``parent_type`` /
+# ``parent_id`` arguments added by the sub-resource permissions RFC. The child
+# type used is ``run`` (parent ``experiment``); the semantics are identical for
+# every grantable child.
+
+
+def _assign(store, user, workspace, resource_type, resource_pattern, permission):
+    """Create a role with a single grant and assign it to ``user``."""
+    role = store.create_role(name=random_str(), workspace=workspace)
+    store.add_role_permission(role.id, resource_type, resource_pattern, permission)
+    store.assign_role_to_user(user.id, role.id)
+    return role
+
+
+def test_child_inherits_parent_when_no_child_grant(store, user):
+    _assign(store, user, "ws1", "experiment", "*", "EDIT")
+    perm = store.get_role_permission_for_resource(
+        user.id, "run", "r1", "ws1", parent_type="experiment", parent_id="e1"
+    )
+    assert perm == EDIT
+
+
+def test_child_grant_raises_above_parent(store, user):
+    """A positive child grant is authoritative and raises the child above the
+    inherited parent level (escalation).
+    """
+    _assign(store, user, "ws1", "experiment", "*", "READ")
+    _assign(store, user, "ws1", "run", "*", "EDIT")
+    perm = store.get_role_permission_for_resource(
+        user.id, "run", "r1", "ws1", parent_type="experiment", parent_id="e1"
+    )
+    assert perm == EDIT
+    # The parent itself is unchanged (grants never flow upward).
+    assert store.get_role_permission_for_resource(user.id, "experiment", "e1", "ws1") == READ
+
+
+def test_child_grant_can_be_lower_than_parent(store, user):
+    """A child grant is authoritative even when lower than the inherited parent;
+    the parent is not consulted once a child grant is present.
+    """
+    _assign(store, user, "ws1", "experiment", "*", "EDIT")
+    _assign(store, user, "ws1", "run", "*", "READ")
+    perm = store.get_role_permission_for_resource(
+        user.id, "run", "r1", "ws1", parent_type="experiment", parent_id="e1"
+    )
+    assert perm == READ
+
+
+def test_child_deny_denies_below_parent(store, user):
+    """A DENY child grant denies the child even where the parent would allow
+    (restriction). The parent stays intact.
+    """
+    _assign(store, user, "ws1", "experiment", "*", "EDIT")
+    _assign(store, user, "ws1", "trace", "*", "DENY")
+    perm = store.get_role_permission_for_resource(
+        user.id, "trace", "t1", "ws1", parent_type="experiment", parent_id="e1"
+    )
+    assert perm.name == "DENY"
+    assert not perm.can_read
+    # Sibling child (no grant) still inherits EDIT.
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, "run", "r1", "ws1", parent_type="experiment", parent_id="e1"
+        )
+        == EDIT
+    )
+
+
+def test_child_deny_beaten_by_workspace_admin(store, user):
+    """The workspace-admin bypass (workspace, *, MANAGE) is evaluated ahead of
+    DENY, so an admin is not restrictable by a child DENY grant.
+    """
+    _assign(store, user, "ws1", "workspace", "*", "MANAGE")
+    _assign(store, user, "ws1", "trace", "*", "DENY")
+    perm = store.get_role_permission_for_resource(
+        user.id, "trace", "t1", "ws1", parent_type="experiment", parent_id="e1"
+    )
+    assert perm == MANAGE
+
+
+def test_child_deny_does_not_override_downward_via_parent(store, user):
+    """A parent DENY reaches a child only via fallback; a present positive child
+    grant is authoritative and is NOT overridden by the parent DENY.
+    """
+    _assign(store, user, "ws1", "experiment", "*", "DENY")
+    _assign(store, user, "ws1", "run", "*", "EDIT")
+    perm = store.get_role_permission_for_resource(
+        user.id, "run", "r1", "ws1", parent_type="experiment", parent_id="e1"
+    )
+    assert perm == EDIT
+
+
+def test_parent_deny_denies_child_via_fallback(store, user):
+    _assign(store, user, "ws1", "experiment", "*", "DENY")
+    perm = store.get_role_permission_for_resource(
+        user.id, "run", "r1", "ws1", parent_type="experiment", parent_id="e1"
+    )
+    assert perm.name == "DENY"
+
+
+def test_no_grant_either_tier_returns_none(store, user):
+    store.create_role(name="empty", workspace="ws1")  # user has a presence but no grants
+    role = store.create_role(name=random_str(), workspace="ws1")
+    store.assign_role_to_user(user.id, role.id)
+    perm = store.get_role_permission_for_resource(
+        user.id, "run", "r1", "ws1", parent_type="experiment", parent_id="e1"
+    )
+    assert perm is None
+
+
+@pytest.mark.parametrize("child_type", _CHILD_RESOURCE_TYPES)
+def test_add_role_permission_rejects_concrete_id_child_grant(store, user, child_type):
+    role = store.create_role(name="pipeline", workspace="ws1")
+    with pytest.raises(MlflowException, match="only supports wildcard"):
+        store.add_role_permission(role.id, child_type, "child-id", "EDIT")
+
+
+@pytest.mark.parametrize("child_type", _CHILD_RESOURCE_TYPES)
+def test_add_role_permission_accepts_wildcard_child_grant(store, user, child_type):
+    role = store.create_role(name="pipeline", workspace="ws1")
+    rp = store.add_role_permission(role.id, child_type, "*", "EDIT")
+    assert rp.resource_type == child_type
+    assert rp.resource_pattern == "*"
+    assert rp.permission == "EDIT"
+
+
+@pytest.mark.parametrize("child_type", _CHILD_RESOURCE_TYPES)
+def test_add_role_permission_accepts_deny_on_child(store, user, child_type):
+    role = store.create_role(name="restricted", workspace="ws1")
+    rp = store.add_role_permission(role.id, child_type, "*", "DENY")
+    assert rp.resource_type == child_type
+    assert rp.permission == "DENY"
+
+
+def test_add_role_permission_rejects_deny_on_workspace(store, user):
+    role = store.create_role(name="workspace-role", workspace="ws1")
+    with pytest.raises(MlflowException, match="resource_type='workspace'"):
+        store.add_role_permission(role.id, "workspace", "*", "DENY")
+
+
+def test_parent_id_grant_still_accepts_concrete_id(store, user):
+    """Parents remain wildcard-and-id grain: a concrete-id parent grant is
+    accepted and used only on child-grant absence.
+    """
+    _assign(store, user, "ws1", "experiment", "e1", "EDIT")
+    # Child inherits the id-specific parent grant.
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, "run", "r1", "ws1", parent_type="experiment", parent_id="e1"
+        )
+        == EDIT
+    )
+    # A different parent id does not match -> no grant -> None.
+    assert (
+        store.get_role_permission_for_resource(
+            user.id, "run", "r1", "ws1", parent_type="experiment", parent_id="e2"
+        )
+        is None
+    )
+
+
+# ---- RFC use cases: effective-permissions table -----------------------------
+#
+# Mirrors the RFC's worked example for experiment children. Each persona is a set
+# of additive grants; every child (run/trace/assessment) is resolved on its own
+# tier with experiment as the parent fallback, and the result must match the RFC's
+# "Effective permissions" table.
+
+
+def _resolve(store, user, child_type, ws="ws1", experiment_id="e1", resource_id="c1"):
+    return store.get_role_permission_for_resource(
+        user.id, child_type, resource_id, ws, parent_type="experiment", parent_id=experiment_id
+    )
+
+
+def test_use_case_data_scientist_edit_inherits_to_all_children(store, user):
+    # (experiment, *, EDIT): runs, traces, assessments all inherit EDIT.
+    _assign(store, user, "ws1", "experiment", "*", "EDIT")
+    for child in ("run", "trace", "assessment"):
+        assert _resolve(store, user, child) == EDIT
+
+
+def test_use_case_evaluator_assessment_write_only(store, user):
+    # (experiment, *, READ) + (assessment, *, EDIT): read everything, write assessments.
+    _assign(store, user, "ws1", "experiment", "*", "READ")
+    _assign(store, user, "ws1", "assessment", "*", "EDIT")
+    assert _resolve(store, user, "run") == READ  # inherited
+    assert _resolve(store, user, "trace") == READ  # inherited
+    assert _resolve(store, user, "assessment") == EDIT  # raised
+    assert _resolve(store, user, "assessment").can_update
+    assert not _resolve(store, user, "run").can_update
+
+
+def test_use_case_pipeline_run_logging_without_experiment_management(store, user):
+    # (experiment, *, READ) + (run, *, EDIT): log runs, cannot manage experiment.
+    _assign(store, user, "ws1", "experiment", "*", "READ")
+    _assign(store, user, "ws1", "run", "*", "EDIT")
+    assert _resolve(store, user, "run") == EDIT  # raised — can log
+    assert _resolve(store, user, "trace") == READ  # inherited
+    # Experiment itself stays READ — cannot rename/delete.
+    exp_perm = store.get_role_permission_for_resource(user.id, "experiment", "e1", "ws1")
+    assert exp_perm == READ
+    assert not exp_perm.can_update
+
+
+def test_use_case_restricted_deny_trace_below_edit_experiment(store, user):
+    # (experiment, *, EDIT) + (trace, *, DENY): edit all, traces denied.
+    _assign(store, user, "ws1", "experiment", "*", "EDIT")
+    _assign(store, user, "ws1", "trace", "*", "DENY")
+    assert _resolve(store, user, "run") == EDIT  # inherited
+    assert _resolve(store, user, "assessment") == EDIT  # inherited
+    trace_perm = _resolve(store, user, "trace")
+    assert trace_perm.name == "DENY"
+    assert not trace_perm.can_read  # denied even though experiment is EDIT
+
+
+@pytest.mark.parametrize("child_type", ["logged_model", "review_queue"])
+def test_experiment_child_edit_escalates_only_that_child(store, user, child_type):
+    """A logged_model/review_queue EDIT grant raises that child while its siblings
+    retain experiment READ through parent fallback.
+    """
+    _assign(store, user, "ws1", "experiment", "*", "READ")
+    _assign(store, user, "ws1", child_type, "*", "EDIT")
+
+    assert _resolve(store, user, child_type) == EDIT
+    assert _resolve(store, user, "run") == READ
+    assert _resolve(store, user, "assessment") == READ
+
+
+@pytest.mark.parametrize("child_type", ["assessment", "logged_model", "review_queue"])
+def test_experiment_child_deny_restricts_only_that_child(store, user, child_type):
+    _assign(store, user, "ws1", "experiment", "*", "EDIT")
+    _assign(store, user, "ws1", child_type, "*", "DENY")
+
+    assert _resolve(store, user, child_type).name == "DENY"
+    sibling = "run" if child_type != "run" else "trace"
+    assert _resolve(store, user, sibling) == EDIT
+
+
+@pytest.mark.parametrize(
+    ("child_type", "parent_type", "parent_id"),
+    [
+        ("registered_model_version", "registered_model", "model-a"),
+        ("prompt_version", "prompt", "prompt-a"),
+        ("scorer_version", "scorer", "1/scorer-a"),
+        ("mcp_server_version", "mcp_server", "namespace/server-a"),
+    ],
+)
+def test_version_child_edit_escalates_only_that_child(
+    store, user, child_type, parent_type, parent_id
+):
+    _assign(store, user, "ws1", parent_type, parent_id, "READ")
+    _assign(store, user, "ws1", child_type, "*", "EDIT")
+
+    child = store.get_role_permission_for_resource(
+        user.id, child_type, "v1", "ws1", parent_type=parent_type, parent_id=parent_id
+    )
+    parent = store.get_role_permission_for_resource(user.id, parent_type, parent_id, "ws1")
+    assert child == EDIT
+    assert parent == READ
+
+
+@pytest.mark.parametrize(
+    ("child_type", "parent_type", "parent_id"),
+    [
+        ("registered_model_version", "registered_model", "model-a"),
+        ("prompt_version", "prompt", "prompt-a"),
+        ("scorer_version", "scorer", "1/scorer-a"),
+        ("mcp_server_version", "mcp_server", "namespace/server-a"),
+    ],
+)
+def test_version_child_deny_restricts_parent_inheritance(
+    store, user, child_type, parent_type, parent_id
+):
+    _assign(store, user, "ws1", parent_type, parent_id, "EDIT")
+    _assign(store, user, "ws1", child_type, "*", "DENY")
+
+    child = store.get_role_permission_for_resource(
+        user.id, child_type, "v1", "ws1", parent_type=parent_type, parent_id=parent_id
+    )
+    assert child.name == "DENY"
+
+
+@pytest.mark.parametrize(
+    ("child_type", "parent_type", "parent_id"),
+    [
+        ("run", "experiment", "e1"),
+        ("trace", "experiment", "e1"),
+        ("assessment", "experiment", "e1"),
+        ("logged_model", "experiment", "e1"),
+        ("review_queue", "experiment", "e1"),
+        ("registered_model_version", "registered_model", "model-a"),
+        ("prompt_version", "prompt", "prompt-a"),
+        ("scorer_version", "scorer", "1/scorer-a"),
+        ("mcp_server_version", "mcp_server", "namespace/server-a"),
+    ],
+)
+def test_repointed_child_inherits_parent_without_child_grant(
+    store, user, child_type, parent_type, parent_id
+):
+    _assign(store, user, "ws1", parent_type, parent_id, "EDIT")
+
+    permission = store.get_role_permission_for_resource(
+        user.id,
+        child_type,
+        "child-id",
+        "ws1",
+        parent_type=parent_type,
+        parent_id=parent_id,
+    )
+    assert permission == EDIT
+
+
+_CHILD_PARENT_CASES = [
+    ("run", "experiment", "e1"),
+    ("trace", "experiment", "e1"),
+    ("assessment", "experiment", "e1"),
+    ("logged_model", "experiment", "e1"),
+    ("review_queue", "experiment", "e1"),
+    ("registered_model_version", "registered_model", "model-a"),
+    ("prompt_version", "prompt", "prompt-a"),
+    ("scorer_version", "scorer", "1/scorer-a"),
+    ("mcp_server_version", "mcp_server", "namespace/server-a"),
+]
+
+
+@pytest.mark.parametrize(("child_type", "parent_type", "parent_id"), _CHILD_PARENT_CASES)
+@pytest.mark.parametrize(
+    ("scenario", "parent_permission", "child_permission", "expected"),
+    [
+        ("inherits_parent", "EDIT", None, EDIT),
+        ("no_parent_or_child", None, None, None),
+        ("child_overrides_parent", "READ", "EDIT", EDIT),
+        ("deny_overrides_parent", "EDIT", "DENY", None),
+    ],
+)
+def test_child_permission_compatibility_matrix(
+    store,
+    user,
+    child_type,
+    parent_type,
+    parent_id,
+    scenario,
+    parent_permission,
+    child_permission,
+    expected,
+):
+    role = store.create_role(name=random_str(), workspace="ws1")
+    store.assign_role_to_user(user.id, role.id)
+    if parent_permission is not None:
+        store.add_role_permission(role.id, parent_type, parent_id, parent_permission)
+    if child_permission is not None:
+        store.add_role_permission(role.id, child_type, "*", child_permission)
+
+    permission = store.get_role_permission_for_resource(
+        user.id,
+        child_type,
+        "child-id",
+        "ws1",
+        parent_type=parent_type,
+        parent_id=parent_id,
+    )
+    if scenario == "deny_overrides_parent":
+        assert permission.name == "DENY"
+    else:
+        assert permission == expected
+
+
+@pytest.mark.parametrize("grant_topology", ["parent_and_child", "child_only", "parent_only"])
+@pytest.mark.parametrize("workspace_admin", [False, True])
+def test_child_deny_and_workspace_admin_precedence(store, user, grant_topology, workspace_admin):
+    role = store.create_role(name=random_str(), workspace="ws1")
+    store.assign_role_to_user(user.id, role.id)
+
+    if grant_topology == "parent_and_child":
+        store.add_role_permission(role.id, "experiment", "e1", "EDIT")
+        store.add_role_permission(role.id, "run", "*", "DENY")
+    elif grant_topology == "child_only":
+        store.add_role_permission(role.id, "run", "*", "DENY")
+    else:
+        store.add_role_permission(role.id, "experiment", "e1", "DENY")
+
+    if workspace_admin:
+        store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+
+    permission = store.get_role_permission_for_resource(
+        user.id,
+        "run",
+        "run-1",
+        "ws1",
+        parent_type="experiment",
+        parent_id="e1",
+    )
+    assert permission.name == ("MANAGE" if workspace_admin else "DENY")

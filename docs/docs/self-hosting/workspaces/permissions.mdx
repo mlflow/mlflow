@@ -49,13 +49,13 @@ on the RBAC page for the full mechanic.
    workspace `team-a` does not appear in her `mlflow.list_workspaces()`
    results.
 
-Because there is no "explicit deny" override (see
-[Permission levels](/self-hosting/security/role-based-access-control#permission-levels)),
-a workspace-level grant covers every resource in the workspace and an absent
-(or lesser) per-resource grant cannot revoke it. To restrict access to a
-specific resource, give the user narrower access in the first place:
-per-resource or resource-type-wildcard roles instead of the seeded
-`<workspace>/user` role.
+`DENY` can explicitly restrict a grantable child resource type even when its
+parent permission would otherwise allow it. A Workspace Manager
+`(workspace, *, MANAGE)` still takes precedence over `DENY`. For example,
+`(experiment, *, EDIT)` plus `(trace, *, DENY)` permits editing the experiment
+and its other children while denying traces. See
+[Permission levels](/self-hosting/security/role-based-access-control#permission-levels)
+and [Sub-resource grants](/self-hosting/security/role-based-access-control#sub-resource-grants).
 
 ## Default roles
 
