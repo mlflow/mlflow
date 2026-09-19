@@ -2852,7 +2852,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 .first()
             )
 
-            if scorer is None:
+            # Whether THIS transaction creates the scorer parent. This is the authoritative
+            # signal -- NOT the version number: a parent can exist with zero versions (all
+            # versions deleted via delete_scorer(version=N), which keeps the SqlScorer), so a
+            # request against such an empty parent would compute new_version == 1 yet is NOT a
+            # parent create (Copilot finding). Capture it before the insert.
+            parent_created = scorer is None
+
+            if parent_created:
                 # Create the scorer record with a new UUID
                 scorer_id = str(uuid.uuid4())
                 scorer = SqlScorer(
@@ -2871,17 +2878,18 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 .scalar()
             )
 
-            # Set new version (1 if no existing scorer, otherwise max + 1)
+            # Set new version (1 if no existing versions, otherwise max + 1)
             new_version = 1 if max_version is None else max_version + 1
 
-            # Race-safe authorization (Copilot finding #2): version 1 is a genuine create
-            # (gated pre-request by the create permission). A version > 1 means the scorer
-            # already exists and this is a version-ADD -- which requires the caller to hold
-            # update authorization on the scorer-version tier. Because this runs inside the
-            # write transaction, a raise here rolls back before the version row is inserted,
-            # closing the create-then-concurrent-existing TOCTOU that no pre-handler probe
-            # can. Stores/clients without server-side auth pass no callback.
-            if new_version != 1 and authorize_version_add is not None:
+            # Race-safe authorization (Copilot finding #2): a genuine parent create is gated
+            # pre-request by the create permission. Any write to an ALREADY-EXISTING parent
+            # (including an empty parent with no versions) is a version-ADD and requires the
+            # caller to hold update authorization on the scorer-version tier -- keyed on
+            # parent_created, NOT new_version. Because this runs inside the write transaction,
+            # a raise here rolls back before the version row is inserted, closing the TOCTOU
+            # no pre-handler probe can. Stores/clients without server-side auth pass no
+            # callback.
+            if not parent_created and authorize_version_add is not None:
                 authorize_version_add()
 
             # Create and save the new scorer version record
@@ -2924,7 +2932,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             entity = sql_scorer_version.to_mlflow_entity()
             # Resolve gateway endpoint ID to name before returning
-            return self.resolve_endpoint_in_scorer(entity)
+            resolved = self.resolve_endpoint_in_scorer(entity)
+            # Signal to the caller (server handler) whether THIS transaction created the
+            # scorer parent, so the after-request MANAGE grant fires only on a real create.
+            # Set on the FINAL object (resolve_endpoint_in_scorer may return a rebuilt entity)
+            # so the attribute is never dropped. Keyed on parent_created, not the version
+            # number (an empty parent would otherwise be misread as a create).
+            resolved._parent_created = parent_created
+            return resolved
 
     def supports_transactional_scorer_authorization(self) -> bool:
         # register_scorer invokes authorize_version_add inside the ManagedSessionMaker

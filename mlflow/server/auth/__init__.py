@@ -1410,7 +1410,6 @@ def validate_can_register_scorer():
     except MlflowException as e:
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
-        g.mlflow_creates_scorer_parent = True
         username = authenticate_request().username
         if not _get_experiment_permission(experiment_id, username).can_update:
             return False
@@ -5248,18 +5247,27 @@ def rename_registered_model_permission(resp: Response):
     _redact_registered_model_response(resp, RenameRegisteredModel)
 
 
+def _record_scorer_parent_created(created: bool) -> None:
+    """Record whether the register-scorer transaction actually created the scorer parent.
+
+    Called by the handler with the store's authoritative signal (the store knows a parent can
+    exist with zero versions, so neither the pre-request existence probe nor the response
+    version number is reliable). ``set_can_manage_scorer_permission`` reads this to grant
+    parent MANAGE only on a real create.
+    """
+    g.mlflow_scorer_parent_created = created
+
+
 def set_can_manage_scorer_permission(resp: Response):
-    if not getattr(g, "mlflow_creates_scorer_parent", False):
+    # Grant parent MANAGE only when THIS request's transaction actually created the scorer
+    # parent, per the store's authoritative signal (relayed via _record_scorer_parent_created
+    # from the handler). The pre-request existence flag and the response version number are
+    # both unreliable -- a parent can exist with zero versions (all versions deleted), so a
+    # version-add against it computes version 1 yet is NOT a create (Copilot finding).
+    if not getattr(g, "mlflow_scorer_parent_created", False):
         return
     response_message = RegisterScorer.Response()
     parse_dict(resp.json, response_message)
-    # The pre-request existence check can go stale: if a concurrent request created the
-    # scorer first, THIS request merely added a new version and must NOT be granted
-    # parent-level MANAGE. The response's version number is the authoritative, race-free
-    # signal -- register_scorer assigns version 1 only when it creates the scorer's first
-    # version (the parent), otherwise max+1. Grant MANAGE only for version 1.
-    if response_message.version != 1:
-        return
     experiment_id = response_message.experiment_id
     name = response_message.name
     username = authenticate_request().username

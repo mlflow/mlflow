@@ -6023,6 +6023,11 @@ def _register_scorer():
                 _experiment_id, _name
             ),
         )
+        # The store is authoritative on whether THIS transaction created the parent (a parent
+        # can exist with zero versions, so the version number is not a reliable signal).
+        # Relay it to the auth layer so the after-request MANAGE grant fires only on a real
+        # parent create.
+        auth_mod._record_scorer_parent_created(getattr(scorer_version, "_parent_created", False))
     else:
         # Auth disabled (or not initialized): no callback to thread. Call the pre-existing
         # three-argument contract so custom tracking stores that predate the
