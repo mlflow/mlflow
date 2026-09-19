@@ -22,8 +22,9 @@ from opentelemetry import trace
 from opentelemetry.context.contextvars_context import ContextVarsRuntimeContext
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
-from opentelemetry.sdk.trace.id_generator import IdGenerator
+from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBased
+from uuid_utils import uuid7
 
 import mlflow
 from mlflow.entities.trace_location import (
@@ -117,6 +118,19 @@ class _IsolatedRandomIdGenerator(IdGenerator):
         while trace_id == trace.INVALID_TRACE_ID:
             trace_id = self._random.getrandbits(128)
         return trace_id
+
+
+class _Uuid7TraceIdGenerator(IdGenerator):
+    """An OTel ID generator that uses UUIDv7 trace IDs and delegates span ID generation."""
+
+    def __init__(self, delegate: IdGenerator) -> None:
+        self._delegate = delegate
+
+    def generate_span_id(self) -> int:
+        return self._delegate.generate_span_id()
+
+    def generate_trace_id(self) -> int:
+        return uuid7().int
 
 
 class _TracerProviderWrapper:
@@ -706,17 +720,19 @@ def _initialize_tracer_provider(disabled=False):
             f"{k}={v}" for k, v in attributes.items()
         ])
 
-    if MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR.get():
-        tracer_provider = TracerProvider(
-            resource=resource,
-            sampler=_get_trace_sampler(),
-            id_generator=_IsolatedRandomIdGenerator(),
-        )
-    else:
-        tracer_provider = TracerProvider(
-            resource=resource,
-            sampler=_get_trace_sampler(),
-        )
+    id_generator = (
+        _IsolatedRandomIdGenerator()
+        if MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR.get()
+        else RandomIdGenerator()
+    )
+    if isinstance(_MLFLOW_TRACE_USER_DESTINATION.get(), UnityCatalog):
+        id_generator = _Uuid7TraceIdGenerator(id_generator)
+
+    tracer_provider = TracerProvider(
+        resource=resource,
+        sampler=_get_trace_sampler(),
+        id_generator=id_generator,
+    )
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
