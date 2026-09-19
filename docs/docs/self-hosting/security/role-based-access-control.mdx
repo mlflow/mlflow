@@ -163,10 +163,17 @@ _does_ gate child creation: `(run, *, DENY)` blocks creating runs — including
 through composite routes such as prompt-optimization and GenAI evaluate — just
 as it blocks reading or mutating them.
 
-It is not, however, a **top-level** creation policy: creating an experiment,
-registered model/prompt, or MCP server continues to require workspace `USE` or
-`MANAGE`, because no resource ID exists yet to resolve against a resource grant.
-Restricting top-level creation by a future resource's ID or name requires
+The **same rule applies to top-level resources**. Creating an experiment,
+registered model, prompt, or MCP server requires workspace `USE` or `MANAGE`
+(there is no resource ID yet to resolve a per-resource grant against), **but a
+wildcard `DENY` on that resource type prevents creation**: `(experiment, *,
+DENY)` blocks `CreateExperiment`, `(registered_model, *, DENY)` /
+`(prompt, *, DENY)` block model/prompt registration, and `(mcp_server, *, DENY)`
+blocks creating an MCP server — the parent-resource mirror of the child rule
+(the container permission allows creation; a `DENY` on the resource being
+created overrides it). This is symmetric with sub-resources: a parent `USE`/`EDIT`
+allows creating children, and a child `DENY` blocks it. Restricting creation by a
+_specific future_ resource ID or name (rather than the whole type) still requires
 condition-based creation policy and is outside this model.
 
 #### Permission resolution
