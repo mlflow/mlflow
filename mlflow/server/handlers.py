@@ -5999,16 +5999,15 @@ def _register_scorer():
     store = _get_tracking_store()
     auth_mod = sys.modules.get("mlflow.server.auth")
     if auth_mod is not None and auth_mod.is_auth_enabled():
-        # Auth is on, so the create-vs-version-add decision MUST be made transactionally:
-        # register_scorer invokes exactly one of the two callbacks below -- chosen by whether
-        # the scorer parent already existed (an existing empty parent is a version-add too,
-        # so this is keyed on parent existence, not the version number) -- before inserting
-        # the parent or the version, and the auth layer raises PERMISSION_DENIED unless the
-        # caller holds the right permission (experiment update to create, scorer-version
-        # update to add a version). Rolling back inside the transaction is the only race-safe
-        # point. Fail CLOSED if the backing store cannot make that transactional guarantee,
-        # rather than silently skip enforcement (a store that accepted-and-ignored the
-        # callbacks -- e.g. a delegating/REST store -- would leave the decision unenforced).
+        # Auth is on. RegisterScorer's positive requirement (experiment update) and the
+        # (scorer_version, *, DENY) veto are branch-independent and enforced at the
+        # pre-request gate. The ONLY branch-dependent check -- (scorer, *, DENY) blocks
+        # CREATING a scorer parent -- must run transactionally: whether this call creates the
+        # parent or adds a version is decided by state a concurrent request can change, so
+        # register_scorer invokes the callback only when it actually creates the parent
+        # (rolling back on a raise). The store also reports scorer_parent_created so the
+        # after-request MANAGE grant fires only for the real creator. Fail CLOSED if the
+        # backing store cannot make those transactional guarantees.
         if not getattr(store, "supports_transactional_scorer_authorization", lambda: False)():
             raise MlflowException(
                 f"The configured tracking store ({type(store).__name__}) does not support "
@@ -6022,9 +6021,6 @@ def _register_scorer():
             request_message.experiment_id,
             request_message.name,
             request_message.serialized_scorer,
-            authorize_version_add=lambda: auth_mod._authorize_scorer_version_add(
-                _experiment_id, _name
-            ),
             authorize_parent_create=lambda: auth_mod._authorize_scorer_parent_create(
                 _experiment_id, _name
             ),

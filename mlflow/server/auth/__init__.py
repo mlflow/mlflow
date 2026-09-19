@@ -1303,40 +1303,20 @@ def _get_permission_from_scorer_name() -> Permission:
     )
 
 
-def _authorize_scorer_version_add(experiment_id: str, name: str) -> None:
-    """Raise ``PERMISSION_DENIED`` if adding a version to the EXISTING scorer ``name`` is
-    blocked by a ``DENY``.
-
-    DENY-only (owner decision): the positive requirement for RegisterScorer is
-    ``experiment.can_update`` in both branches, checked branch-free at the pre-request gate.
-    This callback runs INSIDE the write transaction, invoked when the store determines the
-    scorer parent already existed (any version-add, INCLUDING the first version added to an
-    empty parent -- keyed on parent existence, not the version number). It vetoes iff the
-    concrete ``scorer_version`` tier resolves to ``DENY`` -- per the RFC child-tier model, a
-    positive ``(scorer_version, *, ...)`` grant is authoritative and overrides a scorer-parent
-    ``DENY``; absent a child grant, the concrete scorer parent's ``DENY`` reaches through
-    fallback. Admins bypass.
-    """
-    if sender_is_admin():
-        return
-    if _deny_veto(_get_scorer_version_permission(experiment_id, name)):
-        raise MlflowException(
-            "Permission denied: a DENY grant blocks adding a version to this scorer.",
-            error_code=PERMISSION_DENIED,
-        )
-
-
 def _authorize_scorer_parent_create(experiment_id: str, name: str) -> None:
     """Raise ``PERMISSION_DENIED`` if CREATING a new scorer parent is blocked by a ``DENY``.
 
-    DENY-only (owner decision): the positive requirement (``experiment.can_update``) and the
-    branch-independent ``(scorer_version, *, DENY)`` veto are checked at the pre-request gate
-    (they don't depend on whether the scorer exists, so checking them early is race-free).
-    This callback runs INSIDE the write transaction, invoked only when the store determines
-    this call actually creates the scorer parent, and adds the create-only veto: a
-    ``(scorer, *, DENY)`` wildcard blocks creating a scorer. Together with
-    ``_authorize_scorer_version_add`` the branch-dependent DENY decision is authoritative
-    in-transaction. Admins bypass.
+    DENY-only (owner decision, OSS parity): RegisterScorer's positive requirement is
+    ``experiment.can_update`` in both branches (master consults no scorer tier at all), and
+    the branch-independent ``(scorer_version, *, DENY)`` veto is checked at the pre-request
+    gate -- both are existence-independent, so checking them early is race-free. The ONLY
+    branch-dependent check is this one: a ``(scorer, *, DENY)`` wildcard blocks creating a
+    scorer parent. It runs INSIDE the write transaction, invoked only when the store
+    determines this call actually creates the parent, so a request re-classified by a
+    concurrent create/delete still gets exactly the right veto. The version-add branch has
+    no branch-specific check (a scorer-parent DENY does NOT block registering versions --
+    the version-type DENY is the only version-write veto, per the owner decision), so no
+    ``authorize_version_add`` callback is wired. Admins bypass.
     """
     if sender_is_admin():
         return
@@ -1428,19 +1408,18 @@ def _scorer_version_deny_active(experiment_id: str) -> bool:
 def validate_can_register_scorer():
     """Register a scorer (creates the scorer parent and/or a new version).
 
-    Positive authorization is the OSS contract, branch-INDEPENDENT: ``experiment.can_update``
-    is required whether this call creates a new scorer or adds a version to an existing one.
-    Scorer / scorer_version add only DENY requirements on top (owner decision):
+    OSS parity (owner decision): the positive requirement is ``experiment.can_update``,
+    branch-INDEPENDENT -- master's RegisterScorer consults no scorer tier at all, and this
+    branch keeps that contract for both creating a scorer and adding a version. DENY is the
+    only scorer-tier overlay:
 
-    * ``(scorer_version, *, DENY)`` vetoes either branch (creating a version is common to
-      both), checked here -- branch-free, so no existence probe is needed and the gate has no
-      create-vs-version-add TOCTOU;
-    * the branch-dependent DENY checks run transactionally in ``register_scorer`` via exactly
-      one callback chosen by actual parent existence: ``_authorize_scorer_parent_create``
-      (new scorer -> also veto the ``scorer`` wildcard DENY) or
-      ``_authorize_scorer_version_add`` (existing scorer -> veto the concrete scorer_version
-      tier's resolved DENY, where a positive child grant overrides a scorer-parent DENY per
-      the RFC child-tier model).
+    * ``(scorer_version, *, DENY)`` vetoes either branch (both write a version), checked here
+      -- branch-free and existence-independent, so no probe and no TOCTOU;
+    * ``(scorer, *, DENY)`` additionally vetoes CREATING a scorer parent -- the only
+      branch-dependent check, enforced transactionally by ``_authorize_scorer_parent_create``
+      (invoked by ``register_scorer`` iff this call actually creates the parent). A
+      scorer-parent DENY does NOT block registering versions on an existing scorer (the
+      version-type DENY above is the sole version-write veto).
     """
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
