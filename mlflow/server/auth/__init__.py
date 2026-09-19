@@ -2687,10 +2687,15 @@ def validate_can_invoke_genai_evaluate():
     caller cannot bypass a ``(child, *, DENY)`` grant through this route:
 
     * run UPDATE -- creates the evaluation run (same gate as ``CreateRun``);
-    * trace READ -- the traces being evaluated (``trace_ids`` all belong to the request
-      experiment, so the wildcard-grain trace tier covers them); and
+    * trace READ -- the traces being evaluated, gated experiment-scoped (the wildcard-grain
+      trace tier honors a workspace ``(trace, *, DENY)`` regardless of the anchor
+      experiment); and
     * assessment UPDATE -- the evaluation always logs assessments back onto the traces
       (unconditional here, unlike ``INVOKE_SCORER``'s ``log_assessments`` flag).
+
+    Asserting the supplied ``trace_ids`` actually belong to ``experiment_id`` is the
+    operation's business-logic concern, not the auth model's: trace is workspace/experiment-
+    grained, so the auth layer does not reverse-map a trace id to its experiment.
     """
     if not validate_can_create_run():
         return False
@@ -2703,16 +2708,24 @@ def validate_can_invoke_genai_evaluate():
 def validate_can_invoke_issue_detection():
     """
     Issue detection creates a run in the request's experiment, reads the supplied
-    ``trace_ids``, and, when ``secret_id`` is given, decrypts that gateway secret into the
-    job environment. Require run-tier UPDATE on the target experiment (experiment fallback,
-    like ``CreateRun`` -- so a ``(run, *, DENY)`` grant is honored), trace-tier READ on the
-    traces being analyzed (honoring ``(trace, *, DENY)``), and USE on the secret, mirroring
-    model-definition creation.
+    ``trace_ids``, writes ``Issue`` assessments back onto them (``_annotate_issue_traces``,
+    ``genai/discovery/pipeline.py``), and, when ``secret_id`` is given, decrypts that gateway
+    secret into the job environment. Require run-tier UPDATE on the target experiment
+    (experiment fallback, like ``CreateRun`` -- so a ``(run, *, DENY)`` grant is honored),
+    trace-tier READ and assessment-tier UPDATE on the experiment (honoring ``(trace, *,
+    DENY)`` / ``(assessment, *, DENY)``), and USE on the secret, mirroring model-definition
+    creation.
+
+    As with ``INVOKE_GENAI_EVALUATE``, trace/assessment are gated experiment-scoped;
+    asserting the supplied ``trace_ids`` belong to ``experiment_id`` is the operation's
+    business-logic concern, not the auth model's.
     """
     if not validate_can_create_run():
         return False
     experiment_id = _get_request_param("experiment_id")
     if not _get_trace_permission_for_experiment(experiment_id).can_read:
+        return False
+    if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
         return False
     body = request.get_json(silent=True)
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
@@ -3007,15 +3020,17 @@ _ASSESSMENT_FILTER_IDENTIFIERS = ("assessment", "feedback", "expectation")
 def _filter_references_assessments(*filter_strings: str) -> bool:
     """Best-effort, fail-safe check for whether a trace filter references assessment data.
 
-    Matches an identifier used as a filter field prefix (e.g. ``feedback.correctness``).
-    Deliberately conservative: a false positive only over-restricts (requires assessment
-    READ on a filter that merely looks assessment-related), never under-protects.
+    Matches an identifier used as a filter field prefix (e.g. ``feedback.correctness``),
+    including a backtick-quoted identifier (e.g. `` `feedback`.correctness ``) since
+    ``SearchUtils._valid_entity_type`` strips the backticks. Deliberately conservative: a
+    false positive only over-restricts (requires assessment READ on a filter that merely
+    looks assessment-related), never under-protects.
     """
     for filter_string in filter_strings:
         if not filter_string:
             continue
         for identifier in _ASSESSMENT_FILTER_IDENTIFIERS:
-            if re.search(rf"(?<![\w.]){identifier}\.", filter_string, re.IGNORECASE):
+            if re.search(rf"(?<![\w.])`?{identifier}`?\.", filter_string, re.IGNORECASE):
                 return True
     return False
 
