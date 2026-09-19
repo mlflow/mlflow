@@ -7177,6 +7177,74 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+@pytest.mark.parametrize(
+    ("path", "extra_payload"),
+    [
+        ("genai/evaluate/invoke", {"serialized_scorers": ['{"name": "judge"}']}),
+        (
+            "issues/invoke",
+            {
+                "categories": ["correctness"],
+                "provider": "openai",
+                "model": "gpt-4o",
+                "endpoint_name": "my-endpoint",
+            },
+        ),
+    ],
+)
+def test_invoke_endpoints_reject_foreign_trace_ids(client, path, extra_payload):
+    # UPDATE on the caller's own experiment must not be enough to process a trace from an
+    # experiment the caller cannot read (GHSA-v7w2-x9m4-3743).
+    base = client.tracking_uri
+    victim, victim_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    victim_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "victim-exp"},
+        auth=(victim, victim_pw),
+    ).json()["experiment_id"]
+    victim_trace_id = _create_trace(base, victim_exp_id, (victim, victim_pw))
+    attacker_exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "attacker-exp"},
+        auth=(attacker, attacker_pw),
+    ).json()["experiment_id"]
+
+    # Control: the attacker cannot read the victim's trace directly.
+    resp = requests.get(
+        f"{base}/api/2.0/mlflow/traces/{victim_trace_id}/info", auth=(attacker, attacker_pw)
+    )
+    assert resp.status_code == 403
+
+    resp = requests.post(
+        f"{base}/ajax-api/3.0/mlflow/{path}",
+        json={
+            "experiment_id": attacker_exp_id,
+            "trace_ids": [victim_trace_id],
+            **extra_payload,
+        },
+        auth=(attacker, attacker_pw),
+    )
+    # The route validator passes (the attacker owns the experiment); the JSON error body
+    # shows the rejection comes from the handler binding the trace to that experiment.
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "PERMISSION_DENIED"
+
+    runs = requests.post(
+        f"{base}/api/2.0/mlflow/runs/search",
+        json={"experiment_ids": [attacker_exp_id]},
+        auth=(attacker, attacker_pw),
+    )
+    runs.raise_for_status()
+    assert runs.json().get("runs", []) == []
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_presigned_upload_url_requires_run_update_permission(client):
     # Presigned upload URL grants direct artifact write -> denied without run update.
     base = client.tracking_uri
