@@ -1299,7 +1299,62 @@ def _get_permission_from_scorer_version_name() -> Permission:
     )
 
 
+def _deny_veto(*permissions: "Permission | None") -> bool:
+    """Universal DENY veto (RFC "absolute deny"): return ``True`` (⇒ reject) iff **any**
+    resolved permission is ``DENY``.
+
+    Positive requirements are anchor-scoped -- a route requires only its same-parent
+    children, so requiring a *cross-parent* positive grant would break an existing caller who
+    legitimately lacks it. A ``DENY`` is the opposite: it must hold on **every** resource the
+    call path touches (even a cross-parent one for which no positive grant is required),
+    because ``DENY`` is a net-new, opt-in grant -- vetoing only blocks a caller who
+    *explicitly* set ``(X, *, DENY)``, so it is backwards-compatible by construction. Resolve
+    each touched resource's tier (parent fallback is built into the resolver) and pass the
+    Permissions here.
+    """
+    return any(p is not None and p.name == DENY.name for p in permissions)
+
+
+def _scorer_version_deny_active(experiment_id: str) -> bool:
+    """``True`` iff the caller holds a workspace-wide ``(scorer_version, *, DENY)`` in the
+    experiment's workspace -- the cross-parent DENY veto for routes that *use* a scorer.
+
+    Composite/invoke routes (``INVOKE_SCORER`` / ``INVOKE_GENAI_EVALUATE`` /
+    ``CreatePromptOptimizationJob``) and new-scorer registration require no *positive*
+    ``scorer_version`` grant (it is cross-parent to the experiment anchor -- Copilot #32), but
+    a ``scorer_version`` ``DENY`` must still block them. The wildcard grant denies every
+    version in the workspace, so this resolves the ``(scorer_version, *)`` tier independent of
+    any specific scorer name.
+    """
+    username = authenticate_request().username
+    return _deny_veto(
+        _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="scorer_version",
+                resource_key="*",
+                workspace_lookup_id=experiment_id,
+                workspace_fetcher=_get_tracking_store().get_experiment,
+                workspace_label="experiment",
+            )
+        )
+    )
+
+
 def validate_can_register_scorer():
+    """Register a scorer (creates the scorer parent and/or a new version).
+
+    Positive authorization is anchor-scoped:
+    * **new scorer** -- creation is gated on ``experiment.can_update`` (its pre-RFC contract;
+      scorer is not an experiment child, and the not-yet-existing ``scorer_version`` tier
+      would fall to ``default_permission`` and wrongly deny an experiment-``EDIT`` creator);
+    * **existing scorer** -- a new version resolves the ``scorer_version`` tier
+      (``can_update``), so a positive ``scorer_version`` grant is authoritative.
+
+    On top of the positive check, a ``(scorer_version, *, DENY)`` vetoes creating a new
+    scorer's first version (the existing-scorer path already folds a ``DENY`` into
+    ``can_update``).
+    """
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
     try:
@@ -1308,7 +1363,11 @@ def validate_can_register_scorer():
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
         g.mlflow_creates_scorer_parent = True
-        return _get_experiment_permission(experiment_id, authenticate_request().username).can_update
+        if not _get_experiment_permission(
+            experiment_id, authenticate_request().username
+        ).can_update:
+            return False
+        return not _scorer_version_deny_active(experiment_id)
     return _get_scorer_version_permission(experiment_id, name).can_update
 
 
@@ -1499,6 +1558,16 @@ def validate_can_create_run():
     back to experiment ``can_update`` when no run grant is present.
     """
     return _get_permission_from_experiment_id_for_run().can_update
+
+
+def validate_can_create_prompt_optimization_job():
+    """CreatePromptOptimizationJob creates a run (positive: run tier) and its optimize job
+    uses scorers. A positive ``scorer_version`` grant is not required (cross-parent to the
+    experiment anchor), but a ``(scorer_version, *, DENY)`` vetoes it.
+    """
+    if not validate_can_create_run():
+        return False
+    return not _scorer_version_deny_active(_get_request_param("experiment_id"))
 
 
 def validate_can_update_run():
@@ -2704,7 +2773,13 @@ def validate_can_invoke_genai_evaluate():
     experiment_id = _get_request_param("experiment_id")
     if not _get_trace_permission_for_experiment(experiment_id).can_update:
         return False
-    return _experiment_child_permission("assessment", "*", experiment_id).can_update
+    if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
+        return False
+    # Cross-parent DENY veto: a (scorer_version, *, DENY) blocks the evaluation even though
+    # no positive scorer_version grant is required (the eval uses registered scorers).
+    if _scorer_version_deny_active(experiment_id):
+        return False
+    return True
 
 
 def validate_can_invoke_issue_detection():
@@ -2762,6 +2837,10 @@ def validate_can_invoke_scorer():
     if isinstance(body, dict) and body.get("log_assessments", False):
         if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
             return False
+    # Cross-parent DENY veto: a (scorer_version, *, DENY) blocks invoking a scorer even
+    # though no positive scorer_version grant is required (Copilot #32 split verdict).
+    if _scorer_version_deny_active(experiment_id):
+        return False
     return True
 
 
@@ -3665,7 +3744,7 @@ BEFORE_REQUEST_HANDLERS = {
     # Routes for prompt optimization jobs
     # Creates a run in the target experiment -> gate on the run tier (experiment fallback,
     # like CreateRun) so a (run, *, DENY) grant is honored, not just experiment UPDATE.
-    CreatePromptOptimizationJob: validate_can_create_run,
+    CreatePromptOptimizationJob: validate_can_create_prompt_optimization_job,
     GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
     SearchPromptOptimizationJobs: validate_can_read_experiment,
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
@@ -6362,7 +6441,13 @@ def _get_mcp_server_validator(
             parent_missing = not _server_exists()
             request.state.mcp_server_parent_auto_created = parent_missing
             if parent_missing:
-                return validate_can_create_mcp_server(username)
+                if not validate_can_create_mcp_server(username):
+                    return False
+                # Cross-parent DENY veto: honor (mcp_server_version, *, DENY) even when the
+                # server is auto-created on first version write. (Workspaces-enabled + absent
+                # server can't resolve the version workspace -> NO_PERMISSIONS, which
+                # fail-safes to the create gate.)
+                return not _deny_veto(_get_mcp_server_version_permission(name, username))
         perm = (
             _get_mcp_server_version_permission(name, username)
             if _is_mcp_server_version_path(parts)
