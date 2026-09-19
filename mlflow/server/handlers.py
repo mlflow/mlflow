@@ -99,7 +99,10 @@ from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
-from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
+from mlflow.genai.scorers.scorer_utils import (
+    DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR,
+    custom_scorer_execution_blocked,
+)
 from mlflow.models import Model
 from mlflow.prompt.constants import (
     _PROMPT_SOURCE_PLACEHOLDERS,
@@ -5868,18 +5871,18 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
     """Reject serialized scorers the server must never reconstruct.
 
     Decorator scorers carry a `call_source` field that is executed via exec() when the scorer
-    is deserialized. The Python client blocks registering them via `_check_can_be_registered()`,
-    but that check is client-side only, so it is enforced here regardless of how the request
-    arrives or what the server's tracking URI is. Third-party scorer kwargs that would steer the
-    judge's outbound requests are rejected for the same reason. Applied to caller payloads and
-    to registered scorers fetched from the store, since rows written before these checks
-    existed can carry the same fields.
+    is deserialized. Reconstructing them server-side is blocked unless the operator opts in with
+    `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`; the check is recursive, so a decorator nested inside an
+    ensemble is caught too (see `custom_scorer_execution_blocked`). Third-party scorer kwargs that
+    would steer the judge's outbound requests are always rejected, independent of that flag.
+    Applied to caller payloads and to registered scorers fetched from the store, since rows
+    written before these checks existed can carry the same fields.
     """
     try:
         serialized_data = json.loads(serialized_scorer)
     except json.JSONDecodeError as e:
         raise MlflowException.invalid_parameter_value("serialized_scorer must be valid JSON") from e
-    if serialized_data.get("call_source") is not None:
+    if custom_scorer_execution_blocked(serialized_data):
         raise MlflowException.invalid_parameter_value(
             DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
         )
