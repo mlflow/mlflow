@@ -1653,11 +1653,30 @@ def validate_can_create_run():
 def validate_can_create_prompt_optimization_job():
     """CreatePromptOptimizationJob creates a run (positive: run tier) and its optimize job
     uses scorers. A positive ``scorer_version`` grant is not required (cross-parent to the
-    experiment anchor), but a ``(scorer_version, *, DENY)`` vetoes it.
+    experiment anchor), but a ``(scorer_version, *, DENY)`` vetoes it, and a DENY on each
+    concrete REGISTERED scorer referenced in ``config.scorers`` vetoes as well (built-in
+    scorer names are not stored resources and carry no permissions -- the same
+    built-in-first distinction the job's own resolution uses).
     """
     if not validate_can_create_run():
         return False
-    return not _scorer_version_deny_active(_get_request_param("experiment_id"))
+    experiment_id = _get_request_param("experiment_id")
+    if _scorer_version_deny_active(experiment_id):
+        return False
+    body = request.get_json(silent=True)
+    config = body.get("config") if isinstance(body, dict) else None
+    scorer_names = config.get("scorers") if isinstance(config, dict) else None
+    if scorer_names:
+        from mlflow.genai.scorers import builtin_scorers
+
+        for name in scorer_names:
+            if not isinstance(name, str):
+                continue  # handler rejects malformed entries
+            if getattr(builtin_scorers, name, None) is not None:
+                continue  # built-in: not a stored resource
+            if _registered_scorer_deny_active(experiment_id, name):
+                return False
+    return True
 
 
 def validate_can_update_run():
@@ -2292,6 +2311,13 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
     """
     if resource_type == RESOURCE_TYPE_SCORER:
         experiment_id, scorer_pattern = _scorer_lookup_keys(resource_id)
+        # Verify the named scorer exists (the API reports permission on an instance; a
+        # nonexistent scorer must resolve NO_PERMISSIONS via the caller's not-found catch --
+        # Copilot finding 2). The name half of the compound key is URL-quoted.
+        from urllib.parse import unquote
+
+        scorer_name = unquote(resource_id.partition("/")[2])
+        _get_tracking_store().get_scorer(experiment_id, scorer_name)
         return _ResourceDispatch(
             resource_key=scorer_pattern,
             workspace_lookup_id=experiment_id,
@@ -2321,6 +2347,10 @@ def _resource_dispatch_keys(resource_type: str, resource_id: str) -> _ResourceDi
     if resource_type == RESOURCE_TYPE_ASSESSMENT:
         trace_id, assessment_id = _assessment_lookup_keys(resource_id)
         trace = _get_tracking_store().get_trace_info(trace_id)
+        # Verify the CONCRETE assessment exists (the API reports permission on an instance;
+        # a nonexistent id must resolve NO_PERMISSIONS via the caller's not-found catch, not
+        # report an allowed permission for a child that isn't there -- Copilot finding 2).
+        _get_tracking_store().get_assessment(trace_id, assessment_id)
         return _ResourceDispatch(
             resource_key=assessment_id,
             workspace_lookup_id=trace.experiment_id,
@@ -2946,6 +2976,23 @@ def validate_can_invoke_genai_evaluate():
     # no positive scorer_version grant is required (the eval uses registered scorers).
     if _scorer_version_deny_active(experiment_id):
         return False
+    # Entries with a non-null scorer_version reference a REGISTERED scorer (the handler
+    # resolves them by the name inside the serialized payload and executes them); honor a
+    # DENY on each concrete scorer parent / its versions (Copilot follow-up #1). Entries the
+    # handler would reject anyway (malformed JSON / missing name) are left to its 400.
+    body = request.get_json(silent=True)
+    if isinstance(body, dict):
+        serialized_scorers = body.get("serialized_scorers") or []
+        scorer_versions = body.get("scorer_versions") or [None] * len(serialized_scorers)
+        for serialized, version in zip(serialized_scorers, scorer_versions):
+            if version is None:
+                continue
+            try:
+                name = json.loads(serialized)["name"]
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+                continue  # handler rejects with INVALID_PARAMETER_VALUE before execution
+            if isinstance(name, str) and _registered_scorer_deny_active(experiment_id, name):
+                return False
     return True
 
 
@@ -3276,16 +3323,43 @@ def _prompt_version_deny_active(prompt_name: str) -> bool:
 
 def validate_can_link_prompts_to_trace():
     """LinkPromptsToTrace persists PROMPT_VERSION associations onto a trace. Keep the trace
-    UPDATE requirement AND honor a DENY on each referenced prompt version (or its concrete
-    prompt parent), so trace UPDATE alone cannot attach a denied prompt version (Copilot
-    finding 3). No positive prompt_version grant is required (cross-parent to the trace
-    anchor, per the #32 split verdict) -- only the DENY veto.
+    UPDATE requirement AND honor prompt-version DENY (Copilot findings 3 + follow-up):
+
+    * a workspace-wide ``(prompt_version, *, DENY)`` is resolved from the TRACE's workspace
+      (via its experiment), independent of the referenced prompt existing -- the handler
+      persists string associations without loading the prompt, so a nonexistent (or
+      not-yet-created) prompt name must not sidestep the veto through a failed parent lookup;
+    * a DENY on each named prompt's concrete parent/version tier also vetoes; and
+    * an empty prompt name is rejected outright (nothing resolvable to authorize).
+
+    No positive prompt_version grant is required (cross-parent to the trace anchor).
     """
-    if not _get_trace_permission(_get_request_param("trace_id")).can_update:
+    trace_id = _get_request_param("trace_id")
+    if not _get_trace_permission(trace_id).can_update:
         return False
     msg = _get_request_message(LinkPromptsToTrace())
+    if not msg.prompt_versions:
+        return True
+    # Workspace-wide veto, anchored on the trace's experiment (exists -- the trace-update
+    # check above already resolved it), so it holds even for a missing prompt parent.
+    experiment_id = _get_tracking_store().get_trace_info(trace_id).experiment_id
+    username = authenticate_request().username
+    workspace_wide = _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="prompt_version",
+            resource_key="*",
+            workspace_lookup_id=experiment_id,
+            workspace_fetcher=_get_tracking_store().get_experiment,
+            workspace_label="experiment",
+        )
+    )
+    if _deny_veto(workspace_wide):
+        return False
     for pv in msg.prompt_versions:
-        if pv.name and _prompt_version_deny_active(pv.name):
+        if not pv.name:
+            return False  # nothing resolvable to authorize; don't write a dangling link
+        if _prompt_version_deny_active(pv.name):
             return False
     return True
 
@@ -6160,8 +6234,15 @@ def get_user_permission():
     resource_type = _get_request_param("resource_type")
     resource_id = _get_request_param("resource_id")
     # Unknown *users* and unsupported resource_types raise 4xx; unknown *resources*
-    # (e.g. nonexistent experiment_id) intentionally return ``allowed=False`` —
-    # matches the deny-by-default semantics of the runtime authorization check.
+    # (nonexistent ids, including eagerly-verified children: run/trace/logged_model/
+    # review_queue/assessment/scorer) intentionally return ``allowed=False`` — matches the
+    # deny-by-default semantics of the runtime authorization check without leaking existence.
+    #
+    # EXCEPTION (documented contract): the *version* types (registered_model_version,
+    # prompt_version, scorer_version, mcp_server_version) report PARENT-SCOPED CAPABILITY,
+    # not a concrete-instance check. Their ``resource_id`` is the parent identity and version
+    # grants are wildcard-grain, so there is no concrete version instance in the key to
+    # verify; the result answers "what can this user do with versions of that parent".
     store.get_user(username)
     permission = _resolve_user_permission_for_resource(username, resource_type, resource_id)
     # ``allowed`` mirrors ``can_use`` (regular access tier). READ alone is not
