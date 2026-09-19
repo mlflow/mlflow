@@ -1,10 +1,11 @@
 """Agent-directed pointers to the bundled MLflow skills.
 
-Emitted on ``import mlflow`` when a coding agent is driving. Whether the skill
-is already installed is deliberately not probed: skills end up in too many
-places for the check to be accurate, and the pointer stays useful either way.
-Without it, agents design tracing from scratch and produce traces with blank
-tool inputs and outputs.
+Emitted on ``import mlflow`` when a coding agent is driving. The trace-reading
+hint fires on the first fluent ``get_trace`` or ``search_traces`` call instead.
+Whether the skill is already installed is deliberately not probed: skills end
+up in too many places for the check to be accurate, and the pointer stays useful
+either way. Without it, agents design tracing from scratch and produce traces
+with blank tool inputs and outputs.
 
 Fires once per process; ``MLFLOW_DISABLE_AGENT_HINT=1`` silences it for good.
 """
@@ -63,6 +64,9 @@ _AGENT_ENV_VALUES_WITHOUT_TTY = {"TERM_PROGRAM": "kiro"}
 # Lives in https://github.com/mlflow/skills and is installed by `mlflow agent setup`.
 TRACING_SKILL = "instrumenting-with-mlflow-tracing"
 
+# The skill that teaches trace querying and debugging.
+TRACE_READING_SKILL = "retrieving-mlflow-traces"
+
 # All hints in this module are process-local. An agent only needs to see a
 # particular problem once to change course; repeating it on every span or row
 # makes the useful message indistinguishable from ordinary logs.
@@ -79,9 +83,22 @@ _HINT = (
     "Load the `{skill}` skill at {path} before writing any tracing code; it ships with this "
     "MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
 )
+_TRACE_READING_HINT = (
+    "Load the `{skill}` skill at {path} for guidance on retrieving and inspecting MLflow "
+    "traces; it ships with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
+)
+_DEFAULT_HINT = (
+    "Load the `{skill}` skill at {path}; it ships with this "
+    "MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this."
+)
+
+_SKILL_HINTS = {
+    TRACING_SKILL: _HINT,
+    TRACE_READING_SKILL: _TRACE_READING_HINT,
+}
 
 
-def _bundled_skill_manifest() -> Path | None:
+def _bundled_skill_manifest(skill: str = TRACING_SKILL) -> Path | None:
     """Path to the skill shipped with this install, or ``None`` when absent.
 
     Released packages bundle it; a source checkout without the
@@ -93,9 +110,7 @@ def _bundled_skill_manifest() -> Path | None:
 
     try:
         # Chained joinpath: importlib's MultiplexedPath takes a single segment.
-        manifest = (
-            resources.files(SKILLS_PACKAGE).joinpath(TRACING_SKILL).joinpath(SKILL_MANIFEST_FILE)
-        )
+        manifest = resources.files(SKILLS_PACKAGE).joinpath(skill).joinpath(SKILL_MANIFEST_FILE)
         return Path(str(manifest)) if manifest.is_file() else None
     except (ModuleNotFoundError, OSError):
         return None
@@ -115,15 +130,22 @@ def _is_agent_driving() -> bool:
     )
 
 
-def maybe_hint_tracing_skill() -> None:
-    """Log the tracing-skill hint when a coding agent is driving."""
-    if MLFLOW_DISABLE_AGENT_HINT.get():
+def maybe_hint_tracing_skill(skill: str = TRACING_SKILL) -> None:
+    """Log the skill hint when a coding agent is driving."""
+    try:
+        if skill in _EMITTED_HINTS or MLFLOW_DISABLE_AGENT_HINT.get() or not _is_agent_driving():
+            return
+        if (path := _bundled_skill_manifest(skill)) is None:
+            return
+        with _EMITTED_HINTS_LOCK:
+            if skill in _EMITTED_HINTS:
+                return
+            _EMITTED_HINTS.add(skill)
+        hint_template = _SKILL_HINTS.get(skill, _DEFAULT_HINT)
+        _logger.info(hint_template.format(skill=skill, path=path))
+    except Exception:
+        # User-configurable logging handlers must not affect MLflow behavior.
         return
-    if not _is_agent_driving():
-        return
-    if (path := _bundled_skill_manifest()) is None:
-        return
-    _logger.info(_HINT.format(skill=TRACING_SKILL, path=path))
 
 
 def _claim_agent_hint(issue_id: str) -> Path | None:
