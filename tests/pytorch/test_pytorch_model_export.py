@@ -574,6 +574,14 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_info.model_uri, mlflow.pytorch.get_default_pip_requirements())
 
 
+def test_get_default_serialization_format_in_databricks():
+    with mock.patch("mlflow.pytorch.is_in_databricks_runtime", return_value=True):
+        assert mlflow.pytorch._get_default_serialization_format(export_model=False) == "pickle"
+        assert mlflow.pytorch._get_default_serialization_format(export_model=True) == "pt2"
+    with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+        assert mlflow.pytorch._get_default_serialization_format(export_model=False) == "pickle"
+
+
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
     mlflow.pytorch.save_model(
