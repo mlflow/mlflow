@@ -2736,6 +2736,12 @@ def test_search_prompt(tracking_uri):
     prompts = client.search_prompts(max_results=3)
     assert len(prompts) == 3
 
+    prompts = client.search_prompts(order_by=["name DESC"])
+    assert [p.name for p in prompts] == sorted((p.name for p in prompts), reverse=True)
+
+    prompts = client.search_prompts(order_by=["name ASC"])
+    assert [p.name for p in prompts] == sorted(p.name for p in prompts)
+
 
 def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
