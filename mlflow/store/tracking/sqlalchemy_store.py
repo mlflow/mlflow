@@ -2752,16 +2752,20 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = self._get_logged_model_record(session, model_id)
-            # TODO: Consider upserting tags in a single transaction for performance
-            for tag in tags:
-                session.merge(
-                    SqlLoggedModelTag(
-                        model_id=model_id,
-                        experiment_id=logged_model.experiment_id,
-                        tag_key=tag.key,
-                        tag_value=tag.value,
-                    )
-                )
+            # Dedupe by key so a repeated key in one call keeps the last value (matching the
+            # previous ``session.merge`` behavior); PostgreSQL's ``ON CONFLICT DO UPDATE``
+            # rejects statements that touch the same row twice.
+            deduped = {tag.key: tag.value for tag in tags}
+            rows = [
+                {
+                    "model_id": model_id,
+                    "experiment_id": logged_model.experiment_id,
+                    "tag_key": key,
+                    "tag_value": value,
+                }
+                for key, value in deduped.items()
+            ]
+            _bulk_upsert(session, SqlLoggedModelTag, rows)
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -3524,6 +3528,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
     ) -> sqlalchemy.orm.Query:
         order_by_clauses = []
         has_creation_timestamp = False
+        has_model_id = False
         for ob in order_by or []:
             field_name = ob.get("field_name")
             ascending = ob.get("ascending", True)
@@ -3531,6 +3536,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 name = SqlLoggedModel.ALIASES.get(field_name, field_name)
                 if name == "creation_timestamp_ms":
                     has_creation_timestamp = True
+                if name == "model_id":
+                    has_model_id = True
                 try:
                     col = getattr(SqlLoggedModel, name)
                 except AttributeError:
@@ -3567,7 +3574,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                     SqlLoggedModelMetric.model_id,
                     SqlLoggedModelMetric.metric_value,
                     func
-                    .rank()
+                    .row_number()
                     .over(
                         partition_by=[
                             SqlLoggedModelMetric.model_id,
@@ -3576,9 +3583,10 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                         order_by=[
                             SqlLoggedModelMetric.metric_timestamp_ms.desc(),
                             SqlLoggedModelMetric.metric_step.desc(),
+                            SqlLoggedModelMetric.run_id.asc(),
                         ],
                     )
-                    .label("rank"),
+                    .label("row_num"),
                 )
                 .filter(
                     SqlLoggedModelMetric.metric_name == name,
@@ -3586,7 +3594,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
                 .subquery()
             )
-            subquery = select(subquery.c).where(subquery.c.rank == 1).subquery()
+            subquery = select(subquery.c).where(subquery.c.row_num == 1).subquery()
 
             models = models.outerjoin(subquery)
             # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
@@ -3598,6 +3606,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         if not has_creation_timestamp:
             order_by_clauses.append(SqlLoggedModel.creation_timestamp_ms.desc())
+        if not has_model_id:
+            order_by_clauses.append(SqlLoggedModel.model_id.asc())
 
         return models.order_by(*order_by_clauses)
 

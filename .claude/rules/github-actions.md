@@ -65,6 +65,38 @@ If the trigger event already carries the data, read it from the `github` context
 
 Only fetch when the data isn't in the payload (e.g., check runs, review threads, changed files on `issue_comment`).
 
+## Prefer Job Conditions Over Shell Guards
+
+When a condition determines whether a job has any work and can be evaluated
+from workflow contexts, use a job-level `if` instead of starting a `run` script
+and checking the condition in the shell. GitHub can then skip the job without
+provisioning a runner.
+
+```yaml
+# Bad: every opened issue provisions a runner before checking its title
+jobs:
+  label:
+    runs-on: ubuntu-slim
+    steps:
+      - env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          if echo "$ISSUE_TITLE" | grep -qi "bug report"; then
+            gh issue edit ... --add-label bug
+          fi
+
+# Good: unrelated issues skip the job before a runner is provisioned
+jobs:
+  label:
+    if: contains(github.event.issue.title, 'bug report')
+    runs-on: ubuntu-slim
+    steps:
+      - run: gh issue edit ... --add-label bug
+```
+
+Keep the condition inside `run` when it depends on information produced on the
+runner or a command's result and cannot be evaluated as a workflow expression.
+
 ## Prefer `gh` CLI over `actions/github-script`
 
 For simple GitHub API operations (commenting, labeling, cancelling runs, etc.),
