@@ -28,6 +28,7 @@ from mlflow.entities import (
     Metric,
     Param,
     RoutingStrategy,
+    RunStatus,
     RunTag,
     SourceType,
     ViewType,
@@ -78,6 +79,7 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
+    ClaimRun,
     CreateAssessment,
     CreateDataset,
     CreateGatewayEndpoint,
@@ -313,6 +315,26 @@ def _verify_requests(
     """
     http_request.assert_any_call(
         **(_args(host_creds, endpoint, method, json_body, use_v3, retry_timeout_seconds))
+    )
+
+
+def test_claim_run_sends_expected_status():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = ClaimRun.Response(updated=True)
+
+    with mock.patch.object(store, "_call_endpoint", return_value=response) as mock_call:
+        assert store.claim_run("run-id", RunStatus.SCHEDULED, RunStatus.RUNNING)
+
+    mock_call.assert_called_once_with(
+        ClaimRun,
+        message_to_json(
+            ClaimRun(
+                run_id="run-id",
+                expected_status=RunStatus.SCHEDULED,
+                status=RunStatus.RUNNING,
+            )
+        ),
     )
 
 

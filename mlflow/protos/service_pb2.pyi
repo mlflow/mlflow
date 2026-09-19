@@ -471,6 +471,21 @@ class UpdateRun(_message.Message):
     run_name: str
     def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., status: _Optional[_Union[RunStatus, str]] = ..., end_time: _Optional[int] = ..., run_name: _Optional[str] = ...) -> None: ...
 
+class ClaimRun(_message.Message):
+    __slots__ = ("run_id", "expected_status", "status")
+    class Response(_message.Message):
+        __slots__ = ("updated",)
+        UPDATED_FIELD_NUMBER: _ClassVar[int]
+        updated: bool
+        def __init__(self, updated: bool = ...) -> None: ...
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_STATUS_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
+    expected_status: RunStatus
+    status: RunStatus
+    def __init__(self, run_id: _Optional[str] = ..., expected_status: _Optional[_Union[RunStatus, str]] = ..., status: _Optional[_Union[RunStatus, str]] = ...) -> None: ...
+
 class DeleteRun(_message.Message):
     __slots__ = ("run_id",)
     class Response(_message.Message):

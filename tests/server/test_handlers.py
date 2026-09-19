@@ -136,6 +136,7 @@ from mlflow.protos.service_pb2 import (
     ListScorerVersions,
     QueryTraceMetrics,
     RegisterScorer,
+    RunInfo,
     SearchExperiments,
     SearchLoggedModels,
     SearchRuns,
@@ -146,6 +147,7 @@ from mlflow.protos.service_pb2 import (
     SetTraceTagV3,
     TraceLocation,
     UpdateGatewaySecret,
+    UpdateRun,
 )
 from mlflow.protos.service_pb2 import (
     FallbackStrategy as ProtoFallbackStrategy,
@@ -253,6 +255,7 @@ from mlflow.server.handlers import (
     _update_model_version,
     _update_registered_model,
     _update_review_queue,
+    _update_run,
     _update_workspace_handler,
     _upload_artifact,
     _upsert_dataset_records_handler,
@@ -863,6 +866,43 @@ def jsonify(obj):
         return [_jsonify(o) for o in obj]
     else:
         return _jsonify(obj)
+
+
+def test_update_run_updates_run_info(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = UpdateRun(
+        run_id="run-id",
+        status=RunStatus.RUNNING,
+    )
+    mock_tracking_store.update_run_info.return_value = mock.Mock()
+    mock_tracking_store.update_run_info.return_value.to_proto.return_value = RunInfo()
+
+    response = _update_run()
+
+    assert response.status_code == 200
+    mock_tracking_store.update_run_info.assert_called_once_with(
+        "run-id", RunStatus.RUNNING, None, None
+    )
+
+
+@pytest.mark.parametrize("updated", [True, False])
+def test_claim_run_endpoint_claims_atomically(mock_tracking_store, updated):
+    mock_tracking_store.claim_run.return_value = updated
+
+    with app.test_client() as client:
+        response = client.post(
+            "/api/2.0/mlflow/runs/claim",
+            json={
+                "run_id": "run-id",
+                "expected_status": "SCHEDULED",
+                "status": "RUNNING",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.get_json() == {"updated": updated}
+    mock_tracking_store.claim_run.assert_called_once_with(
+        "run-id", RunStatus.SCHEDULED, RunStatus.RUNNING
+    )
 
 
 # Tests for Model Registry handlers

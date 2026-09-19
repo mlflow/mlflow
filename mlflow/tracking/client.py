@@ -2701,6 +2701,9 @@ class MlflowClient:
         """
         self._tracking_client.update_run(run_id, status, name)
 
+    def _claim_run(self, run_id: str, expected_status: str, status: str) -> bool:
+        return self._tracking_client.claim_run(run_id, expected_status, status)
+
     def log_batch(
         self,
         run_id: str,

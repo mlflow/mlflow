@@ -1201,6 +1201,25 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             return run.info
 
+    def claim_run(self, run_id, expected_status, run_status):
+        expected_status_string = RunStatus.to_string(expected_status)
+        run_status_string = RunStatus.to_string(run_status)
+        with self.ManagedSessionMaker(read_only=False) as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            updated_rows = (
+                session.query(SqlRun)
+                .filter(
+                    SqlRun.run_uuid == run_id,
+                    SqlRun.status == expected_status_string,
+                )
+                .update(
+                    {SqlRun.status: run_status_string},
+                    synchronize_session=False,
+                )
+            )
+            return updated_rows == 1
+
     def _try_get_run_tag(self, session, run_id, tagKey, eager=False):
         query_options = self._get_eager_run_query_options() if eager else []
         return (

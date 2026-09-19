@@ -196,6 +196,7 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
+    ClaimRun,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -1907,6 +1908,28 @@ def _update_run():
     status = request_message.status if request_message.HasField("status") else None
     updated_info = _get_tracking_store().update_run_info(run_id, status, end_time, run_name)
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _claim_run():
+    request_message = _get_request_message(
+        ClaimRun(),
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "expected_status": [_assert_required, _assert_string],
+            "status": [_assert_required, _assert_string],
+        },
+    )
+    updated = _get_tracking_store().claim_run(
+        request_message.run_id,
+        request_message.expected_status,
+        request_message.status,
+    )
+    response_message = ClaimRun.Response(updated=updated)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -8357,6 +8380,7 @@ HANDLERS = {
     UpdateExperiment: _update_experiment,
     CreateRun: _create_run,
     UpdateRun: _update_run,
+    ClaimRun: _claim_run,
     DeleteRun: _delete_run,
     RestoreRun: _restore_run,
     LogParam: _log_param,

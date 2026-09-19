@@ -514,11 +514,23 @@ class MlflowStorage(BaseStorage):
     def set_trial_state_values(
         self, trial_id, state: TrialState, values: Sequence[float] | None = None
     ) -> bool:
-        # Update trial state
-        if state.is_finished():
-            self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
+        # Optuna uses a False return to indicate that a RUNNING trial could not
+        # be claimed. The tracking store performs this transition atomically so
+        # that concurrent workers cannot both claim the same WAITING trial.
+        if state == TrialState.RUNNING:
+            if not self._mlflow_client._claim_run(
+                trial_id,
+                expected_status=optuna_mlflow_status_map[TrialState.WAITING],
+                status=optuna_mlflow_status_map[TrialState.RUNNING],
+            ):
+                return False
         else:
-            self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
+            # Update trial state. The RUNNING transition is already performed by
+            # the atomic claim above, so it must not be written a second time.
+            if state.is_finished():
+                self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
+            else:
+                self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
 
         # Queue value metrics if provided
         timestamp = int(time.time() * 1000)
@@ -532,9 +544,6 @@ class MlflowStorage(BaseStorage):
                 metrics = [Metric("value", values[0], timestamp, 1)]
 
             self._queue_batch_operation(trial_id, metrics=metrics)
-
-        if state == TrialState.RUNNING and state != TrialState.WAITING:
-            return False
         return True
 
     def set_trial_intermediate_value(self, trial_id, step: int, intermediate_value: float) -> None:

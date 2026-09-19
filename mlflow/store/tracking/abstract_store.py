@@ -248,6 +248,19 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             mlflow.entities.RunInfo: Describing the updated run.
         """
 
+    def claim_run(self, run_id, expected_status, run_status):
+        """Atomically update a run's status if it has the expected status.
+
+        Args:
+            run_id: ID of the run to update.
+            expected_status: Current status required for the update to succeed.
+            run_status: New status to set when ``expected_status`` matches.
+
+        Returns:
+            ``True`` if the status was updated, otherwise ``False``.
+        """
+        raise NotImplementedError
+
     @abstractmethod
     def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         """
