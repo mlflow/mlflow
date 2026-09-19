@@ -1395,7 +1395,23 @@ def validate_can_register_scorer():
         # distinct surface from the scorer_version veto below (Copilot r4052491497).
         if _top_level_create_denied("scorer", username):
             return False
-        return not _scorer_version_deny_active(experiment_id)
+        if _scorer_version_deny_active(experiment_id):
+            return False
+        # Guard the check-then-act race (Copilot finding #2): between the get_scorer probe
+        # above and the handler, a concurrent request may create the scorer, turning THIS
+        # request into a version-add on an existing scorer. A version-add must satisfy the
+        # scorer_version tier (which the bare experiment.can_update create-gate does not
+        # imply -- scorer does not fall back to experiment), so re-probe and, if the scorer
+        # now exists, require version-tier can_update. The after-request grant is
+        # independently guarded (it grants MANAGE only when the response reports version 1).
+        try:
+            _get_tracking_store().get_scorer(experiment_id, name)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return True  # still absent: genuine create, authorized by the gate above
+            raise
+        # Concurrent create won the race: authorize as a version-add on the now-existing scorer.
+        return _get_scorer_version_permission(experiment_id, name).can_update
     return _get_scorer_version_permission(experiment_id, name).can_update
 
 
@@ -1529,23 +1545,17 @@ def validate_can_read_experiment():
 
 
 def validate_can_read_scorer_list():
-    # ``ListScorers`` accepts an optional ``experiment_id``. When set, gate
-    # on the experiment read permission as usual; when empty, the request is
-    # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
-    # per-row RBAC filtering, so the route itself is open to any authenticated
-    # caller.
+    # ``ListScorers`` accepts an optional ``experiment_id``. Both the single-experiment and
+    # cross-experiment forms rely on ``filter_list_scorers`` (AFTER_REQUEST) for per-row RBAC
+    # on the ``scorer_version`` child tier (scorer-parent fallback), so the route is open to
+    # any authenticated caller and the row filter is authoritative.
     #
-    # NB: this validator does not look at the newer, plural ``experiment_ids``
-    # field (added for pre-request auth scoping, see #24964). A caller that
-    # sets only ``experiment_ids`` still falls through to the ``not
-    # args.get("experiment_id")`` branch below and relies on the
-    # post-response filtering in ``filter_list_scorers`` -- basic auth does
-    # not yet use ``experiment_ids`` to scope the query before it reaches
-    # the store.
-    args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
-    if not args.get("experiment_id"):
-        return True
-    return _get_permission_from_experiment_id().can_read
+    # This is deliberate: gating the single-experiment form on ``experiment.can_read`` would
+    # make a child-only ``scorer_version`` grant expose a row through the cross-experiment
+    # listing yet be denied when the same experiment is requested explicitly -- inconsistent
+    # with the child-tier override model (Copilot finding #4). The row filter already drops
+    # rows the caller cannot read on the version tier, so no experiment pre-gate is needed.
+    return True
 
 
 def validate_can_read_experiment_by_name():
@@ -1678,7 +1688,15 @@ def validate_can_delete_prompt_optimization_job():
     run_id = _prompt_optimization_job_run_id()
     if not run_id:
         return True
-    return _get_run_permission(run_id).can_delete
+    # The handler (``_delete_prompt_optimization_job``) tolerates an already-deleted run --
+    # it deletes the job and skips a missing run. Mirror that: if the run no longer exists
+    # there is nothing left to protect, so allow the delete on the job/experiment tier alone.
+    try:
+        return _get_run_permission(run_id).can_delete
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return True
+        raise
 
 
 # Logged models
@@ -5221,6 +5239,13 @@ def set_can_manage_scorer_permission(resp: Response):
         return
     response_message = RegisterScorer.Response()
     parse_dict(resp.json, response_message)
+    # The pre-request existence check can go stale: if a concurrent request created the
+    # scorer first, THIS request merely added a new version and must NOT be granted
+    # parent-level MANAGE. The response's version number is the authoritative, race-free
+    # signal -- register_scorer assigns version 1 only when it creates the scorer's first
+    # version (the parent), otherwise max+1. Grant MANAGE only for version 1.
+    if response_message.version != 1:
+        return
     experiment_id = response_message.experiment_id
     name = response_message.name
     username = authenticate_request().username
@@ -6513,10 +6538,12 @@ def _get_mcp_server_validator(
                 if not validate_can_create_mcp_server(username):
                     return False
                 # Cross-parent DENY veto: honor (mcp_server_version, *, DENY) even when the
-                # server is auto-created on first version write. (Workspaces-enabled + absent
-                # server can't resolve the version workspace -> NO_PERMISSIONS, which
-                # fail-safes to the create gate.)
-                return not _deny_veto(_get_mcp_server_version_permission(name, username))
+                # server is auto-created on first version write. The parent server does not
+                # exist yet, so _get_mcp_server_version_permission can't resolve its workspace
+                # (returns NO_PERMISSIONS and would silently skip the veto); resolve the
+                # wildcard (mcp_server_version, *) grant directly in the active workspace
+                # instead (same create-time pattern as _top_level_create_denied).
+                return not _top_level_create_denied("mcp_server_version", username)
         perm = (
             _get_mcp_server_version_permission(name, username)
             if _is_mcp_server_version_path(parts)
