@@ -11,6 +11,8 @@ import type {
   HealthCheckResult,
   InstallSkillsResponse,
   PermissionRequest,
+  PendingClientToolCall,
+  ProvidersResponse,
 } from './types';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
@@ -79,6 +81,15 @@ export const getConfig = async (): Promise<AssistantConfig> => {
 };
 
 /**
+ * Discover assistant providers and the one that would serve a chat from this
+ * client (`resolved`), which may be an auto-picked default when nothing is
+ * explicitly selected in config.
+ */
+export const getProviders = async (): Promise<ProvidersResponse> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/providers`));
+};
+
+/**
  * Update the assistant configuration.
  * Pass null for a project to remove it.
  */
@@ -108,7 +119,8 @@ export const cancelSession = async (sessionId: string): Promise<{ message: strin
 
 export interface SendMessageStreamCallbacks {
   onMessage: (text: string) => void;
-  onError: (error: string) => void;
+  /** `code` is the backend's machine-readable error class when it provided one. */
+  onError: (error: string, code?: string) => void;
   onDone: () => void;
   onStatus?: (status: string) => void;
   onSessionId?: (sessionId: string) => void;
@@ -116,6 +128,7 @@ export interface SendMessageStreamCallbacks {
   onToolResult?: (result: ToolResultInfo) => void;
   onInterrupted?: () => void;
   onPermissionRequest?: (request: PermissionRequest) => void;
+  onClientToolCall?: (request: PendingClientToolCall) => void | Promise<void>;
   onUsage?: (usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -138,8 +151,19 @@ const attachStreamListeners = (
   sessionId: string,
   callbacks: SendMessageStreamCallbacks,
 ): void => {
-  const { onMessage, onError, onDone, onStatus, onToolUse, onToolResult, onInterrupted, onPermissionRequest, onUsage } =
-    callbacks;
+  const {
+    onMessage,
+    onError,
+    onDone,
+    onStatus,
+    onToolUse,
+    onToolResult,
+    onInterrupted,
+    onPermissionRequest,
+    onClientToolCall,
+    onUsage,
+  } = callbacks;
+  let terminalClientToolCall: PendingClientToolCall | null = null;
 
   // Listen for 'message' events (contains assistant's response)
   // Backend sends: {"message": {"role": "assistant", "content": "..."}}
@@ -199,12 +223,51 @@ const attachStreamListeners = (
     eventSource.close();
   });
 
+  // Native client tool calls pause the provider and resume on a fresh stream.
+  // Structured-output providers emit a terminal call instead. Defer terminal
+  // execution until `done` so the backend has persisted the provider's latest
+  // session before a browser validation error starts an automatic repair turn.
+  eventSource.addEventListener('client_tool_call', (event) => {
+    let continuation: PendingClientToolCall['continuation'] = 'resume';
+    try {
+      const data = JSON.parse((event as MessageEvent).data);
+      continuation = data.continuation === 'terminal' ? 'terminal' : 'resume';
+      const request: PendingClientToolCall = {
+        sessionId,
+        requestId: data.request_id,
+        toolName: data.tool_name,
+        toolInput: data.tool_input ?? {},
+        ...(continuation === 'terminal' ? { continuation } : {}),
+      };
+      if (continuation === 'terminal') {
+        terminalClientToolCall = request;
+      } else {
+        onClientToolCall?.(request);
+      }
+    } catch (err) {
+      onError('Failed to read a client tool call from the assistant.');
+    }
+    if (continuation === 'resume') {
+      eventSource.close();
+    }
+  });
+
   // Listen for 'done' event (completion)
   // Backend sends: {"result": null, "session_id": "..."}
   eventSource.addEventListener('done', () => {
-    onToolUse?.([]);
-    onDone();
     eventSource.close();
+    const finish = async () => {
+      if (terminalClientToolCall) {
+        await onClientToolCall?.(terminalClientToolCall);
+      }
+      // Starting an automatic repair rotates the active request token, so these
+      // guarded callbacks become no-ops instead of finalizing the repair stream.
+      onToolUse?.([]);
+      onDone();
+    };
+    void finish().catch((error) => {
+      onError(error instanceof Error ? error.message : 'Failed to execute the client tool.');
+    });
   });
 
   // Listen for 'interrupted' event (cancelled by user)
@@ -218,7 +281,7 @@ const attachStreamListeners = (
     if (event.type === 'error' && (event as MessageEvent).data) {
       try {
         const data = JSON.parse((event as MessageEvent).data);
-        onError(data.error || 'Unknown error');
+        onError(data.error || 'Unknown error', data.error_code);
       } catch {
         onError('Connection error');
       }
@@ -309,12 +372,41 @@ export const resumeStream = async (
   return { eventSource };
 };
 
-export const listProviderModels = async (provider: string, baseUrl: string, apiKey?: string): Promise<string[]> => {
+/**
+ * Resume a turn paused at a client_tool_call: POST the client-executed
+ * result, then open a fresh stream that continues from where the turn left
+ * off. Mirrors resumeStream's permission-prompt flow.
+ */
+export const submitClientToolResult = async (
+  sessionId: string,
+  requestId: string,
+  content: string,
+  isError: boolean,
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  try {
+    await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/tool-result`), {
+      method: 'POST',
+      body: JSON.stringify({ request_id: requestId, content, is_error: isError }),
+    });
+  } catch (error) {
+    callbacks.onError('Failed to send the client tool result. Please try again.');
+    return { eventSource: null };
+  }
+
+  const eventSource = createEventSource(sessionId);
+  attachStreamListeners(eventSource, sessionId, callbacks);
+  return { eventSource };
+};
+
+export const listProviderModels = async (provider: string, baseUrl?: string, apiKey?: string): Promise<string[]> => {
   // api_key is sent as an X-API-Key header (not a query param) so the
   // bearer token doesn't end up in access logs, browser history, or
-  // referer headers.
-  const params = new URLSearchParams({ base_url: baseUrl });
-  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?${params.toString()}`;
+  // referer headers. base_url is omitted when unset so the provider's
+  // default (e.g. the OpenAI API) applies.
+  const params = new URLSearchParams(baseUrl ? { base_url: baseUrl } : {});
+  const query = params.toString();
+  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models${query ? `?${query}` : ''}`;
   const headers = {
     ...getDefaultHeaders(document.cookie),
     ...(apiKey ? { 'X-API-Key': apiKey } : {}),

@@ -28,3 +28,11 @@ global.DOMRect = {
     toJSON: () => {},
   }),
 };
+
+// jsdom's test environment doesn't expose the WHATWG encoding globals that
+// Node provides; the custom-view feature's tag-size accounting needs TextEncoder.
+if (typeof global.TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}

@@ -86,7 +86,7 @@ class UCSchemaLocation(TraceLocationBase):
     Represents the location of a Databricks Unity Catalog (UC) schema.
 
     Args:
-        catalog_name: The name of the Unity Catalog catalog name.
+        catalog_name: The name of the Unity Catalog catalog.
         schema_name: The name of the Unity Catalog schema.
     """
 

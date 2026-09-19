@@ -317,6 +317,27 @@ def store(tmp_path: Path, db_uri: str):
     return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
 ```
 
+## Don't Discard Subprocess Output in Tests
+
+`subprocess.DEVNULL` throws away the output that explains a failure. Let the subprocess inherit the parent's stdout and stderr: pytest captures those and prints them when the test fails.
+
+```python
+# Bad
+def test_server():
+    with subprocess.Popen(
+        ["mlflow", "server"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ):
+        ...
+
+
+# Good
+def test_server():
+    with subprocess.Popen(["mlflow", "server"]):
+        ...
+```
+
 ## Preserve function metadata and type information in decorators
 
 When writing decorators, always use `@functools.wraps` to preserve function metadata (like `__name__` and `__doc__`), and use `typing.ParamSpec` and `typing.TypeVar` to preserve the function's type information for accurate type checking and autocompletion in IDEs.

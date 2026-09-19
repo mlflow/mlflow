@@ -14,6 +14,7 @@ from typing import Any
 
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets.entities import EvaluationDatasetVersion
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
@@ -158,6 +159,14 @@ def _get_dataset_by_name(name: str) -> EntityEvaluationDataset:
                 "Use 'dataset_id' for unambiguous retrieval.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+
+def _resolve_dataset_version_arg(
+    version: int | EvaluationDatasetVersion | None,
+) -> int | None:
+    if isinstance(version, EvaluationDatasetVersion):
+        return version.version
+    return version
 
 
 @deprecated_parameter("uc_table_name", "name")
@@ -317,6 +326,7 @@ def delete_dataset(
 def get_dataset(
     name: str | None = None,
     dataset_id: str | None = None,
+    version: int | EvaluationDatasetVersion | None = None,
 ) -> "EvaluationDataset":
     """
     Get the dataset with the given name or ID.
@@ -325,6 +335,9 @@ def get_dataset(
         name: The name of the dataset. In Databricks, this is the UC table name.
             In non-Databricks environments, this will search for a dataset with the given name.
         dataset_id: The ID of the dataset (non-Databricks only).
+        version: The immutable Databricks dataset version to retrieve. This can be an integer
+            or an ``EvaluationDatasetVersion`` returned by ``dataset.list_versions()``. This
+            parameter is not supported in non-Databricks environments.
 
     Returns:
         An EvaluationDataset object representing the retrieved dataset.
@@ -367,14 +380,19 @@ def get_dataset(
 
     if is_databricks_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
+        resolved_version = _resolve_dataset_version_arg(version)
         try:
             from databricks.agents.datasets import get_dataset as db_get
 
             with _databricks_profile_env():
+                if version is not None:
+                    return EvaluationDataset(db_get(name, version=resolved_version))
                 return EvaluationDataset(db_get(name))
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
+        if version is not None:
+            raise NotImplementedError("`version` is only supported for Databricks datasets.")
         _validate_non_databricks_get_params(name, dataset_id)
 
         if name is not None:
@@ -767,6 +785,7 @@ def remove_dataset_from_experiments(
 
 __all__ = [
     "EvaluationDataset",
+    "EvaluationDatasetVersion",
     "add_dataset_to_experiments",
     "create_dataset",
     "delete_dataset",

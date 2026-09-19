@@ -1,5 +1,5 @@
 import { describe, it, expect, jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -19,6 +19,7 @@ import {
   getMockedDeleteMCPServerResponse,
   getMockedGetLatestMCPServerVersionResponse,
   getMockedUpdateMCPServerResponse,
+  getMockedUpdateMCPServerVersionResponse,
   getMockedSetMCPServerTagResponse,
   getMockedDeleteMCPServerTagResponse,
   getMockedCurrentUserResponse,
@@ -78,6 +79,7 @@ const defaultHandlers = [
   getMockedGetLatestMCPServerVersionResponse(mockVersion),
   getMockedGetMCPServerResponse(mockServer),
   getMockedSearchMCPServerVersionsResponse([mockVersion]),
+  getMockedSearchAccessEndpointsResponse([]),
   getMockedDeleteMCPServerVersionResponse(),
   getMockedDeleteMCPServerResponse(),
   getMockedCurrentUserResponse({ isAdmin: true }),
@@ -216,20 +218,34 @@ describe('MCPServerDetailPage', () => {
     });
   });
 
-  it('opens edit version modal with status select when Edit is clicked', async () => {
+  it('updates version status from an inline selector after clicking the status edit button', async () => {
+    const updatedVersion = createMockMCPServerVersion({
+      ...mockVersion,
+      status: MCPStatus.DEPRECATED,
+    });
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('Viewing version 1')).toBeInTheDocument();
     });
 
-    const editBtn = document.querySelector(
-      '[data-component-id="mlflow.mcp_registry.detail.edit_version"]',
-    ) as HTMLElement;
-    await userEvent.click(editBtn);
+    server.use(
+      getMockedUpdateMCPServerVersionResponse(updatedVersion),
+      getMockedGetLatestMCPServerVersionResponse(updatedVersion),
+      getMockedSearchMCPServerVersionsResponse([updatedVersion]),
+    );
+
+    expect(screen.getAllByText(MCPStatus.ACTIVE).length).toBeGreaterThanOrEqual(1);
+    await userEvent.click(screen.getByLabelText('Edit version status'));
+
+    const statusSelect = screen.getByRole('combobox', { name: 'Version status' });
+    expect(statusSelect).toHaveTextContent('Active');
+    await userEvent.click(await screen.findByRole('option', { name: 'Deprecated' }));
+
     await waitFor(() => {
-      expect(screen.getByText('Edit version details')).toBeInTheDocument();
-      expect(screen.getByText('Status')).toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'Version status' })).not.toBeInTheDocument();
+      expect(screen.getAllByText(MCPStatus.DEPRECATED).length).toBeGreaterThanOrEqual(1);
     });
+    expect(screen.getByLabelText('Edit version status')).toBeInTheDocument();
   });
 
   it('selects different version when multiple exist', async () => {
@@ -337,7 +353,7 @@ describe('MCPServerDetailPage', () => {
     });
   });
 
-  it('disables all status transitions for deleted version in edit modal', async () => {
+  it('disables all status transitions for deleted version', async () => {
     const deletedVersion = createMockMCPServerVersion({
       name: 'dev.mainline/mcp',
       version: '1',
@@ -355,14 +371,21 @@ describe('MCPServerDetailPage', () => {
       expect(screen.getByText('Viewing version 1')).toBeInTheDocument();
     });
 
-    const editBtn = document.querySelector(
-      '[data-component-id="mlflow.mcp_registry.detail.edit_version"]',
-    ) as HTMLElement;
-    await userEvent.click(editBtn);
-    await waitFor(() => {
-      expect(screen.getByText('Edit version details')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Status')).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Edit version status'));
+
+    const statusSelect = screen.getByRole('combobox', { name: 'Version status' });
+    expect(statusSelect).toHaveTextContent('Deleted');
+
+    const options = within(await screen.findByRole('listbox')).getAllByRole('option');
+    expect(
+      options.every(
+        (option) =>
+          option.textContent === 'Deleted' ||
+          option.getAttribute('aria-disabled') === 'true' ||
+          option.hasAttribute('data-disabled') ||
+          option.hasAttribute('disabled'),
+      ),
+    ).toBe(true);
   });
 
   it('displays server description as read-only', async () => {
@@ -443,7 +466,7 @@ describe('MCPServerDetailPage', () => {
       await waitFor(() => {
         expect(screen.getAllByText('Mainline').length).toBeGreaterThanOrEqual(1);
       });
-      expect(screen.queryByText('Create MCP server version')).not.toBeInTheDocument();
+      expect(screen.queryByText('Create new version')).not.toBeInTheDocument();
       expect(screen.queryByText('Edit')).not.toBeInTheDocument();
       expect(screen.queryByText('Delete version')).not.toBeInTheDocument();
       expect(screen.queryByLabelText('More actions')).not.toBeInTheDocument();
@@ -453,9 +476,9 @@ describe('MCPServerDetailPage', () => {
       setupWithPermissions([MCPServerAction.USE, MCPServerAction.UPDATE]);
       renderPage();
       await waitFor(() => {
-        expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+        expect(screen.getByText('Create new version')).toBeInTheDocument();
       });
-      expect(screen.getByText('Edit')).toBeInTheDocument();
+      expect(screen.getByLabelText('Edit version status')).toBeInTheDocument();
       expect(screen.getByLabelText('More actions')).toBeInTheDocument();
       expect(screen.queryByText('Delete version')).not.toBeInTheDocument();
     });
@@ -469,9 +492,9 @@ describe('MCPServerDetailPage', () => {
       ]);
       renderPage();
       await waitFor(() => {
-        expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+        expect(screen.getByText('Create new version')).toBeInTheDocument();
       });
-      expect(screen.getByText('Edit')).toBeInTheDocument();
+      expect(screen.getByLabelText('Edit version status')).toBeInTheDocument();
       expect(screen.getByText('Delete version')).toBeInTheDocument();
       expect(screen.getByLabelText('More actions')).toBeInTheDocument();
     });
@@ -480,9 +503,9 @@ describe('MCPServerDetailPage', () => {
       setupWithPermissions(undefined);
       renderPage();
       await waitFor(() => {
-        expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+        expect(screen.getByText('Create new version')).toBeInTheDocument();
       });
-      expect(screen.getByText('Edit')).toBeInTheDocument();
+      expect(screen.getByLabelText('Edit version status')).toBeInTheDocument();
       expect(screen.getByText('Delete version')).toBeInTheDocument();
     });
 

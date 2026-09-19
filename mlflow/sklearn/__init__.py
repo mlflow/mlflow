@@ -521,18 +521,25 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if serialization_format != SERIALIZATION_FORMAT_SKOPS:
-        if (
-            not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
-            and not is_in_databricks_runtime()
-            and not is_in_databricks_model_serving_environment()
-        ):
-            raise MlflowException(
-                "Deserializing model using pickle is disallowed, but this model is saved "
-                "in pickle format. To address this issue, you need to set environment variable "
-                "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model in "
-                "'skops' format."
-            )
+    # Loading a serialized model can execute arbitrary code from the model artifact. This
+    # includes the skops format: skops only blocks untrusted types via its `trusted` allow-list,
+    # and that list is read from the model's own MLmodel file, so a crafted model can whitelist
+    # dangerous types. Gate every serialization format behind MLFLOW_ALLOW_PICKLE_DESERIALIZATION
+    # so the flag is a real safety control rather than one the skops format silently bypasses.
+    # The is_in_databricks_* carve-outs are pre-existing and shared with the pickle/cloudpickle
+    # paths: those managed runtimes permit model deserialization regardless of the flag.
+    if (
+        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        and not is_in_databricks_runtime()
+        and not is_in_databricks_model_serving_environment()
+    ):
+        raise MlflowException(
+            "Deserializing this model is disallowed because 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' "
+            "is not set to 'true'. Loading a model can execute arbitrary code from the model "
+            "artifact, including models saved in the 'skops' format, whose trusted-types "
+            "allow-list is read from the model itself. Only load models from trusted sources; set "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow loading."
+        )
 
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
         import skops.io

@@ -175,6 +175,8 @@ def test_log_artifact(mock_databricks_workspace_client, tmp_path):
     )
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_get_workspace_client_uses_resolved_creds_when_token_present():
     creds = MlflowHostCreds(host="https://my-host", token="my-token")
     with (

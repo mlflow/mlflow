@@ -311,6 +311,10 @@ module.exports = function () {
         };
 
         jestConfig.resetMocks = false; // ML-20462 Restore resetMocks
+        // Full-page render suites (userEvent + MSW under jsdom) intermittently exceed jest's 5s
+        // default under parallel CI load. Raise the default so heavy-but-finite tests don't flake;
+        // genuinely-hung tests still fail. Per-test `}, N)` overrides remain authoritative.
+        jestConfig.testTimeout = 20000;
         jestConfig.collectCoverageFrom = ['src/**/*.{js,jsx}', '!**/*.test.{js,jsx}', '!**/__tests__/*.{js,jsx}'];
         jestConfig.coverageReporters = ['lcov'];
         jestConfig.setupFiles = ['jest-canvas-mock'];
@@ -342,6 +346,13 @@ module.exports = function () {
           '@mlflow/mlflow/(.*)': '<rootDir>/$1',
           // mock files for recharts components
           '^recharts$': '<rootDir>/__mocks__/recharts.tsx',
+          // Jest 27's resolver doesn't understand package.json "exports" subpath
+          // maps, so @a2ui's "./v0_9"-style subpaths (which have no top-level
+          // "main"/"module" entry) can't be found without an explicit alias.
+          '^@a2ui/web_core/v0_9/basic_catalog$':
+            '<rootDir>/node_modules/@a2ui/web_core/src/v0_9/basic_catalog/index.js',
+          '^@a2ui/web_core/v0_9$': '<rootDir>/node_modules/@a2ui/web_core/src/v0_9/index.js',
+          '^@a2ui/react/v0_9$': '<rootDir>/node_modules/@a2ui/react/v0_9/index.cjs',
         };
 
         jestConfig.moduleNameMapper = moduleNameMapper;

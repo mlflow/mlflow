@@ -93,7 +93,12 @@ from mlflow.transformers.signature import (
     format_input_example_for_special_cases,
     infer_or_get_default_signature,
 )
-from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
+from mlflow.transformers.torch_utils import (
+    _DTYPE_KEY,
+    _TORCH_DTYPE_KEY,
+    _deserialize_torch_dtype,
+    _get_torch_dtype_kwarg_name,
+)
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.annotations import deprecated
@@ -311,7 +316,8 @@ def save_model(
 
                 1. A transformers `Pipeline` instance.
                 2. A dictionary that maps required components of a pipeline to the named keys
-                    of ["model", "image_processor", "tokenizer", "feature_extractor"].
+                    of ["model", "image_processor", "tokenizer", "feature_extractor",
+                    "torch_dtype"].
                     The `model` key in the dictionary must map to a value that inherits from
                     `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
                     All other component entries in the dictionary must support the defined task
@@ -887,7 +893,8 @@ def log_model(
 
                 1. A transformers `Pipeline` instance.
                 2. A dictionary that maps required components of a pipeline to the named keys
-                    of ["model", "image_processor", "tokenizer", "feature_extractor"].
+                    of ["model", "image_processor", "tokenizer", "feature_extractor",
+                    "torch_dtype"].
                     The `model` key in the dictionary must map to a value that inherits from
                     `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
                     All other component entries in the dictionary must support the defined task
@@ -1419,12 +1426,22 @@ def _load_model(
         conf["device"] = device
         accelerate_model_conf["device"] = device
 
-    if dtype_val := kwargs.get(_TORCH_DTYPE_KEY) or flavor_config.get(FlavorKey.TORCH_DTYPE):
+    # Pop both dtype spellings so the `conf.update(**kwargs)` below cannot re-add a raw
+    # user-provided name on top of the renamed one. If both are passed, `dtype` wins,
+    # matching transformers' own precedence.
+    torch_dtype_arg = kwargs.pop(_TORCH_DTYPE_KEY, None)
+    dtype_arg = kwargs.pop(_DTYPE_KEY, None)
+    if dtype_val := dtype_arg or torch_dtype_arg or flavor_config.get(FlavorKey.TORCH_DTYPE):
         if isinstance(dtype_val, str):
             dtype_val = _deserialize_torch_dtype(dtype_val)
-        conf[_TORCH_DTYPE_KEY] = dtype_val
-        flavor_config[_TORCH_DTYPE_KEY] = dtype_val
-        accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
+        # Newer transformers versions (>= 4.56.0) renamed the `torch_dtype` kwarg to `dtype` and
+        # warn when the old name is passed, so forward using the name the installed version expects.
+        dtype_kwarg = _get_torch_dtype_kwarg_name()
+        conf[dtype_kwarg] = dtype_val
+        accelerate_model_conf[dtype_kwarg] = dtype_val
+        # `flavor_config` is keyed by `torch_dtype` and consumed by the model loading path, which
+        # applies the version-appropriate kwarg name itself.
+        flavor_config[FlavorKey.TORCH_DTYPE] = dtype_val
 
     accelerate_model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
 
@@ -1622,6 +1639,13 @@ def _build_pipeline_from_model_input(model_dict: dict[str, Any], task: str | Non
     if task is None or task.startswith(_LLM_INFERENCE_TASK_PREFIX):
         default_task = _get_default_task_for_llm_inference_task(task)
         task = _get_task_for_model(model.name_or_path, default_task=default_task)
+
+    # Copy so renaming the dtype key does not mutate the caller's dict
+    model_dict = dict(model_dict)
+    if dtype_val := model_dict.pop(_TORCH_DTYPE_KEY, None):
+        # setdefault so an explicit `dtype` entry wins over `torch_dtype`; the load path
+        # and transformers itself give `dtype` the same precedence
+        model_dict.setdefault(_get_torch_dtype_kwarg_name(), dtype_val)
 
     try:
         with suppress_logs("transformers.pipelines.base", filter_regex=_PEFT_PIPELINE_ERROR_MSG):

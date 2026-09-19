@@ -317,7 +317,7 @@ def test_fit_with_a_list_of_params(dataset_binomial):
             with mlflow.start_run():
                 with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
                     lr_model_iter = lr.fit(dataset_binomial, params=params)
-                    mock_warning.called_once_with(
+                    mock_warning.assert_called_once_with(
                         _get_warning_msg_for_fit_call_with_a_list_of_params(lr)
                     )
             assert isinstance(list(lr_model_iter)[0], LinearRegressionModel)
@@ -387,7 +387,7 @@ def test_should_log_model(
         with mlflow.start_run():
             lor_model = lor.fit(dataset_binomial)
         assert not _should_log_model(lor_model)
-        mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(lor_model))
+        mock_warning.assert_called_once_with(_get_warning_msg_for_skip_log_model(lor_model))
         assert not _should_log_model(ova1_model)
         assert not _should_log_model(pipeline_model)
         assert not _should_log_model(nested_pipeline_model)

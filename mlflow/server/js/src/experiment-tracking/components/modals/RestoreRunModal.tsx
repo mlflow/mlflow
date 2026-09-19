@@ -8,14 +8,13 @@
 import React, { Component } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { connect } from 'react-redux';
-import { openErrorModal, restoreRunApi } from '../../actions';
+import { restoreRunApi } from '../../actions';
 import Utils from '../../../common/utils/Utils';
 
 type Props = {
   isOpen: boolean;
   onClose: (...args: any[]) => any;
   selectedRunIds: string[];
-  openErrorModal: (...args: any[]) => any;
   restoreRunApi: (...args: any[]) => any;
   onSuccess?: () => void;
 };
@@ -33,11 +32,7 @@ export class RestoreRunModalImpl extends Component<Props> {
     });
     return Promise.all(restorePromises)
       .catch((e) => {
-        let errorMessage = 'While restoring an experiment run, an error occurred.';
-        if (e.textJson && e.textJson.error_code === 'RESOURCE_LIMIT_EXCEEDED') {
-          errorMessage = errorMessage + ' ' + e.textJson.message;
-        }
-        this.props.openErrorModal(errorMessage);
+        Utils.logErrorAndNotifyUser(e?.message || e);
       })
       .then(() => {
         this.props.onSuccess?.();
@@ -61,7 +56,6 @@ export class RestoreRunModalImpl extends Component<Props> {
 
 const mapDispatchToProps = {
   restoreRunApi,
-  openErrorModal,
 };
 
 export default connect(null, mapDispatchToProps)(RestoreRunModalImpl);

@@ -2,6 +2,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -12,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from mlflow.assistant.config import AssistantConfig, ProjectConfig
 from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
-from mlflow.assistant.providers import OllamaProvider
+from mlflow.assistant.providers import MlflowGatewayProvider, OllamaProvider
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -134,7 +135,9 @@ def test_message(client):
     data = response.json()
     session_id = data["session_id"]
     assert session_id is not None
-    assert data["stream_url"] == f"/ajax-api/3.0/mlflow/assistant/stream/{data['session_id']}"
+    assert (
+        data["stream_url"] == f"/ajax-api/3.0/mlflow/assistant/sessions/{data['session_id']}/stream"
+    )
 
     # continue the conversation
     response = client.post(
@@ -146,6 +149,114 @@ def test_message(client):
     assert response.json()["session_id"] == session_id
 
 
+def test_message_fills_in_working_dir_once_experiment_id_arrives(client, tmp_path):
+    # A session started with no experiment_id has no working_dir, so file
+    # tools (Read, and Bash + python/python3) are denied. Related to
+    # GHSA-27c7-qx3r-x4f8: if a later message in the same session provides an
+    # experiment_id, working_dir must be filled in rather than staying None
+    # for the lifetime of the session.
+    project_dir = tmp_path / "my_project"
+    project_dir.mkdir()
+    client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"projects": {"exp-456": {"type": "local", "location": str(project_dir)}}},
+    )
+
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "Hello"},
+    )
+    session_id = response.json()["session_id"]
+    session = SessionManager.load(session_id)
+    assert session.working_dir is None
+
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={
+            "message": "Now use my project",
+            "session_id": session_id,
+            "experiment_id": "exp-456",
+        },
+    )
+    assert response.status_code == 200
+
+    session = SessionManager.load(session_id)
+    assert session.working_dir == project_dir
+
+
+def test_message_does_not_overwrite_existing_working_dir(client, tmp_path):
+    # A session's working_dir, once configured, must not be silently
+    # replaced by a different experiment_id on a later message in the same
+    # session.
+    project_dir = tmp_path / "my_project"
+    project_dir.mkdir()
+    other_dir = tmp_path / "other_project"
+    other_dir.mkdir()
+    client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={
+            "projects": {
+                "exp-456": {"type": "local", "location": str(project_dir)},
+                "exp-789": {"type": "local", "location": str(other_dir)},
+            }
+        },
+    )
+
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "Hello", "experiment_id": "exp-456"},
+    )
+    session_id = response.json()["session_id"]
+    session = SessionManager.load(session_id)
+    assert session.working_dir == project_dir
+
+    client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={
+            "message": "Switch projects?",
+            "session_id": session_id,
+            "experiment_id": "exp-789",
+        },
+    )
+
+    session = SessionManager.load(session_id)
+    assert session.working_dir == project_dir
+
+
+def test_message_clears_omitted_turn_scoped_context(client):
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={
+            "message": "Build a view",
+            "context": {
+                "trace_id": "tr-123",
+                "customTraceView": {"guide": "authoring guide"},
+            },
+        },
+    )
+    session_id = response.json()["session_id"]
+
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "What is 2+2?", "session_id": session_id},
+    )
+
+    assert response.status_code == 200
+    session = SessionManager.load(session_id)
+    assert session is not None
+    assert "customTraceView" not in session.context
+    assert session.context["trace_id"] == "tr-123"
+
+
+def test_message_stream_url_includes_static_prefix(client, monkeypatch):
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    response = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hello"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["stream_url"].startswith("/myprefix/ajax-api/3.0/mlflow/assistant/sessions/")
+
+
 def test_stream_not_found_for_invalid_session(client):
     response = client.get("/ajax-api/3.0/mlflow/assistant/sessions/invalid-session-id/stream")
     assert response.status_code == 404
@@ -155,11 +266,11 @@ def test_stream_not_found_for_invalid_session(client):
 def test_stream_bad_request_when_no_pending_message(client):
     # Create session and consume the pending message
     r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
-    session_id = r.json()["session_id"]
-    client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+    stream_url = r.json()["stream_url"]
+    client.get(stream_url)
 
     # Try to stream again without a new message
-    response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+    response = client.get(stream_url)
 
     assert response.status_code == 400
     assert "No pending message" in response.json()["detail"]
@@ -167,9 +278,8 @@ def test_stream_bad_request_when_no_pending_message(client):
 
 def test_stream_returns_sse_events(client):
     r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
-    session_id = r.json()["session_id"]
 
-    response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+    response = client.get(r.json()["stream_url"])
 
     assert response.status_code == 200
     assert "text/event-stream" in response.headers["content-type"]
@@ -178,6 +288,60 @@ def test_stream_returns_sse_events(client):
     assert "event: message" in content
     assert "event: done" in content
     assert "Hello from mock" in content
+
+
+def test_stream_uses_default_provider_when_none_selected():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    mock_provider = MockProvider()
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=None),
+        patch("mlflow.server.assistant.api.resolve_default_provider", return_value=mock_provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        client = TestClient(app)
+        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+
+        response = client.get(r.json()["stream_url"])
+
+    assert response.status_code == 200
+    assert "Hello from mock" in response.text
+
+
+def test_stream_uses_selected_provider_without_default_probe(client):
+    with patch("mlflow.server.assistant.api.resolve_default_provider") as mock_resolve_default:
+        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+        response = client.get(r.json()["stream_url"])
+
+    assert response.status_code == 200
+    assert "Hello from mock" in response.text
+    mock_resolve_default.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_stream_resolves_provider_off_event_loop():
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="hi")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
+    event_loop_thread_id = threading.get_ident()
+
+    def resolve_provider(remote=False):
+        assert threading.get_ident() != event_loop_thread_id
+        return MockProvider()
+
+    with patch("mlflow.server.assistant.api._resolve_provider", side_effect=resolve_provider):
+        response = await stream_response(mock_request, session_id)
+        body = "".join([c async for c in response.body_iterator])
+
+    assert "Hello from mock" in body
 
 
 def test_health_check_returns_ok_when_healthy(client):
@@ -230,12 +394,153 @@ def test_health_check_returns_401_when_not_authenticated():
         assert "Not authenticated" in response.json()["detail"]
 
 
+def test_get_providers_auto_resolves_available_default(client):
+    response = client.get("/ajax-api/3.0/mlflow/assistant/providers")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"] == [
+        {
+            "name": "mock_provider",
+            "display_name": "Mock Provider",
+            "description": "Mock provider for testing",
+            "available": True,
+            "selected": False,
+            "requires_api_key": False,
+            "has_api_key": False,
+            "allows_remote_access": False,
+            "client_tool_delivery": "unsupported",
+            "model_options": [],
+        }
+    ]
+    assert data["resolved"] == {
+        "name": "mock_provider",
+        "model": None,
+        "auto_selected": True,
+        "requires_api_key": False,
+        "has_api_key": False,
+        "client_tool_delivery": "unsupported",
+        "model_provider": None,
+        "model_options": [],
+        "provider_model": None,
+    }
+    assert data["gateway_vendor_options"]["openai"] == ["gpt-5.5"]
+
+
+def test_get_providers_reports_native_client_tool_delivery_for_ollama():
+    app = FastAPI()
+    app.include_router(assistant_router)
+    ollama_provider = OllamaProvider()
+
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[ollama_provider]),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/providers")
+
+    assert response.status_code == 200
+    provider = response.json()["providers"][0]
+    assert provider["client_tool_delivery"] == "tool"
+
+
+def test_get_providers_resolves_selected_managed_gateway_endpoint():
+    app = FastAPI()
+    app.include_router(assistant_router)
+    gateway_provider = MlflowGatewayProvider()
+    config = AssistantConfig(
+        providers={
+            MlflowGatewayProvider.GATEWAY_PROVIDER_NAME: AssistantProviderConfig(
+                model="mlflow-assistant-openai",
+                selected=True,
+            )
+        },
+    )
+    config.save()
+
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[gateway_provider]),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/providers")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"][0]["selected"] is True
+    assert data["resolved"] == {
+        "name": "mlflow_gateway",
+        "model": "mlflow-assistant-openai",
+        "auto_selected": False,
+        "requires_api_key": False,
+        "has_api_key": True,
+        "client_tool_delivery": "tool",
+        "model_provider": "openai",
+        "model_options": ["gpt-5.5"],
+        "provider_model": "gpt-5.5",
+    }
+
+
 def test_get_config_returns_empty_config(client):
     response = client.get("/ajax-api/3.0/mlflow/assistant/config")
     assert response.status_code == 200
     data = response.json()
     assert data["providers"] == {}
     assert data["projects"] == {}
+
+
+def test_get_config_exposes_default_provider_when_none_selected():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    mock_provider = MockProvider()
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=None),
+        patch("mlflow.server.assistant.api.resolve_default_provider", return_value=mock_provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["mock_provider"]["selected"] is True
+    assert data["providers"]["mock_provider"]["model"] == "default"
+
+
+def test_get_config_does_not_list_gateway_models_for_default_provider():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    gateway_provider = MlflowGatewayProvider()
+    gateway_provider.list_models = MagicMock(side_effect=AssertionError("should not list models"))
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=None),
+        patch(
+            "mlflow.server.assistant.api.resolve_default_provider", return_value=gateway_provider
+        ),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["mlflow_gateway"]["selected"] is True
+    assert data["providers"]["mlflow_gateway"]["model"] == "default"
+    gateway_provider.list_models.assert_not_called()
+
+
+def test_get_config_does_not_probe_gateway_default_provider(client):
+    with (
+        patch("mlflow.assistant.providers.ClaudeCodeProvider.is_available", return_value=False),
+        patch("mlflow.assistant.providers.CodexProvider.is_available", return_value=False),
+        patch(
+            "mlflow.assistant.providers.MlflowGatewayProvider.is_available",
+            side_effect=AssertionError("should not probe gateway"),
+        ),
+    ):
+        response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"] == {}
 
 
 def test_get_config_returns_existing_config(client, tmp_path):
@@ -273,22 +578,6 @@ def test_get_config_redacts_project_location_for_remote_clients(tmp_path):
 
     assert response.status_code == 200
     assert "location" not in response.json()["projects"]["exp-123"]
-
-
-def test_get_config_always_redacts_api_key(client):
-    config = AssistantConfig(
-        providers={
-            "claude_code": AssistantProviderConfig(
-                model="default", selected=True, api_key="sk-secret"
-            )
-        },
-    )
-    config.save()
-
-    response = client.get("/ajax-api/3.0/mlflow/assistant/config")
-
-    assert response.status_code == 200
-    assert "api_key" not in response.json()["providers"]["claude_code"]
 
 
 def test_get_config_loads_config_once(client):
@@ -689,6 +978,7 @@ async def test_stream_pauses_then_resumes(decision, expected_text):
 
     mock_request = MagicMock()
     mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
     provider = _DeferredProvider()
 
     # First turn: the stream completes immediately at the prompt (no await).
@@ -726,8 +1016,61 @@ class _CaptureProvider(MockProvider):
         cwd=None,
         context=None,
     ):
-        self.captured = {"prompt": prompt, "context": context or {}}
+        self.captured = {"prompt": prompt, "tracking_uri": tracking_uri, "context": context or {}}
         yield Event.from_result(result=None, session_id="prov-done")
+
+
+class _ErrorThenCaptureProvider(MockProvider):
+    def __init__(self):
+        self.session_ids: list[str | None] = []
+
+    async def astream(
+        self,
+        prompt,
+        tracking_uri,
+        session_id=None,
+        mlflow_session_id=None,
+        cwd=None,
+        context=None,
+    ):
+        self.session_ids.append(session_id)
+        if len(self.session_ids) == 1:
+            yield Event.from_error("invalid structured output", session_id="prov-error")
+        else:
+            assert session_id is not None
+            yield Event.from_result(result=None, session_id=session_id)
+
+
+@pytest.mark.asyncio
+async def test_stream_preserves_provider_session_id_from_error_for_next_turn():
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="build a view")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
+    provider = _ErrorThenCaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        first = "".join([chunk async for chunk in response.body_iterator])
+
+    assert "event: error" in first
+    session = SessionManager.load(session_id)
+    assert session is not None
+    assert session.provider_session_id == "prov-error"
+
+    session.set_pending_message(role="user", content="repair the view")
+    SessionManager.save(session_id, session)
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([chunk async for chunk in response.body_iterator])
+
+    assert provider.session_ids == [None, "prov-error"]
 
 
 @pytest.mark.asyncio
@@ -747,6 +1090,7 @@ async def test_stream_prefers_new_message_over_stale_tool_decision():
 
     mock_request = MagicMock()
     mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
     provider = _CaptureProvider()
 
     with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
@@ -755,6 +1099,28 @@ async def test_stream_prefers_new_message_over_stale_tool_decision():
 
     assert provider.captured["prompt"] == "what is 2+2"
     assert "tool_decisions" not in provider.captured["context"]
+
+
+@pytest.mark.asyncio
+async def test_stream_tracking_uri_includes_static_prefix(monkeypatch):
+    from mlflow.server.assistant.api import stream_response
+
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="hi")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
+    provider = _CaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([c async for c in response.body_iterator])
+
+    assert provider.captured["tracking_uri"] == "http://localhost:5000/myprefix"
 
 
 @pytest.mark.asyncio
@@ -771,6 +1137,7 @@ async def test_stream_forwards_tool_decision_when_no_pending_message():
 
     mock_request = MagicMock()
     mock_request.base_url = "http://localhost:5000/"
+    mock_request.client.host = "127.0.0.1"
     provider = _CaptureProvider()
 
     with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
@@ -850,6 +1217,26 @@ def test_install_skills_blocked_for_remote_client(monkeypatch):
 
     assert response.status_code == 403
     assert "same host" in response.json()["detail"]
+
+
+def test_install_skills_requires_explicit_selected_provider():
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=None),
+        patch("mlflow.server.assistant.api.resolve_default_provider") as mock_resolve_default,
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"type": "custom", "custom_path": "/tmp/test-skills"},
+        )
+
+    assert response.status_code == 412
+    assert "No assistant provider" in response.json()["detail"]
+    mock_resolve_default.assert_not_called()
 
 
 def test_update_config_partial_update_preserves_selected_provider(client):

@@ -39,6 +39,8 @@ class OpenInferenceTranslator(OtelSchemaTranslator):
     INPUT_TOKEN_KEY = "llm.token_count.prompt"
     OUTPUT_TOKEN_KEY = "llm.token_count.completion"
     TOTAL_TOKEN_KEY = "llm.token_count.total"
+    CACHE_READ_INPUT_TOKEN_KEY = "llm.token_count.prompt_details.cache_read"
+    CACHE_CREATION_INPUT_TOKEN_KEY = "llm.token_count.prompt_details.cache_write"
 
     # Input/Output attribute keys
     # Reference: https://github.com/Arize-ai/openinference/blob/c80c81b8d6fa564598bd359cdd7313f4472ceca8/python/openinference-semantic-conventions/src/openinference/semconv/trace/__init__.py

@@ -826,7 +826,7 @@ def autolog(
     **Logged information**
       **Parameters**
         - Parameters obtained by ``estimator.params``. If a param value is also an ``Estimator``,
-          then params in the the wrapped estimator will also be logged, the nested param key
+          then params in the wrapped estimator will also be logged, the nested param key
           will be `{estimator_uid}.{param_name}`
 
       **Tags**

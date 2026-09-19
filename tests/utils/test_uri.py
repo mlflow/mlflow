@@ -124,12 +124,20 @@ def test_is_local_uri_windows():
     assert not is_local_uri("\\\\server\\aa\\bb")
 
 
-def test_is_databricks_uri():
-    assert is_databricks_uri("databricks")
-    assert is_databricks_uri("databricks:whatever")
-    assert is_databricks_uri("databricks://whatever")
-    assert not is_databricks_uri("mlruns")
-    assert not is_databricks_uri("http://whatever")
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("databricks", True),
+        ("databricks:whatever", True),
+        ("databricks://whatever", True),
+        ("DATABRICKS://PROFILE", True),
+        ("mlruns", False),
+        ("sqlite:////tmp/mlflow.db", False),
+        ("http://whatever", False),
+    ],
+)
+def test_is_databricks_uri(uri, expected):
+    assert is_databricks_uri(uri) == expected
 
 
 def test_is_http_uri():

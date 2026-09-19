@@ -5,6 +5,7 @@ import random
 import signal
 from io import BytesIO, StringIO
 from typing import Any, NamedTuple
+from unittest import mock
 
 import keras
 import numpy as np
@@ -26,7 +27,7 @@ from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.types.schema import Array, Object, Property
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.proto_json_utils import MlflowInvalidInputException, NumpyEncoder
 from mlflow.version import VERSION
 
 from tests.helper_functions import (
@@ -530,7 +531,10 @@ def test_records_oriented_json_to_df():
     jstr, _ = pyfunc_scoring_server._split_data_and_params(jstr)
     df = pyfunc_scoring_server.infer_and_parse_data(jstr)
     assert set(df.columns) == {"zip", "cost", "score"}
-    assert {str(dt) for dt in df.dtypes} == {"object", "float64", "int64"}
+    # pandas 3 infers StringDtype where pandas 2 used object
+    assert pd.api.types.is_string_dtype(df["zip"])
+    assert df["cost"].dtype == "float64"
+    assert df["score"].dtype == "int64"
 
 
 def _shuffle_pdf(pdf):
@@ -554,7 +558,10 @@ def test_split_oriented_json_to_df():
     df = pyfunc_scoring_server.infer_and_parse_data(jstr)
 
     assert set(df.columns) == {"zip", "cost", "count"}
-    assert {str(dt) for dt in df.dtypes} == {"object", "float64", "int64"}
+    # pandas 3 infers StringDtype where pandas 2 used object
+    assert pd.api.types.is_string_dtype(df["zip"])
+    assert df["cost"].dtype == "float64"
+    assert df["count"].dtype == "int64"
 
 
 def test_parse_with_schema_csv(pandas_df_with_csv_types):
@@ -642,9 +649,15 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         )
         response_json = json.loads(response.content)["predictions"]
 
-        # objects are not converted to pandas Strings at the moment
-        expected_types = {**pandas_df_with_all_types.dtypes, "string": np.dtype(object)}
-        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+        expected_types = {
+            **{k: str(v) for k, v in pandas_df_with_all_types.dtypes.items()},
+            # Schema enforcement normalizes datetimes to nanoseconds, while pandas 3 infers a
+            # coarser unit for the fixture
+            "datetime": "datetime64[ns]",
+            # "object" on pandas 2, "str" on pandas 3
+            "string": str(pd.Series([""]).dtype),
+        }
+        assert response_json == [[k, v] for k, v in expected_types.items()]
         response = score_model_in_process(
             model_uri=model_info.model_uri,
             data=json.dumps(
@@ -654,7 +667,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         )
         response_json = json.loads(response.content)["predictions"]
-        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+        assert response_json == [[k, v] for k, v in expected_types.items()]
 
         # Test 'inputs' format
         response = score_model_in_process(
@@ -663,7 +676,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         )
         response_json = json.loads(response.content)["predictions"]
-        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+        assert response_json == [[k, v] for k, v in expected_types.items()]
 
 
 def test_serving_model_with_param_schema(sklearn_model, model_path):
@@ -1118,3 +1131,23 @@ def test_split_data_and_params_for_llm_input(dict_input, param_schema, expected)
     expected_data, expected_params = expected
     assert data == expected_data
     assert params == expected_params
+
+
+def test_decode_json_input_rejects_non_utf8_body():
+    with pytest.raises(MlflowInvalidInputException, match="valid JSON formatted string"):
+        pyfunc_scoring_server._decode_json_input(b"\x80\x81")
+
+
+def test_decode_json_input_still_rejects_malformed_json():
+    with pytest.raises(MlflowInvalidInputException, match="valid JSON formatted string"):
+        pyfunc_scoring_server._decode_json_input(b"{not json")
+
+
+def test_invocations_rejects_non_utf8_csv_body():
+    with pytest.raises(MlflowInvalidInputException, match="valid UTF-8 encoded string"):
+        pyfunc_scoring_server.invocations(
+            b"\x80\x81",
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_CSV,
+            model=mock.MagicMock(),
+            input_schema=None,
+        )

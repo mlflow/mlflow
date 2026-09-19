@@ -600,7 +600,7 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException(
                         f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
                     )
-                if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                if comparator not in ("=", "!=", "LIKE", "ILIKE", "IN", "NOT IN"):
                     raise MlflowException(
                         f"Invalid comparator for attribute: {comparator}",
                         error_code=INVALID_PARAMETER_VALUE,
@@ -687,7 +687,7 @@ class SqlAlchemyStore(AbstractStore):
                         )
                 elif (
                     comparator not in SearchModelVersionUtils.VALID_STRING_ATTRIBUTE_COMPARATORS
-                    or (comparator == "IN" and key != "run_id")
+                    or (comparator in ("IN", "NOT IN") and key not in ("run_id", "name"))
                 ):
                     raise MlflowException(
                         f"Invalid comparator for attribute: {comparator}",
@@ -700,16 +700,7 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     key_name = key
                 attr = getattr(SqlModelVersion, key_name)
-                if comparator == "IN":
-                    # Note: Here the run_id values in databases contain only lower case letters,
-                    # so we already filter out comparison values containing upper case letters
-                    # in `SearchModelUtils._get_value`. This addresses MySQL IN clause case
-                    # in-sensitive issue.
-                    val_filter = attr.in_(value)
-                else:
-                    val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                        attr, value
-                    )
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
                 attribute_filters.append(val_filter)
             elif type_ == "tag":
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
@@ -1135,7 +1126,7 @@ class SqlAlchemyStore(AbstractStore):
                 are accessed from the resulting ``SqlModelVersion`` object.
         """
         _validate_model_name(name)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         query_options = self._get_eager_model_version_query_options() if eager else []
         conditions = [
             SqlModelVersion.name == name,
@@ -1458,7 +1449,7 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         _validate_model_version_tag(tag.key, tag.value)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
@@ -1486,7 +1477,7 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         _validate_model_name(name)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         _validate_tag_name(key)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
@@ -1521,7 +1512,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_name(name)
         _validate_model_alias_name(alias)
         _validate_model_alias_name_reserved(alias)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
             sql_model_version = self._get_sql_model_version(session, name, version)

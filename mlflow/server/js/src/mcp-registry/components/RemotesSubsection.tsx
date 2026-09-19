@@ -108,7 +108,7 @@ const RemoteRowContent = ({
 
   return (
     <>
-      <Tag componentId="mlflow.mcp_registry.detail.remote_transport_tag" color="charcoal" css={noShrinkStyles}>
+      <Tag componentId="mlflow.mcp_registry.detail.remote_transport_tag" color="indigo" css={noShrinkStyles}>
         {remote.type}
       </Tag>
       <Typography.Text color="secondary" css={ellipsisStyles(theme)}>

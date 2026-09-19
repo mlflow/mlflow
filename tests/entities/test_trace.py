@@ -26,6 +26,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracing.utils.truncation import _get_max_length
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import (
     milliseconds_to_proto_timestamp,
@@ -380,7 +381,14 @@ def test_from_v2_dict():
     assert trace.info.trace_metadata["mlflow.traceOutputs"] == "8"
 
 
-def test_request_response_smart_truncation():
+@pytest.fixture
+def clear_truncation_max_length_cache():
+    _get_max_length.cache_clear()
+    yield
+    _get_max_length.cache_clear()
+
+
+def test_request_response_smart_truncation(clear_truncation_max_length_cache):
     @mlflow.trace
     def f(messages: list[dict[str, Any]]) -> dict[str, Any]:
         return {"choices": [{"message": {"role": "assistant", "content": "Hi!" * 1000}}]}
@@ -399,7 +407,7 @@ def test_request_response_smart_truncation():
     assert trace_info.response_preview.startswith("Hi!")
 
 
-def test_request_response_smart_truncation_non_chat_format():
+def test_request_response_smart_truncation_non_chat_format(clear_truncation_max_length_cache):
     # Non-chat request/response will be naively truncated
     @mlflow.trace
     def f(question: str) -> list[str]:

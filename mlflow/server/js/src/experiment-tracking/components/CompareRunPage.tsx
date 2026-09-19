@@ -8,9 +8,10 @@
 import React, { Component } from 'react';
 import qs from 'qs';
 import { connect } from 'react-redux';
-import { getRunApi, getExperimentApi } from '../actions';
+import { getRunApi, getExperimentApi, searchRunsApi } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import CompareRunView from './CompareRunView';
+import { ViewType } from '../sdk/MlflowEnums';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
@@ -29,6 +30,13 @@ type CompareRunPageProps = {
   urlDecodeError?: boolean;
   dispatch: (...args: any[]) => any;
 };
+
+/**
+ * Upper bound on how many run IDs we inline into a single `run_id IN (...)` filter.
+ * Past ~4900 IDs the server fails to parse the filter expression, so anything larger
+ * falls back to fetching runs individually.
+ */
+export const COMPARE_RUNS_SEARCH_RUN_LIMIT = 1000;
 
 class CompareRunPageImpl extends Component<CompareRunPageProps> {
   requestIds: any;
@@ -54,16 +62,63 @@ class CompareRunPageImpl extends Component<CompareRunPageProps> {
     });
   }
 
-  componentDidMount() {
-    this.requestIds.push(...this.fetchExperiments());
-    this.props.runUuids.forEach((runUuid) => {
-      const requestId = getUUID();
-      this.requestIds.push(requestId);
+  /**
+   * Fetch all compared runs using a single search request instead of one request per run.
+   * The reducers for SEARCH_RUNS_API populate the same state slices that GET_RUN_API does
+   * (run infos, params, tags and latest metrics), so CompareRunView reads the data as before.
+   */
+  fetchRuns() {
+    const { runUuids, experimentIds } = this.props;
 
-      this.props.dispatch(getRunApi(runUuid, requestId)).catch((requestError: Error | ErrorWrapper) => {
+    if (runUuids.length < 1) {
+      return [];
+    }
+
+    if (runUuids.length > COMPARE_RUNS_SEARCH_RUN_LIMIT) {
+      return runUuids.map((runUuid) => {
+        const perRunRequestId = getUUID();
+        this.props.dispatch(getRunApi(runUuid, perRunRequestId)).catch((requestError: Error | ErrorWrapper) => {
+          this.setState({ requestError });
+        });
+        return perRunRequestId;
+      });
+    }
+
+    const requestId = getUUID();
+    const runIdsInQuotes = runUuids.map((runUuid) => `'${runUuid}'`);
+    this.props
+      .dispatch(
+        searchRunsApi({
+          id: requestId,
+          experimentIds,
+          filter: `run_id IN (${runIdsInQuotes.join(',')})`,
+          // Compared runs may have been deleted, so don't restrict the search to active ones
+          runViewType: ViewType.ALL,
+          // searchRunsApi defaults to a page size smaller than the number of compared runs
+          maxResults: runUuids.length,
+        }),
+      )
+      .then(({ value }: { value: { runs?: { info: { runUuid: string } }[] } }) => {
+        // Unlike getRunApi, searching for a run that does not exist succeeds and simply
+        // omits it from the results, so surface the missing runs as an error instead of
+        // rendering an incomplete comparison.
+        const foundRunUuids = new Set((value?.runs ?? []).map(({ info }) => info.runUuid));
+        const missingRunUuids = runUuids.filter((runUuid) => !foundRunUuids.has(runUuid));
+        if (missingRunUuids.length > 0) {
+          this.setState({
+            requestError: new Error(`Runs were not found: ${missingRunUuids.join(', ')}`),
+          });
+        }
+      })
+      .catch((requestError: Error | ErrorWrapper) => {
         this.setState({ requestError });
       });
-    });
+    return [requestId];
+  }
+
+  componentDidMount() {
+    this.requestIds.push(...this.fetchExperiments());
+    this.requestIds.push(...this.fetchRuns());
   }
 
   render() {

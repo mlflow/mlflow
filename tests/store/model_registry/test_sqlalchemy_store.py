@@ -862,6 +862,37 @@ def test_search_model_versions(store):
         search_versions("run_id IN (1,2,3)")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+    # search using the NOT IN operator should exclude specified versions
+    assert set(search_versions(f"run_id NOT IN ('{run_id_1}')")) == {2, 3, 4}
+
+    # search NOT IN operator with multiple values
+    assert set(search_versions(f"run_id NOT IN ('{run_id_1}','{run_id_2}')")) == {4}
+
+    # search NOT IN operator is case sensitive
+    assert set(search_versions(f"run_id NOT IN ('{run_id_1.upper()}')")) == {1, 2, 3, 4}
+
+    # search NOT IN operator with other conditions
+    assert set(search_versions(f"version_number=2 AND run_id NOT IN ('{run_id_1}')")) == {2}
+
+    # search NOT IN operator with right-hand side value containing whitespaces
+    assert set(search_versions(f"run_id NOT IN ('{run_id_1}', '{run_id_2}')")) == {4}
+
+    # search using the NOT IN operator with bad lists should return exceptions
+    with pytest.raises(
+        MlflowException,
+        match=(
+            r"While parsing a list in the query, "
+            r"expected string value, punctuation, or whitespace, "
+            r"but got different type in list"
+        ),
+    ) as exception_context:
+        search_versions("run_id NOT IN (1,2,3)")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    # search using NOT IN with unsupported key should raise exception
+    with pytest.raises(MlflowException, match=r"support comparison with a list"):
+        search_versions("source_path NOT IN ('A/B', 'A/C')")
+
     assert set(search_versions(f"run_id LIKE '{run_id_2[:30]}%'")) == {2, 3}
 
     assert set(search_versions(f"run_id ILIKE '{run_id_2[:30].upper()}%'")) == {2, 3}
@@ -918,6 +949,46 @@ def test_search_model_versions(store):
     ) as exception_context:
         search_versions("run_id IN ('runid1',,'runid2')")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    # search using name IN operator
+    name_2 = "AnotherModel"
+    _rm_maker(store, name_2)
+    mv5 = _mv_maker(store, name=name_2, source="A/E", run_id=run_id_3)
+    assert mv5.version == 1
+
+    def search_all_versions(filter_string):
+        return [(mvd.name, mvd.version) for mvd in store.search_model_versions(filter_string)]
+
+    assert set(search_all_versions(f"name IN ('{name}','{name_2}')")) == {
+        (name, 1),
+        (name, 2),
+        (name, 3),
+        (name, 4),
+        (name_2, 1),
+    }
+
+    assert set(search_all_versions(f"name IN ('{name_2}')")) == {(name_2, 1)}
+
+    # name IN is case sensitive
+    assert set(search_all_versions(f"name IN ('{name.upper()}')")) == set()
+
+    # name NOT IN
+    assert set(search_all_versions(f"name NOT IN ('{name}')")) == {(name_2, 1)}
+
+    assert set(search_all_versions(f"name NOT IN ('{name}','{name_2}')")) == set()
+
+    # name NOT IN is case sensitive
+    assert set(search_all_versions(f"name NOT IN ('{name.upper()}')")) == {
+        (name, 1),
+        (name, 2),
+        (name, 3),
+        (name, 4),
+        (name_2, 1),
+    }
+
+    # clean up: delete the extra model version so remaining tests are unaffected
+    store.delete_model_version(name=name_2, version=mv5.version)
+    store.delete_registered_model(name=name_2)
 
     # search using source_path "A/D" should return version 3 and 4
     assert set(search_versions("source_path = 'A/D'")) == {3, 4}
@@ -1271,6 +1342,42 @@ def test_search_registered_models(store):
 
     rms, _ = _search_registered_models(store, "name ilike '%RM4a%'")
     assert rms == names[4:]
+
+    # search using name IN operator should return exactly the specified names
+    rms, _ = _search_registered_models(store, f"name IN ('{names[0]}', '{names[1]}')")
+    assert set(rms) == {names[0], names[1]}
+
+    # search using name IN operator with a single value
+    rms, _ = _search_registered_models(store, f"name IN ('{names[0]}')")
+    assert set(rms) == {names[0]}
+
+    # name IN is case sensitive
+    rms, _ = _search_registered_models(store, f"name IN ('{names[0].upper()}')")
+    assert rms == []
+
+    # search using name NOT IN operator should exclude the specified name
+    rms, _ = _search_registered_models(store, f"name NOT IN ('{names[0]}')")
+    assert set(rms) == set(names[1:])
+
+    # search using name NOT IN operator with multiple values
+    rms, _ = _search_registered_models(store, f"name NOT IN ('{names[0]}', '{names[1]}')")
+    assert set(rms) == set(names[2:])
+
+    # name NOT IN is case sensitive
+    rms, _ = _search_registered_models(store, f"name NOT IN ('{names[0].upper()}')")
+    assert set(rms) == set(names)
+
+    # search using the name IN operator with bad lists should raise exceptions
+    with pytest.raises(
+        MlflowException,
+        match=(
+            r"While parsing a list in the query, "
+            r"expected string value, punctuation, or whitespace, "
+            r"but got different type in list"
+        ),
+    ) as exception_context:
+        _search_registered_models(store, "name IN (1,2,3)")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     # cannot search by invalid comparator types
     with pytest.raises(
@@ -1707,6 +1814,27 @@ def test_set_model_version_tag(store):
             name2, "I am not a version", ModelVersionTag(key="key", value="value")
         )
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_get_model_version_uses_validated_version(store, monkeypatch):
+    # Regression test: the version returned by ``_validate_model_version`` must be threaded
+    # into the SqlModelVersion query filter. If callers discard the coerced value and reuse
+    # the original string, the VARCHAR-vs-INTEGER comparison fails on backends like PostgreSQL
+    # that don't apply implicit type coercion the way SQLite does. Because SQLite tolerates the
+    # mismatch, asserting the query result alone wouldn't catch a regression, so we patch the
+    # validator to return a different version and assert that version is the one queried.
+    name = "GetModelVersionValidatedVersion_TestMod"
+    _rm_maker(store, name)
+    _mv_maker(store, name)  # version 1
+    _mv_maker(store, name)  # version 2
+
+    monkeypatch.setattr(
+        "mlflow.store.model_registry.sqlalchemy_store._validate_model_version",
+        lambda version: 2,
+    )
+    # Pass "1" but the patched validator returns 2; the fix must query on the returned value.
+    mv = store.get_model_version(name, "1")
+    assert mv.version == 2
 
 
 def test_delete_model_version_tag(store):

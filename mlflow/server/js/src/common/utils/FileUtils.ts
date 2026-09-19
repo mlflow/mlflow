@@ -28,6 +28,7 @@ const MLFLOW_FILE_LANGUAGES = {
 export const IMAGE_EXTENSIONS = new Set(['jpg', 'bmp', 'jpeg', 'png', 'gif', 'svg']);
 export const TEXT_EXTENSIONS = new Set([
   'txt',
+  'pbtxt',
   'log',
   'err',
   'cfg',

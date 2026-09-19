@@ -28,7 +28,7 @@ def record_usage_event(event: type[Event]) -> Callable[[Callable[P, R]], Callabl
             start_time = time.time()
             try:
                 result = func(*args, **kwargs)
-                return result  # noqa: RET504
+                return result
             except Exception:
                 success = False
                 raise

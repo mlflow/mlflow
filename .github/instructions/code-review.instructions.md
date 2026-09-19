@@ -1,9 +1,17 @@
 ---
 applyTo: "**"
-excludeAgent: ["coding-agent"]
+excludeAgent: "cloud-agent"
 ---
 
 # Code Review Instructions
+
+## Review Comment Format
+
+When you have a fix to recommend, use two short sections for the finding:
+
+**🐛 Issue:** State the trigger and concrete consequence that make the fix necessary.
+
+**🔧 Fix:** Start with the change you recommend, adding only the detail needed to implement it.
 
 ## Knowledge Cutoff
 
@@ -12,10 +20,13 @@ Your training data has a cutoff. Treat anything you don't recognize as **new, no
 - Model names (e.g., `gpt-5`)
 - GitHub runner types (e.g., `ubuntu-slim`)
 
+## Verify When It's Cheap
+
+Prefer verifying over reasoning whenever it's cheap. The repo is checked out and you can run whatever is installed. A quick command can confirm or kill a claim outright.
+
 ## Do NOT Comment On
 
 - Future dates, version numbers, model names, or runner types — your knowledge cutoff makes these unreliable
-- Discrepancies between PR description and code — focus on the code
 - Naming style preferences — only flag actively misleading names
 - Hypothetical or unlikely edge cases — if you'd write "while unlikely", "could potentially", or "edge case where", skip it. Only flag issues that realistically occur in practice.
 - Hardcoded values or magic numbers — do not suggest extracting constants for one-off values

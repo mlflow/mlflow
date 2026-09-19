@@ -57,7 +57,7 @@ export const PromptVersionsTable = ({
       {
         id: 'version',
         header: intl.formatMessage({
-          defaultMessage: 'Version',
+          defaultMessage: 'Versions',
           description: 'Header for the version column in the registered prompts table',
         }),
         accessorKey: 'version',

@@ -165,6 +165,27 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "zai-org/GLM-5.3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.14
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-09-07"
     }
   }
 }

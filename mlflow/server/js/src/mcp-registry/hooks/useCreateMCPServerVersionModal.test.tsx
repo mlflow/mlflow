@@ -308,7 +308,7 @@ describe('useCreateMCPServerVersionModal', () => {
 
     await userEvent.click(screen.getByText('Open'));
     await waitFor(() => {
-      expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+      expect(screen.getByText('Create new version')).toBeInTheDocument();
     });
 
     expect(screen.queryByText('Tools:')).not.toBeInTheDocument();
@@ -364,7 +364,7 @@ describe('useCreateMCPServerVersionModal', () => {
     renderModal({ serverName: latestVersion.name, latestVersion });
     await userEvent.click(screen.getByText('Open'));
     await waitFor(() => {
-      expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+      expect(screen.getByText('Create new version')).toBeInTheDocument();
     });
 
     expect(screen.queryByText('Python')).not.toBeInTheDocument();
@@ -382,7 +382,7 @@ describe('useCreateMCPServerVersionModal', () => {
     renderModal({ serverName: 'io.github.test/server', latestVersion });
     await userEvent.click(screen.getByText('Open'));
     await waitFor(() => {
-      expect(screen.getByText('Create MCP server version')).toBeInTheDocument();
+      expect(screen.getByText('Create new version')).toBeInTheDocument();
     });
 
     expect(screen.queryByText('Icons')).not.toBeInTheDocument();

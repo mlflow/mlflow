@@ -231,7 +231,7 @@ def _deploy(
             https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
         assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
             to another AWS account. If unspecified, SageMaker will be deployed to
-            the the currently active AWS account.
+            the currently active AWS account.
         bucket: S3 bucket where model artifacts will be stored. Defaults to a
             SageMaker-compatible bucket name.
         image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
@@ -509,7 +509,7 @@ def _delete(
         region_name: Name of the AWS region in which the application is deployed.
         assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
             to another AWS account. If unspecified, SageMaker will be deployed to
-            the the currently active AWS account.
+            the currently active AWS account.
         archive: If ``True``, resources associated with the specified application, such
             as its associated models and endpoint configuration, are preserved.
             If ``False``, these resources are deleted. In order to use
@@ -669,7 +669,7 @@ def deploy_transform_job(
             https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
         assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
             to another AWS account. If unspecified, SageMaker will be deployed to
-            the the currently active AWS account.
+            the currently active AWS account.
         bucket: S3 bucket where model artifacts will be stored. Defaults to a
             SageMaker-compatible bucket name.
         image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
@@ -849,7 +849,7 @@ def terminate_transform_job(
         region_name: Name of the AWS region in which the batch transform job is deployed.
         assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
             to another AWS account. If unspecified, SageMaker will be deployed to
-            the the currently active AWS account.
+            the currently active AWS account.
         archive: If ``True``, resources associated with the specified batch transform job,
             such as its associated models and model artifacts, are preserved.
             If ``False``, these resources are deleted. In order to use ``archive=False``,
@@ -975,7 +975,7 @@ def push_model_to_sagemaker(
             https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
         assume_role_arn: The name of an IAM cross-account role to be assumed to deploy SageMaker
             to another AWS account. If unspecified, SageMaker will be deployed to
-            the the currently active AWS account.
+            the currently active AWS account.
         bucket: S3 bucket where model artifacts will be stored. Defaults to a
             SageMaker-compatible bucket name.
         image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced

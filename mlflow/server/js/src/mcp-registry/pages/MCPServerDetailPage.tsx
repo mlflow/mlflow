@@ -305,7 +305,7 @@ const MCPServerDetailPage = () => {
                   onClick={openCreateVersionModal}
                 >
                   <FormattedMessage
-                    defaultMessage="Create MCP server version"
+                    defaultMessage="Create new version"
                     description="MCP server detail create version button"
                   />
                 </Button>
@@ -314,11 +314,6 @@ const MCPServerDetailPage = () => {
           ) : undefined
         }
       />
-      {server.display_name && (
-        <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs }}>
-          {server.name}
-        </Typography.Text>
-      )}
       {server.description && (
         <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs, ...lineClampStyles(1) }}>
           {server.description}

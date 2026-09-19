@@ -110,7 +110,7 @@ export const MCPServerVersionList = ({
       {
         id: 'version',
         header: intl.formatMessage({
-          defaultMessage: 'Version',
+          defaultMessage: 'Versions',
           description: 'Header for the version column in the MCP server versions table',
         }),
         accessorKey: 'version',

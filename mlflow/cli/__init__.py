@@ -361,6 +361,8 @@ def _validate_static_prefix(ctx, param, value):
             raise UsageError("--static-prefix must begin with a '/'.")
         if value.endswith("/"):
             raise UsageError("--static-prefix should not end with a '/'.")
+        if "{" in value or "}" in value:
+            raise UsageError("--static-prefix must not contain '{' or '}'.")
     return value
 
 
@@ -1064,8 +1066,9 @@ def _resolve_gc_workspaces(
     help="URI of the backend store from which to delete runs. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be deleted "
-    "from the ./mlruns directory.",
+    "(e.g. 'file:///absolute/path/to/directory'). By default, runs are deleted from a "
+    "local SQLite database (sqlite:///mlflow.db), falling back to the ./mlruns directory "
+    "when an existing ./mlruns store is present.",
 )
 @click.option(
     "--artifacts-destination",

@@ -397,13 +397,19 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def _extract_and_set_model_name(self, span: LiveSpan, kwargs: dict[str, Any]):
         invocation_params = kwargs.get("invocation_params", {})
-        if model := invocation_params.get("model"):
+        metadata = kwargs.get("metadata") or {}
+        # `ls_model_name` is standardized; some providers use `model_name` instead of `model`.
+        model = (
+            metadata.get("ls_model_name")
+            or invocation_params.get("model")
+            or invocation_params.get("model_name")
+        )
+        if model:
             span.set_attribute(SpanAttributeKey.MODEL, model)
         # `ls_provider` is LangChain's standardized provider field, so prefer it. `_type` is a
         # free-form model-type label that does not reliably encode the provider; it is a
         # best-effort fallback where stripping a leading "chat-" or trailing "-chat" recovers the
         # common "chat-<provider>" and "<provider>-chat" forms but not other shapes.
-        metadata = kwargs.get("metadata") or {}
         if provider := metadata.get("ls_provider"):
             span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
         elif _type := invocation_params.get("_type"):

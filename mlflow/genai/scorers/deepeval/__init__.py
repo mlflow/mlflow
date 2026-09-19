@@ -46,7 +46,6 @@ _logger = logging.getLogger(__name__)
 _FRAMEWORK_NAME = "deepeval"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class DeepEvalScorer(Scorer):
     """
@@ -203,7 +202,6 @@ class DeepEvalScorer(Scorer):
                 )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,

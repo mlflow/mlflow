@@ -299,7 +299,9 @@ def test_column_schema_enforcement():
         "j": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
     }
     res = pyfunc_model.predict(d)
-    assert res.dtypes.to_dict() == expected_types
+    # pandas 3 infers the plain-string column "g" as StringDtype, whereas pandas < 3 yields
+    # object. Expect whatever pandas infers for an equivalent string column.
+    assert res.dtypes.to_dict() == {**expected_types, "g": pd.Series(["a", "b", "c"]).dtype}
 
     # 15. dictionaries of str -> list[list] fail
     d = {

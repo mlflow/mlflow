@@ -331,6 +331,7 @@ def pytorch_model(model_path):
         pytorch_model=model,
         path=model_path,
         input_example=randn(1, 4).numpy(),
+        serialization_format="pickle",
     )
     return model_path
 

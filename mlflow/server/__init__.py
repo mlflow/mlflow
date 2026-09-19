@@ -1,5 +1,4 @@
 import importlib
-import importlib.metadata
 import logging
 import os
 import secrets
@@ -9,6 +8,7 @@ import sys
 import tempfile
 import textwrap
 import types
+import uuid
 import warnings
 from pathlib import Path
 
@@ -18,7 +18,9 @@ from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
 from mlflow.environment_variables import (
+    _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+    _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SGI_NAME,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
@@ -58,6 +60,7 @@ from mlflow.server.workspace_helpers import (
     workspace_before_request_handler,
     workspace_teardown_request_handler,
 )
+from mlflow.utils import get_installed_version
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -66,7 +69,8 @@ from mlflow.version import VERSION
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
-IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
+_flask_version = get_installed_version("flask")
+IS_FLASK_V1 = _flask_version is not None and _flask_version < Version("2.0")
 
 is_running_as_server = (
     "gunicorn" in sys.modules
@@ -323,6 +327,20 @@ def _build_uvicorn_command(
     return cmd
 
 
+def _bootstrap_basic_auth() -> None:
+    """Validate the basic-auth configuration and create the admin user before spawning workers.
+
+    A missing secret key or a missing/insecure bootstrap password then fails ``mlflow server``
+    with one error instead of an endless loop of the uvicorn supervisor restarting crashed
+    workers.
+    """
+    # `mlflow.server.auth` requires the optional `auth` extra, so only import it when needed.
+    from mlflow.server.auth import bootstrap_admin_user, get_flask_server_secret_key
+
+    get_flask_server_secret_key()
+    bootstrap_admin_user()
+
+
 def _run_server(
     *,
     file_store_path,
@@ -385,6 +403,10 @@ def _run_server(
     if secret_key := MLFLOW_FLASK_SERVER_SECRET_KEY.get():
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
 
+    # A per-boot id shared by all worker processes, used to distinguish sandbox containers of
+    # this server generation from orphans left by a previous one during startup cleanup.
+    env_map[_MLFLOW_SERVER_BOOT_ID.name] = uuid.uuid4().hex
+
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
     using_waitress = waitress_opts is not None
@@ -409,6 +431,9 @@ def _run_server(
         # Don't use () syntax if we're using uvicorn
         use_factory_syntax = not is_windows() and is_factory and not using_uvicorn
         app = f"{app}()" if use_factory_syntax else app
+        if app_name == "basic-auth":
+            _bootstrap_basic_auth()
+            env_map[_MLFLOW_AUTH_ADMIN_BOOTSTRAPPED.name] = "true"
 
     # Determine which server to use
     if using_uvicorn:

@@ -2,14 +2,11 @@ name: TypeScript SDK
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths-ignore:
       - "docs/**"
       - "**.md"
       - "dev/clint/**"
+      - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
@@ -29,10 +26,10 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   typescript-sdk:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 20
@@ -46,7 +43,7 @@ jobs:
         shell: bash
         working-directory: libs/typescript
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -89,7 +86,6 @@ jobs:
   # -- which type-checks each integration against the published floor -- can see
   # it. Runs separately from typescript-sdk so it never gates the main matrix.
   min-version-check:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 15
@@ -99,7 +95,7 @@ jobs:
         shell: bash
         working-directory: libs/typescript
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup Node.js

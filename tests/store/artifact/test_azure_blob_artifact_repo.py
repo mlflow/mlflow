@@ -506,6 +506,41 @@ def test_delete_artifacts_directory(mock_client):
     mock_client.get_container_client().delete_blob.assert_any_call(blob_props_2.name)
 
 
+@pytest.mark.parametrize("artifact_path", ["foo", "foo/"])
+def test_delete_artifacts_preserves_prefix_siblings(mock_client, artifact_path):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    target = BlobProperties()
+    target.name = posixpath.join(TEST_ROOT_PATH, "foo/file")
+    sibling_dir = BlobProperties()
+    sibling_dir.name = posixpath.join(TEST_ROOT_PATH, "foobar/keep")
+    sibling_file = BlobProperties()
+    sibling_file.name = posixpath.join(TEST_ROOT_PATH, "foo_baz")
+    mock_client.get_container_client().list_blobs.return_value = [
+        target,
+        sibling_dir,
+        sibling_file,
+    ]
+
+    repo.delete_artifacts(artifact_path)
+
+    mock_client.get_container_client().list_blobs.assert_called_once_with(
+        name_starts_with=posixpath.join(TEST_ROOT_PATH, artifact_path)
+    )
+    mock_client.get_container_client().delete_blob.assert_called_once_with(target.name)
+
+
+def test_delete_artifacts_raises_when_only_sibling_path_matches_prefix(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    sibling = BlobProperties()
+    sibling.name = posixpath.join(TEST_ROOT_PATH, "foobar/keep")
+    mock_client.get_container_client().list_blobs.return_value = [sibling]
+
+    with pytest.raises(MlflowException, match="No such file or directory"):
+        repo.delete_artifacts("foo")
+
+    mock_client.get_container_client().delete_blob.assert_not_called()
+
+
 def test_delete_artifacts_nonexistent_path(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 

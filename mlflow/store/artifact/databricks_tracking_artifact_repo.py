@@ -1,6 +1,7 @@
 import logging
 import re
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -84,6 +85,11 @@ class DatabricksTrackingArtifactRepository(ArtifactRepository, ABC):
                 exc_info=True,
             )
             return self.databricks_artifact_repo.list_artifacts(path)
+
+    def download_trace_attachment_to_file(self, path: str, dst_path: Path) -> Path:
+        # Bypass the SDK repo — attachment operations require path-scoped credentials
+        # which are only supported by DatabricksArtifactRepository.get_credentials.
+        return self.databricks_artifact_repo.download_trace_attachment_to_file(path, dst_path)
 
     def download_trace_attachment(self, path: str) -> bytes:
         # Bypass the SDK repo — attachment operations require path-scoped credentials

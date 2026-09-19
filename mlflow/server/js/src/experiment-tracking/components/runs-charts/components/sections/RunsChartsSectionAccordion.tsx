@@ -86,6 +86,7 @@ export interface RunsChartsSectionAccordionProps {
   setFullScreenChart: RunsChartCardSetFullscreenFn;
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
   noRunsSelectedEmptyState?: React.ReactElement;
+  useMetricDisplayName?: boolean;
 }
 
 export const RunsChartsSectionAccordion = ({
@@ -106,6 +107,7 @@ export const RunsChartsSectionAccordion = ({
   setFullScreenChart = () => {},
   globalLineChartConfig,
   noRunsSelectedEmptyState,
+  useMetricDisplayName = true,
 }: RunsChartsSectionAccordionProps) => {
   const updateUIState = useUpdateRunsChartsUIConfiguration();
   const [editSection, setEditSection] = useState(-1);
@@ -410,6 +412,7 @@ export const RunsChartsSectionAccordion = ({
                 autoRefreshEnabled={autoRefreshEnabled}
                 hideEmptyCharts={hideEmptyCharts}
                 globalLineChartConfig={globalLineChartConfig}
+                useMetricDisplayName={useMetricDisplayName}
               />
             </Accordion.Panel>
           );

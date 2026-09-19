@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "GLM-5.2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.61,
+        "output_per_million_tokens": 1.98,
+        "cache_read_per_million_tokens": 0.22
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-25"
+    },
+    "Qwen3.8-Max": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 131072,
+        "max_tokens": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.65,
+        "output_per_million_tokens": 4.99,
+        "cache_read_per_million_tokens": 0.21
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-08-25"
+    }
+  }
+}

@@ -35,6 +35,26 @@ def pop_trace(request_id: str) -> dict[str, Any] | None:
     return _TRACE_BUFFER.pop(request_id, None)
 
 
+def maybe_add_trace_to_serving_buffer(trace: "Trace") -> None:
+    """Store a finished trace in the serving buffer so Model Serving can return it in the response.
+
+    The scoring server reads the completed trace from ``_TRACE_BUFFER`` (keyed by client request
+    ID) after ``predict()`` returns. Exporters that write spans elsewhere than the inference table
+    (e.g. the UC table exporter) call this so the endpoint can still return the trace. The buffer
+    is in-memory, so this does not duplicate the exporter's own span/trace export.
+
+    No-op outside model serving, or when the trace has no client request ID to key on.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+
+    if not is_in_databricks_model_serving_environment():
+        return
+    if not (client_request_id := trace.info.client_request_id):
+        return
+    _TRACE_BUFFER[client_request_id] = trace.to_dict()
+    _logger.debug(f"Added {client_request_id} to TRACE_BUFFER")
+
+
 # For Inference Table, we use special TTLCache to store the finished traces
 # so that they can be retrieved by Databricks model serving. The values
 # in the buffer are not Trace dataclass, but rather a dictionary with the schema

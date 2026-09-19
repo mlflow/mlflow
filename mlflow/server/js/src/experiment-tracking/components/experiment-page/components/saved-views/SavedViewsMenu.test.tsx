@@ -124,4 +124,45 @@ describe('SavedViewsMenu', () => {
     await userEvent.type(screen.getByTestId('test-saved-views-search'), 'zzzz-no-match');
     await waitFor(() => expect(screen.getByText(/No views match your search/)).toBeInTheDocument());
   });
+
+  test('shows Override/Discard actions only when a shared view is active', () => {
+    renderMenu();
+    // No active shared view → no override/discard entries.
+    expect(screen.queryByTestId('test-saved-views-override-active')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('test-saved-views-discard-active')).not.toBeInTheDocument();
+  });
+
+  test('renders Override/Discard entries with the provided label when sharedViewActive', () => {
+    renderMenu({
+      sharedViewActive: true,
+      onOverrideActive: jest.fn(),
+      onDiscardActive: jest.fn(),
+      overrideLabel: 'Override my view',
+    });
+    expect(screen.getByTestId('test-saved-views-override-active')).toHaveTextContent('Override my view');
+    expect(screen.getByTestId('test-saved-views-discard-active')).toBeInTheDocument();
+  });
+
+  test('invokes onOverrideActive / onDiscardActive when the entries are clicked', async () => {
+    const onOverrideActive = jest.fn();
+    const onDiscardActive = jest.fn();
+    renderMenu({
+      sharedViewActive: true,
+      onOverrideActive,
+      onDiscardActive,
+      overrideLabel: 'Override my view',
+    });
+
+    await userEvent.click(screen.getByTestId('test-saved-views-override-active'));
+    expect(onOverrideActive).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByTestId('test-saved-views-discard-active'));
+    expect(onDiscardActive).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not render Override/Discard when handlers are missing even if sharedViewActive', () => {
+    renderMenu({ sharedViewActive: true });
+    expect(screen.queryByTestId('test-saved-views-override-active')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('test-saved-views-discard-active')).not.toBeInTheDocument();
+  });
 });

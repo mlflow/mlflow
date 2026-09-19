@@ -1,4 +1,6 @@
 import json
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 
@@ -16,6 +18,7 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
     DatabricksUCTableDatasetSource,
 )
+from mlflow.genai.datasets.entities import EvaluationDatasetVersion
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 
 
@@ -41,6 +44,7 @@ def create_mock_managed_dataset(source_value: Any) -> Mock:
     mock_dataset.created_by = "test-user"
     mock_dataset.last_update_time = "2024-01-02T00:00:00"
     mock_dataset.last_updated_by = "test-user-2"
+    mock_dataset.version = None
 
     # Mock methods
     mock_dataset.to_df.return_value = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
@@ -156,6 +160,21 @@ def test_evaluation_dataset_to_mlflow_entity_with_existing_source():
     assert entity.profile == "test-profile"
 
 
+def test_evaluation_dataset_to_mlflow_entity_preserves_version():
+    source = DatabricksEvaluationDatasetSource(
+        table_name="catalog.schema.table",
+        dataset_id="test-dataset-id",
+        version=7,
+    )
+    dataset = create_dataset_with_source(source)
+    dataset._databricks_dataset.version = {"version": 7}
+
+    assert dataset.version == 7
+
+    entity = dataset._to_mlflow_entity()
+    assert json.loads(entity.source)["version"] == 7
+
+
 def test_evaluation_dataset_set_profile(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
 
@@ -179,6 +198,46 @@ def test_evaluation_dataset_delete_records(mock_managed_dataset):
     record_ids = ["record-1", "record-2"]
     dataset.delete_records(record_ids)
     mock_managed_dataset.delete_records.assert_called_once_with(record_ids)
+
+
+def test_evaluation_dataset_list_versions(mock_managed_dataset):
+    mock_managed_dataset.list_versions.return_value = [
+        SimpleNamespace(version=1),
+        SimpleNamespace(
+            version=2,
+            create_time="2026-07-08T22:37:21Z",
+            created_by="user@example.com",
+            operation="WRITE",
+        ),
+    ]
+
+    dataset = EvaluationDataset(mock_managed_dataset)
+    versions = dataset.list_versions()
+
+    assert versions == [
+        EvaluationDatasetVersion(version=1),
+        EvaluationDatasetVersion(
+            version=2,
+            created_at=datetime(2026, 7, 8, 22, 37, 21, tzinfo=timezone.utc),
+            created_by="user@example.com",
+            operation="WRITE",
+        ),
+    ]
+    mock_managed_dataset.list_versions.assert_called_once_with()
+
+
+def test_evaluation_dataset_version_repr_formats_created_at():
+    version = EvaluationDatasetVersion(
+        version=4,
+        created_at=datetime(2026, 7, 8, 22, 37, 21, tzinfo=timezone.utc),
+        created_by="user@example.com",
+        operation="OPTIMIZE",
+    )
+
+    assert repr(version) == (
+        "EvaluationDatasetVersion(version=4, created_at='2026-07-08 22:37:21 UTC', "
+        "created_by='user@example.com', operation='OPTIMIZE')"
+    )
 
 
 def test_evaluation_dataset_digest_computation(mock_managed_dataset):

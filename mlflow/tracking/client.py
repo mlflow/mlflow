@@ -70,6 +70,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
+    _CLIENT_PROMPT_SOURCE_PLACEHOLDER,
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_EXPERIMENT_IDS_TAG_KEY,
@@ -130,10 +131,12 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import is_uuid, workspace_utils
-from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
+from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
+    get_workspace_id,
+    get_workspace_url,
     is_in_databricks_runtime,
 )
 from mlflow.utils.logging_utils import eprint
@@ -729,7 +732,7 @@ class MlflowClient:
                 Using PromptModelConfig provides validation and type safety.
 
         Returns:
-            A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+            A :py:class:`PromptVersion <mlflow.entities.PromptVersion>` object that was created.
         """
         registry_client = self._get_registry_client()
 
@@ -757,7 +760,9 @@ class MlflowClient:
                 model_config=model_config,
             )
 
-            return registry_client.get_prompt_version(name, str(prompt_version.version))
+            prompt_version = registry_client.get_prompt_version(name, str(prompt_version.version))
+            self._log_prompt_ui_link(name, prompt_version.version)
+            return prompt_version
 
         # OSS approach using RegisteredModel with special tags
         is_new_prompt = False
@@ -815,7 +820,7 @@ class MlflowClient:
             mv: ModelVersion = registry_client.create_model_version(
                 name=name,
                 description=commit_message,
-                source="dummy-source",  # Required field, but not used for prompts
+                source=_CLIENT_PROMPT_SOURCE_PLACEHOLDER,  # Required field, unused for prompts
                 tags=tags,
             )
         except Exception:
@@ -840,6 +845,39 @@ class MlflowClient:
             self._link_prompt_to_experiment(prompt_version, experiment_id)
 
         return prompt_version
+
+    def _log_prompt_ui_link(self, name: str, version: int) -> None:
+        """Log the registered prompt in the active experiment's Prompts tab.
+
+        Emits an informational message only; never raises.
+        """
+        try:
+            workspace_url = get_workspace_url()
+            # Import here to avoid circular import.
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            experiment_id = _get_experiment_id()
+            if not workspace_url or not experiment_id:
+                return
+            parts = name.split(".")
+            if len(parts) != 3:
+                return
+            workspace_id = get_workspace_id()
+            query = (
+                f"?o={workspace_id}&promptVersion={version}"
+                if workspace_id
+                else f"?promptVersion={version}"
+            )
+            _logger.info(
+                "Prompt registered. View in experiment Prompts tab: "
+                "%s/ml/experiments/%s/prompts/%s%s",
+                workspace_url.rstrip("/"),
+                experiment_id,
+                name,
+                query,
+            )
+        except Exception:
+            _logger.debug("Failed to log prompt UI link", exc_info=True)
 
     def _link_prompt_to_experiment(self, prompt_version: PromptVersion, experiment_id: str) -> None:
         """
@@ -2978,7 +3016,6 @@ class MlflowClient:
                     # Stringify objects that can't be JSON-serialized
                     json.dump(dictionary, f, indent=2, default=str)
 
-    @experimental(version="3.9.0")
     def log_stream(
         self, run_id: str, stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str
     ) -> None:
@@ -5950,31 +5987,39 @@ class MlflowClient:
         _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model_tag(model_id, key)
 
-    def log_model_artifact(self, model_id: str, local_path: str) -> None:
+    def log_model_artifact(
+        self, model_id: str, local_path: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload an artifact to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_path: Local path to the artifact to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifact(model_id, local_path)
+        return self._tracking_client.log_model_artifact(model_id, local_path, artifact_path)
 
-    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
+    def log_model_artifacts(
+        self, model_id: str, local_dir: str, artifact_path: str | None = None
+    ) -> None:
         """
         Upload a set of artifacts to the specified logged model.
 
         Args:
             model_id: ID of the model.
             local_dir: Local directory containing the artifacts to upload.
+            artifact_path: If provided, the directory in the model's artifact
+                directory to write to.
 
         Returns:
             None
         """
-        return self._tracking_client.log_model_artifacts(model_id, local_dir)
+        return self._tracking_client.log_model_artifacts(model_id, local_dir, artifact_path)
 
     def search_logged_models(
         self,

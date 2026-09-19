@@ -1299,14 +1299,26 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'MCP',
+      label: 'MCP Registry',
       className: 'sidebar-top-level-category',
       items: [
         {
           type: 'doc',
-          id: 'mcp/index',
+          id: 'mcp-registry/register-mcp-servers',
+        },
+        {
+          type: 'doc',
+          id: 'mcp-registry/manage-versions-and-aliases',
+        },
+        {
+          type: 'doc',
+          id: 'mcp-registry/connect-to-servers',
         },
       ],
+      link: {
+        type: 'doc',
+        id: 'mcp-registry/index',
+      },
     },
     {
       type: 'category',
@@ -1338,6 +1350,17 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'html',
       value: '<b>References</b>',
       defaultStyle: true,
+    },
+    {
+      type: 'category',
+      label: 'MLflow MCP Server',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'doc',
+          id: 'mcp/index',
+        },
+      ],
     },
     {
       type: 'category',

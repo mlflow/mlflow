@@ -354,6 +354,53 @@ def test_translate_token_usage_with_partial_cache_fields():
     assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
 
 
+def test_translate_token_usage_with_openinference_cache_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "openinference.span.kind": "LLM",
+            "llm.token_count.prompt": 100,
+            "llm.token_count.completion": 50,
+            "llm.token_count.prompt_details.cache_read": 80,
+            "llm.token_count.prompt_details.cache_write": 20,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 100
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 20
+
+
+def test_translate_token_usage_with_partial_openinference_cache_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "openinference.span.kind": "LLM",
+            "llm.token_count.prompt": 100,
+            "llm.token_count.completion": 50,
+            "llm.token_count.prompt_details.cache_read": 80,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 100
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
+
+
 @pytest.mark.parametrize(
     ("attributes", "expected_input", "expected_output", "expected_total"),
     [
@@ -826,6 +873,27 @@ def test_translate_cost_edge_cases(
         }
     else:
         assert SpanAttributeKey.LLM_COST not in result["attributes"]
+
+
+def test_translate_cost_forwards_openinference_cache_tokens(mock_litellm_cost):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "openinference.span.kind": "LLM",
+            "llm.model_name": '"gpt-4o-mini"',
+            "llm.token_count.prompt": 100,
+            "llm.token_count.completion": 50,
+            "llm.token_count.prompt_details.cache_read": 80,
+            "llm.token_count.prompt_details.cache_write": 20,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    translate_span_when_storing(span)
+
+    assert mock_litellm_cost.call_args.kwargs["cache_read_input_tokens"] == 80
+    assert mock_litellm_cost.call_args.kwargs["cache_creation_input_tokens"] == 20
 
 
 def test_update_token_usage_with_cached_tokens():

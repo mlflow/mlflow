@@ -225,7 +225,7 @@ def resolve_input_example_and_signature(
 class BatchMetricsLogger:
     """
     The BatchMetricsLogger will log metrics in batch against an mlflow run.
-    If run_id is passed to to constructor then all recording and logging will
+    If run_id is passed to constructor then all recording and logging will
     happen against that run_id.
     If no run_id is passed into constructor, then the run ID will be fetched
     from `mlflow.active_run()` each time `record_metrics()` or `flush()` is called; in this
