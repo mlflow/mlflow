@@ -157,6 +157,22 @@ key and report the wrong permission. An invalid composite (for example an
 `INVALID_PARAMETER_VALUE`. These formats apply only to permission _checks_;
 grants remain wildcard-only.
 
+**Scorer authorization model.** Scorers live inside experiments in the data
+model, but `scorer` is a **top-level permission type** (per-scorer grants, no
+experiment inheritance) with `scorer_version` as its child. Operations on an
+existing scorer or its versions (`GetScorer`, `UpdateScorerVersion`,
+`DeleteScorer`, `ListScorerVersions`) resolve the scorer/scorer-version tiers
+alone. **Registering** a scorer (`RegisterScorer`) is instead anchored on the
+container: it always requires `experiment` `EDIT` — for creating a new scorer
+_and_ for adding a version to an existing one — with the scorer tiers acting
+only as `DENY` vetoes (`(scorer_version, *, DENY)` blocks either form;
+`(scorer, *, DENY)` additionally blocks creating a new scorer). One asymmetry
+follows deliberately from this split: a caller holding `(scorer_version, *,
+EDIT)` but lacking experiment `EDIT` can update or delete existing scorer
+versions but cannot register new ones. Listing (`ListScorers`) requires
+`experiment` `READ` plus read on each row's scorer/version tier, in both the
+single-experiment and cross-experiment forms.
+
 `DENY` restricts operations once there is a resource to resolve against. Because
 a wildcard **child** grant matches regardless of a specific id, a child `DENY`
 _does_ gate child creation: `(run, *, DENY)` blocks creating runs — including

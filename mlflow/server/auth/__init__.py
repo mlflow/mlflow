@@ -5504,15 +5504,15 @@ def delete_gateway_model_definition_permissions_cascade(resp: Response):
 
 
 def filter_list_scorers(resp: Response) -> None:
-    """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
+    """Filter ``ListScorers`` responses to rows the caller can read.
 
-    Single-experiment requests are already gated by ``validate_can_read_scorer_list``
-    (which delegates to ``validate_can_read_experiment``); cross-experiment requests
-    (empty ``experiment_id``) skip that gate so the response can carry scorers from
-    multiple experiments. Each row embeds the scorer's latest ``ScorerVersion``
-    (``serialized_scorer``), so rows are gated on the ``scorer_version`` child tier
-    (which falls back to the parent scorer): a ``scorer_version`` DENY drops the row
-    and a child-only grant keeps it, matching the per-version RPCs.
+    OSS parity (owner decision): every visible row requires **experiment READ** (the
+    container anchor, per-row -- so both the single-experiment and cross-experiment forms
+    enforce the same requirement) AND read on the row itself. The row resolves the
+    ``scorer_version`` child tier with scorer-parent fallback (the row embeds the scorer's
+    latest ``ScorerVersion``): a caller with only scorer grants behaves exactly as OSS via
+    the fallback, a ``scorer_version`` DENY hides the row, and a positive child grant keeps
+    it -- matching the per-version RPCs.
     """
     if sender_is_admin():
         return
@@ -5521,14 +5521,15 @@ def filter_list_scorers(resp: Response) -> None:
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
+    can_read_experiment = _role_based_read_predicate(username, "experiment")
     can_read_scorer_version = _role_based_read_predicate(
         username, "scorer_version", parent_type="scorer"
     )
     for scorer in list(response_message.scorers):
         exp_id = str(scorer.experiment_id)
-        # The scorer_version tier (with scorer-parent fallback) is authoritative for the
-        # row, per the tier-override model: a scorer_version DENY hides it and a child-only
-        # scorer_version grant keeps it, without an extra experiment-read pre-gate.
+        if not can_read_experiment(exp_id):
+            response_message.scorers.remove(scorer)
+            continue
         if not can_read_scorer_version(store._scorer_pattern(exp_id, scorer.scorer_name)):
             response_message.scorers.remove(scorer)
     resp.data = message_to_json(response_message)
