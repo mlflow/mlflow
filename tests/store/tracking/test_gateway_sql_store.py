@@ -598,6 +598,39 @@ def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore)
     assert experiment.tags.get("mlflow.experiment.isGateway") == "true"
 
 
+def test_gateway_endpoint_non_numeric_experiment_id(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="bad-exp-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="bad-exp-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    model_configs = [
+        GatewayEndpointModelConfig(
+            model_definition_id=model_def.model_definition_id,
+            linkage_type=GatewayModelLinkageType.PRIMARY,
+            weight=1.0,
+        ),
+    ]
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.create_gateway_endpoint(
+            name="bad-exp-endpoint", model_configs=model_configs, experiment_id="abc"
+        )
+
+    endpoint = store.create_gateway_endpoint(name="bad-exp-endpoint", model_configs=model_configs)
+    with pytest.raises(
+        MlflowException,
+        match=r"Invalid experiment ID 'abc'\. Experiment ID must be a valid integer\.",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.update_gateway_endpoint(endpoint_id=endpoint.endpoint_id, experiment_id="abc")
+
+
 def test_create_gateway_endpoint_usage_tracking_defaults_to_true(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="default-ut-key", secret_value={"api_key": "value"}

@@ -709,7 +709,9 @@ class SqlAlchemyGatewayStoreMixin:
                     last_updated_by=created_by,
                     routing_strategy=routing_strategy.value if routing_strategy else None,
                     fallback_config_json=fallback_config_json,
-                    experiment_id=int(experiment_id) if experiment_id else None,
+                    experiment_id=self._parse_experiment_id(experiment_id)
+                    if experiment_id
+                    else None,
                     usage_tracking=usage_tracking,
                 )
             )
@@ -821,7 +823,7 @@ class SqlAlchemyGatewayStoreMixin:
                 )
 
             if experiment_id is not None:
-                sql_endpoint.experiment_id = int(experiment_id)
+                sql_endpoint.experiment_id = self._parse_experiment_id(experiment_id)
 
             if routing_strategy is not None:
                 sql_endpoint.routing_strategy = routing_strategy.value
