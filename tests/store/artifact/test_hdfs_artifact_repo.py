@@ -25,7 +25,7 @@ def hdfs_system_mock():
 
 
 def test_log_artifact(hdfs_system_mock, tmp_path):
-    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+    repo = HdfsArtifactRepository("hdfs://MyHDFS-ns:8020/hdfs/path")
 
     local_file = tmp_path.joinpath("sample_file")
     local_file.write_text("PyArrow Works")
@@ -33,7 +33,7 @@ def test_log_artifact(hdfs_system_mock, tmp_path):
     repo.log_artifact(str(local_file), "more_path/some")
 
     hdfs_system_mock.assert_called_once_with(
-        extra_conf=None, host="hdfs://host_name", kerb_ticket=None, port=8020, user=None
+        extra_conf=None, host="hdfs://MyHDFS-ns", kerb_ticket=None, port=8020, user=None
     )
 
     upload_mock = hdfs_system_mock.return_value.open_output_stream
