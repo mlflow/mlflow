@@ -2890,14 +2890,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # Set new version (1 if no existing versions, otherwise max + 1)
             new_version = 1 if max_version is None else max_version + 1
 
-            # Race-safe authorization (Copilot finding #2): a genuine parent create is gated
-            # pre-request by the create permission. Any write to an ALREADY-EXISTING parent
-            # (including an empty parent with no versions) is a version-ADD and requires the
-            # caller to hold update authorization on the scorer-version tier -- keyed on
-            # parent_created, NOT new_version. Because this runs inside the write transaction,
-            # a raise here rolls back before the version row is inserted, closing the TOCTOU
-            # no pre-handler probe can. Stores/clients without server-side auth pass no
-            # callback.
+            # Race-safe authorization: exactly one branch callback is authoritative inside
+            # this transaction (the pre-request gate is deliberately permissive and cannot
+            # distinguish a new parent from an empty one). A genuine parent create is
+            # authorized by authorize_parent_create above; any write to an ALREADY-EXISTING
+            # parent (including an empty parent with no versions) is a version-ADD and is
+            # authorized here by authorize_version_add (scorer-version tier) -- keyed on
+            # parent_created, NOT new_version. A raise rolls back before the version row is
+            # inserted, closing the TOCTOU no pre-handler probe can. Stores/clients without
+            # server-side auth pass no callback.
             if not parent_created and authorize_version_add is not None:
                 authorize_version_add()
 
