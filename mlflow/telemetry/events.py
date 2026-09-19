@@ -71,6 +71,14 @@ def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
     except ImportError:
         pass
 
+    try:
+        from mlflow.genai.scorers.typesafe import _TypeSafeScorer
+
+        if isinstance(scorer, _TypeSafeScorer):
+            return f"TypeSafe:{scorer.name}"
+    except ImportError:
+        pass
+
     return "UserDefinedScorer"
 
 

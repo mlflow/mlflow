@@ -34,7 +34,7 @@ DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR = (
 )
 
 THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR = (
-    "Third-party scorer registration (e.g., RAGAS, DeepEval, TruLens, Phoenix) is not "
+    "Third-party scorer registration (e.g., RAGAS, DeepEval, TruLens, Phoenix, TypeSafe) is not "
     "supported when using a Databricks tracking URI. Third-party scorers are only "
     "available for registration against OSS MLflow backends.\n\n"
     "To use third-party scorers on Databricks, pass them directly to "
@@ -48,6 +48,7 @@ THIRD_PARTY_SCORER_ALLOWED_MODULES = frozenset({
     "mlflow.genai.scorers.deepeval",
     "mlflow.genai.scorers.trulens",
     "mlflow.genai.scorers.phoenix",
+    "mlflow.genai.scorers.typesafe",
 })
 
 
