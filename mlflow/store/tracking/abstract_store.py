@@ -1692,6 +1692,17 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def supports_transactional_scorer_authorization(self) -> bool:
+        """Whether ``register_scorer`` invokes ``authorize_version_add`` inside the write
+        transaction (raising to roll back before a version row is inserted).
+
+        Defaults to ``False``: a store must opt in only after guaranteeing the callback runs
+        transactionally on the version-add path. Server-side auth relies on this to fail
+        closed rather than silently skip authorization when the backing store cannot make the
+        guarantee (e.g. a delegating store that accepts-and-ignores the callback).
+        """
+        return False
+
     def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.

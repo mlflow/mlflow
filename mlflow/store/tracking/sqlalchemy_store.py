@@ -2926,6 +2926,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             # Resolve gateway endpoint ID to name before returning
             return self.resolve_endpoint_in_scorer(entity)
 
+    def supports_transactional_scorer_authorization(self) -> bool:
+        # register_scorer invokes authorize_version_add inside the ManagedSessionMaker
+        # transaction on the version-add path (new_version != 1), before the version row is
+        # added, so a raise rolls the write back. The guarantee server-side auth requires.
+        return True
+
     def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
