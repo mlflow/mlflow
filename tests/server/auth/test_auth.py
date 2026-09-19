@@ -2605,6 +2605,112 @@ def test_delete_traces_honors_trace_deny(client: MlflowClient, monkeypatch):
         auth=(denied, denied_pw),
     )
     assert resp.status_code == 403
+
+
+# §7 Class A — static transitive sink-trace. Maps each composite/job route to its submitted
+# job entrypoint and the in-scope child types its gate covers, then walks the job's transitive
+# closure (within mlflow.genai) for child-mutation sink calls and asserts every reached sink's
+# child type is covered. Catches a future *delegated* child write buried N hops inside a job
+# (the class that produced INVOKE_ISSUE_DETECTION's assessment write and INVOKE_GENAI_EVALUATE's
+# set_trace_tag) without executing the job. A new uncovered sink fails the test, forcing either
+# a gate (positive/veto) or an explicit allow-list update.
+_SINK_TO_CHILD = {
+    "create_run": "run",
+    "delete_run": "run",
+    "restore_run": "run",
+    "log_batch": "run",
+    "log_metric": "run",
+    "set_trace_tag": "trace",
+    "delete_trace_tag": "trace",
+    "delete_traces": "trace",
+    "log_assessment": "assessment",
+    "_log_assessments": "assessment",
+    "create_assessment": "assessment",
+    "delete_assessment": "assessment",
+    "log_feedback": "assessment",
+    "log_expectation": "assessment",
+    "log_issue": "assessment",  # issue detection writes Issue assessments (LLM_JUDGE)
+    "create_logged_model": "logged_model",
+    "delete_logged_model": "logged_model",
+}
+
+# route -> (job sink modules, child types the route's gate covers). The module list is the
+# curated transitive closure of child-mutation code each job reaches (handler -> job ->
+# harness/pipeline). It is intentionally explicit rather than auto-walked: a static call-graph
+# walk silently under-detects cross-module/aliased calls (e.g. the eval job calls
+# mlflow.genai.evaluate, the discovery job calls discover_issues), which would make the guard
+# pass on an empty set and give false confidence. Explicit modules fail loudly if a job grows a
+# new sink-bearing module the maintainer hasn't classified here.
+_COMPOSITE_JOB_COVERAGE = {
+    "INVOKE_SCORER": (
+        ["mlflow/genai/scorers/job.py", "mlflow/genai/evaluation/harness.py"],
+        {"trace", "assessment"},
+    ),
+    "INVOKE_GENAI_EVALUATE": (
+        ["mlflow/genai/evaluation/job.py", "mlflow/genai/evaluation/harness.py"],
+        {"run", "trace", "assessment"},
+    ),
+    "INVOKE_ISSUE_DETECTION": (
+        ["mlflow/genai/discovery/job.py", "mlflow/genai/discovery/pipeline.py"],
+        {"run", "trace", "assessment"},
+    ),
+}
+
+
+def _sink_children_in_modules(module_paths: list[str]) -> set[str]:
+    """Scan the given source files for child-mutation sink calls (attribute or bare name) and
+    return the set of in-scope child types written. Uses an AST call walk per file so a bare
+    substring in a comment/string doesn't count.
+    """
+    import ast
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[3]
+    children: set[str] = set()
+    for rel in module_paths:
+        path = repo_root / rel
+        try:
+            tree = ast.parse(path.read_text())
+        except (OSError, SyntaxError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            called = None
+            if isinstance(node.func, ast.Name):
+                called = node.func.id
+            elif isinstance(node.func, ast.Attribute):
+                called = node.func.attr
+            if called in _SINK_TO_CHILD:
+                children.add(_SINK_TO_CHILD[called])
+    return children
+
+
+@pytest.mark.parametrize("route", sorted(_COMPOSITE_JOB_COVERAGE))
+def test_composite_job_child_writes_are_gate_covered(route):
+    module_paths, covered = _COMPOSITE_JOB_COVERAGE[route]
+    written = _sink_children_in_modules(module_paths)
+    # Sanity: the curated module list must actually contain sinks; an empty scan means the
+    # module paths drifted (renamed/moved) and the guard has silently stopped protecting.
+    assert written, (
+        f"{route}: no child-write sinks found in {module_paths} — the sink-module list is "
+        f"stale (files moved/renamed?). Update _COMPOSITE_JOB_COVERAGE."
+    )
+    uncovered = written - covered
+    assert not uncovered, (
+        f"{route}: job sink modules {module_paths} write in-scope child types "
+        f"{sorted(uncovered)} that its gate does not cover (covers {sorted(covered)}). Add a "
+        f"gate (positive or DENY veto) for the new child type, or update the coverage entry if "
+        f"intentionally allowed."
+    )
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_search_runs(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
 
