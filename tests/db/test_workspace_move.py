@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 import sqlalchemy as sa
 
+from mlflow.db import _format_proxied_artifact_root_notes
 from mlflow.entities import ExperimentTag, TraceInfo
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.trace_location import TraceLocation
@@ -12,7 +13,12 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
-from mlflow.store.db.workspace_move import _SPEC_BY_MODEL, MoveResult, move_resources
+from mlflow.store.db.workspace_move import (
+    _SPEC_BY_MODEL,
+    MoveResult,
+    ProxiedArtifactRoot,
+    move_resources,
+)
 from mlflow.store.model_registry.sqlalchemy_workspace_store import (
     WorkspaceAwareSqlAlchemyStore as WorkspaceAwareRegistryStore,
 )
@@ -476,6 +482,83 @@ def _seed_experiment_with_artifacts(tracking_store, name):
         )
         tracking_store.start_trace(trace_info)
     return exp_id, run, model, trace_info
+
+
+def _set_experiment_artifact_location(engine, exp_id, artifact_location):
+    experiments_table = sa.Table("experiments", sa.MetaData(), autoload_with=engine)
+    with engine.begin() as conn:
+        conn.execute(
+            experiments_table
+            .update()
+            .where(experiments_table.c.experiment_id == int(exp_id))
+            .values(artifact_location=artifact_location)
+        )
+
+
+def test_move_experiments_reports_proxied_artifact_roots(
+    tracking_store, workspace_store, engine
+):
+    _create_workspace(workspace_store, "team-a")
+    exp_id, _, _, _ = _seed_experiment_with_artifacts(tracking_store, "exp-proxy")
+    artifact_location = f"mlflow-artifacts:/{exp_id}"
+    _set_experiment_artifact_location(engine, exp_id, artifact_location)
+
+    result = move_resources(
+        engine,
+        workspace_store,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="experiments",
+        names=["exp-proxy"],
+        dry_run=True,
+    )
+
+    root = result.proxied_artifact_roots[0]
+    assert root.name == "exp-proxy"
+    assert root.artifact_location == artifact_location
+    assert root.current_path == str(exp_id)
+    assert root.target_path == f"workspaces/team-a/{exp_id}"
+
+
+def test_move_experiments_does_not_report_absolute_artifact_roots(
+    tracking_store, workspace_store, engine
+):
+    _create_workspace(workspace_store, "team-a")
+    exp_id, _, _, _ = _seed_experiment_with_artifacts(tracking_store, "exp-absolute")
+    _set_experiment_artifact_location(engine, exp_id, f"s3://bucket/{exp_id}")
+
+    result = move_resources(
+        engine,
+        workspace_store,
+        source_workspace=DEFAULT_WORKSPACE_NAME,
+        target_workspace="team-a",
+        resource_type="experiments",
+        names=["exp-absolute"],
+        dry_run=True,
+    )
+
+    assert result.proxied_artifact_roots == ()
+
+
+def test_cli_formats_proxied_artifact_root_notes():
+    notes = _format_proxied_artifact_root_notes(
+        (
+            ProxiedArtifactRoot(
+                name="exp-proxy",
+                artifact_location="mlflow-artifacts:/1",
+                current_path="1",
+                target_path="workspaces/team-a/1",
+            ),
+        )
+    )
+
+    assert notes == [
+        "Note: some moved experiments use proxied mlflow-artifacts: locations. "
+        "These paths are resolved relative to the active workspace, so historical "
+        "artifacts may need to be relocated under the server's --artifacts-destination:",
+        "  'exp-proxy' (mlflow-artifacts:/1): 1 -> workspaces/team-a/1",
+        "Stored run, logged model, and trace artifact URIs are not rewritten by this command.",
+    ]
 
 
 def test_move_experiments_artifact_policy_retarget(tracking_store, workspace_store, engine):
