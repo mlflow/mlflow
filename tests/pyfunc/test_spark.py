@@ -1,7 +1,9 @@
 import datetime
+import logging
 import os
 import random
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -813,8 +815,6 @@ def test_model_cache(spark, model_path):
     assert min(results2) > 0
 
 
-# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
-@pytest.mark.flaky(attempts=2)
 @pytest.mark.skipif(
     not sys.platform.startswith("linux"),
     reason="Only Linux system support setting  parent process death signal via prctl lib.",
@@ -826,6 +826,16 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     from mlflow.models.flavor_backend_registry import get_flavor_backend
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
+    probe_dir = Path(os.environ.get("RUNNER_TEMP", str(Path(model_path).parent))) / (
+        f"spark-readiness-{env_manager}"
+    )
+    probe_dir.mkdir(exist_ok=True)
+    started = time.monotonic()
+
+    def record(event):
+        with (probe_dir / "startup.log").open("a") as output:
+            output.write(f"{time.monotonic() - started:.3f}s pid={os.getpid()} {event}\n")
+
     mlflow.sklearn.save_model(sklearn_model.model, model_path)
 
     server_port = 51234
@@ -835,15 +845,22 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     def udf_with_model_server(it: Iterator[pd.Series]) -> Iterator[pd.Series]:
         from mlflow.models.flavor_backend_registry import get_flavor_backend
 
-        get_flavor_backend(
+        record("udf_entered")
+        backend = get_flavor_backend(
             model_path, env_manager=env_manager, workers=1, install_mlflow=False
-        ).serve(
-            model_uri=model_path,
-            port=server_port,
-            host="127.0.0.1",
-            timeout=timeout,
-            synchronous=False,
         )
+        record("serve_started")
+        with (probe_dir / "server.log").open("a") as output:
+            server_proc = backend.serve(
+                model_uri=model_path,
+                port=server_port,
+                host="127.0.0.1",
+                timeout=timeout,
+                synchronous=False,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+            )
+        record(f"serve_returned server_pid={server_proc.pid}")
 
         time.sleep(120)
         yield from it
@@ -851,18 +868,40 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     def run_job():
         # Start a spark job with only one UDF task,
         # and the udf task starts a mlflow model server process.
-        spark.range(1).repartition(1).select(udf_with_model_server("id")).collect()
+        record("spark_job_started")
+        try:
+            spark.range(1).repartition(1).select(udf_with_model_server("id")).collect()
+        except Exception as error:
+            record(f"spark_job_error {type(error).__name__}")
+            raise
 
+    record("prepare_env_started")
     get_flavor_backend(model_path, env_manager=env_manager, install_mlflow=False).prepare_env(
         model_uri=model_path
     )
+    record("prepare_env_finished")
+    with socket.socket() as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind(("127.0.0.1", server_port))
+            record(f"port={server_port} available=True")
+        except OSError as error:
+            record(f"port={server_port} available=False error={error}")
 
     job_thread = threading.Thread(name="pyfunc-spark-job", target=run_job)
     job_thread.start()
 
     client = ScoringServerClient("127.0.0.1", server_port)
     try:
+        record("readiness_wait_started timeout=20")
         client.wait_server_ready(timeout=20)
+        record("server_ready")
+    except Exception as error:
+        record(f"readiness_error {type(error).__name__}: {error}")
+        for path in probe_dir.glob("*.log"):
+            logging.getLogger(__name__).warning("%s:\n%s", path.name, path.read_text())
+        subprocess.run(["ss", "-tanp", f"( sport = :{server_port} or dport = :{server_port} )"])
+        raise
     finally:
         spark.sparkContext.cancelAllJobs()
         job_thread.join(timeout=60)

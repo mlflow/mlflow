@@ -374,9 +374,109 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
-        include:
-          - splits: 4
+        replica:
+          [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            51,
+            52,
+            53,
+            54,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            84,
+            85,
+            86,
+            87,
+            88,
+            89,
+            90,
+            91,
+            92,
+            93,
+            94,
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+          ]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -393,13 +493,42 @@ jobs:
             -r requirements/test-requirements.txt \
             tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/show-versions
-      - name: Run tests
-        env:
-          SPLITS: ${{ matrix.splits }}
-          GROUP: ${{ matrix.group }}
+      - name: Find the shard containing the flaky test
+        id: shard
         run: |
-          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP --durations=30 \
-            tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
+          uv run --no-sync pytest --collect-only -q -o addopts= \
+            tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py \
+            > "$RUNNER_TEMP/collection.txt"
+          uv run --no-sync python - <<'PY_SHARD'
+          import os
+          from pathlib import Path
 
-          # test_spark_connect.py fails if it's run with other tests, so run it separately.
-          uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
+          nodes = [
+              line for line in Path(os.environ["RUNNER_TEMP"], "collection.txt").read_text().splitlines()
+              if line.startswith("tests/") and "::" in line
+          ]
+          target = (
+              "tests/pyfunc/test_spark.py::"
+              "test_spark_udf_embedded_model_server_killed_when_job_canceled[virtualenv]"
+          )
+          group = nodes.index(target) % 4 + 1
+          print(f"Running shard {group}/4 ({len(nodes[group - 1::4])} tests)")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"group={group}\n")
+          PY_SHARD
+      - name: Run the full shard, stopping on the first failure
+        env:
+          GROUP: ${{ steps.shard.outputs.group }}
+        run: |
+          uv run --no-sync pytest -x --splits=4 --group="$GROUP" --durations=30 \
+            tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
+      - name: Preserve startup diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: spark-readiness-${{ matrix.replica }}
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/spark-readiness-*/*.log
+            ${{ runner.temp }}/collection.txt
+          retention-days: 7
