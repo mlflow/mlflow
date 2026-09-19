@@ -1,0 +1,1037 @@
+"""Executor-engine job runner.
+
+Launched in place of the Huey ``_job_runner`` when
+``MLFLOW_SERVER_JOB_EXECUTION_ENGINE=executor``. A scheduler loop claims PENDING jobs from the
+job store and runs each in its own worker thread through the configured ``AbstractJobExecutor``
+backend (``LocalJobExecutor`` by default), then records the terminal state back to the store.
+
+Concurrency is bounded per job function by a semaphore sized to that function's ``max_workers``,
+so one job type cannot starve another and the scheduler thread never blocks on a running job.
+Each tick also forwards store-side cancellations to the executor for in-flight jobs. On startup the
+runner recovers jobs left unfinished by a previous server generation.
+
+Only job execution moves to the executor framework here. Periodic tasks (e.g. the online scoring
+scheduler) still run on Huey via ``_launch_periodic_tasks_consumer``.
+"""
+
+import json
+import logging
+import os
+import random
+import signal
+import threading
+import time
+from contextlib import nullcontext
+from dataclasses import dataclass
+from typing import Callable
+
+from mlflow.entities._job import Job
+from mlflow.entities._job_status import JobStatus
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_GATEWAY_URI,
+    MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND,
+)
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import TEMPORARILY_UNAVAILABLE, ErrorCode
+from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR, MLFLOW_SERVER_UP_TIME
+from mlflow.server.jobs.executor import AbstractJobExecutor, JobExecutionContext, JobResult
+from mlflow.server.jobs.executor_registry import get_executor_registry
+from mlflow.server.jobs.lock_manager import JobLock, JobLockManager
+from mlflow.store.jobs.abstract_store import AbstractJobStore, JobUpdateStatus
+from mlflow.utils.workspace_context import ServerWorkspaceContext
+
+# Use an explicit logger name rather than __name__: this module is launched as
+# ``python -m mlflow.server.jobs._executor_runner``, where __name__ is "__main__" and would
+# fall outside the "mlflow" logger hierarchy, so its logs would miss MLflow's log handler.
+_logger = logging.getLogger("mlflow.server.jobs._executor_runner")
+
+# How long the scheduler sleeps between ticks (workers run in the background between ticks).
+_POLL_INTERVAL = 1.0
+# On shutdown, how long to wait for each in-flight worker before stopping the executor.
+_SHUTDOWN_JOIN_TIMEOUT = 5.0
+
+# How many times a running job's lease is renewed per lease TTL: the renew interval is the TTL
+# divided by this, so the lease is refreshed well before it expires. The interval is floored so a
+# short TTL cannot drive a busy renew loop.
+_LEASE_RENEWALS_PER_TTL = 3.0
+_MIN_LEASE_RENEW_INTERVAL = 0.2
+# Smallest lease TTL the executor accepts: the TTL at which the floored interval still fits the
+# designed renewals-per-TTL (i.e. _MIN_LEASE_RENEW_INTERVAL * _LEASE_RENEWALS_PER_TTL, written as a
+# literal to avoid float rounding rejecting the exact boundary). The scheduler rejects a configured
+# TTL below this at startup, so the renew interval is always strictly below the TTL (the floor
+# never reaches it) — no near-zero busy loop and no renewal that first fires after the lease has
+# already expired.
+_MIN_LEASE_TTL = 0.6
+
+
+class _UnschedulableJob(Exception):
+    """A permanent reason a claimed job can never run (e.g. its params or lock key are malformed).
+
+    Raised so the scheduler can fail exactly this case terminally and let any other (transient)
+    error propagate, rather than catching broadly.
+    """
+
+
+class _LeaseRenewer:
+    """Keeps a running job's lease alive until the job finishes.
+
+    ``claim_job`` sets an initial lease when it moves a job to RUNNING. A job that runs longer than
+    the lease TTL would otherwise look abandoned to stale-job recovery, so while the job runs this
+    renews the lease on a daemon thread and stops as soon as the job returns. Used as a context
+    manager wrapping both ``submit_job`` and ``wait_for_job``, so the renewal also covers any
+    long synchronous setup ``submit_job`` performs (e.g. installing the job's environment).
+    """
+
+    def __init__(
+        self,
+        job_store: AbstractJobStore,
+        job_id: str,
+        lease_duration: float,
+        workspace: str | None,
+    ) -> None:
+        self._job_store = job_store
+        self._job_id = job_id
+        self._lease_duration = lease_duration
+        # The renewer runs on its own thread, which does not inherit the worker's workspace
+        # ContextVar. Rebind it here so the workspace-aware store resolves the right tenant;
+        # without it renew_job_lease would raise "Active workspace is required" on every tick.
+        self._workspace = workspace
+        # Renew at TTL/N, floored so a short TTL cannot drive a busy loop. The scheduler validates
+        # the configured TTL is >= _MIN_LEASE_TTL at startup, so this interval is always strictly
+        # below the lease (the floor never reaches the TTL) and fires before it expires.
+        self._interval = max(lease_duration / _LEASE_RENEWALS_PER_TTL, _MIN_LEASE_RENEW_INTERVAL)
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._renew_until_stopped,
+            name=f"mlflow-job-lease-renewer-{job_id}",
+            daemon=True,
+        )
+
+    def _renew_until_stopped(self) -> None:
+        # Event.wait returns True once stopped and False on each timeout; renew on timeout.
+        with ServerWorkspaceContext(self._workspace):
+            while not self._stop.wait(self._interval):
+                try:
+                    status = self._job_store.renew_job_lease(self._job_id, self._lease_duration)
+                except Exception:
+                    # A transient store error must not silently kill renewal: log and retry on the
+                    # next tick so the lease keeps being refreshed while the job runs.
+                    _logger.exception("Failed to renew lease for job %s; will retry", self._job_id)
+                    continue
+                if status != JobUpdateStatus.APPLIED:
+                    # The job row is no longer renewable (finalized or reset elsewhere); stop.
+                    return
+
+    def __enter__(self) -> "_LeaseRenewer":
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._stop.set()
+        # `_stop.set()` wakes the thread immediately even mid-interval, so it only needs time to
+        # finish an in-flight renew call — bound that by the fixed shutdown budget, not the
+        # (possibly large) renewal interval, so a big TTL can't stretch shutdown.
+        self._thread.join(timeout=_SHUTDOWN_JOIN_TIMEOUT)
+        if self._thread.is_alive():
+            # A renew call is wedged (e.g. a hung store); the daemon thread will not block process
+            # exit, but surface it rather than leaking silently.
+            _logger.warning(
+                "Lease renewer for job %s did not stop within the join budget", self._job_id
+            )
+
+
+def _select_executor() -> AbstractJobExecutor:
+    """Resolve the executor backend named by ``MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND``.
+
+    Defaults to ``local`` (``LocalJobExecutor``); a configured plugin backend is honored too.
+
+    TODO (follow-up): select the backend per job at submit time via a job-executor router
+    (matching the job against the configured executor) rather than a single process-wide
+    backend, so different job types can target different executors.
+    """
+    backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+    return get_executor_registry().get(backend)
+
+
+def _job_backend_mismatch(job: Job, active_backend: str) -> bool:
+    """Whether ``job`` was assigned an executor backend this runner does not serve.
+
+    The runner serves one backend at a time (``active_backend``). If a job was submitted against a
+    different backend, running it here would silently reroute it, so callers fail it closed
+    instead. ``executor_backend`` is unset (None) on every job until per-job backend persistence
+    lands, so this is inert today; it exists so the persisted backend becomes authoritative the
+    moment jobs start recording it.
+    """
+    return job.executor_backend is not None and job.executor_backend != active_backend
+
+
+def _build_execution_context(job: Job) -> JobExecutionContext:
+    workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
+    # Jobs get the backend store URI (the DB), not MLFLOW_TRACKING_URI. The runner is launched with
+    # MLFLOW_TRACKING_URI set to the server's own HTTP URI, but a job can't authenticate to the
+    # tracking API over HTTP (its only credential, the internal token, is gateway-only), and jobs
+    # do privileged work directly against the store anyway — scorer jobs already call
+    # _get_tracking_store(), which flips tracking to the DB. Gateway routing still needs the HTTP
+    # URI, so it travels separately as MLFLOW_GATEWAY_URI.
+    return JobExecutionContext(
+        job_id=job.job_id,
+        tracking_uri=os.environ.get(BACKEND_STORE_URI_ENV_VAR),
+        gateway_uri=MLFLOW_GATEWAY_URI.get(),
+        workspace=workspace,
+    )
+
+
+def _record_result(
+    job_store: AbstractJobStore,
+    job_id: str,
+    job_name: str,
+    result: JobResult,
+    on_transient_release: Callable[[], bool] | None = None,
+) -> int | None:
+    """Map an executor ``JobResult`` onto the terminal job-store transition.
+
+    Returns the ``retry_count`` when a transient error re-pended the job for retry, or ``None``
+    otherwise, mirroring the outcome handling in the Huey ``_exec_job`` path. The retry backoff is
+    enforced by the store (it stamps ``next_attempt_at`` and the claim query withholds the job
+    until it is due), so this return value is informational here and does not drive a local wait.
+
+    ``on_transient_release`` (when given) releases the exclusivity lock and returns whether it
+    succeeded. It is called BEFORE the transient ``RUNNING -> PENDING`` re-pend so another replica
+    cannot claim the re-pended row while this worker still holds the lock. If it returns False the
+    job is NOT re-pended (leaving the row for recovery), since publishing a retry behind a
+    still-held lock would strand whoever re-claims it.
+    """
+    # If the job was canceled after it was claimed, it still ran to completion (or was killed by
+    # a forwarded cancel), but the cancel already finalized the row. Recording a terminal result
+    # now would raise an invalid-transition error and log a scary traceback for a normal user
+    # action, so skip it.
+    if job_store.get_job(job_id).status == JobStatus.CANCELED:
+        return None
+
+    if result.status == JobStatus.SUCCEEDED:
+        job_store.report_job_result(job_id, JobStatus.SUCCEEDED, result=result.result)
+    elif result.status == JobStatus.TIMEOUT:
+        job_store.report_job_result(job_id, JobStatus.TIMEOUT, error_message=result.error_message)
+    elif result.status == JobStatus.CANCELED:
+        # The executor reported the job as canceled while the store row is not CANCELED (a row
+        # canceled through the store is already handled by the early return above). Record the
+        # terminal CANCELED state so the claimed row is not left RUNNING forever. Tolerate a
+        # concurrent store cancel that finalized the row between the check above and here.
+        try:
+            job_store.report_job_result(job_id, JobStatus.CANCELED)
+        except MlflowException:
+            if job_store.get_job(job_id).status != JobStatus.CANCELED:
+                raise
+    elif result.is_transient_error:
+        # A transient error resets the job to PENDING (non-terminal) so a later poll can
+        # re-claim it, so this cannot go through report_job_result. Release the exclusivity lock
+        # first so the re-pended PENDING row does not keep holding it: the row is then cleanly
+        # re-claimable and the re-claiming run acquires the lock fresh (a full staleness budget).
+        # If release fails, do not re-pend -- leave the row for recovery.
+        if on_transient_release is not None and not on_transient_release():
+            _logger.error(
+                "Could not release exclusive lock before retrying job %s; leaving it for recovery",
+                job_id,
+            )
+            return None
+        return job_store.retry_or_fail_job(job_id, result.error_message or "")
+    else:
+        _logger.error(f"Job {job_id} ({job_name}) failed with error: {result.error_message}")
+        job_store.report_job_result(
+            job_id, JobStatus.FAILED, error_message=result.error_message or ""
+        )
+    return None
+
+
+def _execute_claimed_job(
+    job_store: AbstractJobStore,
+    executor: AbstractJobExecutor,
+    job: Job,
+    on_submitted: Callable[[], None] | None = None,
+    lease_duration: float | None = None,
+    workspace: str | None = None,
+    on_transient_release: Callable[[], bool] | None = None,
+) -> int | None:
+    """Execute a job that has already been claimed (moved to RUNNING) and record its result.
+
+    ``on_submitted`` is invoked right after the job reaches the executor, so the scheduler can
+    start forwarding cancellations only once there is a backend job to cancel.
+
+    While the job runs, its lease is renewed in the background (when ``lease_duration`` is set) so
+    a long-running job is not treated as abandoned by stale-job recovery.
+
+    Returns the ``retry_count`` when a transient error re-pended the job, or ``None`` otherwise.
+    The exclusivity lock is released at the re-pend via ``on_transient_release``; the retry backoff
+    itself is enforced by the store (``next_attempt_at``), not by the caller of this function.
+    """
+    from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
+
+    fn_fullname = get_job_fn_fullname(job.job_name)
+    function = _load_function(fn_fullname)
+    python_env = function._job_fn_metadata.python_env
+    params = json.loads(job.params)
+    context = _build_execution_context(job)
+
+    # A cancellation that arrived after the claim but before submission can't be forwarded to the
+    # executor (there is no backend job yet). Check the store here so such a job is not started at
+    # all; the row is already terminal CANCELED, so there is nothing to record.
+    if job_store.get_job(job.job_id).status == JobStatus.CANCELED:
+        return None
+
+    backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+    _logger.info(f"Executor engine running job {job.job_id} ({job.job_name}) on backend {backend}")
+
+    # Renew the lease across both submission and the wait, starting BEFORE submission. submit_job
+    # can do long synchronous setup (e.g. installing a job's environment) that outlasts the lease
+    # TTL, which would let stale-job recovery reclaim healthy work; renewing from here covers it.
+    # Starting the renewer first also keeps the submit/wait contract intact: if the renewer thread
+    # fails to start, it fails before submission, so there is never a submit_job without a paired
+    # wait_for_job.
+    lease_renewer = (
+        _LeaseRenewer(job_store, job.job_id, lease_duration, workspace)
+        if lease_duration is not None
+        else nullcontext()
+    )
+    with lease_renewer:
+        # Contract: every submit_job pairs with exactly one wait_for_job.
+        executor.submit_job(
+            job_id=job.job_id,
+            job_name=job.job_name,
+            fn_fullname=fn_fullname,
+            params=params,
+            context=context,
+            python_env=python_env,
+            timeout=job.timeout,
+        )
+        if on_submitted is not None:
+            on_submitted()
+        result = executor.wait_for_job(job.job_id)
+    _logger.info(f"Executor engine job {job.job_id} finished with status {result.status.value}")
+    return _record_result(
+        job_store, job.job_id, job.job_name, result, on_transient_release=on_transient_release
+    )
+
+
+def _max_workers_for(job_name: str) -> int:
+    """Concurrency limit for a job function, from its ``@job(max_workers=...)`` metadata."""
+    from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
+
+    max_workers = _load_function(get_job_fn_fullname(job_name))._job_fn_metadata.max_workers
+    return max(1, max_workers or 1)
+
+
+@dataclass
+class _InFlightJob:
+    """Bookkeeping for a claimed job while its worker thread runs."""
+
+    workspace: str | None
+    thread: threading.Thread
+    # Set once the job has reached the executor. Cancellation is forwarded only after this, since
+    # there is no backend job to cancel before submission.
+    submitted: bool = False
+    # Set once a store-side cancellation has been successfully forwarded to the executor, so it is
+    # forwarded at most once (AbstractJobExecutor.cancel_job is not required to be idempotent).
+    cancel_forwarded: bool = False
+    # The exclusive lock this job holds while it runs, released when the worker finishes. None for
+    # a non-exclusive job.
+    job_lock: JobLock | None = None
+
+
+class _JobScheduler:
+    """Non-blocking scheduler for the executor engine.
+
+    Each ``tick()`` (1) forwards store-side cancellations to the executor for in-flight jobs, then
+    (2) claims PENDING jobs it has capacity for and runs each in a worker thread. A per-``job_name``
+    semaphore sized to that function's ``max_workers`` bounds how many jobs of a given type run at
+    once (a process-wide budget per job type, matching the Huey engine's per-function pool), so the
+    scheduler thread never blocks on a running job.
+
+    Worker threads re-enter the job's workspace with ``ServerWorkspaceContext``, which binds only
+    the thread-local request ContextVar. ``WorkspaceContext`` must not be used here: it also mutates
+    the process-global ``MLFLOW_WORKSPACE`` env, which concurrent workers in different workspaces
+    would race on. The store resolves the ContextVar first (see ``get_request_workspace``).
+    """
+
+    def __init__(
+        self,
+        job_store: AbstractJobStore,
+        executor: AbstractJobExecutor,
+        lease_duration: float | None,
+    ) -> None:
+        if lease_duration is not None and lease_duration < _MIN_LEASE_TTL:
+            raise MlflowException(
+                f"The job lease TTL must be at least {_MIN_LEASE_TTL} seconds so a running job's "
+                f"lease can be renewed before it expires, but got {lease_duration}. Set "
+                f"MLFLOW_SERVER_JOB_LEASE_TTL to a larger value."
+            )
+        self._job_store = job_store
+        self._executor = executor
+        self._lease_duration = lease_duration
+        # Coordinates exclusive-job locks (job_locks table) so that, across replicas, only one
+        # job per exclusive key runs at a time.
+        self._lock_manager = JobLockManager(job_store)
+        # One semaphore per job_name (value = that function's max_workers).
+        self._slots: dict[str, threading.Semaphore] = {}
+        self._slots_lock = threading.Lock()
+        # job_id -> _InFlightJob, for the cancel sweep and shutdown join. Guarded by
+        # _in_flight_lock.
+        self._in_flight: dict[str, _InFlightJob] = {}
+        self._in_flight_lock = threading.Lock()
+
+    def _slot_for(self, job_name: str) -> threading.Semaphore:
+        with self._slots_lock:
+            sem = self._slots.get(job_name)
+        if sem is not None:
+            return sem
+        # Resolve max_workers (which may import the job module) before taking the lock, so the
+        # import runs outside the lock's critical section. This is a no-op under the single
+        # scheduler thread today, but keeps the hold time minimal if the scheduler ever runs
+        # multi-threaded.
+        max_workers = _max_workers_for(job_name)
+        with self._slots_lock:
+            return self._slots.setdefault(job_name, threading.Semaphore(max_workers))
+
+    def _mark_submitted(self, job_id: str) -> None:
+        with self._in_flight_lock:
+            if (handle := self._in_flight.get(job_id)) is not None:
+                handle.submitted = True
+
+    def _exclusive_lock_key(self, job: Job, workspace: str | None) -> str | None:
+        """Return the exclusive lock key for a job, or None if the job is not exclusive.
+
+        Uses the shared ``_compute_job_lock_key`` so the executor and Huey engines derive the same
+        key from a job's ``@job(exclusive=...)`` metadata.
+        """
+        from mlflow.server.jobs.utils import (
+            _compute_job_lock_key,
+            _load_function,
+            get_job_fn_fullname,
+        )
+
+        exclusive = _load_function(get_job_fn_fullname(job.job_name))._job_fn_metadata.exclusive
+        if not exclusive:
+            return None
+        try:
+            params = json.loads(job.params)
+        except (json.JSONDecodeError, TypeError) as e:
+            # Malformed params can never yield a lock key, so this job can never be scheduled.
+            raise _UnschedulableJob(f"job {job.job_id} has invalid params") from e
+        return _compute_job_lock_key(job.job_name, params, exclusive, workspace)
+
+    def _release_lock(self, job_lock: JobLock | None) -> None:
+        if job_lock is None:
+            return
+        try:
+            self._lock_manager.release_exclusive_lock(job_lock)
+        except Exception:
+            # Best effort: a lock left behind is reclaimed once it goes stale (an exclusive job
+            # always has a timeout), so a failed release cannot wedge the key permanently.
+            _logger.exception("Failed to release exclusive lock %s", job_lock.lock_key)
+
+    def tick(self) -> int:
+        """Run one scheduler iteration. Returns the number of jobs newly scheduled."""
+        self._forward_cancellations()
+        return self._schedule_pending()
+
+    def _forward_cancellations(self) -> None:
+        with self._in_flight_lock:
+            snapshot = list(self._in_flight.items())
+        for job_id, handle in snapshot:
+            # Only forward once the job has reached the executor and not already forwarded. Before
+            # submission there is no backend job to cancel; the worker's own pre-submit check
+            # (see _execute_claimed_job) handles a cancel that arrives in that window.
+            if not handle.submitted or handle.cancel_forwarded:
+                continue
+            try:
+                with ServerWorkspaceContext(handle.workspace):
+                    canceled = self._job_store.get_job(job_id).status == JobStatus.CANCELED
+            except Exception:
+                _logger.exception("Failed to check cancellation state for job %s", job_id)
+                continue
+            if not canceled:
+                continue
+            try:
+                # Stop the still-running job so it cannot keep performing side effects after the
+                # caller cancelled it. The worker's wait_for_job then returns and _record_result
+                # skips the already-CANCELED row.
+                self._executor.cancel_job(job_id)
+            except Exception:
+                # Leave cancel_forwarded false so the next tick retries rather than letting the
+                # canceled job run to normal completion. Log every failure: a repeated failure may
+                # differ each time, so silencing later ones could hide something useful.
+                _logger.exception(
+                    "Failed to forward cancellation to executor for %s; retrying next tick", job_id
+                )
+                continue
+            with self._in_flight_lock:
+                # cancel_job may already have unblocked the worker, whose finally pops _in_flight;
+                # only record on the live handle so a finished job's id is not left behind.
+                if (live := self._in_flight.get(job_id)) is not None:
+                    live.cancel_forwarded = True
+
+    def _schedule_pending(self) -> int:
+        from mlflow.server.jobs.utils import _workspace_contexts_for_recovery
+
+        # Randomize the per-workspace order so a fixed (e.g. alphabetical) order can't let the
+        # earliest workspaces consistently claim the max_workers slots and starve the rest.
+        #
+        # TODO: with workspaces enabled, _workspace_contexts_for_recovery() returns every defined
+        # workspace, and the loop below runs one list_jobs(status=PENDING) query per workspace on
+        # every tick (~1s) even when most have nothing pending — cost scales with total workspaces,
+        # not active ones. To make it scale with active workspaces instead:
+        #   1. add an AbstractJobStore method that returns, in a single cross-workspace query, the
+        #      distinct workspaces that currently have PENDING jobs (the workspace-aware store
+        #      filters by the active workspace today, so this query must not be workspace-scoped);
+        #   2. have the scheduler iterate only those workspaces here instead of all of them;
+        #   3. cover it with workspace-aware tests (see the jobs store's workspace test module).
+        # Left as a follow-up since the per-tick cost only becomes material at multi-tenant scale.
+        workspace_contexts = list(_workspace_contexts_for_recovery())
+        random.shuffle(workspace_contexts)
+        scheduled = 0
+        for workspace_ctx in workspace_contexts:
+            with workspace_ctx as workspace:
+                for job in list(self._job_store.list_jobs(statuses=[JobStatus.PENDING])):
+                    with self._in_flight_lock:
+                        already_in_flight = job.job_id in self._in_flight
+                    if already_in_flight:
+                        # A prior worker for this job is still finishing (executing, or re-pending a
+                        # transient failure). Skip it so this replica does not double-claim it while
+                        # that worker still holds it.
+                        continue
+                    try:
+                        sem = self._slot_for(job.job_name)
+                    except Exception as exc:
+                        # The function backing this job cannot be resolved (e.g. it was renamed or
+                        # removed across an upgrade). Fail it, matching the old serial path, so it
+                        # reaches a terminal state instead of staying PENDING and re-logging on
+                        # every tick.
+                        self._fail_unschedulable_job(job, workspace, exc)
+                        continue
+                    if not sem.acquire(blocking=False):
+                        # This job type is already at max_workers; leave it PENDING for a
+                        # later tick, once a slot frees.
+                        continue
+                    # Compute the exclusive key (if any) before claiming. Only a permanent
+                    # (unschedulable) failure fails the job here; any other error propagates to the
+                    # tick handler so a transient issue is retried rather than silently failing it.
+                    try:
+                        lock_key = self._exclusive_lock_key(job, workspace)
+                    except _UnschedulableJob as exc:
+                        sem.release()
+                        self._fail_unschedulable_job(job, workspace, exc)
+                        continue
+                    try:
+                        claimed = (
+                            self._job_store.claim_job(job.job_id, self._lease_duration)
+                            == JobUpdateStatus.APPLIED
+                        )
+                    except Exception:
+                        sem.release()
+                        _logger.exception("Failed to claim job %s", job.job_id)
+                        continue
+                    if not claimed:
+                        # A concurrent worker claimed it first, or its status changed.
+                        sem.release()
+                        continue
+                    active_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+                    if _job_backend_mismatch(job, active_backend):
+                        # Fail closed rather than run the job on a backend it was not submitted to.
+                        # This also subsumes the cancellation case: a mismatched job is failed here
+                        # before any backend work is submitted, so there is nothing to route a
+                        # cancel to. (Inert today; executor_backend is always None.)
+                        sem.release()
+                        self._fail_claimed_job(
+                            job.job_id,
+                            workspace,
+                            f"Job was submitted to executor backend {job.executor_backend!r} but "
+                            f"this runner serves {active_backend!r}.",
+                        )
+                        continue
+                    # Acquire the exclusive lock AFTER claiming, so the lock always references a
+                    # RUNNING job. A lock on a still-PENDING job is treated as stale (and stealable)
+                    # by other replicas, so acquiring before the claim would let a second same-key
+                    # job steal it and run too. The job is RUNNING now, so if we do not run it we
+                    # cancel or fail it rather than leave it stranded.
+                    job_lock = None
+                    if lock_key is not None:
+                        try:
+                            job_lock = self._lock_manager.acquire_exclusive_lock(
+                                lock_key, job.job_id
+                            )
+                        except Exception:
+                            # Do not fail the job on an infrastructure error (a store hiccup, or a
+                            # leftover same-job lock from a crashed prior attempt that is not yet
+                            # stale). Leave the claimed row: its lease is not renewed, so recovery
+                            # reclaims it, and the leftover lock frees once it goes stale.
+                            sem.release()
+                            _logger.exception(
+                                "Could not acquire exclusive lock for job %s; leaving it for "
+                                "recovery",
+                                job.job_id,
+                            )
+                            continue
+                        if job_lock is None:
+                            # Another running job holds this exclusivity key. Cancel this claimed
+                            # job without submitting backend work; if the work is still needed, the
+                            # next scheduler discovery cycle creates a fresh PENDING job.
+                            sem.release()
+                            self._cancel_exclusivity_conflict(job, lock_key)
+                            continue
+                    try:
+                        started = self._start_worker(job, workspace, sem, job_lock)
+                    except Exception:
+                        # _start_worker owns releasing the slot and lock on the failure paths it
+                        # handles; this guards the unexpected case so neither leaks if it raises.
+                        sem.release()
+                        self._release_lock(job_lock)
+                        _logger.exception("Failed to start worker for job %s", job.job_id)
+                        continue
+                    if started:
+                        scheduled += 1
+        return scheduled
+
+    def _cancel_exclusivity_conflict(self, job: Job, lock_key: str) -> None:
+        """Cancel a just-claimed job whose exclusivity key is held by another running job.
+
+        Cancellation is terminal and does NOT requeue or preserve the work item; correctness
+        depends on the scheduler's level-triggered discovery recreating a fresh PENDING job later
+        if the work is still needed. The job was claimed (RUNNING) but no backend work
+        was submitted, so cancelling moves it to CANCELED without anything having run. Runs inside
+        the caller's workspace context.
+        """
+        _logger.info("Skipping job %s - exclusive lock %s already held", job.job_id, lock_key)
+        try:
+            self._job_store.cancel_job(job.job_id)
+        except Exception:
+            # Do not represent a store hiccup as a job failure. Leave the claimed row: nothing
+            # renews its lease (no worker started), so recovery reclaims it and a later attempt
+            # cancels or runs it.
+            _logger.exception(
+                "Could not cancel job %s on exclusivity conflict; leaving it for recovery",
+                job.job_id,
+            )
+
+    def _fail_claimed_job(self, job_id: str, workspace: str | None, error: str) -> None:
+        """Transition a claimed (RUNNING) job to FAILED, retrying once on a transient store error.
+
+        A claimed job left RUNNING with no worker is only reclaimable by startup recovery, so a
+        transient store failure on the first attempt should not strand it there. The managed
+        session surfaces a transient DB error as ``MlflowException`` with
+        ``error_code == TEMPORARILY_UNAVAILABLE``; that is retried once. Anything else — an invalid
+        transition (the row is no longer RUNNING) or any other error — won't succeed on a retry, so
+        it is logged once and not retried.
+        """
+        temporarily_unavailable = ErrorCode.Name(TEMPORARILY_UNAVAILABLE)
+        for attempt in (1, 2):
+            try:
+                with ServerWorkspaceContext(workspace):
+                    self._job_store.fail_job(job_id, error)
+                return
+            except MlflowException as e:
+                if attempt == 1 and e.error_code == temporarily_unavailable:
+                    _logger.warning("Transient store error failing job %s; retrying once", job_id)
+                    continue
+                _logger.exception("Could not transition job %s to FAILED", job_id)
+                return
+            except Exception:
+                # The store wraps its errors as MlflowException; a bare exception here is
+                # unexpected and not something a retry would fix, so log once and stop.
+                _logger.exception("Unexpected error transitioning job %s to FAILED", job_id)
+                return
+
+    def _fail_unschedulable_job(self, job: Job, workspace: str | None, exc: Exception) -> None:
+        """Claim and fail a PENDING job whose function cannot be resolved.
+
+        ``workspace`` is the active workspace the claim runs under, so the fail targets the same
+        workspace scope as the claim.
+        """
+        try:
+            claimed = (
+                self._job_store.claim_job(job.job_id, self._lease_duration)
+                == JobUpdateStatus.APPLIED
+            )
+        except Exception:
+            _logger.exception("Failed to claim unschedulable job %s", job.job_id)
+            return
+        if not claimed:
+            return
+        _logger.error("Job %s (%s) is not runnable: %r", job.job_id, job.job_name, exc)
+        self._fail_claimed_job(job.job_id, workspace, repr(exc))
+
+    def _start_worker(
+        self,
+        job: Job,
+        workspace: str | None,
+        sem: threading.Semaphore,
+        job_lock: JobLock | None,
+    ) -> bool:
+        """Start the worker thread for a claimed job. Returns whether it started.
+
+        If the thread cannot be started (e.g. the OS thread limit is hit), the claim's effects are
+        undone — the slot and any exclusive lock are released and the job is failed — so nothing is
+        leaked and the job does not stay RUNNING with nothing running it.
+        """
+        thread = threading.Thread(
+            target=self._run_worker,
+            args=(job, workspace, sem),
+            name=f"mlflow-executor-job-{job.job_id}",
+            daemon=True,
+        )
+        with self._in_flight_lock:
+            self._in_flight[job.job_id] = _InFlightJob(
+                workspace=workspace, thread=thread, job_lock=job_lock
+            )
+        try:
+            thread.start()
+        except Exception:
+            _logger.exception("Failed to start worker thread for job %s", job.job_id)
+            with self._in_flight_lock:
+                self._in_flight.pop(job.job_id, None)
+            sem.release()
+            self._release_lock(job_lock)
+            self._fail_claimed_job(job.job_id, workspace, "Failed to start executor worker thread")
+            return False
+        return True
+
+    def _run_worker(self, job: Job, workspace: str | None, sem: threading.Semaphore) -> None:
+        needs_recovery = False
+        lock_released = False
+
+        def _release_before_retry() -> bool:
+            # Release the exclusive lock at the RUNNING -> PENDING transient re-pend, before the row
+            # becomes claimable again. Returns whether the release succeeded; on failure the caller
+            # does not re-pend (the row is left for recovery rather than published behind our lock).
+            nonlocal lock_released
+            with self._in_flight_lock:
+                handle = self._in_flight.get(job.job_id)
+            job_lock = handle.job_lock if handle is not None else None
+            if job_lock is None:
+                return True
+            try:
+                self._lock_manager.release_exclusive_lock(job_lock)
+            except Exception:
+                _logger.exception(
+                    "Failed to release exclusive lock before retrying job %s", job.job_id
+                )
+                return False
+            lock_released = True
+            return True
+
+        try:
+            with ServerWorkspaceContext(workspace):
+                _execute_claimed_job(
+                    self._job_store,
+                    self._executor,
+                    job,
+                    on_submitted=lambda: self._mark_submitted(job.job_id),
+                    lease_duration=self._lease_duration,
+                    workspace=workspace,
+                    on_transient_release=_release_before_retry,
+                )
+        except Exception as exc:
+            with self._in_flight_lock:
+                handle = self._in_flight.get(job.job_id)
+                submitted = handle is not None and handle.submitted
+            if submitted:
+                # The failure happened after backend work was submitted, so that work may still be
+                # running and its monitoring is now untrustworthy. Do NOT fail-and-release (a
+                # same-key job could then start alongside it). Mark NEEDS_RECOVERY and keep the
+                # lock; backend recovery later confirms termination and decides requeue/fail.
+                # If the mark itself fails (a store hiccup), _mark_needs_recovery swallows it and
+                # the row stays RUNNING holding its lock: that is safe here -- startup recovery
+                # re-claims RUNNING orphans and reacquires the preserved lock, and the lock self-
+                # heals via staleness in the meantime, so exclusivity is never permanently wedged.
+                needs_recovery = True
+                _logger.error(
+                    "Job %s (%s) monitoring failed after submission: %r; marking NEEDS_RECOVERY",
+                    job.job_id,
+                    job.job_name,
+                    exc,
+                    exc_info=True,
+                )
+                self._mark_needs_recovery(job.job_id, workspace)
+            else:
+                # The failure happened before submission, so no backend work exists; fail it so a
+                # claimed row is not left RUNNING with nothing running it.
+                _logger.error(
+                    "Job %s (%s) raised before submission: %r",
+                    job.job_id,
+                    job.job_name,
+                    exc,
+                    exc_info=True,
+                )
+                self._fail_claimed_job(job.job_id, workspace, repr(exc))
+        finally:
+            # No local backoff sleep here: a transiently re-pended job carries its retry deadline in
+            # the store (next_attempt_at, stamped from the database clock) and the claim query holds
+            # it unclaimable until that deadline passes, so the worker slot is freed immediately and
+            # every replica honors the same delay. The exclusive lock was already released at the
+            # re-pend.
+            with self._in_flight_lock:
+                handle = self._in_flight.pop(job.job_id, None)
+            # Release the exclusive lock so a later same-key job can run -- EXCEPT when the job is
+            # NEEDS_RECOVERY (its backend work may still be running; recovery releases it after
+            # confirming termination) or it was already released at the transient re-pend above.
+            if handle is not None and not needs_recovery and not lock_released:
+                self._release_lock(handle.job_lock)
+            sem.release()
+
+    def _mark_needs_recovery(self, job_id: str, workspace: str | None) -> None:
+        try:
+            with ServerWorkspaceContext(workspace):
+                self._job_store.mark_job_needs_recovery(job_id)
+        except Exception:
+            _logger.exception("Failed to mark job %s NEEDS_RECOVERY", job_id)
+
+    def join(self, timeout: float | None = None) -> None:
+        """Best-effort wait for in-flight workers to finish.
+
+        ``timeout`` is a total budget across all workers, not per worker, so shutdown is bounded.
+        """
+        with self._in_flight_lock:
+            threads = [handle.thread for handle in self._in_flight.values()]
+        if timeout is None:
+            for thread in threads:
+                thread.join()
+            return
+        deadline = time.monotonic() + timeout
+        for thread in threads:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            thread.join(remaining)
+
+    def mark_orphans_for_recovery(self) -> None:
+        """Flag any still-in-flight jobs as needing recovery on shutdown.
+
+        Workers are daemon threads: if any are still running when the process exits, their
+        ``finally`` blocks may not run, leaving the store row RUNNING with nothing executing it.
+        Marking those rows NEEDS_RECOVERY lets startup recovery re-queue them on the next launch.
+
+        An orphan's exclusive lock (if any) is intentionally NOT released here, nor at startup
+        recovery: a daemon worker may still be executing during this best-effort shutdown, and no
+        code path clears lock rows at startup or shutdown, since a rolling restart could delete a
+        lock still protecting another replica's work. The leftover lock is reclaimed through normal
+        acquisition once its holder is terminal or its timeout + grace window elapses.
+        """
+        with self._in_flight_lock:
+            orphans = [(job_id, handle.workspace) for job_id, handle in self._in_flight.items()]
+        if not orphans:
+            return
+        _logger.warning(
+            "Shutdown cut off %d still-running job(s) before completion; marking them for "
+            "recovery on the next launch: %s",
+            len(orphans),
+            ", ".join(job_id for job_id, _ in orphans),
+        )
+        for job_id, workspace in orphans:
+            try:
+                with ServerWorkspaceContext(workspace):
+                    self._job_store.mark_job_needs_recovery(job_id)
+            except Exception:
+                _logger.exception("Failed to mark orphaned job %s for recovery", job_id)
+
+
+def run_executor_loop(
+    executor: AbstractJobExecutor,
+    stop_event: threading.Event | None = None,
+    poll_interval: float = _POLL_INTERVAL,
+) -> None:
+    """Run the executor claim loop until ``stop_event`` is set.
+
+    ``executor`` must already be started; the caller (``main``) owns ``start_executor()`` /
+    ``stop_executor()``. Keeping lifecycle out of this loop lets the caller start and stop several
+    configured backends independently, once more than one backend can be configured at a time,
+    rather than tying it to this single-executor claim loop.
+    """
+    from mlflow.server.handlers import _get_job_store
+
+    stop_event = stop_event or threading.Event()
+    job_store = _get_job_store()
+    lease_duration = executor.config.job_lease_ttl
+    # Reclaim jobs left RUNNING/NEEDS_RECOVERY by a previous server generation (a crash, or a
+    # shutdown that killed daemon workers) so they are re-scheduled instead of stuck. A transient
+    # store error here must not crash the runner (same reasoning as the tick loop below): log it
+    # and proceed to claim PENDING jobs; the next launch's recovery retries the reset.
+    try:
+        _recover_orphaned_executor_jobs(job_store, executor)
+    except Exception:
+        _logger.exception("Executor job recovery failed at startup; continuing.")
+    scheduler = _JobScheduler(job_store, executor, lease_duration)
+    try:
+        while not stop_event.is_set():
+            try:
+                scheduled = scheduler.tick()
+            except Exception:
+                # The tick's store and workspace calls run outside the per-job worker. A
+                # transient error here must not kill the scheduler (nothing would restart it),
+                # so log it and try again on the next poll.
+                _logger.exception("Executor job scheduler tick failed; continuing.")
+                scheduled = 0
+            if scheduled:
+                _logger.debug("Executor engine scheduled %d job(s) this tick.", scheduled)
+            stop_event.wait(poll_interval)
+    finally:
+        scheduler.join(timeout=_SHUTDOWN_JOIN_TIMEOUT)
+        # Any worker still in flight after the join budget won't get to finalize its row on a
+        # daemon-thread exit; flag it so the next launch's recovery re-queues it.
+        scheduler.mark_orphans_for_recovery()
+
+
+def _recover_orphaned_executor_jobs(
+    job_store: AbstractJobStore, executor: AbstractJobExecutor
+) -> None:
+    """Recover jobs left unfinished by a previous server generation.
+
+    Only jobs created before this server launch are touched, so it never races jobs submitted to
+    the running server. Each job is put to the executor via ``recover_jobs`` and the returned
+    action is honored: ``requeue`` resets it to PENDING for the scheduler to re-claim, ``fail``
+    marks it FAILED, and ``reattach`` leaves it RUNNING because the executor is still monitoring it.
+
+    NOTE: with the in-tree ``LocalJobExecutor`` this always resolves to ``requeue`` (its only
+    action), and its kill/reap step is a no-op here because a fresh runner has no in-memory record
+    of the previous generation's subprocesses. So today the effect is the same reset-to-PENDING as
+    before; the call is routed through the executor so a remote executor (a follow-up) can reattach
+    to still-running work or fail it instead of blindly requeuing.
+
+    This is the single-instance crash/restart recovery. Reclaiming a job whose lease expires while
+    the runner is still live (a wedged worker, or another replica's jobs) is a follow-up that the
+    lease primitive exists to enable once there is more than one owner.
+    """
+    from mlflow.server.jobs.utils import _for_each_unfinished_job
+
+    server_up_time = os.environ.get(MLFLOW_SERVER_UP_TIME)
+    if server_up_time is None:
+        # Set by the server that launches this runner; without it we cannot bound recovery to the
+        # previous generation, so skip rather than risk resetting freshly submitted jobs.
+        _logger.debug("%s is unset; skipping executor job recovery.", MLFLOW_SERVER_UP_TIME)
+        return
+    try:
+        launch_ts = int(server_up_time)
+    except ValueError:
+        _logger.warning(
+            "%s is not an integer (%r); skipping executor job recovery.",
+            MLFLOW_SERVER_UP_TIME,
+            server_up_time,
+        )
+        return
+
+    # Collect the orphaned jobs first, keeping each job's workspace so the store transitions below
+    # run in the right workspace context. recover_jobs itself is workspace-agnostic (it acts on
+    # backend job ids), so it is called once for all of them.
+    orphaned: list[tuple[Job, str | None]] = []
+    _for_each_unfinished_job(
+        job_store,
+        [JobStatus.RUNNING, JobStatus.NEEDS_RECOVERY],
+        launch_ts,
+        lambda job, workspace: orphaned.append((job, workspace)),
+    )
+    if not orphaned:
+        return
+
+    try:
+        recovery_by_id = {
+            result.job_id: result
+            for result in executor.recover_jobs([job.job_id for job, _ in orphaned])
+        }
+    except Exception:
+        # A failure asking the executor how to recover must not strand every orphan. Fall back to
+        # requeue (the reset-to-PENDING the runner did before recovery routed through the executor)
+        # so the scheduler re-claims them on a later tick.
+        _logger.exception("executor.recover_jobs failed; requeuing all orphaned jobs")
+        recovery_by_id = {}
+    active_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
+
+    for job, workspace in orphaned:
+        result = recovery_by_id.get(job.job_id)
+        action = result.action if result is not None else "requeue"
+        with ServerWorkspaceContext(workspace):
+            # Do NOT clear the job's exclusivity lock here. Startup must not delete lock rows: in a
+            # rolling restart another replica may still be protecting active work under the same
+            # key. A lock left by a crashed holder is reclaimed through normal acquisition instead;
+            # a recovered job reacquires its own preserved lock when it is re-claimed.
+            try:
+                if _job_backend_mismatch(job, active_backend):
+                    # Fail closed rather than requeue onto a backend the job was not submitted to.
+                    # (Inert today; executor_backend is always None.)
+                    job_store.fail_job(
+                        job.job_id,
+                        f"Job was submitted to executor backend {job.executor_backend!r} but this "
+                        f"runner serves {active_backend!r}.",
+                    )
+                elif action == "fail":
+                    job_store.fail_job(
+                        job.job_id,
+                        result.error_message or "Executor could not recover the job.",
+                    )
+                elif action == "reattach":
+                    # Reattach means the executor is still monitoring the job, but this runner does
+                    # not yet re-establish monitoring (no in-flight entry, no lease renewer) and
+                    # there is no live lease-based recovery. No in-tree executor returns reattach
+                    # today; fail loudly so whoever adds a remote executor that does must wire up
+                    # monitoring here rather than silently leaving a RUNNING job unmonitored.
+                    raise NotImplementedError(
+                        "reattach recovery is not implemented yet; the runner cannot resume "
+                        f"monitoring job {job.job_id}."
+                    )
+                else:  # "requeue"
+                    job_store.reset_job(job.job_id)
+                    _logger.info(
+                        "Recovered orphaned job %s (%s) to PENDING", job.job_id, job.job_name
+                    )
+            except Exception:
+                _logger.exception("Failed to recover orphaned job %s", job.job_id)
+
+
+def main() -> None:
+    from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
+    from mlflow.server.jobs.utils import (
+        _launch_periodic_tasks_consumer,
+        _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
+    )
+
+    configure_logging_for_jobs()
+    _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
+    # Periodic tasks (e.g. the online scoring scheduler) still run on Huey.
+    _launch_periodic_tasks_consumer()
+
+    # Own the executor lifecycle here rather than inside the claim loop, so that when more than
+    # one backend can be configured at a time (e.g. a custom-scorer backend alongside the default)
+    # main() can start and stop each configured executor independently. Resolving and starting the
+    # executor both run inside the try so any failure there (the runner re-validates the backend
+    # registry independently of the parent) still triggers cleanup and the SIGTERM below.
+    executor: AbstractJobExecutor | None = None
+    fatal_exit = False
+    try:
+        executor = _select_executor()
+        executor.start_executor()
+        _logger.info(
+            "Started executor-backed job runner "
+            f"(backend={MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()})"
+        )
+        run_executor_loop(executor)
+    except Exception:
+        # (KeyboardInterrupt/SystemExit are intentionally not caught: a clean shutdown signal
+        # should propagate normally rather than be reported as an unexpected exit.)
+        _logger.exception("Executor job runner exited unexpectedly; terminating process.")
+        fatal_exit = True
+    finally:
+        # Guard stop_executor so a failure here (e.g. a half-initialized backend when
+        # start_executor raised) cannot skip the SIGTERM below — that signal is the only thing
+        # that tears the process down, since the periodic-tasks consumer thread is non-daemon.
+        if executor is not None:
+            try:
+                executor.stop_executor()
+            except Exception:
+                _logger.exception("Failed to stop executor during shutdown.")
+    if fatal_exit:
+        # A non-daemon thread (the periodic-tasks consumer) keeps this process alive, so an
+        # unhandled exit from the loop — e.g. a startup failure — would otherwise leave a live
+        # process with no executor while jobs pile up PENDING. Terminate so the failure is visible.
+        # Sent after stop_executor() above so backend cleanup is not skipped by the signal.
+        os.kill(os.getpid(), signal.SIGTERM)
+
+
+if __name__ == "__main__":
+    main()
