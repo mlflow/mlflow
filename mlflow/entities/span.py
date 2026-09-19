@@ -301,6 +301,31 @@ class Span:
             f"span_id={self.span_id!r}, parent_id={self.parent_id!r})"
         )
 
+    def __getitem__(self, item: Any) -> None:
+        """Span objects do not support indexing via subscript syntax."""
+        hint = ""
+        if isinstance(item, str):
+            if item.isidentifier() and not item.startswith("_") and hasattr(self, item):
+                hint = f" Use attribute access instead, e.g. `span.{item}`."
+            else:
+                try:
+                    attrs = getattr(self, "attributes", None)
+                    if isinstance(attrs, dict) and item in attrs:
+                        hint = (
+                            f" To access span attributes, use `span.get_attribute({item!r})` "
+                            f"or `span.attributes[{item!r}]`."
+                        )
+                except Exception:
+                    pass
+
+        if not hint:
+            hint = (
+                " Use attribute access instead, e.g. `span.inputs`, `span.outputs`, "
+                "or `span.attributes`."
+            )
+
+        raise TypeError(f"'{type(self).__name__}' object is not subscriptable.{hint}")
+
     def get_attribute(self, key: str) -> Any | None:
         """
         Get a single attribute value from the span.
