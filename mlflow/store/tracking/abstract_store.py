@@ -1699,21 +1699,27 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
 
     def supports_transactional_scorer_authorization(self) -> bool:
         """Whether ``register_scorer`` upholds the transactional scorer-authorization
-        contract. A store that returns ``True`` MUST guarantee BOTH:
+        contract. A store that returns ``True`` MUST guarantee ALL of:
 
-        1. It invokes the ``authorize_version_add`` callback inside the write transaction
-           whenever the scorer parent already existed (i.e. this call adds a version to an
-           existing scorer, INCLUDING an empty parent whose versions were all deleted --
-           keyed on parent existence, not the version number), before inserting the version
-           row, so that a raise rolls the write back.
-        2. It sets ``scorer_parent_created`` (a bool) on the returned ``ScorerVersion`` to
+        1. It invokes EXACTLY ONE of the two authorization callbacks inside the write
+           transaction, before performing the corresponding write, chosen by whether this
+           call actually creates the scorer parent:
+             * ``authorize_parent_create`` when it creates the parent (before inserting it);
+             * ``authorize_version_add`` when the parent already existed and it adds a version
+               (before inserting the version) -- INCLUDING the first version added to an empty
+               parent whose versions were all deleted (keyed on parent existence, not the
+               version number).
+        2. A raise from the invoked callback aborts the write and rolls back the transaction.
+        3. It sets ``scorer_parent_created`` (a bool) on the returned ``ScorerVersion`` to
            report whether THIS transaction created the scorer parent, so the server can grant
            parent ``MANAGE`` only on a real create.
 
-        Defaults to ``False``: a store must opt in only after guaranteeing both. Server-side
-        auth relies on this to fail closed rather than silently skip authorization (or
-        silently misgrant ownership) when the backing store cannot make the guarantee (e.g. a
-        delegating store that accepts-and-ignores the callback).
+        Defaults to ``False``: a store must opt in only after guaranteeing all three. Because
+        the pre-request gate cannot distinguish a truly-absent parent from an existing empty
+        one, server-side auth relies on the branch callback (part 1) as the authoritative
+        create-vs-version-add decision, and fails closed rather than silently skip
+        authorization or misgrant ownership when the backing store cannot make the guarantee
+        (e.g. a delegating store that accepts-and-ignores the callbacks).
         """
         return False
 

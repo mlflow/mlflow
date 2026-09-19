@@ -1333,10 +1333,14 @@ def _authorize_scorer_parent_create(experiment_id: str, name: str) -> None:
     runs INSIDE the write transaction, invoked only when the store determines this call
     actually creates the scorer parent. Together with ``_authorize_scorer_version_add`` this
     makes the create-vs-version-add decision authoritative in-transaction: the pre-request
-    gate cannot distinguish a truly-absent parent from an existing empty parent, so it admits
-    when EITHER positive requirement holds and the store invokes exactly one of these based
-    on actual parent existence. Creating a scorer parent requires experiment ``can_update``
-    (its pre-RFC contract). Admins bypass.
+    gate cannot distinguish a truly-absent parent from an existing empty parent, so it stays
+    permissive and the store invokes exactly one of these based on actual parent existence.
+
+    Creating a scorer parent requires experiment ``can_update`` (its pre-RFC contract) AND is
+    vetoed by ``(scorer, *, DENY)`` (the parent tier) or ``(scorer_version, *, DENY)`` (the
+    first version). These create-only vetoes live here, NOT in the pre-request gate, so they
+    never wrongly reject the version-add branch (where a positive ``scorer_version`` grant is
+    authoritative and overrides a scorer-parent ``DENY``). Admins bypass.
     """
     if sender_is_admin():
         return
@@ -1345,6 +1349,12 @@ def _authorize_scorer_parent_create(experiment_id: str, name: str) -> None:
         raise MlflowException(
             "Permission denied: creating a new scorer requires update permission on the "
             "experiment.",
+            error_code=PERMISSION_DENIED,
+        )
+    if _top_level_create_denied("scorer", username) or _scorer_version_deny_active(experiment_id):
+        raise MlflowException(
+            "Permission denied: a DENY grant on the scorer or its versions blocks creating "
+            "this scorer.",
             error_code=PERMISSION_DENIED,
         )
 
@@ -1416,16 +1426,16 @@ def _scorer_version_deny_active(experiment_id: str) -> bool:
 def validate_can_register_scorer():
     """Register a scorer (creates the scorer parent and/or a new version).
 
-    Positive authorization is anchor-scoped:
-    * **new scorer** -- creation is gated on ``experiment.can_update`` (its pre-RFC contract;
-      scorer is not an experiment child, and the not-yet-existing ``scorer_version`` tier
-      would fall to ``default_permission`` and wrongly deny an experiment-``EDIT`` creator);
-    * **existing scorer** -- a new version resolves the ``scorer_version`` tier
-      (``can_update``), so a positive ``scorer_version`` grant is authoritative.
-
-    On top of the positive check, a ``(scorer_version, *, DENY)`` vetoes creating a new
-    scorer's first version (the existing-scorer path already folds a ``DENY`` into
-    ``can_update``).
+    The pre-request gate is deliberately PERMISSIVE and defers the authoritative decision to
+    the write transaction. ``get_scorer`` reports ``RESOURCE_DOES_NOT_EXIST`` for both a truly
+    new scorer and an existing-but-empty parent (all versions deleted), which have different,
+    mutually exclusive authorization -- and a pre-request probe cannot tell them apart. So
+    this gate admits when EITHER positive requirement could hold, and ``register_scorer``
+    invokes exactly one transactional callback based on actual parent existence:
+    ``_authorize_scorer_parent_create`` (experiment ``can_update`` + scorer/scorer_version
+    create DENY vetoes) or ``_authorize_scorer_version_add`` (``scorer_version`` tier, where a
+    positive child grant overrides a scorer-parent DENY). Branch-specific vetoes live in those
+    callbacks, NOT here, so neither branch's veto wrongly rejects the other.
     """
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
@@ -1434,22 +1444,10 @@ def validate_can_register_scorer():
     except MlflowException as e:
         if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             raise
-        # get_scorer reports RESOURCE_DOES_NOT_EXIST both for a truly new scorer AND for an
-        # EXISTING but empty parent (all versions deleted via delete_scorer(version=N), which
-        # keeps the SqlScorer). These two cases have different positive requirements -- create
-        # needs experiment UPDATE; a version-add on the empty parent needs scorer_version
-        # UPDATE -- and a pre-request probe cannot tell them apart. Rather than force one
-        # interpretation (which either over-denies a legitimate version-adder lacking
-        # experiment UPDATE, or over-permits), ADMIT when EITHER positive requirement holds
-        # and defer the authoritative, mutually-exclusive decision to the write transaction:
-        # register_scorer runs _authorize_scorer_version_add (scorer_version UPDATE) whenever
-        # the parent already existed, and the create path is gated here by experiment UPDATE.
+        # Permissive admit: EITHER positive requirement could apply (the transaction enforces
+        # the actual one). No branch-specific DENY veto here -- applying the create veto would
+        # wrongly reject a legitimate version-add on an empty parent, and vice versa.
         username = authenticate_request().username
-        # (scorer/scorer_version, *, DENY) is a universal veto on either interpretation.
-        if _top_level_create_denied("scorer", username):
-            return False
-        if _scorer_version_deny_active(experiment_id):
-            return False
         can_create = _get_experiment_permission(experiment_id, username).can_update
         can_version_add = _get_scorer_version_permission(experiment_id, name).can_update
         return can_create or can_version_add

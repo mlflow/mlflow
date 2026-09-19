@@ -2953,12 +2953,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             return resolved
 
     def supports_transactional_scorer_authorization(self) -> bool:
-        # register_scorer invokes authorize_version_add inside the ManagedSessionMaker
-        # transaction whenever the scorer parent already existed (keyed on parent existence,
-        # NOT the version number -- an empty parent with all versions deleted would compute
-        # version 1 yet is still a version-add), before the version row is added, so a raise
-        # rolls the write back. It also sets scorer_parent_created on the returned entity.
-        # Together these are the guarantees the transactional-authorization contract requires.
+        # register_scorer invokes EXACTLY ONE branch callback inside the ManagedSessionMaker
+        # transaction, chosen by actual parent existence -- authorize_parent_create before
+        # inserting a new parent, authorize_version_add before inserting a version on an
+        # already-existing parent (including an empty parent, keyed on existence not the
+        # version number) -- so a raise rolls the write back. It also sets
+        # scorer_parent_created on the returned entity. These are the three guarantees the
+        # transactional-authorization contract requires.
         return True
 
     def list_scorers(self, experiment_id) -> list[ScorerVersion]:
