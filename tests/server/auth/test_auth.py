@@ -441,6 +441,49 @@ def test_extract_experiment_id_from_artifact_proxy_path():
     )
 
 
+@pytest.mark.parametrize(
+    ("artifact_path", "expected_experiment_id"),
+    [
+        ("custom-root/run-id/artifacts/model.pkl", "42"),
+        ("custom-root/run-id/artifacts", "42"),
+        ("workspaces/team-a/custom-root/run-id/artifacts/model.pkl", "42"),
+        ("other-root/run-id/artifacts/model.pkl", None),
+        ("custom-root/unknown-run/artifacts/model.pkl", None),
+    ],
+)
+def test_get_experiment_id_from_run_artifact_path(artifact_path, expected_experiment_id):
+    run = SimpleNamespace(
+        info=SimpleNamespace(
+            experiment_id="42", artifact_uri="mlflow-artifacts:/custom-root/run-id/artifacts"
+        )
+    )
+
+    def get_run(run_id):
+        if run_id != "run-id":
+            raise MlflowException(f"Run '{run_id}' not found")
+        return run
+
+    with mock.patch.object(
+        auth_module, "_get_tracking_store", return_value=SimpleNamespace(get_run=get_run)
+    ) as mock_get_tracking_store:
+        assert (
+            auth_module._get_experiment_id_from_run_artifact_path(artifact_path)
+            == expected_experiment_id
+        )
+        mock_get_tracking_store.assert_called_once()
+
+
+def test_get_experiment_id_from_run_artifact_path_rejects_unsafe_paths():
+    with mock.patch.object(auth_module, "_get_tracking_store") as mock_get_tracking_store:
+        assert (
+            auth_module._get_experiment_id_from_run_artifact_path(
+                "custom-root/run-id/artifacts/../../other-root/file"
+            )
+            is None
+        )
+        mock_get_tracking_store.assert_not_called()
+
+
 def test_proxy_artifact_mpu_validator_returns_update_for_post():
     validator = auth_module._get_proxy_artifact_validator(
         "POST", {"artifact_path": "1/run-id/artifacts/model"}
@@ -724,6 +767,70 @@ def test_proxy_artifact_list_query_param_uses_experiment_permission_on_fastapi_s
     response = requests.get(
         url=fastapi_client.tracking_uri + list_path,
         params={"path": query_path},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            "_MLFLOW_SERVER_SERVE_ARTIFACTS": "true",
+        }
+    ],
+    indirect=True,
+)
+def test_proxy_artifact_uses_experiment_permission_for_custom_artifact_location(
+    fastapi_client, monkeypatch
+):
+    # Regression test for https://github.com/mlflow/mlflow/issues/13832:
+    # An experiment created with a custom proxied artifact location stores run artifacts under
+    # ``<custom root>/<run_id>/artifacts``, so the path does not start with an experiment ID.
+    username1, password1 = create_user(fastapi_client.tracking_uri)
+    username2, password2 = create_user(fastapi_client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment(
+            "proxy-artifact-custom-location", artifact_location="mlflow-artifacts:/custom-root"
+        )
+        run_id = fastapi_client.create_run(experiment_id).info.run_id
+
+    with User(username2, password2, monkeypatch):
+        other_experiment_id = fastapi_client.create_experiment(
+            "proxy-artifact-custom-location-other", artifact_location="mlflow-artifacts:/other-root"
+        )
+        other_run_id = fastapi_client.create_run(other_experiment_id).info.run_id
+
+    artifacts_url = fastapi_client.tracking_uri + "/api/2.0/mlflow-artifacts/artifacts"
+    artifact_dir = f"custom-root/{run_id}/artifacts"
+
+    # Upload and download go through the native FastAPI routes; listing falls back to Flask.
+    response = requests.put(
+        f"{artifacts_url}/{artifact_dir}/test.txt", data=b"content", auth=(username1, password1)
+    )
+    assert response.status_code == 200
+    response = requests.get(f"{artifacts_url}/{artifact_dir}/test.txt", auth=(username1, password1))
+    assert response.status_code == 200
+    assert response.content == b"content"
+    response = requests.get(
+        artifacts_url, params={"path": artifact_dir}, auth=(username1, password1)
+    )
+    assert response.status_code == 200
+
+    response = requests.get(f"{artifacts_url}/{artifact_dir}/test.txt", auth=(username2, password2))
+    assert response.status_code == 403
+    response = requests.get(
+        artifacts_url, params={"path": artifact_dir}, auth=(username2, password2)
+    )
+    assert response.status_code == 403
+
+    # A run ID from an experiment the caller can manage must not authorize writes under
+    # another experiment's artifact root.
+    response = requests.put(
+        f"{artifacts_url}/custom-root/{other_run_id}/artifacts/test.txt",
+        data=b"content",
         auth=(username2, password2),
     )
     assert response.status_code == 403
