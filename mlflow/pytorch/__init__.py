@@ -74,6 +74,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_databricks_uri
 
 FLAVOR_NAME = "pytorch"
 
@@ -96,9 +97,11 @@ _MODEL_DATA_SUBPATH = "data"
 
 
 def _get_default_serialization_format(export_model):
-    if export_model or not is_in_databricks_runtime():
+    if export_model:
         return SERIALIZATION_FORMAT_PT2
-    return SERIALIZATION_FORMAT_PICKLE
+    if is_in_databricks_runtime() or is_databricks_uri(mlflow.get_tracking_uri()):
+        return SERIALIZATION_FORMAT_PICKLE
+    return SERIALIZATION_FORMAT_PT2
 
 
 def get_default_pip_requirements():
@@ -232,8 +235,8 @@ def log_model(
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
             Accepted values are "pickle" and "pt2".
-            If not specified, the model is serialized as "pickle" in Databricks Runtime and as
-            "pt2" otherwise.
+            If not specified, the model is serialized as "pickle" in Databricks Runtime or when
+            using a Databricks tracking URI, and as "pt2" otherwise.
             When set to "pickle", the model is serialized using either pickle or cloudpickle,
             depending on the `pickle_module` parameter.
             When set to "pt2", the model is saved using torch.export.save, which exports the model
@@ -399,8 +402,8 @@ def save_model(
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
             Accepted values are "pickle" and "pt2".
-            If not specified, the model is serialized as "pickle" in Databricks Runtime and as
-            "pt2" otherwise.
+            If not specified, the model is serialized as "pickle" in Databricks Runtime or when
+            using a Databricks tracking URI, and as "pt2" otherwise.
             When set to "pickle", the model is serialized using either pickle or cloudpickle,
             depending on the `pickle_module` parameter.
             When set to "pt2", the model is saved using torch.export.save, which exports the model

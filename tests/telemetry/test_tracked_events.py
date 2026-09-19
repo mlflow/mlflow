@@ -177,7 +177,10 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
         {"flavor": "pyfunc.CustomPythonModel"},
     )
 
-    with mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False):
+    with (
+        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
+        mock.patch("mlflow.sklearn.is_databricks_uri", return_value=False),
+    ):
         mlflow.sklearn.log_model(
             knn.KNeighborsClassifier(),
             name="model",
@@ -190,6 +193,21 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
     )
 
     with mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=True):
+        mlflow.sklearn.log_model(
+            knn.KNeighborsClassifier(),
+            name="model",
+        )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        event_name,
+        {"flavor": "sklearn", "serialization_format": "cloudpickle"},
+    )
+
+    with (
+        mock.patch("mlflow.sklearn.is_in_databricks_runtime", return_value=False),
+        mock.patch("mlflow.get_tracking_uri", return_value="databricks"),
+    ):
         mlflow.sklearn.log_model(
             knn.KNeighborsClassifier(),
             name="model",

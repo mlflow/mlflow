@@ -86,6 +86,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_databricks_uri
 
 FLAVOR_NAME = "sklearn"
 
@@ -109,7 +110,7 @@ _SKOPS_MODEL_DATA_SUBPATH = "model.skops"
 def _get_default_serialization_format():
     return (
         SERIALIZATION_FORMAT_CLOUDPICKLE
-        if is_in_databricks_runtime()
+        if is_in_databricks_runtime() or is_databricks_uri(mlflow.get_tracking_uri())
         else SERIALIZATION_FORMAT_SKOPS
     )
 
@@ -213,8 +214,8 @@ def save_model(
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
-            If not specified, the model is serialized as "cloudpickle" in Databricks Runtime and
-            as "skops" otherwise.
+            If not specified, the model is serialized as "cloudpickle" in Databricks Runtime or
+            when using a Databricks tracking URI, and as "skops" otherwise.
             The "skops" format guarantees safe deserialization.
             The "cloudpickle" format, provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model, but requires exercising
@@ -429,8 +430,8 @@ def log_model(
         code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
-            If not specified, the model is serialized as "cloudpickle" in Databricks Runtime and
-            as "skops" otherwise.
+            If not specified, the model is serialized as "cloudpickle" in Databricks Runtime or
+            when using a Databricks tracking URI, and as "skops" otherwise.
             The "skops" format guarantees safe deserialization.
             The "cloudpickle" format, provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model, but requires exercising

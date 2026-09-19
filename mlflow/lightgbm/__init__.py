@@ -85,6 +85,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_databricks_uri
 
 FLAVOR_NAME = "lightgbm"
 
@@ -101,7 +102,9 @@ _logger = logging.getLogger(__name__)
 
 
 def _get_default_serialization_format():
-    return "cloudpickle" if is_in_databricks_runtime() else "skops"
+    if is_in_databricks_runtime() or is_databricks_uri(mlflow.get_tracking_uri()):
+        return "cloudpickle"
+    return "skops"
 
 
 def get_default_pip_requirements(include_cloudpickle=False, include_skops=False):
@@ -167,7 +170,8 @@ def save_model(
             `lightgbm.Booster` instance. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
             For models that are not `lightgbm.Booster` instances, if not specified, the model is
-            serialized as "cloudpickle" in Databricks Runtime and as "skops" otherwise.
+            serialized as "cloudpickle" in Databricks Runtime or when using a Databricks tracking
+            URI, and as "skops" otherwise.
             The "skops" format guarantees safe deserialization.
             The "cloudpickle" format, provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model, but requires exercising
@@ -403,7 +407,8 @@ def log_model(
             `lightgbm.Booster` instance. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
             For models that are not `lightgbm.Booster` instances, if not specified, the model is
-            serialized as "cloudpickle" in Databricks Runtime and as "skops" otherwise.
+            serialized as "cloudpickle" in Databricks Runtime or when using a Databricks tracking
+            URI, and as "skops" otherwise.
             The "skops" format guarantees safe deserialization.
             The "cloudpickle" format, provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model, but requires exercising

@@ -401,20 +401,32 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 @pytest.mark.parametrize(
-    ("is_databricks_runtime", "expected_serialization_format", "expected_model_file"),
+    (
+        "is_databricks_runtime",
+        "tracking_uri",
+        "expected_serialization_format",
+        "expected_model_file",
+    ),
     [
-        pytest.param(False, "skops", "model.skops", id="outside-databricks"),
-        pytest.param(True, "cloudpickle", "model.pkl", id="databricks-runtime"),
+        pytest.param(False, "file:///tmp/mlruns", "skops", "model.skops", id="outside-databricks"),
+        pytest.param(
+            True, "file:///tmp/mlruns", "cloudpickle", "model.pkl", id="databricks-runtime"
+        ),
+        pytest.param(False, "databricks", "cloudpickle", "model.pkl", id="databricks-tracking-uri"),
     ],
 )
 def test_sklearn_model_save_uses_environment_specific_serialization_format_by_default(
     lgb_sklearn_model,
     model_path,
     is_databricks_runtime,
+    tracking_uri,
     expected_serialization_format,
     expected_model_file,
 ):
-    with mock.patch("mlflow.lightgbm.is_in_databricks_runtime", return_value=is_databricks_runtime):
+    with (
+        mock.patch("mlflow.lightgbm.is_in_databricks_runtime", return_value=is_databricks_runtime),
+        mock.patch("mlflow.get_tracking_uri", return_value=tracking_uri),
+    ):
         mlflow.lightgbm.save_model(lgb_model=lgb_sklearn_model.model, path=model_path)
 
     flavor_conf = _get_flavor_configuration(
@@ -429,23 +441,25 @@ def test_sklearn_model_save_uses_environment_specific_serialization_format_by_de
             include_skops=expected_serialization_format == "skops",
         ),
     )
-    if is_databricks_runtime:
+    if expected_serialization_format == "cloudpickle":
         requirements = Path(model_path, "requirements.txt").read_text().splitlines()
         assert not any(req.startswith("skops==") for req in requirements)
 
 
 @pytest.mark.parametrize(
-    ("is_databricks_runtime", "expected_serialization_format"),
+    ("is_databricks_runtime", "tracking_uri", "expected_serialization_format"),
     [
-        pytest.param(False, "skops", id="outside-databricks"),
-        pytest.param(True, "cloudpickle", id="databricks-runtime"),
+        pytest.param(False, "file:///tmp/mlruns", "skops", id="outside-databricks"),
+        pytest.param(True, "file:///tmp/mlruns", "cloudpickle", id="databricks-runtime"),
+        pytest.param(False, "databricks://profile", "cloudpickle", id="databricks-tracking-uri"),
     ],
 )
 def test_sklearn_model_log_resolves_environment_specific_serialization_format(
-    lgb_sklearn_model, is_databricks_runtime, expected_serialization_format
+    lgb_sklearn_model, is_databricks_runtime, tracking_uri, expected_serialization_format
 ):
     with (
         mock.patch("mlflow.lightgbm.is_in_databricks_runtime", return_value=is_databricks_runtime),
+        mock.patch("mlflow.get_tracking_uri", return_value=tracking_uri),
         mock.patch("mlflow.lightgbm.Model.log") as model_log_mock,
     ):
         mlflow.lightgbm.log_model(lgb_sklearn_model.model, name="model")
