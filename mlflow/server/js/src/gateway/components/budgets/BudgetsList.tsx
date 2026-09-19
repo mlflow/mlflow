@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Button,
   ChevronLeftIcon,
@@ -11,6 +11,7 @@ import {
   TableCell,
   TableHeader,
   TableRow,
+  Tag,
   Tooltip,
   TrashIcon,
   Typography,
@@ -20,7 +21,9 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { useBudgetWindowsQuery } from '../../hooks/useBudgetWindowsQuery';
+import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { formatBudgetAmount, formatDuration, formatOnExceeded } from './budgetFormatUtils';
+import { useBudgetScopeLabels } from './useBudgetScopeLabels';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
@@ -41,6 +44,62 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
 
   const { data: budgetPolicies, nextPageToken, isLoading } = useBudgetPoliciesQuery(PAGE_SIZE, pageToken);
   const { data: budgetWindows } = useBudgetWindowsQuery();
+  const { data: endpoints, isLoading: isEndpointsLoading, error: endpointsError } = useEndpointsQuery();
+  const scopeLabels = useBudgetScopeLabels();
+  // Absence from an endpoint list we don't actually have yet (still loading, or
+  // the request failed) isn't evidence of deletion, so fall back to the plain id.
+  const hasEndpointList = !isEndpointsLoading && !endpointsError;
+
+  const endpointNamesById = useMemo(
+    () => new Map(endpoints.map((endpoint) => [endpoint.endpoint_id, endpoint.name])),
+    [endpoints],
+  );
+
+  const renderScope = (policy: BudgetPolicy) => {
+    if (policy.target_scope === 'ENDPOINT') {
+      const endpointName = endpointNamesById.get(policy.target_value ?? '');
+      if (endpointName) {
+        return <Typography.Text>{endpointName}</Typography.Text>;
+      }
+      if (!hasEndpointList) {
+        return <Typography.Text>{policy.target_value}</Typography.Text>;
+      }
+      // The endpoint was deleted (deletion doesn't cascade to budget policies),
+      // so only the raw id survives. Flag it as stale instead of showing a bare
+      // id that reads like a name.
+      return (
+        <Tooltip
+          componentId="mlflow.gateway.budgets-list.deleted-endpoint-tooltip"
+          content={formatMessage({
+            defaultMessage: 'This endpoint no longer exists. Edit the policy to pick another endpoint, or delete it.',
+            description: 'Tooltip explaining that an endpoint-scoped budget policy points at a deleted endpoint',
+          })}
+        >
+          <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <Typography.Text color="secondary">{policy.target_value}</Typography.Text>
+            <Typography.Text color="secondary" size="sm">
+              <FormattedMessage
+                defaultMessage="(deleted)"
+                description="Suffix marking a budget policy whose target endpoint no longer exists"
+              />
+            </Typography.Text>
+          </span>
+        </Tooltip>
+      );
+    }
+    if (policy.target_scope === 'USER') {
+      // Tag the principal so a username is never mistaken for an endpoint name.
+      return (
+        <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <Tag componentId="mlflow.gateway.budgets-list.user-scope-tag">
+            <FormattedMessage defaultMessage="User" description="Tag marking a per-user budget policy" />
+          </Tag>
+          <Typography.Text>{policy.target_value}</Typography.Text>
+        </span>
+      );
+    }
+    return <Typography.Text>{scopeLabels.all}</Typography.Text>;
+  };
 
   const handleNextPage = () => {
     if (nextPageToken) {
@@ -128,6 +187,9 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
           <TableHeader componentId="mlflow.gateway.budgets-list.limit-header" css={{ flex: 1 }}>
             <FormattedMessage defaultMessage="Budget" description="Budget amount column header" />
           </TableHeader>
+          <TableHeader componentId="mlflow.gateway.budgets-list.scope-header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Applies to" description="Budget scope column header" />
+          </TableHeader>
           <TableHeader componentId="mlflow.gateway.budgets-list.duration-header" css={{ flex: 1 }}>
             <FormattedMessage defaultMessage="Reset period" description="Budget reset period column header" />
           </TableHeader>
@@ -165,6 +227,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                   </span>
                 </Tooltip>
               </TableCell>
+              <TableCell css={{ flex: 1 }}>{renderScope(policy)}</TableCell>
               <TableCell css={{ flex: 1 }}>
                 <Typography.Text>{formatDuration(policy.duration.value, policy.duration.unit)}</Typography.Text>
               </TableCell>
