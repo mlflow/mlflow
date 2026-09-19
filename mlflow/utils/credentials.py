@@ -210,9 +210,9 @@ def _databricks_login(interactive):
 
     while True:
         host = input("Databricks Host (should begin with https://): ")
-        if not host.startswith("https://"):
-            _logger.error("Invalid host: {host}, host must begin with https://, please retry.")
-        break
+        if host.startswith("https://"):
+            break
+        _logger.error(f"Invalid host: {host}, host must begin with https://, please retry.")
 
     profile = {"host": host}
     if "community" in host:
