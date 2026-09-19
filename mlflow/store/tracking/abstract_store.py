@@ -2,6 +2,7 @@ import asyncio
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
@@ -1664,7 +1665,11 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         )
 
     def register_scorer(
-        self, experiment_id: str, name: str, serialized_scorer: str
+        self,
+        experiment_id: str,
+        name: str,
+        serialized_scorer: str,
+        authorize_version_add: Callable[[], None] | None = None,
     ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
@@ -1673,6 +1678,14 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             experiment_id: The experiment ID.
             name: The scorer name.
             serialized_scorer: The serialized scorer string (JSON).
+            authorize_version_add: Optional callback invoked inside the write transaction
+                when the target scorer already exists and this call is adding a new version
+                (version > 1) rather than creating the scorer's first version. It receives no
+                arguments and must raise to abort the write (rolling back the transaction).
+                Server-side auth uses it to close the create-vs-version-add TOCTOU: a caller
+                authorized only to CREATE the scorer must not add a version to a scorer a
+                concurrent request created first. Ignored by stores/clients that do not
+                enforce authorization.
 
         Returns:
             mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.

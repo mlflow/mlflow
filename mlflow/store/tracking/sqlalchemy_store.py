@@ -10,6 +10,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache, reduce
 from pathlib import PurePath
@@ -2786,7 +2787,11 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 )
 
     def register_scorer(
-        self, experiment_id: str, name: str, serialized_scorer: str
+        self,
+        experiment_id: str,
+        name: str,
+        serialized_scorer: str,
+        authorize_version_add: Callable[[], None] | None = None,
     ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
@@ -2868,6 +2873,16 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
             # Set new version (1 if no existing scorer, otherwise max + 1)
             new_version = 1 if max_version is None else max_version + 1
+
+            # Race-safe authorization (Copilot finding #2): version 1 is a genuine create
+            # (gated pre-request by the create permission). A version > 1 means the scorer
+            # already exists and this is a version-ADD -- which requires the caller to hold
+            # update authorization on the scorer-version tier. Because this runs inside the
+            # write transaction, a raise here rolls back before the version row is inserted,
+            # closing the create-then-concurrent-existing TOCTOU that no pre-handler probe
+            # can. Stores/clients without server-side auth pass no callback.
+            if new_version != 1 and authorize_version_add is not None:
+                authorize_version_add()
 
             # Create and save the new scorer version record
             sql_scorer_version = SqlScorerVersion(

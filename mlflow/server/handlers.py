@@ -5996,10 +5996,24 @@ def _register_scorer():
         },
     )
     _validate_serialized_scorer_payload(request_message.serialized_scorer)
+    # When server auth is enabled, close the create-vs-version-add TOCTOU inside the write
+    # transaction: register_scorer invokes this callback if the scorer already exists (the
+    # request adds version > 1), and the auth layer raises PERMISSION_DENIED unless the
+    # caller holds scorer-version update permission. Rolling back before the insert is the
+    # only race-safe point (a pre-request probe cannot be). No-op when auth is disabled.
+    authorize_version_add = None
+    auth_mod = sys.modules.get("mlflow.server.auth")
+    if auth_mod is not None and auth_mod.is_auth_enabled():
+        _experiment_id = request_message.experiment_id
+        _name = request_message.name
+        authorize_version_add = lambda: auth_mod._authorize_scorer_version_add(  # noqa: E731
+            _experiment_id, _name
+        )
     scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
         request_message.serialized_scorer,
+        authorize_version_add=authorize_version_add,
     )
     response_message = RegisterScorer.Response()
     response_message.version = scorer_version.scorer_version

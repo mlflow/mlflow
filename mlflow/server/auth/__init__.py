@@ -68,6 +68,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    PERMISSION_DENIED,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
@@ -1302,6 +1303,28 @@ def _get_permission_from_scorer_name() -> Permission:
     )
 
 
+def _authorize_scorer_version_add(experiment_id: str, name: str) -> None:
+    """Raise ``PERMISSION_DENIED`` if the request's caller may not add a version to an
+    existing scorer.
+
+    Passed as the ``authorize_version_add`` callback to ``register_scorer`` so the check runs
+    INSIDE the write transaction, at the point the store determines the scorer already exists
+    (version > 1). This closes the create-vs-version-add TOCTOU: a caller authorized only to
+    CREATE a new scorer (experiment ``can_update``) must not add a version to a scorer a
+    concurrent request created first -- adding a version requires the ``scorer_version`` tier
+    (``can_update``), and ``scorer`` does not fall back to ``experiment``. Admins bypass, as
+    everywhere else.
+    """
+    if sender_is_admin():
+        return
+    if not _get_scorer_version_permission(experiment_id, name).can_update:
+        raise MlflowException(
+            "Permission denied: adding a version to an existing scorer requires update "
+            "permission on the scorer.",
+            error_code=PERMISSION_DENIED,
+        )
+
+
 def _get_scorer_version_permission(experiment_id: str, name: str) -> Permission:
     username = authenticate_request().username
     return _get_role_permission_or_default(
@@ -1395,23 +1418,14 @@ def validate_can_register_scorer():
         # distinct surface from the scorer_version veto below (Copilot r4052491497).
         if _top_level_create_denied("scorer", username):
             return False
-        if _scorer_version_deny_active(experiment_id):
-            return False
-        # Guard the check-then-act race (Copilot finding #2): between the get_scorer probe
-        # above and the handler, a concurrent request may create the scorer, turning THIS
-        # request into a version-add on an existing scorer. A version-add must satisfy the
-        # scorer_version tier (which the bare experiment.can_update create-gate does not
-        # imply -- scorer does not fall back to experiment), so re-probe and, if the scorer
-        # now exists, require version-tier can_update. The after-request grant is
-        # independently guarded (it grants MANAGE only when the response reports version 1).
-        try:
-            _get_tracking_store().get_scorer(experiment_id, name)
-        except MlflowException as e:
-            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-                return True  # still absent: genuine create, authorized by the gate above
-            raise
-        # Concurrent create won the race: authorize as a version-add on the now-existing scorer.
-        return _get_scorer_version_permission(experiment_id, name).can_update
+        # (scorer_version, *, DENY) vetoes writing the first version. The
+        # create-vs-concurrent-version-add TOCTOU (a version added to a scorer another
+        # request created between this probe and the handler) is NOT closed here -- no
+        # pre-handler probe can. It is closed inside the write transaction via
+        # _authorize_scorer_version_add, passed as register_scorer's authorize_version_add
+        # callback (see the handler); the after-request MANAGE grant is independently guarded
+        # to fire only when the response reports version 1.
+        return not _scorer_version_deny_active(experiment_id)
     return _get_scorer_version_permission(experiment_id, name).can_update
 
 
