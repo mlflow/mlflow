@@ -2311,6 +2311,22 @@ class _ReadGrants:
             return False
         return any(get_permission(permission).can_read for permission in permissions)
 
+    def permission(self, resource_id: str) -> Permission:
+        """Fold the matching grants for ``resource_id`` into a single ``Permission``.
+
+        Mirrors the store's ``_Grants.resolve`` (DENY-ahead-of-max): a matching ``DENY``
+        (or a match set that folds to nothing) resolves to ``DENY``; otherwise the max of
+        the matching positive permissions. Only meaningful when ``has_grant(resource_id)``
+        is true; an empty match yields ``NO_PERMISSIONS``.
+        """
+        permissions = self.matching_grants(resource_id)
+        if DENY.name in permissions:
+            return DENY
+        best: str | None = None
+        for permission in permissions:
+            best = max_permission(best, permission) if best is not None else permission
+        return get_permission(best) if best is not None else NO_PERMISSIONS
+
 
 def _rm_or_prompt_version_read_predicate(username: str) -> Callable[[Any], bool]:
     """Build a version-read predicate for shared model-registry version responses."""
@@ -2327,6 +2343,45 @@ def _rm_or_prompt_version_read_predicate(username: str) -> Callable[[Any], bool]
         )
 
     return can_read
+
+
+def _load_role_grants(
+    username: str, resource_type: str, parent_type: str | None
+) -> tuple[bool, "_ReadGrants", "_ReadGrants | None", str | None]:
+    """Bulk-load ``username``'s child + parent grants for ``resource_type`` in one query.
+
+    Returns ``(workspace_admin, child_grants, parent_grants, workspace_name)``. A
+    ``workspace_name`` of ``None`` means there is no active workspace (callers deny / return
+    NO_PERMISSIONS). Shared by ``_role_based_read_predicate`` and
+    ``_role_based_permission_resolver`` so the single grants query and tier-loading logic
+    live in one place.
+    """
+    workspace_name = (
+        workspace_context.get_request_workspace()
+        if MLFLOW_ENABLE_WORKSPACES.get()
+        else DEFAULT_WORKSPACE_NAME
+    )
+    child = _ReadGrants(resource_type)
+    parent = _ReadGrants(parent_type) if parent_type is not None else None
+    workspace_admin = False
+    if workspace_name is None:
+        return workspace_admin, child, parent, workspace_name
+
+    user = store.get_user(username)
+    for grant in store.list_role_grants_for_user_in_workspace(
+        user.id, workspace_name, resource_type, parent_type
+    ):
+        if (
+            grant.resource_type == RESOURCE_TYPE_WORKSPACE
+            and grant.resource_pattern == "*"
+            and grant.permission == MANAGE.name
+        ):
+            workspace_admin = True
+        elif grant.resource_type == resource_type:
+            child.add(grant.resource_pattern, grant.permission)
+        elif parent is not None and grant.resource_type == parent_type:
+            parent.add(grant.resource_pattern, grant.permission)
+    return workspace_admin, child, parent, workspace_name
 
 
 def _role_based_read_predicate(
@@ -2363,32 +2418,11 @@ def _role_based_read_predicate(
     is to fold the super-admin bypass into a single shared resolver so ``DENY`` can
     never be evaluated ahead of it — see ``get_role_permission_for_resource``.
     """
-    workspace_name = (
-        workspace_context.get_request_workspace()
-        if MLFLOW_ENABLE_WORKSPACES.get()
-        else DEFAULT_WORKSPACE_NAME
+    workspace_admin, child, parent, workspace_name = _load_role_grants(
+        username, resource_type, parent_type
     )
     if workspace_name is None:
         return lambda _resource_id: False
-
-    user = store.get_user(username)
-
-    child = _ReadGrants(resource_type)
-    parent = _ReadGrants(parent_type) if parent_type is not None else None
-    workspace_admin = False
-    for grant in store.list_role_grants_for_user_in_workspace(
-        user.id, workspace_name, resource_type, parent_type
-    ):
-        if (
-            grant.resource_type == RESOURCE_TYPE_WORKSPACE
-            and grant.resource_pattern == "*"
-            and grant.permission == MANAGE.name
-        ):
-            workspace_admin = True
-        elif grant.resource_type == resource_type:
-            child.add(grant.resource_pattern, grant.permission)
-        elif parent is not None and grant.resource_type == parent_type:
-            parent.add(grant.resource_pattern, grant.permission)
 
     default_read_fallback = get_permission(auth_config.default_permission).can_read and (
         not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(workspace_name)
@@ -2404,6 +2438,45 @@ def _role_based_read_predicate(
         return default_read_fallback
 
     return predicate
+
+
+def _role_based_permission_resolver(
+    username: str, resource_type: str, parent_type: str | None = None
+) -> Callable[[str], Permission]:
+    """Bulk ``resource_id -> Permission`` resolver — the full-``Permission`` analog of
+    ``_role_based_read_predicate``.
+
+    Loads the caller's grants once and resolves every id in memory (O(1) queries),
+    returning the effective ``Permission`` (all capability bits, for e.g. allowed-action
+    stamping) under the same precedence: workspace-admin -> ``MANAGE``; child tier
+    (DENY-ahead-of-max); parent fallback; else the configured ``default_permission``.
+
+    Same super-admin precondition as ``_role_based_read_predicate``: this honors only the
+    workspace-admin bypass, so callers MUST gate ``sender_is_admin()`` first.
+    """
+    workspace_admin, child, parent, workspace_name = _load_role_grants(
+        username, resource_type, parent_type
+    )
+    if workspace_name is None:
+        return lambda _resource_id: NO_PERMISSIONS
+
+    applies_default = not MLFLOW_ENABLE_WORKSPACES.get() or _user_inherits_default_workspace_grant(
+        workspace_name
+    )
+    default_permission = (
+        get_permission(auth_config.default_permission) if applies_default else NO_PERMISSIONS
+    )
+
+    def resolver(resource_id: str) -> Permission:
+        if workspace_admin:
+            return MANAGE
+        if child.has_grant(resource_id):
+            return child.permission(resource_id)
+        if parent is not None and parent.has_grant(resource_id):
+            return parent.permission(resource_id)
+        return default_permission
+
+    return resolver
 
 
 def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
@@ -6336,18 +6409,19 @@ def _mcp_server_version_reader(username: str) -> Callable[[str], bool]:
 
 def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    perm_cache: dict[str, Permission] = {}
-
-    def _perm(name: str) -> Permission:
-        if name not in perm_cache:
-            perm_cache[name] = _get_mcp_server_permission(name, username)
-        return perm_cache[name]
+    # Bulk mcp_server permission resolver: loads the caller's grants once and resolves each
+    # server name in memory (the full Permission, used for BOTH the read filter and
+    # allowed-action stamping) instead of a workspace + grants round trip per distinct name
+    # -- the parent-tier residual of Copilot #31 (the version tier is already bulk below).
+    server_permission = _role_based_permission_resolver(username, "mcp_server")
 
     def _stamp(s: dict[str, Any]) -> dict[str, Any]:
-        s["allowed_actions"] = _permission_to_allowed_actions(_perm(s["name"]))
+        s["allowed_actions"] = _permission_to_allowed_actions(server_permission(s["name"]))
         return s
 
-    readable = [_stamp(s) for s in data.get("mcp_servers", []) if _perm(s["name"]).can_read]
+    readable = [
+        _stamp(s) for s in data.get("mcp_servers", []) if server_permission(s["name"]).can_read
+    ]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
@@ -6355,7 +6429,7 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     order_by = params.getlist("order_by") or None
 
     data["next_page_token"] = _backfill_readable_mcp_results(
-        can_read=lambda name: _perm(name).can_read,
+        can_read=lambda name: server_permission(name).can_read,
         readable=readable,
         max_results=max_results,
         next_token=data.get("next_page_token"),

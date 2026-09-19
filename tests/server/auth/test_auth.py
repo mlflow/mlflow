@@ -8744,7 +8744,9 @@ def test_filter_search_mcp_servers_redacts_version_on_deny(monkeypatch):
         ]
     }).encode()
     monkeypatch.setattr(
-        auth_module, "_get_mcp_server_permission", lambda *a: SimpleNamespace(can_read=True)
+        auth_module,
+        "_role_based_permission_resolver",
+        lambda *a, **k: lambda _n: SimpleNamespace(can_read=True),
     )
     monkeypatch.setattr(auth_module, "_permission_to_allowed_actions", lambda _p: [])
 
@@ -8763,6 +8765,72 @@ def test_filter_search_mcp_servers_redacts_version_on_deny(monkeypatch):
     assert server["access_endpoints"][0]["resolved_version"] is None
     # Summary endpoints have no ``tools`` field; redaction must not inject one.
     assert "tools" not in server["access_endpoints"][0]
+
+
+def test_role_based_permission_resolver_matches_store_fold(monkeypatch, tmp_path):
+    # The bulk full-Permission resolver must resolve each id to the SAME Permission as the
+    # authoritative per-resource store fold (get_role_permission_for_resource), so allowed-
+    # action stamping via the bulk path is identical to the single-resource path.
+    from mlflow.server.auth.permissions import DENY, EDIT, USE, get_permission
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(default_permission=NO_PERMISSIONS.name),
+    )
+    store = SqlAlchemyStore()
+    store.init_db(f"sqlite:///{tmp_path / 'perm-resolver.db'}")
+    monkeypatch.setattr(auth_module, "store", store, raising=False)
+
+    ws = "default"  # DEFAULT_WORKSPACE_NAME when workspaces are disabled
+    user = store.create_user("resolver-user", "supersecurepassword", is_admin=False)
+    role = store.create_role(name="rr", workspace=ws)
+    store.add_role_permission(role.id, "mcp_server", "srv-edit", EDIT.name)
+    store.add_role_permission(role.id, "mcp_server", "srv-deny", DENY.name)
+    store.add_role_permission(role.id, "mcp_server", "srv-use", USE.name)
+    store.assign_role_to_user(user.id, role.id)
+
+    resolver = auth_module._role_based_permission_resolver("resolver-user", "mcp_server")
+
+    def store_perm(name):
+        folded = store.get_role_permission_for_resource(user.id, "mcp_server", name, ws)
+        return folded if folded is not None else get_permission(NO_PERMISSIONS.name)
+
+    # positive (EDIT/USE), DENY, and no-grant (default) all match the store fold.
+    for name in ("srv-edit", "srv-deny", "srv-use", "srv-none"):
+        assert resolver(name).name == store_perm(name).name, name
+
+
+def test_filter_search_mcp_servers_is_query_bounded(monkeypatch):
+    # The MCP server search filter must build the bulk permission resolver (and the version
+    # reader) ONCE per response, not once per server, so a multi-server page stays O(1)
+    # authorization queries rather than a workspace + grants round trip per distinct name.
+    from mlflow.server import auth
+    from mlflow.server.auth.permissions import MANAGE
+
+    builds = {"perm": 0, "version": 0}
+
+    def fake_resolver(username, resource_type, parent_type=None):
+        builds["perm"] += 1
+        return lambda _name: MANAGE  # readable + all actions
+
+    def fake_version_reader(username):
+        builds["version"] += 1
+        return lambda _name: True
+
+    monkeypatch.setattr(auth, "_role_based_permission_resolver", fake_resolver)
+    monkeypatch.setattr(auth, "_mcp_server_version_reader", fake_version_reader)
+    monkeypatch.setattr(auth, "_permission_to_allowed_actions", lambda _p: [])
+
+    body = json.dumps({"mcp_servers": [{"name": f"srv-{i}"} for i in range(10)]}).encode()
+    request = SimpleNamespace(
+        query_params=SimpleNamespace(get=lambda k, d=None: d, getlist=lambda _k: [])
+    )
+    auth._filter_search_mcp_servers("u", body, request)
+
+    assert builds["perm"] == 1  # built once for the whole page, not once per server
+    assert builds["version"] == 1
 
 
 def test_filter_search_mcp_endpoints_redacts_version_on_deny(monkeypatch):
