@@ -2573,10 +2573,11 @@ def validate_can_update_gateway_model_definition():
 def validate_can_invoke_issue_detection():
     """
     Issue detection creates a run in the request's experiment and, when ``secret_id`` is
-    given, decrypts that gateway secret into the job environment. Require UPDATE on the
-    experiment and USE on the secret, mirroring model-definition creation.
+    given, decrypts that gateway secret into the job environment. Require run-tier UPDATE
+    on the target experiment (experiment fallback, like ``CreateRun`` -- so a ``(run, *,
+    DENY)`` grant is honored) and USE on the secret, mirroring model-definition creation.
     """
-    if not validate_can_update_experiment():
+    if not validate_can_create_run():
         return False
     body = request.get_json(silent=True)
     secret_id = body.get("secret_id") if isinstance(body, dict) else None
@@ -2584,6 +2585,33 @@ def validate_can_invoke_issue_detection():
     if not secret_id:
         return True
     return _get_gateway_secret_permission(secret_id).can_use
+
+
+def validate_can_invoke_scorer():
+    """INVOKE_SCORER applies a scorer (as a judge) to existing traces and can log the
+    results back as assessments. It does NOT create a run or mutate the experiment, and --
+    consistent with how the route is gated today -- applying a scorer is not treated as an
+    operation on the scorer resource, so no scorer / scorer_version permission is required.
+    The permission-relevant resources are the ones it actually touches:
+
+    * experiment UPDATE -- the existing gate for writing within the experiment;
+    * trace READ -- the traces being scored; ``trace_ids`` all belong to the request
+      experiment, so the wildcard-grain trace tier (experiment fallback) covers them; and
+    * assessment UPDATE -- only when ``log_assessments`` is set, since the job then writes
+      assessments back onto the traces (matching the direct assessment-write routes).
+
+    The trace/assessment checks honor a ``(child, *, DENY)`` grant that an
+    experiment-``EDIT`` caller would otherwise bypass through this route.
+    """
+    if not validate_can_update_experiment():
+        return False
+    experiment_id = _get_request_param("experiment_id")
+    if not _get_trace_permission_for_experiment(experiment_id).can_read:
+        return False
+    if (request.get_json(silent=True) or {}).get("log_assessments", False):
+        if not _experiment_child_permission("assessment", "*", experiment_id).can_update:
+            return False
+    return True
 
 
 def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> bool:
@@ -2922,7 +2950,13 @@ def validate_can_search_datasets():
 
 
 def validate_can_create_promptlab_run():
-    """Checks UPDATE permission on the experiment."""
+    """Gate CreatePromptlabRun on the ``run`` tier of the target experiment.
+
+    The handler creates a run in ``experiment_id``, so this resolves the run child tier
+    (falling back to experiment ``can_update`` when no run grant is present), identical to
+    ``CreateRun`` -- otherwise an experiment-``EDIT`` caller with a ``(run, *, DENY)`` grant
+    could create runs through this route, bypassing the run ``DENY``.
+    """
     data = request.json
     experiment_id = data.get("experiment_id")
     if not experiment_id:
@@ -2931,18 +2965,7 @@ def validate_can_create_promptlab_run():
             INVALID_PARAMETER_VALUE,
         )
 
-    username = authenticate_request().username
-    permission = _get_role_permission_or_default(
-        _role_permission_for(
-            username=username,
-            resource_type="experiment",
-            resource_key=experiment_id,
-            workspace_lookup_id=experiment_id,
-            workspace_fetcher=_get_tracking_store().get_experiment,
-            workspace_label="experiment",
-        ),
-    )
-    return permission.can_update
+    return _get_run_permission_for_experiment(experiment_id).can_update
 
 
 def validate_gateway_proxy():
@@ -3387,7 +3410,9 @@ BEFORE_REQUEST_HANDLERS = {
     SetGatewayEndpointTag: validate_can_update_gateway_endpoint,
     DeleteGatewayEndpointTag: validate_can_update_gateway_endpoint,
     # Routes for prompt optimization jobs
-    CreatePromptOptimizationJob: validate_can_update_experiment,
+    # Creates a run in the target experiment -> gate on the run tier (experiment fallback,
+    # like CreateRun) so a (run, *, DENY) grant is honored, not just experiment UPDATE.
+    CreatePromptOptimizationJob: validate_can_create_run,
     GetPromptOptimizationJob: validate_can_read_prompt_optimization_job,
     SearchPromptOptimizationJobs: validate_can_read_experiment,
     CancelPromptOptimizationJob: validate_can_update_prompt_optimization_job,
@@ -3558,11 +3583,18 @@ BEFORE_REQUEST_VALIDATORS.update({
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
     (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-    # Invoke endpoints create runs in an experiment -> require update on it.
-    (INVOKE_SCORER, "POST"): validate_can_update_experiment,
+    # INVOKE_SCORER applies a scorer to existing traces (it does not create a run and is
+    # not a scorer-resource operation). Parent is the experiment; enforce the experiment
+    # children it touches -- trace READ, and assessment UPDATE when log_assessments is set.
+    # scorer_version is a child of scorer (a different parent), so it is NOT enforced here.
+    (INVOKE_SCORER, "POST"): validate_can_invoke_scorer,
+    # Issue detection and genai-evaluate create a run in the target experiment, so they
+    # gate on the run tier (experiment fallback) like CreateRun -> honors (run, *, DENY).
     # Issue detection may also consume a gateway secret -> additionally require USE on it.
+    # scorer_version (a child of scorer, a different parent) is not enforced -- applying a
+    # scorer is not a scorer-resource operation.
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
-    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_update_experiment,
+    (INVOKE_GENAI_EVALUATE, "POST"): validate_can_create_run,
     # Demo: generate is open to any authenticated user; delete is admin-only.
     (DEMO_GENERATE, "POST"): _allow_authenticated,
     (DEMO_DELETE, "POST"): sender_is_admin,

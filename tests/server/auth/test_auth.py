@@ -7285,6 +7285,114 @@ def test_invoke_endpoints_require_experiment_update_permission(client):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_invoke_validators_honor_child_deny(client):
+    # The composite run-creating routes (issues/invoke, genai evaluate/invoke,
+    # create-promptlab-run, prompt-optimization jobs) create a run in the target
+    # experiment, so they gate on the run child tier: experiment EDIT alone must not let a
+    # caller holding (run, *, DENY) create runs through them. Per RFC sub-resource
+    # permissions, a child DENY must hold on every path that reaches the child, not only on
+    # the direct CreateRun RPC.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "invoke-child-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+
+    # Attacker gets experiment EDIT -- enough to clear the experiment-tier gate.
+    grant_role_permission(base, attacker, "experiment", exp_id, "EDIT")
+
+    run_creating_routes = [
+        (
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            {"experiment_id": exp_id, "trace_ids": ["tr-1"], "categories": ["x"], "provider": "p"},
+        ),
+        (
+            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
+            {"experiment_id": exp_id, "trace_ids": ["tr-1"], "serialized_scorers": ["s"]},
+        ),
+        ("/ajax-api/2.0/mlflow/runs/create-promptlab-run", {"experiment_id": exp_id}),
+        (
+            "/api/3.0/mlflow/prompt-optimization/jobs",
+            {
+                "experiment_id": exp_id,
+                "source_prompt_uri": "prompts:/test/1",
+                "config": {"optimizer_type": 1, "dataset_id": "d", "scorers": ["Correctness"]},
+            },
+        ),
+    ]
+
+    # Baseline: experiment EDIT with no run grant -> the run tier falls back to experiment
+    # update, so the auth gate passes. The handler may still error for unrelated reasons
+    # (backend not wired in this env), so assert only that it is not a 403.
+    for path, payload in run_creating_routes:
+        resp = requests.post(f"{base}{path}", json=payload, auth=(attacker, attacker_pw))
+        assert resp.status_code != 403, f"baseline {path} -> {resp.status_code}"
+
+    # Add a run-tier DENY. The run child tier is consulted ahead of the experiment
+    # fallback, so every run-creating route must now reject the caller with 403.
+    grant_role_permission(base, attacker, "run", "*", "DENY")
+    for path, payload in run_creating_routes:
+        resp = requests.post(f"{base}{path}", json=payload, auth=(attacker, attacker_pw))
+        assert resp.status_code == 403, f"run DENY {path} -> {resp.status_code}"
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_invoke_scorer_honors_child_deny(client):
+    # INVOKE_SCORER scores traces and (optionally) writes assessments in an experiment. It
+    # must honor a (trace, *, DENY) grant, and a (assessment, *, DENY) grant when
+    # log_assessments is set -- an experiment-EDIT caller must not bypass those child DENYs.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "invoke-scorer-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    url = f"{base}/ajax-api/3.0/mlflow/scorer/invoke"
+    # An inline (serialized) scorer references no registered scorer, so scorer_version is
+    # not consulted; this isolates the trace/assessment tiers. The handler may 400 on the
+    # dummy payload, so the baseline asserts only that the auth gate is not a 403.
+    payload = {"experiment_id": exp_id, "serialized_scorer": "{}", "trace_ids": ["tr-1"]}
+
+    def fresh_editor():
+        user, pw = create_user(base)
+        grant_role_permission(base, user, "experiment", exp_id, "EDIT")
+        return user, pw
+
+    # Baseline: experiment EDIT alone clears the gate (trace READ falls back to experiment).
+    user, pw = fresh_editor()
+    assert requests.post(url, json=payload, auth=(user, pw)).status_code != 403
+
+    # (trace, *, DENY): the traces being scored are unreadable -> denied.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "trace", "*", "DENY")
+    assert requests.post(url, json=payload, auth=(user, pw)).status_code == 403
+
+    # (assessment, *, DENY): consulted only when log_assessments is set.
+    user, pw = fresh_editor()
+    grant_role_permission(base, user, "assessment", "*", "DENY")
+    # Without log_assessments the assessment tier is not consulted -> still passes.
+    assert requests.post(url, json=payload, auth=(user, pw)).status_code != 403
+    # With log_assessments the job writes assessments, so assessment UPDATE is required.
+    assert (
+        requests.post(url, json={**payload, "log_assessments": True}, auth=(user, pw)).status_code
+        == 403
+    )
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_issue_detection_invoke_requires_use_permission_on_secret(client):
     # issues/invoke decrypts the referenced gateway secret into the job environment, so
     # UPDATE on the caller's own experiment must not be enough to consume someone else's
